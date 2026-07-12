@@ -1,0 +1,10 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+
+# Claude Code local machine state (never share)
+.claude/settings.local.json
+.worktrees/
+.work-log/
+.review/

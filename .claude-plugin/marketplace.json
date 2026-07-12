@@ -1,0 +1,21 @@
+{
+  "name": "paul-claude-plugins",
+  "owner": {
+    "name": "Paul Lovy",
+    "url": "https://paullovy.com"
+  },
+  "metadata": {
+    "description": "Paul Lovy's Claude Code plugins.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "claude-architect",
+      "source": "./plugins/claude-architect",
+      "description": "A recursive multi-agent orchestration framework for Claude Code: an orchestrator that decomposes work into epics/specs/implementations, runs each in an isolated git worktree, and drives a review + architecture-audit + merge pipeline before every squash-merge. Ships eight role-pinned subagents and the methodology that ties them together.",
+      "version": "0.1.0",
+      "category": "workflow",
+      "keywords": ["orchestration", "multi-agent", "subagents", "worktrees", "architecture", "code-review"]
+    }
+  ]
+}
