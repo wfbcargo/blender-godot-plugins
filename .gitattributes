@@ -1,0 +1,3 @@
+# Shell scripts must keep LF endings on every platform — a CRLF checkout on
+# Windows breaks the shebang line with `\r: command not found`.
+*.sh text eol=lf
