@@ -25,9 +25,13 @@ worktree, and drives a review + spec-audit + architecture-audit + merge pipeline
 before every squash-merge. Ships eight role-pinned subagents and the methodology
 that ties them together.
 
-Model tier follows role, not depth: orchestration and architecture integrity run
-on the top tier, bounded leaf work on a cheaper one — and if you only have one
-model, point every agent at it and keep the whole structure. See the
+Model and effort both follow role, not depth: model by whether a mistake is
+*silent* (orchestration, architecture drift, merges, missed bugs stay top-tier),
+effort by how much the agent must derive for itself (orchestrators `high`, leaves
+`medium`). If you only have one model, point every agent at it and keep the
+effort split — it applies to the highest-volume role, so most of the saving
+survives. A `/architect` skill classifies each request and routes it, so
+decomposition happens by default rather than by hope. See the
 [plugin README](./plugins/claude-architect/README.md) and
 [`ORCHESTRATION.md`](./plugins/claude-architect/ORCHESTRATION.md).
 
