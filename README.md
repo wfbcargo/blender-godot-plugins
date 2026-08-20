@@ -22,7 +22,7 @@ Then install a plugin from it:
 A recursive multi-agent orchestration framework. One long-horizon orchestrator
 decomposes work into epics / specs / implementations, runs each in an isolated git
 worktree, and drives a review + spec-audit + architecture-audit + merge pipeline
-before every squash-merge. Ships eight role-pinned subagents and the methodology
+before every squash-merge. Ships nine role-pinned subagents and the methodology
 that ties them together.
 
 Model and effort both follow role, not depth: model by whether a mistake is
@@ -42,9 +42,12 @@ decomposition happens by default rather than by hope. See the
 plugins/
   claude-architect/
     .claude-plugin/plugin.json      # plugin manifest
-    agents/                         # the eight subagents
+    agents/                         # the nine subagents
+    skills/architect/               # the /architect entry point
+    skills/seam/                    # designing contracts between parallel units
     ORCHESTRATION.md                # the methodology
-    docs/model-routing.md           # tiering, fallback, remapping
+    docs/                           # model routing + at-a-moment procedures
+    scripts/                        # worktree recipes + container-map tooling
     wiki-template/                  # a .wiki/ starter skeleton
     README.md
 ```
