@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Paul Lovy's Claude Code plugins.",
-    "version": "0.5.0"
+    "version": "0.6.0"
   },
   "plugins": [
     {
@@ -15,7 +15,31 @@
       "description": "A recursive multi-agent orchestration framework for Claude Code: an orchestrator that decomposes work into epics/specs/implementations, runs each in an isolated git worktree, and drives a review + architecture-audit + merge pipeline before every squash-merge. Ships nine role-pinned subagents, an /architect skill that classifies and routes every change request, and the methodology that ties them together.",
       "version": "0.5.0",
       "category": "workflow",
-      "keywords": ["orchestration", "multi-agent", "subagents", "worktrees", "architecture", "code-review"]
+      "keywords": [
+        "orchestration",
+        "multi-agent",
+        "subagents",
+        "worktrees",
+        "architecture",
+        "code-review"
+      ]
+    },
+    {
+      "name": "claude-boundaries",
+      "source": "./plugins/claude-boundaries",
+      "version": "0.1.0",
+      "description": "Makes an architecture's layer, container and contract boundaries mechanically enforceable — and makes every coding agent inherit them. A declared container map drives a zero-dependency import checker wired into hooks: a violating edit is fed straight back to the agent, and no agent may finish a turn with a violating tree. Nine rules cover direction, layer skipping, declared edges, public surface, purity, escaping relative imports, third-party imports, package-manifest agreement and type-only edges.",
+      "category": "workflow",
+      "keywords": [
+        "architecture",
+        "boundaries",
+        "layers",
+        "containers",
+        "fitness-function",
+        "dependency-direction",
+        "hooks",
+        "lint"
+      ]
     }
   ]
 }
