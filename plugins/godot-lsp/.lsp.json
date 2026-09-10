@@ -1,0 +1,13 @@
+{
+  "gdscript": {
+    "command": "node",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/godot-lsp-bridge.mjs"],
+    "extensionToLanguage": {
+      ".gd": "gdscript"
+    },
+    "startupTimeout": 10000,
+    "restartOnCrash": true,
+    "maxRestarts": 3,
+    "diagnostics": true
+  }
+}

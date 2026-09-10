@@ -1,0 +1,13 @@
+{
+  "name": "godot-lsp",
+  "version": "0.1.0",
+  "description": "GDScript code intelligence for Claude Code. Godot exposes its language server over TCP only, while Claude Code runs every LSP server over stdio — its `transport: \"socket\"` option is accepted and then ignored. This bridges the two with a dependency-free 55-line pipe, so hover, go-to-definition, find-references and document symbols work on .gd files with the real engine analysis behind them, including full built-in class documentation.",
+  "author": {
+    "name": "Paul Lovy",
+    "url": "https://paullovy.com"
+  },
+  "homepage": "https://github.com/wfbcargo/PaulClaudePlugins",
+  "repository": "https://github.com/wfbcargo/PaulClaudePlugins",
+  "license": "MIT",
+  "keywords": ["godot", "gdscript", "lsp", "language-server", "gamedev", "code-intelligence"]
+}

@@ -56,6 +56,22 @@ The config is a strict superset of `claude-architect`'s `containers.yaml`, so
 *enforce*. Neither requires the other. See the
 [plugin README](./plugins/claude-boundaries/README.md).
 
+### [`godot-lsp`](./plugins/godot-lsp/)
+
+GDScript code intelligence — hover, go-to-definition, find-references, symbols
+and diagnostics on `.gd` files, answered by Godot's own analyser.
+
+Godot ships a real language server, but it only listens on **TCP**, while Claude
+Code runs every LSP server over **stdio** — the `transport: "socket"` setting is
+accepted and then ignored, so the two never meet on their own. This is the
+missing pipe: 55 lines, no dependencies, no build step, since Godot already uses
+the same `Content-Length` framing and the bytes need no translation.
+
+The one requirement is that the **Godot editor be open** — the language server
+lives in the editor, not the engine, so there is nothing headless to talk to.
+Hovering `Node` then returns the entire engine class reference. See the
+[plugin README](./plugins/godot-lsp/README.md).
+
 ## Layout
 
 ```
@@ -80,6 +96,11 @@ plugins/
     commands/                       # /boundaries:init | :check | :map
     templates/                      # folders and packages starter maps
     tests/                          # 71 tests, no dependencies
+    README.md
+  godot-lsp/
+    .claude-plugin/plugin.json
+    .lsp.json                       # the gdscript server registration
+    godot-lsp-bridge.mjs            # stdio <-> TCP pipe, no dependencies
     README.md
 ```
 
