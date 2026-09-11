@@ -146,14 +146,20 @@ def biped_landmarks(obj, analysis=None, topo=None, forward_sign=-1):
 # medial snapping
 # --------------------------------------------------------------------------
 
-def _medial(obj, point, ui, li, mid_lat, side, band):
+def _medial(obj, point, ui, li, mid_lat, side, band, radius=None):
     """Pull a joint to the centre of the limb it sits in.
 
     A joint interpolated along a straight line between two anchors drifts
     outside a limb that curves. Re-centring it on the mesh cross-section at
     that height keeps the bone inside the geometry it has to deform.
+
+    `radius` bounds the search horizontally and is not optional in practice. A
+    biped has one limb per side at knee height, so averaging the whole side
+    works; a quadruped has two, and the unbounded average lands halfway between
+    the front and rear leg - in the middle of the body, outside any limb.
     """
     verts = measure.world_verts(obj)
+    others = [i for i in (0, 1, 2) if i != ui]
     sel = []
     for p in verts:
         if abs(p[ui] - point[ui]) > band:
@@ -162,13 +168,16 @@ def _medial(obj, point, ui, li, mid_lat, side, band):
             continue
         if side > 0 and p[li] <= mid_lat:
             continue
+        if radius is not None:
+            d = math.hypot(p[others[0]] - point[others[0]],
+                           p[others[1]] - point[others[1]])
+            if d > radius:
+                continue
         sel.append(p)
     if len(sel) < 4:
         return point
     out = point.copy()
-    for i in (0, 1, 2):
-        if i == ui:
-            continue
+    for i in others:
         out[i] = sum(p[i] for p in sel) / len(sel)
     return out
 
@@ -289,7 +298,7 @@ def fit_basic_human(obj_name, forward_sign=-1, name=None, snap_medial=True):
         knee = hip.lerp(ankle, knee_t)
         if snap_medial:
             knee = _medial(obj, knee, ui, li, lm["mid_lateral"], side,
-                           0.04 * lm["height"])
+                           0.04 * lm["height"], radius=0.12 * lm["height"])
 
         targets["thigh" + suffix] = [hip, knee]
         targets["shin" + suffix] = [knee, ankle]
@@ -313,7 +322,7 @@ def fit_basic_human(obj_name, forward_sign=-1, name=None, snap_medial=True):
         elbow = sh_tail.lerp(hand, elbow_t)
         if snap_medial:
             elbow = _medial(obj, elbow, ui, li, lm["mid_lateral"], side,
-                            0.03 * lm["height"])
+                            0.03 * lm["height"], radius=0.10 * lm["height"])
 
         hand_tail = hand + (hand - elbow).normalized() * (0.06 * lm["height"])
         targets["shoulder" + suffix] = [sh_head, sh_tail]
@@ -331,6 +340,242 @@ def fit_basic_human(obj_name, forward_sign=-1, name=None, snap_medial=True):
         "leg_scale": round(leg_scale, 4),
         "depth_scale": round(depth_scale, 4),
         "height_anchors": [[round(a, 4), round(b, 4)] for a, b in anchors],
+    }
+
+
+# --------------------------------------------------------------------------
+# quadruped
+# --------------------------------------------------------------------------
+
+QUAD_FRONT = ("shoulder", "front_thigh", "front_shin", "front_foot", "front_toe")
+QUAD_REAR = ("thigh", "shin", "foot", "toe", "pelvis")
+
+
+def add_basic_quadruped(name="metarig"):
+    try:
+        import rigify
+    except ImportError:
+        bpy.ops.preferences.addon_enable(module="rigify")
+        import rigify
+    path = os.path.join(os.path.dirname(rigify.__file__),
+                        "metarigs", "Basic", "basic_quadruped.py")
+    if not os.path.exists(path):
+        raise RuntimeError("basic_quadruped metarig not found at " + path)
+    spec = importlib.util.spec_from_file_location("_basic_quadruped", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    arm = bpy.data.armatures.new(name)
+    ob = bpy.data.objects.new(name, arm)
+    bpy.context.collection.objects.link(ob)
+    bpy.context.view_layer.objects.active = ob
+    ob.select_set(True)
+    mod.create(ob)
+    return ob
+
+
+def quadruped_landmarks(obj, analysis=None, head_at=None):
+    """Reduce the analysis to the anchors a quadruped fit needs.
+
+    `head_at` is the forward coordinate of the head end. Geometry cannot tell
+    which end of a quadruped is the head - both ends have an extremity, and a
+    tail can be longer than a muzzle - so it comes from the renders. If it is
+    omitted, the end whose body sits higher is guessed, and flagged as a guess.
+    """
+    analysis = analysis or measure.analyze(obj.name)
+    axes = analysis["axes"]
+    up, lat, fwd = axes["up_axis"], axes["lateral_axis"], axes["forward_axis"]
+    ui, li, fi = AXIS_INDEX[up], AXIS_INDEX[lat], AXIS_INDEX[fwd]
+
+    contacts = analysis["ground_contacts"]["clusters"]
+    if len(contacts) != 4:
+        return {"error": "expected 4 ground contacts for a quadruped, got %d (%s)"
+                         % (len(contacts), analysis["ground_contacts"]["hint"])}
+
+    by_fwd = sorted(contacts, key=lambda c: c["position"][fi])
+    pair_a, pair_b = by_fwd[:2], by_fwd[2:]
+    a_fwd = sum(c["position"][fi] for c in pair_a) / 2.0
+    b_fwd = sum(c["position"][fi] for c in pair_b) / 2.0
+
+    bb = analysis["bbox"]
+    ground, top = bb["min"][ui], bb["max"][ui]
+
+    if head_at is None:
+        # weak fallback: the head end usually carries more height than the tail
+        ha = measure.torso_axis(obj, a_fwd, up=up, lateral=lat, forward=fwd)
+        hb = measure.torso_axis(obj, b_fwd, up=up, lateral=lat, forward=fwd)
+        head_at = a_fwd if (ha and hb and ha["top"] >= hb["top"]) else b_fwd
+        guessed = True
+    else:
+        guessed = False
+
+    front_pair = pair_a if abs(a_fwd - head_at) < abs(b_fwd - head_at) else pair_b
+    rear_pair = pair_b if front_pair is pair_a else pair_a
+    front_fwd = sum(c["position"][fi] for c in front_pair) / 2.0
+    rear_fwd = sum(c["position"][fi] for c in rear_pair) / 2.0
+
+    mid_lat = bb["centre"][li]
+    fl = sorted(front_pair, key=lambda c: c["position"][li])
+    rl = sorted(rear_pair, key=lambda c: c["position"][li])
+
+    spine = measure.spine_line(obj, front_fwd, rear_fwd, up=up, lateral=lat, forward=fwd)
+
+    # nose and tail tip: the extreme mesh points at each end
+    verts = measure.world_verts(obj)
+    fwd_sign = 1.0 if front_fwd > rear_fwd else -1.0
+    nose = max(verts, key=lambda p: p[fi] * fwd_sign)
+    tail = min(verts, key=lambda p: p[fi] * fwd_sign)
+
+    return {
+        "up": up, "lateral": lat, "forward": fwd,
+        "ground": ground, "top": top, "mid_lateral": mid_lat,
+        "front_fwd": front_fwd, "rear_fwd": rear_fwd,
+        "front_neg": list(fl[0]["position"]), "front_pos": list(fl[1]["position"]),
+        "rear_neg": list(rl[0]["position"]), "rear_pos": list(rl[1]["position"]),
+        "spine_height": spine["height"] if spine else None,
+        "spine_confident": bool(spine and spine["limb_free_samples"] >= 3),
+        "nose": list(nose), "tail_tip": list(tail),
+        "head_end_guessed": guessed,
+        "complete": spine is not None,
+    }
+
+
+def fit_basic_quadruped(obj_name, head_at=None, name=None, snap_medial=True):
+    """Build a basic_quadruped metarig fitted to `obj_name`."""
+    obj = bpy.data.objects.get(obj_name)
+    if obj is None or obj.type != "MESH":
+        return {"error": "no mesh named " + repr(obj_name)}
+
+    analysis = measure.analyze(obj_name)
+    if analysis["ground_contacts"]["count"] != 4:
+        return {"error": "not a quadruped: %d ground contacts (%s)"
+                         % (analysis["ground_contacts"]["count"],
+                            analysis["ground_contacts"]["hint"])}
+
+    lm = quadruped_landmarks(obj, analysis=analysis, head_at=head_at)
+    if "error" in lm:
+        return lm
+    if not lm["complete"]:
+        return {"error": "could not measure the spine", "landmarks": lm}
+
+    ui, li, fi = AXIS_INDEX[lm["up"]], AXIS_INDEX[lm["lateral"]], AXIS_INDEX[lm["forward"]]
+
+    rig = add_basic_quadruped(name or (obj_name + "_metarig"))
+    ref = reference_layout(rig)
+
+    ref_front = ref["front_thigh.L"][0][fi]
+    ref_rear = ref["thigh.L"][0][fi]
+    ref_nose = ref["spine.011"][1][fi]
+    ref_tail = ref["spine"][1][fi]
+
+    fwd_anchors = sorted([
+        (ref_nose, lm["nose"][fi]),
+        (ref_front, lm["front_fwd"]),
+        (ref_rear, lm["rear_fwd"]),
+        (ref_tail, lm["tail_tip"][fi]),
+    ])
+
+    ref_ground = min(min(h[ui], t[ui]) for h, t in ref.values())
+    ref_top = max(max(h[ui], t[ui]) for h, t in ref.values())
+    ref_spine = ref["spine.001"][0][ui]
+    up_anchors = sorted([
+        (ref_ground, lm["ground"]),
+        (ref_spine, lm["spine_height"]),
+        (ref_top, lm["top"]),
+    ])
+
+    def _warp(v, anchors):
+        if v <= anchors[0][0]:
+            return anchors[0][1] + (v - anchors[0][0])
+        for i in range(len(anchors) - 1):
+            a, b = anchors[i], anchors[i + 1]
+            if a[0] <= v <= b[0]:
+                t = (v - a[0]) / (b[0] - a[0]) if b[0] > a[0] else 0.0
+                return a[1] + t * (b[1] - a[1])
+        return anchors[-1][1] + (v - anchors[-1][0])
+
+    ref_leg_lat = abs(ref["thigh.L"][0][li])
+    tgt_leg_lat = abs(Vector(lm["rear_pos"])[li] - lm["mid_lateral"])
+    lat_scale = (tgt_leg_lat / ref_leg_lat) if ref_leg_lat > 1e-6 else 1.0
+
+    def place(v):
+        out = Vector((0.0, 0.0, 0.0))
+        out[ui] = _warp(v[ui], up_anchors)
+        out[fi] = _warp(v[fi], fwd_anchors)
+        out[li] = lm["mid_lateral"] + v[li] * lat_scale
+        return out
+
+    targets = {n: [place(h), place(t)] for n, (h, t) in ref.items()}
+
+    # Snap each of the four legs to its measured foot. Front and rear are
+    # handled by separate chains on purpose: a quadruped's front leg is an arm
+    # whose elbow bends forward, the rear is a leg whose stifle bends backward,
+    # and Rigify models them as distinct front_paw / rear_paw types. Treating
+    # all four alike is the classic quadruped rigging error.
+    for ref_bone, contact_key, chain in (
+        ("front_thigh", "front_neg", QUAD_FRONT),
+        ("front_thigh", "front_pos", QUAD_FRONT),
+        ("thigh", "rear_neg", QUAD_REAR),
+        ("thigh", "rear_pos", QUAD_REAR),
+    ):
+        contact = Vector(lm[contact_key])
+        side = -1 if contact[li] < lm["mid_lateral"] else 1
+        suffix = ".L" if (ref["thigh.L"][0][li] > 0) == (side > 0) else ".R"
+
+        is_front = ref_bone.startswith("front")
+        top_name = ("front_thigh" if is_front else "thigh") + suffix
+        mid_name = ("front_shin" if is_front else "shin") + suffix
+        foot_name = ("front_foot" if is_front else "foot") + suffix
+        toe_name = ("front_toe" if is_front else "toe") + suffix
+
+        top_pt = targets[top_name][0].copy()
+        top_pt[li] = contact[li]
+
+        # ankle sits above the contact, at the warped reference ankle height
+        ankle = Vector((0.0, 0.0, 0.0))
+        ankle[li] = contact[li]
+        ankle[fi] = contact[fi]
+        ankle[ui] = targets[foot_name][0][ui]
+
+        rh, rm, rf = (ref[top_name][0], ref[mid_name][0], ref[foot_name][0])
+        span = (rh - rf).length or 1.0
+        mid_t = (rh - rm).length / span
+
+        # The reference supplies only the knee's HEIGHT along the limb. Its
+        # fore/aft kink is deliberately not copied: that encodes one species'
+        # leg, and imposing it put the rear knee 0.11 m outside a mesh whose
+        # leg bends the other way. Where the joint sits fore/aft is measured
+        # from the limb itself, so any bend direction is followed.
+        knee = top_pt.lerp(ankle, mid_t)
+        leg_len = (top_pt - ankle).length or 1.0
+        if snap_medial:
+            knee = _medial(obj, knee, ui, li, lm["mid_lateral"], side,
+                           0.05 * (lm["top"] - lm["ground"]),
+                           radius=0.45 * leg_len)
+            ankle = _medial(obj, ankle, ui, li, lm["mid_lateral"], side,
+                            0.04 * (lm["top"] - lm["ground"]),
+                            radius=0.30 * leg_len)
+
+        targets[top_name] = [top_pt, knee]
+        targets[mid_name] = [knee, ankle]
+        targets[foot_name] = [ankle, contact]
+        toe_tail = targets[toe_name][1].copy()
+        toe_tail[li] = contact[li]
+        targets[toe_name] = [contact, toe_tail]
+
+        sh = "shoulder" + suffix
+        if is_front and sh in targets:
+            targets[sh] = [targets[sh][0], top_pt]
+
+    _write_edit_bones(rig, targets)
+
+    return {
+        "rig": rig.name,
+        "target": obj_name,
+        "landmarks": lm,
+        "bones_placed": len(targets),
+        "lateral_scale": round(lat_scale, 4),
+        "forward_anchors": [[round(a, 4), round(b, 4)] for a, b in fwd_anchors],
+        "up_anchors": [[round(a, 4), round(b, 4)] for a, b in up_anchors],
     }
 
 

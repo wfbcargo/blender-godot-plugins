@@ -284,17 +284,21 @@ def _merge_by_geodesic(verts, edges, groups):
     if not pairs:
         return groups, {"merged": False, "reason": "groups are disconnected on the mesh"}
 
-    if len(pairs) == 1:
-        span = max(d for row in dmat for d in row if d != INF) or 1.0
-        threshold = 0.25 * span
-    else:
-        best_gap, cut = 0.0, pairs[0]
-        for i in range(len(pairs) - 1):
-            lo_d = max(pairs[i], 1e-9)
-            ratio = pairs[i + 1] / lo_d
-            if ratio > best_gap:
-                best_gap, cut = ratio, math.sqrt(pairs[i] * max(pairs[i + 1], 1e-9))
-        threshold = cut
+    # The threshold is an absolute ceiling, a small fraction of the model's own
+    # geodesic span.
+    #
+    # An earlier version cut at the widest ratio gap between sorted distances.
+    # That works when fragments of one sole sit ~2% of the span apart and real
+    # limbs sit 100%+ apart, but it assumes a gap exists. On a quadruped the
+    # four feet are all far from each other - 1.18 to 1.72 on a span of 0.97,
+    # with no gap at all - so it cut inside that band and merged the front pair
+    # and the rear pair into two "feet", turning a quadruped into a biped.
+    #
+    # This step only ever repairs over-splitting WITHIN one limb, so anything
+    # further than a small fraction of the span apart must stay separate,
+    # whether or not the distances happen to form a gap.
+    span = max(d for row in dmat for d in row if d != INF) or 1.0
+    threshold = 0.12 * span
 
     parent = list(range(n))
 
@@ -635,6 +639,102 @@ def slab_topology(obj, axis="Z", lateral="X", bins=40):
         "note": "crotch = narrowest midline gap in the lower body; shoulder = "
                 "highest slab above it still showing an arm clear of the torso "
                 "on each side",
+    }
+
+
+def torso_axis(obj, at_forward, up="Z", lateral="X", forward="Y", band=0.05):
+    """Height of the body's central axis at one position along its length.
+
+    A quadruped's spine is horizontal, so it cannot be read off a vertical
+    profile the way a biped's can. Taking the centroid of a cross-section does
+    not work either: the legs are in the same slab and drag it downward.
+
+    The body is roughly circular in section, so its centre lies about one radius
+    below its top, and the radius shows in the lateral width measured near the
+    top - high enough that the legs, which hang below, contribute nothing.
+    """
+    ui, li, fi = AXIS_INDEX[up], AXIS_INDEX[lateral], AXIS_INDEX[forward]
+    verts = world_verts(obj)
+    if not verts:
+        return None
+
+    size = Vector(bbox(verts)["size"])
+    half = band * size[fi]
+    slab = [p for p in verts if abs(p[fi] - at_forward) <= half]
+    if len(slab) < 8:
+        return None
+
+    ground = bbox(verts)["min"][ui]
+    height = size[ui] or 1.0
+
+    top = max(p[ui] for p in slab)
+    bottom = min(p[ui] for p in slab)
+
+    # A slab clear of the ground contains no legs, so its vertical extent IS the
+    # body's diameter and the midpoint is the axis exactly - no width estimate
+    # needed. Where limbs do reach into the slab, fall back to measuring near
+    # the top, correcting for the fact that a chord taken across the upper fifth
+    # of a circular section is about 0.8 of its diameter, and flag it as the
+    # weaker reading it is.
+    limb_free = bottom > ground + 0.25 * height
+    if limb_free:
+        axis = 0.5 * (top + bottom)
+        width = top - bottom
+        confident = True
+    else:
+        upper = [p for p in slab if p[ui] >= top - 0.2 * (top - bottom)]
+        if len(upper) < 4:
+            upper = slab
+        chord = max(p[li] for p in upper) - min(p[li] for p in upper)
+        width = chord / 0.8
+        axis = top - 0.5 * width
+        confident = False
+
+    return {
+        "at_forward": round(at_forward, 4),
+        "top": round(top, 4),
+        "bottom": round(bottom, 4),
+        "width": round(width, 4),
+        "axis_height": round(axis, 4),
+        "limb_free": limb_free,
+        "confident": confident,
+        "lateral_centre": round(
+            (max(p[li] for p in slab) + min(p[li] for p in slab)) * 0.5, 4),
+        "samples": len(slab),
+    }
+
+
+def spine_line(obj, front_forward, rear_forward, up="Z", lateral="X",
+               forward="Y", samples=9):
+    """Height of the spine between the shoulders and the hips.
+
+    Sampled only where the cross-section is limb-free, then averaged. Readings
+    taken at the limb attachments are unreliable - the shoulder and hip bulge
+    widens the section right where the measurement is wanted - and a quadruped's
+    spine is close enough to level between those points that the clean
+    mid-torso samples describe it better than the contaminated ones do.
+    """
+    lo, hi = sorted((front_forward, rear_forward))
+    readings = []
+    for i in range(samples):
+        t = (i + 0.5) / samples
+        at = lo + t * (hi - lo)
+        r = torso_axis(obj, at, up=up, lateral=lateral, forward=forward)
+        if r:
+            readings.append(r)
+
+    good = [r for r in readings if r["confident"]]
+    use = good or readings
+    if not use:
+        return None
+    heights = sorted(r["axis_height"] for r in use)
+    median = heights[len(heights) // 2]
+    return {
+        "height": round(median, 4),
+        "samples_used": len(use),
+        "limb_free_samples": len(good),
+        "spread": round(heights[-1] - heights[0], 4),
+        "readings": [(r["at_forward"], r["axis_height"], r["confident"]) for r in readings],
     }
 
 

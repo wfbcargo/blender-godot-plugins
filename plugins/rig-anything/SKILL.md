@@ -5,9 +5,9 @@ description: Analyse a Blender mesh to work out how it should be rigged - whethe
 
 # rig-anything
 
-Works out how an arbitrary Blender mesh should be rigged. **Phases 0 and 1 only:
-it measures, classifies and reports. It does not yet build skeletons, bind
-weights, or generate animation.**
+Works out how an arbitrary Blender mesh should be rigged, then rigs it.
+**Phases 0-3: it measures, classifies, fits a skeleton to a biped or a
+quadruped, and binds it. It does not yet generate animation.**
 
 The design splits deliberately: deterministic Python measures, and vision
 classifies. Geometry alone cannot tell a dog from a table, and ground-contact
@@ -26,7 +26,7 @@ if P not in sys.path:
     sys.path.insert(0, P)
 import rig_analysis
 rig_analysis.reload_all()
-from rig_analysis import measure, report, views, verify
+from rig_analysis import measure, report, views, verify, fit, skin
 ```
 
 ## Workflow
@@ -61,18 +61,26 @@ silhouettes, no textures to distract, and the user's scene is never touched.
 **4. Classify, using both.** The measurements constrain; the renders decide.
 State the archetype, the forward axis *and its sign*, and your confidence.
 
-**5. Fit and bind (bipeds only).**
+**5. Fit and bind.**
 
 ```python
 print(skin.preflight("MyObject"))              # will bone heat bind?
 skin.clean_for_binding("MyObject", keep_largest=True)   # MUTATES - copy first
-res = fit.fit_basic_human("MyObject", forward_sign=-1)  # from the renders
+
+res = fit.fit_basic_human("MyObject", forward_sign=-1)      # 2 contacts
+res = fit.fit_basic_quadruped("MyObject", head_at=-0.3)     # 4 contacts
+
 print(skin.bind("MyObject", res["rig"]))
 ```
 
-`fit_basic_human` refuses anything that is not a two-contact biped, because the
-crotch and shoulder landmarks are meaningless otherwise. `bind` reports weight
-coverage; anything below 1.0 means geometry that will not follow the rig.
+Each fitter refuses the wrong contact count rather than producing a plausible
+wrong rig. `bind` reports weight coverage; below 1.0 means geometry that will
+not follow the rig.
+
+`head_at` is the forward coordinate of the head end, and it comes from the
+renders. Geometry cannot supply it: both ends of a quadruped have an extremity
+and a tail can be longer than a muzzle. Omitting it falls back to a guess,
+flagged as `head_end_guessed`.
 
 **6. Probe the new rig before animating it.** A freshly fitted rig has its own
 bone rolls, which are not the ones any other rig uses. See the rule below.
@@ -131,12 +139,14 @@ locomotion. Detect and decline rather than inventing a walk cycle.
 
 - **Phase 0** - measurement and verification harness. Done.
 - **Phase 1** - analysis, rendering, classification, report. Done.
-- **Phase 2** - `basic_human` fit and bone-heat bind, bipeds only. Done.
-- **Phase 3+** - quadrupeds, gait generation, export. Not built.
+- **Phase 2** - `basic_human` fit and bone-heat bind. Done.
+- **Phase 3** - `basic_quadruped` fit and bind. Done.
+- **Phase 4+** - gait generation, export. Not built.
 
-Measured on a 1.69 m biped against a hand-built rig: **mean joint error 0.043 m,
-2.5% of height**; max 4.2%. Bone heat bound with 1.0 weight coverage, and the
-skin follows the rig (a -45 degree thigh rotation carried the mesh 0.589 m).
+Biped, measured on a 1.69 m figure against a hand-built rig: **mean joint error
+0.037 m, 2.2% of height**. Quadruped, against a synthetic model with known
+joints: **mean 0.046 m**, with every limb joint inside the mesh. Both bound at
+1.0 weight coverage, and the skin follows the rig.
 
 The crotch is measured but is deliberately *not* used as the hip anchor. The
 femoral head sits inside the pelvis, above where the legs visibly meet, so
