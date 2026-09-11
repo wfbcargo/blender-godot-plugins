@@ -8,3 +8,7 @@ Thumbs.db
 .worktrees/
 .work-log/
 .review/
+
+# Python bytecode from Blender importing the rig-anything scripts
+__pycache__/
+*.pyc

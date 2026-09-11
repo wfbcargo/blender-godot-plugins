@@ -1,0 +1,619 @@
+"""Deterministic mesh measurement for auto-rigging.
+
+Read-only: nothing here mutates the scene. Everything returns plain
+JSON-serialisable dicts so results can be read back through the MCP bridge.
+
+Measurements work on the BASE mesh (obj.data) under the object's world matrix,
+not the evaluated mesh. An evaluated mesh is posed by any armature modifier and
+would describe the current pose rather than the authored shape. Unapplied
+modifiers are reported as a warning instead.
+"""
+
+from __future__ import annotations
+
+import heapq
+import math
+from collections import defaultdict
+
+import bmesh
+import bpy
+from mathutils import Vector
+
+AXES = ("X", "Y", "Z")
+AXIS_INDEX = {"X": 0, "Y": 1, "Z": 2}
+INDEX_AXIS = {0: "X", 1: "Y", 2: "Z"}
+
+
+# --------------------------------------------------------------------------
+# geometry access
+# --------------------------------------------------------------------------
+
+def world_verts(obj):
+    mw = obj.matrix_world
+    return [mw @ v.co for v in obj.data.vertices]
+
+
+def edge_list(obj):
+    return [tuple(e.vertices) for e in obj.data.edges]
+
+
+def bbox(points):
+    lo = Vector((min(p.x for p in points), min(p.y for p in points), min(p.z for p in points)))
+    hi = Vector((max(p.x for p in points), max(p.y for p in points), max(p.z for p in points)))
+    return {
+        "min": [round(v, 5) for v in lo],
+        "max": [round(v, 5) for v in hi],
+        "size": [round(v, 5) for v in (hi - lo)],
+        "centre": [round(v, 5) for v in ((hi + lo) / 2.0)],
+    }
+
+
+# --------------------------------------------------------------------------
+# 1. mesh health - the bone-heat pre-flight
+# --------------------------------------------------------------------------
+
+def mesh_health(obj):
+    """Whether Blender's automatic (bone heat) weighting is likely to succeed.
+
+    Bone heat fails on non-manifold geometry, on meshes whose vertices are very
+    densely packed in scene units, and it silently ignores loose parts that no
+    bone can see. Each is checked here rather than discovered later as an opaque
+    "failed to find solution for one or more bones".
+    """
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.verts.ensure_lookup_table()
+    bm.edges.ensure_lookup_table()
+
+    non_manifold_edges = sum(1 for e in bm.edges if not e.is_manifold)
+    boundary_edges = sum(1 for e in bm.edges if e.is_boundary)
+    loose_verts = sum(1 for v in bm.verts if not v.link_edges)
+    degenerate_faces = sum(1 for f in bm.faces if f.calc_area() < 1e-9)
+
+    parent = list(range(len(bm.verts)))
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    for e in bm.edges:
+        ra, rb = find(e.verts[0].index), find(e.verts[1].index)
+        if ra != rb:
+            parent[ra] = rb
+    # Count surfaces only. A loose vertex is its own component, so including
+    # them here would double-report the same defect as both "disconnected
+    # parts" and "loose vertices".
+    connected = [v.index for v in bm.verts if v.link_edges]
+    components = len({find(i) for i in connected}) if connected else 0
+    bm.free()
+
+    dims = obj.dimensions
+    largest = max(dims) if max(dims) > 0 else 0.0
+    unapplied = [m.type for m in obj.modifiers if m.type != "ARMATURE"]
+
+    problems = []
+    warnings = []
+    if non_manifold_edges:
+        problems.append(str(non_manifold_edges) + " non-manifold edges")
+    if components > 1:
+        problems.append(
+            str(components) + " disconnected parts - bone heat ignores islands no bone can see"
+        )
+    if loose_verts:
+        problems.append(str(loose_verts) + " loose vertices")
+    if largest < 0.1:
+        problems.append(
+            "largest dimension " + format(largest, ".4f")
+            + " - very dense in scene units, bone heat often fails; scale up before binding"
+        )
+    if degenerate_faces:
+        warnings.append(str(degenerate_faces) + " zero-area faces")
+    if boundary_edges:
+        warnings.append(str(boundary_edges) + " boundary edges (open mesh)")
+    if unapplied:
+        warnings.append("unapplied modifiers: " + ", ".join(unapplied))
+    if len(obj.data.vertices) < 50:
+        warnings.append(str(len(obj.data.vertices)) + " vertices only - very coarse for skinning")
+
+    return {
+        "vertices": len(obj.data.vertices),
+        "polygons": len(obj.data.polygons),
+        "components": components,
+        "non_manifold_edges": non_manifold_edges,
+        "boundary_edges": boundary_edges,
+        "loose_vertices": loose_verts,
+        "degenerate_faces": degenerate_faces,
+        "dimensions": [round(v, 5) for v in dims],
+        "scale": [round(v, 5) for v in obj.scale],
+        "unapplied_modifiers": unapplied,
+        "problems": problems,
+        "warnings": warnings,
+        "verdict": "blocked" if problems else ("caution" if warnings else "ok"),
+    }
+
+
+# --------------------------------------------------------------------------
+# 2. symmetry - finds the mirror plane, which names the left/right axis
+# --------------------------------------------------------------------------
+
+def symmetry(obj, samples=3000):
+    """Score mirror symmetry about each axis through the bbox centre.
+
+    The best-scoring axis is the lateral (left/right) one for almost any
+    creature, which constrains which axis can be forward.
+    """
+    from mathutils.kdtree import KDTree
+
+    pts = world_verts(obj)
+    if not pts:
+        return {"scores": {}, "lateral_axis": None, "lateral_confident": False}
+
+    step = max(1, len(pts) // samples)
+    pts = pts[::step]
+
+    bb = bbox(pts)
+    centre = Vector(bb["centre"])
+    diag = Vector(bb["size"]).length or 1.0
+
+    tree = KDTree(len(pts))
+    for i, p in enumerate(pts):
+        tree.insert(p, i)
+    tree.balance()
+
+    scores = {}
+    for axis, idx in AXIS_INDEX.items():
+        total = 0.0
+        for p in pts:
+            m = p.copy()
+            m[idx] = 2.0 * centre[idx] - m[idx]
+            _, _, dist = tree.find(m)
+            total += dist
+        mean_err = total / len(pts)
+        scores[axis] = round(max(0.0, 1.0 - (mean_err / (diag * 0.02))), 4)
+
+    ordered = sorted(scores.values())
+    lateral = max(scores, key=scores.get)
+    return {
+        "scores": scores,
+        "lateral_axis": lateral,
+        "lateral_confident": bool(scores[lateral] > 0.75 and (ordered[-1] - ordered[-2]) > 0.1),
+        "note": "highest score = mirror plane normal = the left/right axis",
+    }
+
+
+# --------------------------------------------------------------------------
+# 3. ground contacts - limb tips, and therefore a leg-count hint
+# --------------------------------------------------------------------------
+
+def _contact_link_radius(contacts, plane, size):
+    """Link distance for single-linkage clustering of contact points.
+
+    Derived from the actual sampling density (median nearest-neighbour distance
+    among the contact points) rather than from model size, so it adapts to both
+    dense and coarse meshes. Clamped so a pathological mesh cannot produce a
+    radius that merges the whole footprint into one blob.
+    """
+    from mathutils.kdtree import KDTree
+
+    n = len(contacts)
+    tree = KDTree(n)
+    for i, p in enumerate(contacts):
+        tree.insert(Vector((p[plane[0]], p[plane[1]], 0.0)), i)
+    tree.balance()
+
+    step = max(1, n // 400)
+    nn = []
+    for i in range(0, n, step):
+        p = contacts[i]
+        found = tree.find_n(Vector((p[plane[0]], p[plane[1]], 0.0)), 2)
+        if len(found) > 1:
+            nn.append(found[1][2])
+    if not nn:
+        return 0.05 * max(size[plane[0]], size[plane[1]], 1e-6)
+    nn.sort()
+    median = nn[len(nn) // 2]
+    extent = max(size[plane[0]], size[plane[1]], 1e-6)
+    return max(min(median * 3.0, 0.25 * extent), 1e-5)
+
+
+def _euclid_groups(verts, idxs, plane, link):
+    """Single-linkage grouping of contact points in the ground plane.
+
+    Only a first pass: it reliably splits things that are far apart, and
+    over-splits a rounded sole into strips. The geodesic pass repairs that.
+    """
+    from mathutils.kdtree import KDTree
+
+    tree = KDTree(len(idxs))
+    for k, i in enumerate(idxs):
+        p = verts[i]
+        tree.insert(Vector((p[plane[0]], p[plane[1]], 0.0)), k)
+    tree.balance()
+
+    parent = list(range(len(idxs)))
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    for k, i in enumerate(idxs):
+        p = verts[i]
+        for (_, j, _) in tree.find_range(Vector((p[plane[0]], p[plane[1]], 0.0)), link):
+            ra, rb = find(k), find(j)
+            if ra != rb:
+                parent[ra] = rb
+
+    buckets = {}
+    for k, i in enumerate(idxs):
+        buckets.setdefault(find(k), []).append(i)
+    return list(buckets.values())
+
+
+def _merge_by_geodesic(verts, edges, groups):
+    """Merge contact groups that are close ALONG THE SURFACE.
+
+    The cut-off is taken from the data rather than hard-coded: pairwise
+    geodesic distances between groups fall into two populations - small ones
+    within a single limb and large ones between limbs - so the threshold is
+    placed at the widest ratio gap between consecutive sorted distances. A
+    hard-coded distance would have to be retuned for every model scale.
+    """
+    reps = []
+    for members in groups:
+        cx = sum(verts[i].x for i in members) / len(members)
+        cy = sum(verts[i].y for i in members) / len(members)
+        cz = sum(verts[i].z for i in members) / len(members)
+        c = Vector((cx, cy, cz))
+        reps.append(min(members, key=lambda i: (verts[i] - c).length))
+
+    n = len(groups)
+    INF = float("inf")
+    dmat = [[0.0] * n for _ in range(n)]
+    for a in range(n):
+        dist = _geodesic(verts, edges, [reps[a]])
+        for b in range(n):
+            dmat[a][b] = dist[reps[b]]
+
+    pairs = sorted(
+        dmat[a][b] for a in range(n) for b in range(a + 1, n) if dmat[a][b] != INF
+    )
+    if not pairs:
+        return groups, {"merged": False, "reason": "groups are disconnected on the mesh"}
+
+    if len(pairs) == 1:
+        span = max(d for row in dmat for d in row if d != INF) or 1.0
+        threshold = 0.25 * span
+    else:
+        best_gap, cut = 0.0, pairs[0]
+        for i in range(len(pairs) - 1):
+            lo_d = max(pairs[i], 1e-9)
+            ratio = pairs[i + 1] / lo_d
+            if ratio > best_gap:
+                best_gap, cut = ratio, math.sqrt(pairs[i] * max(pairs[i + 1], 1e-9))
+        threshold = cut
+
+    parent = list(range(n))
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    for a in range(n):
+        for b in range(a + 1, n):
+            if dmat[a][b] <= threshold:
+                ra, rb = find(a), find(b)
+                if ra != rb:
+                    parent[ra] = rb
+
+    merged = {}
+    for a in range(n):
+        merged.setdefault(find(a), []).extend(groups[a])
+
+    return list(merged.values()), {
+        "merged": True,
+        "groups_before": n,
+        "groups_after": len(merged),
+        "threshold": round(threshold, 5),
+        "pairwise_geodesic": [round(p, 4) for p in pairs[:12]],
+    }
+
+
+def ground_contacts(obj, up="Z", band=0.06):
+    """Cluster vertices sitting near the model's lowest point.
+
+    For a creature in a standing rest pose each cluster is a foot, so the count
+    is the strongest single archetype hint: 2 biped, 4 quadruped, 6 hexapod,
+    0 not a standing creature (fish, floating, or lying down).
+    """
+    ui = AXIS_INDEX[up]
+    verts = world_verts(obj)
+    edges = edge_list(obj)
+    if not verts:
+        return {"clusters": [], "count": 0, "contact_vertices": 0, "hint": "empty"}
+
+    bb = bbox(verts)
+    size = Vector(bb["size"])
+    lo = bb["min"][ui]
+    height = size[ui] or 1.0
+    thresh = lo + band * height
+
+    idxs = [i for i, p in enumerate(verts) if p[ui] <= thresh]
+    contacts = [verts[i] for i in idxs]
+    if not contacts:
+        return {"clusters": [], "count": 0, "contact_vertices": 0, "hint": "no ground contact"}
+
+    plane = [i for i in (0, 1, 2) if i != ui]
+
+    # Cluster along the SURFACE, not through space.
+    #
+    # Euclidean clustering cannot do this job at any radius. A sole is usually
+    # slightly rounded, so its contact patch breaks into separate strips: a
+    # radius tight enough to keep two feet apart splits one foot into three,
+    # and a radius loose enough to join them merges the feet. Geodesic distance
+    # has no such conflict - two strips of one sole are centimetres apart
+    # across the mesh, while the opposite foot is a metre away up and over the
+    # hips.
+    link = _contact_link_radius([verts[i] for i in idxs], plane, size)
+    groups_idx = _euclid_groups(verts, idxs, plane, link)
+
+    if len(groups_idx) > 1:
+        groups_idx, merge_info = _merge_by_geodesic(verts, edges, groups_idx)
+    else:
+        merge_info = {"merged": False, "reason": "single group"}
+
+    groups = {k: [verts[i] for i in members] for k, members in enumerate(groups_idx)}
+
+    floor = max(3, int(len(contacts) * 0.04))
+    out = []
+    for members in sorted(groups.values(), key=lambda m: -len(m)):
+        if len(members) < floor:
+            continue
+        pos = [0.0, 0.0, 0.0]
+        pos[plane[0]] = round(sum(p[plane[0]] for p in members) / len(members), 5)
+        pos[plane[1]] = round(sum(p[plane[1]] for p in members) / len(members), 5)
+        pos[ui] = round(min(p[ui] for p in members), 5)
+        span0 = max(p[plane[0]] for p in members) - min(p[plane[0]] for p in members)
+        span1 = max(p[plane[1]] for p in members) - min(p[plane[1]] for p in members)
+        out.append({
+            "position": pos,
+            "vertices": len(members),
+            "patch_size": [round(span0, 4), round(span1, 4)],
+        })
+
+    hints = {0: "no ground contact", 1: "single base/pedestal", 2: "biped",
+             3: "tripod", 4: "quadruped", 6: "hexapod", 8: "octoped"}
+    return {
+        "clusters": out,
+        "count": len(out),
+        "contact_vertices": len(contacts),
+        "link_radius": round(link, 5),
+        "merge": merge_info,
+        "hint": hints.get(len(out), "unusual - " + str(len(out)) + " contacts"),
+    }
+
+
+# --------------------------------------------------------------------------
+# 4. extremities - geodesic farthest points give limb tips, head, tail
+# --------------------------------------------------------------------------
+
+def _geodesic(verts, edges, sources):
+    adj = defaultdict(list)
+    for a, b in edges:
+        w = (verts[a] - verts[b]).length
+        adj[a].append((b, w))
+        adj[b].append((a, w))
+    INF = float("inf")
+    dist = [INF] * len(verts)
+    pq = []
+    for s in sources:
+        dist[s] = 0.0
+        heapq.heappush(pq, (0.0, s))
+    while pq:
+        d, v = heapq.heappop(pq)
+        if d > dist[v]:
+            continue
+        for n, w in adj[v]:
+            nd = d + w
+            if nd < dist[n]:
+                dist[n] = nd
+                heapq.heappush(pq, (nd, n))
+    return dist
+
+
+def extremities(obj, count=8):
+    """Farthest-point sampling over the mesh edge graph.
+
+    Extremities are where limb chains must terminate, so they anchor a template
+    fit. Geodesic (along-surface) distance is used rather than Euclidean so a
+    hand resting near the hip is still far from the spine.
+    """
+    verts = world_verts(obj)
+    edges = edge_list(obj)
+    if not verts or not edges:
+        return {"points": [], "note": "no edge graph"}
+
+    bb = bbox(verts)
+    centre = Vector(bb["centre"])
+    start = min(range(len(verts)), key=lambda i: (verts[i] - centre).length)
+
+    dist = _geodesic(verts, edges, [start])
+    finite = [d for d in dist if d != float("inf")]
+    if not finite:
+        return {"points": [], "note": "disconnected mesh"}
+
+    picks = []
+    cur = list(dist)
+    for _ in range(count):
+        best, bestd = -1, -1.0
+        for k in range(len(verts)):
+            d = cur[k]
+            if d != float("inf") and d > bestd:
+                best, bestd = k, d
+        if best < 0 or bestd <= 0.0:
+            break
+        picks.append(best)
+        d2 = _geodesic(verts, edges, [best])
+        cur = [min(a, b) for a, b in zip(cur, d2)]
+
+    span = max(finite) or 1.0
+    return {
+        "points": [
+            {
+                "position": [round(v, 5) for v in verts[i]],
+                "geodesic_from_centre": round(dist[i], 5),
+                "fraction_of_span": round(dist[i] / span, 3),
+            }
+            for i in picks
+        ],
+        "geodesic_span": round(span, 5),
+        "unreachable_vertices": len(verts) - len(finite),
+        "note": "candidate limb tips / head / tail, ordered by coverage",
+    }
+
+
+# --------------------------------------------------------------------------
+# 5. cross-sections - torso vs limbs, and neck/waist pinch points
+# --------------------------------------------------------------------------
+
+def cross_sections(obj, axis="Z", bins=24):
+    idx = AXIS_INDEX[axis]
+    pts = world_verts(obj)
+    if not pts:
+        return {"bins": []}
+    bb = bbox(pts)
+    lo, hi = bb["min"][idx], bb["max"][idx]
+    span = (hi - lo) or 1.0
+    buckets = [[] for _ in range(bins)]
+    for p in pts:
+        b = min(bins - 1, int((p[idx] - lo) / span * bins))
+        buckets[b].append(p)
+    other = [i for i in (0, 1, 2) if i != idx]
+    out = []
+    for i, bucket in enumerate(buckets):
+        at = round(lo + span * (i + 0.5) / bins, 4)
+        if not bucket:
+            out.append({"at": at, "verts": 0, "extent": [0.0, 0.0]})
+            continue
+        e0 = max(p[other[0]] for p in bucket) - min(p[other[0]] for p in bucket)
+        e1 = max(p[other[1]] for p in bucket) - min(p[other[1]] for p in bucket)
+        out.append({"at": at, "verts": len(bucket), "extent": [round(e0, 4), round(e1, 4)]})
+    return {
+        "axis": axis,
+        "bins": out,
+        "note": "narrow extents between wide ones are neck/waist pinch points",
+    }
+
+
+# --------------------------------------------------------------------------
+# 6. axis inference
+# --------------------------------------------------------------------------
+
+def infer_axes(obj, up=None):
+    """Determine up / lateral / forward, with the evidence that produced them.
+
+    Up defaults to Z, Blender's world convention, rather than being derived.
+    An earlier version picked the axis with the MOST ground-contact clusters,
+    which is backwards - more clusters is not better, and it happily chose the
+    body's front as "down" for a standing figure. Evidence for all three axes is
+    returned so the choice can be overridden when an asset really is authored
+    on its side.
+
+    Lateral comes from the mirror plane, which is reliable. Forward is then the
+    remaining axis; its SIGN is the genuinely unreliable part and is what the
+    render pass exists to settle.
+    """
+    size = Vector(bbox(world_verts(obj))["size"])
+    sym = symmetry(obj)
+    lateral = sym["lateral_axis"]
+
+    evidence = {}
+    for axis in AXES:
+        gc = ground_contacts(obj, up=axis)
+        evidence[axis] = {
+            "clusters": gc["count"],
+            "hint": gc["hint"],
+            "contact_vertices": gc["contact_vertices"],
+            "balanced": _balanced(gc["clusters"]),
+        }
+
+    chosen = (up or "Z").upper()
+    plausible = evidence[chosen]["clusters"] in (1, 2, 4, 6, 8)
+
+    remaining = [a for a in AXES if a != chosen and a != lateral]
+    forward = remaining[0] if remaining else None
+
+    alternatives = [
+        a for a in AXES
+        if a != chosen and evidence[a]["clusters"] in (2, 4, 6) and evidence[a]["balanced"]
+    ]
+
+    return {
+        "up_axis": chosen,
+        "up_source": "explicit" if up else "Blender Z-up convention",
+        "lateral_axis": lateral,
+        "forward_axis": forward,
+        "forward_sign": "unknown - confirm from renders",
+        "per_axis_evidence": evidence,
+        "plausible_limb_count_on_up": plausible,
+        "alternative_up_axes": alternatives,
+        "symmetry_scores": sym["scores"],
+        "confidence": "high" if (sym["lateral_confident"] and plausible) else "low",
+    }
+
+
+def _balanced(clusters, tol=0.35):
+    """Whether contact clusters are of comparable size.
+
+    Real limbs of one creature put roughly equal area on the ground; a spurious
+    grouping usually does not.
+    """
+    if len(clusters) < 2:
+        return False
+    counts = [c["vertices"] for c in clusters]
+    return (max(counts) - min(counts)) <= tol * max(counts)
+
+
+# --------------------------------------------------------------------------
+# top level
+# --------------------------------------------------------------------------
+
+def analyze(obj_name, up=None):
+    obj = bpy.data.objects.get(obj_name)
+    if obj is None:
+        return {"error": "no object named " + repr(obj_name)}
+    if obj.type != "MESH":
+        return {"error": repr(obj_name) + " is " + obj.type + ", not MESH"}
+
+    axes = infer_axes(obj, up=up)
+    return {
+        "object": obj_name,
+        "bbox": bbox(world_verts(obj)),
+        "health": mesh_health(obj),
+        "axes": axes,
+        "symmetry": symmetry(obj),
+        "ground_contacts": ground_contacts(obj, up=axes["up_axis"]),
+        "extremities": extremities(obj),
+        "cross_sections": cross_sections(obj, axis=axes["up_axis"]),
+    }
+
+
+def candidates():
+    """Mesh objects in the scene worth analysing, largest first."""
+    out = []
+    for o in bpy.data.objects:
+        if o.type != "MESH":
+            continue
+        out.append({
+            "name": o.name,
+            "vertices": len(o.data.vertices),
+            "dimensions": [round(v, 4) for v in o.dimensions],
+            "parent": o.parent.name if o.parent else None,
+            "has_armature": any(m.type == "ARMATURE" for m in o.modifiers),
+        })
+    return sorted(out, key=lambda d: -d["vertices"])

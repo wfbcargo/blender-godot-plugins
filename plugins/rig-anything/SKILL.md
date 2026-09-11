@@ -1,0 +1,116 @@
+---
+name: rig-anything
+description: Analyse a Blender mesh to work out how it should be rigged - whether it can be skinned at all, which way is up and forward, how many limbs touch the ground, and what archetype it is (biped, quadruped, bird, fish, or something with no template). Use when asked to rig, skeleton, bone, auto-rig or animate an arbitrary 3D asset, when deciding which skeleton template fits a model, or when Blender's automatic weights fail and the reason is unclear.
+---
+
+# rig-anything
+
+Works out how an arbitrary Blender mesh should be rigged. **Phases 0 and 1 only:
+it measures, classifies and reports. It does not yet build skeletons, bind
+weights, or generate animation.**
+
+The design splits deliberately: deterministic Python measures, and vision
+classifies. Geometry alone cannot tell a dog from a table, and ground-contact
+counting cannot tell front from back. Looking at the thing can.
+
+## Running it
+
+The scripts live beside this file and run inside Blender through the `blender`
+MCP server. Blender sessions are long-lived and these modules get edited between
+calls, so always reload:
+
+```python
+import sys
+P = r"C:/Users/<you>/.claude/skills/rig-anything/scripts"
+if P not in sys.path:
+    sys.path.insert(0, P)
+import rig_analysis
+rig_analysis.reload_all()
+from rig_analysis import measure, report, views, verify
+```
+
+## Workflow
+
+**1. Pick a target.**
+
+```python
+print(report.scene_overview())
+```
+
+One line per mesh object with vertex counts and whether it is already rigged.
+
+**2. Measure.**
+
+```python
+print(report.summarize(measure.analyze("MyObject")))
+```
+
+Returns riggability, axes, ground contacts, extremities and a width profile.
+`measure.analyze(name, up="Y")` overrides the up axis when an asset is authored
+on its side.
+
+**3. Look at it.**
+
+```python
+res = views.render_views("MyObject", r"C:/path/to/scratch", views=("front", "right", "iso"))
+```
+
+Then read the PNGs. Flat workbench shading on an isolated temp scene: clean
+silhouettes, no textures to distract, and the user's scene is never touched.
+
+**4. Classify, using both.** The measurements constrain; the renders decide.
+State the archetype, the forward axis *and its sign*, and your confidence.
+
+**5. Report. Do not rig.** Phases 2+ are not built. Say what the asset is, what
+template would fit, and what would block binding.
+
+## Rules
+
+**Never trust a measurement you have not sanity-checked.** This harness exists
+because generated rigs fail quietly - a wrong rotation sign still plays, a foot
+6 mm through the floor still renders, a rig offset from its origin still
+animates and merely orbits.
+
+**Probe bone axes, never assume them.** `verify.probe_bone_axis` rotates a bone
+and reports where the tip actually went. Bone roll varies per rig, per limb and
+per asset. Two bones in the same chain do not have to agree, and an elbow and a
+knee bend in *opposite* directions - assuming the forearm matched the shin is
+the exact bug this function exists to prevent.
+
+The probe reports mechanics, not anatomy. "+X moves the hand backward" is a
+fact; whether that is correct depends on the joint. See
+`references/joint-conventions.md`.
+
+**A stale rig silently reads as zero.** An armature can reach a state where
+posing updates `matrix_basis` but never moves the bone - and `view_layer.update`,
+`update_tag`, an explicit depsgraph update and `frame_set` all return stale
+values. Every measurement then reads zero and yields a complete, confident,
+fictional table of rotation signs. `probe_bone_axis` self-checks and repairs
+before measuring, and errors rather than reporting zeros. Do not bypass it.
+
+**Blocked means blocked.** When `health.verdict` is `blocked`, bone heat will
+fail or silently skip geometry. Fix the mesh first; do not bind and hope.
+
+**When classification is uncertain, ask.** A wrong archetype produces a rig that
+is wrong in a way that is tedious to undo. Even commercial auto-riggers ask the
+user to name a similar species. Say what you think it is, say why you are
+unsure, and ask.
+
+**Assets with no gait get no gait.** A chair, a rock or a tentacle has no
+locomotion. Detect and decline rather than inventing a walk cycle.
+
+## What the numbers mean
+
+| Reading | Interpretation |
+|---|---|
+| `ground_contacts.count` | 2 biped, 4 quadruped, 6 hexapod, 0 not standing (fish, flying, lying down) |
+| `symmetry.scores` | Highest = mirror plane normal = the left/right axis. Near 1.0 is a clean mirror |
+| `extremities` at ~100% of span | Limb tips. Head and tail usually 60-100% |
+| Profile: narrow between wide | Neck and waist pinch points - candidate spine joints |
+| `axes.forward_sign` | Always `unknown`. Geometry cannot settle it; the renders can |
+
+## Status
+
+- **Phase 0** - measurement and verification harness. Done.
+- **Phase 1** - analysis, rendering, classification, report. Done.
+- **Phase 2+** - template fitting, skinning, gait generation. Not built.
