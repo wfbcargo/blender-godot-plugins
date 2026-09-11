@@ -4,10 +4,11 @@ Works out how an arbitrary Blender mesh should be rigged: whether automatic
 weights can bind to it at all, which way is up and forward, how many limbs touch
 the ground, and which skeleton archetype fits.
 
-> **Status: phases 0-3.** It measures, classifies, fits a `basic_human` or
-> `basic_quadruped` skeleton and binds it with bone-heat weights. It does not
-> yet generate animation, and is deliberately **not listed in the marketplace
-> manifest** until it does.
+> **Status: phases 0-4.** It measures, classifies, builds a skeleton - from a
+> template where one fits, otherwise from discovered structure - binds it with
+> bone-heat weights, and generates a looping gait for any number of legs. Still
+> deliberately **not listed in the marketplace manifest**: it wants trying on
+> real scanned and sculpted assets before it is offered for installation.
 >
 > Biped, against a hand-built rig on a 1.69 m figure: **mean joint error
 > 0.037 m, 2.2% of height**. Quadruped, against a synthetic model with known
@@ -118,7 +119,14 @@ Blender sessions are long-lived and cache imports, so always
   and want confirming from the renders. Prefer the template fitters where a
   template fits — they inherit proportions for joints the silhouette cannot
   show.
-- **4** generalised gait generator (phase offsets scale past four legs)
+- **4** generalised gait generator — done (`gait.py`). A gait is phase offsets
+  over one shared stance/swing curve, so the same code covers any leg count:
+  biped 0.0/0.5, quadruped lateral-sequence walk or diagonal trot, hexapod
+  alternating tripods. Rotation signs are probed per bone and fold direction is
+  measured from each limb's rest shape, so a quadruped's front legs fold like
+  arms and its rear like legs with nobody writing that down. Verified clean on
+  4 and 6 legs: loop seam 0.000000, no foot below the floor. Declines a worm
+  rather than inventing a walk for it.
 - **5** export, with stride-derived playback speed
 - **6** shapes matching no archetype — fall back to curve-skeleton extraction or
   shell out to UniRig. Do not reimplement either.

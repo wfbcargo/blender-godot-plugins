@@ -5,9 +5,10 @@ description: Analyse a Blender mesh to work out how it should be rigged - whethe
 
 # rig-anything
 
-Works out how an arbitrary Blender mesh should be rigged, then rigs it -
-including shapes no template covers. **It measures, classifies, builds a
-skeleton and binds it. It does not yet generate animation.**
+Works out how an arbitrary Blender mesh should be rigged, rigs it, and gives
+it a walk cycle - including shapes no template covers. **It measures,
+classifies, builds a skeleton, binds it, and generates a looping gait for any
+number of legs.**
 
 The design splits deliberately: deterministic Python measures, and vision
 classifies. Geometry alone cannot tell a dog from a table, and ground-contact
@@ -26,7 +27,7 @@ if P not in sys.path:
     sys.path.insert(0, P)
 import rig_analysis
 rig_analysis.reload_all()
-from rig_analysis import measure, report, views, verify, fit, skin, decompose, build
+from rig_analysis import measure, report, views, verify, fit, skin, decompose, build, gait
 ```
 
 ## Workflow
@@ -102,8 +103,27 @@ for joints that leave no trace on the silhouette - knees and elbows sit inside
 the limb - so a biped fits to 2.2% of height where the generic builder has to
 infer everything from the mesh.
 
-**6. Probe the new rig before animating it.** A freshly fitted rig has its own
-bone rolls, which are not the ones any other rig uses. See the rule below.
+**6. Generate a gait.**
+
+```python
+legs = gait.limbs_from_rig(res["rig"], forward="-Y")
+r = gait.generate(res["rig"], legs, forward="-Y", gait="walk", frames=32)
+print(r["verification"])        # floor clearance, loop seam, implied speed
+```
+
+A gait is a set of phase offsets over one shared stance/swing curve, so the
+same code covers any leg count: biped 0.0/0.5, quadruped lateral-sequence walk
+or diagonal trot, hexapod alternating tripods, n legs alternating by rank and
+side. `gait` accepts `walk`, `trot`, `tripod`, `bound`; omit it and one is
+chosen from the leg count.
+
+It refuses a creature with no legs rather than inventing a walk for a worm.
+
+**Do not hand it rotation signs.** Which axis swings each limb forward is
+probed per bone, and which way a mid-joint folds is measured from that limb's
+own rest shape - so a quadruped's front legs fold like arms and its rear legs
+like legs without anyone writing that down. See the rule below for why this is
+not optional.
 
 ## Rules
 
@@ -162,7 +182,8 @@ locomotion. Detect and decline rather than inventing a walk cycle.
 - **Phase 2** - `basic_human` fit and bone-heat bind. Done.
 - **Phase 3** - `basic_quadruped` fit and bind. Done.
 - **Phase 3.5** - template-free decompose + build, any limb count. Done.
-- **Phase 4+** - gait generation, export. Not built.
+- **Phase 4** - generalised gait generation. Done.
+- **Phase 5** - export with stride-derived playback speed. Not built.
 
 Biped, measured on a 1.69 m figure against a hand-built rig: **mean joint error
 0.037 m, 2.2% of height**. Quadruped, against a synthetic model with known
@@ -173,6 +194,13 @@ Template-free builds on a worm, a quadruped, a biped and a hexapod all bound at
 quadruped and hexapod (spread 0.09). It is poor on the **biped**, where a
 spurious junction splits one leg and the two come out 0.345 and 0.810 - use
 `fit_basic_human` for bipeds, which is what it is for.
+
+Gaits generated for 4 and 6 legs verify clean: **loop seam 0.000000**, no foot
+below the floor, implied speeds 0.92 m/s (quadruped walk), 0.82 (trot) and 0.57
+(hexapod tripod). Opposite legs correlate at -0.899, as they should. A trot's
+diagonal pair correlates only +0.468 rather than near +1: the hips move in
+phase, but front and rear legs fold in opposite directions so their feet trace
+different paths. That is expected, not a fault.
 
 The crotch is measured but is deliberately *not* used as the hip anchor. The
 femoral head sits inside the pelvis, above where the legs visibly meet, so
