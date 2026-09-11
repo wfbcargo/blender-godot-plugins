@@ -131,8 +131,46 @@ def _limb_bend_sign(rig, upper, lower, tip, forward):
 
 def generate(rig_name, legs, forward="-Y", up="Z", gait=None, frames=32,
              action_name=None, swing_degrees=28.0, lift_degrees=45.0,
-             spine_bones=None, sway_degrees=4.0, arms=None, fps=None):
-    """Author a looping gait cycle. Returns a report including verification."""
+             spine_bones=None, sway_degrees=4.0, arms=None, fps=None,
+             floor=0.0, auto_fit=True, attempts=5):
+    """Author a looping gait cycle, verified against the floor.
+
+    If a foot penetrates the floor the swing amplitude is reduced and the cycle
+    re-authored, up to `attempts` times. A real rat failed its first pass by
+    3.8 mm - small enough to look fine and large enough to put a paw through
+    the ground every stride. Amplitude that suits one creature's proportions
+    does not suit another's, so rather than ask the caller to guess, the clip
+    is measured and retried.
+    """
+    swing = swing_degrees
+    lift = lift_degrees
+    last = None
+    for attempt in range(max(1, attempts) if auto_fit else 1):
+        last = _generate_once(rig_name, legs, forward=forward, up=up, gait=gait,
+                              frames=frames, action_name=action_name,
+                              swing_degrees=swing, lift_degrees=lift,
+                              spine_bones=spine_bones, sway_degrees=sway_degrees,
+                              arms=arms, fps=fps, floor=floor)
+        if "error" in last:
+            return last
+        v = last["verification"]
+        if v.get("passed") or not auto_fit:
+            last["swing_degrees"] = round(swing, 2)
+            last["lift_degrees"] = round(lift, 2)
+            last["attempts"] = attempt + 1
+            return last
+        swing *= 0.78
+        lift *= 0.88
+    last["swing_degrees"] = round(swing, 2)
+    last["lift_degrees"] = round(lift, 2)
+    last["attempts"] = attempts
+    return last
+
+
+def _generate_once(rig_name, legs, forward="-Y", up="Z", gait=None, frames=32,
+                   action_name=None, swing_degrees=28.0, lift_degrees=45.0,
+                   spine_bones=None, sway_degrees=4.0, arms=None, fps=None,
+                   floor=0.0):
     rig = bpy.data.objects.get(rig_name)
     if rig is None or rig.type != "ARMATURE":
         return {"error": "no armature named " + repr(rig_name)}
@@ -256,8 +294,11 @@ def generate(rig_name, legs, forward="-Y", up="Z", gait=None, frames=32,
                         kp.interpolation = "LINEAR"
 
     feet = [l["tip"] for l in legs]
-    check = verify.check_clip(rig_name, action_name, feet, floor=None if False else 0.0,
-                              up=up, loop=True, forward=forward)
+    # scaled to the creature: 0.5% of its height
+    reach = max(rig.dimensions) or 1.0
+    check = verify.check_clip(rig_name, action_name, feet, floor=floor,
+                              up=up, loop=True, forward=forward,
+                              tolerance=0.005 * reach)
 
     rig.animation_data.action = None
     verify.clear_pose(rig)

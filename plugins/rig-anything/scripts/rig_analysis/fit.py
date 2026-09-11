@@ -95,7 +95,8 @@ def biped_landmarks(obj, analysis=None, topo=None, forward_sign=-1):
     height = top - ground
     mid_lat = bb["centre"][li]
 
-    contacts = analysis["ground_contacts"]["clusters"]
+    contacts = [c for c in analysis["ground_contacts"]["clusters"]
+                if c.get("kind", "limb") == "limb"]
     if len(contacts) != 2:
         return {"error": "expected 2 ground contacts for a biped, got %d"
                          % len(contacts)}
@@ -386,7 +387,8 @@ def quadruped_landmarks(obj, analysis=None, head_at=None):
     up, lat, fwd = axes["up_axis"], axes["lateral_axis"], axes["forward_axis"]
     ui, li, fi = AXIS_INDEX[up], AXIS_INDEX[lat], AXIS_INDEX[fwd]
 
-    contacts = analysis["ground_contacts"]["clusters"]
+    contacts = [c for c in analysis["ground_contacts"]["clusters"]
+                if c.get("kind", "limb") == "limb"]
     if len(contacts) != 4:
         return {"error": "expected 4 ground contacts for a quadruped, got %d (%s)"
                          % (len(contacts), analysis["ground_contacts"]["hint"])}

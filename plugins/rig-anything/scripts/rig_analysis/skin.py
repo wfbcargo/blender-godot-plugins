@@ -45,8 +45,16 @@ def preflight(obj_name):
     }
 
 
-def clean_for_binding(obj_name, remove_loose=True, keep_largest=False):
-    """Apply the repairs bone heat needs. Mutates the mesh - copy first."""
+def clean_for_binding(obj_name, remove_loose=True, keep_largest=False,
+                      weld=0.0):
+    """Apply the repairs bone heat needs. Mutates the mesh - copy first.
+
+    `weld` merges vertices within that distance. Real assets are commonly
+    modelled as separate shells with coincident seams - a downloaded rat came
+    in as 83 components in mirrored pairs, which made bone heat refuse and left
+    geodesic distance infinite between parts of the same foot. Welding stitches
+    them without discarding geometry, which `keep_largest` would.
+    """
     obj = bpy.data.objects.get(obj_name)
     if obj is None or obj.type != "MESH":
         return {"error": "no mesh named " + repr(obj_name)}
@@ -55,6 +63,13 @@ def clean_for_binding(obj_name, remove_loose=True, keep_largest=False):
     bm = bmesh.new()
     bm.from_mesh(obj.data)
     bm.verts.ensure_lookup_table()
+
+    welded = 0
+    if weld and weld > 0.0:
+        n0 = len(bm.verts)
+        bmesh.ops.remove_doubles(bm, verts=list(bm.verts), dist=weld)
+        bm.verts.ensure_lookup_table()
+        welded = n0 - len(bm.verts)
 
     removed_loose = 0
     if remove_loose:
@@ -96,6 +111,7 @@ def clean_for_binding(obj_name, remove_loose=True, keep_largest=False):
     after = measure.mesh_health(obj)
     return {
         "object": obj_name,
+        "welded_vertices": welded,
         "removed_loose_vertices": removed_loose,
         "removed_island_vertices": removed_islands,
         "verdict_before": before["verdict"],

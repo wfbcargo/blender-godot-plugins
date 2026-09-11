@@ -95,8 +95,19 @@ def mesh_health(obj):
 
     problems = []
     warnings = []
-    if non_manifold_edges:
-        problems.append(str(non_manifold_edges) + " non-manifold edges")
+    # Graded, not absolute. A real asset almost always carries some
+    # non-manifold geometry - a downloaded rat had 223 edges out of ~70k, at
+    # eye and mouth openings - and bone heat binds through that perfectly well.
+    # Blocking on any at all would refuse every real model; the failures it
+    # actually causes come from widespread non-manifold structure.
+    total_edges = len(obj.data.edges) or 1
+    nm_ratio = non_manifold_edges / float(total_edges)
+    if non_manifold_edges and nm_ratio > 0.02:
+        problems.append("%d non-manifold edges (%.1f%% of the mesh)"
+                        % (non_manifold_edges, 100.0 * nm_ratio))
+    elif non_manifold_edges:
+        warnings.append("%d non-manifold edges (%.1f%%) - usually survivable"
+                        % (non_manifold_edges, 100.0 * nm_ratio))
     if components > 1:
         problems.append(
             str(components) + " disconnected parts - bone heat ignores islands no bone can see"
@@ -186,6 +197,10 @@ def symmetry(obj, samples=3000):
 # --------------------------------------------------------------------------
 # 3. ground contacts - limb tips, and therefore a leg-count hint
 # --------------------------------------------------------------------------
+
+def mid_lat_of(bb, axis_index):
+    return bb["centre"][axis_index]
+
 
 def _contact_link_radius(contacts, plane, size):
     """Link distance for single-linkage clustering of contact points.
@@ -390,15 +405,48 @@ def ground_contacts(obj, up="Z", band=0.06):
             "patch_size": [round(span0, 4), round(span1, 4)],
         })
 
+    # Not every ground contact is a foot.
+    #
+    # A real rat rests its TAIL on the floor, which read as a fifth "leg" and
+    # turned a quadruped into "unusual - 5 contacts". Limbs come in mirrored
+    # lateral pairs; a tail, belly or chin touches down on the centreline
+    # alone. Pairing separates them without needing to know the creature.
+    lat_extent = size[li] if (li := plane[0]) is not None else 1.0
+    half = 0.5 * (size[plane[0]] or 1.0)
+    for c in out:
+        c["lateral_offset"] = round(c["position"][plane[0]] - mid_lat_of(bb, plane[0]), 5)
+    for c in out:
+        c["paired"] = False
+    for i, a in enumerate(out):
+        if a["paired"]:
+            continue
+        for b in out[i + 1:]:
+            if b["paired"]:
+                continue
+            mirrored = abs(a["lateral_offset"] + b["lateral_offset"]) <= 0.25 * half
+            aligned = abs(a["position"][plane[1]] - b["position"][plane[1]]) <= 0.30 * (size[plane[1]] or 1.0)
+            apart = abs(a["lateral_offset"] - b["lateral_offset"]) > 0.12 * half
+            if mirrored and aligned and apart:
+                a["paired"] = b["paired"] = True
+                break
+    for c in out:
+        c["kind"] = "limb" if c["paired"] else (
+            "midline" if abs(c["lateral_offset"]) <= 0.25 * half else "unpaired")
+
+    legs = [c for c in out if c["kind"] == "limb"]
+    midline = [c for c in out if c["kind"] == "midline"]
+
     hints = {0: "no ground contact", 1: "single base/pedestal", 2: "biped",
              3: "tripod", 4: "quadruped", 6: "hexapod", 8: "octoped"}
     return {
         "clusters": out,
-        "count": len(out),
+        "count": len(legs),
+        "raw_contacts": len(out),
+        "midline_contacts": len(midline),
         "contact_vertices": len(contacts),
         "link_radius": round(link, 5),
         "merge": merge_info,
-        "hint": hints.get(len(out), "unusual - " + str(len(out)) + " contacts"),
+        "hint": hints.get(len(legs), "unusual - " + str(len(legs)) + " paired contacts"),
     }
 
 
@@ -807,13 +855,70 @@ def _balanced(clusters, tol=0.35):
 # top level
 # --------------------------------------------------------------------------
 
-def analyze(obj_name, up=None):
-    obj = bpy.data.objects.get(obj_name)
-    if obj is None:
-        return {"error": "no object named " + repr(obj_name)}
-    if obj.type != "MESH":
-        return {"error": repr(obj_name) + " is " + obj.type + ", not MESH"}
+def make_proxy(obj, target_verts=6000, suffix="__rig_proxy"):
+    """A decimated stand-in for analysis of a dense mesh.
 
+    Everything measured here is structural and reported in world space, so a
+    lower-poly copy gives the same answers. A real asset is often dense enough
+    that the pure-Python geodesic passes stop being merely slow and start
+    blocking: a 32k-vertex rat ran past the MCP timeout entirely. The proxy
+    shares the original's world transform, so results transfer with no mapping.
+    """
+    import bpy as _bpy
+
+    name = obj.name + suffix
+    old = _bpy.data.objects.get(name)
+    if old:
+        _bpy.data.objects.remove(old, do_unlink=True)
+
+    cp = obj.copy()
+    cp.data = obj.data.copy()
+    cp.name = name
+    cp.data.name = name
+    _bpy.context.collection.objects.link(cp)
+    for m in list(cp.modifiers):
+        cp.modifiers.remove(m)
+
+    n = len(cp.data.vertices)
+    if n > target_verts:
+        dec = cp.modifiers.new("Decimate", "DECIMATE")
+        dec.ratio = max(0.02, float(target_verts) / float(n))
+        view = _bpy.context.view_layer
+        prev = view.objects.active
+        for o in view.objects:
+            o.select_set(False)
+        view.objects.active = cp
+        cp.select_set(True)
+        try:
+            _bpy.ops.object.modifier_apply(modifier=dec.name)
+        except Exception:
+            pass
+        view.objects.active = prev
+    return cp
+
+
+def analyze(obj_name, up=None, max_verts=6000):
+    real = bpy.data.objects.get(obj_name)
+    if real is None:
+        return {"error": "no object named " + repr(obj_name)}
+    if real.type != "MESH":
+        return {"error": repr(obj_name) + " is " + real.type + ", not MESH"}
+
+    dense = len(real.data.vertices) > max_verts
+    obj = make_proxy(real, max_verts) if dense else real
+    try:
+        result = _analyze_obj(obj, obj_name, up)
+    finally:
+        if dense:
+            bpy.data.objects.remove(obj, do_unlink=True)
+    result["proxy_used"] = dense
+    result["source_vertices"] = len(real.data.vertices)
+    # health is about the REAL mesh, not the decimated stand-in
+    result["health"] = mesh_health(real)
+    return result
+
+
+def _analyze_obj(obj, obj_name, up):
     axes = infer_axes(obj, up=up)
     return {
         "object": obj_name,

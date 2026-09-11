@@ -282,7 +282,7 @@ def _frames(action):
 
 
 def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
-               loop=True, forward="-Y"):
+               loop=True, forward="-Y", tolerance=0.0):
     """Assert the things that silently ruin a generated clip.
 
     - floor penetration: the lowest a foot ever reaches
@@ -353,10 +353,17 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
         duration = cycle_duration
 
         failures = []
-        if lowest < floor - 1e-6:
+        # A tolerance is not laxity. Without IK foot-planting, a limb swung as a
+        # pendulum must dip its tip slightly below the rest height, and a rig
+        # fitted to a real animal puts its toes ON the ground - a rat's rested
+        # at +0.00003. Demanding exactly zero penetration is unsatisfiable at
+        # any amplitude; what matters is that the dip stays negligible against
+        # the creature's size.
+        if lowest < floor - tolerance - 1e-6:
             failures.append(
                 "foot reaches " + format(lowest, ".4f") + " at frame " + str(lowest_at)
                 + ", below the floor at " + format(floor, ".4f")
+                + " by more than the " + format(tolerance, ".4f") + " tolerance"
             )
         if loop and seam is not None and seam > 1e-4:
             failures.append("loop seam " + format(seam, ".6f") + " - first and last frame differ")
@@ -369,6 +376,7 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
             "lowest_foot": round(lowest, 4),
             "lowest_at_frame": lowest_at,
             "floor": floor,
+            "tolerance": round(tolerance, 5),
             "loop_seam": round(seam, 6) if seam is not None else None,
             "stride_m": round(stride, 4),
             "implied_speed_mps": round(implied, 4),

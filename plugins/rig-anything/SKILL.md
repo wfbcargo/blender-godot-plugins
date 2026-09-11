@@ -157,6 +157,19 @@ before measuring, and errors rather than reporting zeros. Do not bypass it.
 **Blocked means blocked.** When `health.verdict` is `blocked`, bone heat will
 fail or silently skip geometry. Fix the mesh first; do not bind and hope.
 
+**Real assets arrive broken, and the repair is usually a weld.** A downloaded
+rat came in as 83 components in mirrored pairs with 6,504 non-manifold edges -
+separate left/right shells with coincident seams. `clean_for_binding(weld=...)`
+stitched it to a single component and 223 non-manifold edges. Prefer welding to
+`keep_largest`, which would have thrown away half the animal.
+
+**Scale matters before binding.** Bone heat is unreliable below ~0.1 units and
+a real rat is 0.148 m long. Scale up, apply, then bind.
+
+**Dense meshes need a proxy.** Above `max_verts` the analysis runs on a
+decimated copy automatically; a 32k-vertex asset blocked the bridge entirely
+before that existed. Results are world-space so they transfer unchanged.
+
 **When classification is uncertain, ask.** A wrong archetype produces a rig that
 is wrong in a way that is tedious to undo. Even commercial auto-riggers ask the
 user to name a similar species. Say what you think it is, say why you are
@@ -169,7 +182,8 @@ locomotion. Detect and decline rather than inventing a walk cycle.
 
 | Reading | Interpretation |
 |---|---|
-| `ground_contacts.count` | 2 biped, 4 quadruped, 6 hexapod, 0 not standing (fish, flying, lying down) |
+| `ground_contacts.count` | PAIRED contacts only: 2 biped, 4 quadruped, 6 hexapod, 0 not standing |
+| `ground_contacts.midline_contacts` | A tail, belly or chin on the floor. A real rat rests its tail down, which read as a fifth leg until contacts were paired by mirror symmetry |
 | `symmetry.scores` | Highest = mirror plane normal = the left/right axis. Near 1.0 is a clean mirror |
 | `extremities` at ~100% of span | Limb tips. Head and tail usually 60-100% |
 | Profile: narrow between wide | Neck and waist pinch points - candidate spine joints |

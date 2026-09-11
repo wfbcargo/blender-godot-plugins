@@ -4,11 +4,18 @@ Works out how an arbitrary Blender mesh should be rigged: whether automatic
 weights can bind to it at all, which way is up and forward, how many limbs touch
 the ground, and which skeleton archetype fits.
 
-> **Status: phases 0-4.** It measures, classifies, builds a skeleton - from a
-> template where one fits, otherwise from discovered structure - binds it with
-> bone-heat weights, and generates a looping gait for any number of legs. Still
-> deliberately **not listed in the marketplace manifest**: it wants trying on
-> real scanned and sculpted assets before it is offered for installation.
+> **Status: phases 0-4, validated on a real asset.** It measures, classifies,
+> builds a skeleton - from a template where one fits, otherwise from discovered
+> structure - binds it with bone-heat weights, and generates a looping gait for
+> any number of legs.
+>
+> Tested end to end on a downloaded PolyHaven rat (31,937 verts, 83 mesh
+> components, 6,504 non-manifold edges): classified as a quadruped, fitted,
+> bound at 1.0 weight coverage, and walking. Five defects that only a real
+> asset could expose are fixed below.
+>
+> Still **not listed in the marketplace manifest** - one real asset is
+> evidence, not coverage.
 >
 > Biped, against a hand-built rig on a 1.69 m figure: **mean joint error
 > 0.037 m, 2.2% of height**. Quadruped, against a synthetic model with known
