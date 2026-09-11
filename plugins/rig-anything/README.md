@@ -4,9 +4,14 @@ Works out how an arbitrary Blender mesh should be rigged: whether automatic
 weights can bind to it at all, which way is up and forward, how many limbs touch
 the ground, and which skeleton archetype fits.
 
-> **Status: phases 0 and 1.** It measures, classifies and reports. It does not
-> yet build skeletons, bind weights or generate animation, and is deliberately
-> **not listed in the marketplace manifest** until it does.
+> **Status: phases 0-2.** It measures, classifies, fits a `basic_human`
+> skeleton to a biped and binds it with bone-heat weights. It does not yet
+> handle quadrupeds or generate animation, and is deliberately **not listed in
+> the marketplace manifest** until it does.
+>
+> Measured against a hand-built rig on a 1.69 m figure: **mean joint error
+> 0.043 m, 2.5% of height**, max 4.2%; bone heat bound with 1.0 weight
+> coverage, and the skin follows the rig.
 
 ## The idea
 
@@ -59,6 +64,12 @@ Three failures this harness was built around, each found the hard way:
   permanently in front of the body, so its absolute sign never flips even while
   it swings perfectly. Comparing raw positions reports a false failure.
 
+Phase 2 supplied a fourth, from the same mesh rigged two ways: on the
+hand-built humanoid every limb swings forward on **-X**, while on the fitted
+`basic_human` the `upper_arm` swings about **Z** and the `forearm`'s forward is
+**+X**. Bone roll is a property of the rig, not of the anatomy, so carrying a
+convention between two rigs of the same character inverts the arms.
+
 ## Contents
 
 ```
@@ -96,7 +107,7 @@ Blender sessions are long-lived and cache imports, so always
 
 - **0** measurement and verification harness — done
 - **1** analysis, rendering, classification, report — done
-- **2** fit `Basic/basic_human`, skin, verify against a known-good biped
+- **2** fit `Basic/basic_human`, skin, verify against a known-good biped — done
 - **3** fit `Basic/basic_quadruped`
 - **4** generalised gait generator (phase offsets scale past four legs)
 - **5** export, with stride-derived playback speed

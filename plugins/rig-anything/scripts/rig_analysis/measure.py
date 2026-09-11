@@ -514,6 +514,130 @@ def cross_sections(obj, axis="Z", bins=24):
 # 6. axis inference
 # --------------------------------------------------------------------------
 
+def slab_topology(obj, axis="Z", lateral="X", bins=40):
+    """Locate the crotch and shoulders from per-slab surface topology.
+
+    No width profile can find these. Slicing a standing biped and counting
+    components does not work either, because hands and legs both produce two
+    components at different heights.
+
+    What separates them is whether a component *crosses the lateral midline*.
+    Limbs never do; the torso always does. So:
+
+        crotch   = the lowest slab containing a midline-crossing component
+                   (below it there are only two separate legs)
+        shoulder = the highest slab that still has two off-midline components
+                   beside the torso (above it the arms have merged into it)
+
+    Connectivity is taken over the mesh edge graph restricted to the slab, so
+    two limbs that touch without being joined still read as separate.
+    """
+    idx = AXIS_INDEX[axis]
+    lat = AXIS_INDEX[lateral]
+    verts = world_verts(obj)
+    edges = edge_list(obj)
+    if not verts or not edges:
+        return {"slabs": [], "note": "no edge graph"}
+
+    bb = bbox(verts)
+    lo, hi = bb["min"][idx], bb["max"][idx]
+    span = (hi - lo) or 1.0
+
+    membership = [min(bins - 1, int((p[idx] - lo) / span * bins)) for p in verts]
+    by_slab = defaultdict(list)
+    for vi, b in enumerate(membership):
+        by_slab[b].append(vi)
+
+    mid = bb["centre"][lat]
+    half_width = (bb["size"][lat] or 1.0) * 0.5
+
+    # Gaps between sorted lateral coordinates, not bin occupancy.
+    #
+    # A slab through a hollow limb gives a ring of surface points, so each limb
+    # occupies two arcs with an empty middle. Bin occupancy therefore reports a
+    # single leg as two runs and misses a torso whose ring has no vertex exactly
+    # on the midline - both are sampling artefacts, not anatomy. Sorting the
+    # coordinates and looking at the gaps between them measures the empty space
+    # that actually exists, using extremes rather than whether a bin got lucky.
+    width = bb["size"][lat] or 1.0
+    tol = 0.02 * width
+
+    slabs = []
+    for b in range(bins):
+        members = by_slab.get(b, [])
+        at = lo + span * (b + 0.5) / bins
+        if len(members) < 4:
+            slabs.append({"at": round(at, 4), "verts": len(members),
+                          "midline_gap": None, "outer_gaps": 0, "extent": None})
+            continue
+
+        xs = sorted(verts[vi][lat] for vi in members)
+        gaps = []
+        for i in range(len(xs) - 1):
+            g = xs[i + 1] - xs[i]
+            if g > tol:
+                gaps.append((xs[i], xs[i + 1], g))
+
+        # the gap straddling the midline, if the midline is empty
+        midline_gap = 0.0
+        for a, bnd, g in gaps:
+            if a < mid < bnd:
+                midline_gap = g
+                break
+
+        outer = [g for a, bnd, g in gaps if not (a < mid < bnd) and g > 0.05 * width]
+
+        slabs.append({
+            "at": round(at, 4),
+            "verts": len(members),
+            "midline_gap": round(midline_gap, 4),
+            "outer_gaps": len(outer),
+            "extent": [round(xs[0] - mid, 4), round(xs[-1] - mid, 4)],
+        })
+
+    real = [s for s in slabs if s["midline_gap"] is not None]
+
+    # Crotch: where the gap between the legs is narrowest.
+    #
+    # Not "where the gap closes" - above the crotch the midline runs through the
+    # hollow inside of the torso ring, so a nonzero gap reappears and is pure
+    # sampling noise. The gap instead falls smoothly while the legs converge and
+    # is minimal exactly where they meet. Only the lower part of the body is
+    # considered, and only if the legs were meaningfully apart to begin with, so
+    # a robe or a single-legged form reports nothing rather than a fiction.
+    lower = [s for s in real if s["at"] <= lo + 0.65 * span]
+    crotch = None
+    if lower:
+        widest = max(s["midline_gap"] for s in lower)
+        if widest >= 0.05 * width:
+            crotch = min(lower, key=lambda s: s["midline_gap"])["at"]
+        legs_separate = widest >= 0.05 * width
+    else:
+        legs_separate = False
+
+    # Shoulder: the highest slab above the crotch with a gap on each side
+    # separating an outer cluster (an arm) from the torso. Above it the arms
+    # have merged into the shoulders.
+    shoulder = None
+    for s in real:
+        if crotch is not None and s["at"] <= crotch:
+            continue
+        if s["outer_gaps"] >= 2:
+            shoulder = s["at"]
+
+    return {
+        "axis": axis,
+        "lateral": lateral,
+        "slabs": slabs,
+        "crotch": crotch,
+        "shoulder": shoulder,
+        "legs_separate": legs_separate,
+        "note": "crotch = narrowest midline gap in the lower body; shoulder = "
+                "highest slab above it still showing an arm clear of the torso "
+                "on each side",
+    }
+
+
 def infer_axes(obj, up=None):
     """Determine up / lateral / forward, with the evidence that produced them.
 

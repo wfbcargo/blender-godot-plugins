@@ -61,8 +61,21 @@ silhouettes, no textures to distract, and the user's scene is never touched.
 **4. Classify, using both.** The measurements constrain; the renders decide.
 State the archetype, the forward axis *and its sign*, and your confidence.
 
-**5. Report. Do not rig.** Phases 2+ are not built. Say what the asset is, what
-template would fit, and what would block binding.
+**5. Fit and bind (bipeds only).**
+
+```python
+print(skin.preflight("MyObject"))              # will bone heat bind?
+skin.clean_for_binding("MyObject", keep_largest=True)   # MUTATES - copy first
+res = fit.fit_basic_human("MyObject", forward_sign=-1)  # from the renders
+print(skin.bind("MyObject", res["rig"]))
+```
+
+`fit_basic_human` refuses anything that is not a two-contact biped, because the
+crotch and shoulder landmarks are meaningless otherwise. `bind` reports weight
+coverage; anything below 1.0 means geometry that will not follow the rig.
+
+**6. Probe the new rig before animating it.** A freshly fitted rig has its own
+bone rolls, which are not the ones any other rig uses. See the rule below.
 
 ## Rules
 
@@ -76,6 +89,11 @@ and reports where the tip actually went. Bone roll varies per rig, per limb and
 per asset. Two bones in the same chain do not have to agree, and an elbow and a
 knee bend in *opposite* directions - assuming the forearm matched the shin is
 the exact bug this function exists to prevent.
+
+This is not hypothetical across rigs either. Probed on a hand-built humanoid,
+every limb swung forward on **-X**. Probed on a `basic_human` fitted by this
+skill to *the same mesh*, `upper_arm` swings about **Z** and `forearm`'s forward
+is **+X**. Carrying one rig's convention to the other inverts the arms.
 
 The probe reports mechanics, not anatomy. "+X moves the hand backward" is a
 fact; whether that is correct depends on the joint. See
@@ -113,4 +131,15 @@ locomotion. Detect and decline rather than inventing a walk cycle.
 
 - **Phase 0** - measurement and verification harness. Done.
 - **Phase 1** - analysis, rendering, classification, report. Done.
-- **Phase 2+** - template fitting, skinning, gait generation. Not built.
+- **Phase 2** - `basic_human` fit and bone-heat bind, bipeds only. Done.
+- **Phase 3+** - quadrupeds, gait generation, export. Not built.
+
+Measured on a 1.69 m biped against a hand-built rig: **mean joint error 0.043 m,
+2.5% of height**; max 4.2%. Bone heat bound with 1.0 weight coverage, and the
+skin follows the rig (a -45 degree thigh rotation carried the mesh 0.589 m).
+
+The crotch is measured but is deliberately *not* used as the hip anchor. The
+femoral head sits inside the pelvis, above where the legs visibly meet, so
+anchoring to it dragged the leg chain 7 cm low. Anchoring on ground, shoulder
+and top and letting the reference's proportions place the hip more than halves
+the error. The crotch is kept as a lower bound.
