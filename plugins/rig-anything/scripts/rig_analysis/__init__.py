@@ -14,8 +14,8 @@ import importlib
 
 def reload_all():
     """Re-import every submodule. Call after editing any of them."""
-    from . import measure, verify, views, report, fit, skin, decompose
-    mods = (measure, verify, views, report, fit, skin, decompose)
+    from . import measure, verify, views, report, fit, skin, decompose, build
+    mods = (measure, verify, views, report, fit, skin, decompose, build)
     for m in mods:
         importlib.reload(m)
     return [m.__name__ for m in mods]

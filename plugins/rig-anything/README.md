@@ -110,12 +110,14 @@ Blender sessions are long-lived and cache imports, so always
 - **1** analysis, rendering, classification, report — done
 - **2** fit `Basic/basic_human`, skin, verify against a known-good biped — done
 - **3** fit `Basic/basic_quadruped` — done
-- **3.5** template-free decomposition into spine / head / tail / limbs — done
-  (`decompose.py`). Structure is discovered from a Reeb graph over geodesic
-  distance, so a worm, a hexapod or anything else with no template still
-  resolves into parts. Legs, spine, head and tail are exact on every test
-  shape; free-limb counts are resolution-sensitive and want confirming from
-  the renders.
+- **3.5** template-free decompose + build for any limb count — done
+  (`decompose.py`, `build.py`). Structure is discovered from a Reeb graph over
+  geodesic distance and a skeleton is built from the parts, so a worm, a
+  hexapod or anything else with no template gets rigged. Legs, spine, head and
+  tail are exact on every test shape; free-limb counts are resolution-sensitive
+  and want confirming from the renders. Prefer the template fitters where a
+  template fits — they inherit proportions for joints the silhouette cannot
+  show.
 - **4** generalised gait generator (phase offsets scale past four legs)
 - **5** export, with stride-derived playback speed
 - **6** shapes matching no archetype — fall back to curve-skeleton extraction or

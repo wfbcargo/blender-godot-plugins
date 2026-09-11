@@ -5,9 +5,9 @@ description: Analyse a Blender mesh to work out how it should be rigged - whethe
 
 # rig-anything
 
-Works out how an arbitrary Blender mesh should be rigged, then rigs it.
-**Phases 0-3: it measures, classifies, fits a skeleton to a biped or a
-quadruped, and binds it. It does not yet generate animation.**
+Works out how an arbitrary Blender mesh should be rigged, then rigs it -
+including shapes no template covers. **It measures, classifies, builds a
+skeleton and binds it. It does not yet generate animation.**
 
 The design splits deliberately: deterministic Python measures, and vision
 classifies. Geometry alone cannot tell a dog from a table, and ground-contact
@@ -26,7 +26,7 @@ if P not in sys.path:
     sys.path.insert(0, P)
 import rig_analysis
 rig_analysis.reload_all()
-from rig_analysis import measure, report, views, verify, fit, skin
+from rig_analysis import measure, report, views, verify, fit, skin, decompose, build
 ```
 
 ## Workflow
@@ -81,6 +81,26 @@ not follow the rig.
 renders. Geometry cannot supply it: both ends of a quadruped have an extremity
 and a tail can be longer than a muzzle. Omitting it falls back to a guess,
 flagged as `head_end_guessed`.
+
+**For anything else - a worm, a hexapod, a six-armed statue - there is no
+template, so discover the structure and build from it:**
+
+```python
+parts = decompose.classify(obj, bands=18, head_at=-0.5)
+print(parts["summary"])          # e.g. "spine of 10 joints with 6 legs"
+res = build.build_from_parts("MyObject", parts=parts)
+print(skin.bind("MyObject", res["rig"]))
+```
+
+Every creature is a spine, an optional head and tail continuing it, and N
+limbs. A limb is one structure in two roles: grounded and weight-bearing is a
+leg, free is an arm - which makes a wing an arm and a fin a limb for nothing
+extra. Rigify agrees; it ships the same vocabulary as composable rig types.
+
+**Prefer the template fitters where a template fits.** They inherit proportions
+for joints that leave no trace on the silhouette - knees and elbows sit inside
+the limb - so a biped fits to 2.2% of height where the generic builder has to
+infer everything from the mesh.
 
 **6. Probe the new rig before animating it.** A freshly fitted rig has its own
 bone rolls, which are not the ones any other rig uses. See the rule below.
@@ -141,12 +161,18 @@ locomotion. Detect and decline rather than inventing a walk cycle.
 - **Phase 1** - analysis, rendering, classification, report. Done.
 - **Phase 2** - `basic_human` fit and bone-heat bind. Done.
 - **Phase 3** - `basic_quadruped` fit and bind. Done.
+- **Phase 3.5** - template-free decompose + build, any limb count. Done.
 - **Phase 4+** - gait generation, export. Not built.
 
 Biped, measured on a 1.69 m figure against a hand-built rig: **mean joint error
 0.037 m, 2.2% of height**. Quadruped, against a synthetic model with known
-joints: **mean 0.046 m**, with every limb joint inside the mesh. Both bound at
-1.0 weight coverage, and the skin follows the rig.
+joints: **mean 0.046 m**, with every limb joint inside the mesh.
+
+Template-free builds on a worm, a quadruped, a biped and a hexapod all bound at
+**1.0 weight coverage** and deform correctly. Leg symmetry is good on the
+quadruped and hexapod (spread 0.09). It is poor on the **biped**, where a
+spurious junction splits one leg and the two come out 0.345 and 0.810 - use
+`fit_basic_human` for bipeds, which is what it is for.
 
 The crotch is measured but is deliberately *not* used as the hip anchor. The
 femoral head sits inside the pelvis, above where the legs visibly meet, so

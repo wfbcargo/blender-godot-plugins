@@ -389,6 +389,26 @@ def classify(obj, analysis=None, bands=18, head_at=None, min_prominence=0.06):
                 consumed.add(n)
     core_nodes = [n for n in nodes if n not in consumed]
 
+    # The spine must not descend into a leg.
+    #
+    # On an upright biped the legs are axially aligned with the spine, so the
+    # longest path through the core happily runs from the head down one leg to
+    # the floor. It then claimed the upper half of that leg, leaving the two
+    # legs 0.345 and 0.810 long and attached to different spine bones. Limb
+    # roots mark where the girdles are: nothing below the lowest of them is
+    # spine. A quadruped is unaffected, since its limb roots already sit at
+    # spine height, and a limbless worm has no constraint to apply.
+    grounded_leaves = [(c, r, t) for (c, r, t) in real
+                       if nodes[t]["pos"][ui] <= ground + 0.12 * height]
+    if grounded_leaves:
+        # The HIGHEST leg root, not the lowest. Using the lowest is circular:
+        # when the spine has already eaten a leg's upper half, that leg's root
+        # is spuriously low and licenses the very descent it should prevent.
+        # Legs attach at a common height on a symmetric body, so the intact one
+        # reports the true girdle.
+        floor_up = max(nodes[r]["pos"][ui] for (c, r, t) in grounded_leaves) - 0.04 * height
+        core_nodes = [n for n in core_nodes if nodes[n]["pos"][ui] >= floor_up]
+
     if len(core_nodes) >= 2:
         sub = {"nodes": {n: nodes[n] for n in core_nodes},
                "adj": {n: [m for m in ch["adj"].get(n, []) if m in set(core_nodes)]
@@ -472,8 +492,12 @@ def classify(obj, analysis=None, bands=18, head_at=None, min_prominence=0.06):
             continue
         alignment = abs(direction.normalized().dot(axis))
         at_end = root in (end_a, end_b) or root not in spine_set
+        seq = c["nodes"] if c["nodes"][0] == root else list(reversed(c["nodes"]))
         entry = {
-            "chain": c["nodes"], "root_node": root,
+            "chain": seq, "root_node": root,
+            # the medial polyline, root first - the builder follows this rather
+            # than a straight line, so a bent limb keeps its bend
+            "_points": [[round(v, 5) for v in nodes[n]["pos"]] for n in seq],
             "tip": [round(v, 4) for v in tip_pos],
             "root": [round(v, 4) for v in root_pos],
             "length": c["length"], "mean_radius": c["mean_radius"],
