@@ -167,6 +167,34 @@ def generate(rig_name, legs, forward="-Y", up="Z", gait=None, frames=32,
     return last
 
 
+def _fresh_action(rig, name):
+    """An empty action called `name`, without destroying someone else's.
+
+    Taking the name blindly deletes whatever already holds it, and the default
+    name here is just the gait - "Walk". Rig a quadruped in a file that already
+    contains a hand-authored humanoid Walk and the humanoid's clip is gone:
+    same name, different skeleton, no warning and no undo. It is only found
+    later, when the humanoid is re-exported and arrives in the engine standing
+    still.
+
+    An existing action is replaced only when it belongs to this rig. Otherwise
+    the new one is prefixed and both survive.
+    """
+    bones = {b.name for b in rig.data.bones}
+    old = bpy.data.actions.get(name)
+    if old is not None:
+        if verify.action_channels(old) <= bones:
+            bpy.data.actions.remove(old)        # ours, or empty - safe to take
+        else:
+            name = "%s_%s" % (rig.name, name)
+            clash = bpy.data.actions.get(name)
+            if clash is not None:
+                bpy.data.actions.remove(clash)
+    action = bpy.data.actions.new(name)
+    action.use_fake_user = True
+    return action
+
+
 def _generate_once(rig_name, legs, forward="-Y", up="Z", gait=None, frames=32,
                    action_name=None, swing_degrees=28.0, lift_degrees=45.0,
                    spine_bones=None, sway_degrees=4.0, arms=None, fps=None,
@@ -223,11 +251,8 @@ def _generate_once(rig_name, legs, forward="-Y", up="Z", gait=None, frames=32,
 
     if rig.animation_data is None:
         rig.animation_data_create()
-    old = bpy.data.actions.get(action_name)
-    if old:
-        bpy.data.actions.remove(old)
-    action = bpy.data.actions.new(action_name)
-    action.use_fake_user = True
+    action = _fresh_action(rig, action_name)
+    action_name = action.name
     rig.animation_data.action = action
 
     verify.clear_pose(rig)

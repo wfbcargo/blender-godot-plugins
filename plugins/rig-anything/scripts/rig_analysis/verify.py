@@ -281,6 +281,86 @@ def _frames(action):
     return int(lo), int(hi)
 
 
+def action_channels(action, slot=None):
+    """Bone names an action actually drives.
+
+    Blender 4.4 moved an action's curves behind layers, strips and channelbags;
+    before that they hung off `action.fcurves`. Both are read here, so the same
+    code works on 4.x and 5.x.
+    """
+    names = set()
+    layers = getattr(action, "layers", None)
+    if layers:
+        for layer in layers:
+            for strip in layer.strips:
+                for cb in getattr(strip, "channelbags", []):
+                    if slot is not None and getattr(cb, "slot_handle", None) not in (
+                            None, slot.handle):
+                        continue
+                    for fc in cb.fcurves:
+                        if '"' in fc.data_path:
+                            names.add(fc.data_path.split('"')[1])
+    else:
+        for fc in getattr(action, "fcurves", []):
+            if '"' in fc.data_path:
+                names.add(fc.data_path.split('"')[1])
+    return names
+
+
+def bind_action(rig, action):
+    """Assign an action to a rig *and* bind its slot.
+
+    A third way for a rig to read as a clean zero, and the most deceptive yet.
+    Blender 4.4 put an action's curves in named slots, and a slot remembers
+    which ID it was authored for. Assigning the action alone leaves nothing
+    bound when those names no longer agree, so the rig sits in its rest pose
+    while every frame is dutifully stepped through - stride 0.0000, loop seam
+    0.000000, a table of results that looks not merely plausible but excellent.
+
+    This happens in ordinary use: two rigs in one file, an action name reused,
+    and the slot now points at the other skeleton. So the binding is checked
+    against the rig's own bones and reported, never assumed to have worked.
+    """
+    ad = rig.animation_data or rig.animation_data_create()
+    ad.action = action
+
+    slots = list(getattr(action, "slots", []) or [])
+    chosen = None
+    if slots:
+        # Prefer the slot authored for this object; fall back to the only one.
+        chosen = next((s for s in slots if s.identifier == "OB" + rig.name), None)
+        if chosen is None and len(slots) == 1:
+            chosen = slots[0]
+        if chosen is not None:
+            try:
+                ad.action_slot = chosen
+            except (AttributeError, TypeError):
+                chosen = None
+
+    bones = {b.name for b in rig.data.bones}
+    channels = action_channels(action, slot=chosen)
+    drives = sorted(channels & bones)
+    foreign = sorted(channels - bones)
+
+    if drives:
+        note = "drives %d of this rig's bones" % len(drives)
+    else:
+        whose = (", ".join(foreign[:3]) + ("..." if len(foreign) > 3 else "")
+                 if foreign else "no bones at all")
+        note = ("animates nothing on %s - its channels are for %s. Every "
+                "measurement would read zero." % (rig.name, whose))
+
+    return {
+        "action": action.name,
+        "slot": chosen.identifier if chosen is not None else None,
+        "slots_available": [s.identifier for s in slots],
+        "drives": drives,
+        "foreign_channels": foreign,
+        "bound": bool(drives),
+        "note": note,
+    }
+
+
 def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
                loop=True, forward="-Y", tolerance=0.0):
     """Assert the things that silently ruin a generated clip.
@@ -307,9 +387,12 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
     prev_frame = scene.frame_current
 
     try:
-        if rig.animation_data is None:
-            rig.animation_data_create()
-        rig.animation_data.action = action
+        binding = bind_action(rig, action)
+        if not binding["bound"]:
+            # Refuse rather than measure a rest pose. The numbers that come back
+            # from an unbound action are not merely wrong, they are immaculate.
+            return {"error": "%s %s" % (repr(action_name), binding["note"]),
+                    "binding": binding}
         lo, hi = _frames(action)
 
         lowest = float("inf")
@@ -370,6 +453,7 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
 
         return {
             "action": action_name,
+            "binding": binding,
             "frames": [lo, hi],
             "fps": fps,
             "duration_s": round(duration, 4),
@@ -420,9 +504,10 @@ def contralateral(rig_name, action_name, limb_a, limb_b, forward="-Y"):
     prev_frame = scene.frame_current
 
     try:
-        if rig.animation_data is None:
-            rig.animation_data_create()
-        rig.animation_data.action = action
+        binding = bind_action(rig, action)
+        if not binding["bound"]:
+            return {"error": "%s %s" % (repr(action_name), binding["note"]),
+                    "binding": binding}
         lo, hi = _frames(action)
 
         a, b = [], []

@@ -125,6 +125,35 @@ own rest shape - so a quadruped's front legs fold like arms and its rear legs
 like legs without anyone writing that down. See the rule below for why this is
 not optional.
 
+**7. Export, and get the playback speed with it.**
+
+```python
+m = export.export("MyMesh", res["rig"], r"C:/proj/assets/thing.glb",
+                  foot_bones=["Foot.L", "Foot.R"],
+                  actions=["Idle", "Walk", "Run", "Jump"],
+                  loop_clips=["Idle", "Walk", "Run"],   # Jump is a one-shot
+                  forward="-Y")
+print(export.summarize(m))
+```
+
+Preflights, writes the glb, then **reads the file back** and checks the duration
+actually written against the duration the frame range implied. `verified.
+durations_match` is the whole point of the phase: if those disagree the speeds
+are wrong, and wrong speeds are invisible until the feet slide.
+
+`m["godot"]` is the locomotion speeds as pasteable GDScript constants, with the
+derivation in the comment. Hand-transcribing those is how the wrong period got
+into a shipped game.
+
+Name the cycles in `loop_clips`. A one-shot is not required to close its seam,
+and only a cycle has a speed - a jump travels 0.163 m, which clears any stride
+threshold and means nothing when divided by the clip length.
+
+A clip that cannot be measured blocks the export and `force=True` does not
+waive it - `force` waives preflight, where the caller can see the problem and
+judge it, while an unmeasurable clip means the deliverable itself is missing.
+Drop one deliberately with `skip_bad_clips=True`, which reports what it dropped.
+
 ## Rules
 
 **Never trust a measurement you have not sanity-checked.** This harness exists
@@ -153,6 +182,32 @@ posing updates `matrix_basis` but never moves the bone - and `view_layer.update`
 values. Every measurement then reads zero and yields a complete, confident,
 fictional table of rotation signs. `probe_bone_axis` self-checks and repairs
 before measuring, and errors rather than reporting zeros. Do not bypass it.
+
+**An unbound action reads as zero too, and reads beautifully.** Blender 4.4 put
+an action's curves in named *slots*, and a slot remembers the object it was
+authored for. `animation_data.action = a` alone binds nothing when those names
+no longer agree, so the rig holds its rest pose while every frame is stepped
+through: stride 0.0000, loop seam 0.000000, floor clearance perfect. The clip
+looks not merely fine but flawless. `verify.bind_action` binds the slot, checks
+the action against the rig's own bones, and errors instead of reporting that.
+Never assign an action by hand.
+
+**Never take an action name that already exists.** The gait generator names its
+clip after the gait, so it defaults to `Walk`. Generate a quadruped walk in a
+file that already holds a humanoid's hand-authored `Walk` and the humanoid's is
+deleted - same name, different skeleton, no warning, no undo. It surfaces much
+later, as a character that exports standing still. `gait._fresh_action` replaces
+an action only when its channels belong to this rig, and prefixes with the rig
+name otherwise. This is not hypothetical; it ate a working humanoid Walk whose
+only surviving copy was an already-exported `.glb`.
+
+**Export exactly the clips you mean.** The glTF exporter's ACTIONS mode means
+every action in the *file* carrying a fake user, not the ones belonging to what
+is being exported - and every rig this skill builds leaves its clips behind with
+a fake user set. Exporting a humanoid from a file also used to rig a rat and a
+hexapod put `RatWalk`, `Trot` and `Tripod` into the humanoid's glb. `export_glb`
+stages the wanted actions onto temporary NLA tracks instead, and the manifest
+fails on any clip in the file that nobody asked for.
 
 **Blocked means blocked.** When `health.verdict` is `blocked`, bone heat will
 fail or silently skip geometry. Fix the mesh first; do not bind and hope.
@@ -197,7 +252,7 @@ locomotion. Detect and decline rather than inventing a walk cycle.
 - **Phase 3** - `basic_quadruped` fit and bind. Done.
 - **Phase 3.5** - template-free decompose + build, any limb count. Done.
 - **Phase 4** - generalised gait generation. Done.
-- **Phase 5** - export with stride-derived playback speed. Not built.
+- **Phase 5** - export with stride-derived playback speed. Done.
 
 Biped, measured on a 1.69 m figure against a hand-built rig: **mean joint error
 0.037 m, 2.2% of height**. Quadruped, against a synthetic model with known
@@ -215,6 +270,14 @@ below the floor, implied speeds 0.92 m/s (quadruped walk), 0.82 (trot) and 0.57
 diagonal pair correlates only +0.468 rather than near +1: the hips move in
 phase, but front and rear legs fold in opposite directions so their feet trace
 different paths. That is expected, not a fault.
+
+Export was validated against a clip already shipped in a game. The run cycle's
+implied speed had been worked out by hand, got the wrong period, and slid the
+feet 4%; re-derived here from the same rig it comes back **2.138 m/s**, matching
+the hand-corrected constant exactly, and every clip's written duration matches
+the duration its frame range implies. Doing that surfaced three more quiet
+failures - the slot-binding zero, the eaten `Walk`, and three foreign clips in
+the humanoid's glb - all in the rules above.
 
 The crotch is measured but is deliberately *not* used as the hip anchor. The
 femoral head sits inside the pelvis, above where the legs visibly meet, so

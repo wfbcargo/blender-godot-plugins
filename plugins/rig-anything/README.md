@@ -4,15 +4,24 @@ Works out how an arbitrary Blender mesh should be rigged: whether automatic
 weights can bind to it at all, which way is up and forward, how many limbs touch
 the ground, and which skeleton archetype fits.
 
-> **Status: phases 0-4, validated on a real asset.** It measures, classifies,
-> builds a skeleton - from a template where one fits, otherwise from discovered
-> structure - binds it with bone-heat weights, and generates a looping gait for
-> any number of legs.
+> **Status: phases 0-5, validated on a real asset and against shipped code.**
+> It measures, classifies, builds a skeleton - from a template where one fits,
+> otherwise from discovered structure - binds it with bone-heat weights,
+> generates a looping gait for any number of legs, and exports it with the
+> playback speed an engine needs to keep the feet from sliding.
 >
 > Tested end to end on a downloaded PolyHaven rat (31,937 verts, 83 mesh
 > components, 6,504 non-manifold edges): classified as a quadruped, fitted,
 > bound at 1.0 weight coverage, and walking. Five defects that only a real
 > asset could expose are fixed below.
+>
+> Export was then validated against a clip already shipped in a game, whose
+> implied speed had been derived by hand from the wrong period and slid the feet
+> 4%. Re-derived here it returns **2.138 m/s**, matching the hand-corrected
+> constant exactly. That pass exposed three further quiet failures - an action
+> bound to no slot measuring as a flawless zero, a generated gait deleting
+> another rig's identically-named clip, and three unrelated creatures' clips
+> riding along inside the exported glb.
 >
 > Still **not listed in the marketplace manifest** - one real asset is
 > evidence, not coverage.
@@ -73,6 +82,13 @@ Three failures this harness was built around, each found the hard way:
   permanently in front of the body, so its absolute sign never flips even while
   it swings perfectly. Comparing raw positions reports a false failure.
 
+Phase 5 supplied a fifth, and the worst of them. Blender 4.4 moved an action's
+curves into named *slots*, and a slot remembers which object it was authored
+for. Assign the action without binding a slot and nothing is bound: the rig
+holds its rest pose while every frame is stepped through, so stride reads
+0.0000, the loop seam 0.000000 and floor clearance perfect. The failure does not
+look like a failure; it looks like the best clip the generator ever produced.
+
 Phase 2 supplied a fourth, from the same mesh rigged two ways: on the
 hand-built humanoid every limb swings forward on **-X**, while on the fitted
 `basic_human` the `upper_arm` swings about **Z** and the `forearm`'s forward is
@@ -85,7 +101,8 @@ convention between two rigs of the same character inverts the arms.
 SKILL.md                          the procedure, and the rules
 scripts/rig_analysis/
   measure.py    riggability, symmetry, ground contacts, extremities, profile
-  verify.py     axis probe, clip checks, contralateral, export origin
+  verify.py     axis probe, slot binding, clip checks, contralateral, origin
+  export.py     preflight, glb write, read-back duration check, GDScript out
   views.py      orthographic renders in an isolated throwaway scene
   report.py     compact text output
 references/
@@ -134,6 +151,13 @@ Blender sessions are long-lived and cache imports, so always
   arms and its rear like legs with nobody writing that down. Verified clean on
   4 and 6 legs: loop seam 0.000000, no foot below the floor. Declines a worm
   rather than inventing a walk for it.
-- **5** export, with stride-derived playback speed
+- **5** export, with stride-derived playback speed — done (`export.py`).
+  Preflights what is silently wrong in an engine rather than in Blender (a rig
+  off its origin orbits instead of turning; unapplied scale desynchronises the
+  gait from the metres it was measured in), stages exactly the wanted actions
+  onto temporary NLA tracks so no other rig's clips ride along, writes the glb,
+  then **reads the file back** and asserts each written duration against the
+  duration its frame range implied. Emits the locomotion speeds as pasteable
+  GDScript, because transcribing them by hand is how the wrong period shipped.
 - **6** shapes matching no archetype — fall back to curve-skeleton extraction or
   shell out to UniRig. Do not reimplement either.
