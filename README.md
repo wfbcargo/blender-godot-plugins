@@ -72,6 +72,29 @@ lives in the editor, not the engine, so there is nothing headless to talk to.
 Hovering `Node` then returns the entire engine class reference. See the
 [plugin README](./plugins/godot-lsp/README.md).
 
+### [`rig-anything`](./plugins/rig-anything/)
+
+Rigs and animates an arbitrary Blender mesh — including shapes no template
+covers.
+
+Auto-rigging asks two questions and the literature mostly answers only the
+first: *where are the joints*, and *what do they do*. This splits the work by
+what each side is good at. Deterministic Python measures the geometry; **vision
+classifies it from rendered silhouettes**, because geometry alone cannot tell a
+dog from a table and counting ground contacts cannot tell front from back. A
+skeleton is then fitted from a template where one fits, built from a discovered
+Reeb graph where none does, bound with bone-heat weights, and given a looping
+gait for any number of legs — or a travelling lateral wave for a body with none.
+
+Most of the code is there because **generated rigs fail quietly**. A wrong
+rotation sign still plays. A foot six millimetres through the floor still
+renders. An action bound to no slot reports stride 0.0000 and a loop seam of
+0.000000 — not a failure that looks like a failure, but one that looks like the
+best clip the generator ever made. So bone axes are probed per bone, a stale rig
+errors instead of returning zeros, and export reads the written glTF back to
+check the duration it actually wrote. See the
+[plugin README](./plugins/rig-anything/README.md).
+
 ## Layout
 
 ```
@@ -101,6 +124,12 @@ plugins/
     .claude-plugin/plugin.json
     .lsp.json                       # the gdscript server registration
     godot-lsp-bridge.mjs            # stdio <-> TCP pipe, no dependencies
+    README.md
+  rig-anything/
+    .claude-plugin/plugin.json
+    SKILL.md                        # the procedure, and the rules
+    scripts/rig_analysis/           # measure, classify, fit, bind, gait, export
+    references/                     # archetypes, and which way each joint bends
     README.md
 ```
 

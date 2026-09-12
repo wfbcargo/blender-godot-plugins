@@ -1,7 +1,7 @@
 {
   "name": "rig-anything",
-  "version": "0.1.0",
-  "description": "Analyse an arbitrary Blender mesh to work out how it should be rigged: whether automatic weights can bind to it at all, which way is up and forward, how many limbs touch the ground, and which skeleton archetype fits. Deterministic geometry measures, renders let vision classify, and a verification harness stops a silently-stale rig from producing confident but fictional measurements. Phases 0 and 1: it reports, it does not yet build skeletons or animation.",
+  "version": "0.5.0",
+  "description": "Rigs and animates an arbitrary Blender mesh, including shapes no template covers. Deterministic Python measures the geometry, renders let vision classify it, and the skeleton is fitted from a template where one fits or built from discovered structure where none does. It then binds with bone-heat weights, generates a looping gait for any number of legs - or a travelling wave for a body with none - and exports to glTF with the playback speed the clip's own stride implies, verified by reading the written file back. Throughout it measures rather than assumes: bone axes are probed per bone because an elbow and a knee bend opposite ways, and a rig whose pose evaluation has gone stale is made to error rather than report a confident table of zeros.",
   "author": {
     "name": "Paul Lovy",
     "url": "https://paullovy.com"
@@ -9,5 +9,5 @@
   "homepage": "https://github.com/wfbcargo/PaulClaudePlugins",
   "repository": "https://github.com/wfbcargo/PaulClaudePlugins",
   "license": "MIT",
-  "keywords": ["blender", "rigging", "auto-rig", "skeleton", "animation", "gamedev", "3d"]
+  "keywords": ["blender", "rigging", "auto-rig", "skeleton", "animation", "gait", "gltf", "gamedev", "3d"]
 }

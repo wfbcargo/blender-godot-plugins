@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Paul Lovy's Claude Code plugins.",
-    "version": "0.7.0"
+    "version": "0.8.0"
   },
   "plugins": [
     {
@@ -54,6 +54,24 @@
         "language-server",
         "gamedev",
         "code-intelligence"
+      ]
+    },
+    {
+      "name": "rig-anything",
+      "source": "./plugins/rig-anything",
+      "version": "0.5.0",
+      "description": "Rigs and animates an arbitrary Blender mesh, including shapes no template covers. The work is split by what each side is actually good at: deterministic Python measures the geometry, and vision classifies it from rendered silhouettes, because geometry alone cannot tell a dog from a table and counting ground contacts cannot tell front from back. A skeleton is then fitted from a template where one fits and built from a discovered Reeb graph where none does, bound with bone-heat weights, and given a looping gait for any number of legs - or a travelling lateral wave for a body with none. Export writes glTF along with the playback speed the clip's own stride implies, then reads the file back to check it. Every measurement is defended: bone axes are probed per bone because an elbow and a knee bend opposite ways, and a rig whose pose evaluation has gone stale errors instead of returning a confident table of zeros.",
+      "category": "development",
+      "keywords": [
+        "blender",
+        "rigging",
+        "auto-rig",
+        "skeleton",
+        "animation",
+        "gait",
+        "gltf",
+        "gamedev",
+        "3d"
       ]
     }
   ]

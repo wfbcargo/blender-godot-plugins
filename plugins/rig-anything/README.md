@@ -23,8 +23,11 @@ the ground, and which skeleton archetype fits.
 > another rig's identically-named clip, and three unrelated creatures' clips
 > riding along inside the exported glb.
 >
-> Still **not listed in the marketplace manifest** - one real asset is
-> evidence, not coverage.
+> **Listed** in the marketplace manifest as of 0.5.0. The coverage caveat still
+> stands and is worth stating plainly: the rat is the only downloaded asset it
+> has been through: the worm, quadruped, hexapod and biped are shapes this was
+> built against, so they test the code rather than surprise it. More real
+> assets will find more of what the rat found.
 >
 > Biped, against a hand-built rig on a 1.69 m figure: **mean joint error
 > 0.037 m, 2.2% of height**. Quadruped, against a synthetic model with known
