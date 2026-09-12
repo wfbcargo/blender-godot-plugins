@@ -118,6 +118,25 @@ side. `gait` accepts `walk`, `trot`, `tripod`, `bound`; omit it and one is
 chosen from the leg count.
 
 It refuses a creature with no legs rather than inventing a walk for a worm.
+**A worm still moves** - it just does not walk:
+
+```python
+u = gait.undulate("WormTest_rig", forward="-Y", amplitude_degrees=26.0,
+                  wavelengths=1.25)
+print(u["implied_speed_playback_mps"], u["verification"]["passed"])
+```
+
+A travelling lateral wave along the spine - the same machinery as a gait, one
+curve with a phase offset per element, except the offset comes from position
+along the body rather than rank and side. Speed comes from the serpentine
+model, not from stride: a snake slides along its own track, so while the wave
+sweeps one wavelength backward the body advances by that wavelength's
+straight-line extent.
+
+**Do not use the exporter's stride figure for an undulator.** It will happily
+produce one - it measured 0.2827 m/s for a worm whose real figure is 0.4105 -
+because what it read as a stride was the head and tail wobbling. A stride means
+nothing to something with no feet.
 
 **Do not hand it rotation signs.** Which axis swings each limb forward is
 probed per bone, and which way a mid-joint folds is measured from that limb's
@@ -230,8 +249,22 @@ is wrong in a way that is tedious to undo. Even commercial auto-riggers ask the
 user to name a similar species. Say what you think it is, say why you are
 unsure, and ask.
 
-**Assets with no gait get no gait.** A chair, a rock or a tentacle has no
-locomotion. Detect and decline rather than inventing a walk cycle.
+**Assets with no gait get no gait - but "no legs" is not "no locomotion."**
+A chair and a rock do not move, and no walk should be invented for them. A worm
+does move; it just has no feet to do it with, so `gait.undulate` drives a
+travelling wave down its spine instead. The test to decline on is whether the
+body has anything to push with at all - legs, or a chain long enough to carry a
+wave - not whether it has legs.
+
+**Order a spine by the hierarchy, never by position.** Ranking bones along the
+travel axis looks obviously right and is wrong on real generated rigs. The
+worm's own spine doubles back: `spine.001` sits behind its parent and in front
+of its child. Rank by position and neighbouring phases land on bones that are
+not neighbours, so the wave comes out as noise rather than a wave - and it
+still animates, perfectly smoothly, going nowhere. `_arc_positions` walks the
+skeleton instead, and decides each branch's direction once from the branch as a
+whole, because deciding it per step reintroduces the same bug at one kinked
+link.
 
 ## What the numbers mean
 
@@ -253,6 +286,8 @@ locomotion. Detect and decline rather than inventing a walk cycle.
 - **Phase 3.5** - template-free decompose + build, any limb count. Done.
 - **Phase 4** - generalised gait generation. Done.
 - **Phase 5** - export with stride-derived playback speed. Done.
+- **Phase 5.5** - legless locomotion: a travelling lateral wave for anything
+  with a spine and no legs. Done (`gait.undulate`).
 
 Biped, measured on a 1.69 m figure against a hand-built rig: **mean joint error
 0.037 m, 2.2% of height**. Quadruped, against a synthetic model with known

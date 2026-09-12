@@ -151,6 +151,12 @@ Blender sessions are long-lived and cache imports, so always
   arms and its rear like legs with nobody writing that down. Verified clean on
   4 and 6 legs: loop seam 0.000000, no foot below the floor. Declines a worm
   rather than inventing a walk for it.
+- **5.5** legless locomotion — done (`gait.undulate`). A travelling lateral
+  wave down the spine, same machinery as a gait: one curve, a phase offset per
+  element, taken from position along the body instead of rank and side. Speed
+  comes from the serpentine model rather than a stride, since a stride means
+  nothing to something with no feet. The refusal narrows from "no legs" to
+  "nothing to push with" — a rock still gets nothing.
 - **5** export, with stride-derived playback speed — done (`export.py`).
   Preflights what is silently wrong in an engine rather than in Blender (a rig
   off its origin orbits instead of turning; unapplied scale desynchronises the

@@ -378,3 +378,264 @@ def limbs_from_rig(rig_name, forward="-Y", role="leg"):
             "forward": tip_pos[fi] * (-1.0 if forward.startswith("-") else 1.0),
         })
     return out
+
+
+# ---------------------------------------------------------------------------
+# legless locomotion
+# ---------------------------------------------------------------------------
+
+def spine_chain(rig_name, forward="-Y"):
+    """Order a creature's bones from head to tail along its travel axis.
+
+    Parenting cannot supply this order. The worm's chain branches at its middle
+    bone and runs BOTH ways - spine.001..007 toward the head and tail.001..003
+    toward the rear - so walking the hierarchy visits the body outward from the
+    centre rather than end to end, and a wave built on that order travels out
+    from the middle in both directions at once. Position along the forward axis
+    gives the real order, and it does not care what the bones are called.
+    """
+    rig = bpy.data.objects.get(rig_name)
+    if rig is None or rig.type != "ARMATURE":
+        return []
+    fsign = -1.0 if forward.startswith("-") else 1.0
+    fidx = AXIS_INDEX[forward[-1].upper()]
+    # Most forward first: "forwardness" is the head position projected onto the
+    # travel direction.
+    ranked = sorted(rig.data.bones,
+                    key=lambda b: b.head_local[fidx] * fsign, reverse=True)
+    return [b.name for b in ranked]
+
+
+def _arc_positions(rig, chain, fidx, fsign):
+    """Where each bone sits along the body, 0 at the head and 1 at the tail.
+
+    Measured along the SKELETON, not through space. The obvious way - rank the
+    bones by position on the travel axis - is wrong on a real generated rig,
+    because the rig is not guaranteed to run monotonically. The worm's does not:
+    `spine.001` sits behind its own parent and in front of its own child, so the
+    spine doubles back, and ranking by position hands neighbouring phases to
+    bones that are not neighbours. The wave comes out as noise.
+
+    Walking the hierarchy instead makes the order structural. Distance is
+    accumulated outward from the root along each branch and signed by the
+    direction that branch travels, so a kinked chain still yields a monotonic
+    parameter and the wave stays coherent.
+    """
+    names = set(chain)
+    by_name = {b.name: b for b in rig.data.bones}
+
+    # The root of this body: the highest ancestor still inside the chain.
+    def root_of(bone):
+        cur = bone
+        while cur.parent is not None and cur.parent.name in names:
+            cur = cur.parent
+        return cur
+
+    roots = {root_of(by_name[n]).name for n in chain}
+    root = by_name[sorted(roots)[0]]
+
+    # Distance from the root, accumulated down each branch.
+    dist = {root.name: 0.0}
+    branch = {root.name: None}
+    stack = [root]
+    while stack:
+        bone = stack.pop()
+        for child in bone.children:
+            if child.name not in names:
+                continue
+            step = (Vector(child.head_local) - Vector(bone.head_local)).length
+            if step < 1e-6:
+                step = bone.length
+            dist[child.name] = dist[bone.name] + step
+            branch[child.name] = (branch[bone.name]
+                                  if branch[bone.name] is not None else child.name)
+            stack.append(child)
+
+    # Which way each branch runs is decided ONCE, from the branch as a whole -
+    # its farthest bone against the root. Deciding it per step re-introduces the
+    # exact bug this function exists to dodge: one kinked link reverses the sign
+    # mid-branch and the wave folds back on itself.
+    root_fwd = Vector(root.head_local)[fidx] * fsign
+    far = {}
+    for n in chain:
+        b = branch.get(n)
+        if b is None:
+            continue
+        if b not in far or dist[n] > dist[far[b]]:
+            far[b] = n
+    heading = {}
+    for b, tip_name in far.items():
+        tip_fwd = Vector(by_name[tip_name].head_local)[fidx] * fsign
+        heading[b] = -1.0 if tip_fwd > root_fwd else 1.0
+
+    signed = {}
+    for n in chain:
+        b = branch.get(n)
+        signed[n] = 0.0 if b is None else dist[n] * heading.get(b, 1.0)
+
+    for n in chain:
+        signed.setdefault(n, 0.0)
+    lo = min(signed[n] for n in chain)
+    hi = max(signed[n] for n in chain)
+    span = (hi - lo) or 1.0
+    return {n: (signed[n] - lo) / span for n in chain}
+
+
+def _lateral_index(forward, up):
+    used = {AXIS_INDEX[forward[-1].upper()], AXIS_INDEX[up[-1].upper()]}
+    return ({0, 1, 2} - used).pop()
+
+
+def _fcurves(action):
+    """Every fcurve of an action, across Blender's old and slotted layouts."""
+    out = []
+    layers = getattr(action, "layers", None)
+    if layers:
+        for layer in layers:
+            for strip in layer.strips:
+                for cb in getattr(strip, "channelbags", []):
+                    out.extend(cb.fcurves)
+    else:
+        out.extend(getattr(action, "fcurves", []))
+    return out
+
+
+def undulate(rig_name, bones=None, forward="-Y", up="Z", frames=32,
+             action_name="Undulate", amplitude_degrees=16.0, wavelengths=1.25,
+             head_damping=0.35, fps=None, floor=0.0, min_bones=4):
+    """A travelling lateral wave along a legless body.
+
+    The same shape as the legged gaits - one curve, phase-offset per element. A
+    leg is offset by its rank and side; a spine bone is offset by how far along
+    the body it sits, which turns the same machinery into serpentine motion.
+
+    Two things here are measured rather than assumed, both for reasons this
+    skill has already been bitten by:
+
+    - Which local axis bends a bone sideways is PROBED per bone. The chain
+      branches at the middle and its two halves run in opposite directions, so
+      one half needs the opposite sign for the same world-space bend. This is
+      the elbow-and-knee problem wearing a different hat.
+    - The wave has to actually TRAVEL. A standing wave animates beautifully and
+      moves the creature nowhere, which is precisely the kind of failure that
+      looks like success.
+
+    Speed comes from the serpentine model: a snake slides along its own track,
+    so while the wave sweeps one wavelength backward along the body, the body
+    advances by that wavelength's straight-line extent. That is a different
+    derivation from the legged clips' stride, deliberately - a stride means
+    nothing to something with no feet.
+    """
+    rig = bpy.data.objects.get(rig_name)
+    if rig is None or rig.type != "ARMATURE":
+        return {"error": "no armature named " + repr(rig_name)}
+
+    chain = list(bones) if bones else spine_chain(rig_name, forward=forward)
+    chain = [b for b in chain if b in rig.pose.bones]
+    if len(chain) < min_bones:
+        return {"error": "no spine to undulate: %d usable bones, need %d. A body "
+                         "with neither legs nor a chain does not move."
+                         % (len(chain), min_bones)}
+
+    lat = _lateral_index(forward, up)
+    fidx = AXIS_INDEX[forward[-1].upper()]
+    fsign = -1.0 if forward.startswith("-") else 1.0
+
+    # Arc position of each bone, 0 at the head and 1 at the tail. Measured along
+    # the body rather than by index, so uneven bone lengths do not skew the wave.
+    heads = [Vector(rig.data.bones[b].head_local) for b in chain]
+    s_map = _arc_positions(rig, chain, fidx, fsign)
+    s = [s_map[b] for b in chain]
+    # Re-order by arc position so the wave is written along the body, not in
+    # whatever order the bones happened to be ranked.
+    order = sorted(range(len(chain)), key=lambda i: s[i])
+    chain = [chain[i] for i in order]
+    s = [s[i] for i in order]
+
+    # Probe every bone for the axis that bends it sideways.
+    axes = {}
+    for b in chain:
+        pr = verify.probe_bone_axis(rig_name, b, forward=forward, up=up)
+        if "error" in pr:
+            return {"error": "axis probe failed for %s: %s" % (b, pr["error"])}
+        best = max(pr["axes"], key=lambda a: abs(pr["axes"][a]["delta"][lat]))
+        d = pr["axes"][best]["delta"][lat]
+        if abs(d) < 1e-6:
+            return {"error": "bone %s does not bend laterally on any axis" % b}
+        axes[b] = (best, 1.0 if d > 0 else -1.0)
+
+    scene = bpy.context.scene
+    if fps:
+        scene.render.fps = fps
+    if rig.animation_data is None:
+        rig.animation_data_create()
+    action = _fresh_action(rig, action_name)
+    action_name = action.name
+    rig.animation_data.action = action
+    verify.clear_pose(rig)
+
+    def axis_quat(axis, degrees):
+        e = [0.0, 0.0, 0.0]
+        e[AXIS_INDEX[axis]] = math.radians(degrees)
+        return Euler(e, "XYZ").to_quaternion()
+
+    keys = list(range(1, frames + 2))          # frame frames+1 repeats frame 1
+    for f in keys:
+        t = ((f - 1) % frames) / float(frames)
+        for i, b in enumerate(chain):
+            # Phase lags with distance along the body, so the wave is born at
+            # the head and travels backward - which is what pushes forward.
+            phase = 2.0 * math.pi * (t - wavelengths * s[i])
+            # Amplitude grows from the head and then PLATEAUS. Letting it climb
+            # all the way to the tail stacks the envelope on top of the
+            # compounding every chain already has - each bone inherits its
+            # parent's rotation - and the last bones crack like a whip, swinging
+            # further than the body is wide. Real undulators build amplitude
+            # over the front half and hold it.
+            envelope = head_damping + (1.0 - head_damping) * min(1.0, s[i] / 0.6)
+            axis, sign = axes[b]
+            deg = math.sin(phase) * amplitude_degrees * envelope * sign
+            pb = rig.pose.bones[b]
+            pb.rotation_mode = "QUATERNION"
+            pb.rotation_quaternion = axis_quat(axis, deg)
+            pb.keyframe_insert("rotation_quaternion", frame=f)
+
+    for fc in _fcurves(action):
+        for kp in fc.keyframe_points:
+            kp.interpolation = "BEZIER"
+
+    # Straight-line extent of the body while the wave is fully developed.
+    scene.frame_set(1 + frames // 4)
+    bpy.context.view_layer.update()
+    pts = [rig.matrix_world @ rig.pose.bones[b].head for b in chain]
+    extent = max(p[fidx] for p in pts) - min(p[fidx] for p in pts)
+    rest_extent = (max(h[fidx] for h in heads) - min(h[fidx] for h in heads)) or 1.0
+
+    fps_now = scene.render.fps
+    cycle_s = frames / float(fps_now)
+    playback_s = (frames + 1) / float(fps_now)
+    speed_cycle = (extent / wavelengths) / cycle_s
+    speed_playback = (extent / wavelengths) / playback_s
+
+    check = verify.check_clip(rig_name, action_name, [chain[-1], chain[0]],
+                             floor=floor, up=up, forward=forward,
+                             tolerance=0.02 * max(rig.dimensions))
+    scene.frame_set(1)
+
+    return {
+        "rig": rig_name,
+        "action": action_name,
+        "gait": "undulate",
+        "mode": "lateral",
+        "bones": len(chain),
+        "chain": chain,
+        "frames": frames,
+        "wavelengths": wavelengths,
+        "amplitude_degrees": amplitude_degrees,
+        "axes": {b: ("+" if axes[b][1] > 0 else "-") + axes[b][0] for b in axes},
+        "body_extent_m": round(extent, 4),
+        "shortening": round(1.0 - extent / rest_extent, 4),
+        "implied_speed_playback_mps": round(speed_playback, 4),
+        "implied_speed_cycle_mps": round(speed_cycle, 4),
+        "verification": check,
+    }

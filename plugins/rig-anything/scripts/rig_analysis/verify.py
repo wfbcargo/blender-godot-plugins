@@ -342,8 +342,23 @@ def bind_action(rig, action):
     drives = sorted(channels & bones)
     foreign = sorted(channels - bones)
 
-    if drives:
+    # Partial application is its own trap, and this skill's own naming invites
+    # it. Every generically-built rig calls its limbs leg1_upper.L and so on,
+    # so a hexapod's Tripod lands 8 of its 12 channels on a quadruped: the legs
+    # it shares move, the two it does not are dropped, and what plays is a
+    # confident half-animation of the wrong creature. A clip authored for
+    # another skeleton is not this skeleton's clip, whatever the overlap.
+    coverage = (len(drives) / float(len(drives) + len(foreign))
+                if (drives or foreign) else 0.0)
+
+    if drives and not foreign:
         note = "drives %d of this rig's bones" % len(drives)
+    elif drives:
+        note = ("only %d of its %d channels exist on %s (%s missing) - it was "
+                "authored for another skeleton and would play as a partial "
+                "animation" % (len(drives), len(drives) + len(foreign), rig.name,
+                               ", ".join(foreign[:3])
+                               + ("..." if len(foreign) > 3 else "")))
     else:
         whose = (", ".join(foreign[:3]) + ("..." if len(foreign) > 3 else "")
                  if foreign else "no bones at all")
@@ -356,7 +371,8 @@ def bind_action(rig, action):
         "slots_available": [s.identifier for s in slots],
         "drives": drives,
         "foreign_channels": foreign,
-        "bound": bool(drives),
+        "coverage": round(coverage, 3),
+        "bound": bool(drives) and not foreign,
         "note": note,
     }
 
@@ -545,33 +561,61 @@ def contralateral(rig_name, action_name, limb_a, limb_b, forward="-Y"):
         _restore(rig, snap)
 
 
-def check_export_origin(rig_name, mesh_name=None, tolerance=0.01):
-    """Whether the rig sits on its own origin.
+def check_export_origin(rig_name, mesh_name=None, tolerance=0.01,
+                        centroid_ratio=0.25):
+    """Whether the exported transforms sit on the origin.
 
-    An exported root carrying a translation makes the character orbit a point
-    off to one side when the node is rotated, rather than turning in place.
+    What makes a character orbit is a *transform* on the exported root: rotate
+    a node that carries a lateral translation and it swings around a point off
+    to one side instead of turning in place. So the transforms are what get
+    checked - the rig's and the mesh's, in world space, so a compensating
+    parent does not hide one.
+
+    The mesh's vertex centroid is deliberately NOT the test. It was, and it
+    failed every animal it was shown: a rat's mass sits 3 cm behind its origin
+    because it has a tail, a quadruped's 2 cm because it has a head, and none
+    of that makes anything orbit. Anatomy is not an offset. The centroid is
+    kept as a warning, at a threshold scaled to the creature, where it means
+    something different - that the mesh really was modelled off to one side.
     """
     rig = bpy.data.objects.get(rig_name)
     if rig is None:
         return {"error": "no armature " + repr(rig_name)}
 
+    def lateral(v):
+        return math.hypot(v.x, v.y)
+
+    rig_off = lateral(rig.matrix_world.translation)
     out = {
         "rig": rig_name,
-        "rig_location": [round(v, 5) for v in rig.location],
-        "offset": round(Vector(rig.location).length, 5),
+        "rig_world": [round(v, 5) for v in rig.matrix_world.translation],
+        "offset": round(rig_off, 5),
     }
-    if mesh_name:
-        mesh = bpy.data.objects.get(mesh_name)
-        if mesh:
-            pts = [mesh.matrix_world @ v.co for v in mesh.data.vertices]
-            cx = sum(p.x for p in pts) / len(pts)
-            cy = sum(p.y for p in pts) / len(pts)
-            out["mesh_mean_xy"] = [round(cx, 5), round(cy, 5)]
-            out["lateral_offset"] = round(math.hypot(cx, cy), 5)
+    worst, culprit = rig_off, rig_name
 
-    off = out.get("lateral_offset", out["offset"])
-    out["passed"] = off <= tolerance
+    mesh = bpy.data.objects.get(mesh_name) if mesh_name else None
+    if mesh:
+        mesh_off = lateral(mesh.matrix_world.translation)
+        out["mesh_world"] = [round(v, 5) for v in mesh.matrix_world.translation]
+        out["mesh_offset"] = round(mesh_off, 5)
+        if mesh_off > worst:
+            worst, culprit = mesh_off, mesh_name
+
+        pts = [mesh.matrix_world @ v.co for v in mesh.data.vertices]
+        cx = sum(p.x for p in pts) / len(pts)
+        cy = sum(p.y for p in pts) / len(pts)
+        span = max(mesh.dimensions.x, mesh.dimensions.y) or 1.0
+        out["mesh_mean_xy"] = [round(cx, 5), round(cy, 5)]
+        out["centroid_offset"] = round(math.hypot(cx, cy), 5)
+        out["centroid_fraction"] = round(out["centroid_offset"] / span, 3)
+        if out["centroid_fraction"] > centroid_ratio:
+            out["warning"] = ("mesh centroid is %.0f%% of its span off centre - "
+                              "modelled to one side?"
+                              % (out["centroid_fraction"] * 100))
+
+    out["offset_worst"] = round(worst, 5)
+    out["passed"] = worst <= tolerance
     out["note"] = ("centred" if out["passed"] else
-                   "off origin by " + format(off, ".4f")
+                   culprit + " is off origin by " + format(worst, ".4f")
                    + " - export from the origin or the model will orbit")
     return out

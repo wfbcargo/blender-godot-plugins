@@ -318,7 +318,10 @@ def export_glb(filepath, objects, actions=None, rig_name=None,
         "use_selection": True,
         "export_yup": True,
         "export_apply": apply_modifiers,
-        "export_animations": True,
+        # An empty list is not "no preference", it is "this thing has no gait" -
+        # a chair, a rock, a worm. The skill declines to invent locomotion for
+        # those, so the export must not bake a scene animation onto them either.
+        "export_animations": True if actions is None else bool(actions),
         # One glTF animation per staged NLA track, named after the track.
         "export_animation_mode": "NLA_TRACKS" if actions else "SCENE",
         # Each clip keeps its own frame range rather than being cropped to the
