@@ -70,15 +70,17 @@ def lean_angles(bm, lean, head_level):
 
 class Key:
     def __init__(self, drop=0.0, shift=0.0, sway=0.0, lean=0.0, head_level=0.8,
-                 limbs=None, name=""):
+                 limbs=None, name="", tail_lift=0.0, tail_sway=0.0):
         self.drop, self.shift, self.sway = drop, shift, sway
         self.lean, self.head_level = lean, head_level
         self.limbs = dict(limbs or {})
         self.name = name
+        # degrees, summed along the tail: lift raises the tip, sway swings it
+        self.tail_lift, self.tail_sway = tail_lift, tail_sway
 
     def copy(self, **changes):
         k = Key(self.drop, self.shift, self.sway, self.lean, self.head_level,
-                self.limbs, self.name)
+                self.limbs, self.name, self.tail_lift, self.tail_sway)
         for a, v in changes.items():
             setattr(k, a, v)
         return k
@@ -122,6 +124,20 @@ class Poser:
         return (s.get("target"), s.get("pole"),
                 s.get("planted", limb["role"] == "leg"))
 
+    def tilt_rotation(self, limb, degrees):
+        """(rotation, ankle offset) for a planted end pivoting on its toe.
+
+        Positive raises the heel - or the wrist - off the floor while the toe
+        stays put, which is how a crouching rat keeps its forearm skin out of
+        the ground."""
+        if not degrees or not limb["end"]:
+            return Matrix.Identity(3), Vector((0.0, 0.0, 0.0))
+        b = self.rig.data.bones[limb["end"]]
+        v = b.head_local - b.tail_local                   # toe -> ankle, rest
+        axis = self.lat if self.lat.cross(v).dot(self.up) > 0.0 else -self.lat
+        rot = Matrix.Rotation(math.radians(degrees), 3, axis)
+        return rot, rot @ v - v
+
     def blend(self, a, b, w, w_legs=None, w_arms=None, w_lean=None):
         """The body `w` of the way from key `a` to key `b`.
 
@@ -140,6 +156,12 @@ class Poser:
                         lerp(a.head_level, b.head_level, wt)))
         posed = body.fk(axial)
         overrides = dict(axial)
+        if self.bm.get("tail"):
+            overrides.update(body.pose_tail(
+                posed, lift_deg=lerp(a.tail_lift, b.tail_lift, wt),
+                sway_deg=lerp(a.tail_sway, b.tail_sway, wt), floor=self.bm["floor"],
+                clearance=0.004 * self.bm["height"]))
+            posed = body.fk(overrides)
         infos = {}
         for limb in self.legs + self.arms:
             lw = wl if limb["role"] == "leg" else wa
@@ -160,13 +182,25 @@ class Poser:
                 pole, pole_w = pa, 1.0 - lw
 
             plant_w = lerp(1.0 if planted_a else 0.0, 1.0 if planted_b else 0.0, lw)
+            tilt = lerp(a.limbs.get(limb["name"], {}).get("tilt", 0.0),
+                        b.limbs.get(limb["name"], {}).get("tilt", 0.0), lw)
+            end_rot, lift = self.tilt_rotation(limb, tilt)
             ov, info = body.solve_limb(
-                posed, limb, target,
-                end_rotation=Matrix.Identity(3) if plant_w > 0.0 else None,
+                posed, limb, target + lift,
+                end_rotation=end_rot if plant_w > 0.0 else None,
                 end_weight=plant_w, pole=pole, pole_weight=pole_w)
             overrides.update(ov)
             infos[limb["name"]] = info
-        return body.fk(overrides), infos
+        posed = body.fk(overrides)
+        # toes lie on the floor rather than pointing into it
+        drapes = {}
+        for limb in self.legs:
+            drapes.update(body.drape_digits(posed, limb, floor=self.bm["floor"],
+                                            clearance=0.004 * self.bm["height"]))
+        if drapes:
+            overrides.update(drapes)
+            posed = body.fk(overrides)
+        return posed, infos
 
     def pose(self, key):
         return self.blend(key, key, 1.0)
@@ -256,9 +290,100 @@ def crouch_key(poser, depth=0.6, lean_degrees=None, head_level=0.8,
             f1 = com_fwd(x1) - goal
         shift = x1
     key.shift = shift
+    tilts = solve_contact_tilts(poser, key)
+    skin_limited = limit_drop_by_skin(poser, key)
     return key, {"drop": drop, "max_drop": max_drop, "shift": shift, "lean": lean,
+                 "tilts": tilts, "skin_limited_drop": skin_limited,
                  "limited_by": "legs" if room <= belly else "belly clearance",
                  "support": (lo, hi)}
+
+
+def limit_drop_by_skin(poser, key, clearance=0.004):
+    """Raise `key.drop` until no skin passes below the floor. Returns the drop
+    removed, or 0.0.
+
+    Legs and belly are not the only things that reach the ground. A sharply
+    folded joint near it bulges its skin downward - the rat's wrists sank 7-9
+    mm into the floor in a crouch its bones allowed - so the crouch is also as
+    deep as the skin permits. The allowance is the rest pose's own lowest skin,
+    so a body authored touching the ground is not lifted off it.
+    """
+    body, bm = poser.body, poser.bm
+    floor, height = bm["floor"], bm["height"]
+    rest_low = body.skin_lowest(body.fk(), poser._upw)
+    if rest_low is None:
+        return 0.0
+    allowed = min(clearance * height, rest_low - floor)
+
+    def err(drop):
+        return (body.skin_lowest(poser.pose(key.copy(drop=drop))[0], poser._upw)
+                - floor) - allowed
+
+    full = key.drop
+    if err(full) >= -0.001 * height:
+        return 0.0
+    lo, hi = 0.0, full                     # lo is safe, hi goes through
+    if err(0.0) < -0.001 * height:
+        return 0.0                         # not the drop's doing; leave it
+    for _ in range(12):
+        mid = 0.5 * (lo + hi)
+        if err(mid) >= -0.001 * height:
+            lo = mid
+        else:
+            hi = mid
+    key.drop = lo
+    return full - lo
+
+
+def solve_contact_tilts(poser, key, clearance=0.004, max_tilt=50.0):
+    """Lift heels or wrists off the floor where a planted limb's own skin would
+    go through it. Mutates `key`; returns {leg: degrees}.
+
+    A rat crouching on flat forefeet sank its wrist skin 8.6 mm into the
+    floor: the metacarpal held flat while the forearm folded down onto it. Real
+    animals roll onto their toes instead, so each planted leg's end bone pivots
+    on its toe until that leg's skin - the lower segment, the end and the
+    digits - clears the floor or sits no lower than it rested. A body that does
+    not need it gets 0 and an unchanged pose.
+    """
+    floor, height = poser.bm["floor"], poser.bm["height"]
+    tilts = {}
+    for l in poser.legs:
+        spec = key.limbs.get(l["name"], {})
+        if not spec.get("planted", True) or not l["end"]:
+            continue
+        bones = [l["lower"], l["end"]] + l["digits"]
+
+        def low_at(t):
+            trial = key.copy(limbs=dict(key.limbs))
+            trial.limbs[l["name"]] = dict(spec, planted=True, tilt=t)
+            low, rest_low = poser.body.limb_skin_lowest(poser.pose(trial)[0], bones)
+            allowed = min(clearance * height, rest_low - floor)
+            return (low - floor) - allowed
+
+        base_err = low_at(0.0)
+        if base_err >= -0.001 * height:
+            continue
+        # Only where rolling onto the toe actually lifts the skin. A foot that
+        # already stands near vertical - the rat's forefoot, wrist 4.2 cm above
+        # its toe - swings its wrist DOWN whichever way it pivots, and the first
+        # version of this pushed it to the 50 degree limit and sank it deeper.
+        if low_at(5.0) <= base_err:
+            continue
+        lo, hi = 0.0, max_tilt
+        if low_at(hi) < 0.0:
+            lo = hi                                         # best we can do
+        else:
+            for _ in range(10):
+                mid = 0.5 * (lo + hi)
+                if low_at(mid) < 0.0:
+                    lo = mid
+                else:
+                    hi = mid
+        t = hi if lo < max_tilt else max_tilt
+        key.limbs[l["name"]] = dict(spec, planted=True, tilt=t)
+        tilts[l["name"]] = round(t, 2)
+    return tilts
 
 
 def slide_key(poser, lead="L", hip_height=0.36, lean_degrees=-35.0, head_level=0.85):
@@ -310,3 +435,159 @@ def slide_key(poser, lead="L", hip_height=0.36, lean_degrees=-35.0, head_level=0
 
     return Key(drop=hip_rest - hip_height * L, lean=lean_degrees,
                head_level=head_level, limbs=limbs, name="slide")
+
+
+# --------------------------------------------------------------------------
+# limb targets for bodies that are not bipeds
+# --------------------------------------------------------------------------
+
+def leg_zone(poser, limb):
+    """Where a leg sits along the body: +1 front rank, -1 rear, 0 middle."""
+    pos = [l["forward_pos"] for l in poser.legs]
+    centre = (max(pos) + min(pos)) * 0.5
+    half = (max(pos) - min(pos)) * 0.5
+    return 0.0 if half < 1e-9 else (limb["forward_pos"] - centre) / half
+
+
+def hip_relative(fold=1.0, f=0.0, u=0.0, o=0.0):
+    """Target: the leg's rest reach from its hip scaled by `fold`, then pushed
+    forward / up / outward by fractions of the leg's length. Moves with the
+    body, so it is the shape of a leg in the air."""
+    def fn(p, l, posed):
+        hip = posed[l["upper"]].translation
+        reach = l["a"] + l["b"]
+        return (hip + (l["rest_eff"] - l["rest_root"]) * fold
+                + (p.fwd * f + p.up * u + p.outward(l) * o) * reach)
+    return fn
+
+
+def along_floor(direction, reach=0.9):
+    """Target: on the floor, `reach` of the leg's length from wherever its hip
+    is now, in `direction(poser, limb)` - a leg stretched out along the ground."""
+    def fn(p, l, posed):
+        hip = posed[l["upper"]].translation
+        dz = p.height(l["rest_eff"]) - p.height(hip)
+        span = reach * (l["a"] + l["b"])
+        d = direction(p, l)
+        # Keep the leg's rest splay only across the stretch direction, and pay
+        # for it out of the reach. A hexapod's legs spend much of their length
+        # sideways; ignoring that asked them for 104% of it.
+        side = (l["rest_eff"] - l["rest_root"]).dot(p.lat) * (1.0 - abs(d.dot(p.lat)))
+        h = math.sqrt(max(span * span - dz * dz - side * side, 0.0))
+        return hip + d * h + p.up * dz + p.lat * side
+    return fn
+
+
+def _rise_room(poser, reach=0.95):
+    """How far the body can rise with every foot still on its rest spot."""
+    rooms = []
+    for l in poser.legs:
+        span = l["rest_root"] - l["rest_eff"]
+        vert = span.dot(poser.up)
+        horiz2 = max(span.length_squared - vert * vert, 0.0)
+        top = reach * (l["a"] + l["b"])
+        rooms.append(math.sqrt(max(top * top - horiz2, 0.0)) - vert)
+    return max(0.0, min(rooms))
+
+
+def belly_height(poser):
+    """Height of the lowest rest vertex skinned mainly to the spine.
+
+    Measured on the skin, not the bones: the hexapod's body hangs well below
+    its spine chain, and a skid dropped by the bones put its belly 4.5 cm
+    through the floor. Falls back to the lowest axial bone point."""
+    import bpy
+    rig, bm = poser.rig, poser.bm
+    axial = set(bm["axial"]) | {n for t in bm["tails"] for n in t}
+    low = None
+    for o in bpy.data.objects:
+        if o.type != "MESH" or not any(m.type == "ARMATURE" and m.object == rig
+                                       for m in o.modifiers):
+            continue
+        names = {g.index: g.name for g in o.vertex_groups}
+        mw = o.matrix_world
+        for v in o.data.vertices:
+            best = max(v.groups, key=lambda g: g.weight, default=None)
+            if best is None or names.get(best.group) not in axial:
+                continue
+            h = (mw @ v.co).dot(poser._upw) - bm["floor"]
+            low = h if low is None else min(low, h)
+    if low is None:
+        low = min(poser.height(pt) for n in bm["axial"]
+                  for pt in (rig.data.bones[n].head_local, rig.data.bones[n].tail_local))
+    return low
+
+
+def skid_key(poser, belly_clearance=0.05):
+    """A horizontal body's slide: belly low, front legs stretched forward along
+    the floor, rear legs back, middle legs out to the sides.
+
+    Returns (key, info). A biped slides on `slide_key` instead.
+    """
+    bm = poser.bm
+    clearance = belly_clearance * bm["height"]
+    drop = max(0.0, belly_height(poser) - clearance)
+
+    def direction(p, l):
+        z = leg_zone(p, l)
+        if z > 0.33:
+            return p.fwd
+        if z < -0.33:
+            return -p.fwd
+        return p.outward(l)
+
+    limbs = {l["name"]: {"target": along_floor(direction, 0.9), "planted": False}
+             for l in poser.legs}
+    # The belly estimate is a start, not an answer: skin weighted to the legs
+    # and hips also hangs below the spine. Solve the drop against the skinned
+    # mesh itself until its lowest point sits at the clearance.
+    # The rear legs stretch back along the same floor the tail lies on, and on
+    # the quadruped went straight through it; a skidding animal lifts its tail.
+    key = Key(drop=drop, limbs=limbs, name="skid", tail_lift=30.0)
+    floor = bm["floor"]
+    low = None
+    for _ in range(6):
+        low = poser.body.skin_lowest(poser.pose(key)[0], poser._upw)
+        if low is None:
+            break
+        err = (low - floor) - clearance
+        if abs(err) < 0.002 * bm["height"]:
+            break
+        key.drop = max(0.0, key.drop + err)
+    return key, {"drop": key.drop,
+                 "skin_lowest": None if low is None else low - floor}
+
+
+def jump_keys(poser):
+    """load -> launch -> tuck -> reach, for any leg count, authored in place.
+
+    The engine moves the body through the air; the clip only shapes it. Launch
+    rises as far as the legs reach with every foot still down; tuck folds the
+    legs under, front forward and rear back; reach puts the front feet out and
+    down to meet the ground.
+    """
+    load, _ = crouch_key(poser, depth=0.7)
+
+    def legs_by_zone(front, rear, middle):
+        out = {}
+        for l in poser.legs:
+            z = leg_zone(poser, l)
+            fold, f, o = front if z > 0.33 else rear if z < -0.33 else middle
+            out[l["name"]] = {"target": hip_relative(fold, f, 0.0, o), "planted": False}
+        return out
+
+    # Launch is a stretch, not a rise: rear legs driven back, front legs lifting
+    # forward. Rising on planted feet needs spare leg length, and a body that
+    # stands on nearly straight legs has none - the quadruped's rise came out
+    # 0.0 and its jump had no take-off at all.
+    rise = max(_rise_room(poser), 0.05 * poser.leg_len)
+    launch = Key(drop=-rise, limbs=legs_by_zone((0.65, 0.2, 0.0), (0.85, -0.35, 0.0),
+                                                (0.8, -0.1, 0.1)), name="launch")
+
+    tuck = Key(limbs=legs_by_zone((0.55, 0.15, 0.0), (0.55, -0.15, 0.0),
+                                  (0.55, 0.0, 0.1)), name="tuck")
+    reach = Key(limbs=legs_by_zone((0.95, 0.22, 0.0), (0.9, -0.05, 0.0),
+                                   (0.9, 0.0, 0.05)), name="reach")
+    # the tail streams up through the launch and balances through the air
+    load.tail_lift, launch.tail_lift, tuck.tail_lift, reach.tail_lift = 0.0, 25.0, 15.0, 20.0
+    return [load, launch, tuck, reach]

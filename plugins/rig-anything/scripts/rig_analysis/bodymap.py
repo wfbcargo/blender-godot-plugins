@@ -298,6 +298,43 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0):
     pelvis_idx = (min(l["axial_index"] for l in legs) if legs
                   else (min(attach_idx) if attach_idx else 0))
 
+    # ------------------------------------------------------------------ tail
+    # A tail is not more spine. It carries no limb, it trails rather than
+    # supports, and it may rest on the ground - the downloaded rat's does, 1.2
+    # cm into it - which is a contact the spine never has. So it is told apart
+    # and posed by its own rules (`motion.Body.pose_tail`).
+    #
+    # Tail when named so, or when the bone's pelvis-side end already lies
+    # behind the rearmost hip joint. Neither test alone is enough: Rigify names
+    # its tail spine.000-003, and the generic builder's quadruped spine doubles
+    # back so its tail starts mid-body, 0.3 m ahead of its hips. Everything past
+    # the first tail bone, away from the pelvis, is tail too.
+    tail_axial = []
+    hips = [l["rest_root"].dot(fwd) for l in legs]
+    margin = 0.03 * size
+    candidates = list(range(pelvis_idx - 1, -1, -1))        # pelvis side first
+    if not legs:
+        # a legless body has no hips; only names can say where its tail starts
+        candidates = [i for i in range(len(axial)) if _TAIL.search(axial_names[i])]
+        candidates.sort(reverse=True)
+    started = False
+    for i in candidates:
+        b = axial[i]
+        pelvis_side = None
+        if i + 1 < len(axial):
+            # the end of this bone nearer the next bone toward the pelvis
+            nxt = axial[i + 1]
+
+            def gap(p):
+                return min((p - nxt.head_local).length, (p - nxt.tail_local).length)
+            pelvis_side = b.head_local if gap(b.head_local) <= gap(b.tail_local) \
+                else b.tail_local
+        behind = (hips and pelvis_side is not None
+                  and pelvis_side.dot(fwd) < min(hips) - margin)
+        if started or _TAIL.search(b.name) or behind:
+            started = True
+            tail_axial.append(b.name)
+
     head_idx = None
     named = [i for i, n in enumerate(axial_names) if _HEAD.search(n)]
     if named:
@@ -349,8 +386,10 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0):
         "axial": axial_names,
         "axial_joints": joints,
         "pelvis_index": pelvis_idx,
-        "torso": axial_names[pelvis_idx:neck_start],
-        "rear": axial_names[:pelvis_idx],
+        "torso": [n for n in axial_names[pelvis_idx:neck_start] if n not in tail_axial],
+        "rear": [n for n in axial_names[:pelvis_idx] if n not in tail_axial],
+        # base (at the pelvis) to tip; axial indices are kept in `axial`
+        "tail": tail_axial,
         "neck": neck,
         "head": axial_names[head_idx] if head_idx is not None else None,
         "head_guessed": head_guessed,
@@ -368,7 +407,9 @@ def summary(bm):
                                             else "horizontal", bm["height"])]
     lines.append("  axial  " + " > ".join(bm["axial"]))
     if bm["rear"]:
-        lines.append("  rear   %s  (behind the pelvis)" % ", ".join(bm["rear"]))
+        lines.append("  rear   %s  (behind the pelvis, not tail)" % ", ".join(bm["rear"]))
+    if bm["tail"]:
+        lines.append("  TAIL   %s  (base > tip)" % " > ".join(bm["tail"]))
     lines.append("  torso  %s" % ", ".join(bm["torso"]))
     lines.append("  neck   %s" % (", ".join(bm["neck"]) or "(none - head joins torso)"))
     lines.append("  head   %s%s" % (bm["head"], "  (guessed)" if bm["head_guessed"] else ""))

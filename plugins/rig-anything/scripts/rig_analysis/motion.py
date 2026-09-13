@@ -88,6 +88,38 @@ class Body:
         """Where a rest-space point rides to when `bone_name` is posed."""
         return posed[bone_name] @ self.rest[bone_name].inverted() @ rest_point
 
+    def skin_lowest(self, posed, up_world):
+        """Lowest point of the linear-blend-skinned mesh for a predicted pose,
+        as a world height. Lets a pose be solved against the floor before it is
+        baked, rather than found through it afterwards."""
+        if not hasattr(self, "_skin"):
+            self._skin = []
+            to_arm = self.rig.matrix_world.inverted()
+            for o in bpy.data.objects:
+                if o.type != "MESH" or not any(m.type == "ARMATURE" and m.object == self.rig
+                                               for m in o.modifiers):
+                    continue
+                groups = {g.index: g.name for g in o.vertex_groups
+                          if g.name in self.rest}
+                m = to_arm @ o.matrix_world
+                for v in o.data.vertices:
+                    ws = [(groups[g.group], g.weight) for g in v.groups
+                          if g.group in groups and g.weight > 0.0]
+                    tot = sum(w for _, w in ws)
+                    if tot > 0:
+                        self._skin.append((m @ v.co, [(n, w / tot) for n, w in ws]))
+        if not self._skin:
+            return None
+        mw = self.rig.matrix_world
+        deform = {n: posed[n] @ self.rest[n].inverted() for n in self.rest}
+        low = float("inf")
+        for co, ws in self._skin:
+            p = Vector((0.0, 0.0, 0.0))
+            for n, w in ws:
+                p += (deform[n] @ co) * w
+            low = min(low, (mw @ p).dot(up_world))
+        return low
+
     def com(self, posed):
         total, acc = 0.0, Vector((0.0, 0.0, 0.0))
         for name, (s, w) in self.com_terms.items():
@@ -95,6 +127,142 @@ class Body:
             acc += m.to_3x3() @ s + m.translation * w
             total += w
         return acc / total if total > 0 else acc
+
+    # ------------------------------------------------------- floor contact
+    def _world_up(self):
+        from . import bodymap
+        return bodymap.axis_vector(self.bm["up"])
+
+    def chain_skin(self, entries):
+        """Skin measurements for a chain of bones that can meet the floor.
+
+        `entries` are (bone, base_rest, tip_rest). Returns a dict per bone:
+        `underside` - how far the skin it dominates hangs below its bone line -
+        and `rest_bottom`, the lowest that skin sits at rest (world height).
+        A tail or a toe meets the floor by its skin, not its bone.
+        """
+        key = tuple(e[0] for e in entries)
+        cache = self.__dict__.setdefault("_chain_skin", {})
+        if key in cache:
+            return cache[key]
+        upw = self._world_up()
+        mw = self.rig.matrix_world
+        out = {e[0]: {"underside": 0.0, "rest_bottom": None} for e in entries}
+        spans = {e[0]: (e[1], e[2]) for e in entries}
+        self.skin_lowest(self.fk(), upw)                   # builds the vertex cache
+        for co, ws in self._skin:
+            top = max(ws, key=lambda nw: nw[1])[0]
+            if top not in spans:
+                continue
+            b, t = spans[top]
+            seg = t - b
+            u = max(0.0, min(1.0, (co - b).dot(seg) / max(seg.dot(seg), 1e-12)))
+            h = (mw @ co).dot(upw)
+            o = out[top]
+            o["underside"] = max(o["underside"], (mw @ (b + seg * u)).dot(upw) - h)
+            o["rest_bottom"] = h if o["rest_bottom"] is None else min(o["rest_bottom"], h)
+        cache[key] = out
+        return out
+
+    def drape_chain(self, entries, base, rotations, floor=0.0, clearance=0.0):
+        """Lay a chain along the floor wherever it would pass through it.
+
+        `entries` are (bone, base_rest, tip_rest) base to tip, `base` where the
+        chain starts now, `rotations[i]` the rotation each bone would take
+        before any floor contact. Any bone whose skin would go below the floor
+        swings up about its base until it lies on it - a rope, not a rod - and
+        the next bone starts from where that one ended.
+
+        A bone may still lie as low as it rested, or a body authored touching
+        the ground would be lifted off it on frame one.
+        """
+        skin = self.chain_skin(entries)
+        upw = self._world_up()
+        up_a = self.bm["up_vec"]
+        mw = self.rig.matrix_world
+        out = {}
+
+        def height(p):
+            return (mw @ p).dot(upw) - floor
+
+        for (name, b_rest, t_rest), rot in zip(entries, rotations):
+            sk = skin[name]
+            allowed = clearance if sk["rest_bottom"] is None else                 min(clearance, sk["rest_bottom"] - floor)
+            need = allowed + sk["underside"]
+            d = rot @ (t_rest - b_rest)
+            if height(base + d) < need:
+                length = d.length
+                vert = max(-length, min(length, need - height(base)))
+                horiz = d - up_a * d.dot(up_a)
+                if horiz.length < 1e-9:
+                    horiz = -self.bm["fwd"]
+                d_new = horiz.normalized() * math.sqrt(max(length * length - vert * vert, 0.0))                     + up_a * vert
+                rot = d.rotation_difference(d_new).to_matrix() @ rot
+                d = d_new
+            out[name] = (Matrix.Translation(base) @ rot.to_4x4()
+                         @ Matrix.Translation(-b_rest) @ self.rest[name])
+            base = base + d
+        return out
+
+    def tail_chain(self):
+        """[(bone, base_rest, tip_rest)] for the body map's tail, base to tip."""
+        names, joints = self.bm["axial"], self.bm["axial_joints"]
+        chain = []
+        for n in self.bm.get("tail", []):
+            k = names.index(n)
+            chain.append((n, joints[k + 1] if k + 1 < len(joints) else joints[k], joints[k]))
+        return chain
+
+    def pose_tail(self, posed, lift_deg=0.0, sway_deg=0.0, floor=0.0, clearance=0.0):
+        """Overrides for the tail: ride the pelvis, curl, sway, then drape.
+
+        The tail starts wherever the axial bend left its base. Each bone adds an
+        equal share of `lift_deg` (tip up) and `sway_deg` (tip to the side), so
+        a tail curls rather than pivoting as a stick, and then lies along the
+        floor wherever it would otherwise pass into it.
+        """
+        chain = self.tail_chain()
+        if not chain:
+            return {}
+        first = chain[0][0]
+        carried = posed[first].to_3x3() @ self.rest[first].to_3x3().inverted()
+        n = len(chain)
+        rots = [Matrix.Rotation(math.radians(sway_deg * (i + 1) / n), 3, self.bm["up_vec"])
+                @ Matrix.Rotation(math.radians(lift_deg * (i + 1) / n), 3, self.bm["lat"])
+                @ carried for i in range(n)]
+        return self.drape_chain(chain, self.carried(posed, first, chain[0][1]), rots,
+                                floor=floor, clearance=clearance)
+
+    def drape_digits(self, posed, limb, floor=0.0, clearance=0.0):
+        """Toes lie on the floor rather than pointing into it."""
+        if not limb["digits"] or not limb["end"]:
+            return {}
+        bones = self.rig.data.bones
+        chain = [(d, bones[d].head_local.copy(), bones[d].tail_local.copy())
+                 for d in limb["digits"]]
+        rots = [posed[d].to_3x3() @ self.rest[d].to_3x3().inverted() for d in limb["digits"]]
+        base = posed[limb["end"]] @ Vector((0.0, bones[limb["end"]].length, 0.0))
+        return self.drape_chain(chain, base, rots, floor=floor, clearance=clearance)
+
+    def limb_skin_lowest(self, posed, bone_names):
+        """(lowest posed height, lowest rest height) of the skin a set of bones
+        dominates - to hold a planted limb's own skin above the floor."""
+        upw = self._world_up()
+        self.skin_lowest(self.fk(), upw)
+        names = set(bone_names)
+        mw = self.rig.matrix_world
+        deform = {n: posed[n] @ self.rest[n].inverted() for n in self.rest}
+        low = rest_low = None
+        for co, ws in self._skin:
+            if max(ws, key=lambda nw: nw[1])[0] not in names:
+                continue
+            p = Vector((0.0, 0.0, 0.0))
+            for n, w in ws:
+                p += (deform[n] @ co) * w
+            h, r = (mw @ p).dot(upw), (mw @ co).dot(upw)
+            low = h if low is None else min(low, h)
+            rest_low = r if rest_low is None else min(rest_low, r)
+        return low, rest_low
 
     # ------------------------------------------------------------ axial
     def bend_axial(self, translation, angles_deg):

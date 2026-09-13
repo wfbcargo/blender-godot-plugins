@@ -76,7 +76,7 @@ def _leg_drop_room(bm, leg, fold_limit):
 
 def crouch(rig_name, depth=0.6, frames=12, forward="-Y", up="Z", floor=0.0,
            action_name="Crouch", lean_degrees=None, head_level=0.8,
-           arms_forward=True, fold_limit=0.45, fps=None):
+           arms_forward=True, fold_limit=0.45, fps=None, tail_lift=0.0):
     """Author a one-shot crouch that ends held low, feet planted throughout.
 
     depth         0 stands, 1 folds the most-constrained leg to `fold_limit` of
@@ -91,12 +91,16 @@ def crouch(rig_name, depth=0.6, frames=12, forward="-Y", up="Z", floor=0.0,
     forward; on a quadruped the mass is already inside a wide support and
     nothing moves. The same rule, not a special case.
 
+    Built on `keyposes.crouch_key`, which reproduces this clip's original
+    hand-written path exactly (0.000000 m) - and, unlike it, poses a tail, so a
+    body whose tail rests on the floor drapes it instead of pushing it through.
+
     Stand back up in the engine by playing the clip backwards.
     """
+    from . import keyposes as kp
     bm = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
     if "error" in bm:
         return bm
-    rig = bpy.data.objects[rig_name]
     legs = [l for l in bm["limbs"] if l["role"] == "leg" and l["axial_index"] is not None]
     if not legs:
         return {"error": "%s has no legs to crouch on - nothing holds it off the "
@@ -104,119 +108,35 @@ def crouch(rig_name, depth=0.6, frames=12, forward="-Y", up="Z", floor=0.0,
                 "bodymap": bodymap.summary(bm)}
     if len(bm["axial"]) == 0:
         return {"error": "no axial chain", "bodymap": bodymap.summary(bm)}
-
+    rig = bpy.data.objects[rig_name]
     body = motion.Body(rig, bm)
-    upv, fwd = bm["up_vec"], bm["fwd"]
-    upright = bm["upright"]
-    lean = (45.0 if upright else 0.0) if lean_degrees is None else lean_degrees
-    n_axial = len(bm["axial"])
-    # ---- how low can it go
-    room = min(_leg_drop_room(bm, l, fold_limit) for l in legs)
-    axial_pts = [pt for n in bm["axial"]
-                 for pt in (rig.data.bones[n].head_local, rig.data.bones[n].tail_local)]
-    lowest_axial = min((rig.matrix_world @ pt).dot(bodymap.axis_vector(up)) - floor
-                       for pt in axial_pts)
-    belly = lowest_axial - 0.08 * bm["height"]
-    max_drop = max(0.0, min(room, belly))
-    drop = depth * max_drop
+    P = kp.Poser(body)
+    key, info = kp.crouch_key(P, depth=depth, lean_degrees=lean_degrees,
+                              head_level=head_level, arms_forward=arms_forward,
+                              fold_limit=fold_limit)
+    key.tail_lift = tail_lift
+    rest = kp.rest_key()
+    free = [l for l in bm["limbs"] if l["role"] == "arm" and l["axial_index"] is not None]
 
-    def angles(s):
-        return lean_angles(bm, lean * s, head_level)
-
-    free =[l for l in bm["limbs"] if l["role"] == "arm" and l["axial_index"] is not None]
-
-    def pose(s, shift):
-        infos = {}
-        axial = body.bend_axial(-upv * (drop * s) + fwd * (shift * s), angles(s))
-        posed = body.fk(axial)
-        overrides = dict(axial)
-        for l in legs:
-            ov, info = body.solve_limb(posed, l, l["rest_eff"].copy(),
-                                       end_rotation=Matrix.Identity(3))
-            overrides.update(ov)
-            infos[l["name"]] = info
-        if upright and arms_forward:
-            for l in free:
-                shoulder = posed[l["upper"]].translation
-                reach = l["a"] + l["b"]
-                rest_eff = body.carried(posed, l["attach"], l["rest_eff"])
-                lateral = (rest_eff - shoulder).dot(bm["lat"])
-                goal = (shoulder + fwd * (0.6 * reach) - upv * (0.55 * reach)
-                        + bm["lat"] * lateral)
-                target = rest_eff.lerp(goal, s)
-                ov, info = body.solve_limb(posed, l, target)
-                overrides.update(ov)
-                infos[l["name"]] = info
-        return body.fk(overrides), infos
-
-    # ---- balance: slide the hips until the centre of mass is over the feet
-    lo, hi = _support(body, legs)
-    centre, half = (lo + hi) * 0.5, (hi - lo) * 0.5
-    band = (centre - 0.3 * half, centre + 0.3 * half)
-
-    def com_fwd(shift):
-        return body.com(pose(1.0, shift)[0]).dot(fwd)
-
-    shift = 0.0
-    c0 = com_fwd(0.0)
-    if not band[0] <= c0 <= band[1]:
-        goal = band[0] if c0 < band[0] else band[1]
-        x0, f0 = 0.0, c0 - goal
-        x1 = -f0
-        f1 = com_fwd(x1) - goal
-        for _ in range(6):
-            if abs(f1) < 1e-5 or abs(f1 - f0) < 1e-12:
-                break
-            x0, x1, f0 = x1, x1 - f1 * (x1 - x0) / (f1 - f0), f1
-            f1 = com_fwd(x1) - goal
-        shift = x1
-
-    # ---- author
-    scene = bpy.context.scene
-    if fps:
-        scene.render.fps = fps
-    snap = verify._snapshot(rig)
-    ad = rig.animation_data or rig.animation_data_create()
-    prev_action = ad.action
-    prev_frame = scene.frame_current
-
-    frames = max(2, int(frames))
-    keyed, infos_by_frame = [], {}
-    for f in range(1, frames + 1):
-        smooth = motion.smoothstep((f - 1) / float(frames - 1))
-        posed, infos = pose(smooth, shift)
-        keyed.append((f, posed))
-        infos_by_frame[f] = infos
-
-    action = gait._fresh_action(rig, action_name)
-    try:
-        motion.bake(body, action, keyed)
-        ev = motion.evaluate(body, action, keyed)
-        if "error" in ev:
-            return {"error": ev["error"], "action": action.name}
-        report = _check_common(body, bm, keyed, ev, infos_by_frame,
-                               planted=legs, posed_limbs=legs + free,
-                               support=(lo, hi), rest_floor=floor)
-    finally:
-        scene.frame_set(prev_frame)
-        if prev_action is not None:
-            verify.bind_action(rig, prev_action)
-        else:
-            ad.action = None
-        verify._restore(rig, snap)
-
+    keyed, infos, action, report = _author(
+        body, rig, action_name, frames, lambda s: P.blend(rest, key, s), fps,
+        lambda keyed, ev, infos_by_frame: _check_common(
+            body, bm, keyed, ev, infos_by_frame, planted=legs, posed_limbs=legs + free,
+            support=info["support"], rest_floor=floor))
+    if "error" in report:
+        return report
     report.update({
         "rig": rig_name,
         "action": action.name,
-        "frames": [1, frames],
-        "fps": scene.render.fps,
+        "frames": [1, len(keyed)],
+        "fps": bpy.context.scene.render.fps,
         "depth": depth,
-        "hip_drop_m": round(drop, 4),
-        "max_drop_m": round(max_drop, 4),
-        "drop_limited_by": "legs" if room <= belly else "belly clearance",
-        "lean_degrees": lean,
-        "hip_shift_m": round(shift, 4),
-        "upright": upright,
+        "hip_drop_m": round(info["drop"], 4),
+        "max_drop_m": round(info["max_drop"], 4),
+        "drop_limited_by": info["limited_by"],
+        "lean_degrees": info["lean"],
+        "hip_shift_m": round(info["shift"], 4),
+        "upright": bm["upright"],
         "com_source": body.com_source,
         "crouched_height_m": report["end_height_m"],
     })
@@ -246,10 +166,12 @@ def slide(rig_name, frames=10, forward="-Y", up="Z", floor=0.0, action_name="Sli
     rig = bpy.data.objects[rig_name]
     legs = [l for l in bm["limbs"] if l["role"] == "leg" and l["axial_index"] is not None]
     arms = [l for l in bm["limbs"] if l["role"] == "arm" and l["axial_index"] is not None]
-    if not bm["upright"] or len(legs) != 2:
-        return {"error": "slide is authored for upright bipeds; %s is %s with %d legs"
-                         % (rig_name, "upright" if bm["upright"] else "horizontal",
-                            len(legs)), "bodymap": bodymap.summary(bm)}
+    if not bm["upright"]:
+        return skid(rig_name, frames=frames, forward=forward, up=up, floor=floor,
+                    action_name=action_name, fps=fps)
+    if len(legs) != 2:
+        return {"error": "an upright body with %d legs has no slide authored"
+                         % len(legs), "bodymap": bodymap.summary(bm)}
     lead_leg = next((l for l in legs if l["side"] == lead), None)
     if lead_leg is None:
         return {"error": "no leg on side %r" % lead}
@@ -386,7 +308,24 @@ def _pose_gap(rig, a, b):
 def crouch_walk(rig_name, depth=0.6, stride=0.40, lift=0.10, frames=24,
                 forward="-Y", up="Z", floor=0.0, action_name="CrouchWalk",
                 bob=0.012, sway=0.015, arm_swing=0.10, attempts=5, fps=None):
-    """Author a looping walk at crouch height.
+    """Author a looping walk at crouch height. See `gait_cycle`."""
+    return gait_cycle(rig_name, depth=depth, stride=stride, lift=lift, frames=frames,
+                      forward=forward, up=up, floor=floor, action_name=action_name,
+                      bob=bob, sway=sway, arm_swing=arm_swing, attempts=attempts,
+                      fps=fps)
+
+
+def gait_cycle(rig_name, depth=0.6, stride=0.40, lift=0.10, frames=24,
+               forward="-Y", up="Z", floor=0.0, action_name="CrouchWalk",
+               bob=0.012, sway=0.015, arm_swing=0.10, attempts=5, fps=None,
+               gait_name=None, lean_degrees=None, tail_lift=0.0, tail_swing=0.0):
+    """Author a looping IK gait for any number of legs, at any crouch depth.
+
+    depth 0 is a walk at standing height, 0.6 the crouch walk; a run is a
+    shallow depth with a long stride, a high lift, few frames and a trot or
+    tripod `gait_name`. Phase offsets come from `gait.phase_offsets`, so a
+    biped alternates, a quadruped walks in lateral sequence or trots, and a
+    hexapod runs alternating tripods.
 
     The base is `keyposes.crouch_key(depth)` - exactly the pose the Crouch clip
     ends on - with a gait laid over the feet. `stride` and `lift` are fractions
@@ -413,10 +352,12 @@ def crouch_walk(rig_name, depth=0.6, stride=0.40, lift=0.10, frames=24,
     if len(P.legs) < 2:
         return {"error": "%s has %d legs - nothing to walk on" % (rig_name, len(P.legs))}
 
-    base, cinfo = kp.crouch_key(P, depth=depth)
+    base, cinfo = kp.crouch_key(P, depth=depth, lean_degrees=lean_degrees)
+    start_depth = depth
+    gait_name = gait_name or gait._default_gait(len(P.legs))
     offsets = gait.phase_offsets(
         [{"name": l["name"], "side": l["side"], "forward": l["forward_pos"]}
-         for l in P.legs], gait=gait._default_gait(len(P.legs)))
+         for l in P.legs], gait=gait_name)
     L = P.leg_len
     frames = max(8, int(frames) // 2 * 2)
     first_leg = min(P.legs, key=lambda l: offsets[l["name"]])
@@ -438,6 +379,8 @@ def crouch_walk(rig_name, depth=0.6, stride=0.40, lift=0.10, frames=24,
                 "target": (lambda p, limb, posed, x=x, y=y:
                            limb["rest_eff"] + p.fwd * x + p.up * y),
                 "planted": True,
+                # keep the crouch's heel/wrist lift through the stride
+                "tilt": base.limbs.get(l["name"], {}).get("tilt", 0.0),
             }
         for a in P.arms:
             spec = base.limbs.get(a["name"])
@@ -454,18 +397,42 @@ def crouch_walk(rig_name, depth=0.6, stride=0.40, lift=0.10, frames=24,
         dip = bob * L * 0.5 * (1.0 + math.cos(4.0 * math.pi * p0))
         lean_over = sway * L * math.sin(2.0 * math.pi * p0) * \
             (1.0 if (first_leg["rest_root"] - P.centre).dot(P.lat) > 0 else -1.0)
-        return base.copy(drop=base.drop + dip, sway=lean_over, limbs=limbs)
+        # the tail is carried at `tail_lift` and swings once a cycle, opposite
+        # the body's sway so the mass stays centred
+        return base.copy(drop=base.drop + dip, sway=lean_over, limbs=limbs,
+                         tail_lift=tail_lift,
+                         tail_sway=-tail_swing * math.sin(2.0 * math.pi * p0))
 
     S, H = stride * L, lift * L
-    for attempt in range(max(1, attempts)):
+    skin_rest = body.skin_lowest(body.fk(), P._upw)
+    skin_allowed = (min(0.0, skin_rest - floor) - 0.012 * bm["height"]
+                    if skin_rest is not None else 0.0)
+    for attempt in range(max(1, attempts) + 4):
         samples = [P.pose(key_at((f - 1) / float(frames), S, H))
                    for f in range(1, frames + 2)]        # last repeats the first
         clamped = [(f + 1, n) for f, (_, infos) in enumerate(samples)
                    for n, i in infos.items() if i["clamped"]]
         if not clamped:
-            break
-        S *= 0.85
-        H *= 0.9
+            # Reach is not the only limit. A leg folding hard near the ground
+            # bulges its skin into it mid-stride - the rat's run sat 1 cm under
+            # the floor on its first frame - so the predicted skin is checked
+            # too, on every other frame, and the stride shortened if it dips.
+            low = min(body.skin_lowest(posed, P._upw) for posed, _ in samples[::2])                 if skin_rest is not None else None
+            if low is None or low - floor >= skin_allowed:
+                break
+            S *= 0.85
+            H *= 0.9
+            continue
+        # Out of reach. Flex the legs before shortening the stride: a body that
+        # stands on nearly straight legs - this project's quadruped stands at
+        # 97-99% of full length - has no reach left to step with at any stride,
+        # and shrinking alone walks it in place. Real quadrupeds walk flexed.
+        if depth < start_depth + 0.4:
+            depth = min(start_depth + 0.4, depth + 0.1)
+            base, cinfo = kp.crouch_key(P, depth=depth, lean_degrees=lean_degrees)
+        else:
+            S *= 0.85
+            H *= 0.9
 
     def check(keyed, ev, infos_by_frame):
         r = _check_common(body, bm, keyed, ev, infos_by_frame, planted=[],
@@ -478,8 +445,10 @@ def crouch_walk(rig_name, depth=0.6, stride=0.40, lift=0.10, frames=24,
         slip = {}
         tol = 0.004 * bm["size"]
         for l in P.legs:
-            rest_f = l["rest_eff"].dot(P.fwd)
-            rest_h = P.height(l["rest_eff"])
+            # a lifted heel moves the ankle off the rest line by a fixed offset
+            _, lift_off = P.tilt_rotation(l, base.limbs.get(l["name"], {}).get("tilt", 0.0))
+            rest_f = (l["rest_eff"] + lift_off).dot(P.fwd)
+            rest_h = P.height(l["rest_eff"] + lift_off)
             worst = 0.0
             for f in range(1, frames + 2):
                 p = ((f - 1) / float(frames) + offsets[l["name"]]) % 1.0
@@ -505,19 +474,20 @@ def crouch_walk(rig_name, depth=0.6, stride=0.40, lift=0.10, frames=24,
     stance_s = (frames / 2.0) / fps_now
     report.update({
         "rig": rig_name, "action": action.name, "frames": [1, frames + 1],
-        "fps": fps_now, "depth": depth,
+        "fps": fps_now, "depth": round(depth, 3), "depth_requested": start_depth,
         "stride_m": round(S, 4), "lift_m": round(H, 4), "attempts": attempt + 1,
         "reach_shrunk": bool(attempt),
         "implied_speed_cycle_mps": round(S / stance_s, 4),
         # the engine imports all frames+1 keys and loops over them
         "implied_speed_playback_mps": round(S / (((frames + 1) / 2.0) / fps_now), 4),
-        "base": base.name,
+        "base": base.name, "gait": gait_name,
+        "phase_offsets": {k: round(v, 3) for k, v in offsets.items()},
     })
     return report
 
 
 def slide_recover(rig_name, to="stand", frames=None, forward="-Y", up="Z", floor=0.0,
-                  action_name=None, lead="L", mid_depth=0.9, crouch_depth=0.6,
+                  action_name=None, lead="L", mid_depth=None, crouch_depth=0.6,
                   slide_clip="Slide", crouch_clip="Crouch", fps=None):
     """Author the way out of a slide.
 
@@ -539,10 +509,20 @@ def slide_recover(rig_name, to="stand", frames=None, forward="-Y", up="Z", floor
     rig = bpy.data.objects[rig_name]
     body = motion.Body(rig, bm)
     P = kp.Poser(body)
-    if not bm["upright"] or len(P.legs) != 2:
-        return {"error": "slide recovery is authored for upright bipeds"}
-
-    slide = kp.slide_key(P, lead=lead)
+    if bm["upright"] and len(P.legs) != 2:
+        return {"error": "an upright body with %d legs has no slide authored"
+                         % len(P.legs)}
+    # a biped slides on its back; anything horizontal skids on its belly
+    slide = kp.slide_key(P, lead=lead) if bm["upright"] else kp.skid_key(P)[0]
+    # A biped comes up through a deep squat. A horizontal body passing its
+    # stretched legs back under it through that depth folded a front leg to 21
+    # degrees, so it comes up through the ordinary crouch.
+    if mid_depth is None:
+        mid_depth = 0.9 if bm["upright"] else crouch_depth
+    # A biped draws its feet in ahead of rising. A horizontal body doing that
+    # pulls its front feet under a belly still on the floor and folds those legs
+    # to ~25 degrees, so its feet and body move together.
+    feet_lead = 0.8 if bm["upright"] else 1.0
     if to == "crouch":
         end, _ = kp.crouch_key(P, depth=crouch_depth)
         frames = frames or 12
@@ -553,7 +533,7 @@ def slide_recover(rig_name, to="stand", frames=None, forward="-Y", up="Z", floor
             w = motion.smoothstep(t)
             # feet come under the body a little ahead of the hips rising, and
             # the chest comes forward ahead of both
-            return P.blend(slide, end, w, w_legs=motion.smoothstep(min(1.0, t / 0.8)),
+            return P.blend(slide, end, w, w_legs=motion.smoothstep(min(1.0, t / feet_lead)),
                            w_lean=motion.smoothstep(min(1.0, t / 0.6)))
     else:
         mid, _ = kp.crouch_key(P, depth=mid_depth)
@@ -569,7 +549,7 @@ def slide_recover(rig_name, to="stand", frames=None, forward="-Y", up="Z", floor
                 # upright while the hips were still low, and the middle of the
                 # clip read as sitting on an invisible chair.
                 return P.blend(slide, mid, motion.smoothstep(u),
-                               w_legs=motion.smoothstep(min(1.0, u / 0.8)),
+                               w_legs=motion.smoothstep(min(1.0, u / feet_lead)),
                                w_lean=motion.smoothstep(min(1.0, u / 0.55)))
             return P.blend(mid, end, motion.smoothstep((t - split) / (1.0 - split)))
 
@@ -639,6 +619,146 @@ def slide_recover(rig_name, to="stand", frames=None, forward="-Y", up="Z", floor
     report.update({"rig": rig_name, "action": action.name, "frames": [1, frames],
                    "fps": bpy.context.scene.render.fps, "to": to,
                    "split_frame": split_frame})
+    return report
+
+
+def _setup(rig_name, forward, up, floor):
+    from . import keyposes as kp
+    bm = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
+    if "error" in bm:
+        return None, bm
+    rig = bpy.data.objects[rig_name]
+    body = motion.Body(rig, bm)
+    P = kp.Poser(body)
+    if not P.legs:
+        return None, {"error": "%s has no legs" % rig_name}
+    return (bm, rig, body, P), None
+
+
+def skid(rig_name, frames=10, forward="-Y", up="Z", floor=0.0, action_name="Slide",
+         fps=None):
+    """A horizontal body's slide: rest -> `keyposes.skid_key`, held at the end.
+
+    Belly dropped to just above the floor, legs stretched out along it - front
+    forward, rear back, middle out. Feet reach before the belly comes down, as
+    in the biped slide, so no leg is dragged under a falling body.
+    """
+    from . import keyposes as kp
+    ctx, err = _setup(rig_name, forward, up, floor)
+    if err:
+        return err
+    bm, rig, body, P = ctx
+    key, info = kp.skid_key(P)
+    rest = kp.rest_key()
+
+    def pose(s):
+        return P.blend(rest, key, s, w_legs=math.sqrt(s))
+
+    keyed, infos, action, report = _author(
+        body, rig, action_name, frames, pose, fps,
+        lambda keyed, ev, infos: _check_common(body, bm, keyed, ev, infos, planted=[],
+                                               posed_limbs=P.legs, rest_floor=floor))
+    if "error" in report:
+        return report
+    report.update({"rig": rig_name, "action": action.name, "frames": [1, len(keyed)],
+                   "fps": bpy.context.scene.render.fps,
+                   "hip_drop_m": round(info["drop"], 4),
+                   "slide_height_m": report["end_height_m"]})
+    return report
+
+
+def idle(rig_name, frames=48, forward="-Y", up="Z", floor=0.0, action_name="Idle",
+         breath=0.006, sway_degrees=1.5, fps=None):
+    """A breathing loop: the body settles and rises on planted feet, the torso
+    and head drift a degree or two. Small on purpose - an idle that visibly
+    moves reads as fidgeting."""
+    from . import keyposes as kp
+    ctx, err = _setup(rig_name, forward, up, floor)
+    if err:
+        return err
+    bm, rig, body, P = ctx
+    L = P.leg_len
+    frames = max(8, int(frames))
+    # Pitching a horizontal body lifts its front hips, and legs that stand
+    # nearly straight cannot follow: the rat's front legs clamped at 100%.
+    lean_amp = sway_degrees if bm["upright"] else 0.0
+    samples = []
+    for f in range(1, frames + 2):
+        t = (f - 1) / float(frames)
+        samples.append(P.pose(kp.Key(
+            drop=breath * L * 0.5 * (1.0 - math.cos(2.0 * math.pi * t)),
+            lean=lean_amp * math.sin(2.0 * math.pi * t), head_level=0.5,
+            tail_sway=4.0 * math.sin(2.0 * math.pi * t))))
+
+    def check(keyed, ev, infos_by_frame):
+        r = _check_common(body, bm, keyed, ev, infos_by_frame, planted=P.legs,
+                          posed_limbs=P.legs, rest_floor=floor)
+        seam, bone = _pose_gap(rig, ev["evaluated"][1], ev["evaluated"][frames + 1])
+        r["loop_seam"] = round(seam, 6)
+        if seam > 1e-4:
+            r["failures"].append("loop seam %.5f on %s" % (seam, bone))
+        return r
+
+    keyed, infos, action, report = _author_samples(body, rig, action_name, samples,
+                                                   fps, check)
+    if "error" in report:
+        return report
+    report.update({"rig": rig_name, "action": action.name, "frames": [1, frames + 1],
+                   "fps": bpy.context.scene.render.fps})
+    return report
+
+
+def jump(rig_name, forward="-Y", up="Z", floor=0.0, action_name="Jump",
+         timing=(6, 9, 14, 22), fps=None):
+    """A one-shot jump for any number of legs, ending held on the landing reach.
+
+    rest -> load (frame timing[0]) -> launch -> tuck -> reach (timing[3]). In
+    place: the engine flies the body, the clip shapes it. Like the humanoid's
+    authored Jump it ends on the reach so an AnimationPlayer holds that pose for
+    the rest of the hang time.
+    """
+    from . import keyposes as kp
+    ctx, err = _setup(rig_name, forward, up, floor)
+    if err:
+        return err
+    bm, rig, body, P = ctx
+    load, launch, tuck, reach = kp.jump_keys(P)
+    keys = [kp.rest_key(), load, launch, tuck, reach]
+    marks = [1] + list(timing)
+    samples = []
+    for f in range(1, marks[-1] + 1):
+        seg = max(i for i in range(len(marks) - 1) if marks[i] <= f)
+        seg = min(seg, len(keys) - 2)
+        u = (f - marks[seg]) / float(marks[seg + 1] - marks[seg])
+        w = motion.smoothstep(min(1.0, u))
+        # legs lead out of the launch: feet leave the ground as the body peaks
+        samples.append(P.blend(keys[seg], keys[seg + 1], w,
+                               w_legs=math.sqrt(w) if seg >= 2 else w))
+
+    def check(keyed, ev, infos_by_frame):
+        r = _check_common(body, bm, keyed, ev, infos_by_frame, planted=[],
+                          posed_limbs=P.legs, rest_floor=floor)
+        # feet stay down from rest through the load
+        drift = {}
+        for l in P.legs:
+            n = l["end"] or l["lower"]
+            h0 = ev["evaluated"][1][n].translation
+            worst = max((ev["evaluated"][f][n].translation - h0).length
+                        for f in range(1, marks[1] + 1))
+            drift[l["name"]] = round(worst, 5)
+            if worst > 0.005 * bm["size"]:
+                r["failures"].append("%s slides %.4f before take-off" % (l["name"], worst))
+        r["planted_drift"] = drift
+        return r
+
+    keyed, infos, action, report = _author_samples(body, rig, action_name, samples,
+                                                   fps, check)
+    if "error" in report:
+        return report
+    report.update({"rig": rig_name, "action": action.name, "frames": [1, marks[-1]],
+                   "fps": bpy.context.scene.render.fps,
+                   "launch_rise_m": round(-launch.drop, 4),
+                   "load_drop_m": round(load.drop, 4)})
     return report
 
 
@@ -790,7 +910,12 @@ def _check_common(body, bm, keyed, ev, infos_by_frame, planted, posed_limbs,
     skin = ev.get("skin_lowest") or {}
     skin_low = min(skin.values()) if skin else None
     if skin_low is not None:
-        skin_rest = skin[first]
+        # Measured against REST, not the clip's first frame. A gait's first
+        # frame is mid-stride; taking it as the baseline let a run whose skin
+        # sat 3.6 cm under the floor from frame one pass.
+        skin_rest = body.skin_lowest(body.fk(), upw)
+        if skin_rest is None:
+            skin_rest = skin[first]
         if skin_low < min(0.0, skin_rest) - rest_floor - skin_tol:
             at = min(skin, key=skin.get)
             failures.append("skin reaches %.4f, through the floor, at frame %d"
@@ -812,13 +937,18 @@ def _check_common(body, bm, keyed, ev, infos_by_frame, planted, posed_limbs,
                    "com_fwd_end": round(com_last, 4),
                    "margin_m": round(margin, 4)}
 
-    # height at the end: for sizing the engine's collision shape
+    # Height at the end, for sizing the engine's collision shape - of the body,
+    # not its tail. A tail needs no collider, and counting it made the rat's
+    # slide, which lifts its tail clear of its legs, 0.46 m tall against 0.34 m
+    # standing.
+    tail = set(bm.get("tail", []))
+    body_bones = [b for b in body.bones if b.name not in tail] or body.bones
     top = max((mw @ pt).dot(upw) - rest_floor
-              for b in body.bones
+              for b in body_bones
               for pt in (evaluated[last][b.name].translation,
                          motion.tail_of(body, evaluated[last], b.name)))
     rest_top = max((mw @ p).dot(upw) - rest_floor
-                   for b in body.bones for p in (b.head_local, b.tail_local))
+                   for b in body_bones for p in (b.head_local, b.tail_local))
 
     return {
         "prediction_error": round(ev["prediction_error"], 7),
@@ -866,3 +996,53 @@ def summarize(r):
             lines.append("  %s %s" % (k, r[k]))
     lines += ["  FAIL " + f for f in r["failures"]]
     return "\n".join(lines)
+
+
+RUN_GAIT = {2: "walk", 4: "trot", 6: "tripod"}
+
+
+def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
+             roles=("Idle", "Walk", "Run", "Crouch", "CrouchWalk", "Jump", "Slide",
+                    "SlideRecover", "SlideToCrouch")):
+    """Author a playable move set for one creature. Returns {role: report}.
+
+    Clips are named `<prefix>_<Role>` (prefix defaults to the rig name) so one
+    .blend can hold several creatures' sets without any clip taking another's
+    name. Order matters: the recoveries measure their seams against this set's
+    own Slide and Crouch, so those are authored first.
+    """
+    bm = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
+    if "error" in bm:
+        return {"error": bm["error"]}
+    n_legs = len([l for l in bm["limbs"] if l["role"] == "leg"])
+    prefix = prefix or rig_name
+    name = lambda role: "%s_%s" % (prefix, role)
+    common = dict(forward=forward, up=up, floor=floor, fps=fps)
+    makers = {
+        "Idle": lambda: idle(rig_name, action_name=name("Idle"), **common),
+        "Walk": lambda: gait_cycle(rig_name, depth=0.0, stride=0.45, lift=0.10,
+                                   frames=32, bob=0.01, sway=0.01, lean_degrees=0.0,
+                                   tail_lift=8.0, tail_swing=8.0,
+                                   action_name=name("Walk"), **common),
+        # Start a run nearly straight-legged and let reach add flex only where a
+        # body needs it: a flexed run folded the rat's wrists into the floor,
+        # which shrank its stride to 3 cm. Straight, it ran at 3x its walk.
+        "Run": lambda: gait_cycle(rig_name, depth=0.05, stride=0.45, lift=0.10,
+                                  frames=12, bob=0.02, sway=0.0, lean_degrees=0.0,
+                                  gait_name=RUN_GAIT.get(n_legs, "tripod"),
+                                  tail_lift=20.0, tail_swing=5.0,
+                                  action_name=name("Run"), **common),
+        "Crouch": lambda: crouch(rig_name, depth=0.6, action_name=name("Crouch"),
+                                 **common),
+        "CrouchWalk": lambda: gait_cycle(rig_name, depth=0.6, tail_swing=6.0,
+                                         action_name=name("CrouchWalk"), **common),
+        "Jump": lambda: jump(rig_name, action_name=name("Jump"), **common),
+        "Slide": lambda: slide(rig_name, action_name=name("Slide"), **common),
+        "SlideRecover": lambda: slide_recover(
+            rig_name, to="stand", action_name=name("SlideRecover"),
+            slide_clip=name("Slide"), crouch_clip=name("Crouch"), **common),
+        "SlideToCrouch": lambda: slide_recover(
+            rig_name, to="crouch", action_name=name("SlideToCrouch"),
+            slide_clip=name("Slide"), crouch_clip=name("Crouch"), **common),
+    }
+    return {role: makers[role]() for role in roles}

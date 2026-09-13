@@ -71,3 +71,29 @@ limb count off the width profile.
 location. That is also a rigging problem in itself: a rig exported carrying a
 translation makes the character orbit a point off to one side instead of turning
 in place. `verify.check_export_origin` checks it.
+
+## Tails
+
+A tail is its own body part, not the end of the spine. It carries no limb,
+trails rather than supports, and may rest on the ground, which the spine never
+does. `bodymap.build` reports it as `tail` (base to tip), apart from `rear`
+(bones behind the pelvis that are not tail - a sacrum).
+
+Recognition: named `tail*`, or the bone's pelvis-side end lies behind the
+rearmost hip joint by more than 3% of the body; everything further from the
+pelvis is tail too. Both tests are needed:
+
+| Rig | Tail bones | Found by |
+|---|---|---|
+| Rigify basic_quadruped, downloaded rat | `spine.003 > spine.002 > spine.001 > spine` (`spine.004` is the pelvis) | position |
+| generic builder quadruped | `tail > tail.001 > tail.002` | name - its spine doubles back, tail starts ahead of the hips |
+| worm (no legs, so no hips) | `tail.*` | name only |
+
+Build and size rules that follow from it:
+- **Size a creature without its tail.** A rat is about half tail by length;
+  thresholds scaled by overall size (the exporter's "is this locomotion" 5%)
+  read its real strides as standing still.
+- **Collide with the body, not the tail.** A lifted tail made a slide's box taller
+  than standing.
+- **Let the tail touch the floor.** Posed as rigid spine it went through the
+  ground whenever the body dropped; see `motion.Body.pose_tail`.

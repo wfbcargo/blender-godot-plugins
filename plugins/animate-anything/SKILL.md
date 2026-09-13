@@ -19,7 +19,7 @@ Four layers, in the `rig_analysis` package that `rig-anything` ships:
 | `keyposes` | A pose as a value (`Key`) and blends between poses, so actions compose: slide -> deep crouch -> stand |
 | `actions` | Whole-body actions in body-relative terms: `crouch`, `crouch_walk`, `slide`, `slide_recover` |
 
-**Requires the `rig-anything` plugin, 0.6.0 or later.** The code ships there, in
+**Requires the `rig-anything` plugin, 0.7.0 or later.** The code ships there, in
 its `scripts/rig_analysis` package; this plugin is the procedure and the rules
 for using it.
 
@@ -167,10 +167,106 @@ invisible chair. `w_lean` runs the lean ahead.
 clips from its import cache and the player logged `Animation not found` every
 frame until `godot --headless --import --path .` ran.
 
+## Any number of legs: `actions.move_set`
+
+```python
+res = actions.move_set("QuadTest_rig")    # Idle Walk Run Crouch CrouchWalk Jump
+                                          # Slide SlideRecover SlideToCrouch
+```
+
+Clips are named `<rig>_<Role>`, and the recoveries measure their seams against
+that set's own Slide and Crouch. What changes with the body:
+
+| Move | Biped | Horizontal body (4, 6 legs) |
+|---|---|---|
+| Walk / Run / CrouchWalk | `gait_cycle`, alternating | same code; lateral-sequence walk, trot or tripod run from `gait.phase_offsets` |
+| Jump | the authored humanoid Jump | `jump_keys`: load -> stretch launch -> tuck -> reach, by leg zone (front / middle / rear) |
+| Slide | `slide_key`, on its back | `skid_key`: belly down, legs along the floor - front forward, rear back, middle out |
+| Recovery | through a 0.9 squat, feet leading | through the ordinary crouch, feet and body together |
+
+Validated: QuadTest_rig and HexTest_rig pass all nine; exported speeds match the
+generator's (quadruped walk 0.2294 / run 0.7915 m/s, hexapod 0.1276 / 0.4403).
+The downloaded rat, once tails were told apart from spines, passes all nine too.
+
+**Flex before shortening the stride.** The quadruped stands at 97-99% of full
+leg length, so any stride asked for more than 100% reach and shrinking the
+stride alone walked it in place. `gait_cycle` adds knee flex first (up to +0.4
+depth), then shortens. Real quadrupeds walk flexed.
+
+**A launch is a stretch, not a rise.** Rising on planted feet needs spare leg
+length; the quadruped had none, and its first jump rose 0.0.
+
+**Solve belly height against the skin.** Spine bones put the hexapod's belly
+4.5 cm through the floor; a skin estimate weighted to the spine still left
+1.2 cm. `skid_key` iterates the drop on `Body.skin_lowest` - the posed
+linear-blend-skinned mesh - until the lowest vertex sits at the clearance.
+
+**Splay costs reach.** A hexapod's legs spend much of their length sideways;
+`along_floor` pays for that splay before stretching, or it asks for 104%.
+
+**Horizontal recoveries rise with their feet.** Drawing the feet in first, as a
+biped does, folded the quadruped's front legs to 24-25 degrees under a belly
+still on the floor.
+
+## Tails are not spine
+
+`bodymap` reports `tail` (base > tip) separately from `rear` (behind the pelvis
+but not tail). A bone is tail when it is named so, or when its pelvis-side end
+already lies behind the rearmost hip joint; everything past the first tail bone
+is tail too. Neither test alone works: Rigify names its tail `spine`-`spine.003`,
+and the generic builder's spine doubles back so its tail starts 0.3 m ahead of
+its hips. Validated: rat and Rigify quadruped `spine.003 > ... > spine` (with
+`spine.004` the pelvis), generic quadruped `tail > tail.001 > tail.002`, worm
+`tail.*`, and no tail on the hexapod or either humanoid.
+
+A tail is posed by its own rules (`motion.Body.pose_tail`): it rides the pelvis,
+curls by `Key.tail_lift` and swings by `Key.tail_sway` as shares along the
+chain, then **drapes** - any bone whose skin would pass below the floor swings
+up about its base and lies on it. Gaits carry it lifted and swinging, the jump
+streams it up, the skid lifts it clear of the stretched rear legs.
+
+What treating it as spine had broken, all found on the rat:
+
+| Symptom | Cause | Now |
+|---|---|---|
+| crouch, jump, slide, recoveries 1-3 cm through the floor | tail rode the pelvis down into the ground | drapes on the floor |
+| walk and crouch walk "not locomotion", no speed | exporter sized the creature by its largest dimension - mostly tail | body sized without the tail |
+| slide collision box 0.46 m against 0.34 m standing | collision height counted the lifted tail | heights and lengths exclude tail skin |
+| slide ran so long the next sprint never started | slide distance scaled by a body length that was 52% tail | tail-free length (1.48 -> 0.72 m) |
+
+**Contacts are skin, not bones.** The same drape lays toes on the floor, and a
+crouch is only as deep as the skin allows (`keyposes.limit_drop_by_skin`): the
+rat's wrists bulged 7-9 mm into the floor in a crouch its bones allowed. Gaits
+shorten the stride when predicted skin dips. The allowance is always the rest
+pose's own lowest skin, so a body authored touching the ground stays exact on
+frame one.
+
+**Rolling onto the toe only helps some feet.** `solve_contact_tilts` pivots a
+planted end bone on its toe, but only where that lifts the skin: the rat's
+forefoot stands near vertical, so any pivot swung its wrist down, and the first
+version drove it to the 50 degree limit and sank it deeper.
+
+**Measure skin against rest, not the first frame.** A gait's first frame is
+mid-stride; as a baseline it let a run 3.6 cm under the floor pass.
+
+**Run straight-legged first.** A flexed run folded the rat's wrists into the
+ground and cut its stride to 3 cm; starting at depth 0.05 it ran at 3x its walk,
+and reach still adds flex where a body needs it.
+
+## Playing them: `creature_controller.gd`
+
+In the GrungistCreek project a creature's `<name>.moves.json` (clip names,
+exporter-measured speeds, stand / crouch / slide heights, body size) drives one
+controller for any leg count, with a box collider turned with the model and
+resized per stance. `creature_demo.tscn` switches humanoid / quadruped / hexapod
+live; `-- --selftest` scripts every move on each and prints the result.
+
 ## Status
 
 - Body map for every rig in the project. Done.
 - Pose-by-target IK, bake, playback verification. Done.
 - `crouch`, `slide`. Done.
 - `keyposes`, `crouch_walk`, `slide_recover` (stand / crouch). Done.
+- `move_set` for any leg count: idle, walk, run, jump, skid, recoveries. Done.
+- Tails told apart from spines; tail lift, sway and floor drape; skin contacts. Done.
 - `climb`. Next - see `references/motion-grammar.md`.

@@ -149,8 +149,22 @@ def clip_report(rig_name, foot_bones, actions=None, loop_clips=None, floor=0.0,
     if actions is None:
         actions = [a.name for a in bpy.data.actions]
     if size is None:
+        # The body's size, not the tail's. A rat's largest dimension is mostly
+        # tail, which made every one of its strides read as under 5% of the
+        # creature - a walk reported as standing still, with no speed at all.
         dims = rig.dimensions
         size = max(dims) if max(dims) > 0 else 1.0
+        try:
+            from . import bodymap
+            bm = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
+            tail = set(bm.get("tail", []))
+            pts = [p for b in rig.data.bones if b.name not in tail
+                   for p in (b.head_local, b.tail_local)]
+            if tail and pts:
+                size = max(max(p[i] for p in pts) - min(p[i] for p in pts)
+                           for i in range(3)) or size
+        except Exception:
+            pass
     if tolerance is None:
         # Same rule as the gait generator: scale the floor tolerance to the
         # creature. A rat's toes rest at +0.00003 and a pendulum swing must dip.
