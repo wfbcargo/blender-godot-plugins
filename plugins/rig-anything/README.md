@@ -37,6 +37,17 @@ the ground, and which skeleton archetype fits.
 > them - so a quadruped gallops with its legs at full stretch and a hexapod runs
 > tripods with flight. See the roadmap below.
 >
+>
+> **Phase 8 (0.9.0)** adds wings as a body part: `bodymap` finds them from the
+> skin - a sheet, not a tube - or from names on a bare metarig, and tells a
+> membrane wing from a feathered one. `wings` folds them through the avian
+> elbow-wrist linkage with one number and strokes, sweeps and twists them in
+> frames measured from the rest shape; `flight` derives wingbeat, cruise, glide
+> and stall speeds from wing area, span and mass, and authors spread, flap,
+> glide, dive, take-off and landing clips, checked against Blender's playback
+> for wings through the body or across the midline and for a downstroke that
+> sweeps more area than its upstroke. Ground moves carry wings folded.
+>
 > **Listed** in the marketplace manifest as of 0.5.0. The coverage caveat still
 > stands and is worth stating plainly: the rat is the only downloaded asset it
 > has been through: the worm, quadruped, hexapod and biped are shapes this was
@@ -127,6 +138,8 @@ scripts/rig_analysis/
   keyposes.py   poses as values, and blends between them
   actions.py    crouch, slide, recoveries, jump, idle, move_set
   locomotion.py walk to sprint from ground contacts, contact detection
+  wings.py      recognise wings from skin or names, fold / stroke / twist them
+  flight.py     wingbeat and flight speeds from size; flap, glide, dive, take-off, land
 references/
   archetypes.md          Rigify templates measured, and what evidence picks one
   joint-conventions.md   which way each joint bends, and the quadruped trap
@@ -201,5 +214,7 @@ Blender sessions are long-lived and cache imports, so always
   schedules to an engine, and the exporter now measures speed on the planted
   feet - the old 2 x foot travel formula assumed 50% ground time and read the
   gallop 21% slow.
-- **8** shapes matching no archetype — fall back to curve-skeleton extraction or
+- **8** wings — done (`wings.py`, `flight.py`, 0.9.0). See animate-anything's
+  `references/wings.md`.
+- **9** shapes matching no archetype — fall back to curve-skeleton extraction or
   shell out to UniRig. Do not reimplement either.

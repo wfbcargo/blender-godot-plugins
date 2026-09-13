@@ -181,6 +181,11 @@ def slide(rig_name, frames=10, forward="-Y", up="Z", floor=0.0, action_name="Sli
     upv, fwd, lat = bm["up_vec"], bm["fwd"], bm["lat"]
     mw = rig.matrix_world
     upw = bodymap.axis_vector(up)
+    # Written by hand rather than through a Poser, so wings are folded here.
+    wing_poser = None
+    if bm.get("wings"):
+        from . import keyposes as kp, wings as wing_mod
+        wing_poser = kp.Poser(body)
 
     def height(p_arm):
         return (mw @ p_arm).dot(upw) - floor
@@ -210,6 +215,10 @@ def slide(rig_name, frames=10, forward="-Y", up="Z", floor=0.0, action_name="Sli
                                                                head_level))
         posed = body.fk(axial)
         overrides = dict(axial)
+        if wing_poser is not None:
+            overrides.update(wing_poser.wing_rig.pose(posed, wing_mod.blend_states(
+                wing_poser.wing_default, wing_poser.wing_default, 1.0)))
+            posed = body.fk(overrides)
 
         # The feet get going before the hips come down. Moving both on the same
         # curve left the lead foot behind a half-dropped pelvis and the middle
@@ -584,7 +593,8 @@ def slide_recover(rig_name, to="stand", frames=None, forward="-Y", up="Z", floor
                 r["failures"].append("no %s clip to measure the end seam against"
                                      % crouch_clip)
         else:
-            rest = {b.name: b.matrix_local for b in rig.data.bones}
+            rest = getattr(body, "ground_rest", None) or {
+                b.name: b.matrix_local for b in rig.data.bones}
             gap, bone = _pose_gap(rig, evaluated[frames], rest)
             seams["to rest"] = round(gap, 5)
             if gap > tol:
@@ -792,11 +802,20 @@ def _author_samples(body, rig, action_name, samples, fps, check):
         if "error" in ev:
             return keyed, infos_by_frame, action, {"error": ev["error"]}
         report = check(keyed, ev, infos_by_frame)
+        # Checks add their own failures after `_check_common` has already
+        # written `passed`. Decided there, a loop seam, a skating foot or a
+        # wing through the body printed PASSED with the failure listed beneath.
+        if "failures" in report:
+            report["passed"] = not report["failures"]
     finally:
         scene.frame_set(prev_frame)
-        if prev_action is not None:
-            verify.bind_action(rig, prev_action)
-        else:
+        try:
+            if prev_action is not None:
+                verify.bind_action(rig, prev_action)
+            else:
+                ad.action = None
+        except ReferenceError:
+            # the rig was holding the very clip `_fresh_action` just replaced
             ad.action = None
         verify._restore(rig, snap)
     return keyed, infos_by_frame, action, report
@@ -829,11 +848,13 @@ def _check_common(body, bm, keyed, ev, infos_by_frame, planted, posed_limbs,
         failures.append("Blender's pose differs from the prediction by %.5f at "
                         "frame %d on %s" % (ev["prediction_error"], f, b))
 
-    # 2. frame one is the rest pose
+    # 2. frame one is the rest pose - with wings, the GROUND rest, wings folded
+    ground = getattr(body, "ground_rest", None)
     rest_err = 0.0
     for b in body.bones:
         m = evaluated[first][b.name]
-        rest_err = max(rest_err, (m.translation - b.head_local).length)
+        want = ground[b.name].translation if ground else b.head_local
+        rest_err = max(rest_err, (m.translation - want).length)
     if starts_at_rest and rest_err > tol:
         failures.append("first frame is not the rest pose (off by %.4f)" % rest_err)
 

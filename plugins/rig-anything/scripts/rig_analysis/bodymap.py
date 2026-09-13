@@ -77,6 +77,14 @@ def _subtree_len(bone, side):
     return 1 + max((_subtree_len(c, side) for c in kids), default=0)
 
 
+def _descendants_names(bone, side):
+    out = [bone.name]
+    for c in bone.children:
+        if side_of(c.name)[0] == side:
+            out.extend(_descendants_names(c, side))
+    return out
+
+
 def build(rig_name, forward="-Y", up="Z", floor=0.0):
     """Describe a rig's body. Everything positional is in ARMATURE space.
 
@@ -198,6 +206,32 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0):
             if mirrored.dot(b) < 0.0:
                 warnings.append("mirrored limbs %s disagree on bend direction"
                                 % base)
+
+    # ------------------------------------------------------------------ wings
+    # A free limb whose skin is a sheet - or whose bones are called wing,
+    # feather, primary - is a wing: role "wing", so nothing that swings or
+    # reaches with arms touches it, and `wings.WingRig` poses it instead.
+    unsided = [p for b in bones if not side_of(b.name)[0]
+               for p in (b.head_local, b.tail_local)]
+    midline = (sum(p.dot(lat) for p in unsided) / len(unsided)) if unsided else 0.0
+    wings = []
+    if limbs:
+        from . import wings as wing_mod
+        wings, wing_warnings = wing_mod.detect(
+            rig, limbs, fwd, upv, lat, midline, lambda l: l["role"] == "leg")
+        warnings.extend(wing_warnings)
+    if wings:
+        # A creature's size and height are its body's. A dragon's span is 3 m
+        # on a 2.3 m body, and every tolerance scaled by size loosened with it.
+        wing_bones = set()
+        for w in wings:
+            wing_bones.update(_descendants_names(rig.data.bones[w["upper"]], w["side"]))
+        pts_body = [p for b in bones if b.name not in wing_bones
+                    for p in (b.head_local, b.tail_local)]
+        if pts_body:
+            size = max((max(p[i] for p in pts_body) - min(p[i] for p in pts_body))
+                       for i in range(3))
+            body_height = max(height(p) for p in pts_body)
 
     # ------------------------------------------------------------ axial chain
     limb_bones = set()
@@ -395,6 +429,9 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0):
         "head_guessed": head_guessed,
         "tails": tails,
         "limbs": sorted(limbs, key=lambda l: (-l["forward_pos"], l["side"])),
+        # free sheet-skinned limbs, with planform and fold frame; see `wings`
+        "wings": wings,
+        "midline": midline,
         "ignored_chains": ignored,
         "warnings": warnings,
     }
@@ -421,6 +458,22 @@ def summary(bm):
                         (l["girdle"] + " > ") if l["girdle"] else "",
                         l["upper"], l["lower"], l["end"] or "-",
                         l["attach"], l["a"], l["b"], l["pole_source"]))
+    scale = 1.0
+    rig = bpy.data.objects.get(bm["rig"])
+    if rig is not None:
+        scale = sum(rig.matrix_world.to_scale()) / 3.0
+    for w in bm.get("wings", []):
+        extra = []
+        if w["fingers"]:
+            extra.append("%d fingers" % len(w["fingers"]))
+        if w["feathers"]:
+            extra.append("%d feather bones" % len(w["feathers"]))
+        lines.append("  WING %-9s %s, by %s: reach %.3f m%s, sheet %s%s%s"
+                     % (w["name"], w["kind"], w["evidence"], w["reach"] * scale,
+                        (", area %.3f m2" % (w["area"] * scale * scale)) if w["area"] else "",
+                        w["thickness_ratio"],
+                        (", " + ", ".join(extra)) if extra else "",
+                        ", RESTS FOLDED" if w["rests_folded"] else ""))
     for w in bm["warnings"]:
         lines.append("  WARN " + w)
     return "\n".join(lines)

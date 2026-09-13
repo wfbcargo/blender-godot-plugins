@@ -94,9 +94,10 @@ print(skin.bind("MyObject", res["rig"]))
 ```
 
 Every creature is a spine, an optional head and tail continuing it, and N
-limbs. A limb is one structure in two roles: grounded and weight-bearing is a
-leg, free is an arm - which makes a wing an arm and a fin a limb for nothing
-extra. Rigify agrees; it ships the same vocabulary as composable rig types.
+limbs. A limb is one structure in three roles: grounded and weight-bearing is a
+leg, free is an arm, and free with a skin that is a sheet is a **wing** - found
+by `bodymap` from the skin, or from bone names on a bare metarig. Rigify agrees;
+it ships the same vocabulary as composable rig types.
 
 **Prefer the template fitters where a template fits.** They inherit proportions
 for joints that leave no trace on the silhouette - knees and elbows sit inside
@@ -185,6 +186,23 @@ A clip that cannot be measured blocks the export and `force=True` does not
 waive it - `force` waives preflight, where the caller can see the problem and
 judge it, while an unmeasurable clip means the deliverable itself is missing.
 Drop one deliberately with `skip_bad_clips=True`, which reports what it dropped.
+
+**8. Wings: fold, flap, glide.** Any free limb whose skin is a sheet is a wing
+(see `animate-anything`'s `references/wings.md`):
+
+```python
+from rig_analysis import flight, keyposes as kp, motion
+bm = bodymap.build(rig)
+print(bodymap.summary(bm))                  # WING upperarm.L membrane, by skin sheet ...
+P = kp.Poser(motion.Body(bpy.data.objects[rig], bm))
+print(flight.summarize_plan(flight.plan(P)))
+res = flight.flight_set(rig)                # Glide Flap WingSpread TakeOff Dive Land
+m = flight.engine_manifest(res)             # the .moves.json `flight` block
+```
+
+Wingbeat, stroke, cruise, glide and stall speeds come from measured wing area,
+span and skinned mass (Pennycuick, Nudds, Taylor). Ground actions carry wings
+folded without being asked. Pass `mass_kg` - the default density is a guess.
 
 ## Rules
 
@@ -276,6 +294,21 @@ touchdown point; that formula read it 21% slow and the walk 30% fast.
 `check_clip` now measures the median backward speed of planted feet and says
 which it used in `speed_source`.
 
+**A wing is not an arm, and its skin is not body.** Left as an arm, a
+dragon's wing would counter-swing through every walk. Counted as body, a
+modelled wing sheet - centimetres thick - weighed a 1.9 m test bird at 22 kg,
+and its span loosened every tolerance scaled by size; `bodymap` and the exporter
+size a creature without its wings as they do without its tail.
+
+**Decide `passed` last.** Actions add their own failures - loop seams, skating
+feet, seams, wing clearance - after the shared checks have run; the verdict was
+being written before them, so a clip could print PASSED over its own failure
+list. `_author_samples` now sets it from the final list.
+
+**Never measure a pose against itself.** Wing clearance was first allowed as
+much as the folded ground rest had - posed by the same fold under test - so a
+fold driven into the chest passed. The allowance comes from the bind pose.
+
 **Order a spine by the hierarchy, never by position.** Ranking bones along the
 travel axis looks obviously right and is wrong on real generated rigs. The
 worm's own spine doubles back: `spine.001` sits behind its parent and in front
@@ -312,6 +345,12 @@ link.
   of spine/neck/head/tail/legs/arms for any rig, pose-by-target IK, playback
   verification. Documented in the companion **`animate-anything`** skill;
   modules `bodymap`, `motion`, `actions`, plus `views.render_clip`.
+- **Phase 8** - wings (0.9.0): recognised from the skin (sheet thickness and
+  planform) or names, kind from structure (membrane, feathered, simple); posed
+  by one fold through the avian linkage plus stroke, tilt, sweep, twist, fan and
+  tuck; flight numbers from size; WingSpread, Flap, Glide, Dive, TakeOff and
+  Land, checked for wing clearance, midline and swept area. Done (`wings`,
+  `flight`).
 - **Phase 7** - contact locomotion (0.8.0): contacts measured on the skin, a
   support plane through them, Froude-scaled stride and duty factor, per-leg
   reach on the plane with toe roll, rotary gallop and spine flex, contact

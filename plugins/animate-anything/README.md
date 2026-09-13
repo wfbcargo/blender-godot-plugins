@@ -4,7 +4,7 @@ Whole-body actions for any rigged creature in Blender, beyond the walk cycle:
 **crouch, crouch walk, slide, and the two ways out of a slide** - with climb
 next.
 
-> **Status: 0.3.0.** Validated on a hand-built humanoid, exported to Godot and
+> **Status: 0.4.0.** Validated on a hand-built humanoid, exported to Godot and
 > driven by a real character controller. `move_set` authors a full playable set
 > - idle, walk, trot, sprint, crouch, crouch walk, jump, slide and both
 > recoveries - for any leg count, run on rig-anything's generic quadruped and
@@ -13,8 +13,20 @@ next.
 > **0.3.0: walk, trot and sprint come from ground contacts.** A run is no longer
 > a walk played faster. See [Contact locomotion](#contact-locomotion).
 >
-> **Requires [`rig-anything`](../rig-anything/) 0.8.0 or later.** The code is
+> **Requires [`rig-anything`](../rig-anything/) 0.9.0 or later.** The code is
 > its `scripts/rig_analysis` package; this plugin is the procedure and the rules.
+
+## Wings
+
+**0.4.0** adds winged creatures. A free limb whose skin is a sheet is a wing,
+found on a hand-built dragon whose bones say `upperarm` and on a bare Rigify bird
+metarig whose bones say `Wing`. One `fold` closes the whole wing into a Z the
+way a bird's elbow and wrist move together; flap, glide, dive, take-off and
+landing are authored from a wingbeat and speeds derived from wing area, span and
+mass, and checked for wings passing into the body or across the midline and for
+a downstroke that sweeps more air than its upstroke. Walks, crouches, jumps and
+slides carry the wings folded. See
+[`references/wings.md`](references/wings.md).
 
 ## Why a second skill
 
@@ -126,6 +138,7 @@ is reported limited rather than faked. Research and numbers:
 SKILL.md                    # procedure, validation, rules
 references/motion-grammar.md  # the key-pose vocabulary, and how slide and climb are planned
 references/contact-locomotion.md  # walk to sprint from ground contacts: rule, research, results
+references/wings.md               # wings: recognition, fold linkage, flight scaling, clips, checks
 ```
 
 MIT licensed.

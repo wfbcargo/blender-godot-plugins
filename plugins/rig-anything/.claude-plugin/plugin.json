@@ -1,7 +1,7 @@
 {
   "name": "rig-anything",
-  "version": "0.8.0",
-  "description": "Rigs and animates an arbitrary Blender mesh, including shapes no template covers. Deterministic Python measures the geometry, renders let vision classify it, and the skeleton is fitted from a template where one fits or built from discovered structure where none does. It then binds with bone-heat weights, generates a looping gait for any number of legs - or a travelling wave for a body with none - and exports to glTF with the playback speed the clip's own stride implies, verified by reading the written file back. Throughout it measures rather than assumes: bone axes are probed per bone because an elbow and a knee bend opposite ways, and a rig whose pose evaluation has gone stale is made to error rather than report a confident table of zeros. Since 0.6.0 it also maps any rig to spine, neck, head, tail, legs and arms and poses it by target with IK - the engine behind animate-anything. Since 0.8.0 walks, trots and sprints are derived from ground contacts: a support plane through the measured feet, Froude-scaled stride and duty factor, and per-leg reach solved on that plane - so a sprint reaches and flies instead of replaying a walk faster - and the exporter measures speed on the planted feet.",
+  "version": "0.9.0",
+  "description": "Rigs and animates an arbitrary Blender mesh, including shapes no template covers. Deterministic Python measures the geometry, renders let vision classify it, and the skeleton is fitted from a template where one fits or built from discovered structure where none does. It then binds with bone-heat weights, generates a looping gait for any number of legs - or a travelling wave for a body with none - and exports to glTF with the playback speed the clip's own stride implies, verified by reading the written file back. Throughout it measures rather than assumes: bone axes are probed per bone because an elbow and a knee bend opposite ways, and a rig whose pose evaluation has gone stale is made to error rather than report a confident table of zeros. Since 0.6.0 it also maps any rig to spine, neck, head, tail, legs and arms and poses it by target with IK - the engine behind animate-anything. Since 0.8.0 walks, trots and sprints are derived from ground contacts: a support plane through the measured feet, Froude-scaled stride and duty factor, and per-leg reach solved on that plane - so a sprint reaches and flies instead of replaying a walk faster - and the exporter measures speed on the planted feet. Since 0.9.0 wings are a body part: found from the skin (a sheet, not a tube) or from names, told apart as membrane or feathered, folded through the avian elbow-wrist linkage with one number, and flown - wingbeat, cruise, glide and stall speeds from wing area, span and mass, and spread, flap, glide, dive, take-off and landing clips checked for wings through the body or across the midline.",
   "author": {
     "name": "Paul Lovy",
     "url": "https://paullovy.com"
@@ -9,5 +9,19 @@
   "homepage": "https://github.com/wfbcargo/PaulClaudePlugins",
   "repository": "https://github.com/wfbcargo/PaulClaudePlugins",
   "license": "MIT",
-  "keywords": ["blender", "rigging", "auto-rig", "skeleton", "animation", "gait", "gltf", "gamedev", "3d", "ik", "locomotion"]
+  "keywords": [
+    "blender",
+    "rigging",
+    "auto-rig",
+    "skeleton",
+    "animation",
+    "gait",
+    "gltf",
+    "gamedev",
+    "3d",
+    "ik",
+    "locomotion",
+    "wings",
+    "flight"
+  ]
 }

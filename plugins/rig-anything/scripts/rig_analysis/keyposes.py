@@ -103,7 +103,8 @@ def flex_angles(bm, flex):
 
 class Key:
     def __init__(self, drop=0.0, shift=0.0, sway=0.0, lean=0.0, head_level=0.8,
-                 limbs=None, name="", tail_lift=0.0, tail_sway=0.0, flex=0.0):
+                 limbs=None, name="", tail_lift=0.0, tail_sway=0.0, flex=0.0,
+                 wings=None):
         self.drop, self.shift, self.sway = drop, shift, sway
         self.lean, self.head_level = lean, head_level
         self.limbs = dict(limbs or {})
@@ -112,10 +113,14 @@ class Key:
         self.tail_lift, self.tail_sway = tail_lift, tail_sway
         # degrees of spine arch, see `flex_angles`
         self.flex = flex
+        # a `wings.state` (both sides) or {"L": state, "R": state}; None is the
+        # Poser's ground pose for wings - folded
+        self.wings = wings
 
     def copy(self, **changes):
         k = Key(self.drop, self.shift, self.sway, self.lean, self.head_level,
-                self.limbs, self.name, self.tail_lift, self.tail_sway, self.flex)
+                self.limbs, self.name, self.tail_lift, self.tail_sway, self.flex,
+                self.wings)
         for a, v in changes.items():
             setattr(k, a, v)
         return k
@@ -124,7 +129,7 @@ class Key:
 class Poser:
     """A body plus the measurements every key is written against."""
 
-    def __init__(self, body):
+    def __init__(self, body, wings_folded=1.0):
         self.body = body
         bm = self.bm = body.bm
         self.rig = body.rig
@@ -133,6 +138,13 @@ class Poser:
                      and l["axial_index"] is not None]
         self.arms = [l for l in bm["limbs"] if l["role"] == "arm"
                      and l["axial_index"] is not None]
+        # Wings are not arms: nothing that reaches or counter-swings moves
+        # them. On the ground they are carried folded - a creature walking with
+        # its wings out as modelled is not walking - so a key that says nothing
+        # about wings means `wings_folded`, and the body's GROUND REST is that
+        # pose. `body.ground_rest` is what "frame one is rest" is measured against.
+        self.wing_rig = None
+        self.wing_default = None
         self.leg_len = (sum(l["a"] + l["b"] for l in self.legs) / len(self.legs)
                         if self.legs else 0.0)
         self.centre = (sum((l["rest_root"] for l in self.legs), Vector())
@@ -141,6 +153,11 @@ class Poser:
         self._mw = mw
         from . import bodymap
         self._upw = bodymap.axis_vector(bm["up"])
+        if bm.get("wings"):
+            from . import wings as wing_mod
+            self.wing_rig = wing_mod.WingRig(body)
+            self.wing_default = wing_mod.state(fold=wings_folded, tuck=1.0)
+            body.ground_rest = self.pose(Key(name="ground rest"))[0]
 
     def height(self, p):
         return (self._mw @ p).dot(self._upw) - self.bm["floor"]
@@ -173,16 +190,17 @@ class Poser:
         rot = Matrix.Rotation(math.radians(degrees), 3, axis)
         return rot, rot @ v - v
 
-    def blend(self, a, b, w, w_legs=None, w_arms=None, w_lean=None):
+    def blend(self, a, b, w, w_legs=None, w_arms=None, w_lean=None, w_wings=None):
         """The body `w` of the way from key `a` to key `b`.
 
-        Legs, arms and the torso lean may run on their own curves - feet
+        Legs, arms, wings and the torso lean may run on their own curves - feet
         usually lead the hips, and getting up from the ground leads with the
         chest. Returns (posed matrices, per-limb solver info).
         """
         wl = w if w_legs is None else w_legs
         wa = w if w_arms is None else w_arms
         wt = w if w_lean is None else w_lean
+        ww = w if w_wings is None else w_wings
         body = self.body
         angles = lean_angles(self.bm, lerp(a.lean, b.lean, wt),
                              lerp(a.head_level, b.head_level, wt))
@@ -200,7 +218,14 @@ class Poser:
                 sway_deg=lerp(a.tail_sway, b.tail_sway, wt), floor=self.bm["floor"],
                 clearance=0.004 * self.bm["height"]))
             posed = body.fk(overrides)
-        infos = {}
+        if self.wing_rig is not None:
+            from . import wings as wing_mod
+            states = wing_mod.blend_states(
+                a.wings if a.wings is not None else self.wing_default,
+                b.wings if b.wings is not None else self.wing_default, ww)
+            overrides.update(self.wing_rig.pose(posed, states))
+            posed = body.fk(overrides)
+        infos, plant_ws = {}, {}
         for limb in self.legs + self.arms:
             lw = wl if limb["role"] == "leg" else wa
             ta_fn, pa, planted_a = self._spec(a, limb)
@@ -220,6 +245,7 @@ class Poser:
                 pole, pole_w = pa, 1.0 - lw
 
             plant_w = lerp(float(planted_a), float(planted_b), lw)
+            plant_ws[limb["name"]] = plant_w
 
             def tilt_of(key, t):
                 v = key.limbs.get(limb["name"], {}).get("tilt", 0.0)
@@ -238,6 +264,19 @@ class Poser:
         for limb in self.legs:
             drapes.update(body.drape_digits(posed, limb, floor=self.bm["floor"],
                                             clearance=0.004 * self.bm["height"]))
+            # Only a foot in the air: a planted one is already held where its
+            # contact is solved, and draping it slid a walking bird's toes 1-2 cm.
+            if not limb["digits"] and limb["end"] and plant_ws.get(limb["name"], 1.0) < 1.0:
+                # A foot with no toe bones is its own toe. Unplanted, it follows
+                # the shin, and a dragon pushing off or drawing its legs in from
+                # a skid put its toes 2.5 cm into the floor. Draping changes
+                # nothing for a foot that stays above it.
+                e = self.rig.data.bones[limb["end"]]
+                rot = posed[limb["end"]].to_3x3() @ body.rest[limb["end"]].to_3x3().inverted()
+                drapes.update(body.drape_chain(
+                    [(limb["end"], e.head_local.copy(), e.tail_local.copy())],
+                    posed[limb["end"]].translation.copy(), [rot],
+                    floor=self.bm["floor"], clearance=0.004 * self.bm["height"]))
         if drapes:
             overrides.update(drapes)
             posed = body.fk(overrides)

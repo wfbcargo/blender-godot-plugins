@@ -42,7 +42,7 @@ the thing actually *is*.
 |---|---|---|---|
 | Biped | 2, balanced, side by side | narrow legs, wide torso+arms, narrow head | upright, arms free |
 | Quadruped | 4, balanced, in a rectangle | wide and shallow, long horizontally | horizontal spine, head forward |
-| Bird | 2, plus wings as extremities | upright-ish, wide at the wings | wings distinct from arms |
+| Bird | 2, plus wings as extremities | upright-ish, wide at the wings | wings distinct from arms - `bodymap` reports them as WING |
 | Fish / shark | **0** | streamlined, fins as extremities | no legs, dorsal/tail fins |
 | Snake / tentacle | 0 or 1 long contact | uniform cross-section | one long chain, no limbs |
 | Prop / static | 1 large, or an arbitrary count | no limb structure | not a creature |
@@ -71,6 +71,20 @@ limb count off the width profile.
 location. That is also a rigging problem in itself: a rig exported carrying a
 translation makes the character orbit a point off to one side instead of turning
 in place. `verify.check_export_origin` checks it.
+
+## Wings
+
+A wing is its own body part too: a free limb whose skin is a sheet.
+`bodymap.build` reports it with role `wing` and a `wings` entry (kind, planform
+area, reach, fold frame). A dragon is four legs and two wings - a hexapod's
+topology - and must not be rigged or animated as one. See animate-anything's
+`references/wings.md`.
+
+| Rig | Found by | Kind |
+|---|---|---|
+| DragonTest (hand-built, bones `upperarm/forearm/hand/finger`) | skin: thickness 0.11 | membrane, 3 fingers |
+| BirdTest (hand-built) | name `primary` and skin | feathered |
+| Rigify `Animals/bird` metarig, no skin | name `Wing` | feathered, 3 feather bones |
 
 ## Tails
 

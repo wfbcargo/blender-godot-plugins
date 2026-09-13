@@ -19,8 +19,9 @@ Four layers, in the `rig_analysis` package that `rig-anything` ships:
 | `keyposes` | A pose as a value (`Key`) and blends between poses, so actions compose: slide -> deep crouch -> stand |
 | `actions` | Whole-body actions in body-relative terms: `crouch`, `crouch_walk`, `slide`, `slide_recover` |
 | `locomotion` | Walk to sprint from ground contacts: support plane, Froude-scaled stride and duty factor, reach on the plane; `detect` reads contacts back out of any clip |
+| `wings` / `flight` | Wings found from the skin or names; folded, stroked, twisted; flight speeds from size; spread, flap, glide, dive, take-off, land |
 
-**Requires the `rig-anything` plugin, 0.8.0 or later.** The code ships there, in
+**Requires the `rig-anything` plugin, 0.9.0 or later.** The code ships there, in
 its `scripts/rig_analysis` package; this plugin is the procedure and the rules
 for using it.
 
@@ -300,6 +301,39 @@ mid-stride; as a baseline it let a run 3.6 cm under the floor pass.
 ground and cut its stride to 3 cm; starting at depth 0.05 it ran at 3x its walk,
 and reach still adds flex where a body needs it.
 
+## Wings: fold, flap, glide, take off and land
+
+A free limb whose skin is a sheet is a wing. Full rule, research and numbers:
+`references/wings.md`.
+
+```python
+from rig_analysis import flight
+print(bodymap.summary(bodymap.build("DragonTest_rig")))
+#   WING upperarm.L membrane, by skin sheet: reach 1.427 m, area 0.746 m2, sheet 0.11, 3 fingers
+res = flight.flight_set("DragonTest_rig")     # Glide Flap WingSpread TakeOff Dive Land
+print(flight.summarize(res["Flap"]))
+manifest_flight = flight.engine_manifest(res)
+```
+
+`actions.move_set` needs nothing new: a key that says nothing about wings holds
+them folded against the flank, so walk, crouch, jump and slide all carry them.
+Within `flight_set` the order is fixed - TakeOff measures its end against this
+set's Flap, and Land its start against this set's Glide.
+
+Poses: `keyposes.Key(wings=wings.state(fold, stroke, sweep, twist, fan, tilt,
+tuck))`, or `{"L": ..., "R": ...}` for a roll. `fold` moves every segment
+together - the avian linkage - and `tuck` belongs on the ground.
+
+**Wings are measured against the body's skin and midline**, on Blender's
+playback, and the allowance comes from the bind pose - never from a pose built
+by the fold under test.
+
+**Numbers say when a body could not fly.** Mass is skinned volume times a
+density; override `mass_kg`. The dragon's 563 N/m2 is flagged, and flown anyway.
+
+**Steer, don't blend, in the engine.** Blending flight velocity toward a new
+heading cut the corner and stalled a 26 m/s dragon in a 90 degree turn.
+
 ## Playing them: `creature_controller.gd`
 
 In the GrungistCreek project a creature's `<name>.moves.json` (clip names,
@@ -330,4 +364,8 @@ the planted feet and their support polygon from that schedule.
 - Contact locomotion: support plane, Froude-scaled stride and duty, reach on the
   plane, rotary gallop, spine flex, contact detection in any clip, stance-foot
   speed in the exporter. Done (0.3.0, rig-anything 0.8.0).
+- Wings (0.4.0, rig-anything 0.9.0): recognised from skin or names, folded by
+  one linkage, flight numbers from size, six flight clips, wing clearance and
+  swept-area checks, ground moves with wings folded, flight in the controller.
+  Done - `references/wings.md`.
 - `climb`. Next - see `references/motion-grammar.md`.

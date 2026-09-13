@@ -158,6 +158,9 @@ def clip_report(rig_name, foot_bones, actions=None, loop_clips=None, floor=0.0,
             from . import bodymap
             bm = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
             tail = set(bm.get("tail", []))
+            # nor its wings: a dragon's span is 3.1 m on a 2.3 m body
+            for w in bm.get("wings", []):
+                tail.update(bodymap._descendants_names(rig.data.bones[w["upper"]], w["side"]))
             pts = [p for b in rig.data.bones if b.name not in tail
                    for p in (b.head_local, b.tail_local)]
             if tail and pts:
