@@ -4,7 +4,7 @@ Works out how an arbitrary Blender mesh should be rigged: whether automatic
 weights can bind to it at all, which way is up and forward, how many limbs touch
 the ground, and which skeleton archetype fits.
 
-> **Status: phases 0-5, validated on a real asset and against shipped code.**
+> **Status: phases 0-6, validated on a real asset and against shipped code.**
 > It measures, classifies, builds a skeleton - from a template where one fits,
 > otherwise from discovered structure - binds it with bone-heat weights,
 > generates a looping gait for any number of legs, and exports it with the
@@ -23,7 +23,15 @@ the ground, and which skeleton archetype fits.
 > another rig's identically-named clip, and three unrelated creatures' clips
 > riding along inside the exported glb.
 >
-> **Listed** in the marketplace manifest as of 0.5.0. The coverage caveat still
+> **Phase 6 (0.6.0)** adds the code behind the companion
+> [`animate-anything`](../animate-anything/) plugin: `bodymap` (spine, neck,
+> head, tail, legs and arms for any rig, from structure rather than names),
+> `motion` (pose by target with two-bone IK, verified against Blender's own
+> playback), `keyposes` and `actions` (crouch, crouch walk, slide, slide
+> recovery), and `views.render_clip`, which renders frozen evaluated meshes
+> because rendering the live rig reused a stale pose.
+>
+> > **Listed** in the marketplace manifest as of 0.5.0. The coverage caveat still
 > stands and is worth stating plainly: the rat is the only downloaded asset it
 > has been through: the worm, quadruped, hexapod and biped are shapes this was
 > built against, so they test the code rather than surprise it. More real

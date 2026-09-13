@@ -95,6 +95,22 @@ errors instead of returning zeros, and export reads the written glTF back to
 check the duration it actually wrote. See the
 [plugin README](./plugins/rig-anything/README.md).
 
+### [`animate-anything`](./plugins/animate-anything/)
+
+Whole-body actions beyond the walk cycle — crouch, crouch walk, slide, and the
+ways out of a slide — for any rigged creature. Requires `rig-anything` 0.6.0.
+
+A walk can let a foot slide a little. These cannot: they are defined by
+**contacts**, so poses are built from where each foot and hand goes and the
+joints are solved, never from rotation signs. Any rig is first mapped to one
+body of spine, neck, head, tail, legs and arms — from structure, since four
+naming schemes and a spine rooted at the neck turned up in one project — and
+actions are written in fractions of that body. Poses are values that blend, so
+a slide recovery is slide → deep crouch → stand, and each new clip is measured
+to start exactly where the one before it ends. Every clip is played back through
+Blender and checked for drift, skating, folding, skin through the floor and
+balance. See the [plugin README](./plugins/animate-anything/README.md).
+
 ### [`lookdev`](./plugins/lookdev/)
 
 Lighting and shading for Godot 4.7 scenes built with Blender assets.
@@ -150,8 +166,14 @@ plugins/
   rig-anything/
     .claude-plugin/plugin.json
     SKILL.md                        # the procedure, and the rules
-    scripts/rig_analysis/           # measure, classify, fit, bind, gait, export
+    scripts/rig_analysis/           # measure, classify, fit, bind, gait, export,
+                                    # bodymap, motion, keyposes, actions
     references/                     # archetypes, and which way each joint bends
+    README.md
+  animate-anything/
+    .claude-plugin/plugin.json
+    SKILL.md                        # whole-body actions on rig-anything's engine
+    references/motion-grammar.md    # key-pose vocabulary; slide and climb plans
     README.md
   lookdev/
     .claude-plugin/plugin.json

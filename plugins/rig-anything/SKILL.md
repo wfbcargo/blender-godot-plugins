@@ -288,6 +288,10 @@ link.
 - **Phase 5** - export with stride-derived playback speed. Done.
 - **Phase 5.5** - legless locomotion: a travelling lateral wave for anything
   with a spine and no legs. Done (`gait.undulate`).
+- **Phase 6** - whole-body actions (crouch; slide and climb next): a body map
+  of spine/neck/head/tail/legs/arms for any rig, pose-by-target IK, playback
+  verification. Documented in the companion **`animate-anything`** skill;
+  modules `bodymap`, `motion`, `actions`, plus `views.render_clip`.
 
 Biped, measured on a 1.69 m figure against a hand-built rig: **mean joint error
 0.037 m, 2.2% of height**. Quadruped, against a synthetic model with known
