@@ -1,0 +1,77 @@
+{
+  "_comment": "Heuristic ranges for capture stats, per scene kind. Display values are 0-1 on the 8-bit sRGB output. Starting points from photographic practice and PBR validation charts (Filament, DONTNOD) - not standards. Background (sky) pixels are excluded before measuring. A deliberate look (noir, fog, stylised) legitimately breaks these; pick the closest kind or raise the tolerance rather than chase a number.",
+  "kinds": {
+    "day": {
+      "luma_p50": [0.3, 0.6],
+      "clipped_pct_max": 2.0,
+      "crushed_pct_max": 1.0,
+      "range_p1_p99_min": 0.5,
+      "saturation_hot_pct_max": 2.0,
+      "cast_ab_max": 8.0,
+      "warm_cool_split_min": 0.0,
+      "key_fill_stops": [1.7, 3.2],
+      "key_exposure_stops": [-0.6, 0.6],
+      "gray_probe_display": [0.33, 0.62],
+      "albedo_too_dark_pct_max": 5.0,
+      "albedo_too_bright_pct_max": 3.0
+    },
+    "golden": {
+      "luma_p50": [0.22, 0.52],
+      "clipped_pct_max": 4.0,
+      "crushed_pct_max": 3.0,
+      "range_p1_p99_min": 0.5,
+      "saturation_hot_pct_max": 4.0,
+      "cast_ab_max": null,
+      "warm_cool_split_min": 3.0,
+      "key_fill_stops": [1.2, 3.5],
+      "key_exposure_stops": [-1.0, 0.6],
+      "gray_probe_display": [0.22, 0.6],
+      "albedo_too_dark_pct_max": 5.0,
+      "albedo_too_bright_pct_max": 3.0
+    },
+    "overcast": {
+      "luma_p50": [0.3, 0.58],
+      "clipped_pct_max": 1.0,
+      "crushed_pct_max": 0.5,
+      "range_p1_p99_min": 0.35,
+      "saturation_hot_pct_max": 1.0,
+      "cast_ab_max": 8.0,
+      "warm_cool_split_min": null,
+      "key_fill_stops": [-0.5, 1.3],
+      "key_exposure_stops": [-0.8, 0.6],
+      "gray_probe_display": [0.33, 0.58],
+      "albedo_too_dark_pct_max": 5.0,
+      "albedo_too_bright_pct_max": 3.0
+    },
+    "interior": {
+      "luma_p50": [0.2, 0.5],
+      "clipped_pct_max": 6.0,
+      "crushed_pct_max": 3.0,
+      "range_p1_p99_min": 0.5,
+      "saturation_hot_pct_max": 3.0,
+      "cast_ab_max": 12.0,
+      "warm_cool_split_min": null,
+      "key_fill_stops": null,
+      "key_exposure_stops": null,
+      "gray_probe_display": [0.25, 0.6],
+      "albedo_too_dark_pct_max": 6.0,
+      "albedo_too_bright_pct_max": 4.0
+    },
+    "night": {
+      "luma_p50": [0.04, 0.25],
+      "clipped_pct_max": 3.0,
+      "crushed_pct_max": 20.0,
+      "range_p1_p99_min": 0.35,
+      "saturation_hot_pct_max": 5.0,
+      "cast_ab_max": null,
+      "warm_cool_split_min": null,
+      "key_fill_stops": [1.5, 6.0],
+      "key_exposure_stops": null,
+      "gray_probe_display": null,
+      "albedo_too_dark_pct_max": 6.0,
+      "albedo_too_bright_pct_max": 4.0
+    }
+  },
+  "shadow_detail_min": 0.15,
+  "_key_exposure_comment": "key_exposure_stops is log2 of the light on a white surface facing the key, at the current exposure. 0 means exposure is metered to the key light the way an incident light meter would: 18% grey in the key reads as middle grey. Interior and night scenes are exposed for what is in frame, not the key, so they skip it."
+}

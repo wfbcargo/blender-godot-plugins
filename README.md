@@ -95,6 +95,28 @@ errors instead of returning zeros, and export reads the written glTF back to
 check the duration it actually wrote. See the
 [plugin README](./plugins/rig-anything/README.md).
 
+### [`lookdev`](./plugins/lookdev/)
+
+Lighting and shading for Godot 4.7 scenes built with Blender assets.
+
+An agent can't judge lighting from one screenshot, and Godot never reports a
+scene as badly lit, because flat and washed-out is still valid. So lookdev
+**renders a scene off-screen and measures it**: exposure percentiles, clipping,
+colour cast, and the key-to-fill ratio in stops, read off an 18% grey probe by
+surface normal. Frame-wide contrast turned out to measure composition, not
+lighting. Scenes and Blender materials are linted for the mistakes that make 3D
+look like CG. Five lighting presets were calibrated by that same measurement in
+both light-unit modes. Variants are compared side by side in both orders,
+because vision judges pick a side about a quarter of the time.
+
+The Blender half finds what the glTF exporter silently drops (procedural
+textures, ramps, bump) and what Godot ignores on import (clearcoat, sheen,
+transmission). It bakes the former into the one texture layout both read, and
+exports with settings checked by reading the file back. Several findings
+are written up because the docs don't say them: `ambient_light_energy` does
+nothing for sky ambient, and a minimized Godot window renders no frames. See
+the [plugin README](./plugins/lookdev/README.md).
+
 ## Layout
 
 ```
@@ -130,6 +152,15 @@ plugins/
     SKILL.md                        # the procedure, and the rules
     scripts/rig_analysis/           # measure, classify, fit, bind, gait, export
     references/                     # archetypes, and which way each joint bends
+    README.md
+  lookdev/
+    .claude-plugin/plugin.json
+    SKILL.md                        # staged workflow, gates, Godot traps
+    bin/lookdev.mjs                 # capture | lint | preset | compare runner
+    godot/                          # GDScript run against the project
+    blender/lookdev_blender/        # material lint, bake, export, reference renders
+    presets/                        # lighting recipes and capture thresholds
+    references/                     # light levels, PBR values, recipes, judging
     README.md
 ```
 

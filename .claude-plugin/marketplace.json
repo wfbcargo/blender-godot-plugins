@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Paul Lovy's Claude Code plugins.",
-    "version": "0.8.0"
+    "version": "0.9.0"
   },
   "plugins": [
     {
@@ -70,6 +70,25 @@
         "animation",
         "gait",
         "gltf",
+        "gamedev",
+        "3d"
+      ]
+    },
+    {
+      "name": "lookdev",
+      "source": "./plugins/lookdev",
+      "version": "0.1.0",
+      "description": "Lighting and shading for Godot 4.7 scenes built with Blender assets. An agent can't judge lighting from one screenshot, so this renders a scene off-screen and measures it - exposure, clipping, key-to-fill ratio read off an 18% grey probe by surface normal, albedo range, colour cast - lints scenes and Blender materials for the mistakes that make 3D look like CG, applies lighting presets calibrated by measurement in both light-unit modes, and compares variants side by side in both orders to cancel position bias. On the Blender side it finds what the glTF exporter silently drops and what Godot ignores on import, bakes procedural materials into the layout both read, and exports with Godot-safe settings verified by reading the file back.",
+      "category": "development",
+      "keywords": [
+        "godot",
+        "blender",
+        "lighting",
+        "shading",
+        "pbr",
+        "baking",
+        "gltf",
+        "rendering",
         "gamedev",
         "3d"
       ]

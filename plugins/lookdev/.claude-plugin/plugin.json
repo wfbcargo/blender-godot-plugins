@@ -1,0 +1,13 @@
+{
+  "name": "lookdev",
+  "version": "0.1.0",
+  "description": "Lighting and shading for Godot 4.7 scenes built with Blender assets. Renders a scene off-screen and measures it - exposure, clipping, key-to-fill ratio read off an 18% grey probe, albedo range, colour cast - so realism is argued from numbers and images rather than asserted. Lints Godot scenes and Blender materials for the mistakes that make 3D look like CG, applies lighting presets calibrated by measurement in both light-unit modes, compares variants side by side in both orders, and bakes procedural Blender materials into the texture layout glTF and Godot actually read.",
+  "author": {
+    "name": "Paul Lovy",
+    "url": "https://paullovy.com"
+  },
+  "homepage": "https://github.com/wfbcargo/PaulClaudePlugins",
+  "repository": "https://github.com/wfbcargo/PaulClaudePlugins",
+  "license": "MIT",
+  "keywords": ["godot", "blender", "lighting", "shading", "pbr", "materials", "baking", "gltf", "rendering", "gamedev", "3d"]
+}

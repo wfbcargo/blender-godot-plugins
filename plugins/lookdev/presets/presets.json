@@ -1,0 +1,257 @@
+{
+  "_comment": "Lighting recipes. 'environment' applies in both light-unit modes; 'environment_physical'/'environment_relative' and sun lux/energy apply per the project's rendering/lights_and_shadows/use_physical_light_units. Physical values follow real-world measurements (Filament, Unity HDRP, Godot docs). Relative energies are calibrated with lookdev capture against an 18% grey probe - see references/recipes.md for how, and re-check with a capture after applying.",
+  "presets": {
+    "clear_midday": {
+      "kind": "day",
+      "description": "Clear sky, high sun. Hard shadows, cool blue fill, warm-white key.",
+      "sun": {
+        "elevation": 58,
+        "kelvin": 5600,
+        "lux": 100000,
+        "energy": 1.8,
+        "light": {
+          "shadow_enabled": true,
+          "light_angular_distance": 0.5,
+          "directional_shadow_max_distance": 150.0,
+          "shadow_bias": 0.05,
+          "shadow_normal_bias": 1.5
+        }
+      },
+      "sky": {
+        "type": "physical",
+        "material": {
+          "rayleigh_coefficient": 2.0,
+          "mie_coefficient": 0.005,
+          "turbidity": 6.0,
+          "sun_disk_scale": 1.0,
+          "ground_color": "Color(0.23, 0.21, 0.18, 1)"
+        },
+        "material_relative": { "energy_multiplier": 2.0 },
+        "material_physical": { "energy_multiplier": 1.0 }
+      },
+      "environment": {
+        "background_mode": 2,
+        "ambient_light_source": 3,
+        "reflected_light_source": 2,
+        "tonemap_mode": 4,
+        "ssao_enabled": true,
+        "ssao_radius": 1.0,
+        "ssao_intensity": 2.0,
+        "ssao_light_affect": 0.0,
+        "ssil_enabled": false,
+        "sdfgi_enabled": true,
+        "sdfgi_use_occlusion": true,
+        "glow_enabled": true,
+        "glow_intensity": 0.3,
+        "glow_hdr_threshold": 1.2,
+        "fog_enabled": true,
+        "fog_mode": 0,
+        "fog_density": 0.0008,
+        "fog_aerial_perspective": 0.6,
+        "fog_sky_affect": 0.2,
+        "fog_sun_scatter": 0.05
+      },
+      "environment_relative": { "tonemap_exposure": 1.0 },
+      "environment_physical": { "background_intensity": 30000.0 },
+      "camera_physical": { "exposure_aperture": 16.0, "exposure_shutter_speed": 60.0, "exposure_sensitivity": 100.0 }
+    },
+    "golden_hour": {
+      "kind": "golden",
+      "description": "Low warm sun, long soft-edged shadows, strong warm/cool contrast, light haze.",
+      "sun": {
+        "elevation": 7,
+        "kelvin": 3000,
+        "lux": 25000,
+        "energy": 3.0,
+        "light": {
+          "shadow_enabled": true,
+          "light_angular_distance": 1.0,
+          "directional_shadow_max_distance": 150.0,
+          "shadow_bias": 0.05,
+          "shadow_normal_bias": 1.5
+        }
+      },
+      "sky": {
+        "type": "physical",
+        "material": {
+          "rayleigh_coefficient": 2.5,
+          "mie_coefficient": 0.02,
+          "mie_eccentricity": 0.85,
+          "turbidity": 12.0,
+          "sun_disk_scale": 1.5,
+          "ground_color": "Color(0.2, 0.17, 0.14, 1)"
+        },
+        "material_relative": { "energy_multiplier": 7.0 },
+        "material_physical": { "energy_multiplier": 1.0 }
+      },
+      "environment": {
+        "background_mode": 2,
+        "ambient_light_source": 3,
+        "reflected_light_source": 2,
+        "tonemap_mode": 4,
+        "ssao_enabled": true,
+        "ssao_radius": 1.0,
+        "ssao_intensity": 2.0,
+        "ssao_light_affect": 0.0,
+        "sdfgi_enabled": true,
+        "sdfgi_use_occlusion": true,
+        "glow_enabled": true,
+        "glow_intensity": 0.4,
+        "glow_hdr_threshold": 1.0,
+        "fog_enabled": true,
+        "fog_mode": 0,
+        "fog_density": 0.0015,
+        "fog_aerial_perspective": 0.7,
+        "fog_sky_affect": 0.3,
+        "fog_sun_scatter": 0.35
+      },
+      "environment_relative": { "tonemap_exposure": 1.0 },
+      "environment_physical": { "background_intensity": 14000.0 },
+      "camera_physical": { "exposure_aperture": 8.0, "exposure_shutter_speed": 50.0, "exposure_sensitivity": 100.0 }
+    },
+    "overcast": {
+      "kind": "overcast",
+      "description": "Uniform grey sky, no hard shadows. Shape comes from AO and GI; low contrast, denser haze.",
+      "sun": {
+        "elevation": 55,
+        "kelvin": 6800,
+        "lux": 300,
+        "energy": 0.25,
+        "light": {
+          "shadow_enabled": true,
+          "light_angular_distance": 20.0,
+          "shadow_opacity": 0.6,
+          "directional_shadow_max_distance": 80.0
+        }
+      },
+      "sky": {
+        "type": "procedural",
+        "material": {
+          "sky_top_color": "Color(0.62, 0.65, 0.69, 1)",
+          "sky_horizon_color": "Color(0.72, 0.74, 0.76, 1)",
+          "sky_curve": 0.25,
+          "ground_bottom_color": "Color(0.2, 0.2, 0.2, 1)",
+          "ground_horizon_color": "Color(0.72, 0.74, 0.76, 1)",
+          "sun_angle_max": 0.0
+        },
+        "material_relative": { "sky_energy_multiplier": 1.6, "ground_energy_multiplier": 1.6 },
+        "material_physical": { "sky_energy_multiplier": 1.0, "ground_energy_multiplier": 1.0 }
+      },
+      "environment": {
+        "background_mode": 2,
+        "ambient_light_source": 3,
+        "reflected_light_source": 2,
+        "tonemap_mode": 4,
+        "ssao_enabled": true,
+        "ssao_radius": 1.5,
+        "ssao_intensity": 2.5,
+        "ssao_light_affect": 0.0,
+        "sdfgi_enabled": true,
+        "sdfgi_use_occlusion": true,
+        "glow_enabled": false,
+        "fog_enabled": true,
+        "fog_mode": 0,
+        "fog_density": 0.003,
+        "fog_aerial_perspective": 0.8,
+        "fog_sky_affect": 0.5,
+        "fog_sun_scatter": 0.0
+      },
+      "environment_relative": { "tonemap_exposure": 1.0 },
+      "environment_physical": { "background_intensity": 4000.0 },
+      "camera_physical": { "exposure_aperture": 5.6, "exposure_shutter_speed": 40.0, "exposure_sensitivity": 100.0 }
+    },
+    "interior_daylight": {
+      "kind": "interior",
+      "description": "Sun and sky entering through openings. GI does the work; exposure opens up ~4.5 stops over exterior and windows are allowed to clip.",
+      "sun": {
+        "elevation": 40,
+        "kelvin": 5600,
+        "lux": 100000,
+        "energy": 1.8,
+        "light": {
+          "shadow_enabled": true,
+          "light_angular_distance": 0.5,
+          "directional_shadow_max_distance": 60.0,
+          "shadow_bias": 0.03,
+          "shadow_normal_bias": 1.0
+        }
+      },
+      "sky": {
+        "type": "physical",
+        "material": { "turbidity": 6.0 },
+        "material_relative": { "energy_multiplier": 2.0 },
+        "material_physical": { "energy_multiplier": 1.0 }
+      },
+      "environment": {
+        "background_mode": 2,
+        "ambient_light_source": 3,
+        "reflected_light_source": 2,
+        "tonemap_mode": 4,
+        "ssao_enabled": true,
+        "ssao_radius": 0.8,
+        "ssao_intensity": 2.0,
+        "ssao_light_affect": 0.0,
+        "ssil_enabled": true,
+        "sdfgi_enabled": true,
+        "sdfgi_use_occlusion": true,
+        "sdfgi_bounce_feedback": 0.5,
+        "glow_enabled": true,
+        "glow_intensity": 0.3,
+        "glow_hdr_threshold": 1.5,
+        "fog_enabled": false
+      },
+      "environment_relative": { "tonemap_exposure": 20.0 },
+      "environment_physical": { "background_intensity": 30000.0 },
+      "camera_physical": { "exposure_aperture": 4.0, "exposure_shutter_speed": 250.0, "exposure_sensitivity": 250.0 }
+    },
+    "night": {
+      "kind": "night",
+      "description": "Moonlight as a dim cool key over a near-black sky. Expects practical lights (lumens at 2000-3000 K) to be placed by hand.",
+      "sun": {
+        "elevation": 35,
+        "kelvin": 7500,
+        "lux": 0.3,
+        "energy": 0.08,
+        "light": {
+          "shadow_enabled": true,
+          "light_angular_distance": 0.5,
+          "directional_shadow_max_distance": 80.0
+        }
+      },
+      "sky": {
+        "type": "procedural",
+        "material": {
+          "sky_top_color": "Color(0.012, 0.018, 0.035, 1)",
+          "sky_horizon_color": "Color(0.03, 0.04, 0.06, 1)",
+          "ground_bottom_color": "Color(0.005, 0.005, 0.008, 1)",
+          "ground_horizon_color": "Color(0.03, 0.04, 0.06, 1)",
+          "sun_angle_max": 1.0
+        },
+        "material_relative": { "sky_energy_multiplier": 4.0, "ground_energy_multiplier": 4.0 },
+        "material_physical": { "sky_energy_multiplier": 1.0, "ground_energy_multiplier": 1.0 }
+      },
+      "environment": {
+        "background_mode": 2,
+        "ambient_light_source": 3,
+        "reflected_light_source": 2,
+        "tonemap_mode": 4,
+        "ssao_enabled": true,
+        "ssao_light_affect": 0.0,
+        "sdfgi_enabled": true,
+        "sdfgi_use_occlusion": true,
+        "glow_enabled": true,
+        "glow_intensity": 0.6,
+        "glow_hdr_threshold": 1.0,
+        "fog_enabled": false,
+        "volumetric_fog_enabled": true,
+        "volumetric_fog_density": 0.012,
+        "volumetric_fog_albedo": "Color(0.8, 0.85, 1, 1)",
+        "volumetric_fog_anisotropy": 0.5
+      },
+      "environment_relative": { "tonemap_exposure": 5.0 },
+      "environment_physical": { "background_intensity": 2.0 },
+      "camera_physical": { "exposure_aperture": 1.4, "exposure_shutter_speed": 4.0, "exposure_sensitivity": 3200.0 }
+    }
+  },
+  "_calibration": "Calibrated in Godot 4.7.2 (Forward+, D3D12) with lookdev capture --probes. Exteriors on an open ground plane, interior_daylight in a 8x6x3 m room with one 2x1.6 m window. Relative mode: clear_midday key 1.06 / key-fill 2.5 stops; golden_hour 1.02 / 2.6; overcast ~0.6-0.9 / ~0.2; night 0.20 / 3.1; interior median display luma ~0.25. Physical mode: clear_midday key 1.20 / 2.3; golden_hour ~1.0 / ~2.3; overcast ~0.7 / 1.1; night 0.17 / 3.0; interior median ~0.43. Godot's physical exposure lands about one stop darker than Sunny-16 arithmetic predicts, hence 1/60 s at f/16 for midday sun. Scenes with dark ground, heavy occlusion or big interiors will differ: re-measure and move exposure first."
+}
