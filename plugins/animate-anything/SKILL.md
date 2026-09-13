@@ -18,8 +18,9 @@ Four layers, in the `rig_analysis` package that `rig-anything` ships:
 | `motion` | Axial bends and two-bone IK as armature-space matrices, COM from the skin weights, bake to keys, **play back through Blender and compare** |
 | `keyposes` | A pose as a value (`Key`) and blends between poses, so actions compose: slide -> deep crouch -> stand |
 | `actions` | Whole-body actions in body-relative terms: `crouch`, `crouch_walk`, `slide`, `slide_recover` |
+| `locomotion` | Walk to sprint from ground contacts: support plane, Froude-scaled stride and duty factor, reach on the plane; `detect` reads contacts back out of any clip |
 
-**Requires the `rig-anything` plugin, 0.7.0 or later.** The code ships there, in
+**Requires the `rig-anything` plugin, 0.8.0 or later.** The code ships there, in
 its `scripts/rig_analysis` package; this plugin is the procedure and the rules
 for using it.
 
@@ -170,8 +171,9 @@ frame until `godot --headless --import --path .` ran.
 ## Any number of legs: `actions.move_set`
 
 ```python
-res = actions.move_set("QuadTest_rig")    # Idle Walk Run Crouch CrouchWalk Jump
-                                          # Slide SlideRecover SlideToCrouch
+res = actions.move_set("QuadTest_rig")    # Idle Walk Trot Run Crouch CrouchWalk
+                                          # Jump Slide SlideRecover SlideToCrouch
+m = locomotion.engine_manifest("QuadTest_rig", res)   # gaits + footfall schedules
 ```
 
 Clips are named `<rig>_<Role>`, and the recoveries measure their seams against
@@ -179,7 +181,8 @@ that set's own Slide and Crouch. What changes with the body:
 
 | Move | Biped | Horizontal body (4, 6 legs) |
 |---|---|---|
-| Walk / Run / CrouchWalk | `gait_cycle`, alternating | same code; lateral-sequence walk, trot or tripod run from `gait.phase_offsets` |
+| Walk / Trot / Run | `locomotion.cycle` at Fr 0.2 / 1.0 / 3.0 - see below | same rule; lateral-sequence walk, trot, rotary gallop, tripods |
+| CrouchWalk | `gait_cycle`, alternating | same code, on the crouch pose |
 | Jump | the authored humanoid Jump | `jump_keys`: load -> stretch launch -> tuck -> reach, by leg zone (front / middle / rear) |
 | Slide | `slide_key`, on its back | `skid_key`: belly down, legs along the floor - front forward, rear back, middle out |
 | Recovery | through a 0.9 squat, feet leading | through the ordinary crouch, feet and body together |
@@ -207,6 +210,50 @@ linear-blend-skinned mesh - until the lowest vertex sits at the clearance.
 **Horizontal recoveries rise with their feet.** Drawing the feet in first, as a
 biped does, folded the quadruped's front legs to 24-25 degrees under a belly
 still on the floor.
+
+## Walk to sprint from contacts: `locomotion`
+
+A run is not a walk played faster. `move_set` authors Walk and Run with
+`locomotion.cycle`, which works from what touches the ground rather than what
+each limb is called. Full rule, research and measurements:
+`references/contact-locomotion.md`.
+
+```python
+from rig_analysis import locomotion as lm
+r = lm.cycle("QuadTest_rig", froude="sprint", action_name="QuadTest_rig_Run")
+print(lm.summarize(r))     # gait, Fr, duty, stride, stroke/leg, natural speed, slip
+d = lm.detect("QuadTest_rig", "QuadTest_rig_Run")   # contacts read back from ANY clip
+```
+
+1. Contacts are measured on the skin; a plane is fitted through them.
+2. One number sets speed: the Froude number, Fr = v^2 / (g * hip height), so the
+   same request means the same gait on a rat and a dog.
+3. Stride (2.3 Fr^0.3 hip heights) and ground time (0.75 -> 0.27) follow from
+   it; stroke = duty x stride is what the legs must reach.
+4. Reach is solved on the plane: roll the foot over its toe, then drop the
+   hips, then cut ground time, then - reported - shorten stride and speed.
+
+Validated: quadruped rotary gallop at Fr 3 - stroke 1.53x its IK leg (the old
+run managed 0.45), duty 0.34, 8% flight, contact slip 0.0; hexapod tripod run,
+stroke 1.33x leg, 33% flight. Both walks pass, and say plainly what they could
+not do - these stiff-legged test bodies reach only Fr ~0.12 of the 0.2 asked.
+
+**Measure speed on the planted feet.** `verify.check_clip` used 2 x foot travel
+per cycle, true only at duty 0.5; it read the gallop 21% slow. It now takes the
+median backward speed of planted feet, and agrees with the old figure exactly
+on every 50/50 clip already shipped.
+
+**Paws do not follow the shin in swing.** At zero plant weight a straight swung
+shin carried the paw out level, like a swimmer. Swing holds 70% of the planted
+orientation and folds the paw back mid-swing - turning it about the ankle, not
+moving the ankle, or the fold pulled legs to 115% of their length.
+
+**Skin can outrank reach.** The rat's forearm skin is weighted to its breast
+bones, so every centimetre of hip drop sank it into the floor, and its
+forelimbs stand at 98% extension so without drop they have no stroke. The cycle
+shortens the stroke first and only then gives back height; the rat still ends
+at a 3-4 cm stroke, weaker than its old clips, which were kept. That is the
+asset, not the rule.
 
 ## Tails are not spine
 
@@ -261,6 +308,17 @@ controller for any leg count, with a box collider turned with the model and
 resized per stance. `creature_demo.tscn` switches humanoid / quadruped / hexapod
 live; `-- --selftest` scripts every move on each and prints the result.
 
+Quadruped and hexapod sets add a `Trot` (Fr 1.0) between them, and the
+controller changes gait where neighbouring gaits' speeds meet as a ratio, with
+8% hysteresis, carrying the stride phase across so the feet do not reset.
+Without it a speed change played the walk clip at up to 6x its rate.
+
+Walk, trot and run move at the manifest's `gaits.<role>.natural_speed_mps` - the
+gait's real speed at that body's size - and `contacts.<role>` carries each
+foot's stance phases as `locomotion.detect` measured them, plus the foot bone's
+length so the engine finds the contact at its tail. The demo's F overlay draws
+the planted feet and their support polygon from that schedule.
+
 ## Status
 
 - Body map for every rig in the project. Done.
@@ -269,4 +327,7 @@ live; `-- --selftest` scripts every move on each and prints the result.
 - `keyposes`, `crouch_walk`, `slide_recover` (stand / crouch). Done.
 - `move_set` for any leg count: idle, walk, run, jump, skid, recoveries. Done.
 - Tails told apart from spines; tail lift, sway and floor drape; skin contacts. Done.
+- Contact locomotion: support plane, Froude-scaled stride and duty, reach on the
+  plane, rotary gallop, spine flex, contact detection in any clip, stance-foot
+  speed in the exporter. Done (0.3.0, rig-anything 0.8.0).
 - `climb`. Next - see `references/motion-grammar.md`.

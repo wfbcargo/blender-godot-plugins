@@ -4,12 +4,16 @@ Whole-body actions for any rigged creature in Blender, beyond the walk cycle:
 **crouch, crouch walk, slide, and the two ways out of a slide** - with climb
 next.
 
-> **Status: 0.1.0.** Validated on a hand-built humanoid, exported to Godot and
-> driven by a real character controller. Crouch was also run on Rigify's human
-> and quadruped metarigs, rig-anything's generic quadruped and hexapod, and a
-> downloaded rat. Slide and its recoveries are biped-only by design.
+> **Status: 0.3.0.** Validated on a hand-built humanoid, exported to Godot and
+> driven by a real character controller. `move_set` authors a full playable set
+> - idle, walk, trot, sprint, crouch, crouch walk, jump, slide and both
+> recoveries - for any leg count, run on rig-anything's generic quadruped and
+> hexapod and a downloaded rat. Horizontal bodies skid where a biped slides.
 >
-> **Requires [`rig-anything`](../rig-anything/) 0.6.0 or later.** The code is
+> **0.3.0: walk, trot and sprint come from ground contacts.** A run is no longer
+> a walk played faster. See [Contact locomotion](#contact-locomotion).
+>
+> **Requires [`rig-anything`](../rig-anything/) 0.8.0 or later.** The code is
 > its `scripts/rig_analysis` package; this plugin is the procedure and the rules.
 
 ## Why a second skill
@@ -67,7 +71,41 @@ knees folded to 8-21 degrees and a thigh 0.26 m through the floor.
 | SlideRecover | seam from Slide 0.0, ends on rest, feet planted while rising |
 | SlideToCrouch | seam from Slide 0.0, seam to Crouch's held pose 0.0 |
 
+## Contact locomotion
+
+The first sprint was the walk with fewer frames: every foot stepped 45% of its
+leg length about where it stood, down exactly half the cycle. On bodies that
+stand on nearly straight legs it shuffled. What separates a walk from a sprint
+is not what the limbs are but what they do against the ground, so the rule is
+written against contacts:
+
+1. Measure which skin touches the ground and fit a plane through it.
+2. Ask for a speed as a Froude number - equal Froude, equal gait, at any size.
+3. Stride, ground time and footfalls follow from the published relationships;
+   the distance each planted foot travels is what the legs must reach.
+4. Solve reach on the plane: roll over the toe, lower the hips, cut ground time,
+   and only then shorten the stride - and say so.
+
+| | Old run | Contact sprint |
+|---|---|---|
+| Quadruped | 0.16 m stroke, 50% ground time, 0.58 m/s clip | rotary gallop, 0.54 m stroke (1.53 legs), 34%, flight, spine flex, 3.8 m/s natural |
+| Hexapod | 0.09 m stroke | tripods, 1.33 legs, 31%, flight a third of the cycle, 2.8 m/s |
+
+A trot at Froude 1 sits between walk and sprint so an engine never plays the
+walk several times too fast, and `locomotion.detect` reads each foot's stance
+back out of any clip, which a game can use to draw or react to footfalls. The
+rat, whose straight forelimbs and chest-weighted forearm skin leave no reach,
+is reported limited rather than faked. Research and numbers:
+[`references/contact-locomotion.md`](references/contact-locomotion.md).
+
 ## Quiet failures found on the way
+
+- **A speed formula that assumed half the time on the ground.** The exporter
+  took 2 x foot travel per cycle as the clip's speed; a gallop's feet are down a
+  third of it and it read 21% slow. Speed is now the planted feet's own.
+- **Paws that followed the shin.** In swing a straight shin carried the paw out
+  level like a swimmer's; the paw now holds most of its planted orientation and
+  folds back.
 
 - **Renders that did not render the frame.** Rendering the live rig in a temp
   scene and stepping the frame produced a stand and a crouch that diffed to
@@ -87,6 +125,7 @@ knees folded to 8-21 degrees and a thigh 0.26 m through the floor.
 ```
 SKILL.md                    # procedure, validation, rules
 references/motion-grammar.md  # the key-pose vocabulary, and how slide and climb are planned
+references/contact-locomotion.md  # walk to sprint from ground contacts: rule, research, results
 ```
 
 MIT licensed.

@@ -204,6 +204,8 @@ def clip_report(rig_name, foot_bones, actions=None, loop_clips=None, floor=0.0,
             entry["stride_m"] = stride
             entry["implied_speed_playback_mps"] = c["implied_speed_playback_mps"]
             entry["implied_speed_cycle_mps"] = c["implied_speed_mps"]
+            entry["speed_source"] = c["speed_source"]
+            entry["duty_factor"] = c["duty_factor"]
             entry["use"] = ("implied_speed_playback_mps - the engine loops over "
                             "all %d keyed frames"
                             % (c["frames"][1] - c["frames"][0] + 1))
@@ -442,13 +444,15 @@ def godot_constants(report, suffix="_CLIP_IMPLIED_SPEED"):
     for name, c in sorted(report.get("clips", {}).items()):
         if not c.get("locomotion"):
             continue
-        lines.append(
-            "const %s%s := %s   # %s m per step, 2 steps / %s s"
-            % (name.upper(), suffix,
-               format(c["implied_speed_playback_mps"], ".4g"),
-               format(c["stride_m"], ".3f"),
-               format(c["engine_duration_s"], ".4g"))
-        )
+        if c.get("speed_source", "").startswith("stance"):
+            why = "stance feet sweep back at this, duty %s, over %s s" % (
+                c.get("duty_factor"), format(c["engine_duration_s"], ".4g"))
+        else:
+            why = "%s m per step, 2 steps / %s s" % (
+                format(c["stride_m"], ".3f"), format(c["engine_duration_s"], ".4g"))
+        lines.append("const %s%s := %s   # %s"
+                     % (name.upper(), suffix,
+                        format(c["implied_speed_playback_mps"], ".4g"), why))
     return "\n".join(lines)
 
 

@@ -41,6 +41,20 @@ the rig's previous action and pose.
 A frame 1 at `s = 0` MUST reproduce rest. The crouch checks it; keep that
 check in every action.
 
+## Locomotion is written against contacts
+
+Loops that travel - walk, trot, gallop, tripod run - do not hand-write limb
+targets. They go through `locomotion.plan` / `cycle`, which express everything
+on the support plane fitted through the measured contacts: a contact's line on
+the plane, the hip's height above it, the stroke each leg can reach on it. A
+new travelling gait is a new footfall pattern in `gait.phase_offsets` (as
+touchdown times) and, if it needs one, a body motion keyed off the load signal
+- not a new limb routine. See `contact-locomotion.md`.
+
+Key additions this uses: `Key.flex` (spine arch, `keyposes.flex_angles`), a
+limb spec's `planted` as a 0..1 weight, and `tilt` as a function solved against
+the body posed that frame.
+
 ## Planned: slide
 
 One-shot. Contacts change mid-clip, which crouch never needed.

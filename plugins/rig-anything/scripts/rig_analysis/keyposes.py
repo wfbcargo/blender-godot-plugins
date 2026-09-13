@@ -20,7 +20,12 @@ ride their shoulder.
 A limb spec:
     target   fn(poser, limb, posed) -> armature-space point, or None for rest
     pole     armature-space direction for the mid-joint, or None for natural
-    planted  hold the end bone at its rest orientation (a flat foot)
+    planted  hold the end bone at its rest orientation (a flat foot). A number
+             0..1 blends between following the shin and holding it - a foot
+             lifting off or coming down
+    tilt     degrees the planted end rolls over its toe, or
+             fn(poser, limb, posed, target) -> degrees, solved against the body
+             as it is posed this frame
 """
 
 from __future__ import annotations
@@ -68,19 +73,49 @@ def lean_angles(bm, lean, head_level):
     return a
 
 
+def flex_angles(bm, flex):
+    """Total pitch per axial bone for a spine arched by `flex` degrees.
+
+    Horizontal bodies only. The torso between the rear and front limb girdles
+    bends as a bow: its rear end pitches up by `flex`, its front end down, so the
+    middle rises (flexed, positive) or sags (extended, negative). A galloping
+    dog does this every stride - flexing brings the hind feet up under it,
+    extending throws the forefeet out - and it is a large part of how the
+    stride gets longer than the legs alone allow. Neck and head keep their
+    level; bones behind the pelvis ride it.
+    """
+    n = len(bm["axial"])
+    a = [0.0] * n
+    if not flex or n == 0 or bm["upright"]:
+        return a
+    p = bm["pelvis_index"]
+    idx = [bm["axial"].index(x) for x in bm["torso"]]
+    if len(idx) < 2:
+        return a
+    first, last = min(idx), max(idx)
+    for i in range(n):
+        if i < first:
+            a[i] = -flex
+        elif i <= last:
+            a[i] = -flex + 2.0 * flex * (i - first) / float(max(last - first, 1))
+    return a
+
+
 class Key:
     def __init__(self, drop=0.0, shift=0.0, sway=0.0, lean=0.0, head_level=0.8,
-                 limbs=None, name="", tail_lift=0.0, tail_sway=0.0):
+                 limbs=None, name="", tail_lift=0.0, tail_sway=0.0, flex=0.0):
         self.drop, self.shift, self.sway = drop, shift, sway
         self.lean, self.head_level = lean, head_level
         self.limbs = dict(limbs or {})
         self.name = name
         # degrees, summed along the tail: lift raises the tip, sway swings it
         self.tail_lift, self.tail_sway = tail_lift, tail_sway
+        # degrees of spine arch, see `flex_angles`
+        self.flex = flex
 
     def copy(self, **changes):
         k = Key(self.drop, self.shift, self.sway, self.lean, self.head_level,
-                self.limbs, self.name, self.tail_lift, self.tail_sway)
+                self.limbs, self.name, self.tail_lift, self.tail_sway, self.flex)
         for a, v in changes.items():
             setattr(k, a, v)
         return k
@@ -149,11 +184,14 @@ class Poser:
         wa = w if w_arms is None else w_arms
         wt = w if w_lean is None else w_lean
         body = self.body
+        angles = lean_angles(self.bm, lerp(a.lean, b.lean, wt),
+                             lerp(a.head_level, b.head_level, wt))
+        flex = lerp(getattr(a, "flex", 0.0), getattr(b, "flex", 0.0), w)
+        if flex:
+            angles = [x + y for x, y in zip(angles, flex_angles(self.bm, flex))]
         axial = body.bend_axial(
             -self.up * lerp(a.drop, b.drop, w) + self.fwd * lerp(a.shift, b.shift, w)
-            + self.lat * lerp(a.sway, b.sway, w),
-            lean_angles(self.bm, lerp(a.lean, b.lean, wt),
-                        lerp(a.head_level, b.head_level, wt)))
+            + self.lat * lerp(a.sway, b.sway, w), angles)
         posed = body.fk(axial)
         overrides = dict(axial)
         if self.bm.get("tail"):
@@ -181,9 +219,12 @@ class Poser:
             elif pa is not None:
                 pole, pole_w = pa, 1.0 - lw
 
-            plant_w = lerp(1.0 if planted_a else 0.0, 1.0 if planted_b else 0.0, lw)
-            tilt = lerp(a.limbs.get(limb["name"], {}).get("tilt", 0.0),
-                        b.limbs.get(limb["name"], {}).get("tilt", 0.0), lw)
+            plant_w = lerp(float(planted_a), float(planted_b), lw)
+
+            def tilt_of(key, t):
+                v = key.limbs.get(limb["name"], {}).get("tilt", 0.0)
+                return v(self, limb, posed, t) if callable(v) else v
+            tilt = lerp(tilt_of(a, ta), tilt_of(b, tb), lw)
             end_rot, lift = self.tilt_rotation(limb, tilt)
             ov, info = body.solve_limb(
                 posed, limb, target + lift,

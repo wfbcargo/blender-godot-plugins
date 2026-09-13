@@ -15,10 +15,10 @@ import importlib
 def reload_all():
     """Re-import every submodule. Call after editing any of them."""
     from . import (measure, verify, views, report, fit, skin, decompose, build, gait,
-                   export, bodymap, motion, keyposes, actions)
+                   export, bodymap, motion, keyposes, actions, locomotion)
     # dependency order: actions imports keyposes, motion and bodymap
     mods = (measure, verify, views, report, fit, skin, decompose, build, gait, export,
-            bodymap, motion, keyposes, actions)
+            bodymap, motion, keyposes, actions, locomotion)
     for m in mods:
         importlib.reload(m)
     return [m.__name__ for m in mods]

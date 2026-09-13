@@ -70,6 +70,12 @@ def phase_offsets(legs, gait="walk"):
         s = 0 if l["side"] == "L" else 1
         if gait == "bound":
             out[l["name"]] = (r % 2) * 0.5
+        elif gait == "gallop" and pairs == 2:
+            # Rotary gallop, the dog's and the cheetah's: the feet land in a
+            # circle - LH, RH, RF, LF - each pair a tenth of a cycle apart, the
+            # fore pair half a cycle after the hind. As TOUCHDOWN times; see
+            # `locomotion`, which reads offsets that way round.
+            out[l["name"]] = (0.5 if r == 0 else 0.0) + (0.1 * s if r == 1 else 0.1 * (1 - s))
         elif pairs == 1:
             out[l["name"]] = 0.5 * s
         elif pairs == 2 and gait == "walk":

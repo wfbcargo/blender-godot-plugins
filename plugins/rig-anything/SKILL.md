@@ -117,6 +117,19 @@ or diagonal trot, hexapod alternating tripods, n legs alternating by rank and
 side. `gait` accepts `walk`, `trot`, `tripod`, `bound`; omit it and one is
 chosen from the leg count.
 
+`gait.generate` swings limbs through probed axes and is fine for a first look.
+**For clips that ship, use `locomotion.cycle`**, which poses by contact on the
+support plane and derives stride, ground time, footfall pattern and reach from
+one Froude number - a walk and a sprint from the same rule:
+
+```python
+from rig_analysis import locomotion as lm
+r = lm.cycle(rig_name, froude="sprint")      # or "walk", "trot", or a number
+print(lm.summarize(r))
+```
+
+See `animate-anything`'s `references/contact-locomotion.md`.
+
 It refuses a creature with no legs rather than inventing a walk for a worm.
 **A worm still moves** - it just does not walk:
 
@@ -256,6 +269,13 @@ travelling wave down its spine instead. The test to decline on is whether the
 body has anything to push with at all - legs, or a chain long enough to carry a
 wave - not whether it has legs.
 
+**A speed is only as honest as its duty factor.** The exporter used to call a
+clip's speed 2 x foot travel / cycle, which assumes each foot is down exactly
+half the time. A gallop's feet are down a third of it and swing past their
+touchdown point; that formula read it 21% slow and the walk 30% fast.
+`check_clip` now measures the median backward speed of planted feet and says
+which it used in `speed_source`.
+
 **Order a spine by the hierarchy, never by position.** Ranking bones along the
 travel axis looks obviously right and is wrong on real generated rigs. The
 worm's own spine doubles back: `spine.001` sits behind its parent and in front
@@ -292,6 +312,11 @@ link.
   of spine/neck/head/tail/legs/arms for any rig, pose-by-target IK, playback
   verification. Documented in the companion **`animate-anything`** skill;
   modules `bodymap`, `motion`, `actions`, plus `views.render_clip`.
+- **Phase 7** - contact locomotion (0.8.0): contacts measured on the skin, a
+  support plane through them, Froude-scaled stride and duty factor, per-leg
+  reach on the plane with toe roll, rotary gallop and spine flex, contact
+  detection in any clip, and stance-foot speed in the exporter. Done
+  (`locomotion`).
 
 Biped, measured on a 1.69 m figure against a hand-built rig: **mean joint error
 0.037 m, 2.2% of height**. Quadruped, against a synthetic model with known

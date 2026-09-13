@@ -414,6 +414,7 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
         lowest = float("inf")
         lowest_at = None
         per_foot = {b: {"fwd": float("inf"), "back": -float("inf")} for b in foot_bones}
+        tracks = {b: [] for b in foot_bones}      # (height, backward position)
         first = {}
         last = {}
 
@@ -427,6 +428,7 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
                 fwd = p[fidx] * fsign
                 per_foot[b]["fwd"] = min(per_foot[b]["fwd"], -fwd)
                 per_foot[b]["back"] = max(per_foot[b]["back"], -fwd)
+                tracks[b].append((p[uidx], -fwd))
                 if f == lo:
                     first[b] = p.copy()
                 if f == hi:
@@ -446,9 +448,39 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
         cycle_duration = (hi - lo) / float(fps) if fps else 0.0
         playback_duration = (hi - lo + 1) / float(fps) if fps else 0.0
         implied = (2.0 * stride / cycle_duration) if cycle_duration > 0 else 0.0
-        implied_playback = (
-            (2.0 * stride / playback_duration) if playback_duration > 0 else 0.0
-        )
+        stride_implied = implied
+        duty = None
+        speed_source = "stride (2 x foot travel per cycle - exact only at duty 0.5)"
+
+        # Measure the stance feet instead, where they can be seen. "Two strides
+        # of foot travel per cycle" is only true when each foot is down exactly
+        # half the time; a gallop's feet are down a third of it and swing past
+        # their touchdown point, and the stride formula read that clip 60% off.
+        # A foot is in stance while it sits at its lowest; the body's speed is
+        # how fast it sweeps backward there.
+        band = max(tolerance, 1e-4)
+        speeds, down_frames, spans = [], 0, 0
+        for b in foot_bones:
+            track = tracks[b]
+            low = min(h for h, _ in track)
+            down = [h <= low + band for h, _ in track]
+            down_frames += sum(down[:-1])
+            for i in range(len(track) - 1):
+                if down[i] and down[i + 1] and abs(track[i + 1][1] - track[i][1]) > 1e-7:
+                    speeds.append((track[i + 1][1] - track[i][1]) * fps)
+                    spans += 1
+        if loop and cycle_duration > 0 and spans >= 2 * len(foot_bones):
+            speeds.sort()
+            v = speeds[len(speeds) // 2]
+            # a planted foot moves at one steady speed; if they disagree this
+            # was not a plant but a slide or a roll, and the stride stands
+            steady = sum(1 for s in speeds if abs(s - v) <= 0.1 * abs(v)) >= 0.6 * len(speeds)
+            if v > 0 and steady:
+                implied = v
+                duty = down_frames / float(len(foot_bones) * (hi - lo))
+                speed_source = "stance feet (median backward speed while planted)"
+        implied_playback = implied * cycle_duration / playback_duration \
+            if playback_duration > 0 else 0.0
         duration = cycle_duration
 
         failures = []
@@ -481,6 +513,9 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
             "stride_m": round(stride, 4),
             "implied_speed_mps": round(implied, 4),
             "implied_speed_playback_mps": round(implied_playback, 4),
+            "speed_source": speed_source,
+            "stride_implied_speed_mps": round(stride_implied, 4),
+            "duty_factor": round(duty, 3) if duty is not None else None,
             "playback_duration_s": round(playback_duration, 4),
             "speed_note": (
                 "implied_speed_mps assumes the true cycle (" + str(hi - lo)

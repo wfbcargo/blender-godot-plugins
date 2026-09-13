@@ -31,7 +31,13 @@ the ground, and which skeleton archetype fits.
 > recovery), and `views.render_clip`, which renders frozen evaluated meshes
 > because rendering the live rig reused a stale pose.
 >
-> > **Listed** in the marketplace manifest as of 0.5.0. The coverage caveat still
+> > **Phase 7 (0.8.0)** replaces the walk-played-faster run with contact
+> locomotion: a support plane through the measured ground contacts, a Froude
+> number for speed, and stride, ground time, footfalls and reach derived from
+> them - so a quadruped gallops with its legs at full stretch and a hexapod runs
+> tripods with flight. See the roadmap below.
+>
+> **Listed** in the marketplace manifest as of 0.5.0. The coverage caveat still
 > stands and is worth stating plainly: the rat is the only downloaded asset it
 > has been through: the worm, quadruped, hexapod and biped are shapes this was
 > built against, so they test the code rather than surprise it. More real
@@ -116,6 +122,11 @@ scripts/rig_analysis/
   export.py     preflight, glb write, read-back duration check, GDScript out
   views.py      orthographic renders in an isolated throwaway scene
   report.py     compact text output
+  bodymap.py    any rig -> spine, neck, head, tail, legs, arms
+  motion.py     pose by target with IK, bake, playback comparison
+  keyposes.py   poses as values, and blends between them
+  actions.py    crouch, slide, recoveries, jump, idle, move_set
+  locomotion.py walk to sprint from ground contacts, contact detection
 references/
   archetypes.md          Rigify templates measured, and what evidence picks one
   joint-conventions.md   which way each joint bends, and the quadruped trap
@@ -176,5 +187,19 @@ Blender sessions are long-lived and cache imports, so always
   then **reads the file back** and asserts each written duration against the
   duration its frame range implied. Emits the locomotion speeds as pasteable
   GDScript, because transcribing them by hand is how the wrong period shipped.
-- **6** shapes matching no archetype — fall back to curve-skeleton extraction or
+- **7** contact locomotion — done (`locomotion.py`, 0.8.0). Walks, trots and
+  sprints derived from what touches the ground rather than what each limb is
+  called. Contacts are measured on the skin and a support plane fitted through
+  them; one Froude number sets the speed, and stride (2.3 Fr^0.3 hip heights,
+  Alexander 1976), ground time (0.75 -> 0.27, Alexander & Jayes 1983) and the
+  footfall pattern (lateral-sequence walk, trot, rotary gallop, tripods) follow
+  from it. Each leg's reach is solved on the plane - roll the foot over its toe,
+  then lower the hips, then cut ground time, and only then, reported, shorten
+  the stride. The quadruped's sprint went from a 0.16 m stroke at 50% ground
+  time to a 0.54 m stroke at 34% with flight and a flexing spine. `detect` reads
+  contacts back out of any clip, `engine_manifest` hands gaits and footfall
+  schedules to an engine, and the exporter now measures speed on the planted
+  feet - the old 2 x foot travel formula assumed 50% ground time and read the
+  gallop 21% slow.
+- **8** shapes matching no archetype — fall back to curve-skeleton extraction or
   shell out to UniRig. Do not reimplement either.

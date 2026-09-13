@@ -86,6 +86,12 @@ skeleton is then fitted from a template where one fits, built from a discovered
 Reeb graph where none does, bound with bone-heat weights, and given a looping
 gait for any number of legs — or a travelling lateral wave for a body with none.
 
+Walks, trots and sprints are **derived from ground contacts**: a plane is
+fitted through the skin that touches the floor, one Froude number sets the
+speed, and stride, time on the ground, footfall pattern and each leg's reach on
+that plane follow from published animal-locomotion relationships. A quadruped
+gallops with its legs at full stretch; a hexapod runs tripods with flight.
+
 Most of the code is there because **generated rigs fail quietly**. A wrong
 rotation sign still plays. A foot six millimetres through the floor still
 renders. An action bound to no slot reports stride 0.0000 and a loop seam of
@@ -98,7 +104,8 @@ check the duration it actually wrote. See the
 ### [`animate-anything`](./plugins/animate-anything/)
 
 Whole-body actions beyond the walk cycle — crouch, crouch walk, slide, and the
-ways out of a slide — for any rigged creature. Requires `rig-anything` 0.6.0.
+ways out of a slide — plus a full playable move set of walk, trot and sprint —
+for any rigged creature. Requires `rig-anything` 0.8.0.
 
 A walk can let a foot slide a little. These cannot: they are defined by
 **contacts**, so poses are built from where each foot and hand goes and the
@@ -167,13 +174,15 @@ plugins/
     .claude-plugin/plugin.json
     SKILL.md                        # the procedure, and the rules
     scripts/rig_analysis/           # measure, classify, fit, bind, gait, export,
-                                    # bodymap, motion, keyposes, actions
+                                    # bodymap, motion, keyposes, actions,
+                                    # locomotion
     references/                     # archetypes, and which way each joint bends
     README.md
   animate-anything/
     .claude-plugin/plugin.json
     SKILL.md                        # whole-body actions on rig-anything's engine
     references/motion-grammar.md    # key-pose vocabulary; slide and climb plans
+    references/contact-locomotion.md  # walk to sprint from ground contacts
     README.md
   lookdev/
     .claude-plugin/plugin.json

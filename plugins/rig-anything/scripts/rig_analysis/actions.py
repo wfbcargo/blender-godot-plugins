@@ -1002,14 +1002,28 @@ RUN_GAIT = {2: "walk", 4: "trot", 6: "tripod"}
 
 
 def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
-             roles=("Idle", "Walk", "Run", "Crouch", "CrouchWalk", "Jump", "Slide",
-                    "SlideRecover", "SlideToCrouch")):
+             roles=("Idle", "Walk", "Trot", "Run", "Crouch", "CrouchWalk", "Jump",
+                    "Slide", "SlideRecover", "SlideToCrouch"),
+             walk_froude="walk", trot_froude="trot", run_froude="sprint",
+             legacy_gaits=False):
     """Author a playable move set for one creature. Returns {role: report}.
 
     Clips are named `<prefix>_<Role>` (prefix defaults to the rig name) so one
     .blend can hold several creatures' sets without any clip taking another's
     name. Order matters: the recoveries measure their seams against this set's
     own Slide and Crouch, so those are authored first.
+
+    Walk, Trot and Run come from `locomotion.cycle` at `walk_froude`,
+    `trot_froude` and `run_froude` (numbers, or names from `locomotion.GAITS`):
+    stride, ground time, footfalls and reach all follow from the body's contacts
+    and that one speed, so a run is a run and not a walk played fast. The trot
+    is the middle gait an engine changes through, so a speed change never plays
+    the walk at several times its rate. `legacy_gaits=True` restores the old
+    `gait_cycle` walk and run and drops the trot. CrouchWalk stays on
+    `gait_cycle`, which is built on the crouch pose.
+
+    For the engine side, `locomotion.engine_manifest` turns these reports into
+    the gait and contact-schedule entries a controller reads.
     """
     bm = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
     if "error" in bm:
@@ -1045,4 +1059,14 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
             rig_name, to="crouch", action_name=name("SlideToCrouch"),
             slide_clip=name("Slide"), crouch_clip=name("Crouch"), **common),
     }
+    if not legacy_gaits:
+        from . import locomotion
+        makers["Walk"] = lambda: locomotion.cycle(rig_name, froude=walk_froude,
+                                                  action_name=name("Walk"), **common)
+        makers["Run"] = lambda: locomotion.cycle(rig_name, froude=run_froude,
+                                                 action_name=name("Run"), **common)
+        makers["Trot"] = lambda: locomotion.cycle(rig_name, froude=trot_froude,
+                                                  action_name=name("Trot"), **common)
+    else:
+        roles = [r for r in roles if r != "Trot"]
     return {role: makers[role]() for role in roles}
