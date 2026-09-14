@@ -109,6 +109,21 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0):
     bones = list(rig.data.bones)
     warnings = []
 
+    # A maw's bones - jaw, throat, tongue, mouth socket - hang off the head.
+    # Left in, the jaw is the far end of the axial chain and reads as the head,
+    # and a sided lip or tongue chain reads as a limb. `maw` poses them.
+    from . import maw as maw_mod
+    maw_names, fin_names = set(), set()
+    for b in bones:
+        if b.get(maw_mod.ROLE) or maw_mod.NAME.search(b.name):
+            maw_names.add(b.name)
+            maw_names.update(c.name for c in b.children_recursive)
+        # Fin rays likewise, found by their tag: a name test for fin would take
+        # a dragon's finger bones. `fins` poses them.
+        if b.get('fin_role'):
+            fin_names.add(b.name)
+    bones = [b for b in bones if b.name not in maw_names and b.name not in fin_names]
+
     # Blender's pose maths only matches the plain FK used by `motion` when
     # bones inherit rotation and scale normally. Say so rather than bake a clip
     # that drifts from its own prediction.
@@ -431,6 +446,10 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0):
         "limbs": sorted(limbs, key=lambda l: (-l["forward_pos"], l["side"])),
         # free sheet-skinned limbs, with planform and fold frame; see `wings`
         "wings": wings,
+        # jaw, throat, tongue and mouth socket as `maw.build` stored them, or None
+        "maw": maw_mod.read(rig),
+        "maw_bones": sorted(maw_names),
+        "fin_bones": sorted(fin_names),
         "midline": midline,
         "ignored_chains": ignored,
         "warnings": warnings,
@@ -474,6 +493,16 @@ def summary(bm):
                         w["thickness_ratio"],
                         (", " + ", ".join(extra)) if extra else "",
                         ", RESTS FOLDED" if w["rests_folded"] else ""))
+    mw = bm.get("maw")
+    if mw:
+        lines.append("  MAW  %s: %s hinge, mouth %.3f m, gape %.0f deg, throat %s, tongue %s"
+                     % (mw["kind"], mw["jaw"], mw["mouth_length"] * scale, mw["spec"]["gape"],
+                        mw["throat"], " > ".join(mw["tongue"]) or "-"))
+    elif bm.get("maw_bones"):
+        lines.append("  maw bones %s - not measured by maw.build, so not posable"
+                     % ", ".join(bm["maw_bones"]))
+    if bm.get("fin_bones"):
+        lines.append("  FINS %d ray bones - posed by fins.FinRig" % len(bm["fin_bones"]))
     for w in bm["warnings"]:
         lines.append("  WARN " + w)
     return "\n".join(lines)

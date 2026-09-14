@@ -4,7 +4,7 @@ Whole-body actions for any rigged creature in Blender, beyond the walk cycle:
 **crouch, crouch walk, slide, and the two ways out of a slide** - with climb
 next.
 
-> **Status: 0.4.0.** Validated on a hand-built humanoid, exported to Godot and
+> **Status: 0.6.0.** Validated on a hand-built humanoid, exported to Godot and
 > driven by a real character controller. `move_set` authors a full playable set
 > - idle, walk, trot, sprint, crouch, crouch walk, jump, slide and both
 > recoveries - for any leg count, run on rig-anything's generic quadruped and
@@ -13,7 +13,7 @@ next.
 > **0.3.0: walk, trot and sprint come from ground contacts.** A run is no longer
 > a walk played faster. See [Contact locomotion](#contact-locomotion).
 >
-> **Requires [`rig-anything`](../rig-anything/) 0.9.0 or later.** The code is
+> **Requires [`rig-anything`](../rig-anything/) 0.11.0 or later.** The code is
 > its `scripts/rig_analysis` package; this plugin is the procedure and the rules.
 
 ## Wings
@@ -27,6 +27,23 @@ mass, and checked for wings passing into the body or across the midline and for
 a downstroke that sweeps more air than its upstroke. Walks, crouches, jumps and
 slides carry the wings folded. See
 [`references/wings.md`](references/wings.md).
+
+## Maws
+
+**0.5.0** gives creatures mouths that open. A dragon bites, roars and breathes
+fire; a whale engulfs and purges. The mouth is found on the skin, the jaw is
+added and the skin is split along the lips so the corner stretches as a web
+instead of tearing, and the gape is held to what the skin can take. Clips move
+only the head and mouth, so a game plays them over walking and flying. See
+[`references/maws.md`](references/maws.md).
+
+## Fins and swimming
+
+**0.6.0** makes fish and whales swim. Fins are found on the skin, a fish with no
+rig gets one - a spine and a fan of rays per fin - and the body swims on a wave
+scaled by its length, fish side to side and whales up and down, with fins that
+stand up slow, fold at speed and swing out to brake. See
+[`references/fins-and-swimming.md`](references/fins-and-swimming.md).
 
 ## Why a second skill
 
@@ -139,6 +156,8 @@ SKILL.md                    # procedure, validation, rules
 references/motion-grammar.md  # the key-pose vocabulary, and how slide and climb are planned
 references/contact-locomotion.md  # walk to sprint from ground contacts: rule, research, results
 references/wings.md               # wings: recognition, fold linkage, flight scaling, clips, checks
+references/maws.md                # maws: mouth detection, jaw and pouch bones, lip-split skinning, gape limit, clips
+references/fins-and-swimming.md   # fins: sheet detection, rays, weights; swimming: modes, numbers from length, clips
 ```
 
 MIT licensed.

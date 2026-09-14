@@ -104,7 +104,7 @@ def flex_angles(bm, flex):
 class Key:
     def __init__(self, drop=0.0, shift=0.0, sway=0.0, lean=0.0, head_level=0.8,
                  limbs=None, name="", tail_lift=0.0, tail_sway=0.0, flex=0.0,
-                 wings=None):
+                 wings=None, maw=None):
         self.drop, self.shift, self.sway = drop, shift, sway
         self.lean, self.head_level = lean, head_level
         self.limbs = dict(limbs or {})
@@ -116,11 +116,13 @@ class Key:
         # a `wings.state` (both sides) or {"L": state, "R": state}; None is the
         # Poser's ground pose for wings - folded
         self.wings = wings
+        # a `maw.state`; None is the mouth at rest - closed
+        self.maw = maw
 
     def copy(self, **changes):
         k = Key(self.drop, self.shift, self.sway, self.lean, self.head_level,
                 self.limbs, self.name, self.tail_lift, self.tail_sway, self.flex,
-                self.wings)
+                self.wings, self.maw)
         for a, v in changes.items():
             setattr(k, a, v)
         return k
@@ -145,6 +147,12 @@ class Poser:
         # pose. `body.ground_rest` is what "frame one is rest" is measured against.
         self.wing_rig = None
         self.wing_default = None
+        # A mouth is closed unless a key opens it, so every clip authored
+        # before a maw was built plays the same after.
+        self.maw_rig = None
+        if bm.get("maw"):
+            from . import maw as maw_mod
+            self.maw_rig = maw_mod.MawRig(body)
         self.leg_len = (sum(l["a"] + l["b"] for l in self.legs) / len(self.legs)
                         if self.legs else 0.0)
         self.centre = (sum((l["rest_root"] for l in self.legs), Vector())
@@ -190,7 +198,8 @@ class Poser:
         rot = Matrix.Rotation(math.radians(degrees), 3, axis)
         return rot, rot @ v - v
 
-    def blend(self, a, b, w, w_legs=None, w_arms=None, w_lean=None, w_wings=None):
+    def blend(self, a, b, w, w_legs=None, w_arms=None, w_lean=None, w_wings=None,
+              w_maw=None):
         """The body `w` of the way from key `a` to key `b`.
 
         Legs, arms, wings and the torso lean may run on their own curves - feet
@@ -217,6 +226,12 @@ class Poser:
                 posed, lift_deg=lerp(a.tail_lift, b.tail_lift, wt),
                 sway_deg=lerp(a.tail_sway, b.tail_sway, wt), floor=self.bm["floor"],
                 clearance=0.004 * self.bm["height"]))
+            posed = body.fk(overrides)
+        a_maw, b_maw = getattr(a, "maw", None), getattr(b, "maw", None)
+        if self.maw_rig is not None and (a_maw is not None or b_maw is not None):
+            from . import maw as maw_mod
+            overrides.update(self.maw_rig.pose(
+                posed, maw_mod.blend_states(a_maw, b_maw, w if w_maw is None else w_maw)))
             posed = body.fk(overrides)
         if self.wing_rig is not None:
             from . import wings as wing_mod

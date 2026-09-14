@@ -1,6 +1,6 @@
 ---
 name: animate-anything
-description: Author whole-body actions - crouch, crouch walk, slide and slide recovery now, climb next - for any rigged creature in Blender by identifying its spine, neck, head, tail, legs and arms and posing it by target positions with IK, so planted feet and hands stay put. Works on hand-built, Rigify and rig-anything generic rigs alike, with every clip played back through Blender and checked for foot drift, floor penetration, joint folding and balance. Use when asked to make a creature crouch, squat, duck, sneak, crouch-walk, slide, get up, climb or perform any action beyond a walk cycle, or when asked which bones are a rig's arms, legs, spine or neck.
+description: Author whole-body actions - crouch, crouch walk, slide and slide recovery now, climb next - for any rigged creature in Blender by identifying its spine, neck, head, tail, legs and arms and posing it by target positions with IK, so planted feet and hands stay put. Works on hand-built, Rigify and rig-anything generic rigs alike, with every clip played back through Blender and checked for foot drift, floor penetration, joint folding and balance. Use when asked to make a creature crouch, squat, duck, sneak, crouch-walk, slide, get up, climb or perform any action beyond a walk cycle, to open a jaw - bite, roar, breathe fire, swallow, engulf - to rig fins or make a fish or whale swim, or when asked which bones are a rig's arms, legs, spine or neck.
 ---
 
 # animate-anything
@@ -20,8 +20,10 @@ Four layers, in the `rig_analysis` package that `rig-anything` ships:
 | `actions` | Whole-body actions in body-relative terms: `crouch`, `crouch_walk`, `slide`, `slide_recover` |
 | `locomotion` | Walk to sprint from ground contacts: support plane, Froude-scaled stride and duty factor, reach on the plane; `detect` reads contacts back out of any clip |
 | `wings` / `flight` | Wings found from the skin or names; folded, stroked, twisted; flight speeds from size; spread, flap, glide, dive, take-off, land |
+| `maw` | Mouth found on the skin; jaw, throat, gular, tongue and socket bones; lip-split relaxed weights; gape, bite, roar, breath, swallow, engulf, purge |
+| `fins` / `swim` | Fins found on the skin, a fish rigged from a mesh, rays fanned; a travelling wave from body length - swim, sprint, glide, hover, turn, C-start, brake |
 
-**Requires the `rig-anything` plugin, 0.9.0 or later.** The code ships there, in
+**Requires the `rig-anything` plugin, 0.11.0 or later.** The code ships there, in
 its `scripts/rig_analysis` package; this plugin is the procedure and the rules
 for using it.
 
@@ -334,6 +336,52 @@ density; override `mass_kg`. The dragon's 563 N/m2 is flagged, and flown anyway.
 **Steer, don't blend, in the engine.** Blending flight velocity toward a new
 heading cut the corner and stalled a 26 m/s dragon in a 90 degree turn.
 
+## Maws: bite, roar, breathe fire, engulf
+
+A head with a modelled mouth gets a jaw. Full rule, research and numbers:
+`references/maws.md`.
+
+```python
+from rig_analysis import maw
+d = maw.detect("DragonTest_rig", kind="reptile")
+maw.build("DragonTest_rig", detection=d)
+print(maw.skin("DragonTest_rig")["limit"])      # widest clean gape
+res = maw.maw_set("DragonTest_rig")             # Gape Bite Roar Breath BreathStart BreathEnd Swallow
+manifest_maw = maw.engine_manifest(res, "DragonTest_rig")
+views.render_clip("DragonTest", "DragonTest_rig", res["Gape"]["action"], [1, 16], out,
+                  focus_bones=["head", "jaw"])  # look at the corner up close
+```
+
+Poses: `keyposes.Key(maw=maw.state(gape, throat, tongue, pitch))`. `gape` is 0..1
+of the widest clean opening; part of it goes to the skull lifting (8.7% for a
+reptile). A key without `maw` keeps the mouth shut.
+
+**Look at the corner.** The checks catch tearing and folding; whether a cheek
+reads right is a render.
+
+**Fire goes where the jaws point.** The socket follows the bisector of the open
+jaws, half the gape below the skull - so breath clips lift the head to aim.
+
+## Fins and swimming
+
+A fish is a spine that waves and fins that fold. Full rule, research and numbers:
+`references/fins-and-swimming.md`.
+
+```python
+from rig_analysis import fins, swim
+fins.build_fish("FishTest"); fins.bind("FishTest", "FishTest_rig")
+swim.measure_fin_limits("FishTest_rig")
+res = swim.swim_set("FishTest_rig")        # mode guessed from slenderness; flukes -> cetacean
+views.render_clip("FishTest", "FishTest_rig", res["Swim"]["action"], [1, 8, 15], out, views=("top",))
+```
+
+**Look from above.** A swim reads in the top view: an S travelling to the tail.
+The checks say the wave travels tailward and the tail sweeps what was planned;
+whether it looks like a fish is a render.
+
+**The engine sets the beat.** Clips play at speed / (stride x clip beat): a fish
+never swims faster by wagging the same tail faster than its stride allows.
+
 ## Playing them: `creature_controller.gd`
 
 In the GrungistCreek project a creature's `<name>.moves.json` (clip names,
@@ -368,4 +416,13 @@ the planted feet and their support polygon from that schedule.
   one linkage, flight numbers from size, six flight clips, wing clearance and
   swept-area checks, ground moves with wings folded, flight in the controller.
   Done - `references/wings.md`.
+- Maws (0.5.0, rig-anything 0.10.0): mouth found on the skin, jaw and pouch
+  bones, relaxed lip-split weights, gape limited by the skin, nine clips with
+  stretch / fold / rigid / socket / clearance checks; a MawLayer plays them over
+  locomotion in Godot. Done - `references/maws.md`.
+- Fins and swimming (0.6.0, rig-anything 0.11.0): fins found on the skin, a fish
+  rigged from a bare mesh, five swimming modes from body length including a
+  whale's vertical wave, eight clips checked for tail sweep, tailward wave, folds
+  and fin clearance; `swim_controller.gd` in Godot. Done -
+  `references/fins-and-swimming.md`.
 - `climb`. Next - see `references/motion-grammar.md`.

@@ -410,6 +410,13 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
             return {"error": "%s %s" % (repr(action_name), binding["note"]),
                     "binding": binding}
         lo, hi = _frames(action)
+        # A body with no feet - a worm, a whale - still has a loop seam and a
+        # lowest point; it has no stride. Track every bone for those, and
+        # nothing for speed. With an empty list this used to raise.
+        feetless = not foot_bones
+        stance_bones = list(foot_bones)
+        if feetless:
+            foot_bones = [b.name for b in rig.data.bones]
 
         lowest = float("inf")
         lowest_at = None
@@ -435,7 +442,7 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
                     last[b] = p.copy()
 
         seam = max((last[b] - first[b]).length for b in foot_bones) if loop else None
-        stride = max(per_foot[b]["back"] - per_foot[b]["fwd"] for b in foot_bones)
+        stride = 0.0 if feetless else max(per_foot[b]["back"] - per_foot[b]["fwd"] for b in foot_bones)
         fps = scene.render.fps
 
         # Two different periods, and using the wrong one makes the feet slide.
@@ -460,7 +467,7 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
         # how fast it sweeps backward there.
         band = max(tolerance, 1e-4)
         speeds, down_frames, spans = [], 0, 0
-        for b in foot_bones:
+        for b in stance_bones:
             track = tracks[b]
             low = min(h for h, _ in track)
             down = [h <= low + band for h, _ in track]

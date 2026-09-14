@@ -1,6 +1,6 @@
 ---
 name: rig-anything
-description: Analyse a Blender mesh to work out how it should be rigged - whether it can be skinned at all, which way is up and forward, how many limbs touch the ground, and what archetype it is (biped, quadruped, bird, fish, or something with no template). Use when asked to rig, skeleton, bone, auto-rig or animate an arbitrary 3D asset, when deciding which skeleton template fits a model, or when Blender's automatic weights fail and the reason is unclear.
+description: Analyse a Blender mesh to work out how it should be rigged - whether it can be skinned at all, which way is up and forward, how many limbs touch the ground, and what archetype it is (biped, quadruped, bird, fish, or something with no template). Use when asked to rig, skeleton, bone, auto-rig or animate an arbitrary 3D asset, when deciding which skeleton template fits a model, when a head needs a jaw or a mouth that opens (dragon fire breath, a whale engulfing, a bite), when a fish or whale needs fins rigged or needs to swim, or when Blender's automatic weights fail and the reason is unclear.
 ---
 
 # rig-anything
@@ -204,6 +204,42 @@ Wingbeat, stroke, cruise, glide and stall speeds come from measured wing area,
 span and skinned mass (Pennycuick, Nudds, Taylor). Ground actions carry wings
 folded without being asked. Pass `mass_kg` - the default density is a guess.
 
+**9. Maws: find the mouth, add a jaw, open it.** A head arrives as one bone; the
+mouth is in the skin (see `animate-anything`'s `references/maws.md`):
+
+```python
+from rig_analysis import maw
+d = maw.detect(rig, kind="reptile")   # or crocodilian, mammal, rorqual, anglerfish - from the renders
+print(maw.summarize_detection(d))     # mouth length, corner, hinge, teeth, tongue, fused lips
+maw.build(rig, detection=d)           # jaw, throat, gular, tongue chain, mouth socket (non-deforming)
+print(maw.skin(rig))                  # weights split along the lips, relaxed for stretch; gape limit
+res = maw.maw_set(rig)                # Gape Bite Roar Breath* Swallow, or Engulf Purge for a rorqual
+m = maw.engine_manifest(res, rig)     # the .moves.json `maw` block
+```
+
+Bind the body before joining loose teeth, baleen or a tongue - bone heat refuses
+a mesh in pieces - and let `maw.skin` weight them. `gape = 1` is the kind's
+maximum or the widest the skin takes without folding, whichever is smaller.
+Maw clips move only `layer_bones`, so an engine plays them over locomotion.
+Existing clips are unchanged: a key that says nothing about the maw keeps it shut.
+
+**10. Fins and swimming.** A fish arrives as a mesh; its fins are the skin that is a
+sheet (see `animate-anything`'s `references/fins-and-swimming.md`):
+
+```python
+from rig_analysis import fins, swim
+d = fins.detect("MyFish")                  # caudal, dorsal, anal, pectoral, pelvic - or flukes
+print(fins.summary(d))
+fins.build_fish("MyFish", detection=d)     # no rig yet: head, spine, a fan of rays per fin
+print(fins.bind("MyFish", "MyFish_rig"))   # or fins.build_rays + fins.skin on an existing rig
+swim.measure_fin_limits("MyFish_rig")      # clean fold, C-bend and brake, from the skin
+res = swim.swim_set("MyFish_rig", mode="carangiform")   # Swim Sprint Glide Hover TurnL/R Escape Brake
+m = swim.engine_manifest(res)              # the .moves.json `swim` block
+```
+
+Speeds and tail beats come from length (stride 0.7 L, Strouhal 0.29); flukes make
+the wave vertical. Export a swimmer with `foot_bones=[]` and a floor far below it.
+
 ## Rules
 
 **Never trust a measurement you have not sanity-checked.** This harness exists
@@ -300,6 +336,17 @@ modelled wing sheet - centimetres thick - weighed a 1.9 m test bird at 22 kg,
 and its span loosened every tolerance scaled by size; `bodymap` and the exporter
 size a creature without its wings as they do without its tail.
 
+**A mouth is measured on the skin, and the skin sets the gape.** A test whale's
+jaw folded 21 faces at a rorqual's 80 degrees and none at 47, so its clips open
+to 47 and say so. Fused lips, loose parts and bone heat's weights bleeding in from
+the chest are all reported or repaired by `maw`, never skinned over.
+
+**A fin's edge is not body.** Its rim vertices have normals in the sheet, and an
+inward ray along one runs the fin's length: the test fish's spine ran into its tail
+fin and its fin edges folded. `fins.detect` grows fins across their rims, takes the
+body as the largest connected non-fin skin, and a fin's base as where it touches
+that.
+
 **Decide `passed` last.** Actions add their own failures - loop seams, skating
 feet, seams, wing clearance - after the shared checks have run; the verdict was
 being written before them, so a clip could print PASSED over its own failure
@@ -351,6 +398,18 @@ link.
   tuck; flight numbers from size; WingSpread, Flap, Glide, Dive, TakeOff and
   Land, checked for wing clearance, midline and swept area. Done (`wings`,
   `flight`).
+- **Phase 9** - maws (0.10.0): the mouth found on the skin as a cavity, jaw,
+  throat, gular pouch, tongue and a mouth socket added; weights claimed from
+  bleeding bones, split along the lips by mesh labels and relaxed by
+  stretch-weighted smoothing; gape limited by the skin; Gape, Bite, Roar,
+  BreathStart/Breath/BreathEnd, Swallow, Engulf and Purge, checked for stretch,
+  folded faces, rigid teeth, socket aim and jaw clearance. Done (`maw`).
+- **Phase 10** - fins and swimming (0.11.0): fins found on the skin by sheet
+  thickness, classified by base and normal, a fish rigged from a bare mesh, rays
+  fanned and weighted between neighbours, fold / bend / brake limited by the
+  skin; a travelling wave scaled by length for five modes including a whale's
+  vertical one; Swim, Sprint, Glide, Hover, turns, a C-start and a brake, checked
+  for tail sweep, a tailward wave, folds and fin clearance. Done (`fins`, `swim`).
 - **Phase 7** - contact locomotion (0.8.0): contacts measured on the skin, a
   support plane through them, Froude-scaled stride and duty factor, per-leg
   reach on the plane with toe roll, rotary gallop and spine flex, contact

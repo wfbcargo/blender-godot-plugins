@@ -25,6 +25,7 @@ STANDARD_VIEWS = {
     "left": (-1.0, 0.0, 0.0),
     "top": (0.0, 0.0, 1.0),
     "iso": (1.0, -1.0, 0.7),
+    "below": (1.0, -0.6, -0.9),
 }
 
 
@@ -115,7 +116,7 @@ def render_views(obj_name, out_dir, views=("front", "right", "top", "iso"),
 
 
 def render_clip(mesh_name, rig_name, action_name, frames, out_dir,
-                views=("right", "iso"), size=480):
+                views=("right", "iso"), size=480, focus_bones=None):
     """Render chosen frames of a clip, one image per (frame, view).
 
     A generated action can pass every numeric check and still look wrong - a
@@ -124,6 +125,8 @@ def render_clip(mesh_name, rig_name, action_name, frames, out_dir,
 
     Same throwaway-scene rules as `render_views`. The camera is framed on the
     REST bounds so every frame shares one scale and they compare directly.
+    `focus_bones` frames only the skin those bones hold most of - a jaw is a
+    few pixels in a whole-dragon shot.
 
     Each frame is rendered from a FROZEN COPY of the evaluated mesh, never from
     the live rig. Rendering the rig and stepping the temp scene's frame was
@@ -151,6 +154,16 @@ def render_clip(mesh_name, rig_name, action_name, frames, out_dir,
     # a camera that re-centres on the posed body makes a crouch and a stand
     # render identically, which is exactly how this was found.
     rest = [mesh.matrix_world @ v.co for v in mesh.data.vertices]
+    if focus_bones:
+        want = {g.index for g in mesh.vertex_groups if g.name in set(focus_bones)}
+        bones = {g.index for g in mesh.vertex_groups if g.name in rig.data.bones}
+        picked = []
+        for v, p in zip(mesh.data.vertices, rest):
+            gs = [g for g in v.groups if g.group in bones and g.weight > 0.0]
+            if gs and max(gs, key=lambda g: g.weight).group in want:
+                picked.append(p)
+        if picked:
+            rest = picked
     lo = Vector((min(p.x for p in rest), min(p.y for p in rest), min(p.z for p in rest)))
     hi = Vector((max(p.x for p in rest), max(p.y for p in rest), max(p.z for p in rest)))
     centre, dims = (lo + hi) / 2.0, hi - lo

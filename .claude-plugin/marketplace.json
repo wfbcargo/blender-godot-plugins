@@ -59,8 +59,8 @@
     {
       "name": "rig-anything",
       "source": "./plugins/rig-anything",
-      "version": "0.9.0",
-      "description": "Rigs and animates an arbitrary Blender mesh, including shapes no template covers. The work is split by what each side is actually good at: deterministic Python measures the geometry, and vision classifies it from rendered silhouettes, because geometry alone cannot tell a dog from a table and counting ground contacts cannot tell front from back. A skeleton is then fitted from a template where one fits and built from a discovered Reeb graph where none does, bound with bone-heat weights, and given a looping gait for any number of legs - or a travelling lateral wave for a body with none. Export writes glTF along with the playback speed the clip's own stride implies, then reads the file back to check it. Every measurement is defended: bone axes are probed per bone because an elbow and a knee bend opposite ways, and a rig whose pose evaluation has gone stale errors instead of returning a confident table of zeros. Since 0.6.0 it also maps any rig to spine, neck, head, tail, legs and arms and poses it by target with IK, verified against Blender's own playback - the engine behind animate-anything. Since 0.8.0 walks, trots and sprints are derived from ground contacts: a support plane through the measured feet, Froude-scaled stride and duty factor, and per-leg reach solved on that plane - so a sprint reaches and flies instead of replaying a walk faster - and the exporter measures speed on the planted feet. Since 0.9.0 wings are a body part: found from the skin (a sheet, not a tube) or from names, told apart as membrane or feathered, folded through the avian elbow-wrist linkage with one number, and flown - wingbeat, cruise, glide and stall speeds from wing area, span and mass, and spread, flap, glide, dive, take-off and landing clips checked for wings through the body or across the midline.",
+      "version": "0.11.0",
+      "description": "Rigs and animates an arbitrary Blender mesh, including shapes no template covers. The work is split by what each side is actually good at: deterministic Python measures the geometry, and vision classifies it from rendered silhouettes, because geometry alone cannot tell a dog from a table and counting ground contacts cannot tell front from back. A skeleton is then fitted from a template where one fits and built from a discovered Reeb graph where none does, bound with bone-heat weights, and given a looping gait for any number of legs - or a travelling lateral wave for a body with none. Export writes glTF along with the playback speed the clip's own stride implies, then reads the file back to check it. Every measurement is defended: bone axes are probed per bone because an elbow and a knee bend opposite ways, and a rig whose pose evaluation has gone stale errors instead of returning a confident table of zeros. Since 0.6.0 it also maps any rig to spine, neck, head, tail, legs and arms and poses it by target with IK, verified against Blender's own playback - the engine behind animate-anything. Since 0.8.0 walks, trots and sprints are derived from ground contacts: a support plane through the measured feet, Froude-scaled stride and duty factor, and per-leg reach solved on that plane - so a sprint reaches and flies instead of replaying a walk faster - and the exporter measures speed on the planted feet. Since 0.9.0 wings are a body part: found from the skin (a sheet, not a tube) or from names, told apart as membrane or feathered, folded through the avian elbow-wrist linkage with one number, and flown - wingbeat, cruise, glide and stall speeds from wing area, span and mass, and spread, flap, glide, dive, take-off and landing clips checked for wings through the body or across the midline. Since 0.10.0 mouths are a body part: found on the skin as a cavity entering the head, given a jaw, throat and gular pouch, tongue and a mouth socket, skinned by splitting the head along the lips and relaxing the split for stretch, with the gape held to what the skin takes without folding - and bite, roar, fire-breath, swallow, engulf and purge clips. Since 0.11.0 fish swim: fins found on the skin by thickness, a fish rigged from a bare mesh with a fan of ray bones per fin, and a travelling wave scaled by body length - five modes from eel to whale - for swim, sprint, glide, hover, turn, C-start and brake.",
       "category": "development",
       "keywords": [
         "blender",
@@ -74,7 +74,14 @@
         "3d",
         "locomotion",
         "wings",
-        "flight"
+        "flight",
+        "ik",
+        "maw",
+        "jaw",
+        "mouth",
+        "fins",
+        "fish",
+        "swimming"
       ]
     },
     {
@@ -99,8 +106,8 @@
     {
       "name": "animate-anything",
       "source": "./plugins/animate-anything",
-      "version": "0.4.0",
-      "description": "Whole-body actions for any rigged creature in Blender, beyond the walk cycle: crouch, crouch walk, slide, and the recoveries out of a slide - with climb next. A walk can let feet slide a little; these cannot, because they are defined by contacts, so every pose is built from target positions rather than rotation signs. Any rig - hand-built, Rigify, or rig-anything's generic builder, whichever way its hierarchy runs - is first mapped to one body of spine, neck, head, tail, legs and arms, and actions are written in fractions of that body so one description fits a human and a rat. Poses are values that blend, so a slide recovery is simply slide -> deep crouch -> stand, and every new clip is measured to start exactly where the clip before it ends. Each clip is played back through Blender and checked: prediction against playback, planted feet, stance feet on their line, joints folding past sense, bones and skin through the floor, and balance from the skinned centre of mass. Since 0.3.0 move_set's walk, trot and sprint come from rig-anything's contact-based locomotion, with each foot's footfall schedule read back for the engine. Requires rig-anything 0.9.0 or later, which ships the code. Since 0.4.0 winged creatures fold, spread, flap, glide, dive, take off and land, and carry their wings folded through every ground action.",
+      "version": "0.6.0",
+      "description": "Whole-body actions for any rigged creature in Blender, beyond the walk cycle: crouch, crouch walk, slide, and the recoveries out of a slide - with climb next. A walk can let feet slide a little; these cannot, because they are defined by contacts, so every pose is built from target positions rather than rotation signs. Any rig - hand-built, Rigify, or rig-anything's generic builder, whichever way its hierarchy runs - is first mapped to one body of spine, neck, head, tail, legs and arms, and actions are written in fractions of that body so one description fits a human and a rat. Poses are values that blend, so a slide recovery is simply slide -> deep crouch -> stand, and every new clip is measured to start exactly where the clip before it ends. Each clip is played back through Blender and checked: prediction against playback, planted feet, stance feet on their line, joints folding past sense, bones and skin through the floor, and balance from the skinned centre of mass. Since 0.3.0 move_set's walk, trot and sprint come from rig-anything's contact-based locomotion, with each foot's footfall schedule read back for the engine. Requires rig-anything 0.11.0 or later, which ships the code. Since 0.4.0 winged creatures fold, spread, flap, glide, dive, take off and land, and carry their wings folded through every ground action. Since 0.5.0 creatures with a modelled mouth bite, roar, breathe fire, swallow and engulf, on clips that layer over walking and flying. Since 0.6.0 fish and whales swim, with fins that fold at speed and spread to brake.",
       "category": "development",
       "keywords": [
         "blender",
@@ -116,7 +123,13 @@
         "gait",
         "locomotion",
         "wings",
-        "flight"
+        "flight",
+        "maw",
+        "jaw",
+        "fire-breath",
+        "fins",
+        "fish",
+        "swimming"
       ]
     }
   ]

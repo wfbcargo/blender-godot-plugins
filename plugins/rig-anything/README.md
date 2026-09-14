@@ -48,6 +48,25 @@ the ground, and which skeleton archetype fits.
 > for wings through the body or across the midline and for a downstroke that
 > sweeps more area than its upstroke. Ground moves carry wings folded.
 >
+> **Phase 9 (0.10.0)** adds maws. `maw` finds a mouth on the skin as a cavity
+> entering the head, adds a jaw, a throat and gular pouch, a tongue chain and a
+> non-deforming mouth socket, and splits the head's skin along the lips - claimed
+> back from bones bone heat bled in, labelled by the mesh rather than by height,
+> and relaxed so the jaw's share changes least where its arc is longest. The
+> widest gape the skin takes without folding is measured and respected. Bite,
+> roar, fire-breath, swallow, engulf and purge clips are checked for stretch,
+> folded faces, rigid teeth, socket aim and jaw clearance. A dragon opens its full
+> 80 degrees cleanly; a test rorqual is held to 47 and says why.
+>
+> **Phase 10 (0.11.0)** adds fins and swimming. `fins` finds fins as the skin
+> that is a sheet, tells caudal, dorsal, anal, pectoral and pelvic fins - or a
+> whale's flukes - apart by where they attach, rigs a fish from a bare mesh with a
+> fan of ray bones per fin, and weights each fin between the rays either side.
+> `swim` lays the body along a travelling wave scaled by length - stride 0.7 body
+> lengths, five modes from eel to whale - and authors swim, sprint, glide, hover,
+> turns, a C-start and a brake, checked on Blender's playback for the tail sweep
+> planned, a wave that travels tailward, and no skin folding.
+>
 > **Listed** in the marketplace manifest as of 0.5.0. The coverage caveat still
 > stands and is worth stating plainly: the rat is the only downloaded asset it
 > has been through: the worm, quadruped, hexapod and biped are shapes this was
@@ -216,5 +235,9 @@ Blender sessions are long-lived and cache imports, so always
   gallop 21% slow.
 - **8** wings — done (`wings.py`, `flight.py`, 0.9.0). See animate-anything's
   `references/wings.md`.
-- **9** shapes matching no archetype — fall back to curve-skeleton extraction or
+- **9** maws — done (`maw.py`, 0.10.0). See animate-anything's
+  `references/maws.md`.
+- **10** fins and swimming — done (`fins.py`, `swim.py`, 0.11.0). See
+  animate-anything's `references/fins-and-swimming.md`.
+- **11** shapes matching no archetype — fall back to curve-skeleton extraction or
   shell out to UniRig. Do not reimplement either.
