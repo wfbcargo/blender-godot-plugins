@@ -9,10 +9,16 @@ extends RefCounted
 ## carries it as node extras; Godot's importer stores it as
 ## `node.get_meta("extras")["follow_through"]`. See schema/follow-through.schema.json.
 ##
-## Only route `soft_body` is built today. Other routes are reported and skipped.
+## Routes built here:
+##   soft_body       cloth_body.gd        a SoftBody3D sheet pinned to what holds it
+##   shape_matching  shape_match_body.gd  a volume on a lattice: jello, slime, clay, a balloon
+##   jiggle_bones    jiggle_modifier.gd   sprung bones on a skeleton: breasts, bellies, buttocks
+## `spring_bones` and `none` are reported and skipped.
 
 const SCHEMA := "follow-through/1"
 const ClothBody := preload("res://addons/follow_through/cloth_body.gd")
+const ShapeMatchBody := preload("res://addons/follow_through/shape_match_body.gd")
+const JiggleModifier := preload("res://addons/follow_through/jiggle_modifier.gd")
 
 
 ## The spec on a node, or an empty Dictionary.
@@ -33,18 +39,37 @@ static func validate(spec: Dictionary) -> PackedStringArray:
 			p.append("missing " + k)
 	if spec.get("schema", "") != SCHEMA:
 		p.append("schema is %s, this runtime reads %s" % [spec.get("schema", "?"), SCHEMA])
-	if spec.get("route", "") == "soft_body":
-		for k in ["fabric", "soft_body", "pins"]:
-			if not spec.has(k):
-				p.append("soft_body route missing " + k)
-		if spec.has("pins"):
-			var pins: Dictionary = spec["pins"]
-			if pins.get("space", "") != "gltf_mesh":
-				p.append("pins.space must be gltf_mesh")
-			if pins.get("positions", []).size() != 3 * int(pins.get("count", 0)):
-				p.append("pins.positions length does not match pins.count")
-			if pins.get("anchor", "") == "bone" and pins.get("bones", []).size() != int(pins.get("count", 0)):
-				p.append("pins.anchor=bone needs one bone per pin")
+	match spec.get("route", ""):
+		"soft_body":
+			for k in ["fabric", "soft_body", "pins"]:
+				if not spec.has(k):
+					p.append("soft_body route missing " + k)
+		"shape_matching":
+			for k in ["material", "shape_matching"]:
+				if not spec.has(k):
+					p.append("shape_matching route missing " + k)
+			var sm: Dictionary = spec.get("shape_matching", {})
+			for k in ["frequency_hz", "damping_ratio", "total_mass", "resolution"]:
+				if not sm.has(k):
+					p.append("shape_matching missing " + k)
+		"jiggle_bones":
+			var j: Dictionary = spec.get("jiggle", {})
+			if j.get("space", "") != "gltf_armature":
+				p.append("jiggle.space must be gltf_armature")
+			if j.get("regions", []).is_empty():
+				p.append("jiggle.regions is empty")
+			for r in j.get("regions", []):
+				for k in ["name", "bone", "parent", "head", "tail", "frequency_hz", "damping_ratio"]:
+					if not r.has(k):
+						p.append("jiggle region %s missing %s" % [r.get("name", "?"), k])
+	if spec.has("pins"):
+		var pins: Dictionary = spec["pins"]
+		if pins.get("space", "") != "gltf_mesh":
+			p.append("pins.space must be gltf_mesh")
+		if pins.get("positions", []).size() != 3 * int(pins.get("count", 0)):
+			p.append("pins.positions length does not match pins.count")
+		if pins.get("anchor", "") == "bone" and pins.get("bones", []).size() != int(pins.get("count", 0)):
+			p.append("pins.anchor=bone needs one bone per pin")
 	return p
 
 
@@ -63,29 +88,44 @@ static func find_specs(root: Node) -> Array[Node]:
 
 ## Build every buildable spec under `root`. `root` must be inside the tree.
 ## options:
-##   overrides: Dictionary   soft_body property -> value, applied to every cloth (for tuning)
-##   hide_source: bool       hide the original mesh (default true)
-## Returns one report Dictionary per spec found.
+##   overrides: Dictionary   runtime property -> value, applied to every body of a route
+##                           (soft_body names for cloth, shape_matching names for volumes,
+##                           jiggle names for flesh) - for tuning without re-exporting
+##   routes: Array           build only these routes (default all)
+##   hide_source: bool       hide the original mesh for cloth and volumes (default true)
+## Returns one report Dictionary per spec found; a built one carries `body`.
 static func apply(root: Node, options := {}) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
+	var only: Array = options.get("routes", [])
 	for node in find_specs(root):
 		var spec := spec_of(node)
-		var rep := {"node": String(node.name), "class": spec.get("class", "?"),
-			"route": spec.get("route", "?")}
+		var route := String(spec.get("route", "?"))
+		var rep := {"node": String(node.name), "class": spec.get("class", "?"), "route": route,
+			"type": spec.get("type", "")}
+		if not only.is_empty() and not only.has(route):
+			continue
 		var problems := validate(spec)
 		if not problems.is_empty():
 			rep["built"] = false
 			rep["problems"] = problems
-		elif spec["route"] != "soft_body":
-			rep["built"] = false
-			rep["problems"] = PackedStringArray(["route %s is not built by this runtime yet" % spec["route"]])
 		elif not node is MeshInstance3D:
 			rep["built"] = false
 			rep["problems"] = PackedStringArray(["spec on a %s, expected MeshInstance3D" % node.get_class()])
 		else:
-			var body = ClothBody.build(node, spec, options)
-			rep.merge(body.report, true)
-			rep["built"] = true
-			rep["body"] = body
+			var body = null
+			match route:
+				"soft_body":
+					body = ClothBody.build(node, spec, options)
+				"shape_matching":
+					body = ShapeMatchBody.build(node, spec, options)
+				"jiggle_bones":
+					body = JiggleModifier.build(node, spec, options)
+			if body == null:
+				rep["built"] = false
+				rep["problems"] = PackedStringArray(["route %s is not built by this runtime" % route])
+			else:
+				rep.merge(body.report, true)
+				rep["built"] = rep.get("built", true)
+				rep["body"] = body
 		reports.append(rep)
 	return reports

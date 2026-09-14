@@ -335,6 +335,10 @@ def export_glb(filepath, objects, actions=None, rig_name=None,
         "filepath": filepath,
         "export_format": "GLB",
         "use_selection": True,
+        # Selection is per scene, and without this the exporter takes selected objects from
+        # every scene: a body exported after a follow-through volume export in another
+        # scene carried eleven jello, clay and floor meshes it had never seen.
+        "use_active_scene": True,
         "export_yup": True,
         "export_apply": apply_modifiers,
         # An empty list is not "no preference", it is "this thing has no gait" -
@@ -352,6 +356,10 @@ def export_glb(filepath, objects, actions=None, rig_name=None,
         "export_optimize_animation_size": False,
         "export_cameras": False,
         "export_lights": False,
+        # Object custom properties become node extras. follow-through writes its
+        # secondary-motion spec (jiggle bones on flesh, cloth pins) there, and a rig
+        # exported without extras arrives in Godot with nothing to make it move.
+        "export_extras": True,
     }
 
     props = {p.identifier for p in bpy.ops.export_scene.gltf.get_rna_type().properties}

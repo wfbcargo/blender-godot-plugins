@@ -225,7 +225,10 @@ def score(results):
         truth = truth.to_dict() if hasattr(truth, "to_dict") else dict(truth)
         got = res.get("class")
         want = truth["class"]
-        ok = got == want or (want in ("rigid", "body", "volume") and got in ("volume", "not_cloth"))
+        # the cloth set's props and bodies only have to be recognised as not cloth; which
+        # volume class they are is scored by score_volumes and score_flesh
+        ok = got == want or (want in ("rigid", "body", "volume") and
+                             got in ("volume", "not_cloth", "loose_volume", "mounted_volume", "flesh"))
         total += 1
         hits += ok
         row = {"want": want, "got": got, "ok": ok}
@@ -236,3 +239,420 @@ def score(results):
             row["pin_iou"] = 1.0 if not union else round(len(want_p & got_p) / len(union), 3)
         out[name] = row
     return {"accuracy": f"{hits}/{total}", "rows": out}
+
+
+# ------------------------------------------------------------------ bodies with flesh
+
+BODY_SCENE = "FollowThroughBodies"
+
+# torso cross-sections, bottom to top: (z, half width, front depth, back depth)
+FIGURE_TORSO = [(0.80, 0.150, 0.085, 0.095), (0.93, 0.170, 0.100, 0.115), (1.08, 0.130, 0.085, 0.090),
+                (1.26, 0.155, 0.095, 0.100), (1.38, 0.185, 0.080, 0.085), (1.46, 0.080, 0.060, 0.060)]
+BLOATER_TORSO = [(0.80, 0.175, 0.105, 0.110), (0.93, 0.205, 0.125, 0.125), (1.08, 0.215, 0.125, 0.115),
+                 (1.26, 0.215, 0.115, 0.110), (1.38, 0.215, 0.090, 0.095), (1.46, 0.090, 0.065, 0.065)]
+
+# bumps: (type, name, z, degrees from front toward the body's left, height m, radius m)
+FIGURE_BUMPS = [("breast", "breast.L", 1.25, 26, 0.060, 0.055), ("breast", "breast.R", 1.25, -26, 0.060, 0.055),
+                ("butt", "butt.L", 0.89, 150, 0.055, 0.075), ("butt", "butt.R", 0.89, -150, 0.055, 0.075),
+                ("belly", "belly", 1.03, 0, 0.035, 0.085)]
+BLOATER_BUMPS = [("bloater_belly", "bloater_belly", 1.04, 0, 0.170, 0.260),
+                 ("breast", "breast.L", 1.28, 30, 0.045, 0.065), ("breast", "breast.R", 1.28, -30, 0.045, 0.065),
+                 ("love_handle", "love_handle.L", 0.99, 95, 0.040, 0.070),
+                 ("love_handle", "love_handle.R", 0.99, -95, 0.040, 0.070),
+                 ("butt", "butt.L", 0.88, 150, 0.040, 0.075), ("butt", "butt.R", 0.88, -150, 0.040, 0.075)]
+
+
+def _interp_torso(profile, z):
+    if z <= profile[0][0]:
+        return profile[0][1:]
+    for (z0, *a), (z1, *b) in zip(profile, profile[1:]):
+        if z <= z1:
+            t = (z - z0) / (z1 - z0)
+            t = t * t * (3 - 2 * t)
+            return tuple(x + (y - x) * t for x, y in zip(a, b))
+    return profile[-1][1:]
+
+
+def _torso_bm(profile, bumps, rows=72, around=72, power=2.4):
+    """A lofted torso: super-ellipse sections, front toward -Y, with Gaussian bumps added
+    along the surface normal. Capped at both ends."""
+    bm = bmesh.new()
+    z_lo, z_hi = profile[0][0], profile[-1][0]
+    grid = []
+    for i in range(rows + 1):
+        z = z_lo + (z_hi - z_lo) * i / rows
+        a, bf, bb = _interp_torso(profile, z)
+        ring = []
+        for j in range(around):
+            th = 2 * math.pi * j / around            # 0 = front (-Y), +90 deg = body's left (+X)
+            s, c = math.sin(th), math.cos(th)
+            b = bf if c >= 0 else bb
+            r = 1.0 / ((abs(s) / a) ** power + (abs(c) / b) ** power) ** (1.0 / power)
+            p = Vector((s * r, -c * r, z))
+            n = Vector((s, -c, 0.0))
+            for _kind, _name, bz, deg, h, rad in bumps:
+                bth = math.radians(deg)
+                bs, bc = math.sin(bth), math.cos(bth)
+                bbv = bf if bc >= 0 else bb
+                br = 1.0 / ((abs(bs) / a) ** power + (abs(bc) / bbv) ** power) ** (1.0 / power)
+                centre = Vector((bs * br, -bc * br, bz))
+                d2 = (p - centre).length_squared
+                p = p + n * h * math.exp(-d2 / (2 * (rad * 0.55) ** 2))
+            ring.append(bm.verts.new(p))
+        grid.append(ring)
+    for i in range(rows):
+        for j in range(around):
+            k = (j + 1) % around
+            bm.faces.new((grid[i][j], grid[i][k], grid[i + 1][k], grid[i + 1][j]))
+    bm.faces.new(list(reversed(grid[0])))
+    bm.faces.new(grid[-1])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return bm
+
+
+def _capsule_into(bm, a, b, r, segs=20):
+    a, b = Vector(a), Vector(b)
+    d = b - a
+    rot = Vector((0, 0, 1)).rotation_difference(d.normalized()).to_matrix().to_4x4()
+    m = Matrix.Translation((a + b) / 2) @ rot
+    bmesh.ops.create_cone(bm, cap_ends=True, segments=segs, radius1=r, radius2=r, depth=d.length, matrix=m)
+    bmesh.ops.create_uvsphere(bm, u_segments=segs, v_segments=12, radius=r, matrix=Matrix.Translation(a))
+    bmesh.ops.create_uvsphere(bm, u_segments=segs, v_segments=12, radius=r, matrix=Matrix.Translation(b))
+
+
+def _ellipsoid_into(bm, c, r):
+    m = Matrix.Translation(c) @ Matrix.Diagonal((r[0], r[1], r[2], 1.0))
+    bmesh.ops.create_uvsphere(bm, u_segments=28, v_segments=16, radius=1.0, matrix=m)
+
+
+def _body(sc, name, torso, bumps, limb_scale=1.0, voxel=0.012, location=(0, 0, 0)):
+    """A whole body fused into one closed mesh: the lofted torso, then neck, head and limbs
+    as capsules, voxel remeshed so they join, and smoothed so the joins blend."""
+    bm = _torso_bm(torso, bumps)
+    k = limb_scale
+    top = torso[-1][0]
+    _capsule_into(bm, (0, 0, top - 0.04), (0, 0, top + 0.07), 0.055 * k)
+    _ellipsoid_into(bm, (0, -0.01, top + 0.19), (0.09, 0.105, 0.12))
+    shoulder_z = torso[-2][0]
+    half = torso[-2][1]
+    for s in (1, -1):
+        hip = (s * 0.085 * k, 0.0, torso[0][0] + 0.07)
+        knee = (s * 0.105 * k, -0.005, 0.47)
+        ankle = (s * 0.115 * k, 0.0, 0.08)
+        _capsule_into(bm, hip, knee, 0.078 * k)
+        _capsule_into(bm, knee, ankle, 0.05 * k)
+        _capsule_into(bm, (ankle[0], 0.02, 0.04), (ankle[0], -0.14, 0.035), 0.036 * k)
+        sh = (s * (half - 0.02), 0.0, shoulder_z)
+        elbow = (s * (half + 0.2), 0.0, shoulder_z - 0.18)
+        wrist = (s * (half + 0.36), 0.0, shoulder_z - 0.36)
+        _capsule_into(bm, sh, elbow, 0.048 * k)
+        _capsule_into(bm, elbow, wrist, 0.038 * k)
+        _ellipsoid_into(bm, (wrist[0] + s * 0.04, 0.0, wrist[2] - 0.05), (0.03, 0.045, 0.06))
+    me = bpy.data.meshes.new(name + "_parts")
+    bm.to_mesh(me)
+    bm.free()
+    tmp = bpy.data.objects.new(name + "_parts", me)
+    sc.collection.objects.link(tmp)
+    rm = tmp.modifiers.new("remesh", "REMESH")
+    rm.mode = "VOXEL"
+    rm.voxel_size = voxel
+    sm = tmp.modifiers.new("smooth", "SMOOTH")
+    sm.factor = 0.8
+    sm.iterations = 6
+    sc.view_layers[0].update()
+    out = bpy.data.meshes.new_from_object(tmp.evaluated_get(sc.view_layers[0].depsgraph))
+    bpy.data.objects.remove(tmp, do_unlink=True)
+    bpy.data.meshes.remove(me)
+    for p in out.polygons:
+        p.use_smooth = True
+    ob = bpy.data.objects.new(name, out)
+    ob.location = location
+    sc.collection.objects.link(ob)
+    sc.view_layers[0].update()
+    truth = []
+    for kind, bname, z, deg, h, rad in bumps:
+        a, bf, bb = _interp_torso(torso, z)
+        th = math.radians(deg)
+        s, c = math.sin(th), math.cos(th)
+        b = bf if c >= 0 else bb
+        r = 1.0 / ((abs(s) / a) ** 2.4 + (abs(c) / b) ** 2.4) ** (1.0 / 2.4) + h
+        truth.append({"type": kind, "name": bname, "radius": rad,
+                      "centre": [s * r + location[0], -c * r + location[1], z + location[2]]})
+    ob["ft_truth"] = {"class": "flesh", "regions": truth}
+    return ob
+
+
+def build_bodies(rig=True, walk=True, rig_anything=None):
+    """Two bodies with known soft masses: `Figure` (breasts, buttocks, a small belly) and
+    `Bloater` (a swollen belly, moobs, love handles). With `rig`, each is rigged with
+    rig-anything's basic_human fitter and bound; with `walk`, given rig-anything's
+    contact-locomotion walk. Returns the scene name and what was made.
+
+    rig-anything is found at `rig_anything` (its scripts folder) or beside this plugin."""
+    sc = bpy.data.scenes.get(BODY_SCENE)
+    if sc is not None:
+        _clear(sc)
+    else:
+        sc = bpy.data.scenes.new(BODY_SCENE)
+    made = {"scene": sc.name, "bodies": {}}
+    # both at the origin, overlapping: rig-anything refuses to export a rig off origin,
+    # because in Godot the model would orbit the node instead of walking with it
+    for name, torso, bumps, k, x in (("Figure", FIGURE_TORSO, FIGURE_BUMPS, 1.0, 0.0),
+                                     ("Bloater", BLOATER_TORSO, BLOATER_BUMPS, 1.2, 0.0)):
+        ob = _body(sc, name, torso, bumps, limb_scale=k, location=(x, 0, 0))
+        made["bodies"][name] = {"vertices": len(ob.data.vertices)}
+    if not rig:
+        return made
+    ra = _rig_anything(rig_anything)
+    win = bpy.context.window
+    prev = win.scene
+    win.scene = sc
+    try:
+        for name in made["bodies"]:
+            res = ra.fit.fit_basic_human(name, forward_sign=-1)
+            bind = ra.skin.bind(name, res["rig"])
+            made["bodies"][name].update(rig=res["rig"], coverage=bind.get("coverage"))
+            if walk:
+                from rig_analysis import locomotion as lm
+                r = lm.cycle(res["rig"], froude="walk", action_name=name + "Walk")
+                made["bodies"][name]["walk"] = {k: r[k] for k in ("action", "speed_mps", "frames") if k in r}
+    finally:
+        win.scene = prev
+    return made
+
+
+def export_bodies(out_dir, rig_anything=None):
+    """Build, rig, walk, flesh and export both sample bodies - the demo's assets, from scratch.
+
+    Each body goes out through rig-anything's export (which verifies the walk's duration
+    and writes <name>.rig.json with its speed), then is read back by export.verify, which
+    checks every jiggle bone is in the skin where the spec puts it."""
+    import os
+    from . import export, flesh
+    made = build_bodies(rig=True, walk=True, rig_anything=rig_anything)
+    ra = _rig_anything(rig_anything)
+    from rig_analysis import export as rx
+    win = bpy.context.window
+    prev = win.scene
+    win.scene = bpy.data.scenes[made["scene"]]
+    out = {}
+    try:
+        for name in made["bodies"]:
+            rep = flesh.prepare(name)
+            path = os.path.join(out_dir, name.lower() + ".glb")
+            m = rx.export(name, name + "_metarig", path, foot_bones=["foot.L", "foot.R"],
+                          actions=[name + "Walk"], loop_clips=[name + "Walk"], forward="-Y")
+            out[name] = {"regions": len(rep.get("regions", [])), "exported": m.get("exported"),
+                         "durations_match": m.get("verified", {}).get("durations_match"),
+                         "read_back": export.verify(path, expect_meshes=[name])["passed"] if m.get("exported") else False}
+    finally:
+        win.scene = prev
+    return out
+
+
+def _clear(sc):
+    for o in list(sc.objects):
+        data = o.data
+        bpy.data.objects.remove(o, do_unlink=True)
+        if data is not None and data.users == 0:
+            if isinstance(data, bpy.types.Mesh):
+                bpy.data.meshes.remove(data)
+            elif isinstance(data, bpy.types.Armature):
+                bpy.data.armatures.remove(data)
+
+
+def _rig_anything(path=None):
+    import importlib
+    import os
+    import sys
+    here = os.path.dirname(os.path.abspath(__file__))
+    candidates = [path] if path else []
+    candidates += [os.path.normpath(os.path.join(here, "..", "..", "..", "rig-anything", "scripts")),
+                   os.path.join(os.path.expanduser("~"), ".claude", "skills", "rig-anything", "scripts")]
+    for c in candidates:
+        if c and os.path.isdir(os.path.join(c, "rig_analysis")):
+            if c not in sys.path:
+                sys.path.insert(0, c)
+            import rig_analysis
+            importlib.reload(rig_analysis)
+            rig_analysis.reload_all()
+            from rig_analysis import fit, skin
+            rig_analysis.fit, rig_analysis.skin = fit, skin
+            return rig_analysis
+    raise RuntimeError("rig-anything not found: pass rig_anything=<its scripts folder>")
+
+
+def score_flesh(found, obj_name=None, tolerance=0.12):
+    """Compare flesh.find_regions output with a sample body's truth: each true mass should be
+    found as a region of its type whose jiggle bone tail lies within `tolerance` m of the
+    mass's peak, or 60% of the mass's radius if that is larger. Returns hits, misses,
+    extras and the distance for each."""
+    ob = bpy.data.objects[obj_name or found["object"]]
+    truth = ob["ft_truth"].to_dict() if hasattr(ob["ft_truth"], "to_dict") else dict(ob["ft_truth"])
+    rows = []
+    used = set()
+    for t in truth["regions"]:
+        want = Vector(t["centre"])
+        best = None
+        for r in found["regions"]:
+            if r["name"] in used:
+                continue
+            d = (Vector(tuple(r["tail"])) - want).length
+            if best is None or d < best[0]:
+                best = (d, r)
+        limit = max(tolerance, 0.6 * t.get("radius", 0.0))
+        ok = best is not None and best[0] <= limit and best[1]["type"] == t["type"]
+        if ok:
+            used.add(best[1]["name"])
+        rows.append({"want": t["name"], "type": t["type"], "got": best[1]["name"] if best else None,
+                     "got_type": best[1]["type"] if best else None,
+                     "distance_m": round(best[0], 3) if best else None, "ok": ok})
+    extras = [r["name"] for r in found["regions"] if r["name"] not in used]
+    hits = sum(r["ok"] for r in rows)
+    return {"object": ob.name, "found": f"{hits}/{len(rows)}", "rows": rows, "extras": extras}
+
+
+# ------------------------------------------------------------------ volumes
+
+VOLUME_SCENE = "FollowThroughVolumes"
+
+
+def _mold(radius, height, flutes=8, depth=0.12, segments=48, rings=10):
+    """A turned-out jelly mould: a fluted, tapering drum with a rounded top."""
+    bm = bmesh.new()
+    rows = []
+    for r in range(rings + 1):
+        t = r / rings
+        z = height * t
+        taper = 1.0 - 0.35 * t * t
+        row = []
+        for j in range(segments):
+            th = 2 * math.pi * j / segments
+            rad = radius * taper * (1.0 + depth * 0.5 * math.cos(flutes * th))
+            row.append(bm.verts.new((rad * math.cos(th), rad * math.sin(th), z)))
+        rows.append(row)
+    for a, b in zip(rows, rows[1:]):
+        for j in range(segments):
+            k = (j + 1) % segments
+            bm.faces.new((a[j], a[k], b[k], b[j]))
+    bottom = bm.verts.new((0, 0, 0))
+    top = bm.verts.new((0, 0, height * 1.05))
+    for j in range(segments):
+        k = (j + 1) % segments
+        bm.faces.new((rows[0][k], rows[0][j], bottom))
+        bm.faces.new((rows[-1][j], rows[-1][k], top))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return bm
+
+
+def _blob(radius, squash_z=0.55, seed=3, detail=3):
+    import random
+    rnd = random.Random(seed)
+    bm = bmesh.new()
+    bmesh.ops.create_icosphere(bm, subdivisions=detail, radius=radius)
+    bumps = [(Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))).normalized(), rnd.uniform(0.05, 0.15))
+             for _ in range(5)]
+    for v in bm.verts:
+        n = v.co.normalized()
+        k = 1.0 + sum(a * max(0.0, n.dot(d)) ** 3 for d, a in bumps)
+        v.co = Vector((v.co.x * k, v.co.y * k, v.co.z * k * squash_z))
+    lo = min(v.co.z for v in bm.verts)
+    for v in bm.verts:
+        v.co.z -= lo
+    return bm
+
+
+def build_volumes(variant=0, scene_name=None):
+    """Volumes with known classes and types, in their own scene.
+
+    variant 0 is the named set. variant 1 is a second set - each thing scaled and shaped a
+    little differently, and named Thing01.. so no name can help - for testing whether
+    teaching from the first set lets the second be typed."""
+    sc_name = scene_name or (VOLUME_SCENE if variant == 0 else f"{VOLUME_SCENE}{variant}")
+    sc = bpy.data.scenes.get(sc_name)
+    if sc is not None:
+        _clear(sc)
+    else:
+        sc = bpy.data.scenes.new(sc_name)
+    k = 1.0 if variant == 0 else 1.15
+    names = iter(f"Thing{i:02d}" for i in range(1, 50))
+
+    def nm(name):
+        return name if variant == 0 else next(names)
+
+    def put(name, bm, loc, truth):
+        ob = _link(sc, name, bm, loc)
+        for p in ob.data.polygons:
+            p.use_smooth = True
+        if truth:
+            ob["ft_truth"] = truth
+        return ob
+
+    floor = bmesh.new()
+    bmesh.ops.create_cube(floor, size=1.0)
+    bmesh.ops.scale(floor, vec=(5.6, 2.0, 0.1), verts=floor.verts)
+    put("Floor", floor, (2.3, 0, -0.05), {"class": "rigid"})
+
+    plate = _cylinder(0.2 * k, 0.02, 32)
+    put(nm("Plate"), plate, (0.0, 0, 0.01), {"class": "rigid"})
+    put(nm("Jello"), _mold(0.1 * k, 0.12 * k, flutes=8 if variant == 0 else 6), (0.0, 0, 0.02),
+        {"class": "mounted_volume", "type": "jello"})
+
+    cube = bmesh.new()
+    bmesh.ops.create_cube(cube, size=0.12 * k)
+    bmesh.ops.subdivide_edges(cube, edges=cube.edges[:], cuts=5, use_grid_fill=True)
+    put(nm("JelloCube"), cube, (0.6, 0, 0.45), {"class": "loose_volume", "type": "jello"})
+
+    ramp = bmesh.new()
+    bmesh.ops.create_cube(ramp, size=1.0)
+    bmesh.ops.scale(ramp, vec=(1.2, 0.5, 0.01), verts=ramp.verts)   # thin: a thick ramp's end is a step a rolling ball wedges against
+    rob = put("Ramp", ramp, (1.3, 0, 0.2), {"class": "rigid"})
+    rob.rotation_euler = (0, math.radians(15), 0)
+    ball = bmesh.new()
+    bmesh.ops.create_uvsphere(ball, u_segments=32, v_segments=16, radius=0.08 * k)
+    sc.view_layers[0].update()
+    top = rob.matrix_world @ Vector((-0.5, 0, 0.5))
+    put(nm("ClayBall"), ball, (top.x + 0.08, 0, top.z + 0.08 * k + 0.004), {"class": "loose_volume", "type": "clay_ball"})
+
+    put(nm("SlimeBlob"), _blob(0.14 * k, seed=3 + variant), (2.3, 0, 0.0), {"class": "loose_volume", "type": "slime"})
+
+    balloon = bmesh.new()
+    bmesh.ops.create_uvsphere(balloon, u_segments=32, v_segments=16, radius=0.11 * k)
+    for v in balloon.verts:
+        v.co.z = v.co.z * (1.15 if v.co.z > 0 else 0.9) + 0.11 * k * 0.9
+    put(nm("WaterBalloon"), balloon, (2.9, 0, 0.0), {"class": "loose_volume", "type": "water_balloon"})
+
+    plate2 = _cylinder(0.16 * k, 0.02, 32)
+    put(nm("Saucer"), plate2, (3.9, 0, 0.01), {"class": "rigid"})
+    flan = _cylinder(0.1 * k, 0.09 * k, 32, radius_bottom=0.12 * k, rings=4)
+    put(nm("Pudding"), flan, (3.9, 0, 0.02 + 0.045 * k), {"class": "mounted_volume", "type": "pudding"})
+
+    rock = _blob(0.12 * k, squash_z=0.8, seed=11 + variant, detail=2)
+    for v in rock.verts:       # facets: rocks are angular
+        v.co = Vector((round(v.co.x / 0.03) * 0.03, round(v.co.y / 0.03) * 0.03, round(v.co.z / 0.03) * 0.03)) * 0.5 + v.co * 0.5
+    put(nm("Rock"), rock, (4.7, 0, 0.0), {"class": "loose_volume", "type": "rock"})
+
+    sc.view_layers[0].update()
+    return sc.name
+
+
+def score_volumes(scene_name=VOLUME_SCENE):
+    """Classify every volume sample in a scene; class and type accuracy against truth."""
+    from . import classify
+    sc = bpy.data.scenes[scene_name]
+    rows = {}
+    cls_ok = type_ok = total = 0
+    for ob in sc.objects:
+        truth = ob.get("ft_truth")
+        if ob.type != "MESH" or not truth or truth.get("class") == "rigid":
+            continue
+        truth = truth.to_dict() if hasattr(truth, "to_dict") else dict(truth)
+        r = classify.classify(ob.name)
+        c = r["class"] == truth["class"]
+        t = r.get("type") == truth.get("type")
+        rows[ob.name] = {"want": f"{truth['class']}/{truth.get('type')}", "got": f"{r['class']}/{r.get('type')}",
+                         "class_ok": c, "type_ok": t, "type_evidence": r.get("type_evidence", [])}
+        cls_ok += c
+        type_ok += t
+        total += 1
+    return {"scene": scene_name, "class": f"{cls_ok}/{total}", "type": f"{type_ok}/{total}", "rows": rows}

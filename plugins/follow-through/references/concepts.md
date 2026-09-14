@@ -26,7 +26,7 @@ thing that moves?**
 |---|---|---|---|---|
 | **strand** | 1D | a bendable line | rope, hair, tail, antenna, chain | stretching along it, bending, twisting |
 | **shell** | 2D | a bendable plane | cloth, flag, sail, paper, leaf | stretching and shearing within the surface, bending out of it |
-| **volume** | 3D | a bendable solid | jello, belly, slime, a squishy ball | stretching in every direction, and keeping its volume |
+| **volume** | 3D | a bendable solid | jello, belly, slime, a squishy ball, clay | stretching in every direction, and keeping its volume |
 
 So fabric really is a bendable plane and jello a bendable 3D object. The
 simulation reflects that directly:
@@ -39,7 +39,7 @@ simulation reflects that directly:
 
 In the field these are called **rods** (strands), **shells** or **cloth** (surfaces)
 and **soft bodies** or **FEM volumes** (solids). The same engine can host all three,
-but the constraints differ.
+but the constraints differ. Sections 3-7 are cloth; 9 is volumes, 10 flesh.
 
 ## 3. How cloth is simulated: particles and constraints
 
@@ -147,3 +147,83 @@ numbers. A position names the same point in both programs; a number does not.
 Every arrow has a check: classification against sample bodies with known answers, the
 export against the file it wrote, the runtime against a physics run. Each check
 exists because the step it guards once failed without an error message.
+
+## 9. Volumes: shape memory instead of constraints
+
+A volume has an inside, and what makes jello jello is that it **remembers its shape and
+keeps its volume**. Cloth's recipe - particles joined by distance constraints - cannot do
+that without bending and volume constraints, and Godot's Jolt soft body builds neither. So
+volumes use **shape matching**:
+
+1. Embed the mesh in a coarse **lattice** - a few cells a side. The lattice nodes are the
+   particles; the render mesh just follows its cell (trilinear interpolation).
+2. Each node has a **cluster**: itself and its neighbours. Every tick, each cluster asks
+   "what rigid rotation best maps my rest shape onto where my nodes are now?" (a polar
+   decomposition) and proposes a **goal** for each node: where the rest shape would put it.
+3. Nodes move a fraction **alpha** of the way to the average of their goals. That fraction
+   is the stiffness: a spring of frequency w corrected once per step has
+   alpha = 2(1 - cos w dt).
+4. One more cluster covers the whole body. Small clusters alone can each turn their own way
+   and the body folds; the whole-body goal holds the form (`global_stiffness`).
+
+Three extras give three materials:
+
+- **squash** blends the best *linear* fit, normalised so its determinant is 1, into the
+  goal. The body can squash and bulge sideways while keeping its volume - a water balloon.
+- **plasticity** moves the rest shape itself toward the shape the body is held in, once the
+  strain passes a yield - clay flattens where it lands and stays flat; slime flows.
+- **mounting** pins the nodes at a volume's base to whatever holds it - a jello stuck to its
+  plate.
+
+A volume is pushed by physics bodies through **contact samples** - surface vertices that
+test the world - and does not push back.
+
+## 10. Flesh: a spring per mass
+
+A body's soft parts are not free volumes: they ride on bones, and the animation moves them.
+Games give each mass a **jiggle bone**, parented to the bone it rides on, with the mass's
+vertices weighted to it. Every frame, after the animation, the bone's tail is a point on a
+**damped spring** whose rest position is where the animated skeleton puts it:
+
+- **frequency** (Hz) - how fast it bounces. Soft fat 2-4 Hz, firm muscle 5-10.
+- **damping ratio** - 0 bounces forever, 1 settles without overshoot. Flesh 0.2-0.35.
+- the spring is driven by the **anchor's acceleration** - a footfall, a turn, a stop - and
+  by gravity *relative to the rest pose*, because flesh modelled standing already sags.
+
+The bone swings toward the tail (**aim**), its head follows part of the way (**translate**),
+and it stretches along its length while its cross-section narrows by 1/sqrt, so the mass
+keeps its volume (**squash**).
+
+Finding the masses is the hard part: skinning says which bone moves a vertex, not which
+vertices are soft. The body's **lean envelope** - the radius the surface would have without
+bulges, estimated along each limb and the spine - says how far each vertex **stands out**.
+Standing out alone cannot tell a belly from wide hips, so each kind of flesh also names a
+**zone** of the body.
+
+## 11. Types: what a thing is, and teaching
+
+Recognition has three levels:
+
+| level | answers | decides | example |
+|---|---|---|---|
+| family | what dimension moves | the kind of simulation | volume |
+| class | how it is held | the runtime | mounted_volume |
+| type | what it is | the material | jello |
+
+Classes need code - a runtime each. **Types are data**: a JSON entry with the words that
+name it, the classes it can take, its material, and for flesh its zone. So a new kind of
+thing needs an entry, not a program.
+
+Evidence for a type comes from **names** and from **taught examples**: an example is one
+object's measured shape features, stored with the type someone said it was. A new object
+is compared with every example; the nearest of each type votes. This is the same thing
+vision does in the loop - look, decide - except that the decision is kept, so the second
+slime is recognised without looking.
+
+## 12. Looking in 2D, mapping to 3D
+
+Deciding *what* a bulge is is easy to see and hard to measure. Deciding *exactly which
+vertices, and how far out* is the reverse. So they are split: render labelled views (a
+lettered grid, numbered candidates), mark zones on the picture, then map the marks back
+through each view's camera onto the vertices that camera could see. The geometry then
+places the bone and feathers the weights inside what was marked.

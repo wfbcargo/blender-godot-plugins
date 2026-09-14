@@ -1,0 +1,1000 @@
+"""Flesh: find the soft parts of a skinned body, and give each a jiggle bone.
+
+A breast, a belly, a buttock, a bloater's torso - each is a mass of soft tissue
+standing proud of the body's lean core, carried by a bone it does not move rigidly
+with. Games move these with jiggle bones: one extra bone per mass, sprung to its
+parent, with the mass's vertices weighted to it. This module finds the masses,
+adds the bones, paints the weights and writes the spec the Godot runtime springs.
+
+Nothing about skinning says which vertices are soft: bone heat spread the test
+figure's breasts over `shoulder.L` and `spine.004`, and basic_human's own `breast`
+bones sat 14 cm below them. So the soft parts come from the surface and the
+skeleton together.
+
+  chains      core bones joined into polylines - pelvis to head, each arm, each leg -
+              continuing through the most collinear child at a branch. Side bones
+              (breast, pelvis, shoulder, heel, the jiggle bones added here) are not core.
+  rings       every vertex belongs to its nearest chain at an arc length along it;
+              one band of arc length is a ring round the chain, a cross-section.
+  envelope    per angular sector, the lean radius along the chain is a local line
+              refitted without the rings standing more than 8% above it. A ramp (a
+              waist widening into hips) is a line and stays lean; a bump (a buttock on
+              the back of the hips) is rejected, and is the excess.
+  zones       excess alone cannot tell hips from a pinched waist, so every flesh
+              type in the registry names a zone of the body - which chain, a height
+              between hip and shoulder, a facing, a side - and a region is excess
+              inside a zone. A new kind of flesh is a new registry entry.
+
+What was measured and dropped on the way, so nobody tries it again:
+
+  - distance to the strongest-weighted bone, normalised per bone: the shoulder and
+    neck bones' own spread swamped the breasts.
+  - Taubin smoothing as a lean envelope: 200 passes on a 1.2 cm voxel mesh moved the
+    surface under 1.4 mm at the 99th percentile; diffusion crosses about an edge per
+    pass and a breast is ten edges across.
+  - one ellipse per ring, fixed on the bone: the skull sits ahead of the head bone and
+    the whole back of the head read as a bulge. With a free centre, the fit slid
+    toward the bulges and erased the belly and buttocks.
+  - taking each ring's 30th-percentile excess off every sector, so hips wider all round
+    than the waist cancel: it did, and it also cost the figure its buttocks and grew
+    every other region. Zones handle hips instead.
+  - chains by nearest segment alone: a bloater's wide torso sides went to its A-posed
+    upper arms, which pass closer to them than the spine. Chains come from skin weights.
+"""
+
+from __future__ import annotations
+
+import math
+import re
+
+import bpy
+import numpy as np
+
+SIDE_BONES = ("breast", "pelvis", "heel", "shoulder", "clavicle", "jiggle", "ft_", "twist",
+              "ear", "eye", "jaw", "tongue", "tooth", "teeth", "finger", "thumb", "palm")
+COLLINEAR_DEG = 35.0      # a branch continues the chain through a child within this of straight on
+SECTORS = 24
+BANDS_PER_HEIGHT = 40     # ring thickness = body height / this
+OUTLIER = 1.08            # rings this far above the local envelope line are dropped and it is refitted
+ENVELOPE_HALF_WIDTHS = (0.15, 0.30)   # of body height, each side of a ring. Two scales, the larger excess
+                                     # kept: 0.18 alone read most of a bloater's 50 cm belly as lean, 0.30
+                                     # alone lost a figure's breasts at the top of the spine chain
+
+# a vertex is bulge when it stands this far outside its ring's lean ellipse ...
+SEED_EXCESS = 0.012       # ... in metres per metre of body height
+SEED_RELATIVE = 0.25      # ... and as a fraction of the lean radius there
+GROW_RELATIVE = 0.10      # clusters grow into vertices down to this, so weights feather out
+MIN_REGION_FRACTION = 0.003   # of the body's vertices; smaller clusters are noise
+
+
+def armature_of(obj):
+    for m in obj.modifiers:
+        if m.type == "ARMATURE" and m.object is not None:
+            return m.object
+    if obj.parent is not None and obj.parent.type == "ARMATURE":
+        return obj.parent
+    return None
+
+
+def name_tokens(name):
+    """`DEF-breast.L` -> [def, breast, l]; `mixamorig:LeftShoulder` -> [mixamorig, left, shoulder].
+    Whole tokens, because substrings lie: `ear` is inside `forearm`."""
+    spaced = re.sub(r"([a-z])([A-Z])", r"\1 \2", name)
+    return [t for t in re.split(r"[^a-z]+", spaced.lower()) if t]
+
+
+def _is_side(name, side):
+    if name.lower().startswith("ft_"):
+        return True
+    toks = name_tokens(name)
+    return any(t == s or t == s + "s" for t in toks for s in side)
+
+
+def chains(rig, side=SIDE_BONES):
+    """Core bones as polylines. Returns [{"bones": [...], "points": (k+1, 3) world}]."""
+    core = {b.name: b for b in rig.data.bones if b.use_deform and not _is_side(b.name, side)}
+    if not core:        # a rig whose bones are all "side" by name: use every deform bone
+        core = {b.name: b for b in rig.data.bones if b.use_deform}
+
+    def kids(b):
+        out = []
+        for c in b.children:
+            if c.name in core:
+                out.append(c)
+            else:
+                out.extend(kids(c))
+        return out
+
+    def par(b):
+        p = b.parent
+        while p is not None and p.name not in core:
+            p = p.parent
+        return p
+
+    def straight_on(b):
+        d = (b.tail_local - b.head_local).normalized()
+        best, best_dot = None, math.cos(math.radians(COLLINEAR_DEG))
+        for c in kids(b):
+            dc = (c.tail_local - c.head_local).normalized()
+            if d.dot(dc) > best_dot:
+                best, best_dot = c, d.dot(dc)
+        if best is None and len(kids(b)) == 1:
+            best = kids(b)[0]
+        return best
+
+    continued = set()
+    for b in core.values():
+        nxt = straight_on(b)
+        if nxt is not None:
+            continued.add(nxt.name)
+    mw = rig.matrix_world
+    out = []
+    for b in core.values():
+        if b.name in continued:
+            continue
+        ch = [b]
+        while True:
+            nxt = straight_on(ch[-1])
+            if nxt is None:
+                break
+            ch.append(nxt)
+        pts = [tuple(mw @ ch[0].head_local)] + [tuple(mw @ x.tail_local) for x in ch]
+        out.append({"bones": [x.name for x in ch], "points": np.array(pts, dtype=float)})
+    return out
+
+
+def _world_vertices(obj):
+    me = obj.data
+    n = len(me.vertices)
+    co = np.empty(n * 3)
+    me.vertices.foreach_get("co", co)
+    M = np.array(obj.matrix_world)
+    return co.reshape(n, 3) @ M[:3, :3].T + M[:3, 3]
+
+
+def _world_normals(obj):
+    me = obj.data
+    n = len(me.vertices)
+    no = np.empty(n * 3)
+    me.vertices.foreach_get("normal", no)
+    R = np.array(obj.matrix_world.to_3x3().inverted().transposed())
+    no = no.reshape(n, 3) @ R.T
+    return no / np.maximum(np.linalg.norm(no, axis=1)[:, None], 1e-12)
+
+
+def _edges(obj):
+    me = obj.data
+    e = np.empty(len(me.edges) * 2, dtype=np.int64)
+    me.edges.foreach_get("vertices", e)
+    return e.reshape(-1, 2)
+
+
+def body_frame(rig, chs, P):
+    """Up, forward and lateral for the body, and landmark heights.
+
+    Up is world Z (Blender). Forward is the side the feet point to when there are
+    feet (toe bones ahead of the ankle), else -Y, rig-anything's convention.
+    Lateral is up x forward. Heights are hip (where the legs join), shoulder
+    (where the arms join) and the body's top and bottom."""
+    up = np.array([0.0, 0.0, 1.0])
+    fwd = None
+    names = {b.name.lower(): b for b in rig.data.bones}
+    mw = rig.matrix_world
+    feet = [b for n, b in names.items() if "toe" in n or "foot" in n]
+    if feet:
+        v = np.zeros(3)
+        for b in feet:
+            d = np.array(tuple(mw @ b.tail_local)) - np.array(tuple(mw @ b.head_local))
+            d[2] = 0.0
+            v += d
+        if np.linalg.norm(v) > 1e-6:
+            fwd = v / np.linalg.norm(v)
+    if fwd is None:
+        fwd = np.array([0.0, -1.0, 0.0])
+    lat = np.cross(fwd, up)
+
+    def join_height(words):
+        zs = [(mw @ b.head_local).z for n, b in names.items() if any(w in n for w in words)]
+        return float(max(zs)) if zs else None
+
+    lo, hi = float(P[:, 2].min()), float(P[:, 2].max())
+    hip = join_height(("thigh", "upper_leg", "upperleg", "hip"))
+    shoulder = join_height(("upper_arm", "upperarm", "shoulder", "clavicle"))
+    return {"up": up, "forward": fwd, "lateral": lat, "bottom": lo, "top": hi,
+            "hip": hip if hip is not None else lo + 0.5 * (hi - lo),
+            "shoulder": shoulder if shoulder is not None else lo + 0.8 * (hi - lo),
+            "mid_lateral": float(np.median(P @ lat))}
+
+
+def tissue(obj_name, rig_name=None, side=SIDE_BONES):
+    """Per-vertex soft tissue measures for a skinned body. See the module docstring."""
+    obj = bpy.data.objects[obj_name]
+    rig = bpy.data.objects[rig_name] if rig_name else armature_of(obj)
+    if rig is None:
+        return {"error": f"{obj_name} has no armature - flesh is measured against a skeleton"}
+    obj.users_scene[0].view_layers[0].update()
+    P = _world_vertices(obj)
+    n = len(P)
+    chs = chains(rig, side)
+    frame = body_frame(rig, chs, P)
+    H = max(frame["top"] - frame["bottom"], 1e-6)
+
+    # nearest point on every chain, for every vertex
+    C = len(chs)
+    dist_c = np.full((C, n), np.inf)
+    arc_c = np.zeros((C, n))
+    cap_c = np.zeros((C, n), dtype=bool)
+    for ci, ch in enumerate(chs):
+        pts = ch["points"]
+        acc = 0.0
+        for si in range(len(pts) - 1):
+            h = pts[si]
+            d = pts[si + 1] - h
+            L = float(np.linalg.norm(d))
+            if L < 1e-9:
+                continue
+            f_raw = ((P - h) @ d) / (L * L)
+            f = np.clip(f_raw, 0.0, 1.0)
+            dist = np.linalg.norm(P - (h + f[:, None] * d), axis=1)
+            m = dist < dist_c[ci]
+            dist_c[ci, m] = dist[m]
+            arc_c[ci, m] = acc + f[m] * L
+            end_cap = ((si == 0) & (f_raw < 0.0)) | ((si == len(pts) - 2) & (f_raw > 1.0))
+            cap_c[ci, m] = end_cap[m]
+            acc += L
+        ch["length"] = acc
+    # Which chain a vertex belongs to comes from its skin: the chain of its strongest bone,
+    # or of that bone's nearest core ancestor (shoulder -> spine). Nearest-chain alone gave
+    # a bloater's wide torso sides to its A-posed upper arms, which pass closer to them than
+    # the spine does; bone heat diffuses through the body and knows better.
+    chain_of = np.argmin(dist_c, axis=0)
+    by_skin = _chain_from_skin(obj, rig, chs)
+    has = by_skin >= 0
+    chain_of[has] = by_skin[has]
+    cols = np.arange(n)
+    arc = arc_c[chain_of, cols]
+    cap = cap_c[chain_of, cols]
+
+    # Where flesh is looked for. The spine chain (the one reaching highest) stops at
+    # the shoulders: a skull is itself a bump along the chain, and the envelope below
+    # would call the whole head a bulge. Limbs keep their first two segments - upper
+    # arm and forearm, thigh and shin; hands and feet have no jiggle to find.
+    spine_ci = int(np.argmax([c["points"][:, 2].max() for c in chs]))
+    searched = ~cap
+    for ci, ch in enumerate(chs):
+        on = chain_of == ci
+        if ci == spine_ci:
+            # well above the shoulder joints: a fitted rig can put them 12 cm under the top
+            # of the shoulders, and a cut just above them excluded a bloater's chest
+            searched &= ~(on & (P[:, 2] > frame["shoulder"] + 0.10 * H))
+            ch["role"] = "spine"
+        else:
+            seg_len = np.linalg.norm(np.diff(ch["points"], axis=0), axis=1)
+            limit = seg_len[:2].sum() if len(seg_len) > 2 else ch["length"]
+            searched &= ~(on & (arc > limit))
+            ch["role"] = "limb"
+
+    band = H / BANDS_PER_HEIGHT
+    halves = [max(2, int(round(hw * H / band))) for hw in ENVELOPE_HALF_WIDTHS]
+    lean = np.zeros(n)
+    excess = np.zeros(n)
+    rings = 0
+    for ci, ch in enumerate(chs):
+        pts = ch["points"]
+        idx = np.where((chain_of == ci) & searched)[0]
+        if len(idx) < SECTORS:
+            continue
+        seg_len = np.linalg.norm(np.diff(pts, axis=0), axis=1)
+        seg_start = np.concatenate([[0.0], np.cumsum(seg_len)[:-1]])
+        nb = int(math.ceil(ch["length"] / band)) + 1
+        R = np.full((nb, SECTORS), np.nan)      # median radius per ring and sector
+        r_of = np.zeros(len(idx))
+        k_of = np.minimum((arc[idx] / band).astype(int), nb - 1)
+        s_of = np.zeros(len(idx), dtype=int)
+        for k in range(nb):
+            mk = k_of == k
+            if mk.sum() < SECTORS // 2:
+                continue
+            sel = idx[mk]
+            s0 = (k + 0.5) * band
+            si = int(np.clip(np.searchsorted(seg_start, s0, side="right") - 1, 0, len(seg_len) - 1))
+            ax = (pts[si + 1] - pts[si]) / max(seg_len[si], 1e-9)
+            ref = frame["forward"] if abs(ax @ frame["forward"]) < 0.9 else frame["up"]
+            e2 = ref - (ref @ ax) * ax
+            e2 /= np.linalg.norm(e2)
+            e1 = np.cross(e2, ax)
+            # radius from each vertex's own foot point on the chain, so a bend in the
+            # chain inside one band does not smear the ring
+            foot = _foot_points(P[sel], pts, arc[sel], seg_start, seg_len)
+            rel = P[sel] - foot
+            th = np.arctan2(rel @ e2, rel @ e1)
+            r = np.linalg.norm(rel, axis=1)
+            sec = ((th + math.pi) / (2 * math.pi) * SECTORS).astype(int) % SECTORS
+            r_of[mk] = r
+            s_of[mk] = sec
+            for s in range(SECTORS):
+                hit = r[sec == s]
+                if len(hit):
+                    R[k, s] = np.median(hit)
+            rings += 1
+        env = np.nanmin(np.stack([_lower_envelope(R, h) for h in halves]), axis=0)
+        lv = env[k_of, s_of]
+        good = ~np.isnan(lv)
+        lean[idx[good]] = lv[good]
+        excess[idx[good]] = r_of[good] - lv[good]
+    relative = np.where(lean > 0, excess / np.maximum(lean, 1e-9), 0.0)
+    return {"object": obj.name, "rig": rig.name, "P": P, "height": H, "chains": chs,
+            "chain_of": chain_of, "arc": arc, "searched": searched, "lean": lean,
+            "excess": excess, "relative": relative, "frame": frame, "rings": rings}
+
+
+def _chain_from_skin(obj, rig, chs):
+    """Per vertex, the index of the chain holding its strongest-weighted bone (or that bone's
+    nearest ancestor on a chain), or -1 where the vertex has no bone weight."""
+    on_chain = {b: ci for ci, ch in enumerate(chs) for b in ch["bones"]}
+    bones = rig.data.bones
+    resolve = {}
+    for b in bones:
+        cur = b
+        while cur is not None and cur.name not in on_chain:
+            cur = cur.parent
+        resolve[b.name] = on_chain[cur.name] if cur is not None else -1
+    group_chain = {g.index: resolve.get(g.name, -1) for g in obj.vertex_groups}
+    out = np.full(len(obj.data.vertices), -1, dtype=int)
+    for v in obj.data.vertices:
+        best_w = 0.0
+        for x in v.groups:
+            c = group_chain.get(x.group, -1)
+            if c >= 0 and x.weight > best_w:
+                best_w = x.weight
+                out[v.index] = c
+    return out
+
+
+def _foot_points(Q, pts, arcs, seg_start, seg_len):
+    si = np.clip(np.searchsorted(seg_start, arcs, side="right") - 1, 0, len(seg_len) - 1)
+    d = pts[si + 1] - pts[si]
+    t = np.clip((arcs - seg_start[si]) / np.maximum(seg_len[si], 1e-9), 0.0, 1.0)
+    return pts[si] + d * t[:, None]
+
+
+def _lower_envelope(R, half):
+    """The lean radius map under a (rings x sectors) radius map.
+
+    Per sector, a local straight line through the rings within `half` of each ring,
+    refitted without the rings standing more than OUTLIER above it. A ramp - a
+    waist narrowing into the hips - is a line and stays lean; a bump - a buttock
+    on the back of the hips, a breast on the chest - is rejected and left as excess.
+    Neighbouring sectors are then averaged, since a bulge's edge should not jump."""
+    nb, ns = R.shape
+    env = np.full_like(R, np.nan)
+    ks = np.arange(nb, dtype=float)
+    for s in range(ns):
+        col = R[:, s]
+        for k in range(nb):
+            if np.isnan(col[k]):
+                continue
+            lo, hi = max(0, k - half), min(nb, k + half + 1)
+            x = ks[lo:hi]
+            y = col[lo:hi]
+            use = ~np.isnan(y)
+            val = None
+            for _ in range(6):
+                if use.sum() < 3:
+                    break
+                c1, c0 = np.polyfit(x[use], y[use], 1)
+                fit = c1 * x + c0
+                val = c1 * k + c0
+                nxt = ~np.isnan(y) & (y <= fit * OUTLIER)
+                if np.array_equal(nxt, use):
+                    break
+                use = nxt
+            env[k, s] = col[k] if val is None else min(val, col[k])
+    out = env.copy()
+    for s in range(ns):
+        stack = np.stack([env[:, (s - 1) % ns], env[:, s], env[:, (s + 1) % ns]])
+        out[:, s] = np.nanmean(stack, axis=0) if not np.all(np.isnan(stack)) else np.nan
+    return np.where(np.isnan(env), np.nan, out)
+
+
+
+# ------------------------------------------------------------------ body coordinates
+
+def coordinates(t):
+    """Where each vertex is on the body, in the terms zones are written in.
+
+      height    0 at the hip joints, 1 at the shoulder joints; the legs are negative
+      facing    degrees between the vertex's outward direction and the body's forward,
+                in the horizontal plane: 0 front, 90 side, 180 back
+      lateral   distance from the midline over half the shoulder width
+      side      +1 on the body's left (Blender .L), -1 on its right
+      role      spine, arm or leg, from the chain; segment is the bone index on it
+    """
+    P = t["P"]
+    f = t["frame"]
+    n = len(P)
+    fwd, up = f["forward"], f["up"]
+    left = np.cross(up, fwd)
+    span = max(f["shoulder"] - f["hip"], 1e-6)
+    height = (P[:, 2] - f["hip"]) / span
+    outward = np.zeros((n, 3))
+    segment = np.zeros(n, dtype=int)
+    role = np.full(n, "spine", dtype=object)
+    mid_z = 0.5 * (f["hip"] + f["shoulder"])
+    for ci, ch in enumerate(t["chains"]):
+        pts = ch["points"]
+        if ch.get("role") == "spine":
+            ch["kind"] = "spine"
+        else:
+            ch["kind"] = "arm" if pts[0, 2] > mid_z else "leg"
+        on = t["chain_of"] == ci
+        if not on.any():
+            continue
+        seg_len = np.linalg.norm(np.diff(pts, axis=0), axis=1)
+        seg_start = np.concatenate([[0.0], np.cumsum(seg_len)[:-1]])
+        foot = _foot_points(P[on], pts, t["arc"][on], seg_start, seg_len)
+        outward[on] = P[on] - foot
+        segment[on] = np.clip(np.searchsorted(seg_start, t["arc"][on], side="right") - 1, 0, len(seg_len) - 1)
+        role[on] = ch["kind"]
+    horiz = outward - np.outer(outward @ up, up)
+    hn = np.linalg.norm(horiz, axis=1)
+    cosf = np.where(hn > 1e-9, (horiz @ fwd) / np.maximum(hn, 1e-9), 1.0)
+    facing = np.degrees(np.arccos(np.clip(cosf, -1.0, 1.0)))
+    signed = P @ left - float(np.median(P @ left))
+    half_width = _half_shoulder_width(t, left)
+    return {"height": height, "facing": facing, "lateral": np.abs(signed) / half_width,
+            "side": np.sign(signed), "role": role, "segment": segment, "half_width": half_width}
+
+
+def _half_shoulder_width(t, left):
+    arms = [c for c in t["chains"] if c.get("kind") == "arm"]
+    if len(arms) >= 2:
+        xs = sorted(float(c["points"][0] @ left) for c in arms)
+        return max(0.5 * (xs[-1] - xs[0]), 1e-3)
+    return 0.12 * t["height"]
+
+
+def _vertex_areas(obj):
+    me = obj.data
+    area = np.zeros(len(me.vertices))
+    s = obj.matrix_world.to_scale()
+    k = abs(s.x * s.y * s.z) ** (2.0 / 3.0)
+    for poly in me.polygons:
+        share = poly.area * k / len(poly.vertices)
+        for v in poly.vertices:
+            area[v] += share
+    return area
+
+
+def _adjacency(obj):
+    E = _edges(obj)
+    n = len(obj.data.vertices)
+    nbr = [[] for _ in range(n)]
+    for a, b in E:
+        nbr[a].append(int(b))
+        nbr[b].append(int(a))
+    return nbr
+
+
+def _in_zone(zone, c):
+    m = np.ones(len(c["height"]), dtype=bool)
+    chain = zone.get("chain", "any")
+    if chain != "any":
+        m &= c["role"] == chain
+    if "height" in zone:
+        m &= (c["height"] >= zone["height"][0]) & (c["height"] <= zone["height"][1])
+    if "facing_deg" in zone:
+        m &= (c["facing"] >= zone["facing_deg"][0]) & (c["facing"] <= zone["facing_deg"][1])
+    if "lateral" in zone:
+        m &= (c["lateral"] >= zone["lateral"][0]) & (c["lateral"] <= zone["lateral"][1])
+    if "segment" in zone:
+        m &= c["segment"] == int(zone["segment"])
+    return m
+
+
+# which flesh types are looked for first: a vertex belongs to the first region that claims it
+ORDER = ("bloater_belly", "breast", "butt", "belly", "love_handle", "arm_flab", "thigh")
+
+
+# ------------------------------------------------------------------ regions
+
+def find_regions(obj_name, rig_name=None, types=None, t=None):
+    """Soft masses on a skinned body, typed by the registry's flesh zones.
+
+    Returns {"regions": [...], "declined": [...], "tissue": t, "coords": c}. Each region
+    has its vertices and weights, its size, where its jiggle bone goes, and why it got
+    its type."""
+    from . import registry
+    obj = bpy.data.objects[obj_name]
+    t = t or tissue(obj_name, rig_name)
+    if "error" in t:
+        return t
+    c = coordinates(t)
+    H = t["height"]
+    n = len(t["P"])
+    area = _vertex_areas(obj)
+    nbr = _adjacency(obj)
+    normals = _world_normals(obj)
+    body_volume = _mesh_volume(obj)
+    flesh_types = registry.types_for(cls="flesh")
+    order = [x for x in ORDER if x in flesh_types] + sorted(x for x in flesh_types if x not in ORDER)
+    if types is not None:
+        order = [x for x in order if x in types]
+    claimed = np.zeros(n, dtype=bool)
+    seed_all = (t["excess"] > SEED_EXCESS * H) & (t["relative"] > SEED_RELATIVE) & t["searched"]
+    grow_all = (t["relative"] > GROW_RELATIVE) & t["searched"]
+    name_toks = set(registry.name_tokens(obj.name))
+    min_size = max(8, int(MIN_REGION_FRACTION * n))
+    regions, declined = [], []
+    for tname in order:
+        entry = flesh_types[tname]
+        zone = entry["zone"]
+        seeds = seed_all & _in_zone(zone, c) & ~claimed
+        if seeds.sum() < min_size:
+            declined.append(f"{tname}: {int(seeds.sum())} bulging vertices in its zone")
+            continue
+        # grow from the seeds through vertices that still bulge a little, within a
+        # slightly larger zone, so the weights can feather to nothing at the edge
+        loose = dict(zone)
+        if "height" in loose:
+            loose["height"] = [zone["height"][0] - 0.1, zone["height"][1] + 0.1]
+        if "facing_deg" in loose:
+            loose["facing_deg"] = [max(0, zone["facing_deg"][0] - 20), min(180, zone["facing_deg"][1] + 20)]
+        allowed = (grow_all & _in_zone(loose, c) & ~claimed) | seeds
+        comps = [cmp for cmp in _components(np.where(seeds)[0], allowed, nbr) if len(cmp) >= min_size]
+        if not comps:
+            declined.append(f"{tname}: bulges in its zone were each under {min_size} vertices")
+            continue
+        groups = []
+        members = sorted(v for cmp in comps for v in cmp)
+        if entry.get("paired"):
+            for side, suffix in ((1.0, ".L"), (-1.0, ".R")):
+                verts = np.array([v for v in members if c["side"][v] == side or (c["side"][v] == 0 and side > 0)],
+                                 dtype=int)
+                if len(verts) >= min_size:
+                    groups.append((tname + suffix, verts))
+        else:
+            groups.append((tname, np.array(members, dtype=int)))
+        for rname, verts in groups:
+            reg = _region(obj, t, c, rname, tname, entry, verts, area, normals, body_volume, nbr)
+            when = entry.get("when", {})
+            named = bool(name_toks & set(entry.get("names", [])))
+            need = when.get("volume_fraction_min", 0.0)
+            need_peak = when.get("peak_over_height_min", 0.0)
+            if reg["volume_fraction"] < need or reg["peak_m"] / H < need_peak:
+                why = (f"{tname}: needs {need:.0%} of the body's volume and to stand {need_peak:.0%} of its "
+                       f"height out; has {reg['volume_fraction']:.1%} and {reg['peak_m'] / H:.1%}")
+                if not named:
+                    declined.append(why)
+                    continue
+                reg["evidence"].append(why + " - taken anyway, the name says so")
+            if named:
+                reg["evidence"].append(f"name agrees: {obj.name}")
+            regions.append(reg)
+            claimed[verts] = True
+    return {"object": obj.name, "rig": t["rig"], "regions": regions, "declined": declined,
+            "tissue": t, "coords": c, "body_volume_m3": round(body_volume, 5)}
+
+
+def _components(seeds, allowed, nbr):
+    seen = set()
+    out = []
+    for s in seeds:
+        s = int(s)
+        if s in seen:
+            continue
+        comp = []
+        stack = [s]
+        seen.add(s)
+        while stack:
+            v = stack.pop()
+            comp.append(v)
+            for w in nbr[v]:
+                if w not in seen and allowed[w]:
+                    seen.add(w)
+                    stack.append(w)
+        out.append(comp)
+    return out
+
+
+def _mesh_volume(obj):
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.transform(obj.matrix_world)
+    v = abs(bm.calc_volume(signed=True))
+    bm.free()
+    return v
+
+
+def _smoothstep(x):
+    x = np.clip(x, 0.0, 1.0)
+    return x * x * (3.0 - 2.0 * x)
+
+
+def _region(obj, t, c, rname, tname, entry, verts, area, normals, body_volume, nbr, weights=None):
+    P = t["P"]
+    rel = t["relative"][verts]
+    exc = np.maximum(t["excess"][verts], 0.0)
+    peak_rel = float(np.percentile(rel, 90))
+    if weights is None:
+        w = _smoothstep((rel - GROW_RELATIVE) / max(0.6 * peak_rel - GROW_RELATIVE, 1e-6))
+        # two passes of neighbour averaging, counting outside neighbours as zero: a weight
+        # that steps from one vertex to the next shows as a crease when the bone moves
+        idx = {int(v): k for k, v in enumerate(verts)}
+        for _ in range(2):
+            nw = w.copy()
+            for k, v in enumerate(verts):
+                ring = nbr[int(v)]
+                inside = [idx[u] for u in ring if u in idx]
+                nw[k] = (w[k] + sum(w[j] for j in inside)) / (1 + len(ring))
+            w = nw
+        w = w / max(float(w.max()), 1e-9)
+    else:
+        w = np.asarray(weights, dtype=float)
+    wa = w * area[verts]
+    n_mean = (normals[verts] * wa[:, None]).sum(axis=0)
+    n_mean /= max(np.linalg.norm(n_mean), 1e-12)
+    # the bone sits under the mass, not under the region: weighted by excess squared, so a
+    # ribcage front that bulges a little below a breast does not drag the bone down to it
+    # (plain area weighting put the test figure's breast bones 11 cm below the breasts)
+    wm = wa * exc * exc
+    if weights is not None:
+        # a painted group or a 2D mark says where the mass is: place the bone by what was
+        # marked, not by excess - a mark over a bloater's moobs that took in the top of its
+        # belly put the moob bones on the belly, whose excess is larger
+        wm = wa * w * w
+    total = max(float(wm.sum()), 1e-18)
+    surface = (P[verts] * wm[:, None]).sum(axis=0) / total
+    depth = float((exc * wm).sum() / total)
+    peak = max(float(np.percentile(exc, 90)), 0.01)
+    tail = surface
+    head = surface - n_mean * (depth + 0.5 * peak)
+    volume = float((exc * area[verts] * np.clip(w, 0, 1)).sum())
+    coords = {k: float(np.average(c[k][verts], weights=w + 1e-9)) for k in ("height", "facing", "lateral")}
+    roles = list(c["role"][verts])
+    role = max(set(roles), key=roles.count)
+    density = 950.0
+    if entry.get("material"):
+        from . import registry
+        density = registry.material(entry["material"]).get("density_kg_m3", density)
+    return {
+        "name": rname, "type": tname, "material": entry.get("material"),
+        "vertices": np.asarray(verts, dtype=int), "weights": w, "count": int(len(verts)),
+        "volume_m3": round(volume, 6),
+        "volume_fraction": round(volume / max(body_volume, 1e-9), 4),
+        "peak_m": round(peak, 4), "peak_relative": round(peak_rel, 3),
+        "mass_kg": round(volume * density, 3),
+        "head": head, "tail": tail, "normal": n_mean, "anchor_bone": _anchor_bone(t, head),
+        "place": {**{k: round(v, 3) for k, v in coords.items()}, "chain": role},
+        "paired": rname.endswith((".L", ".R")),
+        "features": _region_features(coords, role, peak_rel, volume / max(body_volume, 1e-9)),
+        "evidence": [f"{len(verts)} vertices standing up to {peak:.3f} m ({peak_rel:.0%} of the lean radius) "
+                     f"out of the body in the {tname} zone: height {coords['height']:.2f}, facing "
+                     f"{coords['facing']:.0f} deg, on the {role}"],
+    }
+
+
+def _region_features(coords, role, peak_rel, volume_fraction):
+    return {"height": coords["height"], "facing_cos": math.cos(math.radians(coords["facing"])),
+            "facing_sin": math.sin(math.radians(coords["facing"])), "lateral": min(coords["lateral"], 2.0) / 2.0,
+            "peak": min(peak_rel, 2.0) / 2.0, "volume_fraction": min(volume_fraction * 10.0, 1.0),
+            "chain_spine": float(role == "spine"), "chain_arm": float(role == "arm"),
+            "chain_leg": float(role == "leg")}
+
+
+def _anchor_bone(t, point):
+    """The core bone whose segment passes nearest `point`."""
+    best, best_d = None, math.inf
+    for ch in t["chains"]:
+        pts = ch["points"]
+        for si, bone in enumerate(ch["bones"]):
+            h, d = pts[si], pts[si + 1] - pts[si]
+            L2 = float(d @ d)
+            f = 0.0 if L2 < 1e-12 else float(np.clip((point - h) @ d / L2, 0.0, 1.0))
+            dist = float(np.linalg.norm(point - (h + f * d)))
+            if dist < best_d:
+                best, best_d = bone, dist
+    return best
+
+
+def region_from_group(obj_name, group, rig_name=None):
+    """A region from a painted vertex group - how a new kind of flesh is taught."""
+    obj = bpy.data.objects[obj_name]
+    g = obj.vertex_groups.get(group)
+    if g is None:
+        return {"error": f"{obj_name} has no vertex group {group!r}"}
+    t = tissue(obj_name, rig_name)
+    if "error" in t:
+        return t
+    c = coordinates(t)
+    weights = {}
+    for v in obj.data.vertices:
+        for x in v.groups:
+            if x.group == g.index and x.weight > 0.0:
+                weights[v.index] = x.weight
+    if not weights:
+        return {"error": f"vertex group {group!r} on {obj_name} is empty"}
+    verts = np.array(sorted(weights), dtype=int)
+    reg = _region(obj, t, c, group, group, {}, verts, _vertex_areas(obj), _world_normals(obj),
+                  _mesh_volume(obj), _adjacency(obj), weights=[weights[int(v)] for v in verts])
+    reg["paired"] = group.endswith((".L", ".R", "_L", "_R"))
+    reg["coords_range"] = {k: (float(c[k][verts].min()), float(c[k][verts].max()))
+                           for k in ("height", "facing", "lateral")}
+    return reg
+
+
+def zone_around(region, pad=0.08):
+    """A zone that holds a taught region, padded."""
+    r = region["coords_range"]
+    return {"chain": region["place"]["chain"],
+            "height": [round(r["height"][0] - pad, 3), round(r["height"][1] + pad, 3)],
+            "facing_deg": [round(max(0.0, r["facing"][0] - 15.0), 1), round(min(180.0, r["facing"][1] + 15.0), 1)],
+            "lateral": [round(max(0.0, r["lateral"][0] - pad), 3), round(r["lateral"][1] + pad, 3)]}
+
+
+# ------------------------------------------------------------------ rigging
+
+JIGGLE_PREFIX = "ft_jiggle_"
+
+
+def add_jiggle_bones(obj_name, regions, rig_name=None, weight_scale=1.0):
+    """One bone per region, parented to its anchor bone, its vertices weighted to it.
+
+    The jiggle weight is taken out of the vertex's other weights in proportion, so each
+    vertex keeps its total. Re-running replaces the jiggle bones made before."""
+    obj = bpy.data.objects[obj_name]
+    rig = bpy.data.objects[rig_name] if rig_name else armature_of(obj)
+    inv = rig.matrix_world.inverted()
+    win = bpy.context.window
+    prev_scene = win.scene
+    prev_active = bpy.context.view_layer.objects.active
+    made = []
+    win.scene = rig.users_scene[0]
+    try:
+        for o in bpy.context.view_layer.objects:
+            o.select_set(False)
+        bpy.context.view_layer.objects.active = rig
+        rig.select_set(True)
+        bpy.ops.object.mode_set(mode="EDIT")
+        eb = rig.data.edit_bones
+        for b in [b for b in eb if b.name.startswith(JIGGLE_PREFIX)]:
+            eb.remove(b)
+        for r in regions:
+            bone = eb.new(JIGGLE_PREFIX + r["name"])
+            bone.head = inv @ _vec(r["head"])
+            bone.tail = inv @ _vec(r["tail"])
+            parent = eb.get(r["anchor_bone"])
+            if parent is not None:
+                bone.parent = parent
+            bone.use_deform = True
+            bone.use_connect = False
+            made.append(bone.name)
+        bpy.ops.object.mode_set(mode="OBJECT")
+    finally:
+        if bpy.context.view_layer.objects.active is not None and bpy.context.view_layer.objects.active.mode != "OBJECT":
+            bpy.ops.object.mode_set(mode="OBJECT")
+        win.scene = prev_scene
+        if prev_active is not None and prev_active.name in bpy.context.view_layer.objects:
+            bpy.context.view_layer.objects.active = prev_active
+    for g in [g for g in obj.vertex_groups if g.name.startswith(JIGGLE_PREFIX)]:
+        obj.vertex_groups.remove(g)
+    groups = {r["name"]: obj.vertex_groups.new(name=JIGGLE_PREFIX + r["name"]) for r in regions}
+    jiggle_index = {g.index for g in groups.values()}
+    for r in regions:
+        g = groups[r["name"]]
+        for v, w in zip(r["vertices"], r["weights"]):
+            w = float(min(1.0, w * weight_scale))
+            if w <= 1e-3:
+                continue
+            vert = obj.data.vertices[int(v)]
+            others = [x for x in vert.groups if x.group not in jiggle_index]
+            total = sum(x.weight for x in others) or 1.0
+            for x in others:
+                x.weight = x.weight * (1.0 - w)
+            g.add([int(v)], w * total, "REPLACE")
+    limited = limit_influences(obj, rig)
+    return {"rig": rig.name, "bones": made, "vertices_limited_to_4": limited}
+
+
+def limit_influences(obj, rig, most=4):
+    """Keep each vertex's `most` strongest bone weights and renormalise them.
+
+    glTF carries four joints per vertex; Blender's exporter drops the rest and renormalises
+    on its own, with a warning. A jiggle weight added as a fifth influence could be the one
+    it drops, and the mass would stop moving at its edge - so the choice is made here."""
+    bones = {b.name for b in rig.data.bones}
+    changed = 0
+    for v in obj.data.vertices:
+        deform = [x for x in v.groups if obj.vertex_groups[x.group].name in bones and x.weight > 0.0]
+        if len(deform) <= most:
+            continue
+        deform.sort(key=lambda x: x.weight, reverse=True)
+        keep = deform[:most]
+        total = sum(x.weight for x in deform)
+        kept = sum(x.weight for x in keep) or 1.0
+        for x in deform[most:]:
+            obj.vertex_groups[x.group].remove([v.index])
+        for x in keep:
+            x.weight = x.weight / kept * total
+        changed += 1
+    return changed
+
+
+def _vec(a):
+    from mathutils import Vector
+    return Vector((float(a[0]), float(a[1]), float(a[2])))
+
+
+def jiggle_block(obj, rig, regions, overrides=None):
+    """The spec's `jiggle` block: one entry per region, positions in armature space, glTF axes."""
+    from . import registry
+    from .spec import to_gltf
+    inv = rig.matrix_world.inverted()
+    out = []
+    for r in regions:
+        params = dict(registry.material(r["material"]).get("jiggle", {})) if r.get("material") else {}
+        for key in (r["type"], r["name"]):
+            params.update((overrides or {}).get(key, {}))
+        head = inv @ _vec(r["head"])
+        tail = inv @ _vec(r["tail"])
+        entry = {
+            "name": r["name"], "type": r["type"], "material": r.get("material"),
+            "bone": JIGGLE_PREFIX + r["name"], "parent": r["anchor_bone"],
+            "head": [round(x, 5) for x in to_gltf(head)], "tail": [round(x, 5) for x in to_gltf(tail)],
+            "mass_kg": r["mass_kg"], "volume_m3": r["volume_m3"], "peak_m": r["peak_m"], "vertices": r["count"],
+            # the furthest the tail may leave its rest place: a fraction of the bulge's own size
+            "max_offset_m": round(float(params.get("max_offset", 0.5)) * 2.0 * r["peak_m"], 4),
+        }
+        for k in ("frequency_hz", "damping_ratio", "squash", "gravity_scale", "aim", "translate", "response"):
+            if k in params:
+                entry[k] = params[k]
+        out.append(entry)
+    return {"space": "gltf_armature", "armature": rig.name, "regions": out}
+
+
+def prepare(obj_name, rig_name=None, types=None, overrides=None, weight_scale=1.0, regions=None):
+    """Find the soft masses on a skinned body, give each a jiggle bone, and write the spec.
+
+    `types` limits which flesh types are looked for; `overrides` is
+    {region or type name: {"frequency_hz": ..., "damping_ratio": ...}}; `regions` skips the
+    search and rigs these instead - from marks.regions() (zones marked on 2D renders) or a
+    filtered find_regions()."""
+    from . import classify, spec
+    obj = bpy.data.objects[obj_name]
+    rig = bpy.data.objects[rig_name] if rig_name else armature_of(obj)
+    if rig is None:
+        return {"error": f"{obj_name} is not skinned to an armature: flesh needs a skeleton "
+                         "(rig it with rig-anything first)"}
+    if regions is None:
+        found = find_regions(obj_name, rig.name, types)
+        if "error" in found:
+            return found
+        regions, declined = found["regions"], found["declined"]
+    else:
+        declined = []
+    report = {"object": obj_name, "rig": rig.name, "regions": regions, "declined": declined,
+              "warnings": []}
+    if not regions:
+        report["warnings"].append("no soft masses found - look at render_heat(); paint a vertex group "
+                                  "and registry.teach(obj, type, group=...) if one was missed")
+        return report
+    report["bones"] = add_jiggle_bones(obj_name, regions, rig.name, weight_scale)["bones"]
+    rec = classify.classify(obj_name, cls="flesh")
+    s = spec.build(obj, rec)
+    s["jiggle"] = jiggle_block(obj, rig, regions, overrides)
+    s["type"] = ",".join(sorted({r["type"] for r in regions}))
+    spec.write(obj, s)
+    report["spec"] = s
+    return report
+
+
+def set_params(obj_name, region, **params):
+    """Change one region's (or every region of a type's) jiggle values in the spec."""
+    from . import spec
+    obj = bpy.data.objects[obj_name]
+    s = spec.read(obj)
+    if s is None or "jiggle" not in s:
+        raise ValueError(f"{obj_name} has no jiggle spec - run flesh.prepare first")
+    allowed = {"frequency_hz", "damping_ratio", "squash", "gravity_scale", "aim", "translate", "response",
+               "max_offset_m"}
+    bad = set(params) - allowed
+    if bad:
+        raise ValueError(f"not jiggle parameters: {sorted(bad)}")
+    hit = 0
+    for r in s["jiggle"]["regions"]:
+        if region in (r["name"], r["type"]):
+            r.update(params)
+            hit += 1
+    if not hit:
+        raise ValueError(f"no region or type named {region!r}")
+    return spec.write(obj, s)
+
+
+def summarize(report):
+    if "error" in report:
+        return "ERROR " + report["error"]
+    lines = [f"{report['object']} on {report['rig']}: {len(report['regions'])} soft region(s)"]
+    for r in report["regions"]:
+        p = r["place"]
+        lines.append(f"  {r['name']:16} {r['type']:14} {str(r['material']):11} {r['count']:5} verts, "
+                     f"stands {r['peak_m']:.3f} m out, {r['volume_fraction']:.1%} of the body, "
+                     f"on {r['anchor_bone']} (height {p['height']:.2f}, facing {p['facing']:.0f}, {p['chain']})")
+    for d in report.get("declined", []):
+        lines.append("  - " + d)
+    s = report.get("spec")
+    if s:
+        for j in s["jiggle"]["regions"]:
+            lines.append(f"  bone {j['bone']}: {j.get('frequency_hz')} Hz, damping {j.get('damping_ratio')}, "
+                         f"squash {j.get('squash')}, max offset {j['max_offset_m']} m")
+    for w in report.get("warnings", []):
+        lines.append("  WARNING " + w)
+    return "\n".join(lines)
+
+
+# ------------------------------------------------------------------ looking
+
+def render_heat(obj_name, out_dir, regions=None, views=("front", "right", "iso"), size=560):
+    """Render the body coloured by how far it stands proud of its lean envelope, with found
+    regions in blue - the visual half of recognising flesh. A temporary colour attribute
+    and a throwaway scene; the object's colours and the user's scene are left as they were."""
+    import os
+    from mathutils import Vector
+    from . import views as V
+    obj = bpy.data.objects[obj_name]
+    t = tissue(obj_name)
+    if "error" in t:
+        return t
+    H = t["height"]
+    n = len(t["P"])
+    k = np.clip(t["excess"] / (0.04 * H), 0.0, 1.0) * (t["relative"] > GROW_RELATIVE)
+    cols = np.ones((n, 4))
+    cols[:, 1] = 1.0 - 0.8 * k
+    cols[:, 2] = 1.0 - 0.8 * k
+    cols[~t["searched"], :3] = (0.75, 0.82, 0.75)
+    for r in (regions or []):
+        for v, w in zip(r["vertices"], r["weights"]):
+            cols[int(v), :3] = (1.0 - 0.8 * w, 1.0 - 0.6 * w, 1.0)
+    me = obj.data
+    name = "ft_heat"
+    attr = me.color_attributes.get(name) or me.color_attributes.new(name, "FLOAT_COLOR", "POINT")
+    attr.data.foreach_set("color", cols.ravel())
+    prev_active = me.color_attributes.active_color_name
+    me.color_attributes.active_color = attr
+    os.makedirs(out_dir, exist_ok=True)
+    scene = bpy.data.scenes.new("ft_heat_tmp")
+    cam_data = bpy.data.cameras.new("ft_heat_cam")
+    cam = bpy.data.objects.new("ft_heat_cam", cam_data)
+    files = []
+    try:
+        scene.collection.objects.link(obj)
+        scene.collection.objects.link(cam)
+        scene.camera = cam
+        scene.render.engine = "BLENDER_WORKBENCH"
+        scene.render.resolution_x = scene.render.resolution_y = size
+        scene.display.shading.light = "FLAT"
+        scene.display.shading.color_type = "VERTEX"
+        centre, dims = V._bounds([obj])
+        radius = max(dims) * 0.5 or 1.0
+        cam_data.type = "ORTHO"
+        cam_data.ortho_scale = radius * 2.3
+        cam_data.clip_end = radius * 40
+        for view in views:
+            d = Vector(V.VIEWS[view]).normalized()
+            cam.location = centre + d * radius * 6.0
+            cam.rotation_euler = (centre - cam.location).normalized().to_track_quat("-Z", "Y").to_euler()
+            path = os.path.join(out_dir, f"{obj_name.replace('.', '_')}_heat_{view}.png")
+            scene.render.filepath = path
+            bpy.ops.render.render(write_still=True, scene=scene.name)
+            files.append(path)
+    finally:
+        scene.collection.objects.unlink(obj)
+        bpy.data.scenes.remove(scene, do_unlink=True)
+        bpy.data.objects.remove(cam, do_unlink=True)
+        bpy.data.cameras.remove(cam_data, do_unlink=True)
+        me.color_attributes.remove(me.color_attributes[name])
+        if prev_active and prev_active in me.color_attributes:
+            me.color_attributes.active_color_name = prev_active
+    return {"object": obj_name, "files": files,
+            "note": "white is lean, red stands proud of the lean envelope, blue is a found region, "
+                    "green was not searched (head, hands, feet)"}

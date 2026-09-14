@@ -69,19 +69,23 @@ def _check_node(doc, binary, node):
     s = node.get("extras", {}).get(spec.PROP)
     if s is None:
         return None
-    res = {"node": node.get("name"), "class": s.get("class"), "problems": spec.validate(s)}
+    res = {"node": node.get("name"), "class": s.get("class"), "route": s.get("route"),
+           "problems": spec.validate(s), "_binary": (doc, binary)}
     pins = s.get("pins")
     if "mesh" not in node:
         res["problems"].append("node carries a spec but no mesh")
+        res.pop("_binary", None)
         return res
     positions = []
     for prim in doc["meshes"][node["mesh"]]["primitives"]:
         positions.extend(accessor(doc, binary, prim["attributes"]["POSITION"]))
     res["gltf_vertices"] = len(positions)
     res["primitives"] = len(doc["meshes"][node["mesh"]]["primitives"])
-    if res["primitives"] > 1:
-        res["problems"].append(f"{res['primitives']} primitives (one per material): SoftBody3D "
-                               "simulates a single surface - give the cloth one material")
+    if res["primitives"] > 1 and s.get("route") in ("soft_body", "shape_matching"):
+        res["problems"].append(f"{res['primitives']} primitives (one per material): the runtime "
+                               "rebuilds a single surface - give the object one material")
+    if s.get("route") == "jiggle_bones":
+        _check_jiggle(doc, node, s, res)
     if pins and pins["count"]:
         tol = pins["tolerance"]
         flat = pins["positions"]
@@ -110,7 +114,99 @@ def _check_node(doc, binary, node):
         res["seam_split_pins"] = sum(1 for h in hits if h > 1)
         if missing:
             res["problems"].append(f"{missing} of {pins['count']} pins land on no vertex in the file")
+    res.pop("_binary", None)
     return res
+
+
+def _node_matrices(doc):
+    """World matrix of every glTF node, as 4x4 nested lists (column vectors)."""
+    import numpy as np
+
+    def local(n):
+        if "matrix" in n:
+            return np.array(n["matrix"], dtype=float).reshape(4, 4).T
+        t = n.get("translation", [0, 0, 0])
+        x, y, z, w = n.get("rotation", [0, 0, 0, 1])
+        sx, sy, sz = n.get("scale", [1, 1, 1])
+        R = np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+                      [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+                      [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]])
+        M = np.eye(4)
+        M[:3, :3] = R * np.array([sx, sy, sz])
+        M[:3, 3] = t
+        return M
+
+    nodes = doc.get("nodes", [])
+    parent = {}
+    for i, n in enumerate(nodes):
+        for c in n.get("children", []):
+            parent[c] = i
+    world = {}
+
+    def get(i):
+        if i not in world:
+            world[i] = local(nodes[i]) if i not in parent else get(parent[i]) @ local(nodes[i])
+        return world[i]
+
+    return {i: get(i) for i in range(len(nodes))}
+
+
+def _check_jiggle(doc, node, s, res):
+    """Every jiggle bone is a joint of this mesh's skin, and sits where the spec says.
+
+    A joint's rest transform is the inverse of its inverse bind matrix (in the skinned
+    mesh's bind space, which Blender's exporter makes world space); the spec's head is in
+    armature space, so the armature node's world matrix carries it across."""
+    import numpy as np
+    regions = s["jiggle"]["regions"]
+    res["jiggle_regions"] = len(regions)
+    if "skin" not in node:
+        res["problems"].append("a jiggle_bones spec on a mesh with no skin")
+        return
+    skin = doc["skins"][node["skin"]]
+    names = {doc["nodes"][j].get("name"): k for k, j in enumerate(skin["joints"])}
+    missing = [r["bone"] for r in regions if r["bone"] not in names]
+    if missing:
+        res["problems"].append(f"jiggle bones not in the skin: {missing} - export the rig with its new bones")
+        return
+    world = _node_matrices(doc)
+    arm = next((i for i, n in enumerate(doc["nodes"]) if n.get("name") == s["jiggle"].get("armature")), None)
+    A = world[arm] if arm is not None else np.eye(4)
+    ibm = None
+    if "inverseBindMatrices" in skin:
+        _doc, binary = res.pop("_binary")
+        ibm = accessor(doc, binary, skin["inverseBindMatrices"])
+    worst = 0.0
+    for r in regions:
+        if ibm is None:
+            break
+        M = np.array(ibm[names[r["bone"]]], dtype=float).reshape(4, 4).T
+        joint = np.linalg.inv(M)[:3, 3]
+        head = (A @ np.array(list(r["head"]) + [1.0]))[:3]
+        worst = max(worst, float(np.linalg.norm(joint - head)))
+    res["jiggle_head_error_m"] = round(worst, 5)
+    if worst > 0.01:
+        res["problems"].append(f"jiggle bone heads are {worst:.3f} m from where the spec puts them")
+
+
+def verify(path, expect_meshes=None):
+    """Read an exported .glb back and check every follow-through spec in it - for files
+    written by another exporter, such as rig-anything's export of a rigged, animated body."""
+    doc, binary = read_glb(path)
+    checks = []
+    for n in doc.get("nodes", []):
+        c = _check_node(doc, binary, n)
+        if c:
+            checks.append(c)
+    meshes = sorted(n.get("name") for n in doc.get("nodes", []) if "mesh" in n)
+    result = {"path": path, "specs": checks, "missing_specs": [], "meshes": meshes,
+              "passed": bool(checks) and all(not c["problems"] for c in checks)}
+    if expect_meshes is not None:
+        extra = sorted(set(meshes) - set(expect_meshes))
+        result["unexpected_meshes"] = extra
+        if extra:
+            result["passed"] = False
+    return result
 
 
 def export(path, objects, include_children=False, verify=True):
@@ -150,6 +246,10 @@ def export(path, objects, include_children=False, verify=True):
     finally:
         for oname, mname in disabled:
             bpy.data.objects[oname].modifiers[mname].show_viewport = True
+        # leave nothing selected in the export scene: selection is per scene, and an exporter
+        # run later from another scene without use_active_scene picks these up
+        for o in scene.objects:
+            o.select_set(False)
         win.scene = prev_scene
         for o in prev_scene.objects:
             o.select_set(o.name in prev_sel)
@@ -173,9 +273,13 @@ def summarize(m):
     for c in m.get("specs", []):
         pin = (f", pins {c['pins_found']}/{c['pins']} found on {c['pinned_vertices']} vertices "
                f"({c['seam_split_pins']} split by seams)") if "pins" in c else ""
-        lines.append(f"  {c['node']}: {c['class']}, {c.get('gltf_vertices')} vertices in file{pin}")
+        jig = (f", {c['jiggle_regions']} jiggle bones in the skin, heads within {c['jiggle_head_error_m']} m"
+               if "jiggle_head_error_m" in c else "")
+        lines.append(f"  {c['node']}: {c['class']}, {c.get('gltf_vertices')} vertices in file{pin}{jig}")
         for p in c["problems"]:
             lines.append("    PROBLEM " + p)
     for n in m.get("missing_specs", []):
         lines.append(f"  PROBLEM {n} has a spec in Blender but none in the file")
+    if m.get("unexpected_meshes"):
+        lines.append(f"  PROBLEM meshes in the file nobody exported: {', '.join(m['unexpected_meshes'])}")
     return "\n".join(lines)

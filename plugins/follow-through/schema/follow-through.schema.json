@@ -4,61 +4,195 @@
   "title": "follow-through secondary motion spec",
   "description": "What moves on its own on one object, and how. Written by follow-through in Blender as the object custom property `follow_through`, carried by glTF as node extras (export_extras=True), and read in Godot 4.7 as node.get_meta(\"extras\")[\"follow_through\"]. glTF numbers arrive in Godot as floats, so every integer field below must be accepted as a whole-valued float.",
   "type": "object",
-  "required": ["schema", "family", "class", "route", "source"],
+  "required": [
+    "schema",
+    "family",
+    "class",
+    "route",
+    "source"
+  ],
   "properties": {
     "schema": {
       "const": "follow-through/1",
       "description": "Version of this contract. A reader refuses a spec whose major version it does not know."
     },
     "family": {
-      "enum": ["strand", "shell", "volume"],
-      "description": "The dimension of what moves. strand: 1D (rope, tail, hair). shell: 2D surface (cloth, flag, sail). volume: 3D body with an inside (jello, flesh)."
+      "enum": [
+        "strand",
+        "shell",
+        "volume"
+      ],
+      "description": "The dimension of what moves. strand: 1D (rope, tail, hair). shell: 2D surface (cloth, flag, sail). volume: 3D body with an inside (jello, clay, flesh)."
     },
     "class": {
-      "enum": ["hanging_sheet", "draped_sheet", "draped_tube", "loose_sheet", "strap", "tensioned",
-               "solid_sheet", "volume", "not_cloth"],
-      "description": "How it hangs and what holds it. hanging_sheet: held along an edge by a static or moving prop (flag, banner, curtain). draped_sheet: worn and held along its top edge (cape, cloak). draped_tube: worn, open at both ends, held by one ring (skirt, robe). loose_sheet: held by nothing, rests on things (tablecloth, towel). strap: a strip long enough to move as a strand (scarf, ribbon). tensioned: held at corners and pulled taut (sail, awning). solid_sheet: cloth modelled with thickness - not simulable as a surface. volume / not_cloth: recognised and declined."
+      "enum": [
+        "hanging_sheet",
+        "draped_sheet",
+        "draped_tube",
+        "loose_sheet",
+        "strap",
+        "tensioned",
+        "solid_sheet",
+        "loose_volume",
+        "mounted_volume",
+        "flesh",
+        "volume",
+        "not_cloth"
+      ],
+      "description": "How it hangs and what holds it. hanging_sheet: held along an edge by a static or moving prop (flag, banner, curtain). draped_sheet: worn and held along its top edge (cape, cloak). draped_tube: worn, open at both ends, held by one ring (skirt, robe). loose_sheet: held by nothing, rests on things (tablecloth, towel). strap: a strip long enough to move as a strand (scarf, ribbon). tensioned: held at corners and pulled taut (sail, awning). solid_sheet: cloth modelled with thickness - not simulable as a surface. loose_volume: a body with an inside, held by nothing (a jello cube, a clay ball). mounted_volume: held at its base (a jello on its plate). flesh: the soft masses of a skinned body. volume (0.1 specs) / not_cloth: recognised and declined."
     },
     "route": {
-      "enum": ["soft_body", "spring_bones", "none"],
-      "description": "The Godot runtime that moves it. soft_body: SoftBody3D. spring_bones: SpringBoneSimulator3D on a bone chain. none: nothing moves."
+      "enum": [
+        "soft_body",
+        "shape_matching",
+        "jiggle_bones",
+        "spring_bones",
+        "none"
+      ],
+      "description": "The Godot runtime that moves it. soft_body: SoftBody3D (cloth_body.gd). shape_matching: lattice shape matching (shape_match_body.gd). jiggle_bones: sprung bones on a Skeleton3D (jiggle_modifier.gd). spring_bones: SpringBoneSimulator3D on a bone chain (not built). none: nothing moves."
     },
-    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
     "guessed": {
       "type": "array",
-      "items": { "enum": ["class", "pins", "fabric"] },
+      "items": {
+        "enum": [
+          "class",
+          "pins",
+          "fabric",
+          "type"
+        ]
+      },
       "description": "Which decisions had no geometric evidence behind them. A consumer may warn on these."
     },
-    "fabric": { "$ref": "#/$defs/fabric" },
-    "soft_body": { "$ref": "#/$defs/soft_body" },
-    "pins": { "$ref": "#/$defs/pins" },
-    "collision": { "$ref": "#/$defs/collision" },
+    "fabric": {
+      "$ref": "#/$defs/fabric"
+    },
+    "soft_body": {
+      "$ref": "#/$defs/soft_body"
+    },
+    "pins": {
+      "$ref": "#/$defs/pins"
+    },
+    "collision": {
+      "$ref": "#/$defs/collision"
+    },
     "source": {
       "type": "object",
-      "required": ["tool", "version", "object", "vertices"],
+      "required": [
+        "tool",
+        "version",
+        "object",
+        "vertices"
+      ],
       "properties": {
-        "tool": { "const": "follow-through" },
-        "version": { "type": "string" },
-        "object": { "type": "string", "description": "Blender object name at the time of writing." },
-        "vertices": { "type": "number", "description": "Blender vertex count. glTF will have more wherever UV seams split vertices." },
-        "pin_group": { "type": "string", "description": "Blender vertex group that is the editable source of the pins." }
+        "tool": {
+          "const": "follow-through"
+        },
+        "version": {
+          "type": "string"
+        },
+        "object": {
+          "type": "string",
+          "description": "Blender object name at the time of writing."
+        },
+        "vertices": {
+          "type": "number",
+          "description": "Blender vertex count. glTF will have more wherever UV seams split vertices."
+        },
+        "pin_group": {
+          "type": "string",
+          "description": "Blender vertex group that is the editable source of the pins."
+        }
       }
+    },
+    "type": {
+      "type": "string",
+      "description": "What it is, from the type registry (types/builtin.json plus the user registry): jello, slime, clay_ball, a flesh region's types joined by commas. Picks the material."
+    },
+    "material": {
+      "$ref": "#/$defs/material"
+    },
+    "shape_matching": {
+      "$ref": "#/$defs/shape_matching"
+    },
+    "jiggle": {
+      "$ref": "#/$defs/jiggle"
     }
   },
   "allOf": [
     {
-      "if": { "properties": { "route": { "const": "soft_body" } } },
-      "then": { "required": ["fabric", "soft_body", "pins"] }
+      "if": {
+        "properties": {
+          "route": {
+            "const": "soft_body"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "fabric",
+          "soft_body",
+          "pins"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "route": {
+            "const": "shape_matching"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "material",
+          "shape_matching"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "route": {
+            "const": "jiggle_bones"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "jiggle"
+        ]
+      }
     }
   ],
   "$defs": {
     "fabric": {
       "type": "object",
-      "required": ["preset", "areal_density_gsm"],
+      "required": [
+        "preset",
+        "areal_density_gsm"
+      ],
       "properties": {
-        "preset": { "enum": ["silk", "cotton", "wool", "denim", "canvas", "leather", "rubber", "custom"] },
+        "preset": {
+          "enum": [
+            "silk",
+            "cotton",
+            "wool",
+            "denim",
+            "canvas",
+            "leather",
+            "rubber",
+            "custom"
+          ]
+        },
         "areal_density_gsm": {
-          "type": "number", "exclusiveMinimum": 0,
+          "type": "number",
+          "exclusiveMinimum": 0,
           "description": "Grams per square metre - how fabric weight is sold. total_mass is this times area."
         }
       }
@@ -66,38 +200,91 @@
     "soft_body": {
       "type": "object",
       "description": "SoftBody3D properties, named exactly as Godot 4.7 names them. Under Jolt these must be set BEFORE the node enters the tree: set afterwards, linear_stiffness, simulation_precision and shrinking_factor are silently ignored.",
-      "required": ["total_mass", "linear_stiffness", "simulation_precision", "damping_coefficient"],
+      "required": [
+        "total_mass",
+        "linear_stiffness",
+        "simulation_precision",
+        "damping_coefficient"
+      ],
       "properties": {
-        "total_mass": { "type": "number", "exclusiveMinimum": 0, "description": "kg, whole body." },
-        "linear_stiffness": { "type": "number", "minimum": 0, "maximum": 1 },
-        "simulation_precision": { "type": "number", "minimum": 1, "description": "Integer. Jolt substeps per physics tick." },
-        "damping_coefficient": { "type": "number", "minimum": 0, "description": "A velocity decay rate per second, not a fraction: values above 1 are accepted and act (measured). Terminal fall speed is gravity / this." },
-        "drag_coefficient": { "type": "number", "minimum": 0, "maximum": 1 },
-        "shrinking_factor": { "type": "number" },
-        "pressure_coefficient": { "type": "number", "minimum": 0 }
+        "total_mass": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "kg, whole body."
+        },
+        "linear_stiffness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "simulation_precision": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Integer. Jolt substeps per physics tick."
+        },
+        "damping_coefficient": {
+          "type": "number",
+          "minimum": 0,
+          "description": "A velocity decay rate per second, not a fraction: values above 1 are accepted and act (measured). Terminal fall speed is gravity / this."
+        },
+        "drag_coefficient": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "shrinking_factor": {
+          "type": "number"
+        },
+        "pressure_coefficient": {
+          "type": "number",
+          "minimum": 0
+        }
       }
     },
     "pins": {
       "type": "object",
       "description": "Which points are held, and by what. Carried as positions, not vertex indices: Godot's importer reorders vertices and UV seams split them, so an index from Blender names the wrong point. Every Godot vertex within `tolerance` of a listed position is pinned, which also pins both halves of a seam.",
-      "required": ["count", "space", "positions", "tolerance", "anchor"],
+      "required": [
+        "count",
+        "space",
+        "positions",
+        "tolerance",
+        "anchor"
+      ],
       "properties": {
-        "count": { "type": "number", "minimum": 0 },
+        "count": {
+          "type": "number",
+          "minimum": 0
+        },
         "space": {
           "const": "gltf_mesh",
           "description": "Vertex coordinates exactly as the glTF file holds them, which are Godot's ArrayMesh vertex positions. Blender (x, y, z) becomes (x, z, -y). For an unskinned mesh these are mesh-local. For a skinned mesh the exporter bakes the object's world transform into the vertices, so they are Blender world coordinates converted the same way."
         },
         "positions": {
-          "type": "array", "items": { "type": "number" },
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
           "description": "Flat [x0, y0, z0, x1, y1, z1, ...], length 3 * count. Flat because nested arrays are not a safe Blender custom property."
         },
-        "tolerance": { "type": "number", "exclusiveMinimum": 0, "description": "Metres." },
+        "tolerance": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Metres."
+        },
         "anchor": {
-          "enum": ["node", "bone", "none"],
+          "enum": [
+            "node",
+            "bone",
+            "none"
+          ],
           "description": "What a pinned point follows. node: the imported mesh node's transform - static if it is static, carried if its parents move (a flag on a ship). bone: the bone named per pin in `bones` (a cape). none: no pins."
         },
         "bones": {
-          "type": "array", "items": { "type": "string" },
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
           "description": "With anchor=bone: the bone each pin follows, one per pin, in the same order as positions. The strongest deform weight on that vertex in Blender."
         }
       }
@@ -105,11 +292,240 @@
     "collision": {
       "type": "object",
       "properties": {
-        "layer": { "type": "number" },
-        "mask": { "type": "number" },
+        "layer": {
+          "type": "number"
+        },
+        "mask": {
+          "type": "number"
+        },
         "touching": {
-          "type": "array", "items": { "type": "string" },
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
           "description": "Blender names of objects the cloth touched when recognised. Informational: a Godot scene decides its own colliders."
+        }
+      }
+    },
+    "material": {
+      "type": "object",
+      "required": [
+        "preset"
+      ],
+      "properties": {
+        "preset": {
+          "type": "string",
+          "description": "A registry material: gelatin, custard, slime, clay, water_balloon, rubber, or a user-defined one."
+        },
+        "density_kg_m3": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "shape_matching": {
+      "type": "object",
+      "description": "Lattice shape matching values. The runtime builds the lattice from the imported mesh.",
+      "required": [
+        "frequency_hz",
+        "damping_ratio",
+        "total_mass",
+        "resolution"
+      ],
+      "properties": {
+        "frequency_hz": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "The body's wobble held at its base and pushed, Hz. The runtime converts it to the node spring with a measured model."
+        },
+        "damping_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Of that wobble; applied only to motion that is not rigid."
+        },
+        "squash": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Blend of the volume-normalised linear fit into the goal. 1 frees every volume-preserving shear - keep it below 1."
+        },
+        "global_stiffness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Share of each goal from one cluster over the whole body."
+        },
+        "friction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "rolling_resistance": {
+          "type": "number",
+          "minimum": 0,
+          "description": "1/s decay of rigid motion while touching something."
+        },
+        "resolution": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Integer. Lattice cells along the longest side."
+        },
+        "total_mass": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "kg: the mesh's volume times the material's density."
+        },
+        "gravity_scale": {
+          "type": "number"
+        },
+        "stiffness_gain": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Written back from verify_volume.gd tune=true."
+        },
+        "cluster_radius": {
+          "type": "number",
+          "minimum": 1
+        },
+        "substeps": {
+          "type": "number",
+          "minimum": 0,
+          "description": "0 chooses from the frequency."
+        },
+        "plastic": {
+          "type": "object",
+          "properties": {
+            "yield": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Strain ||R^T A - I|| before the rest shape moves."
+            },
+            "creep": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Per second toward the held shape."
+            },
+            "max": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Fraction of the body's size the rest shape may drift."
+            }
+          }
+        }
+      }
+    },
+    "jiggle": {
+      "type": "object",
+      "required": [
+        "space",
+        "regions"
+      ],
+      "properties": {
+        "space": {
+          "const": "gltf_armature",
+          "description": "head and tail in the armature object's local space, glTF axes: Blender (x, y, z) -> (x, z, -y). Godot's Skeleton3D space."
+        },
+        "armature": {
+          "type": "string",
+          "description": "Blender armature object name."
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "bone",
+              "parent",
+              "head",
+              "tail",
+              "frequency_hz",
+              "damping_ratio"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "breast.L, belly, ..."
+              },
+              "type": {
+                "type": "string"
+              },
+              "material": {
+                "type": "string"
+              },
+              "bone": {
+                "type": "string",
+                "description": "The jiggle bone flesh.prepare added: ft_jiggle_<name>."
+              },
+              "parent": {
+                "type": "string",
+                "description": "The bone it rides on."
+              },
+              "head": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "tail": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "frequency_hz": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "damping_ratio": {
+                "type": "number",
+                "minimum": 0
+              },
+              "squash": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "gravity_scale": {
+                "type": "number"
+              },
+              "aim": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "translate": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "response": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Scales the anchor's acceleration: 1 physical."
+              },
+              "max_offset_m": {
+                "type": "number",
+                "minimum": 0
+              },
+              "mass_kg": {
+                "type": "number"
+              },
+              "volume_m3": {
+                "type": "number"
+              },
+              "peak_m": {
+                "type": "number"
+              },
+              "vertices": {
+                "type": "number"
+              }
+            }
+          }
         }
       }
     }

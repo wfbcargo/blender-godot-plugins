@@ -152,7 +152,11 @@ def _thickness(bm, samples=400):
     tree = BVHTree.FromBMesh(bm)
     step = max(1, len(bm.faces) // samples)
     hits = []
-    for f in bm.faces[::step]:
+    # BMesh sequences refuse stepped slices; every cloth sample had under 800 faces, so
+    # step was 1 and this only failed on the first dense body
+    bm.faces.ensure_lookup_table()
+    for fi in range(0, len(bm.faces), step):
+        f = bm.faces[fi]
         n = f.normal
         if n.length < 1e-9:
             continue
