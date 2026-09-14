@@ -67,6 +67,20 @@ the ground, and which skeleton archetype fits.
 > turns, a C-start and a brake, checked on Blender's playback for the tail sweep
 > planned, a wave that travels tailward, and no skin folding.
 >
+> **Phase 11 (0.12.0)** adds radial bodies - things with no front or back. The
+> identification report now measures `rotational_symmetry`: an axis the body turns
+> onto itself about, and how many times (4 for a test jellyfish, 5 for a sea star,
+> 10 for an anemone, none for any bilateral creature in the project). `radial`
+> splits the skin into a hub and a ring of appendages by geodesic bands - loose
+> tentacles included - suggests medusa, polyp, asteroid or ophiuroid, builds a hub,
+> bell ribs and a chain per appendage, and writes weights from the parts instead of
+> bone heat, which fails on a thin bell and skips a loose tentacle. `radial_moves`
+> pulses a bell at the rate its diameter implies and steers it by closing one side
+> harder, crawls a sea star on its tube feet any way it likes, rows a brittle star
+> behind whichever arm is nearest, and sways and retracts an anemone - checked on
+> Blender's playback for margin closure, symmetry, contraction timing, tentacles
+> lagging and never crossing, tips on the floor and the stroke pushing back.
+>
 > **Listed** in the marketplace manifest as of 0.5.0. The coverage caveat still
 > stands and is worth stating plainly: the rat is the only downloaded asset it
 > has been through: the worm, quadruped, hexapod and biped are shapes this was
@@ -159,6 +173,9 @@ scripts/rig_analysis/
   locomotion.py walk to sprint from ground contacts, contact detection
   wings.py      recognise wings from skin or names, fold / stroke / twist them
   flight.py     wingbeat and flight speeds from size; flap, glide, dive, take-off, land
+  radial.py     no front or back: hub and appendages on the skin, rig, weights, pose maths
+  radial_moves.py  pulse, drift, turn, crawl, row, sway, retract; checks; manifest; export
+  radial_samples.py  procedural jellyfish, sea star, brittle star and anemone
 references/
   archetypes.md          Rigify templates measured, and what evidence picks one
   joint-conventions.md   which way each joint bends, and the quadruped trap
@@ -239,5 +256,7 @@ Blender sessions are long-lived and cache imports, so always
   `references/maws.md`.
 - **10** fins and swimming — done (`fins.py`, `swim.py`, 0.11.0). See
   animate-anything's `references/fins-and-swimming.md`.
-- **11** shapes matching no archetype — fall back to curve-skeleton extraction or
+- **11** radial bodies — done (`radial.py`, `radial_moves.py`, 0.12.0). See
+  animate-anything's `references/radial-bodies.md`.
+- **12** shapes matching no archetype — fall back to curve-skeleton extraction or
   shell out to UniRig. Do not reimplement either.

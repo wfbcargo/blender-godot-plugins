@@ -1,6 +1,6 @@
 ---
 name: animate-anything
-description: Author whole-body actions - crouch, crouch walk, slide and slide recovery now, climb next - for any rigged creature in Blender by identifying its spine, neck, head, tail, legs and arms and posing it by target positions with IK, so planted feet and hands stay put. Works on hand-built, Rigify and rig-anything generic rigs alike, with every clip played back through Blender and checked for foot drift, floor penetration, joint folding and balance. Use when asked to make a creature crouch, squat, duck, sneak, crouch-walk, slide, get up, climb or perform any action beyond a walk cycle, to open a jaw - bite, roar, breathe fire, swallow, engulf - to rig fins or make a fish or whale swim, or when asked which bones are a rig's arms, legs, spine or neck.
+description: Author whole-body actions - crouch, crouch walk, slide and slide recovery now, climb next - for any rigged creature in Blender by identifying its spine, neck, head, tail, legs and arms and posing it by target positions with IK, so planted feet and hands stay put. Works on hand-built, Rigify and rig-anything generic rigs alike, with every clip played back through Blender and checked for foot drift, floor penetration, joint folding and balance. Use when asked to make a creature crouch, squat, duck, sneak, crouch-walk, slide, get up, climb or perform any action beyond a walk cycle, to open a jaw - bite, roar, breathe fire, swallow, engulf - to rig fins or make a fish or whale swim, to make a jellyfish pulse, a sea star or brittle star crawl or row, or an anemone sway and retract, or when asked which bones are a rig's arms, legs, spine or neck.
 ---
 
 # animate-anything
@@ -22,8 +22,9 @@ Four layers, in the `rig_analysis` package that `rig-anything` ships:
 | `wings` / `flight` | Wings found from the skin or names; folded, stroked, twisted; flight speeds from size; spread, flap, glide, dive, take-off, land |
 | `maw` | Mouth found on the skin; jaw, throat, gular, tongue and socket bones; lip-split relaxed weights; gape, bite, roar, breath, swallow, engulf, purge |
 | `fins` / `swim` | Fins found on the skin, a fish rigged from a mesh, rays fanned; a travelling wave from body length - swim, sprint, glide, hover, turn, C-start, brake |
+| `radial` / `radial_moves` | Bodies with no front or back: hub and appendages found on the skin, rigged and weighted without bone heat; a jellyfish pulses, drifts and turns, a sea star crawls, a brittle star rows, an anemone sways and retracts |
 
-**Requires the `rig-anything` plugin, 0.11.0 or later.** The code ships there, in
+**Requires the `rig-anything` plugin, 0.12.0 or later.** The code ships there, in
 its `scripts/rig_analysis` package; this plugin is the procedure and the rules
 for using it.
 
@@ -382,6 +383,32 @@ whether it looks like a fish is a render.
 **The engine sets the beat.** Clips play at speed / (stride x clip beat): a fish
 never swims faster by wagging the same tail faster than its stride allows.
 
+## Radial bodies: pulse, crawl, row
+
+A jellyfish, a sea star, a brittle star and an anemone have no front, so no move
+is written "forward". Full rules, research and numbers:
+`references/radial-bodies.md`.
+
+```python
+from rig_analysis import radial, radial_moves as rm
+radial.build("JellyTest"); radial.skin("JellyTest_rig")
+res = rm.move_set("JellyTest_rig")        # medusa: Pulse Drift Turn
+m = rm.engine_manifest(res, "JellyTest_rig")
+views.render_clip("JellyTest", "JellyTest_rig", res["Pulse"]["action"], [1, 19, 49], out, views=("front",))
+```
+
+**A heading is chosen per move.** A bell swims aboral end first and steers by
+closing one side harder; a sea star glides any way without turning; a brittle
+star rows behind whichever arm is nearest. A symmetric body spun by 360/order
+looks exactly as it did, so the engine spins by whole sectors and never visibly
+turns.
+
+**Look under the bell.** Every number passed while the first pulse drew all
+eight tentacles in until they crossed; a front render showed it at once.
+
+**For an octopus**, eight arms on a bilateral mantle, see
+`references/tentacles.md` and the `tentacles` / `octopus` modules.
+
 ## Playing them: `creature_controller.gd`
 
 In the GrungistCreek project a creature's `<name>.moves.json` (clip names,
@@ -425,4 +452,9 @@ the planted feet and their support polygon from that schedule.
   whale's vertical wave, eight clips checked for tail sweep, tailward wave, folds
   and fin clearance; `swim_controller.gd` in Godot. Done -
   `references/fins-and-swimming.md`.
+- Radial bodies (0.7.0, rig-anything 0.12.0): rotational symmetry in the
+  identification report, hub and appendages on the skin, weights without bone
+  heat; pulse, drift and turn for a bell, a tube-foot crawl, rowing and reverse
+  rowing, sway and retract, checked for closure, symmetry, lag, crossing and
+  stroke; `radial_controller.gd` in Godot. Done - `references/radial-bodies.md`.
 - `climb`. Next - see `references/motion-grammar.md`.

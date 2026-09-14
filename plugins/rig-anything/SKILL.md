@@ -1,6 +1,6 @@
 ---
 name: rig-anything
-description: Analyse a Blender mesh to work out how it should be rigged - whether it can be skinned at all, which way is up and forward, how many limbs touch the ground, and what archetype it is (biped, quadruped, bird, fish, or something with no template). Use when asked to rig, skeleton, bone, auto-rig or animate an arbitrary 3D asset, when deciding which skeleton template fits a model, when a head needs a jaw or a mouth that opens (dragon fire breath, a whale engulfing, a bite), when a fish or whale needs fins rigged or needs to swim, or when Blender's automatic weights fail and the reason is unclear.
+description: Analyse a Blender mesh to work out how it should be rigged - whether it can be skinned at all, which way is up and forward, how many limbs touch the ground, and what archetype it is (biped, quadruped, bird, fish, a radial body with no front or back, or something with no template). Use when asked to rig, skeleton, bone, auto-rig or animate an arbitrary 3D asset, when deciding which skeleton template fits a model, when a head needs a jaw or a mouth that opens (dragon fire breath, a whale engulfing, a bite), when a fish or whale needs fins rigged or needs to swim, when a jellyfish, sea star, brittle star, anemone or other radially symmetric creature needs rigging or needs to pulse, crawl or row, or when Blender's automatic weights fail and the reason is unclear.
 ---
 
 # rig-anything
@@ -25,7 +25,8 @@ import sys
 P = r"C:/Users/<you>/.claude/skills/rig-anything/scripts"
 if P not in sys.path:
     sys.path.insert(0, P)
-import rig_analysis
+import importlib, rig_analysis
+importlib.reload(rig_analysis)       # reload_all cannot see a module list it was loaded without
 rig_analysis.reload_all()
 from rig_analysis import measure, report, views, verify, fit, skin, decompose, build, gait
 ```
@@ -240,6 +241,27 @@ m = swim.engine_manifest(res)              # the .moves.json `swim` block
 Speeds and tail beats come from length (stride 0.7 L, Strouhal 0.29); flukes make
 the wave vertical. Export a swimmer with `foot_bones=[]` and a floor far below it.
 
+**11. Radial bodies: no front, no back.** Step 2's report says `BODY PLAN RADIAL`
+when the body turns onto itself about an axis - a jellyfish, a sea star, a brittle
+star, an anemone. Do not pick a forward for it; there is none (see
+`animate-anything`'s `references/radial-bodies.md`):
+
+```python
+from rig_analysis import radial, radial_moves as rm
+print(measure.rotational_symmetry(obj))   # order: 4 a jellyfish, 5 a star, continuous a bare bell
+d = radial.detect("MyJelly")              # kind= medusa | polyp | asteroid | ophiuroid, from the renders
+print(radial.summary(d))                  # hub, every appendage with its angle, root and direction
+radial.build("MyJelly", detection=d)      # hub, bell ribs, a chain per tentacle / oral arm / arm
+print(radial.skin("MyJelly_rig"))         # weights from the parts, no bone heat - coverage 1.0
+res = rm.move_set("MyJelly_rig")          # Pulse Drift Turn | Crawl Idle | Row RowBack Idle | Sway Retract Extend
+rm.export_creature("MyJelly", "MyJelly_rig", res, path_glb, "jellyfish")   # glb + .moves.json `radial` block
+```
+
+A bell's pulse rate, contraction and distance a pulse come from its diameter and
+fineness; a sea star crawls at 1 mm/s any way it likes; a brittle star rows behind
+whichever arm is nearest. Loose tentacles are welcome - they are rigged where
+they lie. `radial_samples.build_all()` makes the four test bodies.
+
 ## Rules
 
 **Never trust a measurement you have not sanity-checked.** This harness exists
@@ -347,6 +369,23 @@ fin and its fin edges folded. `fins.detect` grows fins across their rims, takes 
 body as the largest connected non-fin skin, and a fin's base as where it touches
 that.
 
+**A radial body has no forward - do not give it one.** A mirror test scores a
+starfish's two horizontal axes alike, and any front chosen from that is
+arbitrary, so every fitter downstream inherits a coin toss. `rotational_symmetry`
+measures what such a body does have: an axis it turns onto itself about. Centre
+that axis on the skin's area-weighted centroid - a bounding box is centred on an
+even order only, and a five-armed star scored no symmetry at all about its box.
+
+**Bone heat is the wrong tool for a bell and a loose tentacle.** A bell is a
+thin shell and a modelled tentacle a separate tube; bone heat fails on the one
+and skips the other. `radial.skin` writes each vertex's weights from the part it
+belongs to and where along it, so coverage is 1.0 by construction.
+
+**A tentacle hangs.** Parented to a rib and carried rigidly, a closing bell swung
+all eight test tentacles in until they crossed under it - with every number
+passing. The render found it; `radial_moves` now undoes the carried bend and
+checks tip radius.
+
 **Decide `passed` last.** Actions add their own failures - loop seams, skating
 feet, seams, wing clearance - after the shared checks have run; the verdict was
 being written before them, so a clip could print PASSED over its own failure
@@ -375,7 +414,8 @@ link.
 | `symmetry.scores` | Highest = mirror plane normal = the left/right axis. Near 1.0 is a clean mirror |
 | `extremities` at ~100% of span | Limb tips. Head and tail usually 60-100% |
 | Profile: narrow between wide | Neck and waist pinch points - candidate spine joints |
-| `axes.forward_sign` | Always `unknown`. Geometry cannot settle it; the renders can |
+| `axes.forward_sign` | `unknown` for a bilateral body - geometry cannot settle it, the renders can. `none` for a radial one: there is nothing to settle |
+| `rotational_symmetry.order` | Largest k whose 360/k turn lands the body on itself: 4-5 jellyfish and stars, 8+ many medusae, `continuous` a body of revolution. None for every bilateral test creature (best 0.32, pass 0.6) |
 
 ## Status
 
@@ -410,6 +450,15 @@ link.
   skin; a travelling wave scaled by length for five modes including a whale's
   vertical one; Swim, Sprint, Glide, Hover, turns, a C-start and a brake, checked
   for tail sweep, a tailward wave, folds and fin clearance. Done (`fins`, `swim`).
+- **Phase 11** - radial bodies (0.12.0): an axis the body turns onto itself about,
+  and its order, in the identification report; hub and appendages found on the skin
+  by geodesic bands - loose tentacles included - and the kind suggested (medusa,
+  polyp, asteroid, ophiuroid); hub, bell ribs and appendage chains built, weights
+  written without bone heat; a pulse, drift and turn from bell diameter and
+  fineness, a tube-foot crawl, rowing and reverse rowing, a sway and a retraction
+  limited by the skin; checked for margin closure, symmetry, contraction timing,
+  tentacle lag and crossing, tips on the floor, stroke direction. Done (`radial`,
+  `radial_moves`, `radial_samples`).
 - **Phase 7** - contact locomotion (0.8.0): contacts measured on the skin, a
   support plane through them, Froude-scaled stride and duty factor, per-leg
   reach on the plane with toe roll, rotary gallop and spine flex, contact

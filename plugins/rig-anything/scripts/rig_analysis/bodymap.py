@@ -122,7 +122,18 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0):
         # a dragon's finger bones. `fins` poses them.
         if b.get('fin_role'):
             fin_names.add(b.name)
-    bones = [b for b in bones if b.name not in maw_names and b.name not in fin_names]
+    # A radial body's hub, ribs and arms have no side and no front, and read
+    # as one long spine with nothing on it; `radial` poses them. Tentacle chains
+    # tagged by `tentacles` likewise belong to that module, not to a limb.
+    radial_names = {b.name for b in bones if b.get('radial_role')}
+    tentacle_names = {b.name for b in bones if b.get('tentacle')}
+    bones = [b for b in bones if b.name not in maw_names and b.name not in fin_names
+             and b.name not in radial_names and b.name not in tentacle_names]
+    if not bones:
+        if radial_names:
+            return {"error": "%s is a radial rig - no spine or limbs to map; use "
+                             "radial.RadialRig or radial.body_map" % rig_name}
+        return {"error": "%s has no bones this map describes" % rig_name}
 
     # Blender's pose maths only matches the plain FK used by `motion` when
     # bones inherit rotation and scale normally. Say so rather than bake a clip
@@ -450,6 +461,8 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0):
         "maw": maw_mod.read(rig),
         "maw_bones": sorted(maw_names),
         "fin_bones": sorted(fin_names),
+        "radial_bones": sorted(radial_names),
+        "tentacle_bones": sorted(tentacle_names),
         "midline": midline,
         "ignored_chains": ignored,
         "warnings": warnings,
@@ -503,6 +516,10 @@ def summary(bm):
                      % ", ".join(bm["maw_bones"]))
     if bm.get("fin_bones"):
         lines.append("  FINS %d ray bones - posed by fins.FinRig" % len(bm["fin_bones"]))
+    if bm.get("radial_bones"):
+        lines.append("  RADIAL %d hub, rib and arm bones - posed by radial.RadialRig" % len(bm["radial_bones"]))
+    if bm.get("tentacle_bones"):
+        lines.append("  TENTACLES %d bones - posed by the tentacles module" % len(bm["tentacle_bones"]))
     for w in bm["warnings"]:
         lines.append("  WARN " + w)
     return "\n".join(lines)
