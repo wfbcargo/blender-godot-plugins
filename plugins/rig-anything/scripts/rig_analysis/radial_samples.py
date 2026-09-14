@@ -183,6 +183,9 @@ def _metaball_mesh(name, elements, resolution, collection=None):
     # rest it on the floor
     low = min(v.co.z for v in me.vertices)
     obj.location.z = -low
+    # how far it was lifted, so a caller holding known joint positions can
+    # move them with the skin
+    obj["floor_shift"] = -low
     _apply_location(obj)
     return obj
 

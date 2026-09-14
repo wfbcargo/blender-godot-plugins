@@ -1,6 +1,6 @@
 ---
 name: animate-anything
-description: Author whole-body actions - crouch, crouch walk, slide and slide recovery now, climb next - for any rigged creature in Blender by identifying its spine, neck, head, tail, legs and arms and posing it by target positions with IK, so planted feet and hands stay put. Works on hand-built, Rigify and rig-anything generic rigs alike, with every clip played back through Blender and checked for foot drift, floor penetration, joint folding and balance. Use when asked to make a creature crouch, squat, duck, sneak, crouch-walk, slide, get up, climb or perform any action beyond a walk cycle, to open a jaw - bite, roar, breathe fire, swallow, engulf - to rig fins or make a fish or whale swim, to make a jellyfish pulse, a sea star or brittle star crawl or row, or an anemone sway and retract, or when asked which bones are a rig's arms, legs, spine or neck.
+description: Author whole-body actions - crouch, crouch walk, slide and slide recovery now, climb next - for any rigged creature in Blender by identifying its spine, neck, head, tail, legs and arms and posing it by target positions with IK, so planted feet and hands stay put. Works on hand-built, Rigify and rig-anything generic rigs alike, with every clip played back through Blender and checked for foot drift, floor penetration, joint folding and balance. Use when asked to make a creature crouch, squat, duck, sneak, crouch-walk, slide, get up, climb or perform any action beyond a walk cycle, to open a jaw - bite, roar, breathe fire, swallow, engulf - to rig fins or make a fish or whale swim, to make a jellyfish pulse, a sea star or brittle star crawl or row, or an anemone sway and retract, to make a rabbit hop, bound or leap or a cricket or grasshopper walk and jump, or when asked which bones are a rig's arms, legs, spine or neck.
 ---
 
 # animate-anything
@@ -23,8 +23,9 @@ Four layers, in the `rig_analysis` package that `rig-anything` ships:
 | `maw` | Mouth found on the skin; jaw, throat, gular, tongue and socket bones; lip-split relaxed weights; gape, bite, roar, breath, swallow, engulf, purge |
 | `fins` / `swim` | Fins found on the skin, a fish rigged from a mesh, rays fanned; a travelling wave from body length - swim, sprint, glide, hover, turn, C-start, brake |
 | `radial` / `radial_moves` | Bodies with no front or back: hub and appendages found on the skin, rigged and weighted without bone heat; a jellyfish pulses, drifts and turns, a sea star crawls, a brittle star rows, an anemone sways and retracts |
+| `hoppers` / `hop` | Jumping legs found on the skin and their joints - hidden ones inferred - rigged and weighted; a rabbit hops and half-bounds on measured ankle angles, a cricket walks on tripods, both launch, fly and land |
 
-**Requires the `rig-anything` plugin, 0.12.0 or later.** The code ships there, in
+**Requires the `rig-anything` plugin, 0.13.0 or later.** The code ships there, in
 its `scripts/rig_analysis` package; this plugin is the procedure and the rules
 for using it.
 
@@ -409,6 +410,36 @@ eight tentacles in until they crossed; a front render showed it at once.
 **For an octopus**, eight arms on a bilateral mantle, see
 `references/tentacles.md` and the `tentacles` / `octopus` modules.
 
+## Hoppers: hop, bound, jump
+
+A jumping leg is a Z of three segments, and the jump is the Z opening. Full rules,
+research and numbers: `references/hoppers.md`.
+
+```python
+from rig_analysis import hoppers, hop
+d = hoppers.detect("RabbitTest"); hoppers.build("RabbitTest", detection=d); hoppers.skin("RabbitTest_rig")
+res = hop.move_set("RabbitTest_rig")       # Idle Hop Bound JumpLaunch JumpAir JumpLand
+print(hop.summarize(res["Bound"]))         # speed, ankle angles vs Hall 2022, overstep, belt speeds, skin
+views.render_clip("RabbitTest", "RabbitTest_rig", res["Hop"]["action"], [1, 7, 13, 19], out, views=("right",))
+```
+
+**Build stance from measured joint angles.** The hind leg's ankle follows Hall et
+al.'s 103 / 66 / 137 degrees with the femur parallel to the metatarsus; the hip's
+height falls out. Guessing a body height and solving the leg to it gave stilts.
+
+**Hips and shoulders are separate.** A bounding body rocks: the hips ride the hind
+legs while they push and the shoulders the forelegs while they catch. One body
+height and one pitch for the cycle put the test rabbit's head 26, then 47, degrees
+down.
+
+**Look at the hop.** Every check passed on a rabbit standing on stilts; the render
+showed it at once.
+
+**A jump is three clips and a flight.** The launch and landing move the body over
+planted feet; the engine owns the arc between, applies `takeoff_offset_model` and
+`land_offset_model` at the switches, and plays the air clip over the flight it
+predicts. `hopper_controller.gd` in GrungistCreek does exactly that.
+
 ## Playing them: `creature_controller.gd`
 
 In the GrungistCreek project a creature's `<name>.moves.json` (clip names,
@@ -457,4 +488,8 @@ the planted feet and their support polygon from that schedule.
   heat; pulse, drift and turn for a bell, a tube-foot crawl, rowing and reverse
   rowing, sway and retract, checked for closure, symmetry, lag, crossing and
   stroke; `radial_controller.gd` in Godot. Done - `references/radial-bodies.md`.
+- Hoppers (0.8.0, rig-anything 0.13.0): jumping legs and joints found on the skin,
+  a pelvis-rooted rig weighted from the parts; hop and half-bound on measured ankle
+  angles, tripod walk, launch / air / land jumps from published take-off numbers;
+  `hopper_controller.gd` and a 16-check Godot selftest. Done - `references/hoppers.md`.
 - `climb`. Next - see `references/motion-grammar.md`.
