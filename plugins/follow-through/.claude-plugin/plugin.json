@@ -1,0 +1,13 @@
+{
+  "name": "follow-through",
+  "version": "0.1.0",
+  "description": "Secondary motion for Blender assets headed to Godot 4.7: the parts nobody keyframes - cloth, and next strands and soft volumes - recognised, specified and made to move. A router skill measures a mesh (boundary loops, thickness, curvature, principal extents, what it touches, what skins it) and classifies it by the dimension of what moves - strand, shell or volume - and by how it hangs: a hanging sheet, a worn sheet or tube, a loose sheet, a strap, a tensioned sail; renders settle what the measures cannot. It then hands off to a library skill. The cloth library pins the sheet from what holds it, picks a fabric and writes one spec - a JSON-schema'd custom property the glTF exporter carries as node extras - with pins as positions rather than vertex indices, because Godot's importer reorders vertices and UV seams split them. Export reads the written file back and fails any pin that lands on no vertex. In Godot a runtime builds a SoftBody3D from the spec with every rule measured under Jolt - properties set before the node enters the tree, the mesh baked to world space, pins driven every tick to their node or bone because attachment pins never move headless - and a headless verifier runs the asset and measures pin error, stretch, seams and settling, raising simulation precision until stretch passes. Fabric values for Godot come from measurement, not from Blender's presets, which do not convert: stiffness above 0.9 makes a sheet flutter at metres a second, and damping is a per-second decay rate that has to stand in for the air.",
+  "author": {
+    "name": "Paul Lovy",
+    "url": "https://paullovy.com"
+  },
+  "homepage": "https://github.com/wfbcargo/PaulClaudePlugins",
+  "repository": "https://github.com/wfbcargo/PaulClaudePlugins",
+  "license": "MIT",
+  "keywords": ["blender", "godot", "cloth", "fabric", "soft-body", "secondary-motion", "physics", "gltf", "jolt", "gamedev", "3d", "simulation"]
+}

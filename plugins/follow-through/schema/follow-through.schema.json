@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/wfbcargo/PaulClaudePlugins/plugins/follow-through/schema/follow-through.schema.json",
+  "title": "follow-through secondary motion spec",
+  "description": "What moves on its own on one object, and how. Written by follow-through in Blender as the object custom property `follow_through`, carried by glTF as node extras (export_extras=True), and read in Godot 4.7 as node.get_meta(\"extras\")[\"follow_through\"]. glTF numbers arrive in Godot as floats, so every integer field below must be accepted as a whole-valued float.",
+  "type": "object",
+  "required": ["schema", "family", "class", "route", "source"],
+  "properties": {
+    "schema": {
+      "const": "follow-through/1",
+      "description": "Version of this contract. A reader refuses a spec whose major version it does not know."
+    },
+    "family": {
+      "enum": ["strand", "shell", "volume"],
+      "description": "The dimension of what moves. strand: 1D (rope, tail, hair). shell: 2D surface (cloth, flag, sail). volume: 3D body with an inside (jello, flesh)."
+    },
+    "class": {
+      "enum": ["hanging_sheet", "draped_sheet", "draped_tube", "loose_sheet", "strap", "tensioned",
+               "solid_sheet", "volume", "not_cloth"],
+      "description": "How it hangs and what holds it. hanging_sheet: held along an edge by a static or moving prop (flag, banner, curtain). draped_sheet: worn and held along its top edge (cape, cloak). draped_tube: worn, open at both ends, held by one ring (skirt, robe). loose_sheet: held by nothing, rests on things (tablecloth, towel). strap: a strip long enough to move as a strand (scarf, ribbon). tensioned: held at corners and pulled taut (sail, awning). solid_sheet: cloth modelled with thickness - not simulable as a surface. volume / not_cloth: recognised and declined."
+    },
+    "route": {
+      "enum": ["soft_body", "spring_bones", "none"],
+      "description": "The Godot runtime that moves it. soft_body: SoftBody3D. spring_bones: SpringBoneSimulator3D on a bone chain. none: nothing moves."
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "guessed": {
+      "type": "array",
+      "items": { "enum": ["class", "pins", "fabric"] },
+      "description": "Which decisions had no geometric evidence behind them. A consumer may warn on these."
+    },
+    "fabric": { "$ref": "#/$defs/fabric" },
+    "soft_body": { "$ref": "#/$defs/soft_body" },
+    "pins": { "$ref": "#/$defs/pins" },
+    "collision": { "$ref": "#/$defs/collision" },
+    "source": {
+      "type": "object",
+      "required": ["tool", "version", "object", "vertices"],
+      "properties": {
+        "tool": { "const": "follow-through" },
+        "version": { "type": "string" },
+        "object": { "type": "string", "description": "Blender object name at the time of writing." },
+        "vertices": { "type": "number", "description": "Blender vertex count. glTF will have more wherever UV seams split vertices." },
+        "pin_group": { "type": "string", "description": "Blender vertex group that is the editable source of the pins." }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "route": { "const": "soft_body" } } },
+      "then": { "required": ["fabric", "soft_body", "pins"] }
+    }
+  ],
+  "$defs": {
+    "fabric": {
+      "type": "object",
+      "required": ["preset", "areal_density_gsm"],
+      "properties": {
+        "preset": { "enum": ["silk", "cotton", "wool", "denim", "canvas", "leather", "rubber", "custom"] },
+        "areal_density_gsm": {
+          "type": "number", "exclusiveMinimum": 0,
+          "description": "Grams per square metre - how fabric weight is sold. total_mass is this times area."
+        }
+      }
+    },
+    "soft_body": {
+      "type": "object",
+      "description": "SoftBody3D properties, named exactly as Godot 4.7 names them. Under Jolt these must be set BEFORE the node enters the tree: set afterwards, linear_stiffness, simulation_precision and shrinking_factor are silently ignored.",
+      "required": ["total_mass", "linear_stiffness", "simulation_precision", "damping_coefficient"],
+      "properties": {
+        "total_mass": { "type": "number", "exclusiveMinimum": 0, "description": "kg, whole body." },
+        "linear_stiffness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "simulation_precision": { "type": "number", "minimum": 1, "description": "Integer. Jolt substeps per physics tick." },
+        "damping_coefficient": { "type": "number", "minimum": 0, "description": "A velocity decay rate per second, not a fraction: values above 1 are accepted and act (measured). Terminal fall speed is gravity / this." },
+        "drag_coefficient": { "type": "number", "minimum": 0, "maximum": 1 },
+        "shrinking_factor": { "type": "number" },
+        "pressure_coefficient": { "type": "number", "minimum": 0 }
+      }
+    },
+    "pins": {
+      "type": "object",
+      "description": "Which points are held, and by what. Carried as positions, not vertex indices: Godot's importer reorders vertices and UV seams split them, so an index from Blender names the wrong point. Every Godot vertex within `tolerance` of a listed position is pinned, which also pins both halves of a seam.",
+      "required": ["count", "space", "positions", "tolerance", "anchor"],
+      "properties": {
+        "count": { "type": "number", "minimum": 0 },
+        "space": {
+          "const": "gltf_mesh",
+          "description": "Vertex coordinates exactly as the glTF file holds them, which are Godot's ArrayMesh vertex positions. Blender (x, y, z) becomes (x, z, -y). For an unskinned mesh these are mesh-local. For a skinned mesh the exporter bakes the object's world transform into the vertices, so they are Blender world coordinates converted the same way."
+        },
+        "positions": {
+          "type": "array", "items": { "type": "number" },
+          "description": "Flat [x0, y0, z0, x1, y1, z1, ...], length 3 * count. Flat because nested arrays are not a safe Blender custom property."
+        },
+        "tolerance": { "type": "number", "exclusiveMinimum": 0, "description": "Metres." },
+        "anchor": {
+          "enum": ["node", "bone", "none"],
+          "description": "What a pinned point follows. node: the imported mesh node's transform - static if it is static, carried if its parents move (a flag on a ship). bone: the bone named per pin in `bones` (a cape). none: no pins."
+        },
+        "bones": {
+          "type": "array", "items": { "type": "string" },
+          "description": "With anchor=bone: the bone each pin follows, one per pin, in the same order as positions. The strongest deform weight on that vertex in Blender."
+        }
+      }
+    },
+    "collision": {
+      "type": "object",
+      "properties": {
+        "layer": { "type": "number" },
+        "mask": { "type": "number" },
+        "touching": {
+          "type": "array", "items": { "type": "string" },
+          "description": "Blender names of objects the cloth touched when recognised. Informational: a Godot scene decides its own colliders."
+        }
+      }
+    }
+  }
+}

@@ -139,6 +139,27 @@
         "starfish",
         "tentacles"
       ]
+    },
+    {
+      "name": "follow-through",
+      "source": "./plugins/follow-through",
+      "version": "0.1.0",
+      "description": "Secondary motion for Blender assets headed to Godot 4.7 - the parts nobody keyframes. A router skill measures a mesh and classifies it by the dimension of what moves (strand, shell, volume) and by how it hangs (a hanging sheet, a worn sheet or tube, a loose sheet, a strap), then hands off to a library. The cloth library pins the sheet from what holds it, picks a fabric, and writes a JSON-schema'd spec the glTF exporter carries as node extras, with pins as positions because Godot's importer reorders vertices; the export is read back and fails any pin that lands on no vertex. In Godot a runtime builds a SoftBody3D from the spec with every rule measured under Jolt, and a headless verifier measures pin error, stretch, seams and settling. Fabric values come from measurement: stiffness above 0.9 makes a sheet flutter indefinitely, and damping is a per-second rate standing in for the air.",
+      "category": "development",
+      "keywords": [
+        "blender",
+        "godot",
+        "cloth",
+        "fabric",
+        "soft-body",
+        "secondary-motion",
+        "physics",
+        "gltf",
+        "jolt",
+        "gamedev",
+        "3d",
+        "simulation"
+      ]
     }
   ]
 }
