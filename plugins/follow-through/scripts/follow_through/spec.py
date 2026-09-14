@@ -29,9 +29,9 @@ PROP = "follow_through"
 PIN_GROUP = "ft_pin"
 
 FAMILIES = ("strand", "shell", "volume")
-CLASSES = ("hanging_sheet", "draped_sheet", "draped_tube", "loose_sheet", "strap", "tensioned",
-           "solid_sheet", "volume", "not_cloth")
-ROUTES = ("soft_body", "spring_bones", "none")
+CLOTH = ("hanging_sheet", "draped_sheet", "draped_tube", "loose_sheet", "strap", "tensioned")
+CLASSES = CLOTH + ("solid_sheet", "loose_volume", "mounted_volume", "flesh", "volume", "not_cloth")
+ROUTES = ("soft_body", "shape_matching", "jiggle_bones", "spring_bones", "none")
 ANCHORS = ("node", "bone", "none")
 PRESETS = ("silk", "cotton", "wool", "denim", "canvas", "leather", "rubber", "custom")
 
@@ -136,8 +136,11 @@ def build(obj, recognition, fabric=None, soft_body=None, anchor=None):
         spec["fabric"] = fabric
     if soft_body is not None:
         spec["soft_body"] = soft_body
-    if recognition["class"] in CLASSES[:6]:
+    if recognition.get("type"):
+        spec["type"] = recognition["type"]
+    if recognition["class"] in CLOTH or recognition["class"] == "mounted_volume":
         spec["pins"] = pins_block(obj, pins, anchor)
+    if recognition["class"] in CLOTH or recognition["class"] in ("loose_volume", "mounted_volume"):
         spec["collision"] = {"layer": 1, "mask": 1,
                              "touching": sorted(recognition.get("touching", []))}
     return spec
@@ -182,6 +185,36 @@ def validate(spec):
             p.append(f"fabric.preset {fab.get('preset')!r} not in {PRESETS}")
         if fab.get("areal_density_gsm", 1) <= 0:
             p.append("fabric.areal_density_gsm must be > 0")
+    if spec.get("route") == "shape_matching":
+        need(spec, ("material", "shape_matching"), "shape_matching route")
+        sm = spec.get("shape_matching", {})
+        need(sm, ("frequency_hz", "damping_ratio", "total_mass", "resolution"), "shape_matching")
+        if sm.get("frequency_hz", 1) <= 0:
+            p.append("shape_matching.frequency_hz must be > 0")
+        if not 0 <= sm.get("squash", 0) <= 1:
+            p.append("shape_matching.squash must be in [0, 1]")
+        if not 0 <= sm.get("global_stiffness", 0.3) <= 1:
+            p.append("shape_matching.global_stiffness must be in [0, 1]")
+        if sm.get("resolution", 4) < 1 or float(sm.get("resolution", 4)) % 1:
+            p.append("shape_matching.resolution must be a whole number >= 1")
+        if sm.get("total_mass", 1) <= 0:
+            p.append("shape_matching.total_mass must be > 0")
+        if spec.get("class") == "mounted_volume" and spec.get("pins", {}).get("count", 0) == 0:
+            p.append("a mounted_volume with no pins is a loose_volume")
+    if spec.get("route") == "jiggle_bones":
+        need(spec, ("jiggle",), "jiggle_bones route")
+        j = spec.get("jiggle", {})
+        if j.get("space") != "gltf_armature":
+            p.append("jiggle.space must be gltf_armature")
+        if not j.get("regions"):
+            p.append("jiggle.regions is empty")
+        for r in j.get("regions", []):
+            need(r, ("name", "bone", "parent", "head", "tail", "frequency_hz", "damping_ratio"),
+                 f"jiggle region {r.get('name', '?')}")
+            if len(r.get("head", [])) != 3 or len(r.get("tail", [])) != 3:
+                p.append(f"jiggle region {r.get('name')}: head and tail are [x, y, z]")
+            if r.get("frequency_hz", 1) <= 0:
+                p.append(f"jiggle region {r.get('name')}: frequency_hz must be > 0")
     pins = spec.get("pins")
     if pins is not None:
         need(pins, ("count", "space", "positions", "tolerance", "anchor"), "pins")

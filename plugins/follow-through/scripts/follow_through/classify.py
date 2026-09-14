@@ -6,13 +6,17 @@ Two levels, as in the field:
              strand   1D - a rope, a tail, hair, a scarf thin enough to be a line
              shell    2D - a surface: cloth, a flag, a sail
              volume   3D - a body with an inside: jello, flesh, a belly
-  class    within a family, how it hangs and what holds it
+  class    within a family, how it is held - which picks the runtime
+  type     what it is - jello, clay, a breast - which picks the material; from the
+           type registry (registry.py), where names and taught examples live
 
 and a **route**: the runtime that will move it in Godot.
 
-  soft_body      SoftBody3D - a real mass-spring surface (cloth today)
-  spring_bones   SpringBoneSimulator3D on a bone chain (strands; not built yet)
-  none           nothing should move
+  soft_body       SoftBody3D - a mass-spring surface (cloth)
+  shape_matching  lattice shape matching - a volume with an inside (jello, clay, slime)
+  jiggle_bones    sprung bones added to a rig - flesh on a skinned body
+  spring_bones    SpringBoneSimulator3D on a bone chain (strands; not built yet)
+  none            nothing should move
 
 Geometry constrains, renders decide. `classify` states what the measures
 support, how strongly, and which parts were guessed - a flag from nothing but
@@ -28,6 +32,7 @@ import bpy
 from . import measure
 
 CLOTH_CLASSES = ("hanging_sheet", "draped_sheet", "draped_tube", "loose_sheet", "strap", "tensioned")
+VOLUME_CLASSES = ("loose_volume", "mounted_volume", "flesh")
 ROUTES = {
     "hanging_sheet": "soft_body",
     "draped_sheet": "soft_body",
@@ -36,7 +41,9 @@ ROUTES = {
     "tensioned": "soft_body",
     "strap": "spring_bones",
     "solid_sheet": "none",
-    "volume": "none",
+    "loose_volume": "shape_matching",
+    "mounted_volume": "shape_matching",
+    "flesh": "jiggle_bones",
     "not_cloth": "none",
 }
 
@@ -159,10 +166,20 @@ def classify(obj_name, cls=None, measures=None):
                             f"{tos:.4f} of its size (< {THIN_SHELL}) - a sheet modelled with thickness")
             confidence = 0.85
         else:
-            family, auto = "volume", "volume"
+            family = "volume"
             evidence.append(f"closed with depth: thickness/size {tos:.3f}, compactness "
                             f"{m['compactness']} (sphere 0.094)")
-            confidence = 0.85
+            if m["skin"].get("armature"):
+                auto = "flesh"
+                evidence.append(f"skinned to {m['skin']['armature']}: a body, whose soft parts "
+                                "jiggle on bones (flesh.find_regions finds them)")
+                confidence = 0.8
+            else:
+                below = [n for n, c in m["contacts"]["by_object"].items() if c["mean_height_fraction"] < 0.25]
+                auto = "loose_volume"
+                evidence.append("unskinned: a free body, " + ("resting on " + ", ".join(below) if below
+                                                             else "touching nothing"))
+                confidence = 0.75
     else:
         family = "shell"
         loops = m["boundary_loops"]
@@ -214,12 +231,29 @@ def classify(obj_name, cls=None, measures=None):
             confidence = max(0.3, confidence - 0.2)
             guessed.append("class")
 
+    kind = None
+    if family == "volume" or (family == "shell" and auto in CLOTH_CLASSES):
+        from . import registry
+        kind = registry.recognise(measures=m, family=family, cls=cls or auto)
+        # only a type with evidence behind it (a name, a taught example) may change the
+        # class: guessed "jello" made an unnamed slime and water balloon stick to the floor
+        if family == "volume" and not cls and kind["type"] and not kind["guessed"] and auto != "flesh":
+            entry = registry.types_for(family)[kind["type"]]
+            mat = registry.load()["materials"].get(entry.get("material"), {})
+            below = [n for n, c in m["contacts"]["by_object"].items() if c["mean_height_fraction"] < 0.25]
+            if below and mat.get("sticky") and "mounted_volume" in entry["classes"]:
+                auto = "mounted_volume"
+                evidence.append(f"{kind['type']} ({entry['material']}) sticks to what it rests on: "
+                                f"mounted on {', '.join(below)}")
+
     chosen = cls or auto
     if cls and cls != auto:
         evidence.append(f"class set by caller: {cls} (geometry read {auto})")
         guessed = [g for g in guessed if g != "class"]
         if cls in CLOTH_CLASSES:
             family = "shell"
+        elif cls in VOLUME_CLASSES:
+            family = "volume"
 
     result = {
         "object": m["object"],
@@ -227,6 +261,9 @@ def classify(obj_name, cls=None, measures=None):
         "class": chosen,
         "auto_class": auto,
         "route": ROUTES.get(chosen, "none"),
+        "type": kind["type"] if kind else None,
+        "type_confidence": kind["confidence"] if kind else None,
+        "type_evidence": kind["evidence"] if kind else [],
         "confidence": round(confidence, 2),
         "evidence": evidence,
         "guessed": guessed,
@@ -242,6 +279,19 @@ def classify(obj_name, cls=None, measures=None):
         if not verts and chosen != "loose_sheet":
             result["warnings"].append("no pins found: the cloth will fall. Paint vertex group "
                                       "ft_pin or pass pins explicitly")
+    if kind and family == "volume" and chosen != "flesh":
+        from . import registry
+        entry = registry.types_for(family).get(kind["type"], {})
+        if registry.load()["materials"].get(entry.get("material"), {}).get("route") == "none":
+            result["route"] = "none"
+            result["evidence"].append(f"{kind['type']} is rigid: recognised, nothing will move")
+        if kind["guessed"]:
+            result["guessed"].append("type")
+    if chosen == "mounted_volume":
+        verts, source = _volume_pins(obj, m)
+        result["pins"] = {"vertices": verts, "count": len(verts), "source": source}
+        if not verts:
+            result["warnings"].append("a mounted volume with nothing under it: paint ft_pin or use loose_volume")
     if chosen == "solid_sheet":
         result["warnings"].append("a sheet with modelled thickness cannot be simulated as one "
                                   "surface: simulate the single-layer sheet (remove or disable "
@@ -260,6 +310,21 @@ def classify(obj_name, cls=None, measures=None):
     return result
 
 
+def _volume_pins(obj, m):
+    """The base of a mounted volume: a painted ft_pin, or the vertices touching what it rests on."""
+    group = obj.vertex_groups.get("ft_pin")
+    if group is not None:
+        idx = sorted(v.index for v in obj.data.vertices
+                     if any(g.group == group.index and g.weight >= 0.5 for g in v.groups))
+        if idx:
+            return idx, "vertex group ft_pin (painted)"
+    below = [(n, c) for n, c in m["contacts"]["by_object"].items() if c["mean_height_fraction"] < 0.25]
+    if below:
+        name, c = max(below, key=lambda nc: nc[1]["count"])
+        return sorted(c["vertices"]), f"base touching {name}"
+    return [], "nothing under it"
+
+
 def scene(scene_name=None, only=None):
     """Classify every mesh in a scene. Returns {name: result}."""
     sc = bpy.data.scenes[scene_name] if scene_name else bpy.context.scene
@@ -274,10 +339,13 @@ def scene(scene_name=None, only=None):
 def summarize(res):
     if "error" in res:
         return "ERROR " + res["error"]
-    lines = [f"{res['object']}: {res['family']} / {res['class']} -> {res['route']} "
+    kind = f" / {res['type']}" if res.get("type") else ""
+    lines = [f"{res['object']}: {res['family']} / {res['class']}{kind} -> {res['route']} "
              f"(confidence {res['confidence']})"]
     for e in res["evidence"]:
         lines.append("  - " + e)
+    for e in res.get("type_evidence", []):
+        lines.append("  - type " + e)
     if "pins" in res:
         lines.append(f"  pins: {res['pins']['count']} from {res['pins']['source']}")
     if res["guessed"]:

@@ -170,6 +170,13 @@ m = export.export("MyMesh", res["rig"], r"C:/proj/assets/thing.glb",
 print(export.summarize(m))
 ```
 
+The file carries object custom properties as node extras, and only the active scene's
+selected objects. That is how `follow-through` rides along: its **flesh** library adds jiggle
+bones and weights to a rig (breasts, bellies, a bloater's torso) and writes its spec on the
+mesh before this export, and Godot springs them after the walk plays. Without extras the
+spec was dropped; without `use_active_scene`, a body exported after work in another scene
+carried eleven meshes selected there.
+
 Preflights, writes the glb, then **reads the file back** and checks the duration
 actually written against the duration the frame range implied. `verified.
 durations_match` is the whole point of the phase: if those disagree the speeds

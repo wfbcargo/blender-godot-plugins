@@ -1,0 +1,139 @@
+{
+  "schema": "follow-through-types/1",
+  "about": "What things are. A class says how a thing is held and picks the runtime; a type says what it is and picks the material. Built-in entries live here; types and examples taught with types.teach() go to the user registry (~/.claude/follow-through/types.json), which is read on top of this file. Materials carry their derivation in `source`.",
+
+  "materials": {
+    "gelatin": {
+      "route": "shape_matching",
+      "density_kg_m3": 1030,
+      "sticky": true,
+      "shape_matching": {"frequency_hz": 4.5, "damping_ratio": 0.08, "squash": 0.4, "global_stiffness": 0.3, "friction": 0.6},
+      "source": "Gelatin gel shear modulus G' 2-10 kPa; for a nearly incompressible block f ~ c_s/(4H) with c_s = sqrt(G/rho): an 8 cm cube at 2 kPa wobbles at 4.4 Hz. Real loss factor gives damping ~0.02; 0.08 lets it settle in a few seconds."
+    },
+    "custard": {
+      "route": "shape_matching",
+      "density_kg_m3": 1050,
+      "sticky": true,
+      "shape_matching": {"frequency_hz": 2.2, "damping_ratio": 0.35, "squash": 0.6, "global_stiffness": 0.3, "friction": 0.7,
+                         "plastic": {"yield": 0.1, "creep": 1.0, "max": 0.2}},
+      "source": "Softer set than gelatin (1.5-3 Hz), heavier damping, and dents that stay once pressed past 10% strain. Design values, unmeasured."
+    },
+    "slime": {
+      "route": "shape_matching",
+      "density_kg_m3": 1000,
+      "sticky": false,
+      "shape_matching": {"frequency_hz": 2.5, "damping_ratio": 0.9, "squash": 0.9, "global_stiffness": 0.3, "friction": 0.9,
+                         "plastic": {"yield": 0.02, "creep": 5.0, "max": 0.6}},
+      "source": "Flows by creep rather than by softness: almost any strain creeps into the rest shape. At 1 Hz its sag under gravity (g / w^2 = 25 cm) was larger than the 28 cm blob itself and the lattice folded flat to 4% of its volume, so the elastic part is 2.5 Hz and near critically damped. Not sticky here - pinned to what it lands on, it could never flow off it; high friction holds it instead. Design values."
+    },
+    "clay": {
+      "route": "shape_matching",
+      "density_kg_m3": 1800,
+      "sticky": false,
+      "shape_matching": {"frequency_hz": 8.0, "damping_ratio": 1.0, "squash": 0.6, "global_stiffness": 0.3, "friction": 0.9,
+                         "plastic": {"yield": 0.03, "creep": 10.0, "max": 0.5}},
+      "source": "Stiff elastic response (8-15 Hz), critically damped, and plastic past 2-5% strain with creep 5-20 /s (Mueller et al. 2005 sec. 4.5 model; ranges from the FleX plastic scenes and Houdini Vellum plasticity). 8 Hz rather than 15 keeps substeps affordable."
+    },
+    "water_balloon": {
+      "route": "shape_matching",
+      "density_kg_m3": 1000,
+      "sticky": false,
+      "shape_matching": {"frequency_hz": 3.0, "damping_ratio": 0.25, "squash": 0.8, "global_stiffness": 0.5, "friction": 0.7},
+      "source": "Fluid mass in a membrane: 2-4 Hz, damped 0.25 by the water sloshing inside (0.1-0.2 is the membrane alone), and squashes while keeping its volume (squash 0.8 - at 1 every volume-preserving shear is free, nothing pulls it back, and the verifier measured no wobble at all). Friction 0.7, the rubber skin gripping: at 0.4 the round balloon crept on a flat floor at 0.29 m/s. Godot's SoftBody3D pressure would inflate a surface, but Jolt builds no bend or volume constraints in 4.7.2, so shape matching carries it."
+    },
+    "rubber": {
+      "route": "shape_matching",
+      "density_kg_m3": 1100,
+      "sticky": false,
+      "shape_matching": {"frequency_hz": 10.0, "damping_ratio": 0.1, "squash": 0.2, "global_stiffness": 0.5, "friction": 0.8},
+      "source": "Stiff and springy. Design values."
+    },
+    "rigid": {
+      "route": "none",
+      "density_kg_m3": 2500,
+      "source": "Nothing moves: a rock measures like a jello and is recognised by look or name."
+    },
+    "soft_fat": {
+      "route": "jiggle_bones",
+      "density_kg_m3": 950,
+      "jiggle": {"frequency_hz": 2.7, "damping_ratio": 0.25, "squash": 0.5, "gravity_scale": 1.0, "aim": 1.0, "translate": 0.35, "response": 1.0, "max_offset": 0.6},
+      "source": "Breast adipose Young's modulus 3.25 +- 0.91 kPa (Samani et al. 2007), density ~950 kg/m3: G = E/3, c_s ~ 1.07 m/s, f ~ c_s/(4R) ~ 2.7 Hz for R = 0.1 m before skin and ligament stiffen it. Damping ratio 0.2-0.35 is the usual game choice (visible wobble that settles)."
+    },
+    "firm_flesh": {
+      "route": "jiggle_bones",
+      "density_kg_m3": 1050,
+      "jiggle": {"frequency_hz": 6.0, "damping_ratio": 0.6, "squash": 0.2, "gravity_scale": 0.5, "aim": 1.0, "translate": 0.15, "response": 1.0, "max_offset": 0.3},
+      "source": "Muscle and tighter tissue (thighs, calves, cheeks): 5-10 Hz, heavily damped. Soft tissue after impacts rings in the 10-40 Hz band, higher when the muscle is active."
+    },
+    "bloated": {
+      "route": "jiggle_bones",
+      "density_kg_m3": 1000,
+      "jiggle": {"frequency_hz": 1.8, "damping_ratio": 0.18, "squash": 0.75, "gravity_scale": 1.2, "aim": 0.6, "translate": 0.6, "response": 1.0, "max_offset": 0.8},
+      "source": "A gas- and fluid-filled corpse torso: low (1.5-3 Hz), lightly damped, heavy, sloshing more than swinging. Design values."
+    }
+  },
+
+  "types": {
+    "jello":         {"family": "volume", "classes": ["loose_volume", "mounted_volume"], "material": "gelatin",
+                      "names": ["jello", "jelly", "gelatin", "gelatine", "dessert", "panna", "wobbly"],
+                      "description": "set gelatin: holds its shape and wobbles; sticks to the plate it was turned out on"},
+    "pudding":       {"family": "volume", "classes": ["mounted_volume", "loose_volume"], "material": "custard",
+                      "names": ["pudding", "custard", "flan", "blancmange", "mousse"],
+                      "description": "soft set dessert that dents"},
+    "slime":         {"family": "volume", "classes": ["loose_volume", "mounted_volume"], "material": "slime",
+                      "names": ["slime", "goo", "ooze", "blob", "gel", "sludge"],
+                      "description": "barely holds a shape and flows under gravity"},
+    "clay_ball":     {"family": "volume", "classes": ["loose_volume"], "material": "clay",
+                      "names": ["clay", "dough", "putty", "plasticine"],
+                      "description": "stiff but plastic: flattens where it lands and rolls into a pebble"},
+    "water_balloon": {"family": "volume", "classes": ["loose_volume"], "material": "water_balloon",
+                      "names": ["balloon", "bladder", "sac", "waterballoon"],
+                      "description": "a skin full of water: sags, sloshes, keeps its volume"},
+    "rubber_ball":   {"family": "volume", "classes": ["loose_volume"], "material": "rubber",
+                      "names": ["rubber", "bouncy", "squishy", "stressball"],
+                      "description": "springy solid"},
+    "rock":          {"family": "volume", "classes": ["loose_volume", "mounted_volume"], "material": "rigid",
+                      "names": ["rock", "stone", "boulder", "pebble", "brick", "crate", "box"],
+                      "description": "rigid: recognised, nothing moves"},
+
+    "breast":        {"family": "volume", "classes": ["flesh"], "material": "soft_fat", "paired": true,
+                      "names": ["breast", "boob", "bust", "moob", "pec", "chest"],
+                      "zone": {"chain": "spine", "height": [0.5, 1.45], "facing_deg": [0, 65], "lateral": [0.03, 1.3]},
+                      "description": "a breast or pectoral fat pad: pivots from the chest wall, swings and bounces"},
+    "belly":         {"family": "volume", "classes": ["flesh"], "material": "soft_fat",
+                      "names": ["belly", "stomach", "gut", "paunch", "abdomen", "tummy"],
+                      "zone": {"chain": "spine", "height": [0.2, 0.75], "facing_deg": [0, 70], "lateral": [0.0, 0.9]},
+                      "description": "abdominal fat in front of the spine: moves as a mass, bounces on each step"},
+    "bloater_belly": {"family": "volume", "classes": ["flesh"], "material": "bloated", "variant_of": "belly",
+                      "names": ["bloater", "bloated", "zombie", "corpse", "obese", "fatman", "boomer"],
+                      "zone": {"chain": "spine", "height": [-0.3, 0.8], "facing_deg": [0, 100], "lateral": [0.0, 1.2]},
+                      "when": {"volume_fraction_min": 0.2, "peak_over_height_min": 0.08},
+                      "description": "a swollen torso: named so, or a belly standing out by at least 20% of the body's volume and 8% of its height (the test figure's belly: 16.5% and 6.3%; the bloater's: 23% and 9.4%), slow and sloshing"},
+    "butt":          {"family": "volume", "classes": ["flesh"], "material": "soft_fat", "paired": true,
+                      "names": ["butt", "buttock", "buttocks", "glute", "gluteus", "bum", "rump", "booty"],
+                      "zone": {"chain": "any", "height": [-0.5, 0.3], "facing_deg": [105, 180], "lateral": [0.02, 1.3]},
+                      "description": "a buttock: behind the hips, bounces on every footfall"},
+    "love_handle":   {"family": "volume", "classes": ["flesh"], "material": "soft_fat", "paired": true,
+                      "names": ["lovehandle", "handles", "flank", "muffin"],
+                      "zone": {"chain": "spine", "height": [0.0, 0.5], "facing_deg": [70, 115], "lateral": [0.5, 1.6]},
+                      "description": "fat over the hip at the side of the waist"},
+    "thigh":         {"family": "volume", "classes": ["flesh"], "material": "firm_flesh", "paired": true,
+                      "names": ["thigh", "thighs", "quad"],
+                      "zone": {"chain": "leg", "height": [-0.9, -0.1], "facing_deg": [0, 180], "lateral": [0.0, 2.0]},
+                      "description": "thigh flesh: a firm, damped shudder on impact"},
+    "arm_flab":      {"family": "volume", "classes": ["flesh"], "material": "soft_fat", "paired": true,
+                      "names": ["flab", "bingo", "tricep", "triceps"],
+                      "zone": {"chain": "arm", "segment": 0, "facing_deg": [0, 180], "lateral": [1.3, 9.0]},
+                      "description": "loose flesh under the upper arm"},
+
+    "flag":          {"family": "shell", "classes": ["hanging_sheet"], "fabric": "cotton", "names": ["flag", "banner", "pennant", "standard"]},
+    "curtain":       {"family": "shell", "classes": ["hanging_sheet"], "fabric": "cotton", "names": ["curtain", "drape", "tapestry"]},
+    "cape":          {"family": "shell", "classes": ["draped_sheet"], "fabric": "wool", "names": ["cape", "cloak", "mantle", "tabard", "shawl"]},
+    "skirt":         {"family": "shell", "classes": ["draped_tube"], "fabric": "cotton", "names": ["skirt", "robe", "dress", "kilt", "gown"]},
+    "tablecloth":    {"family": "shell", "classes": ["loose_sheet"], "fabric": "cotton", "names": ["tablecloth", "towel", "tarp", "blanket", "napkin"]},
+    "scarf":         {"family": "shell", "classes": ["strap"], "fabric": "silk", "names": ["scarf", "ribbon", "sash", "streamer"]},
+    "sail":          {"family": "shell", "classes": ["tensioned"], "fabric": "canvas", "names": ["sail", "tent", "awning", "canopy"]}
+  },
+
+  "examples": []
+}

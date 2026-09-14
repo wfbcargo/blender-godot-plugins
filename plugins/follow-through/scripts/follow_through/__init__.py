@@ -13,11 +13,11 @@ modules get edited between calls, so always reload before use:
 import importlib
 
 SCHEMA = "follow-through/1"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 # dependency order: classify imports measure; spec imports classify; the
 # libraries import spec; export imports spec and the libraries.
-MODULES = ("measure", "views", "classify", "spec", "cloth", "export", "samples")
+MODULES = ("measure", "views", "registry", "classify", "spec", "flesh", "marks", "cloth", "volume", "export", "samples")
 
 
 def reload_all():
