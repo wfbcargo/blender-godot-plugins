@@ -140,6 +140,26 @@ are written up because the docs don't say them: `ambient_light_energy` does
 nothing for sky ambient, and a minimized Godot window renders no frames. See
 the [plugin README](./plugins/lookdev/README.md).
 
+### [`follow-through`](./plugins/follow-through/)
+
+Secondary motion for Blender assets headed to Godot 4.7: the parts nobody
+keyframes, recognised, specified and made to move. Cloth ships first; strands and
+soft volumes are next.
+
+A router skill **measures a mesh and classifies it** by the dimension of what
+moves (a strand, a shell, a volume) and by how it hangs: a flag on a pole, a cape
+on a body, a skirt round a waist, a tablecloth on a table. It is scored on sample
+bodies with known answers, and scores the same with every name stripped. The
+cloth library pins the sheet from what holds it and writes one JSON-schema'd spec
+that glTF carries as node extras. Pins travel as **positions**, because Godot's
+importer reorders vertices and UV seams split them, and the export is read back
+so a pin that misses fails before it reaches the engine. In Godot a runtime builds
+the `SoftBody3D` and a headless verifier measures pin error, stretch, seams and
+settling. Its fabric values were measured rather than borrowed from Blender,
+whose presets don't convert: under Jolt the cloth has no bending, stiffness above
+0.9 flutters indefinitely, and damping is a per-second rate standing in for the
+air. See the [plugin README](./plugins/follow-through/README.md).
+
 ## Layout
 
 ```
@@ -192,6 +212,15 @@ plugins/
     blender/lookdev_blender/        # material lint, bake, export, reference renders
     presets/                        # lighting recipes and capture thresholds
     references/                     # light levels, PBR values, recipes, judging
+    README.md
+  follow-through/
+    .claude-plugin/plugin.json
+    skills/follow-through/          # recognise and route: family, class, pins
+    skills/cloth/                   # the cloth library: fabrics, export, runtime
+    schema/                         # the spec glTF carries as node extras
+    scripts/follow_through/         # Blender: measure, classify, spec, cloth, export
+    godot/addons/follow_through/    # SoftBody3D runtime and headless verifier
+    references/                     # concepts from zero; cloth research and measurements
     README.md
 ```
 
