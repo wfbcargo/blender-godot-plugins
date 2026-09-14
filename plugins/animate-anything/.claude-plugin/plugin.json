@@ -1,7 +1,7 @@
 {
   "name": "animate-anything",
-  "version": "0.6.0",
-  "description": "Whole-body actions for any rigged creature in Blender, beyond the walk cycle: crouch, crouch walk, slide, and the recoveries out of a slide - with climb next. A walk can let feet slide a little; these cannot, because they are defined by contacts, so every pose is built from target positions rather than rotation signs. Any rig - hand-built, Rigify, or rig-anything's generic builder, whichever way its hierarchy runs - is first mapped to one body of spine, neck, head, tail, legs and arms, and actions are written in fractions of that body so one description fits a human and a rat. Poses are values that blend, so a slide recovery is simply slide -> deep crouch -> stand, and every new clip is measured to start exactly where the clip before it ends. Each clip is played back through Blender and checked: prediction against playback, planted feet, stance feet on their line, joints folding past sense, bones and skin through the floor, and balance from the skinned centre of mass. Since 0.3.0 move_set's walk, trot and sprint come from rig-anything's contact-based locomotion, with each foot's footfall schedule read back for the engine. Requires rig-anything 0.10.0 or later, which ships the code. Since 0.4.0 winged creatures fold, spread, flap, glide, dive, take off and land, and carry their wings folded through every ground action. Since 0.5.0 creatures with a modelled mouth bite, roar, breathe fire, swallow, and - for a rorqual - engulf and purge, on clips that move only the head and mouth so an engine layers them over walking and flying. Requires rig-anything 0.11.0. Since 0.6.0 fish and whales swim, with fins that fold at speed and spread to brake.",
+  "version": "0.7.0",
+  "description": "Whole-body actions for any rigged creature in Blender, beyond the walk cycle: crouch, crouch walk, slide, and the recoveries out of a slide - with climb next. A walk can let feet slide a little; these cannot, because they are defined by contacts, so every pose is built from target positions rather than rotation signs. Any rig - hand-built, Rigify, or rig-anything's generic builder, whichever way its hierarchy runs - is first mapped to one body of spine, neck, head, tail, legs and arms, and actions are written in fractions of that body so one description fits a human and a rat. Poses are values that blend, so a slide recovery is simply slide -> deep crouch -> stand, and every new clip is measured to start exactly where the clip before it ends. Each clip is played back through Blender and checked: prediction against playback, planted feet, stance feet on their line, joints folding past sense, bones and skin through the floor, and balance from the skinned centre of mass. Since 0.3.0 move_set's walk, trot and sprint come from rig-anything's contact-based locomotion, with each foot's footfall schedule read back for the engine. Requires rig-anything 0.10.0 or later, which ships the code. Since 0.4.0 winged creatures fold, spread, flap, glide, dive, take off and land, and carry their wings folded through every ground action. Since 0.5.0 creatures with a modelled mouth bite, roar, breathe fire, swallow, and - for a rorqual - engulf and purge, on clips that move only the head and mouth so an engine layers them over walking and flying. Requires rig-anything 0.11.0. Since 0.6.0 fish and whales swim, with fins that fold at speed and spread to brake. Since 0.7.0 radial bodies - jellyfish, sea stars, brittle stars, anemones - pulse, crawl, row, sway and retract, with headings chosen per move because nothing has a front. Requires rig-anything 0.12.0.",
   "author": {
     "name": "Paul Lovy",
     "url": "https://paullovy.com"
@@ -29,6 +29,10 @@
     "fire-breath",
     "fins",
     "fish",
-    "swimming"
+    "swimming",
+    "radial",
+    "jellyfish",
+    "starfish",
+    "tentacles"
   ]
 }

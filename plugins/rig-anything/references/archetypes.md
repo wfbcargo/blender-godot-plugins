@@ -45,6 +45,7 @@ the thing actually *is*.
 | Bird | 2, plus wings as extremities | upright-ish, wide at the wings | wings distinct from arms - `bodymap` reports them as WING |
 | Fish / shark | **0** | streamlined, fins as extremities | no legs, dorsal/tail fins |
 | Snake / tentacle | 0 or 1 long contact | uniform cross-section | one long chain, no limbs |
+| **Radial** - jellyfish, sea star, brittle star, anemone | any; a mirror test scores two axes alike | `rotational_symmetry` finds an order (4, 5, 8, 10...) | a hub with a ring of arms, no head end - see Radial bodies below |
 | Prop / static | 1 large, or an arbitrary count | no limb structure | not a creature |
 
 Extremity counts help confirm: a biped has ~5 leaf extremities (2 hands, 2 feet,
@@ -71,6 +72,30 @@ limb count off the width profile.
 location. That is also a rigging problem in itself: a rig exported carrying a
 translation makes the character orbit a point off to one side instead of turning
 in place. `verify.check_export_origin` checks it.
+
+## Radial bodies
+
+Not a spine with limbs at all: a HUB on an oral-aboral axis with a ring of
+appendages, as many fronts as arms. No Rigify template fits and none should be
+forced - a starfish fitted as a quadruped gets a head on one arm. Evidence:
+
+| Signal | Bilateral | Radial |
+|---|---|---|
+| `symmetry` | one axis clearly highest | two axes alike (every arm has a mirror plane) |
+| `rotational_symmetry.order` | none (best measured 0.32) | 4 jellyfish, 5 stars, 10 anemone; `continuous` a bare bell or column |
+| extremities | head, tail, limb tips at different geodesic depths | tips at equal depth, equal angles apart |
+
+`radial.detect` then suggests the kind, which the renders confirm:
+
+| Kind | Hub | Appendages | Moves |
+|---|---|---|---|
+| `medusa` | a bell, fineness < 0.8 | tentacles at the margin, oral arms near the axis, hanging oral | pulse, drift, turn |
+| `polyp` | a column, fineness >= 0.8 | a crown of tentacles pointing oral | sway, retract, extend |
+| `asteroid` | a disc | stout arms in its plane | tube-foot crawl, idle |
+| `ophiuroid` | a small disc | slender arms in its plane | row, row back, idle |
+
+An octopus has eight arms and reads radial by order, but its mantle is bilateral
+and it crawls by elongating arms - that is the `tentacles` module's, not this.
 
 ## Wings
 

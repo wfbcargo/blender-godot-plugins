@@ -17,7 +17,7 @@ from collections import defaultdict
 
 import bmesh
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 AXES = ("X", "Y", "Z")
 AXIS_INDEX = {"X": 0, "Y": 1, "Z": 2}
@@ -191,6 +191,145 @@ def symmetry(obj, samples=3000):
         "lateral_axis": lateral,
         "lateral_confident": bool(scores[lateral] > 0.75 and (ordered[-1] - ordered[-2]) > 0.1),
         "note": "highest score = mirror plane normal = the left/right axis",
+    }
+
+
+# --------------------------------------------------------------------------
+# 2b. rotational symmetry - a body with no front or back
+# --------------------------------------------------------------------------
+
+def _perp_basis(a):
+    ref = Vector((0.0, -1.0, 0.0)) if abs(a.dot(Vector((0.0, -1.0, 0.0)))) < 0.9 else Vector((1.0, 0.0, 0.0))
+    e1 = (ref - a * ref.dot(a)).normalized()
+    return e1, a.cross(e1).normalized()
+
+
+def rotational_symmetry(obj, samples=2500, max_order=24, pass_score=0.6):
+    """Find an axis the body repeats around, and how many times.
+
+    A mirror plane names left and right; a jellyfish, a starfish or an anemone
+    has as many mirror planes as it has arms, so `symmetry` scores two axes
+    alike and settles nothing. What such a body has instead is an axis it can be
+    turned about - by 72 degrees for a starfish - and still land on itself.
+
+    Tested honestly, the way `symmetry` tests a mirror: rotate every point by
+    360/k degrees about a candidate axis and measure how far it lands from the
+    surface. k passes when that is small. A 4-fold body also passes k = 2 and an
+    8-fold one 2 and 4, so the ORDER is the largest k that passes; a body of
+    revolution passes every k and is reported as `continuous`.
+
+    Candidates are the world axes and the principal axes, each through the
+    bounding-box centre in its own plane - a symmetric body's centre is on its
+    axis however long its tentacles hang.
+    """
+    from mathutils.kdtree import KDTree
+
+    pts = world_verts(obj)
+    if len(pts) < 8:
+        return {"radial": False, "note": "too few vertices"}
+    step = max(1, len(pts) // samples)
+    pts = pts[::step]
+    diag = Vector(bbox(pts)["size"]).length or 1.0
+    tree = KDTree(len(pts))
+    for i, p in enumerate(pts):
+        tree.insert(p, i)
+    tree.balance()
+
+    import numpy as np
+    arr = np.array([tuple(p) for p in pts])
+    mean = arr.mean(axis=0)
+    _, vecs = np.linalg.eigh(np.cov((arr - mean).T))
+    cands = [("X", Vector((1, 0, 0))), ("Y", Vector((0, 1, 0))), ("Z", Vector((0, 0, 1)))]
+    for i in range(3):
+        v = Vector(tuple(vecs[:, i])).normalized()
+        if all(abs(v.dot(c)) < 0.985 for _, c in cands):
+            cands.append(("PCA%d" % i, v))
+
+    def score_k(a, centre, k):
+        """Two tests, both must hold. Absolute: points land within 2% of the
+        body's diagonal, as the mirror test asks. Relative: they land far closer
+        than the turn moved them. Without the second, a 15 degree turn about a
+        whale's long axis moves its flank so little that it passes on size alone
+        (0.51 before this test)."""
+        R = Matrix.Rotation(2.0 * math.pi / k, 3, a)
+        total, moved = 0.0, 0.0
+        for p in pts:
+            q = centre + R @ (p - centre)
+            total += tree.find(q)[2]
+            moved += (q - p).length
+        absolute = 1.0 - (total / len(pts)) / (diag * 0.02)
+        relative = 1.0 - (total / max(moved, 1e-12)) / 0.25
+        return max(0.0, min(absolute, relative))
+
+    # The centre is the skin's area-weighted centroid, not the bounding box's.
+    # A box is centred on a body of even order only: a five-armed star has one
+    # arm up and two down, its box sits 6 mm off its axis, and every turn about
+    # that point missed - a starfish scored as no symmetry at all. Weighted by
+    # area rather than counted by vertex, so tessellation does not pull it.
+    mw = obj.matrix_world
+    area_c, area = Vector((0.0, 0.0, 0.0)), 0.0
+    for poly in obj.data.polygons:
+        a_ = poly.area * max(mw.median_scale, 1e-12) ** 2
+        area_c += (mw @ poly.center) * a_
+        area += a_
+    centroid = area_c / area if area > 0 else Vector(tuple(mean))
+
+    results = []
+    for label, a in cands:
+        h = [p.dot(a) for p in pts]
+        centre = centroid - a * centroid.dot(a) + a * 0.5 * (min(h) + max(h))
+        scores = {}
+        for k in range(2, max_order + 1):
+            scores[k] = round(score_k(a, centre, k), 4)
+        passing = [k for k, s in scores.items() if s >= pass_score]
+        if not passing:
+            order = None
+        elif len(passing) >= max_order - 2:
+            order = "continuous"
+        else:
+            # The largest k that passes CLEARLY. A jellyfish with 8 tentacles and
+            # 4 oral arms is 4-fold, but its oral arms are a small share of the
+            # skin and a 45 degree turn still scored 0.72 against 0.9 for 90 -
+            # a pass on points, and the wrong answer about the animal.
+            top = max(scores[k] for k in passing)
+            order = max(k for k in passing if scores[k] >= 0.85 * top)
+        results.append({"axis": label, "vector": [round(c, 5) for c in a],
+                        "centre": [round(c, 5) for c in centre], "order": order,
+                        "score": (scores[order] if isinstance(order, int) else
+                                  min(scores.values()) if order else max(scores.values())),
+                        "scores": scores})
+
+    def rank(r):
+        o = r["order"]
+        # a real order beats none; any beats 2 (a half-turn is a bilateral box);
+        # continuous ranks with a high order; ties by score
+        n = 0 if o is None else (100 if o == "continuous" else o)
+        return (n >= 3, r["score"], n)
+
+    best = max(results, key=rank)
+    radial_axes = [r for r in results if r["order"] is not None and
+                   (r["order"] == "continuous" or r["order"] >= 3)]
+    radial = bool(radial_axes)
+    notes = []
+    if len({r["axis"] for r in radial_axes if not r["axis"].startswith("PCA")}) >= 2:
+        notes.append("more than one axis turns onto itself - a sphere, a cube or a "
+                     "rock, not an animal with an oral-aboral axis")
+    if best["order"] == "continuous":
+        notes.append("a body of revolution: no arms to count. A bell with no tentacles, "
+                     "a vase or a column - the renders say which")
+    if best["order"] == 2:
+        notes.append("only a half-turn repeats: bilateral, or a box")
+    return {
+        "radial": radial,
+        "axis": best["axis"] if radial else None,
+        "axis_vector": best["vector"] if radial else None,
+        "centre": best["centre"] if radial else None,
+        "order": best["order"] if radial else None,
+        "score": best["score"] if radial else None,
+        "candidates": [{k: r[k] for k in ("axis", "order", "score")} for r in results],
+        "notes": notes,
+        "note": "order = the largest k for which a 360/k degree turn lands the body on "
+                "itself; 5 a starfish, 4 or 8 most jellyfish, continuous a body of revolution",
     }
 
 
@@ -920,7 +1059,19 @@ def analyze(obj_name, up=None, max_verts=6000):
 
 def _analyze_obj(obj, obj_name, up):
     axes = infer_axes(obj, up=up)
+    rot = rotational_symmetry(obj)
+    if rot["radial"]:
+        # Nothing here has a forward. Saying "Y, sign unknown" invites a fitter
+        # to pick one, and every choice is arbitrary for a body with five fronts.
+        axes["body_plan"] = "radial"
+        axes["forward_axis"] = None
+        axes["forward_sign"] = ("none - a %s-fold radial body; any arm can lead"
+                                % rot["order"])
+        axes["symmetry_axis"] = rot["axis"]
+    else:
+        axes["body_plan"] = "bilateral"
     return {
+        "rotational_symmetry": rot,
         "object": obj_name,
         "bbox": bbox(world_verts(obj)),
         "health": mesh_health(obj),

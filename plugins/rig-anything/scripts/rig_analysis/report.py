@@ -58,6 +58,19 @@ def summarize(data):
         lines.append("  NOTE another axis also looks plausible as up: %s"
                      % ", ".join(a["alternative_up_axes"]))
 
+    rs = data.get("rotational_symmetry")
+    if rs is not None:
+        lines.append("")
+        if rs.get("radial"):
+            lines.append("BODY PLAN  RADIAL - %s-fold about %s (score %.2f)"
+                         % (rs["order"], rs["axis"], rs["score"]))
+            lines.append("  no front or back: forward, lateral and ground contacts below do not apply;")
+            lines.append("  rig with radial.detect / radial.build / radial.skin")
+        else:
+            lines.append("BODY PLAN  bilateral (no axis the body turns onto itself about)")
+        for n in rs.get("notes", []):
+            lines.append("  NOTE " + n)
+
     lines.append("")
     lines.append("GROUND CONTACTS  %d  -> %s" % (g["count"], g["hint"]))
     for i, c in enumerate(g["clusters"]):
