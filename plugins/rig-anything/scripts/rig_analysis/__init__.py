@@ -17,6 +17,10 @@ import os
 # in this order (octopus imports tentacles).
 OPTIONAL = ("tentacles", "octopus")
 
+# Hoppers: `hoppers` (legs, joints, rig, weights), `hop` (gaits and jumps) and
+# their test bodies. Loaded after locomotion and actions, which `hop` imports.
+HOPPERS = ("hoppers", "hopper_samples", "hop")
+
 
 def reload_all():
     """Re-import every submodule. Call after editing any of them.
@@ -33,7 +37,7 @@ def reload_all():
             wings, maw, fins, radial, bodymap, motion, keyposes, actions, locomotion, flight, swim,
             radial_moves, radial_samples]
     here = os.path.dirname(__file__)
-    for name in OPTIONAL:
+    for name in HOPPERS + OPTIONAL:
         if os.path.exists(os.path.join(here, name + ".py")):
             mods.append(importlib.import_module("." + name, __name__))
     for m in mods:

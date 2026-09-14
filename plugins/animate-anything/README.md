@@ -158,6 +158,7 @@ references/contact-locomotion.md  # walk to sprint from ground contacts: rule, r
 references/wings.md               # wings: recognition, fold linkage, flight scaling, clips, checks
 references/maws.md                # maws: mouth detection, jaw and pouch bones, lip-split skinning, gape limit, clips
 references/fins-and-swimming.md   # fins: sheet detection, rays, weights; swimming: modes, numbers from length, clips
+references/hoppers.md             # hoppers: leg and joint detection on the skin, pantograph stance, hop, bound, launch / air / land
 ```
 
 MIT licensed.

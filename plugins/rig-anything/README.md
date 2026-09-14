@@ -81,6 +81,14 @@ the ground, and which skeleton archetype fits.
 > Blender's playback for margin closure, symmetry, contraction timing, tentacles
 > lagging and never crossing, tips on the floor and the stroke pushing back.
 >
+> **Phase 12 (0.13.0)** adds hoppers. `hoppers` walks each leg up the skin from its
+> ground contact, finds joints as the corners of that walk's centreline - a cricket's
+> to within 1.2 mm on a 30 mm body - and places the joints a skin hides, like a
+> sitting rabbit's knee, from published proportions. `hop` authors a rabbit's hop and
+> half-bound on measured ankle angles through a pantograph leg, a cricket's tripod
+> walk, and launch / air / land jumps whose offsets and velocities an engine applies;
+> in Godot the jumps land where their own ballistics say, to the millimetre.
+>
 > **Listed** in the marketplace manifest as of 0.5.0. The coverage caveat still
 > stands and is worth stating plainly: the rat is the only downloaded asset it
 > has been through: the worm, quadruped, hexapod and biped are shapes this was
@@ -176,6 +184,9 @@ scripts/rig_analysis/
   radial.py     no front or back: hub and appendages on the skin, rig, weights, pose maths
   radial_moves.py  pulse, drift, turn, crawl, row, sway, retract; checks; manifest; export
   radial_samples.py  procedural jellyfish, sea star, brittle star and anemone
+  hoppers.py    jumping legs and joints found on the skin, pelvis-rooted rig, weights from the parts
+  hop.py        hop, half-bound, tripod walk, launch / air / land jumps; checks; manifest; export
+  hopper_samples.py  procedural cricket and rabbit with known joints
 references/
   archetypes.md          Rigify templates measured, and what evidence picks one
   joint-conventions.md   which way each joint bends, and the quadruped trap
@@ -258,5 +269,7 @@ Blender sessions are long-lived and cache imports, so always
   animate-anything's `references/fins-and-swimming.md`.
 - **11** radial bodies — done (`radial.py`, `radial_moves.py`, 0.12.0). See
   animate-anything's `references/radial-bodies.md`.
+- **12b** hoppers — done (`hoppers.py`, `hop.py`, 0.13.0). See animate-anything's
+  `references/hoppers.md`.
 - **12** shapes matching no archetype — fall back to curve-skeleton extraction or
   shell out to UniRig. Do not reimplement either.

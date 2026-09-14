@@ -1,6 +1,6 @@
 ---
 name: rig-anything
-description: Analyse a Blender mesh to work out how it should be rigged - whether it can be skinned at all, which way is up and forward, how many limbs touch the ground, and what archetype it is (biped, quadruped, bird, fish, a radial body with no front or back, or something with no template). Use when asked to rig, skeleton, bone, auto-rig or animate an arbitrary 3D asset, when deciding which skeleton template fits a model, when a head needs a jaw or a mouth that opens (dragon fire breath, a whale engulfing, a bite), when a fish or whale needs fins rigged or needs to swim, when a jellyfish, sea star, brittle star, anemone or other radially symmetric creature needs rigging or needs to pulse, crawl or row, or when Blender's automatic weights fail and the reason is unclear.
+description: Analyse a Blender mesh to work out how it should be rigged - whether it can be skinned at all, which way is up and forward, how many limbs touch the ground, and what archetype it is (biped, quadruped, bird, fish, a radial body with no front or back, or something with no template). Use when asked to rig, skeleton, bone, auto-rig or animate an arbitrary 3D asset, when deciding which skeleton template fits a model, when a head needs a jaw or a mouth that opens (dragon fire breath, a whale engulfing, a bite), when a fish or whale needs fins rigged or needs to swim, when a jellyfish, sea star, brittle star, anemone or other radially symmetric creature needs rigging or needs to pulse, crawl or row, when a hopper - a cricket, grasshopper, locust, rabbit or hare - needs its jumping legs and their joints found, rigged, or made to hop, bound or jump, or when Blender's automatic weights fail and the reason is unclear.
 ---
 
 # rig-anything
@@ -262,6 +262,28 @@ fineness; a sea star crawls at 1 mm/s any way it likes; a brittle star rows behi
 whichever arm is nearest. Loose tentacles are welcome - they are rigged where
 they lie. `radial_samples.build_all()` makes the four test bodies.
 
+**12. Hoppers: legs that fold as a Z.** A cricket's swollen hind femur with its tibia
+folded under it, a rabbit sitting on a foot as long as its shin - `decompose` sees
+neither (see `animate-anything`'s `references/hoppers.md`):
+
+```python
+from rig_analysis import hoppers, hop
+d = hoppers.detect("MyRabbit")            # kind= orthopteran | leporid, from the renders if the guess is wrong
+print(hoppers.summary(d))                 # every leg's segments by role, rest angles, joints inferred
+hoppers.build("MyRabbit", detection=d)    # spine rooted at the pelvis, a bone per segment: hind_femur.L > hind_tibia.L > ...
+print(hoppers.skin("MyRabbit_rig"))       # weights from the parts; warns on skin fused shut
+res = hop.move_set("MyRabbit_rig")        # Idle Hop Bound JumpLaunch JumpAir JumpLand | Idle Walk JumpLaunch JumpAir JumpLand
+hop.export_creature("MyRabbit", "MyRabbit_rig", res, path_glb, "rabbit")   # glb + .moves.json `hop` block
+```
+
+Legs are walked up the skin from each ground contact; joints are the corners of
+that walk's centreline, and joints the skin hides - a rabbit's knee in its haunch -
+are placed from published proportions and reported as inferred. Hind stance runs
+on a rabbit's measured ankle angles through a femur-parallel-to-metatarsus leg; a
+jump is a launch, an engine-owned ballistic flight, and a landing, with the body
+offsets the engine applies between them. `hopper_samples.build_all()` makes the test
+cricket and rabbit, and `hoppers.score` measures a detection against their joints.
+
 ## Rules
 
 **Never trust a measurement you have not sanity-checked.** This harness exists
@@ -386,6 +408,21 @@ all eight test tentacles in until they crossed under it - with every number
 passing. The render found it; `radial_moves` now undoes the carried bend and
 checks tip radius.
 
+**Walk a leg from its toe, and seed the toe from high skin.** A flat contact patch
+has two ends; "farthest from the body's centre" took a sitting rabbit's heel, because
+its knee is over its toes. The toe is the patch vertex farthest over the skin from
+anything high. And a foot on the floor that the walk never passed has a heel worth
+walking from: a sitting rabbit's shin rests on its foot, and the first walk climbed
+the shin from the ball.
+
+**Root a creature at its pelvis.** Rooted at a swaying abdomen's tip, a cricket's
+root bone carried sub-millimetre translation that Godot's importer reduced to a single
+key, and the whole body slid under planted feet - with every Blender check passing.
+
+**Every planted foot sweeps at the body's speed.** Shortening one leg pair's stroke
+to fix its reach made its feet slower than the body; each foot followed its own line
+perfectly and the clip still skated. Cut the time a short leg spends down instead.
+
 **Decide `passed` last.** Actions add their own failures - loop seams, skating
 feet, seams, wing clearance - after the shared checks have run; the verdict was
 being written before them, so a clip could print PASSED over its own failure
@@ -459,6 +496,15 @@ link.
   limited by the skin; checked for margin closure, symmetry, contraction timing,
   tentacle lag and crossing, tips on the floor, stroke direction. Done (`radial`,
   `radial_moves`, `radial_samples`).
+- **Phase 12** - hoppers (0.13.0): jumping legs found on the skin by walking up from
+  each ground contact - seeded at the toe, stopped at the body's core thickness, a
+  second walk from a flat foot's heel - joints at the corners of the walk's
+  centreline, joints the skin hides placed from published proportions; orthopteran
+  and leporid kinds; a pelvis-rooted rig weighted from the parts with fused-skin
+  warnings; a rabbit's hop and half-bound on Hall et al.'s ankle profile through a
+  pantograph leg, a cricket's tripod walk, and launch / air / land jumps from
+  published take-off numbers, checked on playback and in Godot. Done (`hoppers`,
+  `hop`, `hopper_samples`).
 - **Phase 7** - contact locomotion (0.8.0): contacts measured on the skin, a
   support plane through them, Froude-scaled stride and duty factor, per-leg
   reach on the plane with toe roll, rotary gallop and spine flex, contact

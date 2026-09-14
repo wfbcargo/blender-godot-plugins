@@ -258,8 +258,12 @@ class Reach:
         # the spot under their own hip.
         self.r_max = max(extension * (a + b),
                          min((limb["rest_eff"] - limb["rest_root"]).length, (a + b) * 0.995))
+        # Nor more folded than it already stands: a cricket rests its hind knee
+        # at 35 degrees, and a 50 degree floor gave that leg no stroke at all -
+        # the planner divided by a zero stride.
+        rest_d = (limb["rest_eff"] - limb["rest_root"]).length
         c = math.cos(math.radians(min_knee))
-        self.r_min = math.sqrt(max(a * a + b * b - 2.0 * a * b * c, 0.0))
+        self.r_min = min(math.sqrt(max(a * a + b * b - 2.0 * a * b * c, 0.0)), 0.98 * rest_d)
         self.pivot = contact_pivot(poser.rig, limb)
         # toe -> ankle at rest; the effector is the ankle, the contact the toe
         self.v = limb["rest_eff"] - self.pivot
@@ -693,6 +697,8 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
 
     fps_now = bpy.context.scene.render.fps
     S = state["stroke"]
+    if pl["stroke"] <= 0.0:
+        return {"error": "%s: no leg has any stroke to walk with (%s)" % (rig_name, "; ".join(pl["limited_by"]))}
     ratio = S / pl["stroke"]
     stance_s = duty * frames / fps_now
     natural = pl["speed_mps"] * ratio
