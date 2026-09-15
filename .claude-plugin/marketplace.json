@@ -176,6 +176,28 @@
         "slime",
         "soft-body"
       ]
+    },
+    {
+      "name": "wardrobe",
+      "source": "./plugins/wardrobe",
+      "version": "0.1.0",
+      "description": "Layered clothing for rigged Blender characters headed to Godot 4.7: a garment cut from the body it will be worn on, eased off the skin so the body never shows through, keeping the body's own skin weights (follow-through's jiggle bones included), with sprung bones around the hem and cuffs and a list of the skin it covers. In Godot one call moves the garment onto the body's skeleton, rebuilds the body without the covered triangles and springs the hem; a headless verifier walks the body and counts holes and skin through the cloth.",
+      "category": "development",
+      "keywords": [
+        "3d",
+        "blender",
+        "character",
+        "clothing",
+        "garment",
+        "gamedev",
+        "gltf",
+        "godot",
+        "hem",
+        "layered-clothing",
+        "poke-through",
+        "skinning",
+        "spring-bones"
+      ]
     }
   ]
 }
