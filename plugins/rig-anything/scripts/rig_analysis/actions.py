@@ -122,7 +122,11 @@ def crouch(rig_name, depth=0.6, frames=12, forward="-Y", up="Z", floor=0.0,
         body, rig, action_name, frames, lambda s: P.blend(rest, key, s), fps,
         lambda keyed, ev, infos_by_frame: _check_common(
             body, bm, keyed, ev, infos_by_frame, planted=legs, posed_limbs=legs + free,
-            support=info["support"], rest_floor=floor))
+            support=info["support"], rest_floor=floor,
+            # arms posed by `upper.arm_spec` bend where their pole says, not
+            # where the rest pose's elbow pointed
+            pole_overrides={n: s["pole"] for n, s in key.limbs.items()
+                            if s.get("pole") is not None and n in {a["name"] for a in free}}))
     if "error" in report:
         return report
     report.update({
@@ -396,10 +400,19 @@ def gait_cycle(rig_name, depth=0.6, stride=0.40, lift=0.10, frames=24,
             if spec is None:
                 continue
             swing = -x_by_side.get(a["side"], 0.0) / max(0.5 * S, 1e-9)
+            if spec.get("arm"):
+                # an arm posed by angle swings by angle, so it never outreaches
+                # itself; `arm_swing` is the hand's travel as a share of reach
+                from . import upper as upper_mod
+                f, o, e, hi = spec["arm"]
+                limbs[a["name"]] = upper_mod.arm_spec(
+                    P, a, f + swing * math.degrees(math.atan(arm_swing / 0.8)), o, e, hi)
+                continue
             limbs[a["name"]] = {
                 "target": (lambda p, limb, posed, fn=spec["target"], k=swing:
                            fn(p, limb, posed)
                            + p.fwd * (k * arm_swing * (limb["a"] + limb["b"]))),
+                "pole": spec.get("pole"),
                 "planted": False,
             }
         # lowest as the legs spread, twice a cycle; sway over the stance leg
@@ -678,15 +691,32 @@ def skid(rig_name, frames=10, forward="-Y", up="Z", floor=0.0, action_name="Slid
 
 
 def idle(rig_name, frames=48, forward="-Y", up="Z", floor=0.0, action_name="Idle",
-         breath=0.006, sway_degrees=1.5, fps=None, stance_width=None, posture=None):
+         breath=0.006, sway_degrees=1.5, fps=None, stance_width=None, posture=None,
+         upper=None, style=None):
     """A breathing loop: the body settles and rises on planted feet, the torso
     and head drift a degree or two. Small on purpose - an idle that visibly
     moves reads as fidgeting.
 
     `stance_width` and `posture` are the same as `locomotion.cycle`'s, so an
     idle stands the way its character walks. With either, frame one is that
-    stance rather than the rest pose."""
-    from . import keyposes as kp
+    stance rather than the rest pose.
+
+    `upper` as in `cycle`, over `upper.idle_defaults`: an upright biped's arms
+    come down from the rig's rest pose to hang relaxed - out from the hips by
+    as much as clears them, a little forward, elbows soft - and drift with the
+    breath. False leaves them at rest.
+
+    `style` is `locomotion.cycle`'s: its stance, posture and "idle" section,
+    so a character stands the way its style walks."""
+    from . import keyposes as kp, upper as upper_mod
+    from .locomotion import style_args
+    given = {k: v for k, v in dict(stance_width=stance_width, posture=posture,
+                                   upper=upper).items() if v is not None}
+    try:
+        st = style_args(style, "idle", given)
+    except ValueError as e:
+        return {"error": str(e)}
+    stance_width, posture, upper = st.get("stance_width"), st.get("posture"), st.get("upper")
     ctx, err = _setup(rig_name, forward, up, floor)
     if err:
         return err
@@ -701,31 +731,74 @@ def idle(rig_name, frames=48, forward="-Y", up="Z", floor=0.0, action_name="Idle
         for l in P.legs:
             limbs[l["name"]] = {"target": (lambda p, limb, posed, s=kp.stance_shift(P, l, stance_width):
                                            limb["rest_eff"] + s)}
-    samples = []
-    for f in range(1, frames + 2):
-        t = (f - 1) / float(frames)
-        samples.append(P.pose(kp.Key(
-            drop=breath * L * 0.5 * (1.0 - math.cos(2.0 * math.pi * t)),
+    params = upper_mod.resolve(P, upper, upper_mod.idle_defaults())
+    U = upper_mod.Upper(P, params, posture=posture, stance=limbs) if params and P.arms else None
+
+    def key_at(t, shift=None):
+        key_limbs = dict(limbs)
+        if U is not None:
+            key_limbs.update(U.idle_key(t))
+        return kp.Key(
+            drop=balance["drop"] + breath * L * 0.5 * (1.0 - math.cos(2.0 * math.pi * t)),
+            shift=balance["shift"] if shift is None else shift,
             lean=lean_amp * math.sin(2.0 * math.pi * t), head_level=0.5,
-            tail_sway=4.0 * math.sin(2.0 * math.pi * t), limbs=limbs, posture=posture)))
+            tail_sway=4.0 * math.sin(2.0 * math.pi * t), limbs=key_limbs, posture=posture)
+
+    # Standing still, the centre of mass has to be over the feet. A hunch or
+    # arms hanging in front carry it forward - Walter's by 5.5 cm, off his
+    # toes - and a person standing like that puts their hips back. Only when
+    # something was asked of the stance, so a plain idle still starts at rest.
+    balance = {"shift": 0.0, "drop": 0.0}
+    if bm["upright"] and (posture or U is not None):
+        lo, hi = _support(body, P.legs)
+        centre, half = 0.5 * (lo + hi), 0.5 * (hi - lo)
+        band = (centre - 0.3 * half, centre + 0.3 * half)
+
+        def com_fwd(s):
+            return body.com(P.pose(key_at(0.0, shift=s))[0]).dot(bm["fwd"])
+        c0 = com_fwd(0.0)
+        if not band[0] <= c0 <= band[1]:
+            goal = band[0] if c0 < band[0] else band[1]
+            x0, f0 = 0.0, c0 - goal
+            x1 = -f0
+            f1 = com_fwd(x1) - goal
+            for _ in range(6):
+                if abs(f1) < 1e-5 or abs(f1 - f0) < 1e-12:
+                    break
+                x0, x1, f0 = x1, x1 - f1 * (x1 - x0) / (f1 - f0), f1
+                f1 = com_fwd(x1) - goal
+            balance["shift"] = x1
+            # hips back on straight legs cannot reach the feet: soften the knees
+            # by as much as the legs are short
+            for _ in range(6):
+                infos = P.pose(key_at(0.0))[1]
+                over = max(infos[l["name"]]["reach"] * (l["a"] + l["b"])
+                           - 0.99 * (l["a"] + l["b"]) for l in P.legs)
+                if over <= 0.0:
+                    break
+                balance["drop"] += over * 1.2
+    shift = balance["shift"]
 
     def check(keyed, ev, infos_by_frame):
         r = _check_common(body, bm, keyed, ev, infos_by_frame, planted=P.legs,
                           posed_limbs=P.legs, rest_floor=floor,
-                          starts_at_rest=stance_width is None and not posture)
+                          starts_at_rest=stance_width is None and not posture and U is None)
         seam, bone = _pose_gap(rig, ev["evaluated"][1], ev["evaluated"][frames + 1])
         r["loop_seam"] = round(seam, 6)
         if seam > 1e-4:
             r["failures"].append("loop seam %.5f on %s" % (seam, bone))
         return r
 
-    keyed, infos, action, report = _author_samples(body, rig, action_name, samples,
-                                                   fps, check)
+    keyed, infos, action, report = upper_mod.author_clear(
+        U, rig_name, bm, lambda s: _author_samples(body, rig, action_name, s, fps, check),
+        lambda: [P.pose(key_at((f - 1) / float(frames))) for f in range(1, frames + 2)])
     if "error" in report:
         return report
     report.update({"rig": rig_name, "action": action.name, "frames": [1, frames + 1],
                    "fps": bpy.context.scene.render.fps, "stance_width": stance_width,
-                   "posture": dict(posture) if posture else None})
+                   "hip_shift_m": round(shift, 4),
+                   "posture": dict(posture) if posture else None,
+                   "upper": U.report() if U is not None else None})
     return report
 
 

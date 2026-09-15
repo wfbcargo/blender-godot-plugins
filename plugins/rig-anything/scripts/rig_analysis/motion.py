@@ -276,13 +276,19 @@ class Body:
         return low, rest_low
 
     # ------------------------------------------------------------ axial
-    def bend_axial(self, translation, angles_deg):
+    def bend_axial(self, translation, angles_deg, yaw_deg=None, roll_deg=None):
         """Overrides for the axial chain: moved by `translation`, each segment
-        pitched by its own world angle about the lateral axis.
+        pitched by its own world angle about the lateral axis, then rolled about
+        the forward axis and turned about the up axis.
 
         `angles_deg[i]` is the TOTAL pitch of axial bone i, not an increment -
         which is what makes "keep the head level" a one-number request.
         Positive pitches the head end forward (upright) or down (horizontal).
+        `yaw_deg[i]` and `roll_deg[i]` are totals too, so a head that holds its
+        orientation while the chest turns under it is a zero. Both are
+        right-handed about the body map's `up_vec` and `fwd`, never a bone's
+        axis; a caller that needs to know which side a positive value brings
+        forward (or up) asks `axis_turns` rather than assuming it.
         """
         bm = self.bm
         names = bm["axial"]
@@ -291,7 +297,14 @@ class Body:
         if n == 0:
             return {}
         p = bm["pelvis_index"]
-        rots = [Matrix.Rotation(math.radians(a), 3, bm["lat"]) for a in angles_deg]
+        rots = []
+        for i, a in enumerate(angles_deg):
+            r = Matrix.Rotation(math.radians(a), 3, bm["lat"])
+            if roll_deg is not None and roll_deg[i]:
+                r = Matrix.Rotation(math.radians(roll_deg[i]), 3, bm["fwd"]) @ r
+            if yaw_deg is not None and yaw_deg[i]:
+                r = Matrix.Rotation(math.radians(yaw_deg[i]), 3, bm["up_vec"]) @ r
+            rots.append(r)
         new = [None] * n
         new[p] = joints[p] + translation
         for k in range(p, n - 1):
@@ -303,6 +316,13 @@ class Body:
             out[name] = (Matrix.Translation(new[k]) @ rots[k].to_4x4()
                          @ Matrix.Translation(-joints[k]) @ self.rest[name])
         return out
+
+    def axis_turns(self, axis, point, toward):
+        """+1 when a small positive rotation about `axis` (the body map's
+        `up_vec`, `fwd` or `lat`) moves `point` - relative to the axis through
+        the origin - toward `toward`, -1 when away. How a caller gets a sense
+        for a yaw or roll without reading any sign convention."""
+        return 1.0 if axis.cross(point).dot(toward) >= 0.0 else -1.0
 
     # -------------------------------------------------------------- IK
     def pole(self, posed, limb, d=None, override=None):

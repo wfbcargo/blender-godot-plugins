@@ -141,6 +141,28 @@ clip afterwards: `max_drop` (hip drop cap, share of hip height), `stance_width`
 same stance and posture reach `actions.idle`, and
 `actions.move_set(options={role: {...}})` passes them per role.
 
+An upright biped's **upper body moves inside the same keys** (`upper.py`):
+pelvis turn and list, chest counter-turn, side bend, lean, a head that holds
+its orientation, and arms swinging opposite their own side's leg - driven by
+IK hand targets built against gravity and the body's heading, with the elbow
+pole from each arm's rest bend plane, so a hunch hangs the arms in front and a
+bent-elbow rest pose bends the same way as a straight one. How far the arms
+hang out is measured on the skin and widened on playback until the forearm and
+hand clear the hips (`verify.limb_clearance`, now a cycle check). Parameters
+are degrees and metres, scaled by Froude (`upper.defaults`); `idle` gets
+relaxed arms and puts the hips back over the feet when a posture or hanging
+arms would tip the body forward. `cycle(upper={...})` / `idle(upper={...})`
+override, `upper=False` leaves the rest pose; bodies other than upright
+bipeds are untouched unless asked.
+
+**Gait styles** say how a body walks at a speed: `duty`, `stride_scale`,
+`lift_scale`, `bounce_scale`, `sway`, `min_knee` (and `extension`) on
+`plan`/`cycle`, gathered with `upper`, `posture`, `stance_width` and
+`max_drop` into `locomotion.GAIT_STYLES` - `elderly_shuffle`, `heavy`,
+`child`, `brisk`, `relaxed`. `cycle(style="heavy")`,
+`idle(style=...)`, `move_set(options={"Walk": {"style": "child"}})`; a style
+has "walk", "run" and "idle" sections, and any explicit argument beats it.
+
 See `animate-anything`'s `references/contact-locomotion.md`.
 
 It refuses a creature with no legs rather than inventing a walk for a worm.
@@ -250,7 +272,10 @@ Only `scene` and `clips` are required. The gait ladder is whichever of Walk, Tro
 `gaits.<role>.natural_speed_mps` (else `implied_speed_mps` x `implied_pace`). Gaits change
 at the geometric mean of neighbouring speeds +-8%, carry the stride phase across, and play
 at speed / implied speed, so the feet do not skate. The collider is a capsule from an
-optional `collider: {radius, height}` block, else `height_m.stand`. For more moves, extend it:
+optional `collider: {radius, height}` block, else `height_m.stand`; write it with
+`export.collider(mesh, rig)` or `engine_manifest(..., mesh_name=mesh)["collider"]` - the
+trunk and thighs' horizontal reach from the origin (98th percentile), arms left out, and
+the mesh's top. For more moves, extend it:
 override `_setup()` (after model, ladder and collider exist), `_physics_process`, and
 `_build_collider` / `_set_height` for another shape, and call `play_gait_for(speed)`,
 `play_role`, `add_hold`. Check a manifest headless:

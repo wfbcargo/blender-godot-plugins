@@ -100,6 +100,98 @@ DUTY = ((0.0, 0.75), (0.45, 0.65), (0.7, 0.55), (1.0, 0.45), (1.6, 0.35),
 
 MIN_DUTY = 0.2
 
+# Ways of walking. Speed alone makes every body of a kind move alike; a style
+# says how this one differs at the same Froude number. Each is a dict of
+# `cycle` / `plan` arguments - duty, stride_scale, lift_scale, bounce_scale,
+# sway, min_knee, extension, max_drop, stance_width, posture - and `upper`
+# parameters, with "walk" and "run" sections laid over the common part by the
+# gait asked for (Fr under 0.5 walks), and an "idle" section `actions.idle`
+# reads. An explicit argument always beats the style; an `upper` dict is laid
+# over the style's rather than replacing it.
+GAIT_STYLES = {
+    # short steps, feet low, long double support, soft knees, arms hanging
+    # with little swing, a slight stoop (gait in older adults: Winter 1990;
+    # step length -10-20%, double support 25-35% vs ~20%)
+    "elderly_shuffle": {
+        "posture": {"pelvis": 2.0, "flex": 12.0, "neck": -8.0},
+        "walk": {"duty": 0.74, "stride_scale": 0.8, "lift_scale": 0.8, "bounce_scale": 0.5,
+                 "sway": 0.012, "extension": 0.94, "max_drop": 0.06,
+                 "upper": {"arm_swing": 6.0, "arm_forward": 5.0, "elbow": 24.0, "elbow_swing": 4.0,
+                           "hand_in": 3.0, "pelvis_turn": 1.5, "thorax_turn": 2.0, "side_bend": 2.0,
+                           "lean": 2.0, "lean_bob": 0.5, "head_hold": 0.9}},
+        "run": {"stride_scale": 0.8, "lift_scale": 0.7, "max_drop": 0.07},
+        "idle": {"upper": {"arm_forward": 5.0, "elbow": 20.0}},
+    },
+    # feet apart (the thighs meet), a slower cadence on a longer step, the
+    # body rocking over each stance leg, arms held out from the hips
+    "heavy": {
+        "stance_width": 1.4,
+        "walk": {"stride_scale": 1.08, "lift_scale": 0.8, "bounce_scale": 0.6, "sway": 0.03,
+                 "max_drop": 0.045,
+                 "upper": {"arm_swing": 12.0, "side_bend": 4.0, "pelvis_list": 2.5, "lean": 1.0,
+                           "hand_clearance": 0.04}},
+        "run": {"stride_scale": 1.05, "lift_scale": 0.85, "bounce_scale": 0.8, "max_drop": 0.07,
+                "upper": {"side_bend": 3.0, "hand_clearance": 0.04}},
+        "idle": {"upper": {"hand_clearance": 0.035}},
+    },
+    # quicker, shorter steps and a bouncier body, big arm swing
+    "child": {
+        "walk": {"stride_scale": 0.88, "lift_scale": 1.15, "bounce_scale": 1.5, "sway": 0.012,
+                 "max_drop": 0.035,
+                 "upper": {"arm_swing": 24.0, "elbow": 18.0, "elbow_swing": 10.0, "lean": 2.0}},
+        "run": {"stride_scale": 0.9, "lift_scale": 1.1, "bounce_scale": 1.4, "max_drop": 0.07,
+                "upper": {"arm_swing": 30.0}},
+    },
+    # purposeful: a longer step, arms driving with the elbows bent, a lean
+    "brisk": {
+        "walk": {"stride_scale": 1.05, "lift_scale": 1.05, "max_drop": 0.035,
+                 "upper": {"arm_swing": 24.0, "elbow": 35.0, "elbow_swing": 12.0, "lean": 4.0,
+                           "thorax_turn": 6.0}},
+        "run": {"max_drop": 0.07, "upper": {"lean": 10.0}},
+    },
+    # unhurried: a slightly shorter, lower step, loose arms, a head that
+    # rides the body more
+    "relaxed": {
+        "walk": {"stride_scale": 0.95, "lift_scale": 0.85, "bounce_scale": 0.9, "max_drop": 0.035,
+                 "upper": {"arm_swing": 13.0, "elbow": 12.0, "elbow_swing": 6.0, "lean": 1.0,
+                           "head_hold": 0.75}},
+        "run": {"max_drop": 0.07, "upper": {"lean": 6.0}},
+    },
+}
+
+STYLE_KEYS = ("duty", "stride_scale", "lift_scale", "bounce_scale", "sway", "min_knee",
+              "extension", "max_drop", "centre_weight", "stance_width", "posture", "upper")
+
+
+def style_args(style, section, explicit):
+    """The arguments a style gives one clip, with `explicit` (the caller's
+    non-None arguments) over them. `style` is a name from `GAIT_STYLES` or a
+    dict of the same shape; `section` "walk", "run" or "idle"."""
+    if style is None:
+        return dict(explicit)
+    if isinstance(style, str):
+        if style not in GAIT_STYLES:
+            raise ValueError("unknown gait style %r - styles are %s"
+                             % (style, ", ".join(sorted(GAIT_STYLES))))
+        style = GAIT_STYLES[style]
+    out = {k: v for k, v in style.items() if k not in ("walk", "run", "idle")}
+    sect = style.get(section) or {}
+    for k, v in sect.items():
+        if k == "upper" and isinstance(out.get("upper"), dict) and isinstance(v, dict):
+            out["upper"] = dict(out["upper"], **v)
+        else:
+            out[k] = v
+    unknown = set(out) - set(STYLE_KEYS)
+    if unknown:
+        raise ValueError("a style cannot set %s - it takes %s"
+                         % (", ".join(sorted(unknown)), ", ".join(STYLE_KEYS)))
+    for k, v in explicit.items():
+        if k == "upper" and isinstance(v, dict) and isinstance(out.get("upper"), dict):
+            out["upper"] = dict(out["upper"], **v)
+        else:
+            out[k] = v
+    return out
+
 
 def duty_factor(froude):
     u = math.sqrt(max(froude, 0.0))
@@ -333,7 +425,8 @@ class Reach:
 # --------------------------------------------------------------------------
 
 def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
-         max_drop=None, centre_weight=None, stance_width=None, posture=None):
+         max_drop=None, centre_weight=None, stance_width=None, posture=None,
+         duty=None, stride_scale=None, lift_scale=None, bounce_scale=None, min_knee=None):
     """Everything a cycle needs, derived from the contacts and one speed.
 
     Give `froude` (or a name from `GAITS`) or `speed` in m/s. Returns a dict:
@@ -351,6 +444,16 @@ def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
                    feet under the hips; None keeps the rest stance
     posture        a held `keyposes.posture_angles` dict; the hips are placed
                    where it carries them before reach is measured
+
+    How a body walks at a speed, over what speed alone gives (a style):
+    duty           ground time as a share of the cycle instead of the DUTY
+                   table's - 0.75 an elderly shuffle's long double support
+    stride_scale   stride times this; below 1 quicker, shorter steps at the
+                   same speed (a child), above 1 slower cadence (a heavy body)
+    lift_scale     swing foot height times this
+    bounce_scale   hip rise and fall times this
+    min_knee       smallest included knee angle a stance leg may fold to,
+                   degrees (`Reach`, default 50)
     """
     from . import keyposes as kp
     bm, rig = poser.bm, poser.rig
@@ -383,9 +486,9 @@ def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
         froude = GAITS["walk"]
     froude_asked = froude
     gait_name = gait_name or choose_gait(len(legs), froude)
-    duty = duty_factor(froude)
+    duty = duty_factor(froude) if duty is None else float(duty)
     speed = math.sqrt(froude * G * h)
-    stride = relative_stride(froude) * h_arm             # armature units
+    stride = relative_stride(froude) * h_arm * (1.0 if stride_scale is None else stride_scale)
     period = stride * scale / speed
 
     # Where each stroke is centred. A walk steps about where the foot stood; a
@@ -405,8 +508,10 @@ def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
         shifts[l["name"]] = side
         centres[l["name"]] = piv + fwd * ((x_hip - x_rest) * w) + side
 
-    reach = {l["name"]: Reach(poser, l, extension=extension) for l in legs}
-    bounce = body_bounce(froude, duty) * h_arm            # peak to peak
+    reach = {l["name"]: Reach(poser, l, extension=extension,
+                              min_knee=50.0 if min_knee is None else min_knee) for l in legs}
+    bounce = (body_bounce(froude, duty) * h_arm          # peak to peak
+              * (1.0 if bounce_scale is None else bounce_scale))
 
     def available(drop):
         # the hip at its highest in the bounce is the hardest to reach from
@@ -464,7 +569,8 @@ def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
         "legs": legs, "contacts": contacts,
         "origin": origin, "normal": normal, "fwd": fwd, "lat": lat,
         "scale": scale, "limited_by": limited,
-        "lift": swing_lift(froude) * (sum(l["a"] + l["b"] for l in legs) / len(legs)),
+        "lift": (swing_lift(froude) * (sum(l["a"] + l["b"] for l in legs) / len(legs))
+                 * (1.0 if lift_scale is None else lift_scale)),
         "flex": spine_flex(froude, gait_name, bm),
     }
 
@@ -527,9 +633,10 @@ def foot_state(phase, duty, stroke, lift, over, hold=SWING_HOLD):
 
 def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
           forward="-Y", up="Z", floor=0.0, action_name="Locomotion", fps=None,
-          extension=0.97, tail_lift=None, tail_swing=None, attempts=6, paw_fold=1.0,
+          extension=None, tail_lift=None, tail_swing=None, attempts=6, paw_fold=1.0,
           swing_hold=SWING_HOLD, max_drop=None, centre_weight=None, stance_width=None,
-          posture=None):
+          posture=None, upper=None, duty=None, stride_scale=None, lift_scale=None,
+          bounce_scale=None, sway=None, min_knee=None, style=None):
     """Author a looping gait from `plan`, verified on Blender's playback.
 
     froude         a number, or a name from `GAITS` ("walk", "trot", "sprint"...)
@@ -546,12 +653,46 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
                    `fwd` (`keyposes.posture_angles`). Posed inside every key,
                    so the legs are solved under the posed body and every check
                    sees it.
+    upper          the upper body (`upper.py`): None moves it on an upright
+                   two-legged body - pelvis and thorax turning and listing,
+                   the head held, arms swinging opposite their legs - with
+                   `upper.defaults` for this speed; a dict overrides those
+                   parameters (degrees, metres); False leaves it at rest.
+                   Bodies with other leg counts are untouched unless asked.
+    duty, stride_scale, lift_scale, bounce_scale, min_knee
+                   as `plan`: how this body walks at the speed, over what
+                   the speed alone gives
+    sway           side-to-side hip sway, amplitude as a share of leg length;
+                   None is 0.01 on an upright walk, 0 otherwise
+    style          a `GAIT_STYLES` name ("elderly_shuffle", "heavy", "child",
+                   "brisk", "relaxed") or a dict of the same shape: defaults
+                   for all of the above, and `upper` and `posture` and
+                   `stance_width`, its "walk" or "run" section chosen by the
+                   Froude number asked (a speed in m/s over 2 runs). Every
+                   argument given here beats the style.
 
     The clip is in place. Its implied speed (stance feet sweeping back at the
     body's speed) is what the engine time-scales against; `natural_speed_mps`
     is the real-world speed of this gait at this body's size - what the engine
     should move the body at to look like the same animal.
     """
+    given = {k: v for k, v in dict(
+        duty=duty, stride_scale=stride_scale, lift_scale=lift_scale, bounce_scale=bounce_scale,
+        sway=sway, min_knee=min_knee, extension=extension, max_drop=max_drop,
+        centre_weight=centre_weight, stance_width=stance_width, posture=posture,
+        upper=upper).items() if v is not None}
+    asked = GAITS[froude] if isinstance(froude, str) else froude
+    running_asked = (speed > 2.0) if speed is not None else (asked is not None and asked >= 0.5)
+    try:
+        a = style_args(style, "run" if running_asked else "walk", given)
+    except ValueError as e:
+        return {"error": str(e)}
+    duty, stride_scale, lift_scale = a.get("duty"), a.get("stride_scale"), a.get("lift_scale")
+    bounce_scale, sway, min_knee = a.get("bounce_scale"), a.get("sway"), a.get("min_knee")
+    extension = a.get("extension", 0.97)
+    max_drop, centre_weight = a.get("max_drop"), a.get("centre_weight")
+    stance_width, posture, upper = a.get("stance_width"), a.get("posture"), a.get("upper")
+
     bm = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
     if "error" in bm:
         return bm
@@ -564,7 +705,8 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
 
     pl = plan(P, froude=froude, speed=speed, gait_name=gait_name, extension=extension,
               max_drop=max_drop, centre_weight=centre_weight, stance_width=stance_width,
-              posture=posture)
+              posture=posture, duty=duty, stride_scale=stride_scale, lift_scale=lift_scale,
+              bounce_scale=bounce_scale, min_knee=min_knee)
     legs = pl["legs"]
     offsets = gait.phase_offsets(
         [{"name": l["name"], "side": l["side"], "forward": l["forward_pos"]} for l in legs],
@@ -576,7 +718,9 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
     running = duty < 0.5
     tail_lift = (8.0 + 12.0 * min(1.0, fr)) if tail_lift is None else tail_lift
     tail_swing = (8.0 if not running else 4.0) if tail_swing is None else tail_swing
-    sway_amp = 0.01 * P.leg_len if not running and bm["upright"] else 0.0
+    if sway is None:
+        sway = 0.01 if not running and bm["upright"] else 0.0
+    sway_amp = sway * P.leg_len
 
     # Load: how much of the body's weight is mid-stance, summed over legs. The
     # hips ride it - up for a vaulting walk, down for a bouncing run.
@@ -608,6 +752,14 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         if on_f < off_h:
             on_f += 1.0
         ext_phase = 0.5 * (off_h + on_f)
+
+    from . import upper as upper_mod
+    upper_params = upper_mod.resolve(P, upper, upper_mod.defaults(fr, duty))
+    U = None
+    if upper_params is not None:
+        stance = {l["name"]: {"target": (lambda p, limb, posed, s=pl["stance_shift"][l["name"]]:
+                                         limb["rest_eff"] + s)} for l in legs}
+        U = upper_mod.Upper(P, upper_params, posture=posture, stance=stance)
 
     state = {"drop": pl["drop"], "stroke": pl["stroke"], "lift": pl["lift"],
              "flex": pl["flex"], "bounce": 1.0, "over": 1.0}
@@ -644,14 +796,17 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         bounce = pl["bounce"] * state["bounce"] * height_signal(p0) * (1.0 if running else -1.0)
         flex = state["flex"] * math.cos(2.0 * math.pi * (p0 - ext_phase)) * -1.0
         side = 1.0 if (first_leg["rest_root"] - P.centre).dot(P.lat) > 0 else -1.0
-        # Hooks for what comes next go here, all held or cycled per key: trunk
-        # twist and lateral bend belong beside `posture` (as more named pitches
-        # and yaws in `keyposes`), arm swing in `limbs` for the arms.
-        return kp.Key(drop=state["drop"] + bounce, limbs=limbs, flex=flex,
+        # The upper body rides the same phases: pelvis and thorax turn and
+        # list, the head holds, the arms swing against their own side's leg.
+        trunk, list_drop = None, 0.0
+        if U is not None:
+            trunk, arm_limbs, list_drop = U.cycle_key(p0, offsets, duty, legs)
+            limbs.update(arm_limbs)
+        return kp.Key(drop=state["drop"] + bounce + list_drop, limbs=limbs, flex=flex,
                       sway=sway_amp * math.sin(2.0 * math.pi * p0) * side,
                       tail_lift=tail_lift + 0.8 * flex,
                       tail_sway=-tail_swing * math.sin(2.0 * math.pi * p0),
-                      posture=posture)
+                      posture=posture, trunk=trunk)
 
     skin_rest = body.skin_lowest(body.fk(), P._upw)
     skin_allowed = (min(0.0, skin_rest - floor) - 0.012 * bm["height"]
@@ -747,7 +902,12 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         return r
 
     from .actions import _author_samples
-    keyed, infos, action, report = _author_samples(body, rig, action_name, samples, fps, check)
+    first_samples = samples
+    keyed, infos, action, report = upper_mod.author_clear(
+        U, rig_name, bm,
+        lambda s: _author_samples(body, rig, action_name, s, fps, check),
+        lambda: (first_samples if not U or not getattr(U, "clearance", None) else
+                 [P.pose(key_at((f - 1) / float(frames))) for f in range(1, frames + 2)]))
     if "error" in report:
         return report
 
@@ -777,6 +937,10 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         "stance_shift_m": {k: round(v.dot(pl["lat"]) * pl["scale"], 4)
                            for k, v in pl["stance_shift"].items()},
         "posture": dict(posture) if posture else None,
+        "style": style if isinstance(style, str) or style is None else "custom",
+        "stride_scale": stride_scale, "lift_scale": lift_scale, "bounce_scale": bounce_scale,
+        "duty_asked": duty, "sway_share": round(sway, 4), "min_knee": min_knee,
+        "upper": U.report() if U is not None else None,
         "spine_flex_deg": round(state["flex"], 2),
         "natural_speed_mps": round(natural, 4),
         "stride_frequency_hz": round(natural / (pl["stride_m"] * ratio), 3),
@@ -938,8 +1102,9 @@ GAIT_KEYS = ("gait", "froude", "duty_factor", "natural_speed_mps", "stride_m",
              "stroke_m", "stride_frequency_hz", "hip_height_m", "spine_flex_deg")
 
 
-def engine_manifest(rig_name, reports, forward="-Y", up="Z", floor=0.0):
-    """The `gaits` and `contacts` entries an engine controller reads.
+def engine_manifest(rig_name, reports, forward="-Y", up="Z", floor=0.0, mesh_name=None):
+    """The `gaits` and `contacts` entries an engine controller reads, and with
+    `mesh_name` the `collider` ({radius, height}, `export.collider`).
 
     `reports` is {role: report} from `cycle` (or `actions.move_set`); roles
     whose report did not come from `cycle` are skipped. Contacts are read back
@@ -974,4 +1139,12 @@ def engine_manifest(rig_name, reports, forward="-Y", up="Z", floor=0.0):
             "flight_fraction": d["flight_fraction"],
             "statically_stable_fraction": d["statically_stable_fraction"],
         }
-    return {"gaits": gaits, "contacts": contacts, "problems": problems}
+    out = {"gaits": gaits, "contacts": contacts, "problems": problems}
+    if mesh_name:
+        from . import export
+        c = export.collider(mesh_name, rig_name, forward=forward, up=up, floor=floor)
+        if "error" in c:
+            problems.append("collider: " + c["error"])
+        else:
+            out["collider"] = c
+    return out
