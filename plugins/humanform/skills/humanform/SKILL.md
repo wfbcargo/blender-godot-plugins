@@ -1,0 +1,207 @@
+---
+name: humanform
+description: Build adult human bodies in Blender that look right and work downstream in Godot 4.7 - layer by layer from a character brief through proportions and landmarks, a clean MPFB2 base mesh (quads, UVs, rig), primary and secondary anatomical forms, face, hands and feet, surface detail and skin, to a rig handed to rig-anything, follow-through, wardrobe and lookdev - with a measured gate and a critic between every layer so a detail pass never hides a structural mistake. Use when asked to make, model, sculpt, generate or improve a human, person, man, woman, character body, base mesh or figure in Blender; to choose realistic or stylized proportions; to use MPFB or MakeHuman from a script; or to plan how a character should be built before modelling starts.
+---
+
+# humanform
+
+People are built in layers, coarse to fine, and a layer is only built on top of one that has
+been **measured**. The research behind this plugin, and the full plan, are in
+`grungist-creek/docs/humanform-plan.md`.
+
+## Status
+
+| layer | what | state |
+|---|---|---|
+| gate | `humancheck`: measure, contact sheet, critic | **built** (0.1.0) - use it on every body now |
+| L0 | character sheet (brief -> data) | **built** (0.2.0) - `sheet` |
+| L1 | proportions and landmarks from ANSUR II, `realistic` / `stylized`; a rig on them | **built** (0.2.0) - `landmarks`, `skeleton` |
+| L2 | MPFB2 base driven to the landmarks, rig renamed | **built** (0.3.0) - `scaffold` |
+| L4 | face stage (ANSUR head measures), face design parts, eyes; library and pipeline | **built** (0.4.0) - `scaffold.fit_face`, `parts`, `eyes`, `library`, `pipeline` - see the `humanlib` skill |
+| L4 | hands-and-feet stage (ANSUR hand and foot sizes), hand and foot design parts | **built** (0.5.0) - `scaffold.fit_extremities`, `parts.design` / `screen` - see `humanlib` |
+| L3-L4 | muscle definition and stylized exaggeration (SDF forms); hair | next |
+| L5-L6 | reproject onto base topology, micro-detail, bake, skin | Phase 5 |
+| L7 | rig from landmarks, flesh regions, export | Phase 6 |
+
+Until a layer is built, build it by hand the old way, but **gate it with humancheck**.
+
+## The ladder
+
+| layer | gate before moving up |
+|---|---|
+| L0 character sheet | values in range; unspecified fields marked guessed |
+| L1 proportions (frozen) | every proportion finding passes for the preset and sex |
+| L2 scaffold (frozen) | one component, scale applied, legs parted, arms 35-55 deg down, feet on Z = 0 |
+| L3 primary forms | numbers pass; critic reports no structural issues |
+| L4 parts (frozen) | fingers, face relief; nothing outside a part's mask moved more than 1 mm |
+| L5 surface | quads >= 90%, UVs, reprojection p99 < 2 mm |
+| L6 look | lookdev `material_lint` clean |
+| L7 handoff | joints centred in the limbs; export read back |
+
+A frozen layer may be added to, never moved: re-run humancheck after every change and compare
+the L1 numbers with the frozen ones. Round budgets: L1 3, L3 5, L4 4 per part, L5 2, L6 3. When a
+budget runs out, stop and show the user the sheet and the findings still failing.
+
+## L0-L1: brief -> sheet -> landmarks -> rig
+
+```python
+from humanform import sheet, landmarks, skeleton, measure   # after the reload bootstrap in humancheck
+
+s = sheet.new(name="Mara", sex="female", age=34, stature=1.72, build="athletic", style="realistic")
+r = sheet.resolve(s)          # r["values"]: all 65 ANSUR II variables in metres; r["guessed"], r["notes"]
+lm = landmarks.from_measurements(r["values"], s["sex"], s["style"], name=s["name"])
+findings = measure.check(landmarks.as_measurements(lm), s["style"], s["sex"], s["build"])   # all pass
+rig = skeleton.build(lm, s["name"])    # "Mara_rig": rig-anything bone names, landmarks stored on it
+sheet.save(r["sheet"], r"C:/proj/assets/people/mara.sheet.json")
+```
+
+**Turning a brief into a sheet.** Write down only what the brief says; leave the rest `None` so
+`resolve` fills it from the population and lists it in `guessed` - tell the user what was guessed.
+
+| field | values |
+|---|---|
+| `sex` | `female`, `male` - required; the measurement data is per sex |
+| `age` | years, 1-90; ANSUR II covers 17-58 - see *Ages ANSUR did not measure* |
+| `stature` | metres, 1.3-2.2 for an adult, 0.6-2.0 for a child; `None` for the population mean |
+| `weight` or `bmi` | overrides the build's BMI |
+| `build` | `slim` (BMI 20.5), `average` (population), `athletic` (24, narrow waist, broad shoulders), `muscular` (27.5), `curvy` (25.5, wide hips and seat), `soft` (27), `heavy` (31) - or a dict `{"bmi": .., "z": {variable: sd}}` |
+| `style` | `realistic`, `stylized` |
+| `measurements` | any ANSUR II variable fixed, in metres (`{"hipbreadth": 0.40}`) |
+| `seed`, `variation` | `None` for the conditional mean; a seed draws a person, `variation` 0.5 by default (1.0 is full population spread) |
+| `firmness`, `proportions` | MPFB macros 0..1 (soft .. firm; regular .. idealised) - nothing ANSUR measures; `None` is MPFB's 0.5. Set at creation, so the fit measures the body with them |
+| `cupsize` | MPFB macro 0..1, a woman's bust (small .. full); `None` is MPFB's 0.5. Never fitted, like firmness: ANSUR's chest girth is fitted around it |
+| `muscle` | MPFB macro 0..1; `None` takes the build's. Given outright, the fit holds it (Dante's 1.0 ends at 0.95, not the muscular prior's 0.72) |
+| `skin`, `iris` | screen (sRGB) colours `(r, g, b)`, 0..1 - see *Colour* |
+
+**Ages ANSUR did not measure.** `sheet.resolve` returns `ansur`: `"measured"` for 17-58, `"aged"`
+above, `"child"` below, and for the last two a note containing `sheet.NOT_MEASURED` ("not measured
+against ANSUR"). `pipeline.make` makes both:
+
+| `ansur` | how | stature |
+|---|---|---|
+| `aged` | resolved and fitted at 58 (`values["Age"]`, the sheet keeps the real age), then MPFB's age macro set to the real age | ageing shortens the body (Walter 1.700 -> 1.688 m), so the height macro is bisected back to the brief (`scaffold.fit_stature`, 1.6995 m) |
+| `child` | no ANSUR at all: MPFB's body at that age; weight from BMI read against the median BMI for the age (`scaffold.child_weight_macro`), muscle from the brief or build | MPFB's children are short (its 8-year-old is 1.15 m): height macro bisected to the stature (Milo 1.270 m) |
+
+Neither is ever stored in the library, and a child gets no humancheck (its presets are adult). An aged
+body's humancheck still runs, but what it measures is MPFB's ageing, not data - say so when showing it.
+
+**Colour.** Briefs and every humanform API take screen (sRGB) colours - what a picker, a photo or a
+person means by a colour - and `look.srgb_to_linear` converts them with the exact piecewise curve for
+Blender's linear Base Color (and glTF's). `c ** 2.2` is 2% off at mid-grey but a third of the true
+value at 0.05, where dark irises and deep skin tones sit. `look.skin(human, srgb)` gives a body one flat
+Principled material (`<name>_skin`, roughness 0.55); `pipeline.make` applies the brief's `skin` and
+`iris`. Flat colour only - lookdev owns real skin.
+
+**How it resolves.** ANSUR II per sex is a multivariate normal over 65 variables. What the sheet
+fixes is conditioned on, and a build's leanings are applied in conditional standard deviations,
+so a tall woman gets the crotch height, arm length and hip breadth tall women have (Mara at
+1.72 m: crotch 0.488 H against the 0.480 mean) rather than an average body scaled up.
+
+**Stylized** shifts each joint height by the canon's distance from the population mean and warps
+everything between, and scales arm, hand, foot and widths by canon over mean - the person keeps
+their own deviations, so two stylized people still differ.
+
+**The rig** is Nora's proven layout (spine .. spine.005, shoulder / upper_arm / forearm / hand,
+thigh / shin / foot / toe) placed exactly on the landmarks; rig-anything's bodymap reads it as a
+spine, two arms and two legs. No fingers yet - they come with the MPFB rig in Phase 3.
+
+**Verify:** `blender -b --factory-startup --python ${CLAUDE_PLUGIN_ROOT}/scripts/tests/phase2_briefs.py`
+(five briefs, preset self-consistency, five broken-landmark controls that must fail, 200 seeded
+draws that must not). `scripts/tests/lineup.py -- out=<png>` renders the briefs as mannequins.
+
+## L2: the base body
+
+```python
+from humanform import scaffold
+human, rep = scaffold.build(r["sheet"], lm)     # create from macros, fit, stand on the floor, rig, rename
+print(scaffold.summarize(rep))                  # every fitted measurement: value, target, error in cm and tolerances
+rep_hc = measure.run(human.name, preset=s["style"], sex=s["sex"], build=s["build"], out_dir=...)
+```
+
+`fit` is Levenberg-Marquardt over MPFB's `height`, `weight` and `muscle` macros and 20 of its own
+targets (`measure-upperarm-length`, `hand-scale`, `foot-scale-vert`, `measure-napetowaist-dist`,
+`hip-scale-vert`, `measure-waist-circ`, `stomach-pregnant`, `measure-thigh-circ`, ...), with 23 residuals measured the way
+humancheck measures (joints from MPFB's `joint-*` groups, which is where its rig puts them) in
+units of each measurement's tolerance. Targets load as shape keys prefixed `hf:`. The rig is
+MPFB's `game_engine` with its weights, bones and groups renamed: `pelvis` -> `spine` ..
+`head` -> `spine.005`, `clavicle_l` -> `shoulder.L`, `calf_l` -> `shin.L`, `ball_l` -> `toe.L`,
+`index_01_l` -> `f_index.01.L`, `thumb_01_l` -> `thumb.01.L`, `Root` -> `root`.
+
+**Start with `pipeline.make`** (the `humanlib` skill): it checks the library first and is the fast path. Build by hand only to debug a stage.
+
+**Verify:** `blender -b --factory-startup --python ${CLAUDE_PLUGIN_ROOT}/scripts/tests/phase3_scaffold.py -- out=<dir> views=1 [only=Mara] [save=<file.blend>]`.
+Measured (0.3.0): Mara 0.31, Otto 0.36, Juno 0.27, Kade 0.83, Wren 0.23 rms tolerances, 13-30 s
+each; humancheck 0 fail on all five, one warn (Mara 8.05 heads); wardrobe's rigmap and
+rig-anything's bodymap read every rig. Always look at the contact sheet as well - see the rules.
+
+### Rules the fit taught
+
+**Girth has a shape.** Fitted to circumferences alone, every body - an athletic woman, a muscular
+man - answered the waist with MPFB's belly target pushed to its limit and came out looking
+pregnant, while every number passed. The fit now also matches ANSUR's waist breadth and depth,
+buttock depth and chest girth, and penalises local girth targets (waist 3, belly 6) far more than
+the weight macro (0.3). Numbers alone did not catch this; the contact sheet did.
+
+**A build word constrains the solve, not just the start.** A muscular man's muscle macro fell from
+0.9 to 0.34 because fat hit the girth as well - he read as average. `muscular` and `athletic`
+now hold muscle with a strong prior; `heavy` and `soft` make the belly cheap, because that is where
+their weight really sits.
+
+**Limbs need girths too.** With only torso girths constrained, a slim 58-year-old's fit pushed
+the muscle macro to 0.86 to shape her torso and gave her bulky arms and legs. Thigh, calf,
+upper-arm and neck girths are residuals now, each with its own MPFB target.
+
+**Measure where the data was measured.** The first neck section, halfway between shoulder joint
+and chin, cut the trapezius and read up to 37 cm too thick; the solver crushed the neck and head to
+answer it. It is now taken 2.5% of H below the chin, rejecting anything wider than a neck.
+
+**Measure where the data was measured (hips).** Hip breadth taken at the widest section above the crotch
+read 3-5 cm wide on every MPFB body (its legs stand apart and the thighs splay there); taken at
+ANSUR's buttock height, as ANSUR takes it, it matches.
+
+### Limits
+
+- MPFB's weight macro tops out: a 1.88 m muscular man stays ~6 cm under ANSUR's chest girth.
+- MPFB has no finger-length target per finger, no lateral hip-joint spacing, and one head height;
+  faces and hands are MPFB's (Phase 4 refines them).
+- follow-through's flesh side-bone filter has not been tested with `f_index.01.L` finger names.
+
+## MPFB2 from a script
+
+Installed as the extension `bl_ext.user_default.mpfb` (2.0.17, GPL-3.0 code, CC0 assets). Call
+its services; never copy its code into this plugin.
+
+```python
+from bl_ext.user_default.mpfb.services.humanservice import HumanService
+from bl_ext.user_default.mpfb.services.targetservice import TargetService
+
+macro = TargetService.get_default_macro_info_dict()   # gender, age, muscle, weight, proportions,
+macro["gender"] = 0.0                                 # height, cupsize, firmness: 0..1; race dict
+                                                      # age: 0 is 1 year, 0.1875 11, 0.5 25, 1.0 90
+human = HumanService.create_human(macro_detail_dict=macro)       # 0.08 s, 18.5k quads, UVMap
+rig = HumanService.add_builtin_rig(human, "game_engine")          # 0.09 s, 53 bones, weights
+```
+
+- The body faces -Y with its left at +X and feet on Z = 0 - the same contract as rig-anything,
+  follow-through and wardrobe. A default male is 1.729 m, a default female 1.591 m.
+- Helper geometry (eyes, teeth, tongue, tights, skirt, hair proxies) is hidden by a `Hide helpers`
+  Mask modifier on vertex group `body`. `joint-*` vertex groups mark every joint.
+- Fine targets live in `mpfb/data/targets/<group>/` (`measure-upperarm-length-incr`,
+  `hip-scale-horiz-decr`, `stomach-pregnant-incr`, ...) and load with
+  `TargetService.load_target(human, path, weight=...)`.
+- Rigs: `game_engine`, `game_engine_with_breast`, `default`, `default_no_toes`, `mixamo`,
+  `cmu_mb`, `openpose`, and `rigify.human` / `rigify.human_toes` (need Rigify enabled).
+- In `blender -b --factory-startup`, enable it with
+  `addon_utils.enable("bl_ext.user_default.mpfb", default_set=True)` - with `default_set=False`
+  MPFB fails to register because it reads its own preferences entry.
+
+## Rules
+
+**Fix the lowest failing layer first.** A body with fused thighs or low shoulders will pass its
+problems to every garment, jiggle zone and animation built on it; face detail does not help.
+
+**Numbers outrank pictures, pictures outrank intentions.** What the builder meant to make is not
+evidence. Measure, render, then ask a critic that did not build it.
+
+**Keep the rest pose games rig in:** arms about 45 deg down, legs apart below the crotch (wardrobe
+measured shirts folding into spikes at a T-posed armpit).

@@ -1,0 +1,11 @@
+{"region": "hands", "panels": [
+  {"panel": 0, "keep": false, "plausible": "yes", "artefacts": "none", "distinct": "no", "evidence": "undesigned base for reference: slim tapering fingers, thumb spread at the palm side, nails and knuckles in place", "tags": []},
+  {"panel": 1, "keep": true, "plausible": "yes", "artefacts": "none", "distinct": "slight", "evidence": "fingers a touch shorter and fuller than 0 with the palm slightly wider; clean profile, nails in place", "tags": ["short fingers", "fuller fingers"]},
+  {"panel": 2, "keep": true, "plausible": "yes", "artefacts": "none", "distinct": "slight", "evidence": "narrower back of hand and longer, slimmer fingers than 0; the profile reads more slender; thumb correctly at the palm side", "tags": ["narrow palm", "long slender fingers"]},
+  {"panel": 3, "keep": true, "plausible": "yes", "artefacts": "none", "distinct": "yes", "evidence": "broader back of hand, thicker fingers and wider finger spread than 0; the profile shows a deeper palm; still a plausible athletic female hand", "tags": ["broad palm", "thick fingers", "wide spread"]},
+  {"panel": 4, "keep": false, "plausible": "yes", "artefacts": "none", "distinct": "no", "evidence": "silhouette, finger length and girth all match 0 within what the view shows; clean but adds nothing", "tags": []},
+  {"panel": 5, "keep": true, "plausible": "yes", "artefacts": "none", "distinct": "slight", "evidence": "slimmer thumb and slightly longer, finer fingers than 0; wrist lighter in profile; no webbing or swelling", "tags": ["slim thumb", "fine fingers", "light wrist"]},
+  {"panel": 6, "keep": true, "plausible": "yes", "artefacts": "none", "distinct": "slight", "evidence": "thumb longer and set wider than 0, fingers slightly longer in profile; knuckles and nails intact", "tags": ["long thumb", "wide thumb spread"]},
+  {"panel": 7, "keep": false, "plausible": "yes", "artefacts": "none", "distinct": "no", "evidence": "slightly more visible knuckles, but the outline and proportions match panels 0 and 1; hard to tell apart", "tags": []},
+  {"panel": 8, "keep": true, "plausible": "yes", "artefacts": "none", "distinct": "yes", "evidence": "wider palm, heavier wrist and thicker fingers than 0, clear in both views; proportions stay adult and female-athletic", "tags": ["broad palm", "heavy wrist", "thick fingers"]}
+], "best": [3, 8]}

@@ -1,0 +1,11 @@
+{"region": "feet", "panels": [
+  {"panel": 0, "keep": false, "plausible": "yes", "artefacts": "none", "distinct": "no", "evidence": "undesigned base: medium-width forefoot, moderate instep, clean toes and heel", "tags": []},
+  {"panel": 1, "keep": true, "plausible": "yes", "artefacts": "none", "distinct": "slight", "evidence": "side view instep lower and longer than 0; front view forefoot and toes a little wider; toes in order, heel round", "tags": ["low instep", "broad forefoot"]},
+  {"panel": 2, "keep": true, "plausible": "yes", "artefacts": "none", "distinct": "yes", "evidence": "front view clearly broader forefoot with spread toes and a thicker ankle than 0; instep flatter from the side", "tags": ["broad foot", "spread toes", "flat instep"]},
+  {"panel": 3, "keep": true, "plausible": "yes", "artefacts": "none", "distinct": "slight", "evidence": "side view instep a little higher and ankle bone more marked than 0; front ankle slimmer; toes clean", "tags": ["high instep", "slim ankle"]},
+  {"panel": 4, "keep": true, "plausible": "yes", "artefacts": "none", "distinct": "slight", "evidence": "front toes a little wider and rounder than 0, side instep slightly lower; ankle joins the shin smoothly", "tags": ["wide toes", "low instep"]},
+  {"panel": 5, "keep": true, "plausible": "yes", "artefacts": "none", "distinct": "slight", "evidence": "side view long, low profile with a gentle arch; front forefoot moderate, big toe clearly largest", "tags": ["long foot", "gentle arch"]},
+  {"panel": 6, "keep": false, "plausible": "yes", "artefacts": "none", "distinct": "no", "evidence": "all three views match 0 in width, instep height and ankle; adds nothing", "tags": []},
+  {"panel": 7, "keep": true, "plausible": "yes", "artefacts": "none", "distinct": "slight", "evidence": "side view flatter, lower foot than 0 with a thinner heel pad; front toes narrow and tidy", "tags": ["flat instep", "narrow toes"]},
+  {"panel": 8, "keep": false, "plausible": "yes", "artefacts": "none", "distinct": "no", "evidence": "side instep and front width look nearly the same as 0; any difference needs a pixel-level comparison", "tags": []}
+], "best": [2, 3]}

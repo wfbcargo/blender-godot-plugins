@@ -1,0 +1,506 @@
+[
+ {
+  "name": "male-feet-base",
+  "region": "feet",
+  "targets": {},
+  "fit": {
+   "max_tol": 0.467,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1975,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0874,
+     0.0888
+    ],
+    "palm_length": [
+     0.1187,
+     0.1174
+    ],
+    "wrist_circ": [
+     0.1764,
+     0.1769
+    ],
+    "foot": [
+     0.2714,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.0993,
+     0.0993
+    ],
+    "ankle_circ": [
+     0.221,
+     0.2211
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-decr": 0.27541,
+   "hf:r-foot-scale-decr": 0.27541,
+   "hf:l-foot-scale-vert-incr": 0.28992,
+   "hf:r-foot-scale-vert-incr": 0.28992,
+   "hf:l-foot-scale-horiz-decr": 0.02866,
+   "hf:r-foot-scale-horiz-decr": 0.02866,
+   "hf:measure-ankle-circ-decr": 0.36743
+  }
+ },
+ {
+  "name": "male-feet-171-0",
+  "region": "feet",
+  "targets": {
+   "hf:l-foot-scale-depth-incr": 0.404,
+   "hf:l-foot-scale-depth-decr": 0.0,
+   "hf:r-foot-scale-depth-incr": 0.404,
+   "hf:r-foot-scale-depth-decr": 0.0
+  },
+  "offsets": {
+   "foot_breadth": -0.77
+  },
+  "fit": {
+   "max_tol": 0.482,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1978,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0875,
+     0.0888
+    ],
+    "palm_length": [
+     0.1186,
+     0.1174
+    ],
+    "wrist_circ": [
+     0.1772,
+     0.1769
+    ],
+    "foot": [
+     0.2733,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.096,
+     0.0954
+    ],
+    "ankle_circ": [
+     0.2235,
+     0.2211
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-decr": 0.70309,
+   "hf:r-foot-scale-decr": 0.70309,
+   "hf:l-foot-scale-vert-incr": 0.28992,
+   "hf:r-foot-scale-vert-incr": 0.28992,
+   "hf:l-foot-scale-horiz-incr": 0.08336,
+   "hf:r-foot-scale-horiz-incr": 0.08336,
+   "hf:measure-ankle-circ-decr": 0.29373,
+   "hf:l-foot-scale-depth-incr": 0.404,
+   "hf:r-foot-scale-depth-incr": 0.404
+  }
+ },
+ {
+  "name": "male-feet-171-1",
+  "region": "feet",
+  "targets": {
+   "hf:l-foot-scale-depth-incr": 0.0,
+   "hf:l-foot-scale-depth-decr": 0.167,
+   "hf:r-foot-scale-depth-incr": 0.0,
+   "hf:r-foot-scale-depth-decr": 0.167
+  },
+  "offsets": {
+   "foot_breadth": 1.33
+  },
+  "fit": {
+   "max_tol": 0.492,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1972,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0874,
+     0.0888
+    ],
+    "palm_length": [
+     0.1187,
+     0.1174
+    ],
+    "wrist_circ": [
+     0.1754,
+     0.1769
+    ],
+    "foot": [
+     0.2704,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.1049,
+     0.1061
+    ],
+    "ankle_circ": [
+     0.2203,
+     0.2211
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-decr": 0.04168,
+   "hf:r-foot-scale-decr": 0.04168,
+   "hf:l-foot-scale-vert-incr": 0.28992,
+   "hf:r-foot-scale-vert-incr": 0.28992,
+   "hf:l-foot-scale-horiz-incr": 0.01903,
+   "hf:r-foot-scale-horiz-incr": 0.01903,
+   "hf:measure-ankle-circ-decr": 0.47349,
+   "hf:l-foot-scale-depth-decr": 0.167,
+   "hf:r-foot-scale-depth-decr": 0.167
+  }
+ },
+ {
+  "name": "male-feet-171-2",
+  "region": "feet",
+  "targets": {
+   "hf:l-foot-scale-depth-incr": 0.461,
+   "hf:l-foot-scale-depth-decr": 0.0,
+   "hf:r-foot-scale-depth-incr": 0.461,
+   "hf:r-foot-scale-depth-decr": 0.0
+  },
+  "offsets": {
+   "foot_breadth": -0.65,
+   "ankle": 1.03
+  },
+  "fit": {
+   "max_tol": 0.494,
+   "measurements": 3,
+   "sizes": {
+    "hand": [
+     0.1972,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0874,
+     0.0888
+    ],
+    "palm_length": [
+     0.1184,
+     0.1174
+    ],
+    "wrist_circ": [
+     0.1762,
+     0.1769
+    ],
+    "foot": [
+     0.2715,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.0959,
+     0.096
+    ],
+    "ankle_circ": [
+     0.235,
+     0.2356
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-decr": 0.83506,
+   "hf:r-foot-scale-decr": 0.83506,
+   "hf:l-foot-scale-vert-incr": 0.28992,
+   "hf:r-foot-scale-vert-incr": 0.28992,
+   "hf:l-foot-scale-horiz-incr": 0.13974,
+   "hf:r-foot-scale-horiz-incr": 0.13974,
+   "hf:measure-ankle-circ-decr": 0.05634,
+   "hf:l-foot-scale-depth-incr": 0.461,
+   "hf:r-foot-scale-depth-incr": 0.461
+  }
+ },
+ {
+  "name": "male-feet-171-5",
+  "region": "feet",
+  "targets": {
+   "hf:l-foot-scale-depth-incr": 0.0,
+   "hf:l-foot-scale-depth-decr": 0.193,
+   "hf:r-foot-scale-depth-incr": 0.0,
+   "hf:r-foot-scale-depth-decr": 0.193
+  },
+  "offsets": {
+   "ankle": -0.77
+  },
+  "fit": {
+   "max_tol": 0.729,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1968,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0874,
+     0.0888
+    ],
+    "palm_length": [
+     0.1184,
+     0.1174
+    ],
+    "wrist_circ": [
+     0.174,
+     0.1769
+    ],
+    "foot": [
+     0.2702,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.0997,
+     0.0993
+    ],
+    "ankle_circ": [
+     0.211,
+     0.2102
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-incr": 0.00285,
+   "hf:r-foot-scale-incr": 0.00285,
+   "hf:l-foot-scale-vert-incr": 0.28992,
+   "hf:r-foot-scale-vert-incr": 0.28992,
+   "hf:l-foot-scale-horiz-decr": 0.16501,
+   "hf:r-foot-scale-horiz-decr": 0.16501,
+   "hf:measure-ankle-circ-decr": 0.57194,
+   "hf:l-foot-scale-depth-decr": 0.193,
+   "hf:r-foot-scale-depth-decr": 0.193
+  }
+ },
+ {
+  "name": "male-feet-171-6",
+  "region": "feet",
+  "targets": {
+   "hf:l-foot-scale-depth-incr": 0.0,
+   "hf:l-foot-scale-depth-decr": 0.277,
+   "hf:r-foot-scale-depth-incr": 0.0,
+   "hf:r-foot-scale-depth-decr": 0.277
+  },
+  "fit": {
+   "max_tol": 0.648,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1975,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0875,
+     0.0888
+    ],
+    "palm_length": [
+     0.1186,
+     0.1174
+    ],
+    "wrist_circ": [
+     0.176,
+     0.1769
+    ],
+    "foot": [
+     0.2721,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.101,
+     0.0993
+    ],
+    "ankle_circ": [
+     0.2238,
+     0.2211
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-incr": 0.09673,
+   "hf:r-foot-scale-incr": 0.09673,
+   "hf:l-foot-scale-vert-incr": 0.28992,
+   "hf:r-foot-scale-vert-incr": 0.28992,
+   "hf:l-foot-scale-horiz-decr": 0.20577,
+   "hf:r-foot-scale-horiz-decr": 0.20577,
+   "hf:measure-ankle-circ-decr": 0.38624,
+   "hf:l-foot-scale-depth-decr": 0.277,
+   "hf:r-foot-scale-depth-decr": 0.277
+  }
+ },
+ {
+  "name": "male-feet-171-7",
+  "region": "feet",
+  "targets": {
+   "hf:l-foot-scale-depth-incr": 0.0,
+   "hf:l-foot-scale-depth-decr": 0.082,
+   "hf:r-foot-scale-depth-incr": 0.0,
+   "hf:r-foot-scale-depth-decr": 0.082
+  },
+  "offsets": {
+   "ankle": 0.7
+  },
+  "fit": {
+   "max_tol": 0.46,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1982,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0875,
+     0.0888
+    ],
+    "palm_length": [
+     0.1188,
+     0.1174
+    ],
+    "wrist_circ": [
+     0.1783,
+     0.1769
+    ],
+    "foot": [
+     0.2711,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.0995,
+     0.0993
+    ],
+    "ankle_circ": [
+     0.2308,
+     0.2309
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-decr": 0.18388,
+   "hf:r-foot-scale-decr": 0.18388,
+   "hf:l-foot-scale-vert-incr": 0.28992,
+   "hf:r-foot-scale-vert-incr": 0.28992,
+   "hf:l-foot-scale-horiz-decr": 0.06891,
+   "hf:r-foot-scale-horiz-decr": 0.06891,
+   "hf:measure-ankle-circ-decr": 0.19595,
+   "hf:l-foot-scale-depth-decr": 0.082,
+   "hf:r-foot-scale-depth-decr": 0.082
+  }
+ },
+ {
+  "name": "male-feet-171-8",
+  "region": "feet",
+  "targets": {},
+  "offsets": {
+   "ankle": -1.27
+  },
+  "fit": {
+   "max_tol": 0.55,
+   "measurements": 3,
+   "sizes": {
+    "hand": [
+     0.1969,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0872,
+     0.0888
+    ],
+    "palm_length": [
+     0.1183,
+     0.1174
+    ],
+    "wrist_circ": [
+     0.1758,
+     0.1769
+    ],
+    "foot": [
+     0.2713,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.0993,
+     0.0993
+    ],
+    "ankle_circ": [
+     0.2033,
+     0.2031
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-decr": 0.23877,
+   "hf:r-foot-scale-decr": 0.23877,
+   "hf:l-foot-scale-vert-incr": 0.28992,
+   "hf:r-foot-scale-vert-incr": 0.28992,
+   "hf:l-foot-scale-horiz-decr": 0.04867,
+   "hf:r-foot-scale-horiz-decr": 0.04867,
+   "hf:measure-ankle-circ-decr": 0.68927
+  }
+ },
+ {
+  "name": "male-feet-171-9",
+  "region": "feet",
+  "targets": {
+   "hf:l-foot-scale-depth-incr": 0.042,
+   "hf:l-foot-scale-depth-decr": 0.0,
+   "hf:r-foot-scale-depth-incr": 0.042,
+   "hf:r-foot-scale-depth-decr": 0.0
+  },
+  "offsets": {
+   "foot_breadth": 1.4,
+   "ankle": -0.15
+  },
+  "fit": {
+   "max_tol": 0.487,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1971,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0874,
+     0.0888
+    ],
+    "palm_length": [
+     0.1186,
+     0.1174
+    ],
+    "wrist_circ": [
+     0.1751,
+     0.1769
+    ],
+    "foot": [
+     0.2716,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.1062,
+     0.1065
+    ],
+    "ankle_circ": [
+     0.2185,
+     0.2189
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-decr": 0.30329,
+   "hf:r-foot-scale-decr": 0.30329,
+   "hf:l-foot-scale-vert-incr": 0.28992,
+   "hf:r-foot-scale-vert-incr": 0.28992,
+   "hf:l-foot-scale-horiz-incr": 0.15131,
+   "hf:r-foot-scale-horiz-incr": 0.15131,
+   "hf:measure-ankle-circ-decr": 0.50663,
+   "hf:l-foot-scale-depth-incr": 0.042,
+   "hf:r-foot-scale-depth-incr": 0.042
+  }
+ }
+]

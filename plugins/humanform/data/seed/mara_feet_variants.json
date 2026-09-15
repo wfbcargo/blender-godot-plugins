@@ -1,0 +1,487 @@
+[
+ {
+  "name": "female-feet-base",
+  "region": "feet",
+  "targets": {},
+  "fit": {
+   "max_tol": 0.642,
+   "measurements": 1,
+   "sizes": {
+    "hand": [
+     0.1915,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0831,
+     0.0812
+    ],
+    "palm_length": [
+     0.1136,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1593,
+     0.1594
+    ],
+    "foot": [
+     0.2585,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0952,
+     0.0949
+    ],
+    "ankle_circ": [
+     0.2163,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-incr": 0.237,
+   "hf:r-foot-scale-incr": 0.237,
+   "hf:l-foot-scale-vert-decr": 0.47973,
+   "hf:r-foot-scale-vert-decr": 0.47973,
+   "hf:l-foot-scale-horiz-decr": 0.322,
+   "hf:r-foot-scale-horiz-decr": 0.322,
+   "hf:measure-ankle-circ-incr": 0.144
+  }
+ },
+ {
+  "name": "female-feet-71-1",
+  "region": "feet",
+  "targets": {
+   "hf:l-foot-scale-depth-incr": 0.0,
+   "hf:l-foot-scale-depth-decr": 0.709,
+   "hf:r-foot-scale-depth-incr": 0.0,
+   "hf:r-foot-scale-depth-decr": 0.709
+  },
+  "offsets": {
+   "foot_breadth": -1.01,
+   "ankle": -1.2
+  },
+  "fit": {
+   "max_tol": 1.148,
+   "measurements": 19,
+   "sizes": {
+    "hand": [
+     0.1908,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.083,
+     0.0812
+    ],
+    "palm_length": [
+     0.1137,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1594,
+     0.1594
+    ],
+    "foot": [
+     0.2588,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0929,
+     0.09
+    ],
+    "ankle_circ": [
+     0.2028,
+     0.2002
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-incr": 0.94099,
+   "hf:r-foot-scale-incr": 0.94099,
+   "hf:l-foot-scale-vert-decr": 0.47973,
+   "hf:r-foot-scale-vert-decr": 0.47973,
+   "hf:l-foot-scale-horiz-decr": 1.0,
+   "hf:r-foot-scale-horiz-decr": 1.0,
+   "hf:measure-ankle-circ-decr": 0.06857,
+   "hf:l-foot-scale-depth-decr": 0.709,
+   "hf:r-foot-scale-depth-decr": 0.709
+  }
+ },
+ {
+  "name": "female-feet-71-2",
+  "region": "feet",
+  "targets": {},
+  "offsets": {
+   "foot_breadth": -0.63
+  },
+  "fit": {
+   "max_tol": 0.649,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.191,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0831,
+     0.0812
+    ],
+    "palm_length": [
+     0.1135,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1594,
+     0.1594
+    ],
+    "foot": [
+     0.2589,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0917,
+     0.0919
+    ],
+    "ankle_circ": [
+     0.218,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-incr": 0.23799,
+   "hf:r-foot-scale-incr": 0.23799,
+   "hf:l-foot-scale-vert-decr": 0.47973,
+   "hf:r-foot-scale-vert-decr": 0.47973,
+   "hf:l-foot-scale-horiz-decr": 0.4435,
+   "hf:r-foot-scale-horiz-decr": 0.4435,
+   "hf:measure-ankle-circ-incr": 0.23266
+  }
+ },
+ {
+  "name": "female-feet-71-3",
+  "region": "feet",
+  "targets": {},
+  "offsets": {
+   "foot_breadth": 0.15
+  },
+  "fit": {
+   "max_tol": 0.642,
+   "measurements": 1,
+   "sizes": {
+    "hand": [
+     0.1915,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0831,
+     0.0812
+    ],
+    "palm_length": [
+     0.1136,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1593,
+     0.1594
+    ],
+    "foot": [
+     0.2585,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0952,
+     0.0957
+    ],
+    "ankle_circ": [
+     0.2163,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-incr": 0.237,
+   "hf:r-foot-scale-incr": 0.237,
+   "hf:l-foot-scale-vert-decr": 0.47973,
+   "hf:r-foot-scale-vert-decr": 0.47973,
+   "hf:l-foot-scale-horiz-decr": 0.322,
+   "hf:r-foot-scale-horiz-decr": 0.322,
+   "hf:measure-ankle-circ-incr": 0.144
+  }
+ },
+ {
+  "name": "female-feet-71-4",
+  "region": "feet",
+  "targets": {
+   "hf:l-foot-scale-depth-incr": 0.0,
+   "hf:l-foot-scale-depth-decr": 0.531,
+   "hf:r-foot-scale-depth-incr": 0.0,
+   "hf:r-foot-scale-depth-decr": 0.531
+  },
+  "offsets": {
+   "foot_breadth": -1.01
+  },
+  "fit": {
+   "max_tol": 0.647,
+   "measurements": 3,
+   "sizes": {
+    "hand": [
+     0.1904,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0831,
+     0.0812
+    ],
+    "palm_length": [
+     0.1137,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1595,
+     0.1594
+    ],
+    "foot": [
+     0.2588,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0902,
+     0.09
+    ],
+    "ankle_circ": [
+     0.2183,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-incr": 0.7495,
+   "hf:r-foot-scale-incr": 0.7495,
+   "hf:l-foot-scale-vert-decr": 0.47973,
+   "hf:r-foot-scale-vert-decr": 0.47973,
+   "hf:l-foot-scale-horiz-decr": 0.93216,
+   "hf:r-foot-scale-horiz-decr": 0.93216,
+   "hf:measure-ankle-circ-incr": 0.26715,
+   "hf:l-foot-scale-depth-decr": 0.531,
+   "hf:r-foot-scale-depth-decr": 0.531
+  }
+ },
+ {
+  "name": "female-feet-71-5",
+  "region": "feet",
+  "targets": {
+   "hf:l-foot-scale-depth-incr": 0.724,
+   "hf:l-foot-scale-depth-decr": 0.0,
+   "hf:r-foot-scale-depth-incr": 0.724,
+   "hf:r-foot-scale-depth-decr": 0.0
+  },
+  "offsets": {
+   "foot_breadth": -0.59
+  },
+  "fit": {
+   "max_tol": 0.605,
+   "measurements": 3,
+   "sizes": {
+    "hand": [
+     0.1915,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.083,
+     0.0812
+    ],
+    "palm_length": [
+     0.1136,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1593,
+     0.1594
+    ],
+    "foot": [
+     0.2608,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0924,
+     0.0921
+    ],
+    "ankle_circ": [
+     0.2191,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-decr": 0.42434,
+   "hf:r-foot-scale-decr": 0.42434,
+   "hf:l-foot-scale-vert-decr": 0.47973,
+   "hf:r-foot-scale-vert-decr": 0.47973,
+   "hf:l-foot-scale-horiz-incr": 0.01457,
+   "hf:r-foot-scale-horiz-incr": 0.01457,
+   "hf:measure-ankle-circ-incr": 0.22884,
+   "hf:l-foot-scale-depth-incr": 0.724,
+   "hf:r-foot-scale-depth-incr": 0.724
+  }
+ },
+ {
+  "name": "female-feet-71-6",
+  "region": "feet",
+  "targets": {},
+  "offsets": {
+   "foot_breadth": -0.18
+  },
+  "fit": {
+   "max_tol": 0.642,
+   "measurements": 1,
+   "sizes": {
+    "hand": [
+     0.1915,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0831,
+     0.0812
+    ],
+    "palm_length": [
+     0.1136,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1593,
+     0.1594
+    ],
+    "foot": [
+     0.2585,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0952,
+     0.0941
+    ],
+    "ankle_circ": [
+     0.2163,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-incr": 0.237,
+   "hf:r-foot-scale-incr": 0.237,
+   "hf:l-foot-scale-vert-decr": 0.47973,
+   "hf:r-foot-scale-vert-decr": 0.47973,
+   "hf:l-foot-scale-horiz-decr": 0.322,
+   "hf:r-foot-scale-horiz-decr": 0.322,
+   "hf:measure-ankle-circ-incr": 0.144
+  }
+ },
+ {
+  "name": "female-feet-71-7",
+  "region": "feet",
+  "targets": {
+   "hf:l-foot-scale-depth-incr": 0.14,
+   "hf:l-foot-scale-depth-decr": 0.0,
+   "hf:r-foot-scale-depth-incr": 0.14,
+   "hf:r-foot-scale-depth-decr": 0.0
+  },
+  "offsets": {
+   "foot_breadth": 0.92
+  },
+  "fit": {
+   "max_tol": 0.696,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1923,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0832,
+     0.0812
+    ],
+    "palm_length": [
+     0.1138,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1595,
+     0.1594
+    ],
+    "foot": [
+     0.2589,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0995,
+     0.0994
+    ],
+    "ankle_circ": [
+     0.2175,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-incr": 0.13918,
+   "hf:r-foot-scale-incr": 0.13918,
+   "hf:l-foot-scale-vert-decr": 0.47973,
+   "hf:r-foot-scale-vert-decr": 0.47973,
+   "hf:l-foot-scale-horiz-decr": 0.09523,
+   "hf:r-foot-scale-horiz-decr": 0.09523,
+   "hf:measure-ankle-circ-incr": 0.10082,
+   "hf:l-foot-scale-depth-incr": 0.14,
+   "hf:r-foot-scale-depth-incr": 0.14
+  }
+ },
+ {
+  "name": "female-feet-71-8",
+  "region": "feet",
+  "targets": {},
+  "offsets": {
+   "ankle": 1.17
+  },
+  "fit": {
+   "max_tol": 0.654,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1915,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0831,
+     0.0812
+    ],
+    "palm_length": [
+     0.1138,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1594,
+     0.1594
+    ],
+    "foot": [
+     0.2589,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0945,
+     0.0949
+    ],
+    "ankle_circ": [
+     0.235,
+     0.2359
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-foot-scale-incr": 0.22209,
+   "hf:r-foot-scale-incr": 0.22209,
+   "hf:l-foot-scale-vert-decr": 0.47973,
+   "hf:r-foot-scale-vert-decr": 0.47973,
+   "hf:l-foot-scale-horiz-decr": 0.3355,
+   "hf:r-foot-scale-horiz-decr": 0.3355,
+   "hf:measure-ankle-circ-incr": 0.49597
+  }
+ }
+]
