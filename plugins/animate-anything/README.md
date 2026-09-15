@@ -127,6 +127,12 @@ rat, whose straight forelimbs and chest-weighted forearm skin leave no reach,
 is reported limited rather than faked. Research and numbers:
 [`references/contact-locomotion.md`](references/contact-locomotion.md).
 
+A character's own way of moving goes in as arguments to `cycle` and `idle`:
+`max_drop` caps the hip drop, `stance_width` puts the feet under the hips (or
+wider), and `posture` holds a stoop - pelvis tilt, trunk flex, neck - in degrees
+toward the body's front, solved inside every key so the legs stand under the
+posed body. `move_set(options=...)` passes them per role.
+
 ## Quiet failures found on the way
 
 - **A speed formula that assumed half the time on the ground.** The exporter

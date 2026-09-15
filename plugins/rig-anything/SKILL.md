@@ -130,6 +130,13 @@ r = lm.cycle(rig_name, froude="sprint")      # or "walk", "trot", or a number
 print(lm.summarize(r))
 ```
 
+A character's way of walking goes in as arguments, not as keys layered over the
+clip afterwards: `max_drop` (hip drop cap, share of hip height), `stance_width`
+(ankle offset from the midline over the hip's; 1.0 feet under the hips) and
+`posture` (`{"pelvis", "flex", "neck"}` degrees, positive toward `fwd`). The
+same stance and posture reach `actions.idle`, and
+`actions.move_set(options={role: {...}})` passes them per role.
+
 See `animate-anything`'s `references/contact-locomotion.md`.
 
 It refuses a creature with no legs rather than inventing a walk for a worm.

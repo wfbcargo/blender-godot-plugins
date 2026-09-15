@@ -333,7 +333,7 @@ class Reach:
 # --------------------------------------------------------------------------
 
 def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
-         max_drop=None, centre_weight=None):
+         max_drop=None, centre_weight=None, stance_width=None, posture=None):
     """Everything a cycle needs, derived from the contacts and one speed.
 
     Give `froude` (or a name from `GAITS`) or `speed` in m/s. Returns a dict:
@@ -341,7 +341,18 @@ def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
     speed and stride frequency, the drop the hips needed, per-leg stroke
     centres on the plane, the plane itself, and `limited_by` - what, if
     anything, the body could not do that was asked of it.
+
+    max_drop       largest hip drop, as a share of the lowest hip height; None
+                   grows it with speed, 0.10 + 0.08 sqrt(Fr) (to 0.22)
+    centre_weight  0 centres each stroke on the rest foot, 1 under the hip;
+                   None moves from one to the other with speed
+    stance_width   each stroke line's distance from the midline as a multiple
+                   of its hip's (`keyposes.stance_shift`): 1.0 walks with the
+                   feet under the hips; None keeps the rest stance
+    posture        a held `keyposes.posture_angles` dict; the hips are placed
+                   where it carries them before reach is measured
     """
+    from . import keyposes as kp
     bm, rig = poser.bm, poser.rig
     if isinstance(froude, str):
         # The name picks the speed; the footfalls come from the body. A hexapod
@@ -355,7 +366,15 @@ def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
     fwd = (poser.fwd - normal * poser.fwd.dot(normal)).normalized()
     lat = normal.cross(fwd).normalized()
 
-    hips = {l["name"]: (l["rest_root"] - origin).dot(normal) for l in legs}
+    # Where the hips are before any drop: at rest, or where a posture's pelvis
+    # tilt carries them.
+    root = {l["name"]: l["rest_root"].copy() for l in legs}
+    if posture:
+        body = poser.body
+        posed = body.fk(body.bend_axial(Vector((0.0, 0.0, 0.0)),
+                                        kp.posture_angles(bm, posture)))
+        root = {l["name"]: posed[l["upper"]].translation.copy() for l in legs}
+    hips = {l["name"]: (root[l["name"]] - origin).dot(normal) for l in legs}
     h_arm = sum(hips.values()) / len(hips)
     h = h_arm * scale
     if speed is not None:
@@ -374,12 +393,17 @@ def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
     # the centre of the reach disc and so the longest stroke available.
     w = (motion.smoothstep((froude - 0.15) / 0.85) if centre_weight is None
          else centre_weight)
-    centres = {}
+    # Sideways, a stance width moves the whole line - the foot, not its roll
+    # over the toe, so the reach below is measured from where it now stands.
+    centres, shifts = {}, {}
     for l in legs:
         piv = contact_pivot(rig, l)
         x_rest = (piv - origin).dot(fwd)
-        x_hip = (l["rest_root"] - origin).dot(fwd)
-        centres[l["name"]] = piv + fwd * ((x_hip - x_rest) * w)
+        x_hip = (root[l["name"]] - origin).dot(fwd)
+        side = kp.stance_shift(poser, l, stance_width)
+        side = lat * side.dot(lat)
+        shifts[l["name"]] = side
+        centres[l["name"]] = piv + fwd * ((x_hip - x_rest) * w) + side
 
     reach = {l["name"]: Reach(poser, l, extension=extension) for l in legs}
     bounce = body_bounce(froude, duty) * h_arm            # peak to peak
@@ -388,7 +412,7 @@ def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
         # the hip at its highest in the bounce is the hardest to reach from
         out = {}
         for l in legs:
-            hip = l["rest_root"] - normal * (drop - 0.5 * bounce)
+            hip = root[l["name"]] - normal * (drop - 0.5 * bounce)
             r = reach[l["name"]]
             c = centres[l["name"]]
             out[l["name"]] = min(r.half_stroke(hip, c, fwd), r.half_stroke(hip, c, -fwd))
@@ -399,6 +423,7 @@ def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
     # A walk stays tall and a sprint compresses: allowed hip drop grows with
     # speed. Past it the gait gives up ground time, then stride - never height,
     # or a fast walk on stiff legs turns into a crouch walk.
+    drop_given = max_drop is not None
     if max_drop is None:
         max_drop = 0.10 + 0.08 * min(math.sqrt(froude), 1.5)
     min_duty = 0.55 if duty >= 0.5 else MIN_DUTY
@@ -412,7 +437,7 @@ def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
             break
     fit = min(avail.values()) * 2.0
     if fit < stroke:
-        limited.append("hips dropped to the limit (%.0f%% of hip height)" % (100 * max_drop))
+        limited.append("hips dropped to the limit (%.1f%% of hip height)" % (100 * max_drop))
         drop = drop_max
         new_duty = max(min_duty, fit / stride)
         if new_duty < duty:
@@ -432,7 +457,10 @@ def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
         "stride": stride, "stroke": stroke,
         "stride_m": stride * scale, "stroke_m": stroke * scale,
         "hip_height_m": h, "drop": drop, "drop_m": drop * scale,
-        "bounce": bounce, "centres": centres, "reach": reach,
+        "max_drop": max_drop, "max_drop_given": drop_given, "drop_max": drop_max,
+        "hip_min": min(hips.values()),
+        "bounce": bounce, "centres": centres, "reach": reach, "roots": root,
+        "stance_shift": shifts,
         "legs": legs, "contacts": contacts,
         "origin": origin, "normal": normal, "fwd": fwd, "lat": lat,
         "scale": scale, "limited_by": limited,
@@ -500,11 +528,24 @@ def foot_state(phase, duty, stroke, lift, over, hold=SWING_HOLD):
 def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
           forward="-Y", up="Z", floor=0.0, action_name="Locomotion", fps=None,
           extension=0.97, tail_lift=None, tail_swing=None, attempts=6, paw_fold=1.0,
-          swing_hold=SWING_HOLD):
+          swing_hold=SWING_HOLD, max_drop=None, centre_weight=None, stance_width=None,
+          posture=None):
     """Author a looping gait from `plan`, verified on Blender's playback.
 
-    froude   a number, or a name from `GAITS` ("walk", "trot", "sprint"...)
-    speed    m/s instead of a Froude number
+    froude         a number, or a name from `GAITS` ("walk", "trot", "sprint"...)
+    speed          m/s instead of a Froude number
+    max_drop       largest hip drop as a share of hip height. Given, it is a
+                   hard cap: the hips never go lower, a stroke that still does
+                   not fit is shortened, and a leg that still cannot reach is
+                   reported as a failure naming max_drop. None lets the plan
+                   choose (10-22% by speed) and the retries go past it.
+    centre_weight  0 steps about the rest foot, 1 under the hip; None by speed
+    stance_width   ankle distance from the midline as a multiple of the hip's:
+                   1.0 feet under the hips, None the rest stance
+    posture        held {"pelvis", "flex", "neck"} degrees, positive toward
+                   `fwd` (`keyposes.posture_angles`). Posed inside every key,
+                   so the legs are solved under the posed body and every check
+                   sees it.
 
     The clip is in place. Its implied speed (stance feet sweeping back at the
     body's speed) is what the engine time-scales against; `natural_speed_mps`
@@ -521,7 +562,9 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
     if len(P.legs) < 2:
         return {"error": "%s has %d legs - nothing to walk on" % (rig_name, len(P.legs))}
 
-    pl = plan(P, froude=froude, speed=speed, gait_name=gait_name, extension=extension)
+    pl = plan(P, froude=froude, speed=speed, gait_name=gait_name, extension=extension,
+              max_drop=max_drop, centre_weight=centre_weight, stance_width=stance_width,
+              posture=posture)
     legs = pl["legs"]
     offsets = gait.phase_offsets(
         [{"name": l["name"], "side": l["side"], "forward": l["forward_pos"]} for l in legs],
@@ -601,16 +644,23 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         bounce = pl["bounce"] * state["bounce"] * height_signal(p0) * (1.0 if running else -1.0)
         flex = state["flex"] * math.cos(2.0 * math.pi * (p0 - ext_phase)) * -1.0
         side = 1.0 if (first_leg["rest_root"] - P.centre).dot(P.lat) > 0 else -1.0
+        # Hooks for what comes next go here, all held or cycled per key: trunk
+        # twist and lateral bend belong beside `posture` (as more named pitches
+        # and yaws in `keyposes`), arm swing in `limbs` for the arms.
         return kp.Key(drop=state["drop"] + bounce, limbs=limbs, flex=flex,
                       sway=sway_amp * math.sin(2.0 * math.pi * p0) * side,
                       tail_lift=tail_lift + 0.8 * flex,
-                      tail_sway=-tail_swing * math.sin(2.0 * math.pi * p0))
+                      tail_sway=-tail_swing * math.sin(2.0 * math.pi * p0),
+                      posture=posture)
 
     skin_rest = body.skin_lowest(body.fk(), P._upw)
     skin_allowed = (min(0.0, skin_rest - floor) - 0.012 * bm["height"]
                     if skin_rest is not None else None)
     adjustments = []
     drop_ceiling = None
+    # A max_drop the caller gave is a promise about the look of the gait (an
+    # upright walk, not a crouch), so the retries may not break it.
+    drop_limit = pl["drop_max"] if pl["max_drop_given"] else 0.3 * P.leg_len
     for attempt in range(max(1, attempts) * 3):
         samples = [P.pose(key_at((f - 1) / float(frames))) for f in range(1, frames + 2)]
         clamped = sorted({n for _, infos in samples for n, i in infos.items() if i["clamped"]})
@@ -618,8 +668,8 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
             if state["flex"] > 1.0:
                 state["flex"] = state["flex"] * 0.5 if state["flex"] > 3.0 else 0.0
                 adjustments.append("spine flex eased (%s out of reach)" % ", ".join(clamped))
-            elif drop_ceiling is None and state["drop"] < 0.3 * P.leg_len:
-                state["drop"] += 0.03 * P.leg_len
+            elif drop_ceiling is None and state["drop"] < drop_limit - 1e-9:
+                state["drop"] = min(state["drop"] + 0.03 * P.leg_len, drop_limit)
                 adjustments.append("hips lowered (%s out of reach)" % ", ".join(clamped))
             elif state["stroke"] > 0.4 * pl["stroke"]:
                 state["stroke"] *= 0.9
@@ -659,6 +709,12 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         from .actions import _check_common, _pose_gap
         r = _check_common(body, bm, keyed, ev, infos_by_frame, planted=[],
                           posed_limbs=P.legs, rest_floor=floor, starts_at_rest=False)
+        if clamped and pl["max_drop_given"] and state["drop"] >= drop_limit - 1e-9:
+            r["failures"].append(
+                "%s out of reach with the hips at max_drop %.3f (%.0f%% of hip height, "
+                "%.3f m) - raise max_drop or ask for a slower gait"
+                % (", ".join(clamped), pl["max_drop"], 100 * pl["max_drop"],
+                   pl["drop_max"] * pl["scale"]))
         evaluated = ev["evaluated"]
         seam, seam_bone = _pose_gap(rig, evaluated[1], evaluated[frames + 1])
         if seam > 1e-4:
@@ -715,6 +771,12 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         "stroke_over_leg": round(S / P.leg_len, 3),
         "lift_m": round(state["lift"] * pl["scale"], 4),
         "drop_m": round(state["drop"] * pl["scale"], 4),
+        "max_drop": round(pl["max_drop"], 4),
+        "drop_share": round(state["drop"] / pl["hip_min"], 4),
+        "stance_width": stance_width,
+        "stance_shift_m": {k: round(v.dot(pl["lat"]) * pl["scale"], 4)
+                           for k, v in pl["stance_shift"].items()},
+        "posture": dict(posture) if posture else None,
         "spine_flex_deg": round(state["flex"], 2),
         "natural_speed_mps": round(natural, 4),
         "stride_frequency_hz": round(natural / (pl["stride_m"] * ratio), 3),
@@ -854,6 +916,10 @@ def summarize(r):
     lines.append("  stride %.3f m  stroke %.3f m (%.2f leg)  lift %.3f  drop %.3f  flex %.1f deg"
                  % (r["stride_m"], r["stroke_m"], r["stroke_over_leg"], r["lift_m"],
                     r["drop_m"], r["spine_flex_deg"]))
+    if r.get("stance_width") is not None or r.get("posture"):
+        lines.append("  stance width %s (shift %s)  posture %s  drop %.1f%% of hip (cap %.1f%%)"
+                     % (r["stance_width"], r["stance_shift_m"], r["posture"],
+                        100 * r["drop_share"], 100 * r["max_drop"]))
     lines.append("  clip implied %.4f m/s   peak reach %s" % (
         r["implied_speed_playback_mps"], r["peak_reach"]))
     lines.append("  slip %s  seam %s  skin %s  tightest %s" % (

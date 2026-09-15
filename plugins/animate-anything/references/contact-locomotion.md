@@ -44,7 +44,8 @@ is written against contacts.
    wherever the ankle, placed from the pivot, is within the leg's extended
    length of the hip. When the stroke will not fit, in order:
    a. roll the foot over its pivot (heel lift) - the distal segment adds reach;
-   b. lower the hips, by at most 14% of hip height at a walk, 22% at a sprint;
+   b. lower the hips, by at most 14% of hip height at a walk, 22% at a sprint
+      - or by `max_drop`, which the playback retries then never exceed;
    c. cut ground time (to 0.55 for a walk, 0.2 for a run);
    d. shorten the stride, and the speed with it - reported, never hidden.
 6. **Centre the stroke** on the rest foot at a walk and under the hip at speed
@@ -60,6 +61,51 @@ is written against contacts.
    seam, reach clamps, joint fold, bones and skin through the floor. Skin
    failures give back hip drop only once the stroke has already been shortened
    by half - drop is what gives straight legs their working range.
+
+## Shaping a gait: hip drop, stance width, posture
+
+The rule picks everything from one speed, which makes every body of a kind walk
+the same way. A character is more than its proportions - an old man stoops and
+shuffles, a heavy one walks with the feet apart - so `cycle` (and `plan`) take
+four more arguments, and `actions.idle` takes the stance and posture so the
+character stands the way it walks:
+
+| Argument | Unit | Meaning |
+|---|---|---|
+| `max_drop` | share of the lowest hip height | Hard cap on the hip drop. The plan fills it before cutting ground time, and the playback retries (which otherwise lower the hips up to 0.3 leg lengths) stop there and shorten the stroke. A leg still out of reach fails with `... out of reach with the hips at max_drop`. None: 0.10 + 0.08 sqrt(Fr). |
+| `centre_weight` | 0..1 | Stroke centre fore/aft: 0 the rest foot, 1 under the hip. None: by speed. |
+| `stance_width` | multiple of the hip's lateral offset | Each ankle's distance from the midline (the mean of the leg roots) over its hip joint's: 1.0 feet under the hips, None the rest stance. Moves each stroke line sideways; reach, the skate check and the Idle's planted feet follow the moved line. |
+| `posture` | degrees, `{"pelvis", "flex", "neck"}` | Held pitches about the body map's lateral axis, positive toward `fwd` (down, on a horizontal body): `pelvis` anterior tilt with everything above riding it; `flex` the trunk above the pelvis, shared in a ramp so the top bones take most (a thoracic curve, not a hinge at the waist); `neck` the neck and head together relative to the top of the trunk. A torso of one bone takes all the flex; a body with no neck bends the head. |
+
+`move_set(options={role: {keyword: value}})` passes these per role.
+
+**Why posture is solved inside the key.** Walter's hunch was first keyed on top
+of the finished clip as rotations about armature +X. Its sign had to be found
+by trial (the first version leaned him back), and because it came after the IK
+nothing else saw it - the legs were placed under an upright body, and the
+plan measured reach from hips the pelvis tilt had moved. Posed through
+`keyposes.posture_angles` into `bend_axial`, the same pitch rule `lean` uses,
+the legs are solved under the posed body, the plan reads the tilted hips, and
+floor, reach and skate checks all measure the stooped figure. The stance the
+humans used was the same story: a thigh turn keyed after the clip brought the
+feet in but lowered them, and Walter's and Margaret's exported walks put a foot
+1-2 cm through the floor.
+
+Measured on the humanform crowd (MPFB bodies, resting with ankles ~1.6x the
+hip offset), rebuilt with the stance and posture as arguments:
+
+| | Before (keyed over the clip) | Arguments |
+|---|---|---|
+| Tomas ankle half-separation, walk / run | 0.123 / 0.131 m | 0.117 / 0.117 m (hip 0.116) |
+| Ines ankle half-separation, walk / run | 0.107 / 0.115 m | 0.100 / 0.100 m (hip 0.101) |
+| Walter walk, lowest foot in the exporter's check | -0.020 m | +0.010 m |
+| Margaret walk, lowest foot | -0.010 m | +0.010 m |
+| Walk stride, 11 people at Fr 0.2-0.25 | - | 2-5% longer: feet under the hips leave more reach |
+| Base hip drop vs max_drop, every gait | - | at or under the cap (Tomas run 7.0% of 7%) |
+
+Walter still reads hunched forward with the trunk 20 degrees ahead of its rest
+line and the gaze level, and the per-bone split (0.17 / 0.33 / 0.5 of the flex
+over spine.001-.003) matches the hand-tuned 0.2 / 0.35 / 0.45 it replaced.
 
 ## Measuring a clip: `locomotion.detect`
 

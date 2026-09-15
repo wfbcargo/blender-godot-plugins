@@ -260,7 +260,11 @@ Blender sessions are long-lived and cache imports, so always
   contacts back out of any clip, `engine_manifest` hands gaits and footfall
   schedules to an engine, and the exporter now measures speed on the planted
   feet - the old 2 x foot travel formula assumed 50% ground time and read the
-  gallop 21% slow.
+  gallop 21% slow. A character's way of walking is argued, not layered on
+  afterwards: `max_drop` (a hard hip-drop cap), `stance_width` (ankle offset
+  over the hip's) and `posture` (pelvis, trunk flex and neck in degrees toward
+  `fwd`) are solved inside every key of `cycle` and `idle`, and
+  `move_set(options=...)` passes them per role.
 - **8** wings — done (`wings.py`, `flight.py`, 0.9.0). See animate-anything's
   `references/wings.md`.
 - **9** maws — done (`maw.py`, 0.10.0). See animate-anything's
