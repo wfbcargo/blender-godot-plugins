@@ -678,10 +678,14 @@ def skid(rig_name, frames=10, forward="-Y", up="Z", floor=0.0, action_name="Slid
 
 
 def idle(rig_name, frames=48, forward="-Y", up="Z", floor=0.0, action_name="Idle",
-         breath=0.006, sway_degrees=1.5, fps=None):
+         breath=0.006, sway_degrees=1.5, fps=None, stance_width=None, posture=None):
     """A breathing loop: the body settles and rises on planted feet, the torso
     and head drift a degree or two. Small on purpose - an idle that visibly
-    moves reads as fidgeting."""
+    moves reads as fidgeting.
+
+    `stance_width` and `posture` are the same as `locomotion.cycle`'s, so an
+    idle stands the way its character walks. With either, frame one is that
+    stance rather than the rest pose."""
     from . import keyposes as kp
     ctx, err = _setup(rig_name, forward, up, floor)
     if err:
@@ -692,17 +696,23 @@ def idle(rig_name, frames=48, forward="-Y", up="Z", floor=0.0, action_name="Idle
     # Pitching a horizontal body lifts its front hips, and legs that stand
     # nearly straight cannot follow: the rat's front legs clamped at 100%.
     lean_amp = sway_degrees if bm["upright"] else 0.0
+    limbs = {}
+    if stance_width is not None:
+        for l in P.legs:
+            limbs[l["name"]] = {"target": (lambda p, limb, posed, s=kp.stance_shift(P, l, stance_width):
+                                           limb["rest_eff"] + s)}
     samples = []
     for f in range(1, frames + 2):
         t = (f - 1) / float(frames)
         samples.append(P.pose(kp.Key(
             drop=breath * L * 0.5 * (1.0 - math.cos(2.0 * math.pi * t)),
             lean=lean_amp * math.sin(2.0 * math.pi * t), head_level=0.5,
-            tail_sway=4.0 * math.sin(2.0 * math.pi * t))))
+            tail_sway=4.0 * math.sin(2.0 * math.pi * t), limbs=limbs, posture=posture)))
 
     def check(keyed, ev, infos_by_frame):
         r = _check_common(body, bm, keyed, ev, infos_by_frame, planted=P.legs,
-                          posed_limbs=P.legs, rest_floor=floor)
+                          posed_limbs=P.legs, rest_floor=floor,
+                          starts_at_rest=stance_width is None and not posture)
         seam, bone = _pose_gap(rig, ev["evaluated"][1], ev["evaluated"][frames + 1])
         r["loop_seam"] = round(seam, 6)
         if seam > 1e-4:
@@ -714,7 +724,8 @@ def idle(rig_name, frames=48, forward="-Y", up="Z", floor=0.0, action_name="Idle
     if "error" in report:
         return report
     report.update({"rig": rig_name, "action": action.name, "frames": [1, frames + 1],
-                   "fps": bpy.context.scene.render.fps})
+                   "fps": bpy.context.scene.render.fps, "stance_width": stance_width,
+                   "posture": dict(posture) if posture else None})
     return report
 
 
@@ -1034,8 +1045,19 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
              roles=("Idle", "Walk", "Trot", "Run", "Crouch", "CrouchWalk", "Jump",
                     "Slide", "SlideRecover", "SlideToCrouch"),
              walk_froude="walk", trot_froude="trot", run_froude="sprint",
-             legacy_gaits=False):
+             legacy_gaits=False, options=None):
     """Author a playable move set for one creature. Returns {role: report}.
+
+    `options` is {role: {keyword: value}}, handed to that role's maker over its
+    defaults - so each gait can have its own speed, hip drop and stance, and the
+    idle the same stance and posture:
+
+        options={"Idle": {"stance_width": 1.0, "posture": hunch},
+                 "Walk": {"froude": 0.06, "max_drop": 0.06, "stance_width": 1.0,
+                          "posture": hunch}}
+
+    Walk, Trot and Run take `locomotion.cycle`'s keywords (froude there
+    overrides walk_froude and friends), Idle takes `idle`'s.
 
     Clips are named `<prefix>_<Role>` (prefix defaults to the rig name) so one
     .blend can hold several creatures' sets without any clip taking another's
@@ -1061,41 +1083,44 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
     prefix = prefix or rig_name
     name = lambda role: "%s_%s" % (prefix, role)
     common = dict(forward=forward, up=up, floor=floor, fps=fps)
+    # role -> (maker, its default keywords); `options` are laid over the defaults
     makers = {
-        "Idle": lambda: idle(rig_name, action_name=name("Idle"), **common),
-        "Walk": lambda: gait_cycle(rig_name, depth=0.0, stride=0.45, lift=0.10,
-                                   frames=32, bob=0.01, sway=0.01, lean_degrees=0.0,
-                                   tail_lift=8.0, tail_swing=8.0,
-                                   action_name=name("Walk"), **common),
+        "Idle": (idle, dict(action_name=name("Idle"))),
+        "Walk": (gait_cycle, dict(depth=0.0, stride=0.45, lift=0.10, frames=32, bob=0.01,
+                                  sway=0.01, lean_degrees=0.0, tail_lift=8.0,
+                                  tail_swing=8.0, action_name=name("Walk"))),
         # Start a run nearly straight-legged and let reach add flex only where a
         # body needs it: a flexed run folded the rat's wrists into the floor,
         # which shrank its stride to 3 cm. Straight, it ran at 3x its walk.
-        "Run": lambda: gait_cycle(rig_name, depth=0.05, stride=0.45, lift=0.10,
-                                  frames=12, bob=0.02, sway=0.0, lean_degrees=0.0,
-                                  gait_name=RUN_GAIT.get(n_legs, "tripod"),
-                                  tail_lift=20.0, tail_swing=5.0,
-                                  action_name=name("Run"), **common),
-        "Crouch": lambda: crouch(rig_name, depth=0.6, action_name=name("Crouch"),
-                                 **common),
-        "CrouchWalk": lambda: gait_cycle(rig_name, depth=0.6, tail_swing=6.0,
-                                         action_name=name("CrouchWalk"), **common),
-        "Jump": lambda: jump(rig_name, action_name=name("Jump"), **common),
-        "Slide": lambda: slide(rig_name, action_name=name("Slide"), **common),
-        "SlideRecover": lambda: slide_recover(
-            rig_name, to="stand", action_name=name("SlideRecover"),
-            slide_clip=name("Slide"), crouch_clip=name("Crouch"), **common),
-        "SlideToCrouch": lambda: slide_recover(
-            rig_name, to="crouch", action_name=name("SlideToCrouch"),
-            slide_clip=name("Slide"), crouch_clip=name("Crouch"), **common),
+        "Run": (gait_cycle, dict(depth=0.05, stride=0.45, lift=0.10, frames=12, bob=0.02,
+                                 sway=0.0, lean_degrees=0.0,
+                                 gait_name=RUN_GAIT.get(n_legs, "tripod"),
+                                 tail_lift=20.0, tail_swing=5.0, action_name=name("Run"))),
+        "Crouch": (crouch, dict(depth=0.6, action_name=name("Crouch"))),
+        "CrouchWalk": (gait_cycle, dict(depth=0.6, tail_swing=6.0,
+                                        action_name=name("CrouchWalk"))),
+        "Jump": (jump, dict(action_name=name("Jump"))),
+        "Slide": (slide, dict(action_name=name("Slide"))),
+        "SlideRecover": (slide_recover, dict(to="stand", action_name=name("SlideRecover"),
+                                             slide_clip=name("Slide"),
+                                             crouch_clip=name("Crouch"))),
+        "SlideToCrouch": (slide_recover, dict(to="crouch", action_name=name("SlideToCrouch"),
+                                              slide_clip=name("Slide"),
+                                              crouch_clip=name("Crouch"))),
     }
     if not legacy_gaits:
         from . import locomotion
-        makers["Walk"] = lambda: locomotion.cycle(rig_name, froude=walk_froude,
-                                                  action_name=name("Walk"), **common)
-        makers["Run"] = lambda: locomotion.cycle(rig_name, froude=run_froude,
-                                                 action_name=name("Run"), **common)
-        makers["Trot"] = lambda: locomotion.cycle(rig_name, froude=trot_froude,
-                                                  action_name=name("Trot"), **common)
+        makers["Walk"] = (locomotion.cycle, dict(froude=walk_froude, action_name=name("Walk")))
+        makers["Run"] = (locomotion.cycle, dict(froude=run_froude, action_name=name("Run")))
+        makers["Trot"] = (locomotion.cycle, dict(froude=trot_froude, action_name=name("Trot")))
     else:
         roles = [r for r in roles if r != "Trot"]
-    return {role: makers[role]() for role in roles}
+    options = options or {}
+    unknown = set(options) - set(makers)
+    if unknown:
+        return {"error": "options for unknown roles: " + ", ".join(sorted(unknown))}
+    out = {}
+    for role in roles:
+        fn, kw = makers[role]
+        out[role] = fn(rig_name, **dict(common, **dict(kw, **options.get(role, {}))))
+    return out

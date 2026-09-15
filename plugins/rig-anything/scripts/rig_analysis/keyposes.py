@@ -5,7 +5,7 @@ pose. The next actions are not like that - a slide recovery runs slide pose ->
 deep crouch -> stand, a crouch walk is a crouch with a gait laid over it - so
 the pose itself becomes a value:
 
-    Key(drop, shift, sway, lean, head_level, limbs={name: spec})
+    Key(drop, shift, sway, lean, head_level, limbs={name: spec}, posture={...})
 
 and `Poser.blend(a, b, w)` produces the body part way between two of them.
 Axial numbers blend directly. A limb's target is computed from EACH key against
@@ -101,10 +101,79 @@ def flex_angles(bm, flex):
     return a
 
 
+# The movements a `posture` names, in degrees. All are pitches about the body
+# map's lateral axis, and positive always moves the head end toward `fwd` (down,
+# on a horizontal body) - the same sense as `lean`, so no rotation sign is read.
+POSTURE = ("pelvis", "flex", "neck")
+
+
+def posture_angles(bm, posture):
+    """Total pitch per axial bone for a held posture: {"pelvis", "flex", "neck"}.
+
+    pelvis  anterior tilt of the pelvis bone; everything above it rides along
+    flex    the trunk above the pelvis bends forward by this much in total,
+            ramped so the upper bones take more (a thoracic hunch, not a hinge
+            at the waist). A torso of one bone takes it all on that bone.
+    neck    the neck and head bend forward by this much relative to the top of
+            the trunk, shared equally; negative craned back up. A body with no
+            neck bones bends the head alone.
+
+    Walter's hunch, which kept his gaze ahead, is {"pelvis": 4, "flex": 30,
+    "neck": -22}. Unlike `lean`, nothing is handed back automatically: a
+    posture says exactly where every segment points.
+    """
+    names = bm["axial"]
+    n = len(names)
+    a = [0.0] * n
+    if not posture or n == 0:
+        return a
+    unknown = set(posture) - set(POSTURE)
+    if unknown:
+        raise ValueError("unknown posture movement %s - posture takes %s"
+                         % (", ".join(sorted(unknown)), ", ".join(POSTURE)))
+    p = bm["pelvis_index"]
+    inc = [0.0] * n
+    inc[p] += float(posture.get("pelvis", 0.0))
+    flex = float(posture.get("flex", 0.0))
+    torso = sorted(names.index(x) for x in bm["torso"])
+    above = [i for i in torso if i > p] or ([p] if p in torso else [])
+    if flex and above:
+        ramp = [max(i - p, 1) for i in above]
+        for i, r in zip(above, ramp):
+            inc[i] += flex * r / float(sum(ramp))
+    neck = float(posture.get("neck", 0.0))
+    top = sorted(names.index(x) for x in bm["neck"])
+    if bm["head"]:
+        top.append(names.index(bm["head"]))
+    if neck and top:
+        for i in top:
+            inc[i] += neck / len(top)
+    total = 0.0
+    for i in range(p, n):
+        total += inc[i]
+        a[i] = total
+    for i in range(p):
+        a[i] = a[p]                       # bones behind the pelvis ride it
+    return a
+
+
+def stance_shift(poser, limb, width):
+    """Sideways move, armature space, putting a leg's rest effector (the ankle)
+    `width` times its hip's offset from the body's midline: 1.0 stands the
+    ankle under the hip, below 1 narrower, None or the rest ratio changes
+    nothing. The midline is the mean of the leg roots."""
+    if width is None:
+        return Vector((0.0, 0.0, 0.0))
+    lat = poser.lat
+    hip = (limb["rest_root"] - poser.centre).dot(lat)
+    ankle = (limb["rest_eff"] - poser.centre).dot(lat)
+    return lat * (width * hip - ankle)
+
+
 class Key:
     def __init__(self, drop=0.0, shift=0.0, sway=0.0, lean=0.0, head_level=0.8,
                  limbs=None, name="", tail_lift=0.0, tail_sway=0.0, flex=0.0,
-                 wings=None, maw=None):
+                 wings=None, maw=None, posture=None):
         self.drop, self.shift, self.sway = drop, shift, sway
         self.lean, self.head_level = lean, head_level
         self.limbs = dict(limbs or {})
@@ -118,11 +187,13 @@ class Key:
         self.wings = wings
         # a `maw.state`; None is the mouth at rest - closed
         self.maw = maw
+        # a held posture, see `posture_angles`; None is the rest shape
+        self.posture = dict(posture) if posture else None
 
     def copy(self, **changes):
         k = Key(self.drop, self.shift, self.sway, self.lean, self.head_level,
                 self.limbs, self.name, self.tail_lift, self.tail_sway, self.flex,
-                self.wings, self.maw)
+                self.wings, self.maw, self.posture)
         for a, v in changes.items():
             setattr(k, a, v)
         return k
@@ -216,6 +287,11 @@ class Poser:
         flex = lerp(getattr(a, "flex", 0.0), getattr(b, "flex", 0.0), w)
         if flex:
             angles = [x + y for x, y in zip(angles, flex_angles(self.bm, flex))]
+        post_a, post_b = getattr(a, "posture", None) or {}, getattr(b, "posture", None) or {}
+        if post_a or post_b:
+            held = {k: lerp(post_a.get(k, 0.0), post_b.get(k, 0.0), wt)
+                    for k in set(post_a) | set(post_b)}
+            angles = [x + y for x, y in zip(angles, posture_angles(self.bm, held))]
         axial = body.bend_axial(
             -self.up * lerp(a.drop, b.drop, w) + self.fwd * lerp(a.shift, b.shift, w)
             + self.lat * lerp(a.sway, b.sway, w), angles)
