@@ -173,7 +173,7 @@ def stance_shift(poser, limb, width):
 class Key:
     def __init__(self, drop=0.0, shift=0.0, sway=0.0, lean=0.0, head_level=0.8,
                  limbs=None, name="", tail_lift=0.0, tail_sway=0.0, flex=0.0,
-                 wings=None, maw=None, posture=None):
+                 wings=None, maw=None, posture=None, trunk=None):
         self.drop, self.shift, self.sway = drop, shift, sway
         self.lean, self.head_level = lean, head_level
         self.limbs = dict(limbs or {})
@@ -189,11 +189,15 @@ class Key:
         self.maw = maw
         # a held posture, see `posture_angles`; None is the rest shape
         self.posture = dict(posture) if posture else None
+        # per axial bone degrees added on top of everything else, from
+        # `upper.trunk`: {"pitch": [...], "yaw": [...], "roll": [...]} - a
+        # pelvis turning and listing under a counter-rotating chest
+        self.trunk = trunk
 
     def copy(self, **changes):
         k = Key(self.drop, self.shift, self.sway, self.lean, self.head_level,
                 self.limbs, self.name, self.tail_lift, self.tail_sway, self.flex,
-                self.wings, self.maw, self.posture)
+                self.wings, self.maw, self.posture, self.trunk)
         for a, v in changes.items():
             setattr(k, a, v)
         return k
@@ -292,9 +296,19 @@ class Poser:
             held = {k: lerp(post_a.get(k, 0.0), post_b.get(k, 0.0), wt)
                     for k in set(post_a) | set(post_b)}
             angles = [x + y for x, y in zip(angles, posture_angles(self.bm, held))]
+        yaw = roll = None
+        tr_a, tr_b = getattr(a, "trunk", None) or {}, getattr(b, "trunk", None) or {}
+        if tr_a or tr_b:
+            n = len(angles)
+
+            def term(k):
+                va, vb = tr_a.get(k) or [0.0] * n, tr_b.get(k) or [0.0] * n
+                return [lerp(x, y, wt) for x, y in zip(va, vb)]
+            angles = [x + y for x, y in zip(angles, term("pitch"))]
+            yaw, roll = term("yaw"), term("roll")
         axial = body.bend_axial(
             -self.up * lerp(a.drop, b.drop, w) + self.fwd * lerp(a.shift, b.shift, w)
-            + self.lat * lerp(a.sway, b.sway, w), angles)
+            + self.lat * lerp(a.sway, b.sway, w), angles, yaw, roll)
         posed = body.fk(axial)
         overrides = dict(axial)
         if self.bm.get("tail"):
@@ -321,6 +335,9 @@ class Poser:
             lw = wl if limb["role"] == "leg" else wa
             ta_fn, pa, planted_a = self._spec(a, limb)
             tb_fn, pb, planted_b = self._spec(b, limb)
+            # a pole may depend on the body as posed this frame, like a target
+            pa = pa(self, limb, posed) if callable(pa) else pa
+            pb = pb(self, limb, posed) if callable(pb) else pb
             ta = ta_fn(self, limb, posed) if ta_fn else self.rest_target(limb, posed)
             tb = tb_fn(self, limb, posed) if tb_fn else self.rest_target(limb, posed)
             target = ta.lerp(tb, lw)
@@ -426,15 +443,13 @@ def crouch_key(poser, depth=0.6, lean_degrees=None, head_level=0.8,
 
     limbs = {}
     if upright and arms_forward:
-        def arm_goal(p, l, posed):
-            shoulder = posed[l["upper"]].translation
-            reach = l["a"] + l["b"]
-            rest_eff = p.body.carried(posed, l["attach"], l["rest_eff"])
-            lateral = (rest_eff - shoulder).dot(p.lat)
-            return (shoulder + p.fwd * (0.6 * reach) - p.up * (0.55 * reach)
-                    + p.lat * lateral)
+        # Hanging forward against gravity, out from the thighs, elbows bent -
+        # `upper.arm_spec`. The old goal kept the rest hand's sideways offset,
+        # and from an A-pose one arm reached far out to the side.
+        from . import upper as upper_mod
         for l in poser.arms:
-            limbs[l["name"]] = {"target": arm_goal, "planted": False}
+            limbs[l["name"]] = upper_mod.arm_spec(poser, l, forward=28.0, out=20.0,
+                                                  elbow=35.0, hand_in=3.0)
 
     key = Key(drop=drop, lean=lean, head_level=head_level, limbs=limbs,
               name="crouch %.2f" % depth)
@@ -761,4 +776,12 @@ def jump_keys(poser):
                                    (0.9, 0.0, 0.05)), name="reach")
     # the tail streams up through the launch and balances through the air
     load.tail_lift, launch.tail_lift, tuck.tail_lift, reach.tail_lift = 0.0, 25.0, 15.0, 20.0
+    if poser.bm["upright"] and poser.arms:
+        # arms back on the load, thrown forward and up through the launch,
+        # settling for the landing: (forward, out, elbow) degrees
+        from . import upper as upper_mod
+        for key, (f, o, e) in ((load, (-35.0, 20.0, 25.0)), (launch, (70.0, 22.0, 40.0)),
+                               (tuck, (45.0, 24.0, 55.0)), (reach, (20.0, 22.0, 30.0))):
+            for l in poser.arms:
+                key.limbs[l["name"]] = upper_mod.arm_spec(poser, l, f, o, e, 4.0)
     return [load, launch, tuck, reach]

@@ -268,7 +268,10 @@ Blender sessions are long-lived and cache imports, so always
   afterwards: `max_drop` (a hard hip-drop cap), `stance_width` (ankle offset
   over the hip's) and `posture` (pelvis, trunk flex and neck in degrees toward
   `fwd`) are solved inside every key of `cycle` and `idle`, and
-  `move_set(options=...)` passes them per role.
+  `move_set(options=...)` passes them per role. The upper body is solved there
+  too (`upper.py`): pelvis turn and list, chest counter-rotation, a steady
+  head, and arms swinging opposite their legs as IK targets hung from gravity
+  rather than the chest, hung out from the hips by as much as the skin needs.
 - **8** wings — done (`wings.py`, `flight.py`, 0.9.0). See animate-anything's
   `references/wings.md`.
 - **9** maws — done (`maw.py`, 0.10.0). See animate-anything's

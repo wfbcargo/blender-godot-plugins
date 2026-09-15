@@ -107,6 +107,65 @@ Walter still reads hunched forward with the trunk 20 degrees ahead of its rest
 line and the gaze level, and the per-bone split (0.17 / 0.33 / 0.5 of the flex
 over spine.001-.003) matches the hand-tuned 0.2 / 0.35 / 0.45 it replaced.
 
+## The upper body: `upper.py`
+
+A walk is not legs under a statue. `cycle(upper=...)` poses the rest of an
+upright biped inside the same keys, from the gait's own phase offsets - no sine
+fitted to the feet afterwards:
+
+| Term | Signal | Default walk / run |
+|---|---|---|
+| pelvis turn (about `up_vec`) | hip over the forward foot forward: mean of side x `leg_forward(phase)` | 4 / 9 deg |
+| pelvis list (about `fwd`) | loaded hip up, pivoting on it so the stance leg reaches no further (the drop is added) | 4 / 3 deg |
+| thorax turn, side bend | chest against the pelvis; trunk over the stance leg | 3 / 7, 1.5 deg |
+| lean, lean_bob | held, and a dip twice a stride | 3 / 8, 1 / 2 deg |
+| head hold | neck and head take back this share of the chest's turn, roll and pitch | 0.85 |
+| arm swing | opposite the same-side leg, forward swing 15% larger | 16 / 28 deg each way |
+| elbow, elbow_swing | more flexed as the arm comes forward | 15 / 75 deg, +8 |
+
+`leg_forward(ph, duty) = -sin(2 pi (ph - duty/2))`: +1 at touchdown, crossing
+zero at mid-stance where the foot passes under its hip. The trunk terms go to
+`bend_axial` as per-bone yaw and roll beside the pitch (`Key.trunk`), ramped
+pelvis -> top of torso and handed back by the neck and head. Senses come from
+`Body.axis_turns` - which side a positive rotation brings forward - never a
+bone's roll.
+
+**Arms are IK targets hung from gravity.** Upper-arm direction from `-up_vec`,
+tilted `arm_out` away from the midline and swung about `lat`; forearm folded
+`elbow` degrees in the arm's rest bend plane (the hand-side of `rest_dev`
+decomposed into heading and outward shares; a straight arm folds forward); the
+IK pole is the elbow that geometry implies. The old layer rotated bones in the
+chest's rest frame, so Walter's hunch hung his arms 28-30 degrees behind him.
+
+**Arm hang is measured, then checked on playback.** `arm_out` None: the least
+abduction whose forearm and hand skin clears the linear-blend-skinned trunk
+and thighs by `hand_clearance` (1.5 cm) at the swing's back, middle and front.
+After baking, `verify.limb_clearance` on Blender's playback; while it reads
+under the margin the hang widens and the clip is re-authored (up to 3 times).
+A hand still inside fails the clip. `verify.signed_gap` counts a sample inside
+only when it is behind the face it projects onto: the body patch is cut open at
+the arms and neck, and a point nearest that cut edge read a forearm 8 cm clear
+of Hugo's hip as 8 cm inside.
+
+**An idle stands balanced.** With a posture or hanging arms the skinned centre
+of mass moved off the feet - Walter's by 5.5 cm, failing export's balance
+check - so `idle` shifts the hips back until it is over the middle of the foot,
+and softens the knees by what the legs then lack.
+
+Measured on the 16 humanform people (Phase 1-2 layered arms -> `upper`), legs
+unchanged to the millimetre:
+
+| | Layered over the clip | Inside the keys |
+|---|---|---|
+| Walter walk: mean upper-arm angle, forward of hanging | -30.5 deg (behind) | +6.3 deg (in front) |
+| Walter walk: closest hand to body | -1.6 cm (inside) | +5.0 cm |
+| Mei walk: closest hand to body | -2.5 cm | +4.9 cm |
+| Margaret walk: mean arm angle | -15.4 deg | +5.4 deg |
+| Hugo walk: arm out from vertical / clearance | 20.7 deg (set) / 8.0 cm | 12.7 deg (measured) / 2.7 cm |
+| Walk arm swing, each way (adults) | 21 deg | 19 deg |
+| Idle arms hanging behind (hunched) | Walter -28, Margaret -14 deg | +6, +4 deg |
+| Clips exported without force, rechecks | 16 / 16 | 16 / 16 |
+
 ## Measuring a clip: `locomotion.detect`
 
 Works on any clip, generated or hand-authored. Each leg's pivot is carried

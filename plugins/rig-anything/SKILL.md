@@ -141,6 +141,20 @@ clip afterwards: `max_drop` (hip drop cap, share of hip height), `stance_width`
 same stance and posture reach `actions.idle`, and
 `actions.move_set(options={role: {...}})` passes them per role.
 
+An upright biped's **upper body moves inside the same keys** (`upper.py`):
+pelvis turn and list, chest counter-turn, side bend, lean, a head that holds
+its orientation, and arms swinging opposite their own side's leg - driven by
+IK hand targets built against gravity and the body's heading, with the elbow
+pole from each arm's rest bend plane, so a hunch hangs the arms in front and a
+bent-elbow rest pose bends the same way as a straight one. How far the arms
+hang out is measured on the skin and widened on playback until the forearm and
+hand clear the hips (`verify.limb_clearance`, now a cycle check). Parameters
+are degrees and metres, scaled by Froude (`upper.defaults`); `idle` gets
+relaxed arms and puts the hips back over the feet when a posture or hanging
+arms would tip the body forward. `cycle(upper={...})` / `idle(upper={...})`
+override, `upper=False` leaves the rest pose; bodies other than upright
+bipeds are untouched unless asked.
+
 See `animate-anything`'s `references/contact-locomotion.md`.
 
 It refuses a creature with no legs rather than inventing a walk for a worm.

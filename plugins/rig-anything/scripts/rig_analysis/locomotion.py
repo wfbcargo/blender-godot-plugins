@@ -529,7 +529,7 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
           forward="-Y", up="Z", floor=0.0, action_name="Locomotion", fps=None,
           extension=0.97, tail_lift=None, tail_swing=None, attempts=6, paw_fold=1.0,
           swing_hold=SWING_HOLD, max_drop=None, centre_weight=None, stance_width=None,
-          posture=None):
+          posture=None, upper=None):
     """Author a looping gait from `plan`, verified on Blender's playback.
 
     froude         a number, or a name from `GAITS` ("walk", "trot", "sprint"...)
@@ -546,6 +546,12 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
                    `fwd` (`keyposes.posture_angles`). Posed inside every key,
                    so the legs are solved under the posed body and every check
                    sees it.
+    upper          the upper body (`upper.py`): None moves it on an upright
+                   two-legged body - pelvis and thorax turning and listing,
+                   the head held, arms swinging opposite their legs - with
+                   `upper.defaults` for this speed; a dict overrides those
+                   parameters (degrees, metres); False leaves it at rest.
+                   Bodies with other leg counts are untouched unless asked.
 
     The clip is in place. Its implied speed (stance feet sweeping back at the
     body's speed) is what the engine time-scales against; `natural_speed_mps`
@@ -609,6 +615,14 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
             on_f += 1.0
         ext_phase = 0.5 * (off_h + on_f)
 
+    from . import upper as upper_mod
+    upper_params = upper_mod.resolve(P, upper, upper_mod.defaults(fr, duty))
+    U = None
+    if upper_params is not None:
+        stance = {l["name"]: {"target": (lambda p, limb, posed, s=pl["stance_shift"][l["name"]]:
+                                         limb["rest_eff"] + s)} for l in legs}
+        U = upper_mod.Upper(P, upper_params, posture=posture, stance=stance)
+
     state = {"drop": pl["drop"], "stroke": pl["stroke"], "lift": pl["lift"],
              "flex": pl["flex"], "bounce": 1.0, "over": 1.0}
     first_leg = legs[0]
@@ -644,14 +658,17 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         bounce = pl["bounce"] * state["bounce"] * height_signal(p0) * (1.0 if running else -1.0)
         flex = state["flex"] * math.cos(2.0 * math.pi * (p0 - ext_phase)) * -1.0
         side = 1.0 if (first_leg["rest_root"] - P.centre).dot(P.lat) > 0 else -1.0
-        # Hooks for what comes next go here, all held or cycled per key: trunk
-        # twist and lateral bend belong beside `posture` (as more named pitches
-        # and yaws in `keyposes`), arm swing in `limbs` for the arms.
-        return kp.Key(drop=state["drop"] + bounce, limbs=limbs, flex=flex,
+        # The upper body rides the same phases: pelvis and thorax turn and
+        # list, the head holds, the arms swing against their own side's leg.
+        trunk, list_drop = None, 0.0
+        if U is not None:
+            trunk, arm_limbs, list_drop = U.cycle_key(p0, offsets, duty, legs)
+            limbs.update(arm_limbs)
+        return kp.Key(drop=state["drop"] + bounce + list_drop, limbs=limbs, flex=flex,
                       sway=sway_amp * math.sin(2.0 * math.pi * p0) * side,
                       tail_lift=tail_lift + 0.8 * flex,
                       tail_sway=-tail_swing * math.sin(2.0 * math.pi * p0),
-                      posture=posture)
+                      posture=posture, trunk=trunk)
 
     skin_rest = body.skin_lowest(body.fk(), P._upw)
     skin_allowed = (min(0.0, skin_rest - floor) - 0.012 * bm["height"]
@@ -747,7 +764,12 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         return r
 
     from .actions import _author_samples
-    keyed, infos, action, report = _author_samples(body, rig, action_name, samples, fps, check)
+    first_samples = samples
+    keyed, infos, action, report = upper_mod.author_clear(
+        U, rig_name, bm,
+        lambda s: _author_samples(body, rig, action_name, s, fps, check),
+        lambda: (first_samples if not U or not getattr(U, "clearance", None) else
+                 [P.pose(key_at((f - 1) / float(frames))) for f in range(1, frames + 2)]))
     if "error" in report:
         return report
 
@@ -777,6 +799,7 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         "stance_shift_m": {k: round(v.dot(pl["lat"]) * pl["scale"], 4)
                            for k, v in pl["stance_shift"].items()},
         "posture": dict(posture) if posture else None,
+        "upper": U.report() if U is not None else None,
         "spine_flex_deg": round(state["flex"], 2),
         "natural_speed_mps": round(natural, 4),
         "stride_frequency_hz": round(natural / (pl["stride_m"] * ratio), 3),

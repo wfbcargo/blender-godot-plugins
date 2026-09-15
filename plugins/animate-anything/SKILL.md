@@ -270,6 +270,30 @@ res = actions.move_set("Walter_rig", roles=("Idle", "Walk"), options={
   to the top of the trunk, negative craned back. Positive moves the head end
   toward `fwd` - down, on a horizontal body.
 - `centre_weight` - 0 steps about the rest foot, 1 under the hip; None by speed.
+- `upper` - the upper body, moved inside the same keys on an upright biped
+  (`upper.py`): pelvis turn and list, chest turning against it, side bend, lean,
+  head held toward the world, arms swinging opposite their own side's leg with
+  the elbow bending as they come forward. None uses `upper.defaults(froude,
+  duty)` (a walk subtle, a run with 75-degree elbows); a dict overrides
+  parameters in degrees and metres (`arm_swing`, `arm_forward`, `arm_out`,
+  `elbow`, `elbow_swing`, `hand_in`, `pelvis_turn`, `pelvis_list`,
+  `thorax_turn`, `side_bend`, `lean`, `lean_bob`, `head_hold`,
+  `hand_clearance`); False leaves the rest pose. `idle` takes it too, for
+  relaxed arms.
+
+**Hang arms from gravity, not from the chest.** The humans' arm swing was once
+keyed over finished clips as rotations in the chest's rest frame: under
+Walter's 30-degree hunch that hung his arms 28-30 degrees *behind* him, and the
+forward lean subtracted from the swing sent them further back. `upper` builds
+each upper-arm direction from `up_vec` and `fwd` and places the hand by IK,
+with the elbow pole taken from the arm's rest bend plane (MPFB forearms rest
+bent 40 degrees, Belle's arms straight - both fold forward). `arm_out` None is
+measured: the least abduction that keeps forearm and hand skin
+`hand_clearance` off the posed hips and thighs, then widened on Blender's
+playback until `verify.limb_clearance` agrees - a heavy body's thighs move
+under a swinging arm, and only playback sees that. A hand still inside the body
+fails the clip. An idle with a posture or hanging arms puts the hips back until
+the centre of mass is over the feet, softening the knees to reach.
 
 **Pose the body inside the clip, not over it.** Walter's hunch and every
 human's narrowed stance were once keyed on top of finished clips. The legs never

@@ -713,6 +713,52 @@ def _line_fit(points):
     return start, step, off
 
 
+def signed_gap(point, hit):
+    """Signed distance from `point` to a BVH `find_nearest` hit: negative only
+    when the point is behind the face it projects onto.
+
+    The body a clearance test measures against is an open patch of the skin -
+    the trunk and thighs cut away from arms, neck and shins - and a point whose
+    nearest body point lies on that cut edge sees the edge triangle's normal at
+    any angle. Taking the sign from it made a forearm 8 cm clear of a heavy
+    man's hip read 8 cm INSIDE on one frame of an idle. Behind a face means
+    along its normal, so a hit that is not roughly along it counts as outside."""
+    d = hit[3]
+    if d < 1e-9:
+        return 0.0
+    along = (point - hit[0]).dot(hit[1])
+    return -d if along < 0.0 and -along >= 0.9 * d else d
+
+
+def clearance_bones(rig, bm, limbs):
+    """(reach, body) bone-name sets for a clearance test of `limbs`.
+
+    reach: each limb's lower segment and everything it carries (a hand and its
+    fingers). body: the torso - axial bones below the neck and anything hung
+    off them that is not a limb, jiggle bones included - and the legs' upper
+    segments. From the body map, not names."""
+    bones = rig.data.bones
+    limb_bones = set()
+    for l in bm["limbs"]:
+        limb_bones.update(n for n in (l["girdle"], l["upper"], l["lower"], l["end"]) if n)
+        limb_bones.update(l["digits"])
+    reach = set()
+    for l in limbs:
+        reach.add(l["lower"])
+        reach.update(c.name for c in bones[l["lower"]].children_recursive)
+    trunk = set(bm["torso"]) | set(bm.get("rear", []))
+    stop = limb_bones | set(bm["neck"]) | set(bm["tail"]) | ({bm["head"]} if bm["head"] else set())
+    body = {l["upper"] for l in bm["limbs"] if l["role"] == "leg"}
+    for b in bones:
+        # hung off the trunk without passing through a limb, the neck or a tail
+        cur = b
+        while cur is not None and cur.name not in trunk and cur.name not in stop:
+            cur = cur.parent
+        if cur is not None and cur.name in trunk:
+            body.add(b.name)
+    return reach, body
+
+
 def limb_clearance(rig_name, action_name, mesh_name=None, every=2, roles=("arm",),
                    forward="-Y", up="Z", floor=0.0, bm=None, stride=3):
     """Closest the skin of each free limb's forearm and hand comes to the body.
@@ -737,29 +783,10 @@ def limb_clearance(rig_name, action_name, mesh_name=None, every=2, roles=("arm",
               else _bound_meshes(rig))
     if not meshes:
         return {"error": "no skinned mesh on " + rig_name}
-    bones = rig.data.bones
     limbs = [l for l in bm["limbs"] if l["role"] in roles]
     if not limbs:
         return {"skipped": "no %s limbs" % "/".join(roles)}
-    limb_bones = set()
-    for l in bm["limbs"]:
-        limb_bones.update(n for n in (l["girdle"], l["upper"], l["lower"], l["end"]) if n)
-        limb_bones.update(l["digits"])
-    # the forearm and everything it carries - a hand's other fingers too
-    reach = set()
-    for l in limbs:
-        reach.add(l["lower"])
-        reach.update(c.name for c in bones[l["lower"]].children_recursive)
-    trunk = set(bm["torso"]) | set(bm.get("rear", []))
-    stop = limb_bones | set(bm["neck"]) | set(bm["tail"]) | ({bm["head"]} if bm["head"] else set())
-    body = {l["upper"] for l in bm["limbs"] if l["role"] == "leg"}
-    for b in bones:
-        # hung off the trunk without passing through a limb, the neck or a tail
-        cur = b
-        while cur is not None and cur.name not in trunk and cur.name not in stop:
-            cur = cur.parent
-        if cur is not None and cur.name in trunk:
-            body.add(b.name)
+    reach, body = clearance_bones(rig, bm, limbs)
 
     out = {"limbs": [l["name"] for l in limbs], "closest_m": None, "at_frame": None,
            "samples_inside": 0}
@@ -802,9 +829,8 @@ def limb_clearance(rig_name, action_name, mesh_name=None, every=2, roles=("arm",
                     hit = bvh.find_nearest(verts[i])
                     if hit[0] is None:
                         continue
-                    d = hit[3]
-                    if (verts[i] - hit[0]).dot(hit[1]) < 0:
-                        d = -d
+                    d = signed_gap(verts[i], hit)
+                    if d < 0:
                         out["samples_inside"] += 1
                     if d < worst[0]:
                         worst = (d, f)
