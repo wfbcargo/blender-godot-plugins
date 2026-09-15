@@ -818,6 +818,9 @@ def _author_samples(body, rig, action_name, samples, fps, check):
             # the rig was holding the very clip `_fresh_action` just replaced
             ad.action = None
         verify._restore(rig, snap)
+        # The snapshot's modes are the rig's, not the clip's: on an Euler rig
+        # they would leave every quaternion key just baked silently unplayed.
+        verify.adopt_rotation_modes(rig, action)
     return keyed, infos_by_frame, action, report
 
 
@@ -909,17 +912,22 @@ def _check_common(body, bm, keyed, ev, infos_by_frame, planted, posed_limbs,
     if wrong:
         failures.append("mid-joint bends the wrong way on " + ", ".join(wrong))
 
-    # 6. nothing through the floor
+    # 6. nothing through the floor - of the bones that carry skin. A bone with
+    # no weight is a control (MPFB's root dips under the floor as the hips
+    # drop) and step 7 already holds the skin itself; with no mesh bound, every
+    # bone stands in for the body.
+    skinned = body.skinned_bones()
+    floor_bones = [b for b in body.bones if skinned is None or b.name in skinned] or body.bones
     lowest, lowest_at = float("inf"), None
     for f, _ in keyed:
-        for b in body.bones:
+        for b in floor_bones:
             for pt in (evaluated[f][b.name].translation,
                        motion.tail_of(body, evaluated[f], b.name)):
                 h = (mw @ pt).dot(upw) - rest_floor
                 if h < lowest:
                     lowest, lowest_at = h, (f, b.name)
     rest_lowest = min((mw @ p).dot(upw) - rest_floor
-                      for b in body.bones for p in (b.head_local, b.tail_local))
+                      for b in floor_bones for p in (b.head_local, b.tail_local))
     if lowest < min(0.0, rest_lowest) - tol:
         failures.append("%s reaches %.4f, below the floor, at frame %d"
                         % (lowest_at[1], lowest, lowest_at[0]))

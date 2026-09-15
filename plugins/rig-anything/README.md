@@ -170,8 +170,9 @@ convention between two rigs of the same character inverts the arms.
 SKILL.md                          the procedure, and the rules
 scripts/rig_analysis/
   measure.py    riggability, symmetry, ground contacts, extremities, profile
-  verify.py     axis probe, slot binding, clip checks, contralateral, origin
-  export.py     preflight, glb write, read-back duration check, GDScript out
+  verify.py     axis probe, slot binding, clip checks, rotation modes, playback re-check,
+                limb clearance, contralateral, origin
+  export.py     preflight, bake_for_game, glb write, read-back duration check, GDScript out
   views.py      orthographic renders in an isolated throwaway scene
   report.py     compact text output
   bodymap.py    any rig -> spine, neck, head, tail, legs, arms

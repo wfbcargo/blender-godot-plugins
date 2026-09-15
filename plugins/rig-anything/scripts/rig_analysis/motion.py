@@ -120,6 +120,17 @@ class Body:
             low = min(low, (mw @ p).dot(up_world))
         return low
 
+    def skinned_bones(self):
+        """Names of the bones that move any skin, or None when no mesh is bound.
+
+        A bone nothing is weighted to is a control, not body: MPFB's `root` sits
+        at the pelvis and dips 3-7 cm under the floor as the hips drop, while the
+        skin it would have to drag through the floor does not exist."""
+        self.skin_lowest(self.fk(), self._world_up())      # builds the vertex cache
+        if not self._skin:
+            return None
+        return {n for _, ws in self._skin for n, _ in ws}
+
     def com(self, posed):
         total, acc = 0.0, Vector((0.0, 0.0, 0.0))
         for name, (s, w) in self.com_terms.items():

@@ -162,13 +162,39 @@ not optional.
 **7. Export, and get the playback speed with it.**
 
 ```python
+export.bake_for_game("MyMesh", res["rig"])      # shape keys + modifiers baked, 4 bones a vertex
 m = export.export("MyMesh", res["rig"], r"C:/proj/assets/thing.glb",
                   foot_bones=["Foot.L", "Foot.R"],
                   actions=["Idle", "Walk", "Run", "Jump"],
                   loop_clips=["Idle", "Walk", "Run"],   # Jump is a one-shot
+                  gaits=["Walk", "Run"],                # these must move their feet
                   forward="-Y")
 print(export.summarize(m))
 ```
+
+**Every clip is played back and re-checked before it ships** (`verify.recheck`):
+bone floor (bones that carry skin), skin through the floor, loop seam, stance
+contacts that skate (drift sideways or vertically, move unevenly, or disagree on
+speed), balance for a clip that stands still, and rotation modes. Authoring checks
+see the clip once, as generated; a hunch or an arm swing keyed over it afterwards is
+only ever measured here. A failing clip **blocks the export** - `skip_bad_clips=True`
+drops it, `force=True` ships it and lists it under `forced_clips`. Tolerances are the
+authoring ones (`verify.PLANT_TOL`, `SLIP_TOL`, `SKIN_TOL`), not looser.
+`verify.limb_clearance` (or `clearance=True`) measures how close hands come to the
+body, from the body map rather than bone names.
+
+A clip named in `gaits` whose stride is ~0 fails: the legs are not moving. That is
+what a quaternion-keyed clip on an Euler rig (MPFB's) looks like - every other number
+reads the rest pose and passes. Authoring now leaves keyed bones in the mode their
+keys use (`verify.adopt_rotation_modes`), and `preflight(..., actions=)` and
+`check_clip` refuse a mismatch (`verify.rotation_mode_mismatches`).
+
+`preflight` also refuses shape keys with a value (they ship as morph targets, not as
+the body's shape) and warns about Mask modifiers and vertices pulled by more than 4
+bones. `bake_for_game` fixes all three: it bakes shape keys and every modifier but
+Armature into one mesh at rest, drops groups that are not deform bones, keeps the 4
+heaviest influences and normalises. `export_glb` sets `export_morph` from whether
+shape keys remain.
 
 The file carries object custom properties as node extras, and only the active scene's
 selected objects. That is how `follow-through` rides along: its **flesh** library adds jiggle
@@ -191,9 +217,10 @@ and only a cycle has a speed - a jump travels 0.163 m, which clears any stride
 threshold and means nothing when divided by the clip length.
 
 A clip that cannot be measured blocks the export and `force=True` does not
-waive it - `force` waives preflight, where the caller can see the problem and
-judge it, while an unmeasurable clip means the deliverable itself is missing.
-Drop one deliberately with `skip_bad_clips=True`, which reports what it dropped.
+waive it - `force` waives preflight and failing checks, where the caller can see
+the problem and judge it, while an unmeasurable clip means the deliverable itself
+is missing. Drop one deliberately with `skip_bad_clips=True`, which reports what
+it dropped.
 
 **8. Wings: fold, flap, glide.** Any free limb whose skin is a sheet is a wing
 (see `animate-anything`'s `references/wings.md`):
