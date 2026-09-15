@@ -41,6 +41,80 @@ def _restore(rig, snap):
     bpy.context.view_layer.update()
 
 
+_ROTATION_CHANNELS = {"rotation_quaternion": "QUATERNION", "rotation_euler": "EULER",
+                      "rotation_axis_angle": "AXIS_ANGLE"}
+
+
+def keyed_rotation_channels(action):
+    """{bone: {"QUATERNION" | "EULER" | "AXIS_ANGLE"}} - which rotation property
+    each bone's curves in `action` write."""
+    from . import motion
+    out = {}
+    for fc in motion._fcurves(action):
+        path = fc.data_path
+        if not path.startswith("pose.bones[") or '"' not in path:
+            continue
+        kind = _ROTATION_CHANNELS.get(path.rsplit(".", 1)[-1])
+        if kind:
+            out.setdefault(path.split('"')[1], set()).add(kind)
+    return out
+
+
+def _mode_kind(mode):
+    return mode if mode in ("QUATERNION", "AXIS_ANGLE") else "EULER"
+
+
+def adopt_rotation_modes(rig, action):
+    """Put every bone `action` keys into the rotation mode its keys use.
+
+    A bone reads only the rotation property its mode names. MPFB rigs rotate in
+    Euler XYZ, and restoring a snapshot after baking put them back there - so
+    Blender ignored every quaternion key, the legs stood still, and every check
+    run before the restore had passed. Authoring ends with this, never with the
+    mode the bone happened to be in before. Returns the bones it changed.
+    """
+    changed = []
+    for name, kinds in keyed_rotation_channels(action).items():
+        pb = rig.pose.bones.get(name)
+        if pb is None or len(kinds) != 1:
+            continue
+        kind = next(iter(kinds))
+        if _mode_kind(pb.rotation_mode) == kind:
+            continue
+        pb.rotation_mode = "XYZ" if kind == "EULER" else kind
+        changed.append(name)
+    return changed
+
+
+def rotation_mode_mismatches(rig_name, action_name):
+    """Bones `action` keys on a rotation property their rotation mode ignores.
+
+    A quaternion key on an Euler bone - or an Euler key on a quaternion bone -
+    plays as nothing at all. Every measurement then reads the rest pose, and the
+    rest pose passes everything: floor, seam, even stride, which is merely zero.
+    """
+    rig = bpy.data.objects.get(rig_name)
+    action = bpy.data.actions.get(action_name)
+    if rig is None or rig.type != "ARMATURE":
+        return {"error": "no armature named " + repr(rig_name)}
+    if action is None:
+        return {"error": "no action " + repr(action_name)}
+    bad = []
+    for name, kinds in sorted(keyed_rotation_channels(action).items()):
+        pb = rig.pose.bones.get(name)
+        if pb is None:
+            continue
+        mode = _mode_kind(pb.rotation_mode)
+        if mode not in kinds:
+            bad.append({"bone": name, "keys": sorted(kinds), "mode": pb.rotation_mode})
+    note = ("" if not bad else
+            "%d bones keyed on a rotation their mode ignores (e.g. %s keys %s but is in %s) - "
+            "those keys do not play" % (len(bad), bad[0]["bone"], "/".join(bad[0]["keys"]),
+                                        bad[0]["mode"]))
+    return {"rig": rig_name, "action": action_name, "mismatches": bad, "note": note,
+            "passed": not bad}
+
+
 def clear_pose(rig):
     for pb in rig.pose.bones:
         pb.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
@@ -385,6 +459,8 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
     - loop seam: distance between the first and last frame's pose
     - stride and the speed the clip implies, so an engine can time-scale it
       honestly instead of letting the feet skate
+    - rotation modes: a bone keyed on a rotation its mode ignores plays the rest
+      pose, which passes everything above
     """
     rig = bpy.data.objects.get(rig_name)
     action = bpy.data.actions.get(action_name)
@@ -505,6 +581,9 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
             )
         if loop and seam is not None and seam > 1e-4:
             failures.append("loop seam " + format(seam, ".6f") + " - first and last frame differ")
+        modes = rotation_mode_mismatches(rig_name, action_name)
+        if modes.get("mismatches"):
+            failures.append("rotation mode: " + modes["note"])
 
         return {
             "action": action_name,
@@ -530,6 +609,7 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
                 + " keyed frames loops over the longer period - use "
                 "implied_speed_playback_mps to time-scale playback there."
             ),
+            "rotation_mode_mismatches": len(modes.get("mismatches", [])),
             "failures": failures,
             "passed": not failures,
         }
@@ -538,6 +618,511 @@ def check_clip(rig_name, action_name, foot_bones, floor=0.0, up="Z",
         if rig.animation_data:
             rig.animation_data.action = prev_action
         _restore(rig, snap)
+
+
+# --------------------------------------------------------------------------
+# re-checking a finished clip
+# --------------------------------------------------------------------------
+
+# The authoring checks' tolerances, as fractions of the body map's size (or
+# height), so a clip re-checked after layering is held to what it was authored
+# to - never to something looser.
+PLANT_TOL = 0.005       # planted drift and bone floor (`actions._check_common`)
+SLIP_TOL = 0.004        # a stance contact leaving its line (`locomotion.cycle`)
+SKIN_TOL = 0.015        # skin through the floor, of height (`_check_common` step 7)
+SEAM_TOL = 1e-4         # loop seam, absolute
+STANCE_BAND = 0.01      # in contact within this of its lowest, of height (`locomotion.detect`)
+
+
+def _bound_meshes(rig):
+    return [o for o in bpy.data.objects if o.type == "MESH" and any(
+        m.type == "ARMATURE" and m.object == rig for m in o.modifiers)]
+
+
+def _play(rig, action, frames, meshes=(), upw=None, mesh_frames=None):
+    """{frame: pose matrices} and {frame: lowest evaluated skin height} over
+    `frames`, with the action bound; the rig is left as it was found."""
+    scene = bpy.context.scene
+    snap = _snapshot(rig)
+    ad = rig.animation_data or rig.animation_data_create()
+    prev_action, prev_frame = ad.action, scene.frame_current
+    prev_slot = getattr(ad, "action_slot", None)
+    mats, skin = {}, {}
+    try:
+        binding = bind_action(rig, action)
+        if not binding["bound"]:
+            return None, None, binding
+        for f in frames:
+            scene.frame_set(f)
+            bpy.context.view_layer.update()
+            mats[f] = {pb.name: pb.matrix.copy() for pb in rig.pose.bones}
+            if meshes and (mesh_frames is None or f in mesh_frames):
+                dg = bpy.context.evaluated_depsgraph_get()
+                low = float("inf")
+                for o in meshes:
+                    ev = o.evaluated_get(dg)
+                    me = ev.to_mesh()
+                    mw = o.matrix_world
+                    low = min(low, min((mw @ v.co).dot(upw) for v in me.vertices))
+                    ev.to_mesh_clear()
+                skin[f] = low
+        return mats, skin, binding
+    finally:
+        scene.frame_set(prev_frame)
+        ad.action = prev_action
+        if prev_slot is not None:
+            try:
+                ad.action_slot = prev_slot
+            except (AttributeError, TypeError):
+                pass
+        _restore(rig, snap)
+
+
+def _stance_spans(down, loop):
+    """Contiguous runs of True as (start, length) over frame indices; in a loop a
+    run crossing the end continues from the start."""
+    n = len(down)
+    if all(down):
+        return [(0, n)]
+    spans, i = [], 0
+    while i < n:
+        if down[i] and (i == 0 or not down[i - 1]):
+            j = i
+            while j < n and down[j]:
+                j += 1
+            spans.append([i, j - i])
+            i = j
+        else:
+            i += 1
+    if loop and len(spans) >= 2 and spans[0][0] == 0 and spans[-1][0] + spans[-1][1] == n:
+        spans[-1][1] += spans[0][1]
+        spans.pop(0)
+    return [tuple(s) for s in spans]
+
+
+def _line_fit(points):
+    """(start, per-frame step, largest distance off that line) for a least-
+    squares straight line at constant speed through consecutive frames."""
+    n = len(points)
+    tm = (n - 1) / 2.0
+    mean = sum(points, Vector()) / n
+    den = sum((i - tm) ** 2 for i in range(n)) or 1.0
+    step = sum(((p - mean) * (i - tm) for i, p in enumerate(points)), Vector()) / den
+    start = mean - step * tm
+    off = max((p - (start + step * i)).length for i, p in enumerate(points))
+    return start, step, off
+
+
+WALK_HAND_RISE = 0.7     # a walk's hand no higher than chest: 70% of hip -> shoulder
+RUN_HAND_RISE = 0.65     # a run's hand no higher than the chest
+RUN_ELBOW_OPEN = 140.0   # a run's elbow never opens past this included angle
+
+
+def arm_pose(rig_name, action_name, running=False, forward="-Y", up="Z", floor=0.0,
+             bm=None):
+    """How each free arm is carried over a clip, on Blender's playback, and
+    whether it reads as carried or as reaching.
+
+    Per arm: the upper arm's angle from gravity (degrees, positive forward of
+    hanging, about the body map's `lat`), elbow flexion (0 straight), and the
+    palm's height as a share of the way from the hips to the shoulder -
+    `hand_rise` 0 at hip joint height, 1 at the shoulder joint. Hips are the
+    legs' upper joints, the shoulder the arm's own root, both posed.
+
+    Failures: a walk (or an idle) whose hand rises past WALK_HAND_RISE - chest
+    height, a hand held out in front; a run whose hand rises past
+    RUN_HAND_RISE, or whose elbow opens past RUN_ELBOW_OPEN included - an arm
+    thrown straight out. Floor, skin and clearance checks all passed on arms
+    that read as reaching; this is what measures that."""
+    from . import bodymap
+    rig = bpy.data.objects.get(rig_name)
+    action = bpy.data.actions.get(action_name)
+    if rig is None or action is None:
+        return {"error": "missing rig or action"}
+    bm = bm or bodymap.build(rig_name, forward=forward, up=up, floor=floor)
+    if "error" in bm:
+        return {"error": bm["error"]}
+    arms = [l for l in bm["limbs"] if l["role"] == "arm" and l["end"]]
+    legs = [l for l in bm["limbs"] if l["role"] == "leg"]
+    if not arms or not legs:
+        return {"skipped": "no arms or no legs"}
+    lo, hi = _frames(action)
+    mats, _, binding = _play(rig, action, list(range(lo, hi + 1)))
+    if mats is None:
+        return {"error": binding["note"]}
+    upv, fwd = bm["up_vec"], bm["fwd"]
+    bones = rig.data.bones
+    out = {"running": running, "arms": {}, "failures": []}
+    for l in arms:
+        ua, fl, rise = [], [], []
+        for f, m in mats.items():
+            sh = m[l["upper"]].translation
+            el = m[l["lower"]].translation
+            wr = m[l["end"]].translation
+            palm = m[l["end"]] @ Vector((0.0, 0.5 * bones[l["end"]].length, 0.0))
+            hip = sum((m[g["upper"]].translation for g in legs), Vector()) / len(legs)
+            d, e = el - sh, wr - el
+            ua.append(math.degrees(math.atan2(d.dot(fwd), -d.dot(upv))))
+            fl.append(math.degrees(d.angle(e)) if d.length and e.length else 0.0)
+            span = (sh - hip).dot(upv)
+            rise.append((palm - hip).dot(upv) / span if span > 1e-9 else 0.0)
+        r = {"upper_arm_deg": [round(min(ua), 1), round(max(ua), 1)],
+             "elbow_flex_deg": [round(min(fl), 1), round(max(fl), 1)],
+             "hand_rise": [round(min(rise), 3), round(max(rise), 3)]}
+        out["arms"][l["name"]] = r
+        if not running and max(rise) > WALK_HAND_RISE:
+            out["failures"].append("%s: the hand rises to %.0f%% of hip-to-shoulder, above the "
+                                   "chest (%.0f%%) - reaching, not walking"
+                                   % (l["name"], 100 * max(rise), 100 * WALK_HAND_RISE))
+        if running and max(rise) > RUN_HAND_RISE:
+            out["failures"].append("%s: the hand rises to %.0f%% of hip-to-shoulder (limit %.0f%%)"
+                                   % (l["name"], 100 * max(rise), 100 * RUN_HAND_RISE))
+        if running and 180.0 - min(fl) > RUN_ELBOW_OPEN:
+            out["failures"].append("%s: the elbow opens to %.0f degrees, straighter than a run "
+                                   "carries it (%.0f)" % (l["name"], 180.0 - min(fl),
+                                                           RUN_ELBOW_OPEN))
+    out["passed"] = not out["failures"]
+    return out
+
+
+def signed_gap(point, hit):
+    """Signed distance from `point` to a BVH `find_nearest` hit: negative only
+    when the point is behind the face it projects onto.
+
+    The body a clearance test measures against is an open patch of the skin -
+    the trunk and thighs cut away from arms, neck and shins - and a point whose
+    nearest body point lies on that cut edge sees the edge triangle's normal at
+    any angle. Taking the sign from it made a forearm 8 cm clear of a heavy
+    man's hip read 8 cm INSIDE on one frame of an idle. Behind a face means
+    along its normal, so a hit that is not roughly along it counts as outside."""
+    d = hit[3]
+    if d < 1e-9:
+        return 0.0
+    along = (point - hit[0]).dot(hit[1])
+    return -d if along < 0.0 and -along >= 0.9 * d else d
+
+
+def clearance_bones(rig, bm, limbs):
+    """(reach, body) bone-name sets for a clearance test of `limbs`.
+
+    reach: each limb's lower segment and everything it carries (a hand and its
+    fingers). body: the torso - axial bones below the neck and anything hung
+    off them that is not a limb, jiggle bones included - and the legs' upper
+    segments. From the body map, not names."""
+    bones = rig.data.bones
+    limb_bones = set()
+    for l in bm["limbs"]:
+        limb_bones.update(n for n in (l["girdle"], l["upper"], l["lower"], l["end"]) if n)
+        limb_bones.update(l["digits"])
+    reach = set()
+    for l in limbs:
+        reach.add(l["lower"])
+        reach.update(c.name for c in bones[l["lower"]].children_recursive)
+    trunk = set(bm["torso"]) | set(bm.get("rear", []))
+    stop = limb_bones | set(bm["neck"]) | set(bm["tail"]) | ({bm["head"]} if bm["head"] else set())
+    body = {l["upper"] for l in bm["limbs"] if l["role"] == "leg"}
+    for b in bones:
+        # hung off the trunk without passing through a limb, the neck or a tail
+        cur = b
+        while cur is not None and cur.name not in trunk and cur.name not in stop:
+            cur = cur.parent
+        if cur is not None and cur.name in trunk:
+            body.add(b.name)
+    return reach, body
+
+
+def limb_clearance(rig_name, action_name, mesh_name=None, every=2, roles=("arm",),
+                   forward="-Y", up="Z", floor=0.0, bm=None, stride=3):
+    """Closest the skin of each free limb's forearm and hand comes to the body.
+
+    Body is the skin of the torso - the axial bones below the neck and anything
+    hung off them that is not a limb, jiggle bones included - and the legs'
+    upper segments. Which bones those are comes from the body map, not names.
+    Each limb vertex is tested against the nearest body triangle: negative
+    distance (by that triangle's normal) is through the skin. A graze reads as
+    a few millimetres; a hand in the hip reads centimetres negative.
+    """
+    from mathutils.bvhtree import BVHTree
+    from . import bodymap
+    rig = bpy.data.objects.get(rig_name)
+    action = bpy.data.actions.get(action_name)
+    if rig is None or action is None:
+        return {"error": "missing rig or action"}
+    bm = bm or bodymap.build(rig_name, forward=forward, up=up, floor=floor)
+    if "error" in bm:
+        return {"error": bm["error"]}
+    meshes = ([bpy.data.objects[mesh_name]] if mesh_name and bpy.data.objects.get(mesh_name)
+              else _bound_meshes(rig))
+    if not meshes:
+        return {"error": "no skinned mesh on " + rig_name}
+    limbs = [l for l in bm["limbs"] if l["role"] in roles]
+    if not limbs:
+        return {"skipped": "no %s limbs" % "/".join(roles)}
+    reach, body = clearance_bones(rig, bm, limbs)
+
+    out = {"limbs": [l["name"] for l in limbs], "closest_m": None, "at_frame": None,
+           "samples_inside": 0}
+    worst = (float("inf"), None)
+    for ob in meshes:
+        names = {g.index: g.name for g in ob.vertex_groups}
+        limb_v, body_v = [], set()
+        for v in ob.data.vertices:
+            ws = [(names.get(g.group), g.weight) for g in v.groups if g.weight > 0.0]
+            tot = sum(w for _, w in ws)
+            if tot <= 0.0:
+                continue
+            n, w = max(ws, key=lambda nw: nw[1])
+            if n in reach and w / tot > 0.6:
+                limb_v.append(v.index)
+            elif n in body and w / tot > 0.5:
+                body_v.add(v.index)
+        tris = [tuple(p.vertices) for p in ob.data.polygons
+                if all(i in body_v for i in p.vertices)]
+        if not limb_v or not tris:
+            continue
+        lo, hi = _frames(action)
+        frames = list(range(lo, hi + 1))[::max(1, every)]
+        scene = bpy.context.scene
+        snap = _snapshot(rig)
+        ad = rig.animation_data or rig.animation_data_create()
+        prev_action, prev_frame = ad.action, scene.frame_current
+        try:
+            if not bind_action(rig, action)["bound"]:
+                return {"error": "could not bind " + action_name}
+            for f in frames:
+                scene.frame_set(f)
+                dg = bpy.context.evaluated_depsgraph_get()
+                ev = ob.evaluated_get(dg)
+                me = ev.to_mesh()
+                verts = [ob.matrix_world @ v.co for v in me.vertices]
+                ev.to_mesh_clear()
+                bvh = BVHTree.FromPolygons(verts, tris)
+                for i in limb_v[::max(1, stride)]:
+                    hit = bvh.find_nearest(verts[i])
+                    if hit[0] is None:
+                        continue
+                    d = signed_gap(verts[i], hit)
+                    if d < 0:
+                        out["samples_inside"] += 1
+                    if d < worst[0]:
+                        worst = (d, f)
+        finally:
+            scene.frame_set(prev_frame)
+            ad.action = prev_action
+            _restore(rig, snap)
+    if worst[1] is not None:
+        out["closest_m"], out["at_frame"] = round(worst[0], 4), worst[1]
+    return out
+
+
+def recheck(rig_name, action_name, forward="-Y", up="Z", floor=0.0, loop=True,
+            clearance=False, mesh_name=None):
+    """Play back a FINISHED clip and hold it to the checks it was authored under.
+
+    Authoring checks run once, on the clip as generated. Anything layered on
+    afterwards - a hunch, an upper body, feet brought in - is keyed straight
+    over it and nothing measures it again; a 15 degree pelvis pitch across a
+    walk leaves every authoring report still reading PASSED. This measures
+    only Blender's playback, so it works on any clip from any source:
+
+    - rotation modes: keys the bones' modes would ignore
+    - bone floor: bones that carry skin, below the floor by more than
+      PLANT_TOL of size (below their rest height, for a body built into it)
+    - skin through the floor, by more than SKIN_TOL of height
+    - loop seam (`loop=True`): first and last frame, every bone
+    - foot slide: each leg's contact (`locomotion.contact_pivot`) is in stance
+      while within STANCE_BAND of its lowest. A planted contact must move in a
+      straight line at one speed (an in-place clip sweeps it backward) with no
+      sideways or vertical drift, and every leg at the same speed - otherwise
+      it skates. Held to SLIP_TOL of size.
+    - balance, where it means something: when every leg stays planted and
+      still for the whole clip (an idle, a held crouch), the skinned centre of
+      mass must stay over the feet.
+    - `clearance=True`: `limb_clearance`, failing below -PLANT_TOL of size.
+
+    Returns a report with `failures` and `passed`, like every check here.
+    """
+    from . import bodymap, locomotion, motion
+    rig = bpy.data.objects.get(rig_name)
+    action = bpy.data.actions.get(action_name)
+    if rig is None or rig.type != "ARMATURE":
+        return {"error": "no armature named " + repr(rig_name)}
+    if action is None:
+        return {"error": "no action " + repr(action_name)}
+    bm = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
+    if "error" in bm:
+        return {"error": bm["error"]}
+    body = motion.Body(rig, bm)
+    size, height = bm["size"], bm["height"]
+    mw = rig.matrix_world
+    upw = bodymap.axis_vector(up)
+    scale = sum(mw.to_scale()) / 3.0
+    fwd, lat, up_a = bm["fwd"], bm["lat"], bm["up_vec"]
+    lo, hi = _frames(action)
+    frames = list(range(lo, hi + 1))
+    meshes = _bound_meshes(rig)
+    mats, skin, binding = _play(rig, action, frames, meshes, upw)
+    if mats is None:
+        return {"error": "%s %s" % (repr(action_name), binding["note"]), "binding": binding}
+
+    failures, out = [], {"rig": rig_name, "action": action_name, "frames": [lo, hi],
+                         "loop": loop}
+
+    def h(p):
+        return (mw @ p).dot(upw) - floor
+
+    def tail(m, name):
+        return m[name] @ Vector((0.0, rig.data.bones[name].length, 0.0))
+
+    modes = rotation_mode_mismatches(rig_name, action_name)
+    out["rotation_mode_mismatches"] = modes["mismatches"]
+    if modes["mismatches"]:
+        failures.append("rotation mode: " + modes["note"])
+
+    # bone floor, skinned bones only
+    tol = PLANT_TOL * size
+    skinned = body.skinned_bones()
+    bones = [b for b in rig.data.bones if skinned is None or b.name in skinned] or list(rig.data.bones)
+    lowest, lowest_at = float("inf"), None
+    for f in frames:
+        for b in bones:
+            for p in (mats[f][b.name].translation, tail(mats[f], b.name)):
+                if h(p) < lowest:
+                    lowest, lowest_at = h(p), (f, b.name)
+    rest_lowest = min(h(p) for b in bones for p in (b.head_local, b.tail_local))
+    out["lowest_bone"] = {"height": round(lowest, 4), "frame": lowest_at[0], "bone": lowest_at[1]}
+    if lowest < min(0.0, rest_lowest) - tol:
+        failures.append("%s reaches %.4f, below the floor, at frame %d"
+                        % (lowest_at[1], lowest, lowest_at[0]))
+
+    # skin through the floor, against the rest skin (as `_check_common`)
+    if skin:
+        skin_low = min(skin.values())
+        skin_rest = body.skin_lowest(body.fk(), upw)
+        if skin_rest is None:
+            skin_rest = skin[lo]
+        at = min(skin, key=skin.get)
+        out["skin_lowest"] = {"height": round(skin_low - floor, 4), "frame": at}
+        if skin_low < min(0.0, skin_rest) - floor - SKIN_TOL * height:
+            failures.append("skin reaches %.4f, through the floor, at frame %d"
+                            % (skin_low - floor, at))
+
+    # loop seam
+    if loop:
+        seam, seam_bone = 0.0, None
+        for b in rig.data.bones:
+            e = max((mats[lo][b.name].translation - mats[hi][b.name].translation).length,
+                    (tail(mats[lo], b.name) - tail(mats[hi], b.name)).length)
+            if e > seam:
+                seam, seam_bone = e, b.name
+        out["loop_seam"] = round(seam, 6)
+        if seam > SEAM_TOL:
+            failures.append("loop seam %.5f on %s" % (seam, seam_bone))
+
+    # foot slide during stance
+    legs = [l for l in bm["limbs"] if l["role"] == "leg" and l["axial_index"] is not None]
+    cyc = frames[:-1] if loop and len(frames) > 2 else frames
+    n = len(cyc)
+    slip_tol = SLIP_TOL * size
+    contacts, stance_steps, all_still = {}, {}, bool(legs)
+    for l in legs:
+        carrier = l["end"] or l["lower"]
+        pivot = locomotion.contact_pivot(rig, l)
+        pts = [body.carried(mats[f], carrier, pivot) for f in cyc]
+        hs = [h(p) for p in pts]
+        low = min(hs)
+        down = [x <= low + STANCE_BAND * height for x in hs]
+        spans = _stance_spans(down, loop)
+        worst = {"sideways": 0.0, "vertical": 0.0, "uneven": 0.0}
+        steps = []
+        for start, length in spans:
+            # The band is wide enough to take in a foot one frame from touching
+            # down or just lifted - Belle's toe lands inside it, still 2 cm from
+            # where it plants - so an end frame hovering more than the slip
+            # tolerance over the rest of its span is swing, not stance. One frame
+            # at each end only: trimming further would eat a planted foot that
+            # really does sink, which is what this is here to catch.
+            if length >= 4:
+                span_low = min(hs[(start + k) % n] for k in range(1, length - 1))
+                if hs[start % n] > span_low + slip_tol * scale:
+                    start, length = start + 1, length - 1
+                if hs[(start + length - 1) % n] > span_low + slip_tol * scale:
+                    length -= 1
+            seq = [pts[(start + k) % n] for k in range(length)]
+            if length < 3:
+                continue
+            _, step, off = _line_fit(seq)
+            travel = length - 1
+            worst["sideways"] = max(worst["sideways"], abs(step.dot(lat)) * travel)
+            worst["vertical"] = max(worst["vertical"], abs(step.dot(up_a)) * travel)
+            worst["uneven"] = max(worst["uneven"], off)
+            steps.append((step.dot(fwd), travel))
+        stance_steps[l["name"]] = steps
+        if sum(down) < n:
+            all_still = False
+        contacts[l["name"]] = {
+            "duty_factor": round(sum(down) / float(n), 3),
+            "stance": [[round(s / float(n), 4), round((s + k) / float(n), 4)] for s, k in spans],
+            **{k: round(v * scale, 5) for k, v in worst.items()},
+        }
+        for kind, v in worst.items():
+            if v > slip_tol:
+                failures.append("%s %s while planted by %.4f - the foot would skate"
+                                % (l["name"], {"sideways": "drifts sideways",
+                                               "vertical": "sinks or rises",
+                                               "uneven": "moves unevenly"}[kind], v))
+    # every stance contact sweeps back at the body's one speed
+    all_steps = sorted(s for steps in stance_steps.values() for s, _ in steps)
+    if all_steps:
+        v = all_steps[len(all_steps) // 2]
+        fps = bpy.context.scene.render.fps or 24
+        out["stance_speed_mps"] = round(-v * scale * fps, 4)
+        for name, steps in stance_steps.items():
+            miss = max((abs(s - v) * t for s, t in steps), default=0.0)
+            contacts[name]["speed_mismatch"] = round(miss * scale, 5)
+            if miss > slip_tol:
+                failures.append("%s is planted at a different speed from the other feet - "
+                                "it slides %.4f over its stance" % (name, miss))
+            if any(abs(s) * t > slip_tol for s, t in steps):
+                all_still = False
+    out["contacts"] = contacts
+
+    # balance, for a clip standing still on every foot
+    if legs and all_still:
+        pts2 = []
+        for l in legs:
+            for nm in [l["end"]] + l["digits"] if l["end"] else [l["lower"]]:
+                pts2 += [mats[lo][nm].translation, tail(mats[lo], nm)]
+        normal = up_a
+        origin = sum(pts2, Vector()) / len(pts2)
+        hull = locomotion.support_polygon(pts2, origin, normal, fwd)
+        f2 = (fwd - normal * fwd.dot(normal)).normalized()
+        s2 = normal.cross(f2).normalized()
+        worst_m, worst_f = float("inf"), None
+        for f in frames:
+            c = body.com(mats[f])
+            m = locomotion.stability_margin(((c - origin).dot(f2), (c - origin).dot(s2)), hull)
+            if m < worst_m:
+                worst_m, worst_f = m, f
+        out["balance"] = {"margin_m": round(worst_m * scale, 4), "frame": worst_f,
+                          "com_source": body.com_source}
+        if worst_m < 0.0:
+            failures.append("centre of mass is %.4f outside the feet at frame %d - it "
+                            "would fall" % (-worst_m, worst_f))
+
+    if clearance:
+        c = limb_clearance(rig_name, action_name, mesh_name=mesh_name, bm=bm,
+                           forward=forward, up=up, floor=floor)
+        out["clearance"] = c
+        if c.get("closest_m") is not None and c["closest_m"] < -tol * scale:
+            failures.append("a hand or forearm goes %.4f into the body at frame %d"
+                            % (-c["closest_m"], c["at_frame"]))
+
+    out["tolerances"] = {"plant": round(tol, 5), "slip": round(slip_tol, 5),
+                         "skin": round(SKIN_TOL * height, 5)}
+    out["failures"] = failures
+    out["passed"] = not failures
+    return out
 
 
 def contralateral(rig_name, action_name, limb_a, limb_b, forward="-Y"):

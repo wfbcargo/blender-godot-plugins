@@ -44,7 +44,8 @@ is written against contacts.
    wherever the ankle, placed from the pivot, is within the leg's extended
    length of the hip. When the stroke will not fit, in order:
    a. roll the foot over its pivot (heel lift) - the distal segment adds reach;
-   b. lower the hips, by at most 14% of hip height at a walk, 22% at a sprint;
+   b. lower the hips, by at most 14% of hip height at a walk, 22% at a sprint
+      - or by `max_drop`, which the playback retries then never exceed;
    c. cut ground time (to 0.55 for a walk, 0.2 for a run);
    d. shorten the stride, and the speed with it - reported, never hidden.
 6. **Centre the stroke** on the rest foot at a walk and under the hip at speed
@@ -60,6 +61,184 @@ is written against contacts.
    seam, reach clamps, joint fold, bones and skin through the floor. Skin
    failures give back hip drop only once the stroke has already been shortened
    by half - drop is what gives straight legs their working range.
+
+## Shaping a gait: hip drop, stance width, posture
+
+The rule picks everything from one speed, which makes every body of a kind walk
+the same way. A character is more than its proportions - an old man stoops and
+shuffles, a heavy one walks with the feet apart - so `cycle` (and `plan`) take
+four more arguments, and `actions.idle` takes the stance and posture so the
+character stands the way it walks:
+
+| Argument | Unit | Meaning |
+|---|---|---|
+| `max_drop` | share of the lowest hip height | Hard cap on the hip drop. The plan fills it before cutting ground time, and the playback retries (which otherwise lower the hips up to 0.3 leg lengths) stop there and shorten the stroke. A leg still out of reach fails with `... out of reach with the hips at max_drop`. None: 0.10 + 0.08 sqrt(Fr). |
+| `centre_weight` | 0..1 | Stroke centre fore/aft: 0 the rest foot, 1 under the hip. None: by speed. |
+| `stance_width` | multiple of the hip's lateral offset | Each ankle's distance from the midline (the mean of the leg roots) over its hip joint's: 1.0 feet under the hips, None the rest stance. Moves each stroke line sideways; reach, the skate check and the Idle's planted feet follow the moved line. |
+| `posture` | degrees, `{"pelvis", "flex", "neck"}` | Held pitches about the body map's lateral axis, positive toward `fwd` (down, on a horizontal body): `pelvis` anterior tilt with everything above riding it; `flex` the trunk above the pelvis, shared in a ramp so the top bones take most (a thoracic curve, not a hinge at the waist); `neck` the neck and head together relative to the top of the trunk. A torso of one bone takes all the flex; a body with no neck bends the head. |
+
+`move_set(options={role: {keyword: value}})` passes these per role.
+
+**Why posture is solved inside the key.** Walter's hunch was first keyed on top
+of the finished clip as rotations about armature +X. Its sign had to be found
+by trial (the first version leaned him back), and because it came after the IK
+nothing else saw it - the legs were placed under an upright body, and the
+plan measured reach from hips the pelvis tilt had moved. Posed through
+`keyposes.posture_angles` into `bend_axial`, the same pitch rule `lean` uses,
+the legs are solved under the posed body, the plan reads the tilted hips, and
+floor, reach and skate checks all measure the stooped figure. The stance the
+humans used was the same story: a thigh turn keyed after the clip brought the
+feet in but lowered them, and Walter's and Margaret's exported walks put a foot
+1-2 cm through the floor.
+
+Measured on the humanform crowd (MPFB bodies, resting with ankles ~1.6x the
+hip offset), rebuilt with the stance and posture as arguments:
+
+| | Before (keyed over the clip) | Arguments |
+|---|---|---|
+| Tomas ankle half-separation, walk / run | 0.123 / 0.131 m | 0.117 / 0.117 m (hip 0.116) |
+| Ines ankle half-separation, walk / run | 0.107 / 0.115 m | 0.100 / 0.100 m (hip 0.101) |
+| Walter walk, lowest foot in the exporter's check | -0.020 m | +0.010 m |
+| Margaret walk, lowest foot | -0.010 m | +0.010 m |
+| Walk stride, 11 people at Fr 0.2-0.25 | - | 2-5% longer: feet under the hips leave more reach |
+| Base hip drop vs max_drop, every gait | - | at or under the cap (Tomas run 7.0% of 7%) |
+
+Walter still reads hunched forward with the trunk 20 degrees ahead of its rest
+line and the gaze level, and the per-bone split (0.17 / 0.33 / 0.5 of the flex
+over spine.001-.003) matches the hand-tuned 0.2 / 0.35 / 0.45 it replaced.
+
+## The upper body: `upper.py`
+
+A walk is not legs under a statue. `cycle(upper=...)` poses the rest of an
+upright biped inside the same keys, from the gait's own phase offsets - no sine
+fitted to the feet afterwards:
+
+| Term | Signal | Default walk / run |
+|---|---|---|
+| pelvis turn (about `up_vec`) | hip over the forward foot forward: mean of side x `leg_forward(phase)` | 4 / 9 deg |
+| pelvis list (about `fwd`) | loaded hip up, pivoting on it so the stance leg reaches no further (the drop is added) | 4 / 3 deg |
+| thorax turn, side bend | chest against the pelvis; trunk over the stance leg | 3 / 7, 1.5 deg |
+| lean, lean_bob | held, and a dip twice a stride | 3 / 8, 1 / 2 deg |
+| head hold | neck and head take back this share of the chest's turn, roll and pitch | 0.85 |
+| arm swing | opposite the same-side leg, forward swing 15% larger; a run swings about a line 15 deg behind hanging | 16 / 25 deg each way |
+| elbow, elbow_swing | walking, more flexed as the arm comes forward; running, held | 15 / 85 deg, +8 / 0 |
+
+`leg_forward(ph, duty) = -sin(2 pi (ph - duty/2))`: +1 at touchdown, crossing
+zero at mid-stance where the foot passes under its hip. The trunk terms go to
+`bend_axial` as per-bone yaw and roll beside the pitch (`Key.trunk`), ramped
+pelvis -> top of torso and handed back by the neck and head. Senses come from
+`Body.axis_turns` - which side a positive rotation brings forward - never a
+bone's roll.
+
+**Arms are IK targets hung from gravity.** Upper-arm direction from `-up_vec`,
+tilted `arm_out` away from the midline and swung about `lat`; forearm folded
+`elbow` degrees in the arm's rest bend plane (the hand-side of `rest_dev`
+decomposed into heading and outward shares; a straight arm folds forward); the
+IK pole is the elbow that geometry implies. The old layer rotated bones in the
+chest's rest frame, so Walter's hunch hung his arms 28-30 degrees behind him.
+
+**Arm hang is measured, then checked on playback.** `arm_out` None: the least
+abduction whose forearm and hand skin clears the linear-blend-skinned trunk
+and thighs by `hand_clearance` (1.5 cm) at the swing's back, middle and front.
+After baking, `verify.limb_clearance` on Blender's playback; while it reads
+under the margin the hang widens and the clip is re-authored (up to 3 times).
+A hand still inside fails the clip. `verify.signed_gap` counts a sample inside
+only when it is behind the face it projects onto: the body patch is cut open at
+the arms and neck, and a point nearest that cut edge read a forearm 8 cm clear
+of Hugo's hip as 8 cm inside.
+
+**An idle stands balanced.** With a posture or hanging arms the skinned centre
+of mass moved off the feet - Walter's by 5.5 cm, failing export's balance
+check - so `idle` shifts the hips back until it is inside the foot's inner 70%,
+and softens the knees by what the legs then lack. Centring it fully put Walter's
+seat 16 cm back, behind his heels; now 6.6 cm.
+
+**Numbers that passed while the arms looked wrong.** Floor, skin, clearance and
+seam all passed on a run whose centred swing (+-28 deg, elbow 75 opening on the
+back swing) threw the forward forearm above level with the hand at the neck, and
+on Walter's arms hung from gravity off a 30-degree hunch, hands out past his
+knees. `verify.arm_pose` now runs on every `upper` clip's playback: per arm the
+upper arm's angle from gravity, elbow flexion, and `hand_rise` - the palm's
+height from hip (0) to shoulder (1). A walk or idle fails above 0.7 (chest), a
+run above 0.65 or with an elbow opened past 140 degrees. The shipped run read
+0.72; with the swing about -15 deg and the elbow held at 85 it reads 0.44-0.55
+(hand from hip to lower chest). `elderly_shuffle` hangs its arms 8 degrees
+behind vertical, so a stooped body's hands fall at the front of the thighs.
+In a side view a far arm forward looks like the near arm forward: check the
+alternation on numbers (`arm_pose`, per-frame upper-arm angles), not two stills.
+
+Measured on the 16 humanform people (Phase 1-2 layered arms -> `upper`), legs
+unchanged to the millimetre:
+
+| | Layered over the clip | Inside the keys |
+|---|---|---|
+| Walter walk: mean upper-arm angle, forward of hanging | -30.5 deg (behind) | +6.3 deg (in front) |
+| Walter walk: closest hand to body | -1.6 cm (inside) | +5.0 cm |
+| Mei walk: closest hand to body | -2.5 cm | +4.9 cm |
+| Margaret walk: mean arm angle | -15.4 deg | +5.4 deg |
+| Hugo walk: arm out from vertical / clearance | 20.7 deg (set) / 8.0 cm | 12.7 deg (measured) / 2.7 cm |
+| Walk arm swing, each way (adults) | 21 deg | 19 deg |
+| Idle arms hanging behind (hunched) | Walter -28, Margaret -14 deg | +6, +4 deg |
+| Clips exported without force, rechecks | 16 / 16 | 16 / 16 |
+
+## Gait styles
+
+Speed fixes a gait's shape for every body of a kind; people of one size walk
+differently at the same Froude number. `plan` and `cycle` take the hooks, in
+physical terms:
+
+| Argument | Replaces | Meaning |
+|---|---|---|
+| `duty` | `duty_factor(Fr)` | ground time as a share of the cycle; reach may still cut it |
+| `stride_scale` | x `relative_stride(Fr)` | at the same speed: below 1 shorter, quicker steps, above 1 slower cadence |
+| `lift_scale` | x `swing_lift(Fr)` | swing foot height |
+| `bounce_scale` | x `body_bounce` | hip rise and fall |
+| `sway` | 0.01 (upright walk) | side-to-side hip sway, share of leg length |
+| `min_knee` | `Reach(min_knee=50)` | smallest included stance knee angle |
+| `extension` | 0.97 | longest a stance leg may reach, share of its length (below 1: soft knees) |
+
+`GAIT_STYLES` presets gather them with `upper`, `posture`, `stance_width` and
+`max_drop`, in "walk", "run" and "idle" sections (the section is chosen by the
+Froude number asked, under 0.5 walks):
+
+| Style | Walk | Upper body | Held |
+|---|---|---|---|
+| `elderly_shuffle` | duty 0.74, stride x0.8, lift x0.8, bounce x0.5, sway 0.012, extension 0.94, max_drop 0.06 | swing 5, elbow 20, arms 8 behind vertical, no lean, pelvis turn 1.5, head hold 0.9 | stoop {pelvis 2, flex 12, neck -8} |
+| `heavy` | stride x1.08, lift x0.8, bounce x0.6, sway 0.03, max_drop 0.045 | swing 12, side bend 4, list 2.5, hand clearance 4 cm | stance_width 1.4 |
+| `child` | stride x0.88, lift x1.15, bounce x1.5, max_drop 0.035 | swing 24 (run 30), elbow 18 | - |
+| `brisk` | stride x1.05, lift x1.05 | swing 24, elbow 35, lean 4, chest turn 6 | - |
+| `relaxed` | stride x0.95, lift x0.85, bounce x0.9 | swing 13, elbow 12, head hold 0.75 | - |
+
+The elderly lift is a floor, not a taste: at x0.55 (4.7 cm on Walter) the
+swing toe stayed inside `verify.recheck`'s 1% stance band for several frames
+and read as a planted foot skating 31 cm; x0.65 still skated 1 cm; x0.75 was
+the first clean one.
+
+Measured on the humanform crowd, layered arms and per-person numbers (before)
+against brief + style (after); stride and duty from the manifest, lift, arm
+swing (upper-arm angle, half range) and sway (pelvis, half range) from
+Blender's playback:
+
+| Person, style | duty | stride m | lift m | arm swing deg | sway m |
+|---|---|---|---|---|---|
+| Walter, elderly_shuffle | 0.72 -> 0.78 | 0.86 -> 0.69 | 0.085 -> 0.068 | 7.1 -> 6.4 | 0.008 -> 0.010 |
+| Margaret, elderly_shuffle | 0.72 -> 0.78 | 0.87 -> 0.70 | 0.082 -> 0.065 | 9.6 -> 6.4 | 0.008 -> 0.009 |
+| Frank, elderly_shuffle | 0.63 -> 0.78 | 1.10 -> 0.88 | 0.099 -> 0.079 | 11.9 -> 6.4 | 0.009 -> 0.011 |
+| Hugo, heavy | 0.59 -> 0.63 | 1.14 -> 1.17 | 0.098 -> 0.077 | 17.5 -> 12.9 | 0.008 -> 0.025 |
+| Rosa, heavy | 0.59 -> 0.59 | 1.03 -> 1.09 | 0.089 -> 0.071 | 17.6 -> 12.9 | 0.008 -> 0.023 |
+| Milo, child walk / run | 0.56 / 0.38 | 0.83 -> 0.81 / 1.88 -> 1.69 | 0.075 -> 0.089 / 0.140 -> 0.153 | 25.5 -> 25.8 / 41.8 -> 32.1 | 0.006 -> 0.007 |
+| Ava, child walk | 0.56 | 0.77 -> 0.75 | 0.066 -> 0.079 | 25.5 -> 25.8 | 0.005 -> 0.006 |
+| Dante, brisk walk | 0.56 | 1.22 | 0.111 -> 0.115 | 23.8 -> 25.8 | 0.009 |
+| Mei, relaxed walk | 0.56 -> 0.59 | 1.03 -> 1.04 | 0.091 -> 0.079 | 21.2 -> 14.0 | 0.007 |
+
+Duty is measured on playback (`detect`), which reads a little above the plan's.
+Heavy bodies' planned 0.67 is cut to 0.55 by reach under the 4.5% drop cap - the
+longer step costs ground time, not height. Stride frequency follows: the heavy
+walk at 0.90 Hz, a child's at 1.46-1.56 Hz, Walter's shuffle 1.04 Hz at 0.72 m/s.
+
+The manifests also carry `collider` from `export.collider`: children 0.13-0.18 m,
+adults 0.19-0.22 m, Hugo 0.23 m - where the controller's fallback clamped every
+adult at 0.22 - and Belle 0.199 m against her hand-set 0.2.
 
 ## Measuring a clip: `locomotion.detect`
 

@@ -9,10 +9,10 @@ Every action speaks in the body map's parts, never in bone names:
 | Part | Map key | Posed with |
 |---|---|---|
 | pelvis / body root | `axial_joints[pelvis_index]` | `bend_axial(translation, ...)` |
-| torso, neck, head | `torso`, `neck`, `head` | per-bone total pitch in `bend_axial(..., angles)` |
+| torso, neck, head | `torso`, `neck`, `head` | per-bone total pitch, yaw and roll in `bend_axial(..., angles, yaw, roll)` - about `lat`, `up_vec`, `fwd`; `Body.axis_turns` says which side a positive value brings forward or up |
 | rear (tail side of the chain) | `rear` | follows the pelvis pitch |
 | legs (grounded) | `limbs[role == "leg"]` | `solve_limb(target, end_rotation=Identity)` to plant |
-| arms (free) | `limbs[role == "arm"]` | `solve_limb(target)`, end follows |
+| arms (free) | `limbs[role == "arm"]` | `solve_limb(target)`, end follows; `upper.arm_spec(forward, out, elbow)` for a hand hung against gravity with the elbow's pole from the rest bend plane |
 | tails, digits, girdles | - | plain FK from their parent |
 
 Distances are fractions of the creature: leg length `a + b`, arm reach, body

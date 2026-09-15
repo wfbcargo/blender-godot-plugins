@@ -51,12 +51,45 @@ def _obj(name):
 # preflight
 # ---------------------------------------------------------------------------
 
-def preflight(mesh_name, rig_name, tolerance=0.01):
+def _shape_keys_live(mesh):
+    """Names of shape keys that change the mesh: unmuted, non-basis, value != 0."""
+    keys = mesh.data.shape_keys
+    if keys is None:
+        return []
+    blocks = keys.key_blocks
+    return [k.name for k in blocks[1:]
+            if not k.mute and abs(k.value) > 1e-6 and k.relative_key != k]
+
+
+def _over_influenced(mesh, rig, most=4):
+    """How many vertices more than `most` deform bones pull on."""
+    deform = {b.name for b in rig.data.bones if b.use_deform}
+    names = {g.index: g.name for g in mesh.vertex_groups}
+    return sum(1 for v in mesh.data.vertices
+               if sum(1 for g in v.groups if g.weight > 0.0 and names.get(g.group) in deform) > most)
+
+
+def preflight(mesh_name, rig_name, tolerance=0.01, actions=None):
     """Everything that makes an export silently wrong, checked before writing.
 
     None of these raise in Blender and none of them raise in the engine. They
     just produce an asset that is subtly, permanently incorrect - which is why
     they are worth a pass of their own rather than a comment in the procedure.
+
+    Problems (block `export` unless forced):
+      - rig off origin, unapplied scale, no Armature modifier, node names Godot
+        rewrites
+      - `actions` keying a bone on a rotation its mode ignores - the clip would
+        export as the rest pose
+      - shape keys with a non-zero value. They are the body's shape in Blender
+        and ship as glTF morph targets, so what the engine shows depends on it
+        applying their default weights. Bake them (`bake_for_game`), or zero
+        them if they really are morph targets.
+    Warnings:
+      - a Mask modifier: the hidden geometry is only removed because modifiers
+        are applied on export; `bake_for_game` makes that permanent
+      - vertices pulled by more than 4 bones: the exporter keeps the 4
+        heaviest and renormalises, so they deform differently in the engine
     """
     mesh, rig = _obj(mesh_name), _obj(rig_name)
     problems, warnings = [], []
@@ -108,6 +141,33 @@ def preflight(mesh_name, rig_name, tolerance=0.01):
             "retargeting profile expects - prefer _L/_R if you retarget."
             % (len(bad_bones), ", ".join(bad_bones[:3])))
 
+    # 5. Keys the bones would ignore. A quaternion key on an Euler bone exports
+    #    a clip of the rest pose, and every clip check on it passes.
+    for name in actions or []:
+        if bpy.data.actions.get(name) is None:
+            continue
+        m = verify.rotation_mode_mismatches(rig_name, name)
+        if m.get("mismatches"):
+            problems.append("%s: %s" % (name, m["note"]))
+
+    # 6. What the mesh is made of in Blender and not in the file.
+    live = _shape_keys_live(mesh)
+    if live:
+        problems.append("%s has %d shape keys with a value (%s) - they would ship as morph "
+                        "targets rather than as the body's shape; bake them with "
+                        "export.bake_for_game" % (mesh_name, len(live), ", ".join(live[:3])
+                                                  + ("..." if len(live) > 3 else "")))
+    masks = [m.name for m in mesh.modifiers if m.type == "MASK"]
+    if masks:
+        warnings.append("%s has Mask modifiers (%s) - the hidden geometry is dropped only "
+                        "because modifiers are applied on export; bake_for_game makes it "
+                        "permanent" % (mesh_name, ", ".join(masks)))
+    over = _over_influenced(mesh, rig)
+    if over:
+        warnings.append("%d vertices of %s are pulled by more than 4 bones - the exporter "
+                        "keeps the 4 heaviest, so they deform differently in the engine "
+                        "(bake_for_game limits and normalises)" % (over, mesh_name))
+
     return {
         "mesh": mesh_name,
         "rig": rig_name,
@@ -119,14 +179,137 @@ def preflight(mesh_name, rig_name, tolerance=0.01):
     }
 
 
+def bake_for_game(mesh_name, rig_name, name=None, influences=4):
+    """One skinned mesh as the engine will draw it, replacing `mesh_name`.
+
+    Shape keys at their current values and every modifier except Armature
+    (a Mask hiding helper geometry, a mirror, a subdivision) are baked into the
+    mesh at the rig's rest pose. Then the skin is made what a game skeleton
+    reads: vertex groups that are not deform bones are removed (MPFB's joint-
+    and helper- groups, a rig's control bones), each vertex keeps its
+    `influences` heaviest bones, and the weights are normalised - the exporter
+    would otherwise do the last two itself, silently and differently.
+
+    The new object takes `name` (default: the original's name), the original's
+    world transform, parent, materials and custom properties, is parented to
+    the rig and bound with an Armature modifier. The original is deleted.
+    """
+    src, rig = _obj(mesh_name), _obj(rig_name)
+    if rig is None or rig.type != "ARMATURE":
+        return {"error": "no armature named " + repr(rig_name)}
+    if src is None or src.type != "MESH":
+        return {"error": "no mesh named " + repr(mesh_name)}
+    name = name or mesh_name
+
+    keys = _shape_keys_live(src)
+    applied = [m.name for m in src.modifiers if m.type != "ARMATURE" and m.show_viewport]
+    prev_pos = rig.data.pose_position
+    arm_state = {m.name: m.show_viewport for m in src.modifiers if m.type == "ARMATURE"}
+    try:
+        rig.data.pose_position = "REST"
+        for m in src.modifiers:
+            if m.type == "ARMATURE":
+                m.show_viewport = False
+        bpy.context.view_layer.update()
+        dg = bpy.context.evaluated_depsgraph_get()
+        me = bpy.data.meshes.new_from_object(src.evaluated_get(dg), preserve_all_data_layers=True,
+                                             depsgraph=dg)
+    finally:
+        rig.data.pose_position = prev_pos
+        for m in src.modifiers:
+            if m.name in arm_state:
+                m.show_viewport = arm_state[m.name]
+        bpy.context.view_layer.update()
+
+    world = src.matrix_world.copy()
+    groups = [g.name for g in src.vertex_groups]
+    props = {k: src[k] for k in src.keys() if k not in ("_RNA_UI",)}
+    collections = list(src.users_collection) or [bpy.context.scene.collection]
+    verts_before = len(src.data.vertices)
+    if name == mesh_name:
+        src.name = mesh_name + "_prebake"
+    ob = bpy.data.objects.new(name, me)
+    for c in collections:
+        c.objects.link(ob)
+    me.name = name
+    # new_from_object keeps each vertex's group weights but not the object's
+    # group names, which index them
+    if len(ob.vertex_groups) == 0:
+        for g in groups:
+            ob.vertex_groups.new(name=g)
+    for k, v in props.items():
+        try:
+            ob[k] = v
+        except (TypeError, ValueError):
+            pass
+    bpy.data.objects.remove(src, do_unlink=True)
+    if me.shape_keys is not None:
+        ob.shape_key_clear()
+    ob.parent = rig
+    ob.matrix_world = world
+    ob.modifiers.new("Armature", "ARMATURE").object = rig
+
+    deform = {b.name for b in rig.data.bones if b.use_deform}
+    removed = [g.name for g in ob.vertex_groups if g.name not in deform]
+    for g in list(ob.vertex_groups):
+        if g.name not in deform:
+            ob.vertex_groups.remove(g)
+
+    # limit and normalise, one group at a time for the removals
+    drop = {}
+    limited = unweighted = 0
+    for v in ob.data.vertices:
+        ws = sorted(((g.weight, g.group) for g in v.groups if g.weight > 0.0), reverse=True)
+        zero = [g.group for g in v.groups if g.weight <= 0.0]
+        keep, cut = ws[:influences], ws[influences:]
+        if cut:
+            limited += 1
+        for _, gi in cut:
+            drop.setdefault(gi, []).append(v.index)
+        for gi in zero:
+            drop.setdefault(gi, []).append(v.index)
+        tot = sum(w for w, _ in keep)
+        if tot <= 0.0:
+            unweighted += 1
+            continue
+        kept = {gi: w / tot for w, gi in keep}
+        for g in v.groups:
+            if g.group in kept:
+                g.weight = kept[g.group]
+    for gi, idx in drop.items():
+        ob.vertex_groups[gi].remove(idx)
+
+    return {
+        "mesh": ob.name,
+        "vertices": {"before": verts_before, "after": len(me.vertices)},
+        "shape_keys_baked": keys,
+        "modifiers_applied": applied,
+        "groups_removed": len(removed),
+        "groups_kept": len(ob.vertex_groups),
+        "vertices_limited": limited,
+        "influences": influences,
+        "unweighted_vertices": unweighted,
+    }
+
+
 # ---------------------------------------------------------------------------
 # clip measurement
 # ---------------------------------------------------------------------------
 
 def clip_report(rig_name, foot_bones, actions=None, loop_clips=None, floor=0.0,
                 up="Z", forward="-Y", tolerance=None, size=None,
-                still_ratio=0.05):
+                still_ratio=0.05, gaits=None, recheck=True, clearance=False):
     """Measure every clip, and say which period each speed belongs to.
+
+    `gaits` names the clips that are locomotion. A declared gait whose stride
+    measures under `still_ratio` of the creature is a failure, not a note: the
+    legs are not moving, and the likeliest reason is keys the bones ignore. A
+    clip not declared is judged by its stride as before.
+
+    `recheck` plays every clip back through `verify.recheck` - floor, skin,
+    seam, stance slide, balance, rotation modes - and its failures are the
+    clip's failures. It is what catches a layer keyed over a clip after it was
+    authored. `clearance` adds `verify.limb_clearance` to it.
 
     `implied_speed_playback_mps` is the one an engine wants. It is reported
     first and named in full for that reason: the alternative differs by one
@@ -174,6 +357,10 @@ def clip_report(rig_name, foot_bones, actions=None, loop_clips=None, floor=0.0,
         tolerance = 0.005 * size
 
     clips, problems, failed = {}, [], {}
+    gaits = set(gaits or [])
+    for name in sorted(gaits - set(actions)):
+        problems.append("%s is declared a gait but not among the clips" % name)
+        failed[name] = "declared a gait but not among the clips"
     for name in actions:
         if bpy.data.actions.get(name) is None:
             problems.append("no action named " + repr(name))
@@ -189,8 +376,17 @@ def clip_report(rig_name, foot_bones, actions=None, loop_clips=None, floor=0.0,
 
         stride = c["stride_m"]
         locomotion = loops and stride >= still_ratio * size
+        failures = list(c["failures"])
+        if name in gaits:
+            if not loops:
+                failures.append("declared a gait but not a loop")
+            if stride < still_ratio * size:
+                failures.append("declared a gait but its feet travel %.4f m, under %.0f%% of the "
+                                "%.3f m creature - the legs are not moving"
+                                % (stride, still_ratio * 100, size))
         entry = {
             "locomotion": locomotion,
+            "gait": name in gaits,
             "loops": loops,
             "frames": c["frames"],
             "fps": c["fps"],
@@ -200,9 +396,23 @@ def clip_report(rig_name, foot_bones, actions=None, loop_clips=None, floor=0.0,
             "blender_cycle_s": c["duration_s"],
             "loop_seam": c["loop_seam"],
             "lowest_foot": c["lowest_foot"],
-            "passed": c["passed"],
-            "failures": c["failures"],
         }
+        if recheck:
+            r = verify.recheck(rig_name, name, forward=forward, up=up, floor=floor,
+                               loop=loops, clearance=clearance)
+            if "error" in r:
+                # a body the map cannot read (a rock with a clip) has nothing
+                # to re-check against; say so rather than fail it
+                entry["recheck"] = {"skipped": r["error"]}
+            else:
+                entry["recheck"] = {k: r.get(k) for k in (
+                    "lowest_bone", "skin_lowest", "loop_seam", "stance_speed_mps",
+                    "contacts", "balance", "clearance", "failures")}
+                failures += [f for f in r["failures"]
+                             # the seam and rotation modes are already reported above
+                             if not f.startswith(("loop seam", "rotation mode"))]
+        entry["passed"] = not failures
+        entry["failures"] = failures
         if locomotion:
             entry["stride_m"] = stride
             entry["implied_speed_playback_mps"] = c["implied_speed_playback_mps"]
@@ -221,6 +431,8 @@ def clip_report(rig_name, foot_bones, actions=None, loop_clips=None, floor=0.0,
                              % (stride, still_ratio * 100, size))
         clips[name] = entry
 
+    bad = sorted(n for n, c in clips.items() if not c["passed"])
+
     return {
         "rig": rig_name,
         "size_m": round(size, 4),
@@ -228,7 +440,9 @@ def clip_report(rig_name, foot_bones, actions=None, loop_clips=None, floor=0.0,
         "clips": clips,
         "problems": problems,
         "failed": failed,
-        "passed": not problems and all(c["passed"] for c in clips.values()),
+        # measured, but failing their checks
+        "failing": {n: clips[n]["failures"] for n in bad},
+        "passed": not problems and not bad,
     }
 
 
@@ -362,6 +576,14 @@ def export_glb(filepath, objects, actions=None, rig_name=None,
         "export_extras": True,
     }
 
+    # Morph targets only when there is something to morph, and said outright
+    # rather than left to the exporter's default: shape keys that were baked into
+    # the mesh must not come back as blend shapes, and ones that were kept (a
+    # face's expressions) must not be dropped.
+    wanted["export_morph"] = any(
+        _obj(n).type == "MESH" and _obj(n).data.shape_keys is not None
+        and len(_obj(n).data.shape_keys.key_blocks) > 1 for n in objects)
+
     props = {p.identifier for p in bpy.ops.export_scene.gltf.get_rna_type().properties}
     kwargs = {k: v for k, v in wanted.items() if k in props}
     dropped = sorted(set(wanted) - set(kwargs))
@@ -432,11 +654,55 @@ def export_glb(filepath, objects, actions=None, rig_name=None,
     return {
         "file": filepath,
         "exported": list(objects),
+        "morph_targets": wanted["export_morph"],
         "staged_clips": staged_names or None,
         "skipped": skipped,
         "options_dropped_by_this_blender": dropped,
         "written": os.path.exists(filepath),
     }
+
+
+# ---------------------------------------------------------------------------
+# engine collision
+# ---------------------------------------------------------------------------
+
+def collider(mesh_name, rig_name, forward="-Y", up="Z", floor=0.0, share=0.98):
+    """The `collider: {radius, height}` block `MovesController` reads, from the
+    skinned mesh at rest.
+
+    radius  how far the TRUNK's skin - the torso, anything hung off it that is
+            not a limb (jiggle bones included), and the upper legs - reaches
+            out horizontally from the vertical line through the rig's origin,
+            its `share` percentile so one stray vertex does not size it. Arms
+            are left out: a capsule wide enough for a swinging hand wedges in
+            doorways. Hips and belly are what bump into things.
+    height  the top of the whole mesh above the floor.
+    Metres, world space."""
+    from . import bodymap, verify
+    ob, rig = bpy.data.objects.get(mesh_name), bpy.data.objects.get(rig_name)
+    if ob is None or rig is None:
+        return {"error": "missing mesh or rig"}
+    bm = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
+    if "error" in bm:
+        return {"error": bm["error"]}
+    _, trunk = verify.clearance_bones(rig, bm, [])
+    upw = bodymap.axis_vector(up)
+    origin = rig.matrix_world.translation
+    names = {g.index: g.name for g in ob.vertex_groups}
+    dists, top = [], -float("inf")
+    for v in ob.data.vertices:
+        p = ob.matrix_world @ v.co
+        top = max(top, p.dot(upw) - floor)
+        best = max(v.groups, key=lambda g: g.weight, default=None)
+        if best is None or names.get(best.group) not in trunk:
+            continue
+        d = p - origin
+        dists.append((d - upw * d.dot(upw)).length)
+    if not dists:
+        return {"error": "no skin weighted to the trunk of " + rig_name}
+    dists.sort()
+    return {"radius": round(dists[min(len(dists) - 1, int(share * len(dists)))], 4),
+            "height": round(top, 4)}
 
 
 # ---------------------------------------------------------------------------
@@ -473,7 +739,8 @@ def godot_constants(report, suffix="_CLIP_IMPLIED_SPEED"):
 
 def export(mesh_name, rig_name, filepath, foot_bones, actions=None,
            loop_clips=None, floor=0.0, up="Z", forward="-Y", force=False,
-           skip_bad_clips=False, sidecar=True):
+           skip_bad_clips=False, sidecar=True, gaits=None, recheck=True,
+           clearance=False):
     """Preflight, export, then read the file back and check it against the plan.
 
     Returns a manifest the engine side can be driven from. `verified` is the
@@ -481,8 +748,13 @@ def export(mesh_name, rig_name, filepath, foot_bones, actions=None,
     ranges against the duration actually written into the glTF. If those
     disagree the speeds are wrong and the feet will slide - which is precisely
     the failure this phase exists to make unshippable.
+
+    `gaits` names the clips that are locomotion (see `clip_report`). Every clip
+    is re-checked on playback (`recheck=True`), and a clip failing any check
+    blocks the export: `skip_bad_clips=True` drops it and says so, `force=True`
+    ships it anyway with its failures in the manifest.
     """
-    pre = preflight(mesh_name, rig_name)
+    pre = preflight(mesh_name, rig_name, actions=actions)
     if "error" in pre:
         return pre
     if not pre["passed"] and not force:
@@ -491,9 +763,22 @@ def export(mesh_name, rig_name, filepath, foot_bones, actions=None,
 
     clips = clip_report(rig_name, foot_bones, actions=actions,
                         loop_clips=loop_clips, floor=floor, up=up,
-                        forward=forward)
+                        forward=forward, gaits=gaits, recheck=recheck,
+                        clearance=clearance)
     if "error" in clips:
         return {"stage": "clips", "preflight": pre, "clips": clips, "exported": False}
+    if clips["failing"] and not (skip_bad_clips or force):
+        return {"stage": "clips", "preflight": pre, "clips": clips, "exported": False,
+                "note": "refusing to export - " + "; ".join(
+                    "%s: %s" % (n, "; ".join(f)) for n, f in sorted(clips["failing"].items()))
+                + " (skip_bad_clips=True drops these clips, force=True ships them)"}
+    dropped = {}
+    if clips["failing"] and skip_bad_clips and not force:
+        for n in clips["failing"]:
+            dropped[n] = clips["clips"].pop(n)["failures"]
+    if dropped and not clips["clips"]:
+        return {"stage": "clips", "preflight": pre, "clips": clips, "exported": False,
+                "dropped": dropped, "note": "refusing to export - no clip passed its checks"}
     if clips["failed"] and not skip_bad_clips:
         # A clip that cannot be measured has no knowable speed, and a clip that
         # animates nothing is a clip the engine will happily play. `force` does
@@ -546,12 +831,16 @@ def export(mesh_name, rig_name, filepath, foot_bones, actions=None,
         },
         "godot": godot_constants(clips),
         "exported": True,
+        # dropped by skip_bad_clips, and shipped failing under force
+        "dropped_clips": dropped,
+        "forced_clips": clips["failing"] if force else {},
     }
 
     if sidecar:
         side = os.path.splitext(written["file"])[0] + ".rig.json"
         with open(side, "w", encoding="utf-8") as fh:
-            json.dump({k: manifest[k] for k in ("clips", "file", "verified", "godot")},
+            json.dump({k: manifest[k] for k in ("clips", "file", "verified", "godot",
+                                                "dropped_clips", "forced_clips")},
                       fh, indent=2)
         manifest["sidecar"] = side
 
@@ -592,6 +881,11 @@ def summarize(manifest):
                       format(infile, ".4f") if infile is not None else "MISSING",
                       speed,
                       "" if c["passed"] else "FAILED: " + "; ".join(c["failures"])))
+
+    for name, fails in sorted((manifest.get("dropped_clips") or {}).items()):
+        out.append("dropped %s: %s" % (name, "; ".join(fails)))
+    for name in sorted(manifest.get("forced_clips") or {}):
+        out.append("FORCED %s out despite its failures" % name)
 
     v = manifest.get("verified", {})
     out.append("")

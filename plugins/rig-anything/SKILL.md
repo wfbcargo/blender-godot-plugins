@@ -59,6 +59,10 @@ res = views.render_views("MyObject", r"C:/path/to/scratch", views=("front", "rig
 
 Then read the PNGs. Flat workbench shading on an isolated temp scene: clean
 silhouettes, no textures to distract, and the user's scene is never touched.
+Each object fills its frame; to compare sizes pass `frame_height_m=2.1` (to
+`render_views` or `views.render_clip`) - a fixed-height frame from the floor up,
+grown only if the body needs more, so a child renders smaller than a man and
+their feet line up. The scale used comes back as `ortho_scale`.
 
 **4. Classify, using both.** The measurements constrain; the renders decide.
 State the archetype, the forward axis *and its sign*, and your confidence.
@@ -130,6 +134,35 @@ r = lm.cycle(rig_name, froude="sprint")      # or "walk", "trot", or a number
 print(lm.summarize(r))
 ```
 
+A character's way of walking goes in as arguments, not as keys layered over the
+clip afterwards: `max_drop` (hip drop cap, share of hip height), `stance_width`
+(ankle offset from the midline over the hip's; 1.0 feet under the hips) and
+`posture` (`{"pelvis", "flex", "neck"}` degrees, positive toward `fwd`). The
+same stance and posture reach `actions.idle`, and
+`actions.move_set(options={role: {...}})` passes them per role.
+
+An upright biped's **upper body moves inside the same keys** (`upper.py`):
+pelvis turn and list, chest counter-turn, side bend, lean, a head that holds
+its orientation, and arms swinging opposite their own side's leg - driven by
+IK hand targets built against gravity and the body's heading, with the elbow
+pole from each arm's rest bend plane, so a hunch hangs the arms in front and a
+bent-elbow rest pose bends the same way as a straight one. How far the arms
+hang out is measured on the skin and widened on playback until the forearm and
+hand clear the hips (`verify.limb_clearance`, now a cycle check). Parameters
+are degrees and metres, scaled by Froude (`upper.defaults`); `idle` gets
+relaxed arms and puts the hips back over the feet when a posture or hanging
+arms would tip the body forward. `cycle(upper={...})` / `idle(upper={...})`
+override, `upper=False` leaves the rest pose; bodies other than upright
+bipeds are untouched unless asked.
+
+**Gait styles** say how a body walks at a speed: `duty`, `stride_scale`,
+`lift_scale`, `bounce_scale`, `sway`, `min_knee` (and `extension`) on
+`plan`/`cycle`, gathered with `upper`, `posture`, `stance_width` and
+`max_drop` into `locomotion.GAIT_STYLES` - `elderly_shuffle`, `heavy`,
+`child`, `brisk`, `relaxed`. `cycle(style="heavy")`,
+`idle(style=...)`, `move_set(options={"Walk": {"style": "child"}})`; a style
+has "walk", "run" and "idle" sections, and any explicit argument beats it.
+
 See `animate-anything`'s `references/contact-locomotion.md`.
 
 It refuses a creature with no legs rather than inventing a walk for a worm.
@@ -162,13 +195,39 @@ not optional.
 **7. Export, and get the playback speed with it.**
 
 ```python
+export.bake_for_game("MyMesh", res["rig"])      # shape keys + modifiers baked, 4 bones a vertex
 m = export.export("MyMesh", res["rig"], r"C:/proj/assets/thing.glb",
                   foot_bones=["Foot.L", "Foot.R"],
                   actions=["Idle", "Walk", "Run", "Jump"],
                   loop_clips=["Idle", "Walk", "Run"],   # Jump is a one-shot
+                  gaits=["Walk", "Run"],                # these must move their feet
                   forward="-Y")
 print(export.summarize(m))
 ```
+
+**Every clip is played back and re-checked before it ships** (`verify.recheck`):
+bone floor (bones that carry skin), skin through the floor, loop seam, stance
+contacts that skate (drift sideways or vertically, move unevenly, or disagree on
+speed), balance for a clip that stands still, and rotation modes. Authoring checks
+see the clip once, as generated; a hunch or an arm swing keyed over it afterwards is
+only ever measured here. A failing clip **blocks the export** - `skip_bad_clips=True`
+drops it, `force=True` ships it and lists it under `forced_clips`. Tolerances are the
+authoring ones (`verify.PLANT_TOL`, `SLIP_TOL`, `SKIN_TOL`), not looser.
+`verify.limb_clearance` (or `clearance=True`) measures how close hands come to the
+body, from the body map rather than bone names.
+
+A clip named in `gaits` whose stride is ~0 fails: the legs are not moving. That is
+what a quaternion-keyed clip on an Euler rig (MPFB's) looks like - every other number
+reads the rest pose and passes. Authoring now leaves keyed bones in the mode their
+keys use (`verify.adopt_rotation_modes`), and `preflight(..., actions=)` and
+`check_clip` refuse a mismatch (`verify.rotation_mode_mismatches`).
+
+`preflight` also refuses shape keys with a value (they ship as morph targets, not as
+the body's shape) and warns about Mask modifiers and vertices pulled by more than 4
+bones. `bake_for_game` fixes all three: it bakes shape keys and every modifier but
+Armature into one mesh at rest, drops groups that are not deform bones, keeps the 4
+heaviest influences and normalises. `export_glb` sets `export_morph` from whether
+shape keys remain.
 
 The file carries object custom properties as node extras, and only the active scene's
 selected objects. That is how `follow-through` rides along: its **flesh** library adds jiggle
@@ -191,9 +250,42 @@ and only a cycle has a speed - a jump travels 0.163 m, which clears any stride
 threshold and means nothing when divided by the clip length.
 
 A clip that cannot be measured blocks the export and `force=True` does not
-waive it - `force` waives preflight, where the caller can see the problem and
-judge it, while an unmeasurable clip means the deliverable itself is missing.
-Drop one deliberately with `skip_bad_clips=True`, which reports what it dropped.
+waive it - `force` waives preflight and failing checks, where the caller can see
+the problem and judge it, while an unmeasurable clip means the deliverable itself
+is missing. Drop one deliberately with `skip_bad_clips=True`, which reports what
+it dropped.
+
+**In Godot, drive it with `MovesController`.** Copy
+`${CLAUDE_PLUGIN_ROOT}/godot/addons/rig_anything` to `<project>/addons/` once. It is a
+`CharacterBody3D` (`class_name MovesController`) that reads any `.moves.json`: set
+`manifest_path` before adding it, and `input_source` -> `{dir, run}`:
+
+```gdscript
+var body := MovesController.new()
+body.manifest_path = "res://assets/thing.moves.json"
+body.input_source = func(_b): return {"dir": Vector3.FORWARD, "run": false}
+add_child(body)
+```
+
+Only `scene` and `clips` are required. The gait ladder is whichever of Walk, Trot, Run
+(Amble, Canter, Gallop...) and `gaits` roles have a speed, slowest first, each at
+`gaits.<role>.natural_speed_mps` (else `implied_speed_mps` x `implied_pace`). Gaits change
+at the geometric mean of neighbouring speeds +-8%, carry the stride phase across, and play
+at speed / implied speed, so the feet do not skate. The collider is a capsule from an
+optional `collider: {radius, height}` block, else `height_m.stand`; write it with
+`export.collider(mesh, rig)` or `engine_manifest(..., mesh_name=mesh)["collider"]` - the
+trunk and thighs' horizontal reach from the origin (98th percentile), arms left out, and
+the mesh's top. For more moves, extend it:
+override `_setup()` (after model, ladder and collider exist), `_physics_process`, and
+`_build_collider` / `_set_height` for another shape, and call `play_gait_for(speed)`,
+`play_role`, `add_hold`. Check a manifest headless:
+
+```bash
+godot --headless --path <project> -s res://addons/rig_anything/verify_moves.gd -- dir=res://assets/humans
+```
+
+It drives 0 -> walk -> each change-up -> run -> back down -> 0 and checks role, rate,
+hysteresis and phase at every step (`MOVES VERIFY PASSED`).
 
 **8. Wings: fold, flap, glide.** Any free limb whose skin is a sheet is a wing
 (see `animate-anything`'s `references/wings.md`):

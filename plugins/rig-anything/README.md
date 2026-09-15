@@ -170,8 +170,9 @@ convention between two rigs of the same character inverts the arms.
 SKILL.md                          the procedure, and the rules
 scripts/rig_analysis/
   measure.py    riggability, symmetry, ground contacts, extremities, profile
-  verify.py     axis probe, slot binding, clip checks, contralateral, origin
-  export.py     preflight, glb write, read-back duration check, GDScript out
+  verify.py     axis probe, slot binding, clip checks, rotation modes, playback re-check,
+                limb clearance, contralateral, origin
+  export.py     preflight, bake_for_game, glb write, read-back duration check, GDScript out
   views.py      orthographic renders in an isolated throwaway scene
   report.py     compact text output
   bodymap.py    any rig -> spine, neck, head, tail, legs, arms
@@ -187,6 +188,9 @@ scripts/rig_analysis/
   hoppers.py    jumping legs and joints found on the skin, pelvis-rooted rig, weights from the parts
   hop.py        hop, half-bound, tripod walk, launch / air / land jumps; checks; manifest; export
   hopper_samples.py  procedural cricket and rabbit with known joints
+godot/addons/rig_anything/
+  moves_controller.gd  MovesController: any .moves.json walks, trots, runs in Godot
+  verify_moves.gd      headless check of its gait choice, rates, hysteresis and phase
 references/
   archetypes.md          Rigify templates measured, and what evidence picks one
   joint-conventions.md   which way each joint bends, and the quadruped trap
@@ -260,7 +264,19 @@ Blender sessions are long-lived and cache imports, so always
   contacts back out of any clip, `engine_manifest` hands gaits and footfall
   schedules to an engine, and the exporter now measures speed on the planted
   feet - the old 2 x foot travel formula assumed 50% ground time and read the
-  gallop 21% slow.
+  gallop 21% slow. A character's way of walking is argued, not layered on
+  afterwards: `max_drop` (a hard hip-drop cap), `stance_width` (ankle offset
+  over the hip's) and `posture` (pelvis, trunk flex and neck in degrees toward
+  `fwd`) are solved inside every key of `cycle` and `idle`, and
+  `move_set(options=...)` passes them per role. The upper body is solved there
+  too (`upper.py`): pelvis turn and list, chest counter-rotation, a steady
+  head, and arms swinging opposite their legs as IK targets hung from gravity
+  rather than the chest, hung out from the hips by as much as the skin needs.
+  How a body walks at a speed - ground time, step length, foot lift, bounce,
+  sway, soft knees, stoop, arm swing - comes as a gait style
+  (`locomotion.GAIT_STYLES`: elderly_shuffle, heavy, child, brisk, relaxed)
+  that explicit arguments override, and `export.collider` sizes the engine
+  capsule from the trunk's skin.
 - **8** wings — done (`wings.py`, `flight.py`, 0.9.0). See animate-anything's
   `references/wings.md`.
 - **9** maws — done (`maw.py`, 0.10.0). See animate-anything's

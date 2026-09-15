@@ -25,7 +25,7 @@ Four layers, in the `rig_analysis` package that `rig-anything` ships:
 | `radial` / `radial_moves` | Bodies with no front or back: hub and appendages found on the skin, rigged and weighted without bone heat; a jellyfish pulses, drifts and turns, a sea star crawls, a brittle star rows, an anemone sways and retracts |
 | `hoppers` / `hop` | Jumping legs found on the skin and their joints - hidden ones inferred - rigged and weighted; a rabbit hops and half-bounds on measured ankle angles, a cricket walks on tripods, both launch, fly and land |
 
-**Requires the `rig-anything` plugin, 0.13.0 or later.** The code ships there, in
+**Requires the `rig-anything` plugin, 0.14.0 or later.** The code ships there, in
 its `scripts/rig_analysis` package; this plugin is the procedure and the rules
 for using it.
 
@@ -91,7 +91,12 @@ Then read the PNGs. The checks cover what they were written for; a pose can
 pass all of them and still read badly.
 
 **4. Export** with `rig-anything`'s `export.export(..., actions=[...])`. List the
-crouch as a one-shot, never in `loop_clips`.
+crouch as a one-shot, never in `loop_clips`, and name the walks and runs in
+`gaits=`. Export plays every clip back through `verify.recheck` - floor, skin,
+seam, skating stance feet, balance while standing still - and refuses a failing
+one, so anything layered over a clip after authoring (an arm swing, a hunch, feet
+brought in) is held to the same tolerances the clip was authored under. Call
+`verify.recheck(rig, action)` yourself after layering to see it before export.
 
 ## Validated
 
@@ -182,7 +187,10 @@ m = locomotion.engine_manifest("QuadTest_rig", res)   # gaits + footfall schedul
 ```
 
 Clips are named `<rig>_<Role>`, and the recoveries measure their seams against
-that set's own Slide and Crouch. What changes with the body:
+that set's own Slide and Crouch. `options={role: {keyword: value}}` hands each
+role its own keywords over the defaults - a gait's `froude`, `max_drop`,
+`stance_width` and `posture`, the idle's stance and posture (see below) - so
+nothing needs monkeypatching. What changes with the body:
 
 | Move | Biped | Horizontal body (4, 6 legs) |
 |---|---|---|
@@ -237,6 +245,75 @@ d = lm.detect("QuadTest_rig", "QuadTest_rig_Run")   # contacts read back from AN
    it; stroke = duty x stride is what the legs must reach.
 4. Reach is solved on the plane: roll the foot over its toe, then drop the
    hips, then cut ground time, then - reported - shorten stride and speed.
+
+A character's way of walking - and the idle it stands in - goes in as
+arguments:
+
+```python
+hunch = {"pelvis": 4, "flex": 30, "neck": -22}      # degrees, positive toward the front
+r = lm.cycle("Walter_rig", froude=0.06, max_drop=0.06, stance_width=1.03, posture=hunch)
+res = actions.move_set("Walter_rig", roles=("Idle", "Walk"), options={
+    "Idle": {"stance_width": 1.03, "posture": hunch},
+    "Walk": {"froude": 0.06, "max_drop": 0.06, "stance_width": 1.03, "posture": hunch}})
+```
+
+- `max_drop` - largest hip drop as a share of hip height, and a hard cap: past
+  it the retries shorten the stroke, and a leg that still cannot reach fails
+  with a message naming max_drop. None lets speed choose (10-22%), and the
+  retries may go past it.
+- `stance_width` - each ankle's distance from the midline as a multiple of its
+  hip joint's: 1.0 feet under the hips, None the rest stance. Stroke lines, the
+  reach solve and the skate check all move with it; `idle` holds it too.
+- `posture` - held pitches in degrees about the body map's lateral axis, never
+  a bone axis: `pelvis` anterior tilt (all above rides it), `flex` the trunk
+  above the pelvis (ramped, most at the top), `neck` the neck and head relative
+  to the top of the trunk, negative craned back. Positive moves the head end
+  toward `fwd` - down, on a horizontal body.
+- `centre_weight` - 0 steps about the rest foot, 1 under the hip; None by speed.
+- `upper` - the upper body, moved inside the same keys on an upright biped
+  (`upper.py`): pelvis turn and list, chest turning against it, side bend, lean,
+  head held toward the world, arms swinging opposite their own side's leg with
+  the elbow bending as they come forward. None uses `upper.defaults(froude,
+  duty)` (a walk subtle, a run with 75-degree elbows); a dict overrides
+  parameters in degrees and metres (`arm_swing`, `arm_forward`, `arm_out`,
+  `elbow`, `elbow_swing`, `hand_in`, `pelvis_turn`, `pelvis_list`,
+  `thorax_turn`, `side_bend`, `lean`, `lean_bob`, `head_hold`,
+  `hand_clearance`); False leaves the rest pose. `idle` takes it too, for
+  relaxed arms.
+
+- `style` - a way of walking from `locomotion.GAIT_STYLES` (`elderly_shuffle`,
+  `heavy`, `child`, `brisk`, `relaxed`) or a dict of the same shape: defaults
+  for `duty`, `stride_scale`, `lift_scale`, `bounce_scale`, `sway`, `min_knee`,
+  `extension`, `max_drop`, `stance_width`, `posture` and `upper`, in "walk",
+  "run" and "idle" sections. Explicit arguments beat it; an `upper` dict is laid
+  over the style's.
+
+```python
+res = actions.move_set("Hugo_rig", roles=("Idle", "Walk"), options={
+    "Idle": {"style": "heavy", "stance_width": 1.48},
+    "Walk": {"style": "heavy", "froude": 0.14, "stance_width": 1.48}})
+```
+
+**Hang arms from gravity, not from the chest.** The humans' arm swing was once
+keyed over finished clips as rotations in the chest's rest frame: under
+Walter's 30-degree hunch that hung his arms 28-30 degrees *behind* him, and the
+forward lean subtracted from the swing sent them further back. `upper` builds
+each upper-arm direction from `up_vec` and `fwd` and places the hand by IK,
+with the elbow pole taken from the arm's rest bend plane (MPFB forearms rest
+bent 40 degrees, Belle's arms straight - both fold forward). `arm_out` None is
+measured: the least abduction that keeps forearm and hand skin
+`hand_clearance` off the posed hips and thighs, then widened on Blender's
+playback until `verify.limb_clearance` agrees - a heavy body's thighs move
+under a swinging arm, and only playback sees that. A hand still inside the body
+fails the clip. An idle with a posture or hanging arms puts the hips back until
+the centre of mass is over the feet, softening the knees to reach.
+
+**Pose the body inside the clip, not over it.** Walter's hunch and every
+human's narrowed stance were once keyed on top of finished clips. The legs never
+saw them, the thigh turn that brought the feet in put Walter's and Margaret's
+feet 1-2 cm through the floor in the exporter's check, and the hunch's sign was
+found by trial - the first Walter leaned back like a limbo dancer. Solved inside
+the key, the legs stand under the posed body and every check sees it.
 
 Validated: quadruped rotary gallop at Fr 3 - stroke 1.53x its IK leg (the old
 run managed 0.45), duty 0.34, 8% flight, contact slip 0.0; hexapod tripod run,
@@ -300,6 +377,17 @@ version drove it to the 50 degree limit and sank it deeper.
 
 **Measure skin against rest, not the first frame.** A gait's first frame is
 mid-stride; as a baseline it let a run 3.6 cm under the floor pass.
+
+**Bones below the floor count only if they carry skin.** MPFB's `root` has no
+weights and dips 3-7 cm under the floor as the hips drop; every human walk and run
+failed on it while nothing visible touched the ground. The skin check still holds
+the body itself. A rig with no bound mesh keeps checking every bone.
+
+**Leave keyed bones in their keys' rotation mode.** Authoring used to restore each
+bone's mode after baking. MPFB bones rotate in Euler XYZ, so every quaternion key
+was ignored and Tomas walked with still legs - while every check, run before the
+restore, passed. Authoring now ends with `verify.adopt_rotation_modes`, and export
+refuses a mismatch.
 
 **Run straight-legged first.** A flexed run folded the rat's wrists into the
 ground and cut its stride to 3 cm; starting at depth 0.05 it ran at 3x its walk,
