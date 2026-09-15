@@ -665,7 +665,8 @@ def _region(obj, t, c, rname, tname, entry, verts, area, normals, body_volume, n
         "volume_fraction": round(volume / max(body_volume, 1e-9), 4),
         "peak_m": round(peak, 4), "peak_relative": round(peak_rel, 3),
         "mass_kg": round(volume * density, 3),
-        "head": head, "tail": tail, "normal": n_mean, "anchor_bone": _anchor_bone(t, head),
+        "head": head, "tail": tail, "normal": n_mean,
+        "anchor_bone": (_pelvis_bone(t) if entry.get("anchor") == "pelvis" else None) or _anchor_bone(t, head),
         "place": {**{k: round(v, 3) for k, v in coords.items()}, "chain": role},
         "paired": rname.endswith((".L", ".R")),
         "features": _region_features(coords, role, peak_rel, volume / max(body_volume, 1e-9)),
@@ -681,6 +682,28 @@ def _region_features(coords, role, peak_rel, volume_fraction):
             "peak": min(peak_rel, 2.0) / 2.0, "volume_fraction": min(volume_fraction * 10.0, 1.0),
             "chain_spine": float(role == "spine"), "chain_arm": float(role == "arm"),
             "chain_leg": float(role == "leg")}
+
+
+def _pelvis_bone(t):
+    """The bone the legs hang from: the parent most leg chains start under, or None.
+
+    For a flesh type whose registry entry says `"anchor": "pelvis"` (buttocks). The nearest bone
+    put an MPFB woman's buttocks on her thighs - her pelvis bone starts at the hip joints and the
+    seat hangs below them - so every stride swung them with the leg, and a thigh lifted level in a
+    crouch turned gravity on them: on their swing limit half the time."""
+    rig = bpy.data.objects.get(t.get("rig") or "")
+    if rig is None:
+        return None
+    H = t.get("height") or 1.0
+    counts = {}
+    for ch in t["chains"]:
+        if ch.get("kind") != "leg" or ch.get("length", 0.0) < 0.25 * H:
+            continue
+        b = rig.data.bones.get(ch["bones"][0])
+        if b is not None and b.parent is not None:
+            counts[b.parent.name] = counts.get(b.parent.name, 0) + 1
+    best = max(counts.items(), key=lambda kv: kv[1], default=(None, 0))
+    return best[0] if best[1] >= 2 else None
 
 
 def _anchor_bone(t, point):

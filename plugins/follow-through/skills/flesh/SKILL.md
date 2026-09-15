@@ -148,6 +148,11 @@ godot --headless --path <project> -s res://addons/follow_through/verify_volume.g
 
 ## Rules
 
+**Buttocks ride the pelvis.** A type's `"anchor": "pelvis"` parents its bone to the bone the legs
+hang from. By nearest bone an MPFB woman's buttocks went on her thighs (her pelvis bone starts at
+the hip joints, the seat hangs below): every stride swung them with the leg and a crouch's level
+thigh turned gravity on them - on their limit half the self-test.
+
 **Skin decides the chain, not distance.** A bloater's wide torso sides lie closer to its
 A-posed upper arms than to its spine; by nearest segment they were arm flesh. Bone heat
 diffuses through the body and gives them to the spine.
