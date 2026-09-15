@@ -187,6 +187,9 @@ scripts/rig_analysis/
   hoppers.py    jumping legs and joints found on the skin, pelvis-rooted rig, weights from the parts
   hop.py        hop, half-bound, tripod walk, launch / air / land jumps; checks; manifest; export
   hopper_samples.py  procedural cricket and rabbit with known joints
+godot/addons/rig_anything/
+  moves_controller.gd  MovesController: any .moves.json walks, trots, runs in Godot
+  verify_moves.gd      headless check of its gait choice, rates, hysteresis and phase
 references/
   archetypes.md          Rigify templates measured, and what evidence picks one
   joint-conventions.md   which way each joint bends, and the quadruped trap

@@ -199,6 +199,35 @@ waive it - `force` waives preflight, where the caller can see the problem and
 judge it, while an unmeasurable clip means the deliverable itself is missing.
 Drop one deliberately with `skip_bad_clips=True`, which reports what it dropped.
 
+**In Godot, drive it with `MovesController`.** Copy
+`${CLAUDE_PLUGIN_ROOT}/godot/addons/rig_anything` to `<project>/addons/` once. It is a
+`CharacterBody3D` (`class_name MovesController`) that reads any `.moves.json`: set
+`manifest_path` before adding it, and `input_source` -> `{dir, run}`:
+
+```gdscript
+var body := MovesController.new()
+body.manifest_path = "res://assets/thing.moves.json"
+body.input_source = func(_b): return {"dir": Vector3.FORWARD, "run": false}
+add_child(body)
+```
+
+Only `scene` and `clips` are required. The gait ladder is whichever of Walk, Trot, Run
+(Amble, Canter, Gallop...) and `gaits` roles have a speed, slowest first, each at
+`gaits.<role>.natural_speed_mps` (else `implied_speed_mps` x `implied_pace`). Gaits change
+at the geometric mean of neighbouring speeds +-8%, carry the stride phase across, and play
+at speed / implied speed, so the feet do not skate. The collider is a capsule from an
+optional `collider: {radius, height}` block, else `height_m.stand`. For more moves, extend it:
+override `_setup()` (after model, ladder and collider exist), `_physics_process`, and
+`_build_collider` / `_set_height` for another shape, and call `play_gait_for(speed)`,
+`play_role`, `add_hold`. Check a manifest headless:
+
+```bash
+godot --headless --path <project> -s res://addons/rig_anything/verify_moves.gd -- dir=res://assets/humans
+```
+
+It drives 0 -> walk -> each change-up -> run -> back down -> 0 and checks role, rate,
+hysteresis and phase at every step (`MOVES VERIFY PASSED`).
+
 **8. Wings: fold, flap, glide.** Any free limb whose skin is a sheet is a wing
 (see `animate-anything`'s `references/wings.md`):
 
