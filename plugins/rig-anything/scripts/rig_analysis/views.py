@@ -36,9 +36,34 @@ def _bounds(obj):
     return lo, hi, (lo + hi) / 2.0, (hi - lo)
 
 
+def _frame(lo, hi, pad, frame_height_m=None):
+    """(centre, ortho scale, radius) for a camera on the box `lo`..`hi`.
+
+    By default the frame fits the box, `pad` times its largest half-extent -
+    so a child and a man fill the picture alike. With `frame_height_m` the frame
+    is that many metres tall (or what the box needs, if more) with its bottom
+    edge on the floor, so bodies rendered with the same value share one pixel
+    scale and one ground line and compare side by side. `radius` stays the
+    box's own: it sets how far off the camera sits and where it clips.
+    """
+    centre, dims = (lo + hi) / 2.0, hi - lo
+    radius = max(dims) * 0.5 or 1.0
+    if frame_height_m is None:
+        return centre, radius * pad, radius
+    floor = min(lo.z, 0.0)
+    needed = max(hi.z - floor, dims.x, dims.y) * 1.08
+    scale = max(float(frame_height_m), needed)
+    # the bottom edge a hair under the floor, so soles are not cut by the frame
+    bottom = floor - 0.02 * scale
+    return Vector((centre.x, centre.y, bottom + scale / 2.0)), scale, max(radius, scale / 2.0)
+
+
 def render_views(obj_name, out_dir, views=("front", "right", "top", "iso"),
-                 size=640, engine="BLENDER_WORKBENCH"):
+                 size=640, engine="BLENDER_WORKBENCH", frame_height_m=None):
     """Render `views` of `obj_name` into `out_dir`. Returns the file paths.
+
+    `frame_height_m` renders at a fixed scale, floor-anchored, instead of
+    fitting each object's bounds (see `_frame`); the scale used is returned.
 
     Workbench is the default engine on purpose: it is fast, needs no lights or
     materials, and its flat shading gives a clean silhouette, which is what
@@ -49,8 +74,8 @@ def render_views(obj_name, out_dir, views=("front", "right", "top", "iso"),
         return {"error": "no object named " + repr(obj_name)}
 
     os.makedirs(out_dir, exist_ok=True)
-    _, _, centre, dims = _bounds(obj)
-    radius = max(dims) * 0.5 or 1.0
+    lo, hi, _, _ = _bounds(obj)
+    centre, scale, radius = _frame(lo, hi, 2.4, frame_height_m)
 
     scene = bpy.data.scenes.new("rig_anything_tmp")
     cam_data = bpy.data.cameras.new("rig_anything_cam")
@@ -78,7 +103,7 @@ def render_views(obj_name, out_dir, views=("front", "right", "top", "iso"),
 
         cam_data.type = "ORTHO"
         # a little headroom so nothing is clipped at the frame edge
-        cam_data.ortho_scale = radius * 2.4
+        cam_data.ortho_scale = scale
         cam_data.clip_start = 0.001
         cam_data.clip_end = radius * 40.0
 
@@ -109,14 +134,14 @@ def render_views(obj_name, out_dir, views=("front", "right", "top", "iso"),
     return {
         "object": obj_name,
         "files": written,
-        "ortho_scale": round(radius * 2.4, 4),
+        "ortho_scale": round(scale, 4),
         "centre": [round(v, 4) for v in centre],
         "note": "front looks along +Y, right looks along -X, top looks down -Z",
     }
 
 
 def render_clip(mesh_name, rig_name, action_name, frames, out_dir,
-                views=("right", "iso"), size=480, focus_bones=None):
+                views=("right", "iso"), size=480, focus_bones=None, frame_height_m=None):
     """Render chosen frames of a clip, one image per (frame, view).
 
     A generated action can pass every numeric check and still look wrong - a
@@ -127,6 +152,12 @@ def render_clip(mesh_name, rig_name, action_name, frames, out_dir,
     REST bounds so every frame shares one scale and they compare directly.
     `focus_bones` frames only the skin those bones hold most of - a jaw is a
     few pixels in a whole-dragon shot.
+
+    By default each body fills its frame, so a 1.1 m child and a 1.9 m man come
+    out the same size. `frame_height_m` (e.g. 2.1) instead frames a fixed height
+    from the floor up - grown only if the body needs more - so every body
+    rendered with it shares one pixel scale and one ground line. The scale used
+    is returned as `ortho_scale`, `standard_frame` true when it was the one asked.
 
     Each frame is rendered from a FROZEN COPY of the evaluated mesh, never from
     the live rig. Rendering the rig and stepping the temp scene's frame was
@@ -166,8 +197,7 @@ def render_clip(mesh_name, rig_name, action_name, frames, out_dir,
             rest = picked
     lo = Vector((min(p.x for p in rest), min(p.y for p in rest), min(p.z for p in rest)))
     hi = Vector((max(p.x for p in rest), max(p.y for p in rest), max(p.z for p in rest)))
-    centre, dims = (lo + hi) / 2.0, hi - lo
-    radius = max(dims) * 0.5 or 1.0
+    centre, scale, radius = _frame(lo, hi, 2.6, frame_height_m)
     tops = {}
 
     scene = bpy.data.scenes.new("rig_anything_clip_tmp")
@@ -187,7 +217,7 @@ def render_clip(mesh_name, rig_name, action_name, frames, out_dir,
         shading.color_type = "SINGLE"
         shading.single_color = (0.8, 0.8, 0.82)
         cam_data.type = "ORTHO"
-        cam_data.ortho_scale = radius * 2.6
+        cam_data.ortho_scale = scale
         cam_data.clip_start = 0.001
         cam_data.clip_end = radius * 40.0
 
@@ -233,4 +263,5 @@ def render_clip(mesh_name, rig_name, action_name, frames, out_dir,
         verify._restore(rig, snap)
     # evaluated top of the mesh per frame: if these agree the render shows a
     # static body, whatever the clip claims
-    return {"files": written, "mesh_top_z": tops}
+    return {"files": written, "mesh_top_z": tops, "ortho_scale": round(scale, 4),
+            "standard_frame": frame_height_m is not None and scale == float(frame_height_m)}

@@ -59,6 +59,10 @@ res = views.render_views("MyObject", r"C:/path/to/scratch", views=("front", "rig
 
 Then read the PNGs. Flat workbench shading on an isolated temp scene: clean
 silhouettes, no textures to distract, and the user's scene is never touched.
+Each object fills its frame; to compare sizes pass `frame_height_m=2.1` (to
+`render_views` or `views.render_clip`) - a fixed-height frame from the floor up,
+grown only if the body needs more, so a child renders smaller than a man and
+their feet line up. The scale used comes back as `ortho_scale`.
 
 **4. Classify, using both.** The measurements constrain; the renders decide.
 State the archetype, the forward axis *and its sign*, and your confidence.
