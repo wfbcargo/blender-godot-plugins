@@ -692,7 +692,7 @@ def skid(rig_name, frames=10, forward="-Y", up="Z", floor=0.0, action_name="Slid
 
 def idle(rig_name, frames=48, forward="-Y", up="Z", floor=0.0, action_name="Idle",
          breath=0.006, sway_degrees=1.5, fps=None, stance_width=None, posture=None,
-         upper=None):
+         upper=None, style=None):
     """A breathing loop: the body settles and rises on planted feet, the torso
     and head drift a degree or two. Small on purpose - an idle that visibly
     moves reads as fidgeting.
@@ -704,8 +704,19 @@ def idle(rig_name, frames=48, forward="-Y", up="Z", floor=0.0, action_name="Idle
     `upper` as in `cycle`, over `upper.idle_defaults`: an upright biped's arms
     come down from the rig's rest pose to hang relaxed - out from the hips by
     as much as clears them, a little forward, elbows soft - and drift with the
-    breath. False leaves them at rest."""
+    breath. False leaves them at rest.
+
+    `style` is `locomotion.cycle`'s: its stance, posture and "idle" section,
+    so a character stands the way its style walks."""
     from . import keyposes as kp, upper as upper_mod
+    from .locomotion import style_args
+    given = {k: v for k, v in dict(stance_width=stance_width, posture=posture,
+                                   upper=upper).items() if v is not None}
+    try:
+        st = style_args(style, "idle", given)
+    except ValueError as e:
+        return {"error": str(e)}
+    stance_width, posture, upper = st.get("stance_width"), st.get("posture"), st.get("upper")
     ctx, err = _setup(rig_name, forward, up, floor)
     if err:
         return err

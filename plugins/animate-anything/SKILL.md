@@ -281,6 +281,19 @@ res = actions.move_set("Walter_rig", roles=("Idle", "Walk"), options={
   `hand_clearance`); False leaves the rest pose. `idle` takes it too, for
   relaxed arms.
 
+- `style` - a way of walking from `locomotion.GAIT_STYLES` (`elderly_shuffle`,
+  `heavy`, `child`, `brisk`, `relaxed`) or a dict of the same shape: defaults
+  for `duty`, `stride_scale`, `lift_scale`, `bounce_scale`, `sway`, `min_knee`,
+  `extension`, `max_drop`, `stance_width`, `posture` and `upper`, in "walk",
+  "run" and "idle" sections. Explicit arguments beat it; an `upper` dict is laid
+  over the style's.
+
+```python
+res = actions.move_set("Hugo_rig", roles=("Idle", "Walk"), options={
+    "Idle": {"style": "heavy", "stance_width": 1.48},
+    "Walk": {"style": "heavy", "froude": 0.14, "stance_width": 1.48}})
+```
+
 **Hang arms from gravity, not from the chest.** The humans' arm swing was once
 keyed over finished clips as rotations in the chest's rest frame: under
 Walter's 30-degree hunch that hung his arms 28-30 degrees *behind* him, and the

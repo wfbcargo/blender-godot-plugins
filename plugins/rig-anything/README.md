@@ -272,6 +272,11 @@ Blender sessions are long-lived and cache imports, so always
   too (`upper.py`): pelvis turn and list, chest counter-rotation, a steady
   head, and arms swinging opposite their legs as IK targets hung from gravity
   rather than the chest, hung out from the hips by as much as the skin needs.
+  How a body walks at a speed - ground time, step length, foot lift, bounce,
+  sway, soft knees, stoop, arm swing - comes as a gait style
+  (`locomotion.GAIT_STYLES`: elderly_shuffle, heavy, child, brisk, relaxed)
+  that explicit arguments override, and `export.collider` sizes the engine
+  capsule from the trunk's skin.
 - **8** wings — done (`wings.py`, `flight.py`, 0.9.0). See animate-anything's
   `references/wings.md`.
 - **9** maws — done (`maw.py`, 0.10.0). See animate-anything's

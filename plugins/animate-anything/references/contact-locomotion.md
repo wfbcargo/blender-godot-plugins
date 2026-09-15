@@ -166,6 +166,65 @@ unchanged to the millimetre:
 | Idle arms hanging behind (hunched) | Walter -28, Margaret -14 deg | +6, +4 deg |
 | Clips exported without force, rechecks | 16 / 16 | 16 / 16 |
 
+## Gait styles
+
+Speed fixes a gait's shape for every body of a kind; people of one size walk
+differently at the same Froude number. `plan` and `cycle` take the hooks, in
+physical terms:
+
+| Argument | Replaces | Meaning |
+|---|---|---|
+| `duty` | `duty_factor(Fr)` | ground time as a share of the cycle; reach may still cut it |
+| `stride_scale` | x `relative_stride(Fr)` | at the same speed: below 1 shorter, quicker steps, above 1 slower cadence |
+| `lift_scale` | x `swing_lift(Fr)` | swing foot height |
+| `bounce_scale` | x `body_bounce` | hip rise and fall |
+| `sway` | 0.01 (upright walk) | side-to-side hip sway, share of leg length |
+| `min_knee` | `Reach(min_knee=50)` | smallest included stance knee angle |
+| `extension` | 0.97 | longest a stance leg may reach, share of its length (below 1: soft knees) |
+
+`GAIT_STYLES` presets gather them with `upper`, `posture`, `stance_width` and
+`max_drop`, in "walk", "run" and "idle" sections (the section is chosen by the
+Froude number asked, under 0.5 walks):
+
+| Style | Walk | Upper body | Held |
+|---|---|---|---|
+| `elderly_shuffle` | duty 0.74, stride x0.8, lift x0.8, bounce x0.5, sway 0.012, extension 0.94, max_drop 0.06 | swing 6, elbow 24, arms 5 forward, pelvis turn 1.5, head hold 0.9 | stoop {pelvis 2, flex 12, neck -8} |
+| `heavy` | stride x1.08, lift x0.8, bounce x0.6, sway 0.03, max_drop 0.045 | swing 12, side bend 4, list 2.5, hand clearance 4 cm | stance_width 1.4 |
+| `child` | stride x0.88, lift x1.15, bounce x1.5, max_drop 0.035 | swing 24 (run 30), elbow 18 | - |
+| `brisk` | stride x1.05, lift x1.05 | swing 24, elbow 35, lean 4, chest turn 6 | - |
+| `relaxed` | stride x0.95, lift x0.85, bounce x0.9 | swing 13, elbow 12, head hold 0.75 | - |
+
+The elderly lift is a floor, not a taste: at x0.55 (4.7 cm on Walter) the
+swing toe stayed inside `verify.recheck`'s 1% stance band for several frames
+and read as a planted foot skating 31 cm; x0.65 still skated 1 cm; x0.75 was
+the first clean one.
+
+Measured on the humanform crowd, layered arms and per-person numbers (before)
+against brief + style (after); stride and duty from the manifest, lift, arm
+swing (upper-arm angle, half range) and sway (pelvis, half range) from
+Blender's playback:
+
+| Person, style | duty | stride m | lift m | arm swing deg | sway m |
+|---|---|---|---|---|---|
+| Walter, elderly_shuffle | 0.72 -> 0.78 | 0.86 -> 0.69 | 0.085 -> 0.068 | 7.1 -> 6.4 | 0.008 -> 0.010 |
+| Margaret, elderly_shuffle | 0.72 -> 0.78 | 0.87 -> 0.70 | 0.082 -> 0.065 | 9.6 -> 6.4 | 0.008 -> 0.009 |
+| Frank, elderly_shuffle | 0.63 -> 0.78 | 1.10 -> 0.88 | 0.099 -> 0.079 | 11.9 -> 6.4 | 0.009 -> 0.011 |
+| Hugo, heavy | 0.59 -> 0.63 | 1.14 -> 1.17 | 0.098 -> 0.077 | 17.5 -> 12.9 | 0.008 -> 0.025 |
+| Rosa, heavy | 0.59 -> 0.59 | 1.03 -> 1.09 | 0.089 -> 0.071 | 17.6 -> 12.9 | 0.008 -> 0.023 |
+| Milo, child walk / run | 0.56 / 0.38 | 0.83 -> 0.81 / 1.88 -> 1.69 | 0.075 -> 0.089 / 0.140 -> 0.153 | 25.5 -> 25.8 / 41.8 -> 32.1 | 0.006 -> 0.007 |
+| Ava, child walk | 0.56 | 0.77 -> 0.75 | 0.066 -> 0.079 | 25.5 -> 25.8 | 0.005 -> 0.006 |
+| Dante, brisk walk | 0.56 | 1.22 | 0.111 -> 0.115 | 23.8 -> 25.8 | 0.009 |
+| Mei, relaxed walk | 0.56 -> 0.59 | 1.03 -> 1.04 | 0.091 -> 0.079 | 21.2 -> 14.0 | 0.007 |
+
+Duty is measured on playback (`detect`), which reads a little above the plan's.
+Heavy bodies' planned 0.67 is cut to 0.55 by reach under the 4.5% drop cap - the
+longer step costs ground time, not height. Stride frequency follows: the heavy
+walk at 0.90 Hz, a child's at 1.46-1.56 Hz, Walter's shuffle 1.04 Hz at 0.72 m/s.
+
+The manifests also carry `collider` from `export.collider`: children 0.13-0.18 m,
+adults 0.19-0.22 m, Hugo 0.23 m - where the controller's fallback clamped every
+adult at 0.22 - and Belle 0.199 m against her hand-set 0.2.
+
 ## Measuring a clip: `locomotion.detect`
 
 Works on any clip, generated or hand-authored. Each leg's pivot is carried

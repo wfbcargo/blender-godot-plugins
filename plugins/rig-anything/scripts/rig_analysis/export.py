@@ -663,6 +663,49 @@ def export_glb(filepath, objects, actions=None, rig_name=None,
 
 
 # ---------------------------------------------------------------------------
+# engine collision
+# ---------------------------------------------------------------------------
+
+def collider(mesh_name, rig_name, forward="-Y", up="Z", floor=0.0, share=0.98):
+    """The `collider: {radius, height}` block `MovesController` reads, from the
+    skinned mesh at rest.
+
+    radius  how far the TRUNK's skin - the torso, anything hung off it that is
+            not a limb (jiggle bones included), and the upper legs - reaches
+            out horizontally from the vertical line through the rig's origin,
+            its `share` percentile so one stray vertex does not size it. Arms
+            are left out: a capsule wide enough for a swinging hand wedges in
+            doorways. Hips and belly are what bump into things.
+    height  the top of the whole mesh above the floor.
+    Metres, world space."""
+    from . import bodymap, verify
+    ob, rig = bpy.data.objects.get(mesh_name), bpy.data.objects.get(rig_name)
+    if ob is None or rig is None:
+        return {"error": "missing mesh or rig"}
+    bm = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
+    if "error" in bm:
+        return {"error": bm["error"]}
+    _, trunk = verify.clearance_bones(rig, bm, [])
+    upw = bodymap.axis_vector(up)
+    origin = rig.matrix_world.translation
+    names = {g.index: g.name for g in ob.vertex_groups}
+    dists, top = [], -float("inf")
+    for v in ob.data.vertices:
+        p = ob.matrix_world @ v.co
+        top = max(top, p.dot(upw) - floor)
+        best = max(v.groups, key=lambda g: g.weight, default=None)
+        if best is None or names.get(best.group) not in trunk:
+            continue
+        d = p - origin
+        dists.append((d - upw * d.dot(upw)).length)
+    if not dists:
+        return {"error": "no skin weighted to the trunk of " + rig_name}
+    dists.sort()
+    return {"radius": round(dists[min(len(dists) - 1, int(share * len(dists)))], 4),
+            "height": round(top, 4)}
+
+
+# ---------------------------------------------------------------------------
 # GDScript output
 # ---------------------------------------------------------------------------
 
