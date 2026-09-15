@@ -434,7 +434,16 @@ def crouch_key(poser, depth=0.6, lean_degrees=None, head_level=0.8,
     upright = bm["upright"]
     lean = (45.0 if upright else 0.0) if lean_degrees is None else lean_degrees
     room = min(_leg_drop_room(bm, l, fold_limit) for l in poser.legs)
-    lowest_axial = min(poser.height(pt) for n in bm["axial"]
+    # A ground root - MPFB's, Mixamo's, any game rig's motion bone lying at the
+    # floor under the whole skeleton - is on the axial chain but carries no
+    # trunk: counted, it put the "belly" under the floor and allowed an MPFB
+    # woman no drop at all, so her crouch was a 33 cm hip shift on straight
+    # legs. No trunk sits wholly below the body's own ankles.
+    ankles = min(poser.height(l["rest_eff"]) for l in poser.legs)
+    trunk = [n for n in bm["axial"]
+             if max(poser.height(rig.data.bones[n].head_local),
+                    poser.height(rig.data.bones[n].tail_local)) > ankles] or bm["axial"]
+    lowest_axial = min(poser.height(pt) for n in trunk
                        for pt in (rig.data.bones[n].head_local,
                                   rig.data.bones[n].tail_local))
     belly = lowest_axial - 0.08 * bm["height"]
