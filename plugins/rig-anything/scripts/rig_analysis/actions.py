@@ -746,13 +746,15 @@ def idle(rig_name, frames=48, forward="-Y", up="Z", floor=0.0, action_name="Idle
 
     # Standing still, the centre of mass has to be over the feet. A hunch or
     # arms hanging in front carry it forward - Walter's by 5.5 cm, off his
-    # toes - and a person standing like that puts their hips back. Only when
+    # toes - and a person standing like that puts their hips back. Only as far
+    # as the foot's inner 70%: centring the mass (the crouch's +-30% band) put
+    # Walter's hips 16 cm back, his seat behind his heels. Only when
     # something was asked of the stance, so a plain idle still starts at rest.
     balance = {"shift": 0.0, "drop": 0.0}
     if bm["upright"] and (posture or U is not None):
         lo, hi = _support(body, P.legs)
         centre, half = 0.5 * (lo + hi), 0.5 * (hi - lo)
-        band = (centre - 0.3 * half, centre + 0.3 * half)
+        band = (centre - 0.7 * half, centre + 0.7 * half)
 
         def com_fwd(s):
             return body.com(P.pose(key_at(0.0, shift=s))[0]).dot(bm["fwd"])
