@@ -400,6 +400,7 @@ def _author(o, action_name, poses, check):
         except ReferenceError:
             ad.action = None
         verify._restore(rig, snap)
+        verify.adopt_rotation_modes(rig, action)
         for pb in rig.pose.bones:
             pb.scale = scales[pb.name]
     report.update({"action": action.name, "frames": [1, len(poses)], "fps": o.fps})

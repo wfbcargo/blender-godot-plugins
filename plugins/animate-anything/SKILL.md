@@ -91,7 +91,12 @@ Then read the PNGs. The checks cover what they were written for; a pose can
 pass all of them and still read badly.
 
 **4. Export** with `rig-anything`'s `export.export(..., actions=[...])`. List the
-crouch as a one-shot, never in `loop_clips`.
+crouch as a one-shot, never in `loop_clips`, and name the walks and runs in
+`gaits=`. Export plays every clip back through `verify.recheck` - floor, skin,
+seam, skating stance feet, balance while standing still - and refuses a failing
+one, so anything layered over a clip after authoring (an arm swing, a hunch, feet
+brought in) is held to the same tolerances the clip was authored under. Call
+`verify.recheck(rig, action)` yourself after layering to see it before export.
 
 ## Validated
 
@@ -300,6 +305,17 @@ version drove it to the 50 degree limit and sank it deeper.
 
 **Measure skin against rest, not the first frame.** A gait's first frame is
 mid-stride; as a baseline it let a run 3.6 cm under the floor pass.
+
+**Bones below the floor count only if they carry skin.** MPFB's `root` has no
+weights and dips 3-7 cm under the floor as the hips drop; every human walk and run
+failed on it while nothing visible touched the ground. The skin check still holds
+the body itself. A rig with no bound mesh keeps checking every bone.
+
+**Leave keyed bones in their keys' rotation mode.** Authoring used to restore each
+bone's mode after baking. MPFB bones rotate in Euler XYZ, so every quaternion key
+was ignored and Tomas walked with still legs - while every check, run before the
+restore, passed. Authoring now ends with `verify.adopt_rotation_modes`, and export
+refuses a mismatch.
 
 **Run straight-legged first.** A flexed run folded the rat's wrists into the
 ground and cut its stride to 3 cm; starting at depth 0.05 it ran at 3x its walk,

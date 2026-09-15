@@ -333,6 +333,8 @@ def _generate_once(rig_name, legs, forward="-Y", up="Z", gait=None, frames=32,
 
     rig.animation_data.action = None
     verify.clear_pose(rig)
+    # the probes restore each bone's previous mode; the keys need theirs
+    verify.adopt_rotation_modes(rig, action)
 
     return {
         "rig": rig_name,
@@ -609,6 +611,7 @@ def undulate(rig_name, bones=None, forward="-Y", up="Z", frames=32,
     for fc in _fcurves(action):
         for kp in fc.keyframe_points:
             kp.interpolation = "BEZIER"
+    verify.adopt_rotation_modes(rig, action)
 
     # Straight-line extent of the body while the wave is fully developed.
     scene.frame_set(1 + frames // 4)
