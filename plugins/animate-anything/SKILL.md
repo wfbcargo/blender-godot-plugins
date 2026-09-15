@@ -25,7 +25,7 @@ Four layers, in the `rig_analysis` package that `rig-anything` ships:
 | `radial` / `radial_moves` | Bodies with no front or back: hub and appendages found on the skin, rigged and weighted without bone heat; a jellyfish pulses, drifts and turns, a sea star crawls, a brittle star rows, an anemone sways and retracts |
 | `hoppers` / `hop` | Jumping legs found on the skin and their joints - hidden ones inferred - rigged and weighted; a rabbit hops and half-bounds on measured ankle angles, a cricket walks on tripods, both launch, fly and land |
 
-**Requires the `rig-anything` plugin, 0.13.0 or later.** The code ships there, in
+**Requires the `rig-anything` plugin, 0.14.0 or later.** The code ships there, in
 its `scripts/rig_analysis` package; this plugin is the procedure and the rules
 for using it.
 
