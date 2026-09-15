@@ -60,20 +60,24 @@ def defaults(froude, duty):
     """Upper-body parameters for a gait at this Froude number.
 
     From walking and running kinematics: the shoulders swing about 15-20
-    degrees each way walking and about 28 running, the forward swing a little
-    larger; elbows bend ~15 walking and ~75 running, a little more as the arm
-    comes forward - together about 115 degrees at the front of a run's swing,
-    which puts the hand at the chest (at 140 it was at the face); the pelvis turns ~4 degrees each way walking and ~9 running,
+    degrees each way walking and about 25 running; a running arm swings about
+    a line 15 degrees behind hanging - 40 back, 14 forward - with the elbow
+    held near 85 degrees the whole way, so the forearm never rises past level
+    and the hand travels from beside the hip to the lower chest. With the swing
+    centred the forward upper arm reached 30 degrees, the forearm pointed above
+    level and read as a straight arm thrown out with the hand at the neck, and
+    the back hand stayed in front of the body; the pelvis turns ~4 degrees each way walking and ~9 running,
     the thorax less and against it; the pelvis lists ~4 walking; the trunk
     leans 2-3 degrees walking and ~8 running."""
     u = math.sqrt(max(froude, 0.0))
     running = duty < 0.5
+    run = _smooth((froude - 0.3) / 0.9)       # 0 walking .. 1 running
     return {
-        "arm_swing": max(4.0, min(28.0, 6.0 + 22.0 * u)),
-        "arm_forward": 2.0 * (1.0 - _smooth((froude - 0.3) / 0.9)),
+        "arm_swing": max(4.0, min(25.0, 6.0 + 22.0 * u)),
+        "arm_forward": 2.0 - 17.0 * run,
         "arm_out": None,
-        "elbow": 15.0 + 60.0 * _smooth((froude - 0.3) / 0.9),
-        "elbow_swing": 8.0,
+        "elbow": 15.0 + 70.0 * run,
+        "elbow_swing": 8.0 * (1.0 - run),
         "hand_in": 5.0 * _smooth((froude - 0.5) / 1.0),
         "pelvis_turn": 2.0 + 5.0 * min(u, 1.4),
         "pelvis_list": 3.0 if running else 4.0,
@@ -519,4 +523,11 @@ def author_clear(U, rig_name, bm, author, resample, tries=3):
                                   % (-closest, U.clearance["at_frame"]))
         report["passed"] = False
     report["arm_clearance_m"] = closest
+    # how the arms are carried: a walk's hand below the chest, a run's elbow bent
+    ap = verify.arm_pose(rig_name, action.name, running=getattr(U, "running", False), bm=bm)
+    if "error" not in ap and "skipped" not in ap:
+        report["arm_pose"] = ap["arms"]
+        if ap["failures"]:
+            report["failures"].extend(ap["failures"])
+            report["passed"] = False
     return keyed, infos, action, report

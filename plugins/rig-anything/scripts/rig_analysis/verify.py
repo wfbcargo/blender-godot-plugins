@@ -713,6 +713,78 @@ def _line_fit(points):
     return start, step, off
 
 
+WALK_HAND_RISE = 0.7     # a walk's hand no higher than chest: 70% of hip -> shoulder
+RUN_HAND_RISE = 0.65     # a run's hand no higher than the chest
+RUN_ELBOW_OPEN = 140.0   # a run's elbow never opens past this included angle
+
+
+def arm_pose(rig_name, action_name, running=False, forward="-Y", up="Z", floor=0.0,
+             bm=None):
+    """How each free arm is carried over a clip, on Blender's playback, and
+    whether it reads as carried or as reaching.
+
+    Per arm: the upper arm's angle from gravity (degrees, positive forward of
+    hanging, about the body map's `lat`), elbow flexion (0 straight), and the
+    palm's height as a share of the way from the hips to the shoulder -
+    `hand_rise` 0 at hip joint height, 1 at the shoulder joint. Hips are the
+    legs' upper joints, the shoulder the arm's own root, both posed.
+
+    Failures: a walk (or an idle) whose hand rises past WALK_HAND_RISE - chest
+    height, a hand held out in front; a run whose hand rises past
+    RUN_HAND_RISE, or whose elbow opens past RUN_ELBOW_OPEN included - an arm
+    thrown straight out. Floor, skin and clearance checks all passed on arms
+    that read as reaching; this is what measures that."""
+    from . import bodymap
+    rig = bpy.data.objects.get(rig_name)
+    action = bpy.data.actions.get(action_name)
+    if rig is None or action is None:
+        return {"error": "missing rig or action"}
+    bm = bm or bodymap.build(rig_name, forward=forward, up=up, floor=floor)
+    if "error" in bm:
+        return {"error": bm["error"]}
+    arms = [l for l in bm["limbs"] if l["role"] == "arm" and l["end"]]
+    legs = [l for l in bm["limbs"] if l["role"] == "leg"]
+    if not arms or not legs:
+        return {"skipped": "no arms or no legs"}
+    lo, hi = _frames(action)
+    mats, _, binding = _play(rig, action, list(range(lo, hi + 1)))
+    if mats is None:
+        return {"error": binding["note"]}
+    upv, fwd = bm["up_vec"], bm["fwd"]
+    bones = rig.data.bones
+    out = {"running": running, "arms": {}, "failures": []}
+    for l in arms:
+        ua, fl, rise = [], [], []
+        for f, m in mats.items():
+            sh = m[l["upper"]].translation
+            el = m[l["lower"]].translation
+            wr = m[l["end"]].translation
+            palm = m[l["end"]] @ Vector((0.0, 0.5 * bones[l["end"]].length, 0.0))
+            hip = sum((m[g["upper"]].translation for g in legs), Vector()) / len(legs)
+            d, e = el - sh, wr - el
+            ua.append(math.degrees(math.atan2(d.dot(fwd), -d.dot(upv))))
+            fl.append(math.degrees(d.angle(e)) if d.length and e.length else 0.0)
+            span = (sh - hip).dot(upv)
+            rise.append((palm - hip).dot(upv) / span if span > 1e-9 else 0.0)
+        r = {"upper_arm_deg": [round(min(ua), 1), round(max(ua), 1)],
+             "elbow_flex_deg": [round(min(fl), 1), round(max(fl), 1)],
+             "hand_rise": [round(min(rise), 3), round(max(rise), 3)]}
+        out["arms"][l["name"]] = r
+        if not running and max(rise) > WALK_HAND_RISE:
+            out["failures"].append("%s: the hand rises to %.0f%% of hip-to-shoulder, above the "
+                                   "chest (%.0f%%) - reaching, not walking"
+                                   % (l["name"], 100 * max(rise), 100 * WALK_HAND_RISE))
+        if running and max(rise) > RUN_HAND_RISE:
+            out["failures"].append("%s: the hand rises to %.0f%% of hip-to-shoulder (limit %.0f%%)"
+                                   % (l["name"], 100 * max(rise), 100 * RUN_HAND_RISE))
+        if running and 180.0 - min(fl) > RUN_ELBOW_OPEN:
+            out["failures"].append("%s: the elbow opens to %.0f degrees, straighter than a run "
+                                   "carries it (%.0f)" % (l["name"], 180.0 - min(fl),
+                                                           RUN_ELBOW_OPEN))
+    out["passed"] = not out["failures"]
+    return out
+
+
 def signed_gap(point, hit):
     """Signed distance from `point` to a BVH `find_nearest` hit: negative only
     when the point is behind the face it projects onto.

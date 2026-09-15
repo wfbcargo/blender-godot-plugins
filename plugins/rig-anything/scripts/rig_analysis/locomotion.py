@@ -110,17 +110,19 @@ MIN_DUTY = 0.2
 # over the style's rather than replacing it.
 GAIT_STYLES = {
     # short steps, feet low, long double support, soft knees, arms hanging
-    # with little swing, a slight stoop (gait in older adults: Winter 1990;
+    # with little swing a little behind vertical, so a stooped body's hands
+    # fall at the front of the thighs rather than out past the knees, a slight
+    # stoop (gait in older adults: Winter 1990;
     # step length -10-20%, double support 25-35% vs ~20%)
     "elderly_shuffle": {
         "posture": {"pelvis": 2.0, "flex": 12.0, "neck": -8.0},
         "walk": {"duty": 0.74, "stride_scale": 0.8, "lift_scale": 0.8, "bounce_scale": 0.5,
                  "sway": 0.012, "extension": 0.94, "max_drop": 0.06,
-                 "upper": {"arm_swing": 6.0, "arm_forward": 5.0, "elbow": 24.0, "elbow_swing": 4.0,
+                 "upper": {"arm_swing": 5.0, "arm_forward": -8.0, "elbow": 20.0, "elbow_swing": 3.0,
                            "hand_in": 3.0, "pelvis_turn": 1.5, "thorax_turn": 2.0, "side_bend": 2.0,
-                           "lean": 2.0, "lean_bob": 0.5, "head_hold": 0.9}},
+                           "lean": 0.0, "lean_bob": 0.5, "head_hold": 0.9}},
         "run": {"stride_scale": 0.8, "lift_scale": 0.7, "max_drop": 0.07},
-        "idle": {"upper": {"arm_forward": 5.0, "elbow": 20.0}},
+        "idle": {"upper": {"arm_forward": -8.0, "elbow": 18.0}},
     },
     # feet apart (the thighs meet), a slower cadence on a longer step, the
     # body rocking over each stance leg, arms held out from the hips
@@ -140,7 +142,7 @@ GAIT_STYLES = {
                  "max_drop": 0.035,
                  "upper": {"arm_swing": 24.0, "elbow": 18.0, "elbow_swing": 10.0, "lean": 2.0}},
         "run": {"stride_scale": 0.9, "lift_scale": 1.1, "bounce_scale": 1.4, "max_drop": 0.07,
-                "upper": {"arm_swing": 30.0}},
+                "upper": {"arm_swing": 25.0, "elbow_swing": 0.0}},
     },
     # purposeful: a longer step, arms driving with the elbows bent, a lean
     "brisk": {

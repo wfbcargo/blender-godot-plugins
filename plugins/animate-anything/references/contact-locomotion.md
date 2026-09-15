@@ -120,8 +120,8 @@ fitted to the feet afterwards:
 | thorax turn, side bend | chest against the pelvis; trunk over the stance leg | 3 / 7, 1.5 deg |
 | lean, lean_bob | held, and a dip twice a stride | 3 / 8, 1 / 2 deg |
 | head hold | neck and head take back this share of the chest's turn, roll and pitch | 0.85 |
-| arm swing | opposite the same-side leg, forward swing 15% larger | 16 / 28 deg each way |
-| elbow, elbow_swing | more flexed as the arm comes forward | 15 / 75 deg, +8 |
+| arm swing | opposite the same-side leg, forward swing 15% larger; a run swings about a line 15 deg behind hanging | 16 / 25 deg each way |
+| elbow, elbow_swing | walking, more flexed as the arm comes forward; running, held | 15 / 85 deg, +8 / 0 |
 
 `leg_forward(ph, duty) = -sin(2 pi (ph - duty/2))`: +1 at touchdown, crossing
 zero at mid-stance where the foot passes under its hip. The trunk terms go to
@@ -149,8 +149,23 @@ of Hugo's hip as 8 cm inside.
 
 **An idle stands balanced.** With a posture or hanging arms the skinned centre
 of mass moved off the feet - Walter's by 5.5 cm, failing export's balance
-check - so `idle` shifts the hips back until it is over the middle of the foot,
-and softens the knees by what the legs then lack.
+check - so `idle` shifts the hips back until it is inside the foot's inner 70%,
+and softens the knees by what the legs then lack. Centring it fully put Walter's
+seat 16 cm back, behind his heels; now 6.6 cm.
+
+**Numbers that passed while the arms looked wrong.** Floor, skin, clearance and
+seam all passed on a run whose centred swing (+-28 deg, elbow 75 opening on the
+back swing) threw the forward forearm above level with the hand at the neck, and
+on Walter's arms hung from gravity off a 30-degree hunch, hands out past his
+knees. `verify.arm_pose` now runs on every `upper` clip's playback: per arm the
+upper arm's angle from gravity, elbow flexion, and `hand_rise` - the palm's
+height from hip (0) to shoulder (1). A walk or idle fails above 0.7 (chest), a
+run above 0.65 or with an elbow opened past 140 degrees. The shipped run read
+0.72; with the swing about -15 deg and the elbow held at 85 it reads 0.44-0.55
+(hand from hip to lower chest). `elderly_shuffle` hangs its arms 8 degrees
+behind vertical, so a stooped body's hands fall at the front of the thighs.
+In a side view a far arm forward looks like the near arm forward: check the
+alternation on numbers (`arm_pose`, per-frame upper-arm angles), not two stills.
 
 Measured on the 16 humanform people (Phase 1-2 layered arms -> `upper`), legs
 unchanged to the millimetre:
@@ -188,7 +203,7 @@ Froude number asked, under 0.5 walks):
 
 | Style | Walk | Upper body | Held |
 |---|---|---|---|
-| `elderly_shuffle` | duty 0.74, stride x0.8, lift x0.8, bounce x0.5, sway 0.012, extension 0.94, max_drop 0.06 | swing 6, elbow 24, arms 5 forward, pelvis turn 1.5, head hold 0.9 | stoop {pelvis 2, flex 12, neck -8} |
+| `elderly_shuffle` | duty 0.74, stride x0.8, lift x0.8, bounce x0.5, sway 0.012, extension 0.94, max_drop 0.06 | swing 5, elbow 20, arms 8 behind vertical, no lean, pelvis turn 1.5, head hold 0.9 | stoop {pelvis 2, flex 12, neck -8} |
 | `heavy` | stride x1.08, lift x0.8, bounce x0.6, sway 0.03, max_drop 0.045 | swing 12, side bend 4, list 2.5, hand clearance 4 cm | stance_width 1.4 |
 | `child` | stride x0.88, lift x1.15, bounce x1.5, max_drop 0.035 | swing 24 (run 30), elbow 18 | - |
 | `brisk` | stride x1.05, lift x1.05 | swing 24, elbow 35, lean 4, chest turn 6 | - |
