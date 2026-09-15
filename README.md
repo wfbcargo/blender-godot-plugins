@@ -160,6 +160,30 @@ whose presets don't convert: under Jolt the cloth has no bending, stiffness abov
 0.9 flutters indefinitely, and damping is a per-second rate standing in for the
 air. See the [plugin README](./plugins/follow-through/README.md).
 
+### [`humanform`](./plugins/humanform/)
+
+Adult human bodies in Blender, built in layers with a measured gate between
+every one — the body the other plugins start from.
+
+A brief ("a 28-year-old woman, 1.70 m, curvy") is resolved against **ANSUR II**:
+6,068 measured adults as a multivariate normal per sex over 65 variables,
+conditioned on what the brief fixes, so every measurement it doesn't name is the
+one people like that actually have. MPFB2 then builds the mesh, and a
+Levenberg–Marquardt solve over its macros and sixteen fine targets fits it to
+those landmarks — heights, segment lengths, widths, and girths *with* their
+breadths and depths, because girth alone answered every waist with a pregnant
+belly.
+
+`humancheck` is the gate, and it is the reason the ladder works: it measures a
+body in its rig's rest pose, renders a fixed orthographic contact sheet in clay,
+normals and silhouette with target and measured landmark lines, and hands both
+to a critic subagent that **writes its questions before it looks**. `humanlib`
+makes the next body cheap: a library indexed by ANSUR z-scores and critic-written
+tags, reuse in under a second, faces, hands, feet and eyes as parts that move
+between bodies without stitching, and verdict statistics that steer later designs
+away from what critics keep rejecting. See the
+[plugin README](./plugins/humanform/README.md).
+
 ### [`wardrobe`](./plugins/wardrobe/)
 
 Layered clothing for rigged Blender characters headed to Godot 4.7 — a garment
@@ -261,6 +285,15 @@ plugins/
     scripts/follow_through/         # Blender: measure, classify, spec, cloth, export
     godot/addons/follow_through/    # SoftBody3D runtime and headless verifier
     references/                     # concepts from zero; cloth research and measurements
+    README.md
+  humanform/
+    .claude-plugin/plugin.json
+    skills/humanform/               # the build ladder and its gates
+    skills/humancheck/              # measure, contact sheet, critic
+    skills/humanlib/                # the library, parts, the one-call pipeline
+    scripts/humanform/              # Blender: body, measure, views, scaffold, library
+    data/                           # ANSUR II public CSVs, presets, the seed library
+    references/                     # proportions, and the critic's question bank
     README.md
   wardrobe/
     .claude-plugin/plugin.json

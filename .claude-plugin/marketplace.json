@@ -178,6 +178,31 @@
       ]
     },
     {
+      "name": "humanform",
+      "source": "./plugins/humanform",
+      "version": "0.6.1",
+      "description": "Adult human bodies in Blender, built in layers with a measured gate and a critic between every one, for Godot 4.7 and the plugins downstream of a body (rig-anything, follow-through, wardrobe, lookdev). A character brief - sex, age, stature, weight or build word, firmness, muscle, cupsize, skin - is resolved against ANSUR II, 6,068 measured adults as a multivariate normal per sex over 65 variables, by conditioning on what the brief fixes, so every measurement it does not name is the one people like that actually have. MPFB2 then builds the mesh and a Levenberg-Marquardt solve over its macros and fine targets fits it to those landmarks as humancheck measures them - joint heights, segment lengths, hand and foot, widths, and girths with their breadths and depths, because girth alone answered every waist with a pregnant belly. humancheck is the gate: it measures a body in its rig's rest pose against realistic or stylized presets, renders a fixed orthographic contact sheet in clay, normals and silhouette with target and measured landmark lines, and hands both to a critic subagent that writes its yes/no questions before it looks. humanlib makes it cheap to do again: a library of fitted bodies and judged parts indexed by ANSUR z-scores and critic-written tags, reuse in under a second, a warm start in a few seconds, faces, hands, feet and eyes as parts that move between bodies without stitching, and verdict statistics that steer later designs away from what critics reject.",
+      "category": "development",
+      "keywords": [
+        "3d",
+        "anatomy",
+        "anthropometry",
+        "ansur",
+        "base-mesh",
+        "blender",
+        "character",
+        "critique",
+        "gamedev",
+        "godot",
+        "human",
+        "library",
+        "makehuman",
+        "mpfb",
+        "proportions",
+        "reuse"
+      ]
+    },
+    {
       "name": "wardrobe",
       "source": "./plugins/wardrobe",
       "version": "0.1.0",
