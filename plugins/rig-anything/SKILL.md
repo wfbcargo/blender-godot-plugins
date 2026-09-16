@@ -272,8 +272,10 @@ m = maw.engine_manifest(None, rig)
 ```
 
 `stored.load(rig)` returns `{role: report}` in authoring order; a role authored again
-replaces the older copy. Reports with an `error` are not stored, so a manifest built later
-lacks a failed role rather than listing it. The stored text is unrounded - a manifest from
+replaces the older copy. A role that errored has no action, so its report is kept on the rig
+object (`rig["rig_anything_failed"]`): a manifest built later still lists it under `problems`
+and the export refuses, just as it would have in the authoring session, until the role is
+authored again successfully. The stored text is unrounded - a manifest from
 stored reports is the same file as one from the originals (the `rabbit` fixture checks this
 in a second Blender) - and it does not reach the glb.
 
