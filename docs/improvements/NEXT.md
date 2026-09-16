@@ -21,7 +21,7 @@ behind.
 | [03 Regression harness and install](03-regression-harness-and-install.md) | **Done** - eight fixtures, `--twice`, `--godot`, stored move reports, save guard. |
 | [05 Feature gaps](05-feature-gaps.md) 5.1 jump sinks | **Done** - rig-anything 0.14.2. Belle's Jump ships unforced. |
 | 05 · 5.6 garment nondeterminism | **Done** - wardrobe 0.1.1, guarded by `regress.py --twice` with shuffled faces (1a). |
-| 05 · 5.7 `object.join` shuffles faces | **Open**, filed with a minimal repro. |
+| 05 · 5.7 faces shuffled between builds | **Done** - Blender's `create_uvsphere`, not the join. humanform 0.6.2, follow-through 0.2.3. |
 | [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | Not started. Biggest time saver. |
 | [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | Not started. |
 | [04 Checks that match the eye](04-checks-that-match-the-eye.md) | Not started. |
@@ -75,13 +75,12 @@ All of 03 is done. What was built, and what it found:
 
 A full `regress.py --twice --jobs 2 --godot` run takes about 10 minutes on this machine (the rabbit and the cricket are 6 of them).
 
-### 2. Small fixes found along the way
+### 2. Small fixes found along the way - DONE (2026-09-16)
 
-- **5.7 - a deterministic join.** `bpy.ops.object.join` (eyes and hair into a body) writes the same
-  faces in a different order every run. wardrobe is immune now and the glTF exporter writes the same
-  indices either way, so nothing shipped is affected - but a `.blend` is not reproducible and any
-  consumer that walks faces in order inherits the trap. Give rig-anything a `join_into(target, others)`
-  that merges through bmesh in the order given, and point `build_human.bake` and Belle's `hair()` at it.
+- **5.7.** The planned `join_into` was not built, because the join was not the cause. Blender 5.2's
+  `bmesh.ops.create_uvsphere` shuffles its faces in every process, and humanform's eyes were two of
+  them. Every uv sphere that reaches an output now has its faces sorted. `mpfb_woman_curvy` reports
+  face-order hashes, so `--twice` catches a regression. See 05 · 5.7.
 
 ### 3. The large items
 

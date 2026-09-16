@@ -44,6 +44,24 @@ SCLERA = (0.936, 0.926, 0.906)
 PUPIL = (0.100, 0.100, 0.100)
 
 
+def _uvsphere(bm, **kw):
+    """`bmesh.ops.create_uvsphere`, with the sphere's faces in a stable order.
+
+    Blender 5.2's create_uvsphere writes the same vertices in the same order on every run, but its
+    faces in a different order in every process, and a body that joins these eyes inherits the shuffle
+    (improvements 5.7). The new faces are sorted by their vertex indices; faces already in `bm` keep
+    their places."""
+    before = set(bm.faces)
+    res = bmesh.ops.create_uvsphere(bm, **kw)
+    bm.verts.index_update()
+    bm.faces.index_update()
+    new = sorted((f for f in bm.faces if f not in before), key=lambda f: tuple(v.index for v in f.verts))
+    rank = {f: len(before) + i for i, f in enumerate(new)}
+    bm.faces.sort(key=lambda f: rank.get(f, f.index))
+    bm.faces.index_update()
+    return res
+
+
 def add(human, iris=None, segments=32, rings=16):
     """`iris`: a screen (sRGB) colour, as picked or written in a brief; None for a mid brown."""
     human = _body.obj(human)
@@ -63,8 +81,8 @@ def add(human, iris=None, segments=32, rings=16):
         radius = float(np.linalg.norm(pts - centre, axis=1).mean())
         report[side] = {"centre": [round(float(c), 4) for c in centre], "radius": round(radius, 4)}
         before = set(bm.verts)
-        bmesh.ops.create_uvsphere(bm, u_segments=segments, v_segments=rings, radius=radius,
-                                  matrix=Matrix.Translation(Vector(centre)) @ Matrix.Rotation(math.radians(90), 4, "X"))
+        _uvsphere(bm, u_segments=segments, v_segments=rings, radius=radius,
+                  matrix=Matrix.Translation(Vector(centre)) @ Matrix.Rotation(math.radians(90), 4, "X"))
         new_faces = [f for f in bm.faces if all(v not in before for v in f.verts)]
         for f in new_faces:
             d = (f.calc_center_median() - Vector(centre)).normalized()

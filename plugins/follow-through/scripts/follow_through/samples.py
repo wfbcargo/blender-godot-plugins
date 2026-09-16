@@ -310,6 +310,24 @@ def _torso_bm(profile, bumps, rows=72, around=72, power=2.4):
     return bm
 
 
+def _uvsphere(bm, **kw):
+    """`bmesh.ops.create_uvsphere`, with the sphere's faces in a stable order.
+
+    Blender 5.2's create_uvsphere writes its faces in a different order in every process (same
+    vertices, same face set; improvements 5.7). A sample stored straight from it would differ between
+    builds; the new faces are sorted by vertex index, and faces already in `bm` keep their places. A
+    body that is voxel remeshed afterwards (`_body`) gets its order from the remesh instead."""
+    before = set(bm.faces)
+    res = bmesh.ops.create_uvsphere(bm, **kw)
+    bm.verts.index_update()
+    bm.faces.index_update()
+    new = sorted((f for f in bm.faces if f not in before), key=lambda f: tuple(v.index for v in f.verts))
+    rank = {f: len(before) + i for i, f in enumerate(new)}
+    bm.faces.sort(key=lambda f: rank.get(f, f.index))
+    bm.faces.index_update()
+    return res
+
+
 def _capsule_into(bm, a, b, r, segs=20):
     a, b = Vector(a), Vector(b)
     d = b - a
@@ -609,7 +627,7 @@ def build_volumes(variant=0, scene_name=None):
     rob = put("Ramp", ramp, (1.3, 0, 0.2), {"class": "rigid"})
     rob.rotation_euler = (0, math.radians(15), 0)
     ball = bmesh.new()
-    bmesh.ops.create_uvsphere(ball, u_segments=32, v_segments=16, radius=0.08 * k)
+    _uvsphere(ball, u_segments=32, v_segments=16, radius=0.08 * k)
     sc.view_layers[0].update()
     top = rob.matrix_world @ Vector((-0.5, 0, 0.5))
     put(nm("ClayBall"), ball, (top.x + 0.08, 0, top.z + 0.08 * k + 0.004), {"class": "loose_volume", "type": "clay_ball"})
@@ -617,7 +635,7 @@ def build_volumes(variant=0, scene_name=None):
     put(nm("SlimeBlob"), _blob(0.14 * k, seed=3 + variant), (2.3, 0, 0.0), {"class": "loose_volume", "type": "slime"})
 
     balloon = bmesh.new()
-    bmesh.ops.create_uvsphere(balloon, u_segments=32, v_segments=16, radius=0.11 * k)
+    _uvsphere(balloon, u_segments=32, v_segments=16, radius=0.11 * k)
     for v in balloon.verts:
         v.co.z = v.co.z * (1.15 if v.co.z > 0 else 0.9) + 0.11 * k * 0.9
     put(nm("WaterBalloon"), balloon, (2.9, 0, 0.0), {"class": "loose_volume", "type": "water_balloon"})

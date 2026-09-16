@@ -67,7 +67,13 @@ def build():
                                 gaits=[moves[r]["action"] for r in GAITS], forward="-Y")
     loco = ra_loco.engine_manifest(rig, {r: moves[r] for r in GAITS}, forward="-Y", mesh_name=body)
 
+    eyes = bpy.data.objects.get(NAME + "_eyes")
     return {
+        # The order faces are stored in, which no measurement sees: humanform's eyes came out
+        # shuffled in every process until 5.7, and a body that joins them inherits it. Under
+        # `--twice` a change here is NONDETERMINISTIC.
+        "structure": {"eyes_faces": H.face_order(eyes) if eyes else None,
+                      "body_faces": H.face_order(mesh)},
         "fit": {"ansur": H.stable(made.get("ansur")), "macros": H.stable(made.get("macros")),
                 "notes": made.get("notes"), "check": H.stable(made.get("check"))},
         "bake": {"vertices": len(mesh.data.vertices), "groups": len(mesh.vertex_groups),

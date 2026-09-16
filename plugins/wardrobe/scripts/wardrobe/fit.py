@@ -34,8 +34,9 @@ EASE_GROUP = "wd_ease"
 def canonical_tris(me):
     """A mesh's triangles in an order that does not depend on how its faces happen to be stored.
 
-    `bpy.ops.object.join` - joining the eyes and the hair into a body - writes the same faces in
-    a different order on every run: same vertices, same triangles, shuffled. A BVH built in that
+    A body can arrive with the same vertices and triangles in a different order on every run:
+    Blender's `bmesh.ops.create_uvsphere` shuffles its faces per process, and humanform's eyes,
+    joined into a body, carried that into it (improvements 5.7). A BVH built in that
     order breaks near-ties differently, so `find_nearest` answers a vertex on a seam with one
     triangle in one build and its neighbour in the next, the push-out lands fractions of a
     millimetre apart, and sixteen relax iterations turn that into millimetres of garment. Sorting

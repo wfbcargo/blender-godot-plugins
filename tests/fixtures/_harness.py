@@ -85,12 +85,24 @@ def clear_scene():
         bpy.data.objects.remove(o, do_unlink=True)
 
 
+def face_order(obj):
+    """A short hash of the order `obj`'s faces are stored in (each face's vertex indices, in turn).
+
+    No measurement sees face order, so a golden of numbers cannot; this string changes when it does.
+    Paired with the hash of the sorted faces, so a report says whether the surface or only its order
+    moved."""
+    import hashlib
+    faces = [tuple(p.vertices) for p in obj.data.polygons]
+    h = lambda x: hashlib.sha1(repr(x).encode()).hexdigest()[:12]
+    return {"faces": len(faces), "order": h(faces), "set": h(sorted(faces))}
+
+
 def shuffle_faces(obj):
     """With REGRESS_SHUFFLE_FACES=1, store `obj`'s faces in a random, unseeded order; else nothing.
 
-    The same surface, stored differently - what `bpy.ops.object.join` does to a body on every run
-    (improvements 5.7). A step whose answer depends on face order then gives a different answer
-    per build, which `regress.py --twice` reports as NONDETERMINISTIC. Vertices keep their order,
+    The same surface, stored differently - what a body joined with humanform's eyes got on every
+    run until 5.7, because Blender's `create_uvsphere` shuffles its faces per process. A step
+    whose answer depends on face order then gives a different answer per build, which `regress.py --twice` reports as NONDETERMINISTIC. Vertices keep their order,
     so skin weights and shape keys are untouched. Returns whether it shuffled."""
     if os.environ.get("REGRESS_SHUFFLE_FACES") != "1":
         return False

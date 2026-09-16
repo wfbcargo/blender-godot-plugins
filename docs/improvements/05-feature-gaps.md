@@ -159,8 +159,8 @@ body with the same muscle value shows much less definition.
 ## 5.6 wardrobe's garment step is not reproducible between builds - DONE
 
 > **Fixed** (September 2026, wardrobe). The cause was two steps apart from the symptom.
-> `bpy.ops.object.join` - joining the eyes and the hair into the body - writes the same faces in a
-> different order on every run: same vertices, same triangle *set*, shuffled. Probing a build stage
+> Belle's body arrived with the same faces in a different order on every run: same vertices, same
+> triangle *set*, shuffled (the joined eyes, built with `create_uvsphere`; see 5.7). Probing a build stage
 > by stage showed the body, the rig, the bone map and the cut all agreeing, and only `fit.ease`
 > diverging; probing inside it showed the body's triangle list hashing differently while its sorted
 > form matched. A BVH built in that order breaks near-ties differently, so `find_nearest` answers a
@@ -171,7 +171,7 @@ body with the same muscle value shows much less definition.
 > `cover.garment_bvh`, `cover.compute`, `hem.prepare`), which makes a fit independent of the order
 > its mesh arrived in - vertex order is stable across those joins, so sorting on vertex indices is
 > canonical. Two full builds of Belle now write byte-identical `belle_sportstop.glb` and
-> `belle_shorts.glb`. The join itself is still nondeterministic: that is 5.7.
+> `belle_shorts.glb`. Where the shuffle came from is 5.7.
 >
 > **Guarded since** `regress.py --twice` (03 step 1a). The Belle comparison was by hand; what stops it
 > regressing is the fixture. `dressed_figure` never joins, so on its own it could not see this, and
@@ -215,27 +215,43 @@ this is, it does not reach the sample body - which makes it a good control for f
 
 ---
 
-## 5.7 `bpy.ops.object.join` shuffles the face order
+## 5.7 A body's faces came out in a different order on every build - DONE
 
-**Problem.** Joining the eyes into a baked body gives the same vertices in the same order and the
-same set of faces, in a different order on every run. Minimal repro: build one humanform body,
-`export.bake_for_game`, then join `<name>_eyes` as `build_human.bake` does, and hash
-`[tuple(q.vertices) for q in me.polygons]` - three runs, three hashes, while the sorted form and
-the vertex hash hold. `bake_for_game` on its own is deterministic; the join is not.
+> **Fixed** (September 2026, humanform 0.6.2, follow-through 0.2.3; grungist-creek `mesh_order.py`).
+> **The join was never the cause.** Probing a Hugo build in three processes, before and after the join, showed
+> the baked body identical every time and **the eyes already shuffled before they were joined**: same vertices,
+> same face set, three orders. The join only carried that into the body. The eyes are two
+> `bmesh.ops.create_uvsphere` calls, and a minimal repro pins it on Blender 5.2: `create_uvsphere` writes its
+> vertices identically but its faces in a different order in every process. `create_icosphere`, `create_cube`,
+> `create_circle` and `create_cone` do not.
+>
+> Every `create_uvsphere` whose faces reach an output now goes through a `_uvsphere` helper. The helper sorts
+> the new faces by vertex index and leaves faces already in the bmesh where they are:
+> - humanform's `eyes.add`
+> - follow-through's ClayBall and WaterBalloon samples
+> - grungist-creek's Belle hair bun and Nora's eyes, through `assets/mesh_order.py`
+>
+> Spheres that are voxel remeshed afterwards take their order from the remesh, so they were left alone:
+> hopper samples, follow-through's `_body`, and the octopus test mesh.
+>
+> Proven:
+> - The real Hugo build (source, bake, eyes, join) gives one face-order hash in three processes.
+> - Belle through her hair join does as well.
+> - `mpfb_woman_curvy` now reports `structure.eyes_faces` and `structure.body_faces` through
+>   `H.face_order`. Against the unfixed humanform, `--twice` reports NONDETERMINISTIC on exactly
+>   `structure.eyes_faces.order`; on the fix, both builds agree.
+>
+> No `join_into` was needed. The "done when" asked for a `.blend` reproducible to the byte; that was not
+> checked, because a .blend carries per-save data. Face order through a whole build is what was checked.
 
-**Why it still matters.** 5.6 made wardrobe immune, and rig-anything's glTF export already writes
-the same indices either way, so nothing shipped is affected today. But every future consumer that
-walks faces in mesh order inherits the same trap, and "rebuild and diff" stays weaker than it
-looks: a body's `.blend` is not reproducible even when its geometry is.
+**Problem (as first filed).** Joining the eyes into a baked body gave the same vertices in the same
+order and the same set of faces, in a different order on every run - three runs, three hashes of
+`[tuple(q.vertices) for q in me.polygons]`, while the sorted form and the vertex hash held. It was
+put down to the join; see above for what it was.
 
-**Steps.** (1) Confirm where the order comes from - Blender joins in the order of the selected
-bases, which the context's selection set does not preserve. (2) Give rig-anything a deterministic
-`join_into(target, others)` that merges through bmesh in the order it was handed, keeping vertex
-groups, materials, UVs and custom normals, and point `build_human.bake` and Belle's `hair()` at it.
-(3) Prove it with the minimal repro above, three runs, one hash.
-
-**Done when** joining the same meshes twice gives byte-identical face order, and a whole character
-build is reproducible down to its `.blend`.
+**Why it mattered.** 5.6 made wardrobe immune, and rig-anything's glTF export writes the same
+indices either way, so nothing shipped was affected. But every consumer that walks faces in mesh
+order inherited the trap, and "rebuild and diff" was weaker than it looked.
 
 ---
 

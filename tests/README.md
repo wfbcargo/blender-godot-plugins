@@ -91,7 +91,8 @@ H.run("<name>", build)
 
 Rules that keep a golden meaningful:
 
-- **Deterministic.** Seed every generator, and record a new golden with `--twice`. Never read the user's humanform library — the harness
+- **Deterministic.** Seed every generator, and record a new golden with `--twice`. A number cannot see the order faces are stored in; report `H.face_order(obj)` for any mesh
+  whose order someone downstream walks. Never read the user's humanform library — the harness
   points `HUMANFORM_LIBRARY` at a scratch folder, and fits run with `use_library=False`.
 - **Report results, not the run.** Timings, dates and absolute paths are stripped by the runner
   (`VOLATILE`, `PATHLIKE`), but a fixture that reports them is reporting noise.
@@ -121,7 +122,8 @@ and fails the run, and `--update` writes no golden from a build that did not rep
 the time, so run it before merging and whenever a golden is recorded, not on every edit.
 
 A fixture can also make its input vary on purpose. `H.shuffle_faces(obj)` stores a body's faces in a
-random order when `REGRESS_SHUFFLE_FACES=1` - what `object.join` does to a body on every run (5.7) -
+random order when `REGRESS_SHUFFLE_FACES=1` - what a body joined with humanform's eyes got on every
+run until 5.7 -
 and is a no-op otherwise. `dressed_figure` shuffles its body before the shirt is cut, so
 
 ```
