@@ -131,6 +131,23 @@ class Body:
             return None
         return {n for _, ws in self._skin for n, _ in ws}
 
+    def body_bones(self):
+        """The bones that stand for the body in a floor test: every bone but the
+        body map's `roles["controls"]`, in FK order.
+
+        With no skin to read there are no controls and every bone stands in.
+        A body map without roles (`radial.body_map` builds its own) falls back
+        to `skinned_bones`. The two differ on an unskinned bone that is on a
+        limb or the axial chain but not the root - the Rigify sample Figure's
+        hands carry no skin and are still hands - and the role is the intent:
+        a control is what is excluded, not whatever lacks weight."""
+        roles = self.bm.get("roles")
+        if roles is None:
+            skinned = self.skinned_bones()
+            return [b for b in self.bones if skinned is None or b.name in skinned] or self.bones
+        controls = set(roles["controls"])
+        return [b for b in self.bones if b.name not in controls] or self.bones
+
     def com(self, posed):
         total, acc = 0.0, Vector((0.0, 0.0, 0.0))
         for name, (s, w) in self.com_terms.items():

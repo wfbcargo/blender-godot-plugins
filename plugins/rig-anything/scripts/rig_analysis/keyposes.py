@@ -481,11 +481,13 @@ def crouch_key(poser, depth=0.6, lean_degrees=None, head_level=0.8,
     # floor under the whole skeleton - is on the axial chain but carries no
     # trunk: counted, it put the "belly" under the floor and allowed an MPFB
     # woman no drop at all, so her crouch was a 33 cm hip shift on straight
-    # legs. No trunk sits wholly below the body's own ankles.
-    ankles = min(poser.height(l["rest_eff"]) for l in poser.legs)
-    trunk = [n for n in bm["axial"]
-             if max(poser.height(rig.data.bones[n].head_local),
-                    poser.height(rig.data.bones[n].tail_local)) > ankles] or bm["axial"]
+    # legs. That bone is `roles["root"]`. It used to be "axial bones wholly
+    # below the lowest ankle", which picks the same bone on every fixture (MPFB's
+    # `root`; none on Rigify or the dog). The two would part on an unskinned
+    # motion bone at hip height (the role drops it: it carries no trunk) or a
+    # skinned axial bone under the ankles (the role keeps it: it is body).
+    root = (bm.get("roles") or {}).get("root")
+    trunk = [n for n in bm["axial"] if n != root] or bm["axial"]
     lowest_axial = min(poser.height(pt) for n in trunk
                        for pt in (rig.data.bones[n].head_local,
                                   rig.data.bones[n].tail_local))

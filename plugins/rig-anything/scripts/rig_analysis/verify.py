@@ -828,6 +828,10 @@ def clearance_bones(rig, bm, limbs):
             cur = cur.parent
         if cur is not None and cur.name in trunk:
             body.add(b.name)
+    # A control is not body even when it hangs off the trunk: MPFB's unskinned
+    # `root` is in `rear`, and every IK target parented to it followed it in.
+    # They carry no skin, so the skin tested is the same without them.
+    body -= set((bm.get("roles") or {}).get("controls", ()))
     return reach, body
 
 
@@ -979,10 +983,11 @@ def recheck(rig_name, action_name, forward="-Y", up="Z", floor=0.0, loop=True,
     if modes["mismatches"]:
         failures.append("rotation mode: " + modes["note"])
 
-    # bone floor, skinned bones only
+    # bone floor, every bone but the controls (`motion.Body.body_bones`), in
+    # the armature's own order so a tie names the same bone as before
     tol = PLANT_TOL * size
-    skinned = body.skinned_bones()
-    bones = [b for b in rig.data.bones if skinned is None or b.name in skinned] or list(rig.data.bones)
+    keep = {b.name for b in body.body_bones()}
+    bones = [b for b in rig.data.bones if b.name in keep]
     lowest, lowest_at = float("inf"), None
     for f in frames:
         for b in bones:
