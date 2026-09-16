@@ -99,11 +99,14 @@ def material(name):
 # ------------------------------------------------------------------ definitions
 
 def define(name, family, classes, material=None, names=(), description="", zone=None,
-           paired=False, fabric=None, variant_of=None, when=None, anchor=None):
+           paired=False, fabric=None, variant_of=None, when=None, anchor=None, limit_share=None,
+           limit_note=None):
     """Add or replace a type in the user registry.
 
     `anchor` names the bone role a flesh type's jiggle bone hangs from - a rig-anything role such as
-    `pelvis`, `chest` or `head` - instead of the core bone nearest the region."""
+    `pelvis`, `chest` or `head` - instead of the core bone nearest the region. `limit_share` sets a
+    flesh type's swing limit, `max_offset_m = limit_share x peak_m`, in place of the material's;
+    `limit_note` says where the number came from."""
     if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
         raise ValueError("type names are lower_snake_case")
     if family not in FAMILIES:
@@ -121,7 +124,8 @@ def define(name, family, classes, material=None, names=(), description="", zone=
     entry = {"family": family, "classes": list(classes), "names": [n.lower() for n in names],
              "description": description, "defined": _now()}
     for k, v in (("material", material), ("zone", zone), ("fabric", fabric),
-                 ("variant_of", variant_of), ("when", when), ("anchor", anchor)):
+                 ("variant_of", variant_of), ("when", when), ("anchor", anchor),
+                 ("limit_share", limit_share), ("limit_note", limit_note)):
         if v is not None:
             entry[k] = v
     if paired:

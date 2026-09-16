@@ -216,6 +216,15 @@ authoring ones (`verify.PLANT_TOL`, `SLIP_TOL`, `SKIN_TOL`), not looser.
 `verify.limb_clearance` (or `clearance=True`) measures how close hands come to the
 body, from the body map rather than bone names.
 
+**Arm clearance measures the skin, not the clothes.** How far the arms hang out
+(`upper`) and `limb_clearance` read only `verify.clearance_meshes(rig)`: every mesh
+bound to the rig except wardrobe garments (`wardrobe_cut` or `wardrobe` property) and
+follow-through cloth and volumes (`follow_through` routed to `soft_body` or
+`shape_matching`). 8 mm of sports top at Belle's armpits had sent the arms of a clip
+authored after dressing up over her head; on the sample Figure a bound, eased shirt
+moved the hanging gap from -8.9 to -13.3 mm and the walk's arms from 4.2 to 6.3 degrees
+out. A fleshed body is still skin. Every other check still reads every bound mesh.
+
 A clip named in `gaits` whose stride is ~0 fails: the legs are not moving. That is
 what a quaternion-keyed clip on an Euler rig (MPFB's) looks like - every other number
 reads the rest pose and passes. Authoring now leaves keyed bones in the mode their

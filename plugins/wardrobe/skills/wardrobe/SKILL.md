@@ -37,7 +37,7 @@ if P not in sys.path:
 import wardrobe
 importlib.reload(wardrobe)
 wardrobe.reload_all()
-from wardrobe import tailor, fit, cover, hem, spec, export, views, samples
+from wardrobe import tailor, fit, cover, hem, spec, export, views, samples, presets
 ```
 
 **The whole sample in one call** (cut, fit, hem, cover, spec, export, read back):
@@ -45,6 +45,26 @@ from wardrobe import tailor, fit, cover, hem, spec, export, views, samples
 ```python
 samples.shirt("Figure", r"C:/proj/assets/wardrobe/shirt.glb")
 ```
+
+**A garment from a preset.** Tuned numbers belong in `presets/garments.json`, not in a build
+script. Each preset holds the cut (`shirt`/`pants`) and the `tailor`, `paint`, `ease`, `hem`,
+`cover` and `layer_cover` arguments, the spec kind, layer and colour, and a `note` saying why:
+
+```python
+presets.list()   # bra, briefs, longsleeve, shorts, shorts_mid_thigh, sports_top, trousers, tshirt
+r = wardrobe.dress("Belle", "sports_top", out_path=r"C:/proj/assets/belle/belle_sportstop.glb")
+b = wardrobe.dress("Nora", "briefs", out_path=...)
+t = wardrobe.dress("Nora", "trousers", out_path=..., over=[b["garment"]])   # eased over, hides what it covers
+```
+
+`dress(body, preset, name=None, colour=None, out_path=None, layer=None, over=())` runs tailor ->
+paint_ease -> ease -> skin -> hem -> cover -> spec -> export, skipping a step whose arguments are
+null; without `out_path` nothing is exported. It returns `verts`, `cut`, `skin`, `ease`, `hem`,
+`cover` (summary) and `cover_report`, `jiggle_groups`, `export` (summary) and `export_report`,
+`passed` and `problems` - it does not raise on a failed export. `sports_top` and
+`shorts_mid_thigh` are Belle's; the other six are Nora's three layers (`presets.exclusive()`
+lists what is worn instead of what). Nora's build also smooths armpit weights with project code
+that `dress` does not run. The `dressed_presets` fixture holds both of Belle's on the sample body.
 
 **Step by step:**
 
@@ -188,6 +208,14 @@ shirt over 480 frames of walking with jiggle: level 1, holes 1 (0.03%), poke 10 
 right thigh (0.08%); level 0, holes 1, poke 5 on the left buttock.
 
 ## Rules
+
+**Flesh before garments.** A garment is cut from the skin and copies its weights, so a body
+fleshed afterwards leaves the garment with no jiggle bones in it. `tailor.shirt`/`tailor.pants`
+warn when the body carries a follow-through jiggle spec whose `ft_jiggle_*` vertex groups are
+missing: printed as `wardrobe.tailor WARNING`, and listed under `warnings` in the garment's
+`wardrobe_cut_report` (the key is there only when there is a warning). A body with no
+follow-through spec is simply not fleshed and gets none. The cut garment's `wardrobe_cut`
+property is also what rig-anything's arm clearance reads to leave garments out.
 
 **Hide skin only where the cloth moves like it.** Hiding all covered skin, the sample shirt
 left 38 thigh vertices uncovered in the worst frame of the walk (0.72%, a fail): the thighs

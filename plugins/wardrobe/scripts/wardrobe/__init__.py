@@ -16,7 +16,7 @@ SCHEMA = "wardrobe/1"
 VERSION = "0.1.0"
 
 # dependency order
-MODULES = ("rigmap", "tailor", "fit", "cover", "hem", "spec", "views", "export", "samples")
+MODULES = ("rigmap", "tailor", "fit", "cover", "hem", "spec", "views", "export", "samples", "presets")
 
 
 def reload_all():
@@ -32,3 +32,10 @@ def reload_all():
         importlib.reload(mod)
         done.append(mod.__name__)
     return done
+
+
+def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, over=()):
+    """One garment from a preset (`presets.list()`), cut from `body_name`, fitted, hidden and
+    exported: see `presets.dress`."""
+    from . import presets
+    return presets.dress(body_name, preset, name=name, colour=colour, out_path=out_path, layer=layer, over=over)
