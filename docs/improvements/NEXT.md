@@ -23,7 +23,7 @@ behind.
 | 05 · 5.6 garment nondeterminism | **Done** - wardrobe 0.1.1, guarded by `regress.py --twice` with shuffled faces (1a). |
 | 05 · 5.7 faces shuffled between builds | **Done** - Blender's `create_uvsphere`, not the join. humanform 0.6.2, follow-through 0.2.3. |
 | [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | Not started. Biggest time saver. |
-| [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | Not started. |
+| [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | **Done, lean** - roles, profiles, consumers; Belle keeps her hand marks. Butt placement open as 05 · 5.9. |
 | [04 Checks that match the eye](04-checks-that-match-the-eye.md) | Not started. |
 | 05 · 5.2 hair, 5.3 compression, 5.4 skirts, 5.5 muscle | Not started. |
 
@@ -131,12 +131,15 @@ A full `regress.py --twice --jobs 2 --godot` run takes about 10 minutes on this 
   from roles when rig-anything is importable, name tables otherwise. `humanform.eyes` and
   `build_belle`/`build_person` head picks read `head`. Goldens unchanged except corrections, each named.
 
-  **2e `flesh-from-roles`** (follow-through; proof on Belle). Breast bone head and tail from `breast_anchor`
-  and the region's peak normal, not the nearest core segment. Belle rebuilt in scratch with her hand-marked
-  zones removed: no bone on the chin, buttocks on the pelvis, and garments still passing `verify_wardrobe`.
+  **2e DONE, lean** (follow-through 0.2.5). Measured before building:
+  - Belle's unmarked breasts already sit within ~3 cm of her hand marks, on `spine.003`, so the chin bug is gone.
+  - `breast` now anchors to the `chest` role, which moves the Bloater's breast bones `spine.002` -> `spine.003`
+    (reviewed golden change).
+  - The buttocks read low on every body measured, and no zone height fixes it (filed as 05 · 5.9).
+  - Belle keeps her hand marks and her assets, as agreed.
 
-  **2f `docs`**. rig-anything SKILL.md "Bone roles and profiles", the joint-conventions reference,
-  follow-through's registry docs, 02's status.
+  **2f DONE.** rig-anything SKILL.md has "Bone roles" and "Profiles"; `joint-conventions.md` takes joints from
+  roles; follow-through's SKILL.md files describe `anchor` as a role.
 
   2a first; 2b, 2c and 2d touch different files and can run in parallel; 2e after 2d.
 
