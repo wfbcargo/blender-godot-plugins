@@ -37,7 +37,6 @@ def region_row(r):
 def build():
     import bpy
     H.clear_scene()
-    H.enable_addons("rigify")
     from follow_through import export as ft_export, flesh, samples
 
     made = samples.build_bodies(rig=True, walk=True, rig_anything=H.scripts("RA_SCRIPTS"))

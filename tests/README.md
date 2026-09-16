@@ -21,8 +21,8 @@ on every fixture rather than on one character, and that accepting it is a review
 ## Fixtures
 
 Each is a script Blender runs in its own process, building from nothing — no `.blend`, no stored
-asset — and writing a report of what it got. About four minutes for all four, or two and a half
-with `--jobs 2`; the rabbit is most of it, because a voxel remesh is slow.
+asset — and writing a report of what it got. About six minutes for all six, or three and a half
+with `--jobs 2`; the rabbit is the longest at over two minutes, because a voxel remesh is slow.
 
 | Fixture | Builds | Exercises |
 |---|---|---|
@@ -30,9 +30,11 @@ with `--jobs 2`; the rabbit is most of it, because a voxel remesh is slow.
 | `rabbit` | `hopper_samples.rabbit`, detected, rigged, skinned, hopped, exported | leg detection against the sample's known joints, `hoppers.build`/`skin`, `hop.move_set`, `export_creature` |
 | `flesh_figure` | follow-through's `Figure` and `Bloater`, rigged, walked, fleshed, exported | `fit_basic_human`, bind coverage, `flesh.prepare` region placement, the glTF read back |
 | `dressed_figure` | a shirt cut onto the fleshed `Figure` | `tailor`/`fit`/`hem`/`cover`, and the flesh-before-garments order |
+| `rigify_human` | follow-through's `Figure`, unfleshed, given every biped move, exported | `fit_basic_human` with Rigify off, `move_set`'s ten default roles on a rig with no ground root, the export re-check. The three slides fail their floor checks and are dropped from the export with the reasons in the golden |
+| `quadruped` | `quadruped_samples.dog`, fitted, bound, given Idle/Walk/Trot/Run/Crouch, exported | four ground contacts, `fit_basic_quadruped` scored against the sample's known joints, `skin.bind`, `move_set` on four legs, the export re-check |
 
-Still missing, from `docs/improvements/03`: `rigify_human`, `quadruped`, `cricket`, the radial
-bodies, and the Godot-side verifiers (`--godot`).
+Still missing, from `docs/improvements/03`: `cricket`, the radial bodies, and the Godot-side
+verifiers (`--godot`).
 
 ## Writing one
 
@@ -44,7 +46,6 @@ H.use("RA_SCRIPTS", "FT_SCRIPTS")          # plugins on sys.path, versions noted
 
 def build():
     H.clear_scene()                        # factory startup's cube, camera and light
-    H.enable_addons("rigify")              # --factory-startup starts with Rigify off
     ...
     return {"regions": H.stable(found)}    # stable() drops Blender objects, private keys,
                                            # and the middle of a long per-frame trace
@@ -107,6 +108,9 @@ body is never joined, so it never had its faces reordered.
   vertical motion the engine owns, measured against the floor. Fixed with the biped jump under
   `docs/improvements/05` 5.1: a clip now carries the floor it was authored against. The rabbit
   exports all six clips, and the goldens moved to match.
-- `--factory-startup` starts with **Rigify disabled**, and `fit_basic_human` then dies with
+- `--factory-startup` starts with **Rigify disabled**, and `fit_basic_human` then died with
   `'Armature' object has no attribute 'rigify_colors'` — the trap already filed under category 1.
-  Fixtures call `H.enable_addons("rigify")`; rig-anything should do it itself.
+  rig-anything now enables it itself (`fit.ensure_rigify`, wherever a metarig is added), and no
+  fixture enables it, so `flesh_figure`, `dressed_figure`, `rigify_human` and `quadruped` all prove
+  that. Enabling it cost a second find: with `default_set=False`, as the harness first did, Rigify's
+  `register()` raises a KeyError reading its own preferences entry and is left half-registered.

@@ -1,0 +1,1189 @@
+{
+ "fixture": "rigify_human",
+ "plugins": {
+  "follow-through": "0.2.1",
+  "rig-anything": "0.14.2"
+ },
+ "report": {
+  "bind_coverage": 1.0,
+  "export": {
+   "clips": {
+    "Figure_Crouch": {
+     "engine_duration_s": 0.5,
+     "failures": [],
+     "implied_speed_playback_mps": null,
+     "locomotion": false,
+     "loops": false,
+     "passed": true
+    },
+    "Figure_CrouchWalk": {
+     "engine_duration_s": 1.0417,
+     "failures": [],
+     "implied_speed_playback_mps": 0.5947,
+     "locomotion": true,
+     "loops": true,
+     "passed": true
+    },
+    "Figure_Idle": {
+     "engine_duration_s": 2.0417,
+     "failures": [],
+     "implied_speed_playback_mps": null,
+     "locomotion": false,
+     "loops": true,
+     "passed": true
+    },
+    "Figure_Jump": {
+     "engine_duration_s": 0.9167,
+     "failures": [],
+     "implied_speed_playback_mps": null,
+     "locomotion": false,
+     "loops": false,
+     "passed": true
+    },
+    "Figure_Run": {
+     "engine_duration_s": 1.0417,
+     "failures": [],
+     "implied_speed_playback_mps": 2.5394,
+     "locomotion": true,
+     "loops": true,
+     "passed": true
+    },
+    "Figure_Trot": {
+     "engine_duration_s": 1.0417,
+     "failures": [],
+     "implied_speed_playback_mps": 1.8264,
+     "locomotion": true,
+     "loops": true,
+     "passed": true
+    },
+    "Figure_Walk": {
+     "engine_duration_s": 1.375,
+     "failures": [],
+     "implied_speed_playback_mps": 0.8538,
+     "locomotion": true,
+     "loops": true,
+     "passed": true
+    }
+   },
+   "dropped_clips": {
+    "Figure_Slide": [
+     "foot reaches -0.0259 at frame 7, below the floor at 0.0000 by more than the 0.0088 tolerance",
+     "toe.R reaches -0.1616, below the floor, at frame 8",
+     "skin reaches -0.1143, through the floor, at frame 8",
+     "thigh.L drifts sideways while planted by 0.0169 - the foot would skate",
+     "thigh.L moves unevenly while planted by 0.0129 - the foot would skate",
+     "thigh.R drifts sideways while planted by 0.0824 - the foot would skate",
+     "thigh.R moves unevenly while planted by 0.0393 - the foot would skate",
+     "thigh.R is planted at a different speed from the other feet - it slides 0.3598 over its stance"
+    ],
+    "Figure_SlideRecover": [
+     "foot reaches -0.0252 at frame 4, below the floor at 0.0000 by more than the 0.0088 tolerance",
+     "foot.R reaches -0.0252, below the floor, at frame 4",
+     "thigh.L drifts sideways while planted by 0.0092 - the foot would skate",
+     "thigh.L moves unevenly while planted by 0.1508 - the foot would skate",
+     "thigh.R drifts sideways while planted by 0.0530 - the foot would skate",
+     "thigh.R moves unevenly while planted by 0.0072 - the foot would skate",
+     "thigh.R is planted at a different speed from the other feet - it slides 0.1001 over its stance"
+    ],
+    "Figure_SlideToCrouch": [
+     "foot reaches -0.0260 at frame 4, below the floor at 0.0000 by more than the 0.0088 tolerance",
+     "foot.R reaches -0.0260, below the floor, at frame 4",
+     "thigh.L drifts sideways while planted by 0.0164 - the foot would skate",
+     "thigh.L sinks or rises while planted by 0.0078 - the foot would skate",
+     "thigh.L moves unevenly while planted by 0.0513 - the foot would skate",
+     "thigh.R drifts sideways while planted by 0.0569 - the foot would skate",
+     "thigh.L is planted at a different speed from the other feet - it slides 0.0837 over its stance"
+    ]
+   },
+   "exported": true,
+   "failing": {
+    "Figure_Slide": [
+     "foot reaches -0.0259 at frame 7, below the floor at 0.0000 by more than the 0.0088 tolerance",
+     "toe.R reaches -0.1616, below the floor, at frame 8",
+     "skin reaches -0.1143, through the floor, at frame 8",
+     "thigh.L drifts sideways while planted by 0.0169 - the foot would skate",
+     "thigh.L moves unevenly while planted by 0.0129 - the foot would skate",
+     "thigh.R drifts sideways while planted by 0.0824 - the foot would skate",
+     "thigh.R moves unevenly while planted by 0.0393 - the foot would skate",
+     "thigh.R is planted at a different speed from the other feet - it slides 0.3598 over its stance"
+    ],
+    "Figure_SlideRecover": [
+     "foot reaches -0.0252 at frame 4, below the floor at 0.0000 by more than the 0.0088 tolerance",
+     "foot.R reaches -0.0252, below the floor, at frame 4",
+     "thigh.L drifts sideways while planted by 0.0092 - the foot would skate",
+     "thigh.L moves unevenly while planted by 0.1508 - the foot would skate",
+     "thigh.R drifts sideways while planted by 0.0530 - the foot would skate",
+     "thigh.R moves unevenly while planted by 0.0072 - the foot would skate",
+     "thigh.R is planted at a different speed from the other feet - it slides 0.1001 over its stance"
+    ],
+    "Figure_SlideToCrouch": [
+     "foot reaches -0.0260 at frame 4, below the floor at 0.0000 by more than the 0.0088 tolerance",
+     "foot.R reaches -0.0260, below the floor, at frame 4",
+     "thigh.L drifts sideways while planted by 0.0164 - the foot would skate",
+     "thigh.L sinks or rises while planted by 0.0078 - the foot would skate",
+     "thigh.L moves unevenly while planted by 0.0513 - the foot would skate",
+     "thigh.R drifts sideways while planted by 0.0569 - the foot would skate",
+     "thigh.L is planted at a different speed from the other feet - it slides 0.0837 over its stance"
+    ]
+   },
+   "note": null,
+   "preflight": {
+    "bones": 29,
+    "mesh": "Figure",
+    "origin": {
+     "centroid_fraction": 0.003,
+     "centroid_offset": 0.00388,
+     "mesh_mean_xy": [
+      -3e-05,
+      -0.00388
+     ],
+     "mesh_offset": 0.0,
+     "mesh_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "note": "centred",
+     "offset": 0.0,
+     "offset_worst": 0.0,
+     "passed": true,
+     "rig": "Figure_metarig",
+     "rig_world": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "passed": true,
+    "problems": [],
+    "rig": "Figure_metarig",
+    "warnings": [
+     "28 bone names use '.' (e.g. spine.001, spine.002, spine.003). Bone names are not node names so this normally survives, but it is not the spelling Godot's humanoid retargeting profile expects - prefer _L/_R if you retarget.",
+     "2832 vertices of Figure are pulled by more than 4 bones - the exporter keeps the 4 heaviest, so they deform differently in the engine (bake_for_game limits and normalises)"
+    ]
+   },
+   "stage": "done",
+   "verified": {
+    "durations_match": true,
+    "mismatches": []
+   }
+  },
+  "headline": {
+   "Crouch": {
+    "balance": {
+     "com_fwd_end": 0.1366,
+     "com_fwd_start": 0.0039,
+     "margin_m": 0.081,
+     "support_fwd": [
+      -0.0138,
+      0.2177
+     ]
+    },
+    "drop_limited_by": "legs",
+    "failures": [],
+    "hip_drop_m": 0.255,
+    "lowest_point": 0.0011,
+    "max_drop_m": 0.4251,
+    "passed": true,
+    "planted_drift": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "skin_lowest": 0.0012,
+    "tightest_joint_degrees": {
+     "thigh.L": 79.4,
+     "thigh.R": 79.4,
+     "upper_arm.L": 111.9,
+     "upper_arm.R": 111.5
+    }
+   },
+   "CrouchWalk": {
+    "balance": null,
+    "failures": [],
+    "implied_speed_playback_mps": 0.5947,
+    "loop_seam": 0.0,
+    "lowest_point": 0.0011,
+    "passed": true,
+    "planted_drift": {},
+    "skin_lowest": 0.0012,
+    "stance_slip": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "stride_m": 0.3097,
+    "tightest_joint_degrees": {
+     "thigh.L": 64.8,
+     "thigh.R": 64.8,
+     "upper_arm.L": 145.0,
+     "upper_arm.R": 145.0
+    }
+   },
+   "Idle": {
+    "balance": null,
+    "failures": [],
+    "loop_seam": 0.0,
+    "lowest_point": 0.0011,
+    "passed": true,
+    "planted_drift": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "skin_lowest": 0.0012,
+    "tightest_joint_degrees": {
+     "thigh.L": 158.1,
+     "thigh.R": 158.0,
+     "upper_arm.L": 168.0,
+     "upper_arm.R": 168.0
+    }
+   },
+   "Jump": {
+    "balance": null,
+    "failures": [],
+    "lowest_point": 0.0011,
+    "passed": true,
+    "planted_drift": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "skin_lowest": 0.0012,
+    "tightest_joint_degrees": {
+     "thigh.L": 67.3,
+     "thigh.R": 67.3,
+     "upper_arm.L": 85.6,
+     "upper_arm.R": 85.0
+    }
+   },
+   "Run": {
+    "balance": null,
+    "failures": [],
+    "implied_speed_playback_mps": 2.5394,
+    "loop_seam": 0.0,
+    "lowest_point": 0.0011,
+    "passed": true,
+    "planted_drift": {},
+    "skin_lowest": -0.0021,
+    "stride_m": 2.6452,
+    "tightest_joint_degrees": {
+     "thigh.L": 67.2,
+     "thigh.R": 67.2,
+     "upper_arm.L": 95.0,
+     "upper_arm.R": 95.0
+    }
+   },
+   "Slide": {
+    "balance": null,
+    "failures": [
+     "toe.R reaches -0.1616, below the floor, at frame 8",
+     "skin reaches -0.1143, through the floor, at frame 8"
+    ],
+    "lowest_point": -0.1616,
+    "passed": false,
+    "planted_drift": {},
+    "skin_lowest": -0.1143,
+    "tightest_joint_degrees": {
+     "thigh.L": 110.1,
+     "thigh.R": 50.4,
+     "upper_arm.L": 75.4,
+     "upper_arm.R": 109.6
+    }
+   },
+   "SlideRecover": {
+    "balance": null,
+    "failures": [
+     "foot.R reaches -0.0252, below the floor, at frame 4",
+     "first frame is 0.1810 from the end of Figure_Slide (toe.R)"
+    ],
+    "lowest_point": -0.0252,
+    "passed": false,
+    "planted_drift": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "skin_lowest": -0.0255,
+    "tightest_joint_degrees": {
+     "thigh.L": 50.3,
+     "thigh.R": 43.1,
+     "upper_arm.L": 74.1,
+     "upper_arm.R": 99.8
+    }
+   },
+   "SlideToCrouch": {
+    "balance": null,
+    "failures": [
+     "foot.R reaches -0.0260, below the floor, at frame 4",
+     "first frame is 0.1810 from the end of Figure_Slide (toe.R)"
+    ],
+    "lowest_point": -0.026,
+    "passed": false,
+    "planted_drift": {},
+    "skin_lowest": -0.0256,
+    "tightest_joint_degrees": {
+     "thigh.L": 62.0,
+     "thigh.R": 48.7,
+     "upper_arm.L": 74.3,
+     "upper_arm.R": 99.7
+    }
+   },
+   "Trot": {
+    "balance": null,
+    "failures": [],
+    "implied_speed_playback_mps": 1.8264,
+    "loop_seam": 0.0,
+    "lowest_point": 0.0011,
+    "passed": true,
+    "planted_drift": {},
+    "skin_lowest": -0.0021,
+    "stride_m": 1.9025,
+    "tightest_joint_degrees": {
+     "thigh.L": 81.4,
+     "thigh.R": 81.4,
+     "upper_arm.L": 102.8,
+     "upper_arm.R": 102.8
+    }
+   },
+   "Walk": {
+    "balance": null,
+    "failures": [],
+    "implied_speed_playback_mps": 0.8538,
+    "loop_seam": 0.0,
+    "lowest_point": 0.0011,
+    "passed": true,
+    "planted_drift": {},
+    "skin_lowest": 0.0012,
+    "stride_m": 1.1739,
+    "tightest_joint_degrees": {
+     "thigh.L": 91.5,
+     "thigh.R": 91.4,
+     "upper_arm.L": 157.0,
+     "upper_arm.R": 157.0
+    }
+   }
+  },
+  "mesh": {
+   "vertices": 17112
+  },
+  "moves": {
+   "Crouch": {
+    "action": "Figure_Crouch",
+    "balance": {
+     "com_fwd_end": 0.1366,
+     "com_fwd_start": 0.0039,
+     "margin_m": 0.081,
+     "support_fwd": [
+      -0.0138,
+      0.2177
+     ]
+    },
+    "com_source": "skin (1 meshes)",
+    "crouched_height_m": 1.3418,
+    "depth": 0.6,
+    "drop_limited_by": "legs",
+    "end_height_m": 1.3418,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     12
+    ],
+    "hip_drop_m": 0.255,
+    "hip_shift_m": -0.0824,
+    "lean_degrees": 45.0,
+    "lowest_point": 0.0011,
+    "max_drop_m": 0.4251,
+    "passed": true,
+    "planted_drift": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "prediction_error": 1e-06,
+    "rest_error": 0.0,
+    "rig": "Figure_metarig",
+    "skin_lowest": 0.0012,
+    "standing_height_m": 1.7667,
+    "tightest_joint_degrees": {
+     "thigh.L": 79.4,
+     "thigh.R": 79.4,
+     "upper_arm.L": 111.9,
+     "upper_arm.R": 111.5
+    },
+    "tolerance": 0.00883,
+    "upright": true
+   },
+   "CrouchWalk": {
+    "action": "Figure_CrouchWalk",
+    "attempts": 1,
+    "balance": null,
+    "base": "crouch 0.60",
+    "depth": 0.6,
+    "depth_requested": 0.6,
+    "end_height_m": 1.3326,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     25
+    ],
+    "gait": "walk",
+    "implied_speed_cycle_mps": 0.6195,
+    "implied_speed_playback_mps": 0.5947,
+    "lift_m": 0.0774,
+    "loop_seam": 0.0,
+    "lowest_point": 0.0011,
+    "passed": true,
+    "phase_offsets": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.5
+    },
+    "planted_drift": {},
+    "prediction_error": 1e-06,
+    "reach_shrunk": false,
+    "rest_error": 0.684884,
+    "rig": "Figure_metarig",
+    "skin_lowest": 0.0012,
+    "stance_slip": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "standing_height_m": 1.7667,
+    "stride_m": 0.3097,
+    "tightest_joint_degrees": {
+     "thigh.L": 64.8,
+     "thigh.R": 64.8,
+     "upper_arm.L": 145.0,
+     "upper_arm.R": 145.0
+    },
+    "tolerance": 0.00883
+   },
+   "Idle": {
+    "action": "Figure_Idle",
+    "arm_clearance_m": 0.0172,
+    "arm_pose": {
+     "upper_arm.L": {
+      "elbow_flex_deg": [
+       12.0,
+       12.0
+      ],
+      "hand_rise": [
+       -0.363,
+       -0.348
+      ],
+      "upper_arm_deg": [
+       3.0,
+       5.0
+      ]
+     },
+     "upper_arm.R": {
+      "elbow_flex_deg": [
+       12.0,
+       12.0
+      ],
+      "hand_rise": [
+       -0.381,
+       -0.366
+      ],
+      "upper_arm_deg": [
+       3.0,
+       5.0
+      ]
+     }
+    },
+    "balance": null,
+    "end_height_m": 1.7573,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     49
+    ],
+    "hip_shift_m": 0.0338,
+    "loop_seam": 0.0,
+    "lowest_point": 0.0011,
+    "passed": true,
+    "planted_drift": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "posture": null,
+    "prediction_error": 1e-06,
+    "rest_error": 0.434815,
+    "rig": "Figure_metarig",
+    "skin_lowest": 0.0012,
+    "stance_width": null,
+    "standing_height_m": 1.7667,
+    "tightest_joint_degrees": {
+     "thigh.L": 158.1,
+     "thigh.R": 158.0,
+     "upper_arm.L": 168.0,
+     "upper_arm.R": 168.0
+    },
+    "tolerance": 0.00883,
+    "upper": {
+     "arm_forward": 4.0,
+     "arm_out": {
+      "upper_arm.L": 5.3,
+      "upper_arm.R": 5.3
+     },
+     "arm_out_measured": {
+      "upper_arm.L": 4.2,
+      "upper_arm.R": 4.2
+     },
+     "arm_swing": 0.0,
+     "breath": 1.0,
+     "clearance_m": 0.0172,
+     "clearance_tries": [
+      [
+       0.0107,
+       4.2
+      ],
+      [
+       0.0172,
+       5.3
+      ]
+     ],
+     "elbow": 12.0,
+     "elbow_swing": 0.0,
+     "hand_clearance": 0.015,
+     "hand_in": 0.0,
+     "head_hold": 0.85,
+     "lean": 0.0,
+     "lean_bob": 0.0,
+     "pelvis_list": 0.0,
+     "pelvis_turn": 0.0,
+     "side_bend": 0.0,
+     "thorax_turn": 0.0
+    }
+   },
+   "Jump": {
+    "action": "Figure_Jump",
+    "balance": null,
+    "end_height_m": 1.7667,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     22
+    ],
+    "launch_rise_m": 0.0387,
+    "load_drop_m": 0.2975,
+    "lowest_point": 0.0011,
+    "passed": true,
+    "planted_drift": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "prediction_error": 1e-06,
+    "rest_error": 0.0,
+    "rig": "Figure_metarig",
+    "skin_lowest": 0.0012,
+    "standing_height_m": 1.7667,
+    "tightest_joint_degrees": {
+     "thigh.L": 67.3,
+     "thigh.R": 67.3,
+     "upper_arm.L": 85.6,
+     "upper_arm.R": 85.0
+    },
+    "tolerance": 0.00883
+   },
+   "Run": {
+    "action": "Figure_Run",
+    "adjustments": [],
+    "arm_clearance_m": 0.0176,
+    "arm_pose": {
+     "upper_arm.L": {
+      "elbow_flex_deg": [
+       85.0,
+       85.0
+      ],
+      "hand_rise": [
+       -0.023,
+       0.333
+      ],
+      "upper_arm_deg": [
+       -40.0,
+       13.7
+      ]
+     },
+     "upper_arm.R": {
+      "elbow_flex_deg": [
+       85.0,
+       85.0
+      ],
+      "hand_rise": [
+       -0.04,
+       0.307
+      ],
+      "upper_arm_deg": [
+       -40.0,
+       13.7
+      ]
+     }
+    },
+    "attempts": 1,
+    "balance": null,
+    "bounce_scale": null,
+    "contact_slip": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "contacts": {
+     "thigh.L": {
+      "bones": [
+       "foot.L",
+       "toe.L"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "thigh.R": {
+      "bones": [
+       "foot.R",
+       "toe.R"
+      ],
+      "grounded": true,
+      "source": "skin"
+     }
+    },
+    "drop_m": 0.1213,
+    "drop_share": 0.1467,
+    "duty_asked": 0.338262,
+    "duty_factor": 0.338,
+    "end_height_m": 1.6501,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     25
+    ],
+    "froude": 3.0,
+    "froude_requested": 3.0,
+    "gait": "run",
+    "hip_height_m": 0.8272,
+    "implied_speed_cycle_mps": 2.6452,
+    "implied_speed_playback_mps": 2.5394,
+    "lift_m": 0.1961,
+    "lift_scale": null,
+    "limited_by": [],
+    "loop_seam": 0.0,
+    "lowest_point": 0.0011,
+    "max_drop": 0.22,
+    "min_knee": null,
+    "natural_speed_mps": 4.934,
+    "passed": true,
+    "peak_reach": {
+     "thigh.L": 0.995,
+     "thigh.R": 0.995
+    },
+    "phase_offsets": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.5
+    },
+    "planted_drift": {},
+    "posture": null,
+    "prediction_error": 1e-06,
+    "rest_error": 0.494258,
+    "rig": "Figure_metarig",
+    "skin_lowest": -0.0021,
+    "spine_flex_deg": 0.0,
+    "stance_shift_m": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "stance_width": null,
+    "standing_height_m": 1.7667,
+    "stride_frequency_hz": 1.865,
+    "stride_m": 2.6452,
+    "stride_scale": null,
+    "stroke_m": 0.8948,
+    "stroke_over_leg": 1.156,
+    "style": null,
+    "support_normal": [
+     0.0,
+     0.0,
+     1.0
+    ],
+    "sway_share": 0.0,
+    "tightest_joint_degrees": {
+     "thigh.L": 67.2,
+     "thigh.R": 67.2,
+     "upper_arm.L": 95.0,
+     "upper_arm.R": 95.0
+    },
+    "tolerance": 0.00883,
+    "upper": {
+     "arm_forward": -15.0,
+     "arm_out": {
+      "upper_arm.L": 5.8,
+      "upper_arm.R": 5.8
+     },
+     "arm_out_measured": {
+      "upper_arm.L": 4.6,
+      "upper_arm.R": 4.6
+     },
+     "arm_swing": 25.0,
+     "breath": 0.0,
+     "clearance_m": 0.0176,
+     "clearance_tries": [
+      [
+       0.0103,
+       4.6
+      ],
+      [
+       0.0176,
+       5.8
+      ]
+     ],
+     "elbow": 85.0,
+     "elbow_swing": 0.0,
+     "hand_clearance": 0.015,
+     "hand_in": 5.0,
+     "head_hold": 0.85,
+     "lean": 8.5,
+     "lean_bob": 2.0,
+     "pelvis_list": 3.0,
+     "pelvis_turn": 9.0,
+     "side_bend": 1.5,
+     "thorax_turn": 7.1
+    }
+   },
+   "Slide": {
+    "action": "Figure_Slide",
+    "balance": null,
+    "end_height_m": 1.1619,
+    "failures": [
+     "toe.R reaches -0.1616, below the floor, at frame 8",
+     "skin reaches -0.1143, through the floor, at frame 8"
+    ],
+    "fps": 24,
+    "frames": [
+     1,
+     10
+    ],
+    "hip_height_m": 0.2788,
+    "lead": "L",
+    "lean_degrees": -35.0,
+    "lowest_point": -0.1616,
+    "passed": false,
+    "planted_drift": {},
+    "prediction_error": 1e-06,
+    "rest_error": 0.0,
+    "rig": "Figure_metarig",
+    "skin_lowest": -0.1143,
+    "slide_height_m": 1.1619,
+    "standing_height_m": 1.7667,
+    "tightest_joint_degrees": {
+     "thigh.L": 110.1,
+     "thigh.R": 50.4,
+     "upper_arm.L": 75.4,
+     "upper_arm.R": 109.6
+    },
+    "tolerance": 0.00883
+   },
+   "SlideRecover": {
+    "action": "Figure_SlideRecover",
+    "balance": null,
+    "balance_at_deep_crouch": {
+     "com_fwd": 0.1369,
+     "margin_m": 0.0808,
+     "support_fwd": [
+      -0.0138,
+      0.2177
+     ]
+    },
+    "end_height_m": 1.7667,
+    "failures": [
+     "foot.R reaches -0.0252, below the floor, at frame 4",
+     "first frame is 0.1810 from the end of Figure_Slide (toe.R)"
+    ],
+    "fps": 24,
+    "frames": [
+     1,
+     18
+    ],
+    "lowest_point": -0.0252,
+    "passed": false,
+    "planted_drift": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "prediction_error": 1e-06,
+    "rest_error": 0.83506,
+    "rig": "Figure_metarig",
+    "seams": {
+     "from Figure_Slide": 0.18097,
+     "to rest": 0.0
+    },
+    "skin_lowest": -0.0255,
+    "split_frame": 9,
+    "standing_height_m": 1.7667,
+    "tightest_joint_degrees": {
+     "thigh.L": 50.3,
+     "thigh.R": 43.1,
+     "upper_arm.L": 74.1,
+     "upper_arm.R": 99.8
+    },
+    "to": "stand",
+    "tolerance": 0.00883
+   },
+   "SlideToCrouch": {
+    "action": "Figure_SlideToCrouch",
+    "balance": null,
+    "end_height_m": 1.3418,
+    "failures": [
+     "foot.R reaches -0.0260, below the floor, at frame 4",
+     "first frame is 0.1810 from the end of Figure_Slide (toe.R)"
+    ],
+    "fps": 24,
+    "frames": [
+     1,
+     12
+    ],
+    "lowest_point": -0.026,
+    "passed": false,
+    "planted_drift": {},
+    "prediction_error": 1e-06,
+    "rest_error": 0.83506,
+    "rig": "Figure_metarig",
+    "seams": {
+     "from Figure_Slide": 0.18097,
+     "to Figure_Crouch": 0.0
+    },
+    "skin_lowest": -0.0256,
+    "split_frame": null,
+    "standing_height_m": 1.7667,
+    "tightest_joint_degrees": {
+     "thigh.L": 62.0,
+     "thigh.R": 48.7,
+     "upper_arm.L": 74.3,
+     "upper_arm.R": 99.7
+    },
+    "to": "crouch",
+    "tolerance": 0.00883
+   },
+   "Trot": {
+    "action": "Figure_Trot",
+    "adjustments": [],
+    "arm_clearance_m": 0.0163,
+    "arm_pose": {
+     "upper_arm.L": {
+      "elbow_flex_deg": [
+       75.2,
+       77.2
+      ],
+      "hand_rise": [
+       -0.099,
+       0.282
+      ],
+      "upper_arm_deg": [
+       -37.7,
+       15.7
+      ]
+     },
+     "upper_arm.R": {
+      "elbow_flex_deg": [
+       75.2,
+       77.2
+      ],
+      "hand_rise": [
+       -0.116,
+       0.257
+      ],
+      "upper_arm_deg": [
+       -37.7,
+       15.7
+      ]
+     }
+    },
+    "attempts": 1,
+    "balance": null,
+    "bounce_scale": null,
+    "contact_slip": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "contacts": {
+     "thigh.L": {
+      "bones": [
+       "foot.L",
+       "toe.L"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "thigh.R": {
+      "bones": [
+       "foot.R",
+       "toe.R"
+      ],
+      "grounded": true,
+      "source": "skin"
+     }
+    },
+    "drop_m": 0.1117,
+    "drop_share": 0.135,
+    "duty_asked": 0.45,
+    "duty_factor": 0.45,
+    "end_height_m": 1.6637,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     25
+    ],
+    "froude": 1.0,
+    "froude_requested": 1.0,
+    "gait": "run",
+    "hip_height_m": 0.8272,
+    "implied_speed_cycle_mps": 1.9025,
+    "implied_speed_playback_mps": 1.8264,
+    "lift_m": 0.1394,
+    "lift_scale": null,
+    "limited_by": [],
+    "loop_seam": 0.0,
+    "lowest_point": 0.0011,
+    "max_drop": 0.18,
+    "min_knee": null,
+    "natural_speed_mps": 2.8486,
+    "passed": true,
+    "peak_reach": {
+     "thigh.L": 0.995,
+     "thigh.R": 0.995
+    },
+    "phase_offsets": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.5
+    },
+    "planted_drift": {},
+    "posture": null,
+    "prediction_error": 1e-06,
+    "rest_error": 0.500171,
+    "rig": "Figure_metarig",
+    "skin_lowest": -0.0021,
+    "spine_flex_deg": 0.0,
+    "stance_shift_m": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "stance_width": null,
+    "standing_height_m": 1.7667,
+    "stride_frequency_hz": 1.497,
+    "stride_m": 1.9025,
+    "stride_scale": null,
+    "stroke_m": 0.8561,
+    "stroke_over_leg": 1.106,
+    "style": null,
+    "support_normal": [
+     0.0,
+     0.0,
+     1.0
+    ],
+    "sway_share": 0.0,
+    "tightest_joint_degrees": {
+     "thigh.L": 81.4,
+     "thigh.R": 81.4,
+     "upper_arm.L": 102.8,
+     "upper_arm.R": 102.8
+    },
+    "tolerance": 0.00883,
+    "upper": {
+     "arm_forward": -12.855,
+     "arm_out": {
+      "upper_arm.L": 5.8,
+      "upper_arm.R": 5.3
+     },
+     "arm_out_measured": {
+      "upper_arm.L": 3.9,
+      "upper_arm.R": 3.5
+     },
+     "arm_swing": 25.0,
+     "breath": 0.0,
+     "clearance_m": 0.0163,
+     "clearance_tries": [
+      [
+       0.0054,
+       3.7
+      ],
+      [
+       0.0163,
+       5.5
+      ]
+     ],
+     "elbow": 76.166,
+     "elbow_swing": 1.01,
+     "hand_clearance": 0.015,
+     "hand_in": 2.5,
+     "head_hold": 0.85,
+     "lean": 6.0,
+     "lean_bob": 2.0,
+     "pelvis_list": 3.0,
+     "pelvis_turn": 7.0,
+     "side_bend": 1.5,
+     "thorax_turn": 5.5
+    }
+   },
+   "Walk": {
+    "action": "Figure_Walk",
+    "adjustments": [],
+    "arm_clearance_m": 0.0165,
+    "arm_pose": {
+     "upper_arm.L": {
+      "elbow_flex_deg": [
+       7.0,
+       23.0
+      ],
+      "hand_rise": [
+       -0.386,
+       -0.165
+      ],
+      "upper_arm_deg": [
+       -13.8,
+       20.2
+      ]
+     },
+     "upper_arm.R": {
+      "elbow_flex_deg": [
+       7.0,
+       23.0
+      ],
+      "hand_rise": [
+       -0.405,
+       -0.183
+      ],
+      "upper_arm_deg": [
+       -13.8,
+       20.2
+      ]
+     }
+    },
+    "attempts": 1,
+    "balance": null,
+    "bounce_scale": null,
+    "contact_slip": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "contacts": {
+     "thigh.L": {
+      "bones": [
+       "foot.L",
+       "toe.L"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "thigh.R": {
+      "bones": [
+       "foot.R",
+       "toe.R"
+      ],
+      "grounded": true,
+      "source": "skin"
+     }
+    },
+    "drop_m": 0.1123,
+    "drop_share": 0.1358,
+    "duty_asked": 0.650619,
+    "duty_factor": 0.651,
+    "end_height_m": 1.6401,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     33
+    ],
+    "froude": 0.2,
+    "froude_requested": 0.2,
+    "gait": "walk",
+    "hip_height_m": 0.8272,
+    "implied_speed_cycle_mps": 0.8804,
+    "implied_speed_playback_mps": 0.8538,
+    "lift_m": 0.0966,
+    "lift_scale": null,
+    "limited_by": [],
+    "loop_seam": 0.0,
+    "lowest_point": 0.0011,
+    "max_drop": 0.1358,
+    "min_knee": null,
+    "natural_speed_mps": 1.2739,
+    "passed": true,
+    "peak_reach": {
+     "thigh.L": 0.959,
+     "thigh.R": 0.959
+    },
+    "phase_offsets": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.5
+    },
+    "planted_drift": {},
+    "posture": null,
+    "prediction_error": 0.0,
+    "rest_error": 0.509853,
+    "rig": "Figure_metarig",
+    "skin_lowest": 0.0012,
+    "spine_flex_deg": 0.0,
+    "stance_shift_m": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "stance_width": null,
+    "standing_height_m": 1.7667,
+    "stride_frequency_hz": 1.085,
+    "stride_m": 1.1739,
+    "stride_scale": null,
+    "stroke_m": 0.7638,
+    "stroke_over_leg": 0.986,
+    "style": null,
+    "support_normal": [
+     0.0,
+     0.0,
+     1.0
+    ],
+    "sway_share": 0.01,
+    "tightest_joint_degrees": {
+     "thigh.L": 91.5,
+     "thigh.R": 91.4,
+     "upper_arm.L": 157.0,
+     "upper_arm.R": 157.0
+    },
+    "tolerance": 0.00883,
+    "upper": {
+     "arm_forward": 2.0,
+     "arm_out": {
+      "upper_arm.L": 5.8,
+      "upper_arm.R": 5.5
+     },
+     "arm_out_measured": {
+      "upper_arm.L": 4.2,
+      "upper_arm.R": 3.9
+     },
+     "arm_swing": 15.839,
+     "breath": 0.0,
+     "clearance_m": 0.0165,
+     "clearance_tries": [
+      [
+       0.0073,
+       4.0
+      ],
+      [
+       0.0165,
+       5.6
+      ]
+     ],
+     "elbow": 15.0,
+     "elbow_swing": 8.0,
+     "hand_clearance": 0.015,
+     "hand_in": 0.0,
+     "head_hold": 0.85,
+     "lean": 3.236,
+     "lean_bob": 1.0,
+     "pelvis_list": 4.0,
+     "pelvis_turn": 4.236,
+     "side_bend": 1.5,
+     "thorax_turn": 3.289
+    }
+   }
+  },
+  "rig": {
+   "bones": 29
+  }
+ }
+}
