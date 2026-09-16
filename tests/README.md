@@ -11,6 +11,7 @@ python tools/regress.py --only rabbit         # one of them
 python tools/regress.py --jobs 2              # two Blenders at once
 python tools/regress.py --plugins <checkout>  # run the fixtures against another checkout
 python tools/regress.py --update              # rewrite the goldens, then review the diff
+python tools/regress.py --twice --jobs 2      # build each fixture twice; the builds must agree
 ```
 
 A change is not by itself a failure — a fix moves numbers. The point is that the move is **seen**,
@@ -52,7 +53,7 @@ H.run("<name>", build)
 
 Rules that keep a golden meaningful:
 
-- **Deterministic.** Seed every generator. Never read the user's humanform library — the harness
+- **Deterministic.** Seed every generator, and record a new golden with `--twice`. Never read the user's humanform library — the harness
   points `HUMANFORM_LIBRARY` at a scratch folder, and fits run with `use_library=False`.
 - **Report results, not the run.** Timings, dates and absolute paths are stripped by the runner
   (`VOLATILE`, `PATHLIKE`), but a fixture that reports them is reporting noise.
@@ -70,6 +71,30 @@ Reports are flattened to dotted keys and compared one by one: numbers within a r
 (`DEFAULT_TOLERANCE`, 1e-3, with per-pattern overrides in `TOLERANCES`), everything else exactly.
 Keys that appear or vanish are changes too — a report that stops carrying `balance` is a
 regression that a value comparison alone would miss.
+
+## Reproducibility: `--twice`
+
+A golden is one build's answer, so it cannot see a step that answers differently on every run:
+Belle's garments moved 9.9 mm between two builds, and whichever draw the golden was recorded from
+would have looked right. `--twice` builds every fixture a second time in the same run, each build in
+its own folder with its own humanform library, and compares the two with each other before either
+is compared with the golden. A disagreement prints `NONDETERMINISTIC` with the keys that differ
+and fails the run, and `--update` writes no golden from a build that did not reproduce. It doubles
+the time, so run it before merging and whenever a golden is recorded, not on every edit.
+
+A fixture can also make its input vary on purpose. `H.shuffle_faces(obj)` stores a body's faces in a
+random order when `REGRESS_SHUFFLE_FACES=1` - what `object.join` does to a body on every run (5.7) -
+and is a no-op otherwise. `dressed_figure` shuffles its body before the shirt is cut, so
+
+```
+REGRESS_SHUFFLE_FACES=1 python tools/regress.py --twice --jobs 2 --only dressed_figure
+```
+
+checks that a fit does not depend on how the body was stored. Against the checkout before the 5.6
+fix (`4f46876`, wardrobe 0.1.0) that reports `ease.gap_min_m` 0.0057 / 0.0058 and a hem ring's
+`weighted_verts` 213 / 215 between two builds. On wardrobe 0.1.1 both shuffled builds agree with
+each other and with the golden. Without the shuffle the old code agrees with itself too: the sample
+body is never joined, so it never had its faces reordered.
 
 ## What it caught the first time
 

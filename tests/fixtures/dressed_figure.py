@@ -29,6 +29,9 @@ def build():
     try:
         prepared = flesh.prepare(BODY)
         body = bpy.data.objects[BODY]
+        # A fit must not depend on how the body's faces happen to be stored (5.6). Off by default;
+        # `REGRESS_SHUFFLE_FACES=1 regress.py --twice` checks it.
+        H.shuffle_faces(body)
         out = os.path.join(H.out_dir(), "dressed_figure")
         os.makedirs(out, exist_ok=True)
         shirt = wd_samples.shirt(body, os.path.join(out, "shirt.glb"), log=lambda *a: None)

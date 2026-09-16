@@ -156,7 +156,7 @@ body with the same muscle value shows much less definition.
 
 ---
 
-## 5.6 wardrobe's garment step is not reproducible between builds - DONE, except `--twice`
+## 5.6 wardrobe's garment step is not reproducible between builds - DONE
 
 > **Fixed** (September 2026, wardrobe). The cause was two steps apart from the symptom.
 > `bpy.ops.object.join` - joining the eyes and the hair into the body - writes the same faces in a
@@ -173,8 +173,13 @@ body with the same muscle value shows much less definition.
 > canonical. Two full builds of Belle now write byte-identical `belle_sportstop.glb` and
 > `belle_shorts.glb`. The join itself is still nondeterministic: that is 5.7.
 >
-> **Still owed:** the `--twice` check below was not built. The reproducibility was proven by hand,
-> building Belle twice and comparing the files; nothing yet stops it regressing.
+> **Guarded since** `regress.py --twice` (03 step 1a). The Belle comparison was by hand; what stops it
+> regressing is the fixture. `dressed_figure` never joins, so on its own it could not see this, and
+> with the old wardrobe code its two builds agree. `H.shuffle_faces` reproduces the cause instead:
+> with `REGRESS_SHUFFLE_FACES=1` the body's faces are stored in a random order before the shirt is
+> cut. On wardrobe 0.1.0 that gives NONDETERMINISTIC (`ease.gap_min_m` 0.0057 / 0.0058, a hem ring's
+> `weighted_verts` 213 / 215). On 0.1.1 both builds agree with each other and with the golden. See
+> `tests/README.md`.
 
 **Problem.** Rebuilding Belle twice from the same brief produced sports tops whose vertices differ
 by up to 9.9 mm, and shorts that differ too. The body is not the cause: across three builds her

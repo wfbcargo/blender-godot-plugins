@@ -83,6 +83,27 @@ def clear_scene():
         bpy.data.objects.remove(o, do_unlink=True)
 
 
+def shuffle_faces(obj):
+    """With REGRESS_SHUFFLE_FACES=1, store `obj`'s faces in a random, unseeded order; else nothing.
+
+    The same surface, stored differently - what `bpy.ops.object.join` does to a body on every run
+    (improvements 5.7). A step whose answer depends on face order then gives a different answer
+    per build, which `regress.py --twice` reports as NONDETERMINISTIC. Vertices keep their order,
+    so skin weights and shape keys are untouched. Returns whether it shuffled."""
+    if os.environ.get("REGRESS_SHUFFLE_FACES") != "1":
+        return False
+    import random
+    import bmesh
+    rng = random.SystemRandom()
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.faces.sort(key=lambda f: rng.random())
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+    return True
+
+
 def round_floats(value, places=6):
     if isinstance(value, float):
         return round(value, places)
