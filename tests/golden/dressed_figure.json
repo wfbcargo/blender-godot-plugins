@@ -2,14 +2,18 @@
  "fixture": "dressed_figure",
  "plugins": {
   "follow-through": "0.2.1",
-  "rig-anything": "0.14.1",
-  "wardrobe": "0.1.0"
+  "rig-anything": "0.14.2",
+  "wardrobe": "0.1.1"
  },
  "report": {
   "body": {
    "flesh_regions": 11,
    "jiggle_bones": 11,
    "vertices": 17112
+  },
+  "body_export": {
+   "durations_match": true,
+   "exported": true
   },
   "cover": {
    "body": "Figure",
@@ -36,7 +40,7 @@
   "export": {
    "edge": 1861,
    "exported": true,
-   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-gdhgre20\\dressed_figure\\dressed_figure\\shirt.glb",
+   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-w7rgnrgu\\a\\dressed_figure\\dressed_figure\\shirt.glb",
    "garment": "Shirt",
    "hem_bones": 16,
    "hem_head_error_m": 1e-06,

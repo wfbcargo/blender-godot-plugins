@@ -36,7 +36,16 @@ def build():
         os.makedirs(out, exist_ok=True)
         shirt = wd_samples.shirt(body, os.path.join(out, "shirt.glb"), log=lambda *a: None)
         garment = bpy.data.objects.get("Shirt")
+        # The body the shirt was cut from, walking, for `regress.py --godot`: wardrobe's verifier
+        # dresses this body with this shirt in Godot and counts holes and poke-through.
+        from rig_analysis import export as ra_export
+        walk = BODY + "Walk"
+        body_glb = ra_export.export(BODY, BODY + "_metarig", os.path.join(out, "figure.glb"),
+                                    foot_bones=["foot.L", "foot.R"], actions=[walk], loop_clips=[walk],
+                                    forward="-Y")
         return {
+            "body_export": {"exported": body_glb.get("exported"),
+                            "durations_match": (body_glb.get("verified") or {}).get("durations_match")},
             "body": {"vertices": len(body.data.vertices),
                      "jiggle_bones": sum(1 for g in body.vertex_groups if g.name.startswith("ft_jiggle_")),
                      "flesh_regions": len(prepared.get("regions", []))},
