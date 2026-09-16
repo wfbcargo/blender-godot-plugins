@@ -1,0 +1,13 @@
+{
+  "name": "character-pipeline",
+  "version": "0.1.0",
+  "description": "Build a whole character for Godot 4.7 from one TOML spec: a humanform body from a brief, baked, with hair, follow-through flesh, rig-anything's move set and wardrobe garments, exported as the glb, .moves.json and garment glbs MovesController and wardrobe.gd read. Stages know what they need and check the file before running, so garments before moves or flesh after garments refuse and name the order; each stage stores an input hash and its report on the rig, so a rebuild skips what has not changed and a fresh Blender session resumes from the saved .blend. Tuned numbers live in the plugins that own them - gait styles, flesh limit shares, garment presets - so a new character is a description, a style and an outfit, with no code.",
+  "author": {
+    "name": "Paul Lovy",
+    "url": "https://paullovy.com"
+  },
+  "homepage": "https://github.com/wfbcargo/blender-godot-plugins",
+  "repository": "https://github.com/wfbcargo/blender-godot-plugins",
+  "license": "MIT",
+  "keywords": ["blender", "godot", "character", "pipeline", "humanform", "rig-anything", "follow-through", "wardrobe", "gltf", "gamedev", "3d"]
+}
