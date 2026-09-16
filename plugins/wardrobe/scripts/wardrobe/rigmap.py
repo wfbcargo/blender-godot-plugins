@@ -1,9 +1,11 @@
 """Which bones of a humanoid rig are the torso, the neck, the arms and the legs.
 
+When rig-anything is importable its bone roles say so (`rig_analysis.bodymap.build(...)["roles"]`):
+the spine runs from the `pelvis` role to the `head`, the torso ends at `chest` (where the arms
+attach), and arms and legs are the `hand.*` and `foot.*` limbs. Without rig-anything, names do:
 rig-anything's humanoid metarig names them spine .. spine.006, shoulder.L, upper_arm.L,
-forearm.L, hand.L, thigh.L; Rigify's deform rig prefixes DEF-. Anything else is found by
-walking the hierarchy: the spine is the longest chain from the root, arms are the chains
-leaving it above its middle, legs the ones leaving at its root.
+forearm.L, hand.L, thigh.L; Rigify's deform rig prefixes DEF-; the spine is walked from its root
+through children called spine, neck or head, and the torso ends at the bone the arms hang from.
 
 Every position here is in the body mesh's object space, which is where the garment is
 built and fitted - the glTF exporter writes a skinned mesh in that space too.
@@ -51,6 +53,56 @@ def humanoid(body):
     bones = rig.data.bones
     to_body = body.matrix_world.inverted() @ rig.matrix_world
     names = set(bones.keys())
+    heads = {n: to_body @ bones[n].head_local for n in names}
+    tails = {n: to_body @ bones[n].tail_local for n in names}
+
+    mapped = _from_roles(rig, body) or _from_names(rig)
+    spine, torso, neck, arms, legs = mapped
+    return {"rig": rig.name, "spine": spine, "torso": torso, "neck": neck, "arms": arms, "legs": legs,
+            "heads": heads, "tails": tails, "up": Vector((0, 0, 1)), "forward": _forward(heads, arms)}
+
+
+def _from_roles(rig, body):
+    """(spine, torso, neck, arms, legs) from rig-anything's bone roles, or None when rig-anything is
+    not importable, knows no roles, or the roles do not describe a biped (a pelvis, a chest on the
+    spine, and hand/foot limbs with no front/hind rank)."""
+    try:
+        from rig_analysis import bodymap
+    except ImportError:
+        return None
+    bm = bodymap.build(rig.name, meshes=[body])
+    roles = bm.get("roles") if isinstance(bm, dict) else None
+    if not roles or not roles.get("pelvis") or not roles.get("head"):
+        return None
+    axial = bm["axial"]
+    if roles["pelvis"] not in axial or roles["head"] not in axial:
+        return None
+    a, b = axial.index(roles["pelvis"]), axial.index(roles["head"])
+    if a > b:
+        return None
+    tail = set(roles.get("tail") or ())
+    spine = [n for n in axial[a:b + 1] if n not in tail]
+    if roles.get("chest") not in spine:
+        return None
+    si = spine.index(roles["chest"])
+
+    arms, legs = {}, {}
+    for key, limb in (roles.get("limbs") or {}).items():
+        end_word, _, side = key.rpartition(".")
+        if limb["role"] == "arm" and end_word == "hand":
+            arms[side] = {"shoulder": limb["girdle"], "upper": limb["upper"], "fore": limb["lower"],
+                          "hand": limb["end"]}
+        elif limb["role"] == "leg" and end_word == "foot":
+            legs[side] = {"thigh": limb["upper"], "shin": limb["lower"], "foot": limb["end"]}
+    if not arms or not legs:
+        return None
+    return spine, spine[:si + 1], spine[si + 1:], arms, legs
+
+
+def _from_names(rig):
+    """(spine, torso, neck, arms, legs) from bone names: the fallback without rig-anything."""
+    bones = rig.data.bones
+    names = set(bones.keys())
 
     spine = []
     root = _find(names, "spine", "hips", "pelvis", "Hips")
@@ -76,9 +128,6 @@ def humanoid(body):
         if thigh:
             legs[side] = {"thigh": thigh, "shin": shin, "foot": foot}
 
-    heads = {n: to_body @ bones[n].head_local for n in names}
-    tails = {n: to_body @ bones[n].tail_local for n in names}
-
     # the shoulder line: the spine bone the arms hang from; everything above it is neck/head
     shoulder_bone = None
     for side, a in arms.items():
@@ -88,11 +137,7 @@ def humanoid(body):
         if p is not None:
             shoulder_bone = p.name
     si = spine.index(shoulder_bone) if shoulder_bone in spine else int(len(spine) * 0.6)
-    neck = spine[si + 1:]
-    torso = spine[:si + 1]
-
-    return {"rig": rig.name, "spine": spine, "torso": torso, "neck": neck, "arms": arms, "legs": legs,
-            "heads": heads, "tails": tails, "up": Vector((0, 0, 1)), "forward": _forward(heads, arms)}
+    return spine, spine[:si + 1], spine[si + 1:], arms, legs
 
 
 def _forward(heads, arms):

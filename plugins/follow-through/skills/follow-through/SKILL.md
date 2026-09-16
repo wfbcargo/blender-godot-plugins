@@ -155,7 +155,8 @@ default is **guessed** and says so - and a guessed type never changes the class.
 **Teaching** records an example. A type that does not exist yet is created from it: family
 and class from `classify`, the material you name, and for a flesh region taught from a
 painted group, a zone around where it sits on the body. `registry.define(...)` and
-`registry.define_material(...)` add types and materials by hand; `registry.forget(type)`
+`registry.define_material(...)` add types and materials by hand (a flesh type's `anchor=` names the
+rig-anything bone role its jiggle bone hangs from, e.g. `"pelvis"`); `registry.forget(type)`
 removes one.
 
 Measured on the sample volumes: named, 7/7 classes and 7/7 types. The same seven things

@@ -99,8 +99,11 @@ def material(name):
 # ------------------------------------------------------------------ definitions
 
 def define(name, family, classes, material=None, names=(), description="", zone=None,
-           paired=False, fabric=None, variant_of=None, when=None):
-    """Add or replace a type in the user registry."""
+           paired=False, fabric=None, variant_of=None, when=None, anchor=None):
+    """Add or replace a type in the user registry.
+
+    `anchor` names the bone role a flesh type's jiggle bone hangs from - a rig-anything role such as
+    `pelvis`, `chest` or `head` - instead of the core bone nearest the region."""
     if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
         raise ValueError("type names are lower_snake_case")
     if family not in FAMILIES:
@@ -118,7 +121,7 @@ def define(name, family, classes, material=None, names=(), description="", zone=
     entry = {"family": family, "classes": list(classes), "names": [n.lower() for n in names],
              "description": description, "defined": _now()}
     for k, v in (("material", material), ("zone", zone), ("fabric", fabric),
-                 ("variant_of", variant_of), ("when", when)):
+                 ("variant_of", variant_of), ("when", when), ("anchor", anchor)):
         if v is not None:
             entry[k] = v
     if paired:

@@ -246,6 +246,7 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
             eb.use_connect = False
             eb.use_deform = True
             eb.align_roll(to_rig.to_3x3() @ -rb["inward_dir"])
+            eb["wd_role"] = "hem"      # rig-anything's bodymap leaves tagged bones out of the body
 
     # merge weights: the bones take `total`, the old influences keep the rest; four a vertex
     for rb in new_bones:
