@@ -57,5 +57,7 @@ project they are exercised on is `C:/Users/pauli/Code/GoDot/grungist-creek`. Pla
   while `git diff` is empty. Trust the diff.
 - A rebuilt glb can change size for reasons unrelated to the change under test. Parse the glTF JSON
   chunk and diff it before believing the change is meaningful.
-- `bpy.ops.object.join` writes faces in a different order on every run (improvements 5.7). Anything
-  that walks faces in mesh order inherits that; `REGRESS_SHUFFLE_FACES=1` with `--twice` catches it.
+- `bmesh.ops.create_uvsphere` writes its faces in a different order in every Blender process
+  (improvements 5.7). `create_icosphere`, `_cube`, `_circle` and `_cone` do not. Sort the new faces
+  (see `humanform/eyes.py` `_uvsphere`) unless a voxel remesh follows. `H.face_order` in a fixture
+  report makes `--twice` catch a shuffle; `REGRESS_SHUFFLE_FACES=1` checks that a consumer does not care.

@@ -2,7 +2,7 @@
  "fixture": "mpfb_woman_curvy",
  "plugins": {
   "humanform": "0.6.1",
-  "rig-anything": "0.14.1"
+  "rig-anything": "0.15.0"
  },
  "report": {
   "bake": {
@@ -469,7 +469,7 @@
      "FixWoman_body",
      "FixWoman_rig"
     ],
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-g0i1j9o5\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-84log5s1\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "morph_targets": false,
     "options_dropped_by_this_blender": [],
     "skipped": [],
@@ -493,7 +493,7 @@
      "FixWoman_Run": 1.041667,
      "FixWoman_Walk": 1.375
     },
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-g0i1j9o5\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-84log5s1\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "generator": "Khronos glTF Blender I/O v5.2.40",
     "gltf_version": 2,
     "joints": 53,
@@ -544,7 +544,7 @@
      "51 bone names use '.' (e.g. spine.001, spine.002, spine.003). Bone names are not node names so this normally survives, but it is not the spelling Godot's humanoid retargeting profile expects - prefer _L/_R if you retarget."
     ]
    },
-   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-g0i1j9o5\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
+   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-84log5s1\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
    "stage": "done",
    "verified": {
     "durations_match": true,
@@ -1117,6 +1117,18 @@
      "side_bend": 1.5,
      "thorax_turn": 3.113
     }
+   }
+  },
+  "structure": {
+   "body_faces": {
+    "faces": 13378,
+    "order": "85890b78f9d1",
+    "set": "58de7a04623a"
+   },
+   "eyes_faces": {
+    "faces": 1024,
+    "order": "e92f4355445f",
+    "set": "a11d062304d9"
    }
   }
  }
