@@ -426,6 +426,22 @@ Roles come from structure (where the legs attach, where the arms attach, which e
 chain is the head), with names only as tie-breakers: a Rigify body renamed to `mixamorig:` gets
 the same roles (the `mixamo_names` fixture). `chest` on a quadruped is where the front legs attach.
 With no mesh bound, `root` falls back to "lies wholly below the ankles" and says so in `warnings`.
+Bones another plugin hangs on a finished rig (tagged `ft_role` / `wd_role`, or named `ft_jiggle_*`
+/ `wd_*`) are in no role and on no chain; the map lists them in `added_bones`.
+
+**Profiles.** `scripts/rig_analysis/profiles/*.json` hold what is known ahead of time about a body
+source: `mpfb_game_engine` (humanform's renamed MPFB rig), `rigify_basic_human` and
+`rigify_basic_quadruped` (the metarigs `fit` fits), `rig_anything_generic` (`build_from_parts`) and
+`rig_anything_hopper` (`hoppers.build`). Each has `detect` (`bones_all` / `bones_any` / `bones_none`
+/ `vertex_groups_any`, shell patterns), the `roles` its bones always play, the `rotation_mode` its
+bones come in with (authoring may change it), measured `rest` facts and a `bake` block
+(`shape_keys`, `mask_modifiers`, `strip_groups`, `max_influences`). The builders tag the rig
+(`rig["body_profile"]`, which also reaches Godot as a node extra); `bodymap.load_profile(rig)` takes
+the tag while the rig's bones still match it, else the first profile whose `detect` does, and
+`roles["profile"]` names it. A claim fills a role the shape left empty or only guessed (neither
+Rigify's nor MPFB's head bone is called head); a claim the shape contradicts is not applied, and
+`warnings` names both. `export.preflight` and `bake_for_game` read the `bake` block; with no profile
+they behave as before.
 
 ## Rules
 

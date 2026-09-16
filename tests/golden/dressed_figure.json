@@ -2,7 +2,7 @@
  "fixture": "dressed_figure",
  "plugins": {
   "follow-through": "0.2.3",
-  "rig-anything": "0.15.0",
+  "rig-anything": "0.16.0",
   "wardrobe": "0.1.1"
  },
  "report": {
@@ -40,7 +40,7 @@
   "export": {
    "edge": 1861,
    "exported": true,
-   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-111v3q42\\a\\dressed_figure\\dressed_figure\\shirt.glb",
+   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-hl4rc0yc\\a\\dressed_figure\\dressed_figure\\shirt.glb",
    "garment": "Shirt",
    "hem_bones": 16,
    "hem_head_error_m": 1e-06,
@@ -48,7 +48,7 @@
    "joints": 56,
    "passed": true,
    "problems": [],
-   "size_bytes": 465316,
+   "size_bytes": 465364,
    "weight_sum_min": 1.0
   },
   "exported": true,

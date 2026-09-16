@@ -169,6 +169,7 @@ def build_from_parts(obj_name, parts=None, bands=18, head_at=None,
         })
 
     rig = _write(obj, bones, name or (obj_name + "_rig"), ui, li, roll_axis)
+    rig["body_profile"] = "rig_anything_generic"        # bodymap.load_profile
 
     return {
         "rig": rig.name,

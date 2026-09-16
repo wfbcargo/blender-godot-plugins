@@ -8,7 +8,8 @@ behind its "Hide helpers" mask. Its centre and radius, read from the evaluated m
 target and the fit, place a clean sphere exactly where the eyelids expect the eye. The iris faces
 the body's forward direction; the pupil is a smaller cap inside it. Materials are plain Principled
 BSDF from `look` - colours given as sRGB, converted to linear (L6 look development replaces them). The eyes are skinned 100% to the head bone
-(`spine.005`), or parented to the body when there is no rig yet.
+(`head_bone`: the rig's body profile's head, `spine.005` on the rig humanform builds), or parented to
+the body when there is no rig yet.
 """
 
 from __future__ import annotations
@@ -23,9 +24,28 @@ from mathutils import Matrix, Vector
 from . import body as _body
 from . import look
 
-HEAD_BONE = "spine.005"
+HEAD_BONE = "spine.005"    # scaffold.RENAME["head"], used when no body profile can be read
 IRIS_HALF_ANGLE = 32.0     # degrees from the gaze axis: ~11-12 mm across on the ~32 mm MPFB eye proxy
 PUPIL_HALF_ANGLE = 14.0
+
+
+def head_bone(rig):
+    """The bone the eyes ride: the head its body profile claims, else `HEAD_BONE`.
+
+    The profile is rig-anything's (`rig["body_profile"]`, set by `scaffold.rig`). humanform does not
+    depend on rig-anything, so it is read only when `rig_analysis` is already importable - as it is
+    wherever the body goes on to be animated or exported - and nothing else about rig-anything's
+    install is assumed. Without it the answer is the same bone, from humanform's own rename table."""
+    if rig is not None and rig.get("body_profile"):
+        try:
+            from rig_analysis import bodymap
+        except ImportError:
+            bodymap = None
+        if bodymap is not None:
+            head = ((bodymap.load_profile(rig) or {}).get("roles") or {}).get("head")
+            if head:
+                return head
+    return HEAD_BONE
 
 
 def _helper_points(human, side):
@@ -99,9 +119,10 @@ def add(human, iris=None, segments=32, rings=16):
     ob = bpy.data.objects.new(name, me)
     for coll in human.users_collection:
         coll.objects.link(ob)
-    if rig is not None and HEAD_BONE in rig.data.bones:
+    head = head_bone(rig)
+    if rig is not None and head in rig.data.bones:
         ob.parent = rig
-        vg = ob.vertex_groups.new(name=HEAD_BONE)
+        vg = ob.vertex_groups.new(name=head)
         vg.add(list(range(len(me.vertices))), 1.0, "REPLACE")
         mod = ob.modifiers.new("Armature", "ARMATURE")
         mod.object = rig

@@ -1,0 +1,19 @@
+{
+  "about": "Rigify's Basic/basic_quadruped metarig as fit.fit_basic_quadruped fits it. The chain runs spine.004 (rear) .. spine.011 (skull); spine.003 .. spine is the tail, hanging off spine.004. No bone called head.",
+  "detect": {
+    "bones_all": ["spine", "spine.005", "spine.008", "spine.011", "front_thigh.L", "thigh.L", "pelvis.L"],
+    "bones_none": ["upper_arm.L", "heel.02.L"]
+  },
+  "roles": {
+    "pelvis": "spine.005",
+    "chest": "spine.008",
+    "neck": ["spine.009", "spine.010"],
+    "head": "spine.011",
+    "tail": ["spine.003", "spine.002", "spine.001", "spine"]
+  },
+  "rotation_mode": {"shoulder.?": "YXZ", "breast.?": "YXZ", "pelvis.?": "YXZ", "*": "QUATERNION"},
+  "rest": {},
+  "bake": {
+    "max_influences": 4
+  }
+}

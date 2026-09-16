@@ -1,0 +1,28 @@
+{
+  "about": "MPFB2's game_engine rig as humanform's scaffold leaves it: renamed to rig-anything's names (Root -> root, pelvis -> spine, neck_01 -> spine.004, head -> spine.005, fingers f_index.01.L ...). The root lies on the floor and carries no skin; the arms rest bent and the stance is straddled.",
+  "detect": {
+    "bones_all": ["root", "spine", "spine.003", "spine.005", "thigh.L", "forearm.L", "f_index.01.L", "thumb.01.L"],
+    "bones_none": ["spine.006", "heel.02.L", "front_thigh.L"]
+  },
+  "roles": {
+    "root": "root",
+    "pelvis": "spine",
+    "chest": "spine.003",
+    "neck": ["spine.004"],
+    "head": "spine.005"
+  },
+  "rotation_mode": "XYZ",
+  "rest": {
+    "about": "Ranges over two bodies built by humanform.pipeline (a curvy 1.70 m woman, a heavy 1.82 m man), before bake. forearm_bend_deg: upper_arm to forearm; stance_half_width_share: half the foot-head separation over rig height; ankle_over_hip_separation: foot-head separation over thigh-head separation.",
+    "root_height_m": [0.006, 0.008],
+    "forearm_bend_deg": [40, 45],
+    "stance_half_width_share": [0.105, 0.111],
+    "ankle_over_hip_separation": [1.63, 1.76]
+  },
+  "bake": {
+    "shape_keys": true,
+    "mask_modifiers": ["Hide helpers"],
+    "strip_groups": ["joint-*", "helper-*"],
+    "max_influences": 4
+  }
+}

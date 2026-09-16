@@ -29,12 +29,22 @@ The map is built from STRUCTURE, with names only as tie-breakers:
 
 from __future__ import annotations
 
+import fnmatch
+import json
+import os
 import re
 
 import bpy
 from mathutils import Vector
 
 AXIS_INDEX = {"X": 0, "Y": 1, "Z": 2}
+
+PROFILE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profiles")
+PROFILE_PROP = "body_profile"
+# Bones another plugin adds to a finished rig - follow-through's jiggle bones, wardrobe's hem
+# bones. They are tagged; rigs made before the tag are known by name.
+_ADDED_TAGS = ("ft_role", "wd_role")
+_ADDED_NAME = re.compile(r"^(ft_jiggle_|wd_)")
 
 _SUFFIX = re.compile(r"^(?P<base>.+)[._\-](?P<side>L|R|l|r|Left|Right|left|right)$")
 _PREFIX = re.compile(r"^(?P<side>Left|Right)(?P<base>[A-Z_].*)$")
@@ -83,6 +93,91 @@ def _descendants_names(bone, side):
         if side_of(c.name)[0] == side:
             out.extend(_descendants_names(c, side))
     return out
+
+
+_PROFILES = None
+
+
+def profiles():
+    """Every rig profile in `profiles/`, {name: profile}, in name order. A profile is the facts
+    known ahead of time about one body source: how to recognise it (`detect`), the roles its
+    bones always play (`roles`), the rotation mode its bones come in with, rest-pose facts
+    (`rest`) and how its skin is baked for a game (`bake`)."""
+    global _PROFILES
+    if _PROFILES is None:
+        found = {}
+        for fn in sorted(os.listdir(PROFILE_DIR)):
+            if fn.endswith(".json"):
+                with open(os.path.join(PROFILE_DIR, fn), encoding="utf-8") as fh:
+                    p = json.load(fh)
+                p["name"] = fn[:-5]
+                found[p["name"]] = p
+        _PROFILES = found
+    return _PROFILES
+
+
+def _rig_object(rig):
+    return bpy.data.objects.get(rig) if isinstance(rig, str) else rig
+
+
+def _detect_misses(profile, rig, groups=True):
+    """What in `profile["detect"]` the rig fails, as short strings; empty when it matches.
+    Patterns are shell-style (`fnmatch`). `vertex_groups_any` reads the meshes bound to the rig,
+    and is skipped with `groups=False`."""
+    d = profile.get("detect") or {}
+    names = [b.name for b in rig.data.bones]
+
+    def hit(pat, pool):
+        return any(fnmatch.fnmatchcase(n, pat) for n in pool)
+
+    misses = ["no " + p for p in d.get("bones_all", []) if not hit(p, names)]
+    if d.get("bones_any") and not any(hit(p, names) for p in d["bones_any"]):
+        misses.append("none of " + ", ".join(d["bones_any"]))
+    misses += ["has " + p for p in d.get("bones_none", []) if hit(p, names)]
+    if groups and d.get("vertex_groups_any"):
+        pool = [g.name for m in bound_meshes(rig) for g in m.vertex_groups]
+        if not any(hit(p, pool) for p in d["vertex_groups_any"]):
+            misses.append("no vertex group like " + ", ".join(d["vertex_groups_any"]))
+    return misses
+
+
+def _resolve_profile(rig):
+    """(profile or None, warnings). The profile the rig names in `body_profile`, provided its bones
+    still match that profile's detect (a rig renamed since it was tagged no longer does); else the
+    first profile whose detect matches."""
+    rig = _rig_object(rig)
+    if rig is None or rig.type != "ARMATURE":
+        return None, []
+    known = profiles()
+    tag = rig.get(PROFILE_PROP)
+    if tag:
+        p = known.get(str(tag))
+        if p is None:
+            return None, ["rig names body profile %r, which does not exist" % tag]
+        # the skin a source is recognised by may be gone (bake_for_game strips MPFB's joint-
+        # groups), and the tag already says what it was: only the bones must still agree
+        misses = _detect_misses(p, rig, groups=False)
+        if misses:
+            return None, ["rig names body profile %s but its bones no longer match it (%s); no "
+                          "profile applied" % (tag, "; ".join(misses[:4]))]
+        return p, []
+    for p in known.values():
+        if not _detect_misses(p, rig):
+            return p, []
+    return None, []
+
+
+def load_profile(rig):
+    """The rig profile for `rig` (object or name): by `rig["body_profile"]` when set and its bones
+    still match, else the first whose `detect` matches, else None."""
+    return _resolve_profile(rig)[0]
+
+
+def added_bone_names(rig):
+    """Bones another plugin hung on a finished rig (jiggle, hem): tagged `ft_role` / `wd_role`,
+    or named `ft_jiggle_*` / `wd_*`. They are not the body's skeleton."""
+    return {b.name for b in rig.data.bones
+            if any(b.get(t) for t in _ADDED_TAGS) or _ADDED_NAME.match(b.name)}
 
 
 def bound_meshes(rig):
@@ -173,6 +268,39 @@ def _roles(rig, limbs, axial_names, pelvis_idx, legs, neck, head_idx, head_guess
                 warnings.append("root %s found by height alone (no mesh bound to read skin)" % name)
             break
 
+    # The profile's claims, checked against what the shape gave. A claim fills a role the
+    # derivation left empty or only guessed; a disagreement keeps the derived bone and says so.
+    profile, profile_warnings = _resolve_profile(rig)
+    warnings.extend(profile_warnings)
+    head_from_profile = False
+    if profile:
+        derived = {"root": root, "pelvis": pelvis, "chest": chest, "neck": list(neck), "head": head,
+                   "tail": list(tail_axial)}
+        for role, claim in (profile.get("roles") or {}).items():
+            if role not in derived:
+                warnings.append("profile %s claims unknown role %s" % (profile["name"], role))
+                continue
+            wanted = claim if isinstance(claim, list) else [claim]
+            missing = [n for n in wanted if n not in rig.data.bones or n in excluded]
+            if missing:
+                warnings.append("profile %s names %s %s, but the rig has no such bone"
+                                % (profile["name"], role, ", ".join(missing)))
+                continue
+            got = derived[role]
+            if got == claim:
+                head_from_profile = head_from_profile or role == "head"
+            elif not got or (role == "head" and head_guessed):
+                if got:
+                    warnings.append("head %s from profile %s (position alone guessed %s)"
+                                    % (claim, profile["name"], got))
+                derived[role] = claim
+                head_from_profile = head_from_profile or role == "head"
+            else:
+                warnings.append("profile %s names %s %s, but the rig's shape gives %s; kept %s"
+                                % (profile["name"], role, claim, got, got))
+        root, pelvis, chest, head = derived["root"], derived["pelvis"], derived["chest"], derived["head"]
+        neck, tail_axial = derived["neck"], derived["tail"]
+
     limb_bones = set()
     for l in limbs:
         limb_bones.update(n for n in (l["girdle"], l["upper"], l["lower"], l["end"]) if n)
@@ -185,7 +313,7 @@ def _roles(rig, limbs, axial_names, pelvis_idx, legs, neck, head_idx, head_guess
         warnings.append("no pelvis: the legs attach to no axial bone")
     if head is None:
         warnings.append("no head bone")
-    elif head_guessed:
+    elif head_guessed and not head_from_profile:
         warnings.append("head %s guessed from position (no bone called head)" % head)
     if skinned is not None:
         dead = [n for n in limb_bones if n not in skinned and not side_of(n)[1].lower().startswith(("heel", "palm"))]
@@ -193,7 +321,7 @@ def _roles(rig, limbs, axial_names, pelvis_idx, legs, neck, head_idx, head_guess
             warnings.append("limb bones with no skin: " + ", ".join(sorted(dead)[:6]))
 
     return {
-        "profile": None,
+        "profile": profile["name"] if profile else None,
         "root": root,
         "pelvis": pelvis,
         "chest": chest,
@@ -262,8 +390,13 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0, meshes=None):
     # tagged by `tentacles` likewise belong to that module, not to a limb.
     radial_names = {b.name for b in bones if b.get('radial_role')}
     tentacle_names = {b.name for b in bones if b.get('tentacle')}
+    # Bones other plugins hang on a finished rig - follow-through's jiggle bones, wardrobe's hem
+    # bones - are not skeleton. Left in, an unsided belly jiggle bone became the rear end of the
+    # axial chain, `spine` dropped out and the legs lost their pelvis.
+    added_names = added_bone_names(rig)
     bones = [b for b in bones if b.name not in maw_names and b.name not in fin_names
-             and b.name not in radial_names and b.name not in tentacle_names]
+             and b.name not in radial_names and b.name not in tentacle_names
+             and b.name not in added_names]
     if not bones:
         if radial_names:
             return {"error": "%s is a radial rig - no spine or limbs to map; use "
@@ -574,7 +707,7 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0, meshes=None):
 
     roles = _roles(rig, limbs, axial_names, pelvis_idx, legs, neck, head_idx, head_guessed,
                    tail_axial, height, meshes,
-                   maw_names | fin_names | radial_names | tentacle_names)
+                   maw_names | fin_names | radial_names | tentacle_names | added_names)
 
     return {
         "rig": rig.name,
@@ -603,6 +736,8 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0, meshes=None):
         "fin_bones": sorted(fin_names),
         "radial_bones": sorted(radial_names),
         "tentacle_bones": sorted(tentacle_names),
+        # bones other plugins added (jiggle, hem): in no role, on no chain
+        "added_bones": sorted(added_names),
         "midline": midline,
         "ignored_chains": ignored,
         "warnings": warnings,
@@ -662,9 +797,12 @@ def summary(bm):
         lines.append("  TENTACLES %d bones - posed by the tentacles module" % len(bm["tentacle_bones"]))
     r = bm.get("roles") or {}
     if r:
-        lines.append("  ROLES root %s, pelvis %s, chest %s, head %s%s"
+        lines.append("  ROLES root %s, pelvis %s, chest %s, head %s%s%s"
                      % (r["root"], r["pelvis"], r["chest"], r["head"],
-                        "" if r["skinned"] else "  (no skin read)"))
+                        "" if r["skinned"] else "  (no skin read)",
+                        "  (profile %s)" % r["profile"] if r.get("profile") else ""))
+    if bm.get("added_bones"):
+        lines.append("  added by other plugins %s" % ", ".join(bm["added_bones"][:8]))
         if r["controls"]:
             lines.append("  controls %s" % ", ".join(r["controls"]))
     for w in bm["warnings"] + r.get("warnings", []):

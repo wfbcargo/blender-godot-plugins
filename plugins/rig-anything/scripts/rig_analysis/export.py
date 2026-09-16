@@ -21,6 +21,7 @@ fails quietly. A rig off its origin still animates and merely orbits. An
 optimised-away keyframe still plays, at the wrong length. Assert on both.
 """
 
+import fnmatch
 import json
 import math
 import os
@@ -61,6 +62,14 @@ def _shape_keys_live(mesh):
             if not k.mute and abs(k.value) > 1e-6 and k.relative_key != k]
 
 
+def _bake_block(rig):
+    """(profile name or None, the `bake` block of the rig's body profile or {}). See
+    `bodymap.load_profile`; a missing key means today's default."""
+    from . import bodymap
+    profile = bodymap.load_profile(rig)
+    return (profile["name"], profile.get("bake") or {}) if profile else (None, {})
+
+
 def _over_influenced(mesh, rig, most=4):
     """How many vertices more than `most` deform bones pull on."""
     deform = {b.name for b in rig.data.bones if b.use_deform}
@@ -90,6 +99,12 @@ def preflight(mesh_name, rig_name, tolerance=0.01, actions=None):
         are applied on export; `bake_for_game` makes that permanent
       - vertices pulled by more than 4 bones: the exporter keeps the 4
         heaviest and renormalises, so they deform differently in the engine
+
+    The rig's body profile (`bodymap.load_profile`) names what its source
+    carries: a `bake` block with `shape_keys: false` makes live shape keys a
+    warning (they are meant to ship as morph targets), a mask in its
+    `mask_modifiers` is named as the source's own, and `max_influences`
+    replaces 4.
     """
     mesh, rig = _obj(mesh_name), _obj(rig_name)
     problems, warnings = [], []
@@ -151,8 +166,14 @@ def preflight(mesh_name, rig_name, tolerance=0.01, actions=None):
             problems.append("%s: %s" % (name, m["note"]))
 
     # 6. What the mesh is made of in Blender and not in the file.
+    profile, bake = _bake_block(rig)
     live = _shape_keys_live(mesh)
-    if live:
+    if live and bake.get("shape_keys") is False:
+        warnings.append("%s has %d shape keys with a value (%s) - profile %s ships them as morph "
+                        "targets, so the engine must apply their weights"
+                        % (mesh_name, len(live), ", ".join(live[:3]) + ("..." if len(live) > 3 else ""),
+                           profile))
+    elif live:
         problems.append("%s has %d shape keys with a value (%s) - they would ship as morph "
                         "targets rather than as the body's shape; bake them with "
                         "export.bake_for_game" % (mesh_name, len(live), ", ".join(live[:3])
@@ -161,12 +182,15 @@ def preflight(mesh_name, rig_name, tolerance=0.01, actions=None):
     if masks:
         warnings.append("%s has Mask modifiers (%s) - the hidden geometry is dropped only "
                         "because modifiers are applied on export; bake_for_game makes it "
-                        "permanent" % (mesh_name, ", ".join(masks)))
-    over = _over_influenced(mesh, rig)
+                        "permanent%s" % (mesh_name, ", ".join(masks),
+                                         "" if not set(masks) & set(bake.get("mask_modifiers") or ())
+                                         else " (the %s source's own helper mask)" % profile))
+    most = int(bake.get("max_influences", 4))
+    over = _over_influenced(mesh, rig, most=most)
     if over:
-        warnings.append("%d vertices of %s are pulled by more than 4 bones - the exporter "
-                        "keeps the 4 heaviest, so they deform differently in the engine "
-                        "(bake_for_game limits and normalises)" % (over, mesh_name))
+        warnings.append("%d vertices of %s are pulled by more than %d bones - the exporter "
+                        "keeps the %d heaviest, so they deform differently in the engine "
+                        "(bake_for_game limits and normalises)" % (over, mesh_name, most, most))
 
     return {
         "mesh": mesh_name,
@@ -179,7 +203,7 @@ def preflight(mesh_name, rig_name, tolerance=0.01, actions=None):
     }
 
 
-def bake_for_game(mesh_name, rig_name, name=None, influences=4):
+def bake_for_game(mesh_name, rig_name, name=None, influences=None):
     """One skinned mesh as the engine will draw it, replacing `mesh_name`.
 
     Shape keys at their current values and every modifier except Armature
@@ -193,6 +217,11 @@ def bake_for_game(mesh_name, rig_name, name=None, influences=4):
     The new object takes `name` (default: the original's name), the original's
     world transform, parent, materials and custom properties, is parented to
     the rig and bound with an Armature modifier. The original is deleted.
+
+    The rig's body profile `bake` block, when it has one, says the rest:
+    `max_influences` is the default for `influences` (else 4), `strip_groups`
+    patterns are removed even where a deform bone has that name, and
+    `shape_keys: false` refuses a mesh whose live keys would be flattened.
     """
     src, rig = _obj(mesh_name), _obj(rig_name)
     if rig is None or rig.type != "ARMATURE":
@@ -200,8 +229,15 @@ def bake_for_game(mesh_name, rig_name, name=None, influences=4):
     if src is None or src.type != "MESH":
         return {"error": "no mesh named " + repr(mesh_name)}
     name = name or mesh_name
+    profile, bake = _bake_block(rig)
+    if influences is None:
+        influences = int(bake.get("max_influences", 4))
+    strip = list(bake.get("strip_groups") or ())
 
     keys = _shape_keys_live(src)
+    if keys and bake.get("shape_keys") is False:
+        return {"error": "%s has %d live shape keys and profile %s ships them as morph targets; "
+                         "baking would flatten them" % (mesh_name, len(keys), profile)}
     applied = [m.name for m in src.modifiers if m.type != "ARMATURE" and m.show_viewport]
     prev_pos = rig.data.pose_position
     arm_state = {m.name: m.show_viewport for m in src.modifiers if m.type == "ARMATURE"}
@@ -250,9 +286,12 @@ def bake_for_game(mesh_name, rig_name, name=None, influences=4):
     ob.modifiers.new("Armature", "ARMATURE").object = rig
 
     deform = {b.name for b in rig.data.bones if b.use_deform}
-    removed = [g.name for g in ob.vertex_groups if g.name not in deform]
+
+    def stripped(g):
+        return g.name not in deform or any(fnmatch.fnmatchcase(g.name, p) for p in strip)
+    removed = [g.name for g in ob.vertex_groups if stripped(g)]
     for g in list(ob.vertex_groups):
-        if g.name not in deform:
+        if stripped(g):
             ob.vertex_groups.remove(g)
 
     # limit and normalise, one group at a time for the removals
