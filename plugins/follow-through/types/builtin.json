@@ -99,7 +99,7 @@
     "breast":        {"family": "volume", "classes": ["flesh"], "material": "soft_fat", "paired": true,
                       "names": ["breast", "boob", "bust", "moob", "pec", "chest"],
                       "zone": {"chain": "spine", "height": [0.5, 1.45], "facing_deg": [0, 65], "lateral": [0.03, 1.3]},
-                      "description": "a breast or pectoral fat pad: pivots from the chest wall, swings and bounces"},
+                      "anchor": "chest", "description": "a breast or pectoral fat pad: pivots from the chest wall, swings and bounces"},
     "belly":         {"family": "volume", "classes": ["flesh"], "material": "soft_fat",
                       "names": ["belly", "stomach", "gut", "paunch", "abdomen", "tummy"],
                       "zone": {"chain": "spine", "height": [0.2, 0.75], "facing_deg": [0, 70], "lateral": [0.0, 0.9]},

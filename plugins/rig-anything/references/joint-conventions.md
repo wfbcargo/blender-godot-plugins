@@ -44,6 +44,14 @@ elbow and bends forward; the rear stifle bends backward. A quadruped rig that
 uses one sign for all four limbs is wrong on two of them. This is the single
 most common quadruped rigging error and the direct analogue of the bug above.
 
+## Which bone is which joint
+
+The tables above say how a joint bends; which bone *is* the knee, the pelvis or the chest is
+never read from its name. `bodymap.build(rig)["roles"]` names them by structure - `pelvis`, `chest`,
+`head`, and per limb `upper` (hip or shoulder), `lower` (knee or elbow), `end` (ankle or wrist) under
+`limbs["foot.L"]`, `limbs["hand.R"]`, `limbs["front_foot.L"]` - and a rig profile confirms them for a
+known body source. Take the joint from the role, then its bend from this file. (SKILL.md, "Bone roles".)
+
 ## How to check a whole rig
 
 1. Probe every limb bone with `verify.probe_chain`, observing the chain's end

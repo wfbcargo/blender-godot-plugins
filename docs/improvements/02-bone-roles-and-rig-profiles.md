@@ -2,6 +2,17 @@
 
 Category: **1 body-source quirks**.
 
+> **Done, lean** (September 2026: rig-anything 0.16.0-0.17.0, follow-through 0.2.4-0.2.5, wardrobe 0.1.2,
+> humanform 0.6.3). Checked against "Done when":
+> - **Mixamo or Rigify gets correct roles** - met. The `mixamo_names` fixture gets the same roles as its Rigify original.
+> - **Regression outputs unchanged except named corrections** - met. The corrections: the Bloater's breasts ride
+>   `spine.003`, and the shirt glb gained the bone tags.
+> - **No MPFB bone name outside profiles and role derivation** - mostly. Fallbacks remain, each used only when
+>   rig-anything or the roles are missing: wardrobe's name tables, humanform's `spine.005` for eyes, and
+>   follow-through's `chains`/`SIDE_BONES`, which have no one-to-one role.
+> - **Belle's flesh without hand marks** - not met. Her breasts now land within ~3 cm of the marks without them,
+>   but the buttocks read 7 cm low on every body (05 · 5.9), and her marks and assets were kept by choice.
+
 ## Problem
 
 Every plugin works out from geometry which bone is which, and each rediscovers the same MPFB

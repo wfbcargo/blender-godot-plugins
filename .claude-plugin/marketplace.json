@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Claude Code plugins for 3D characters and creatures built in Blender and played in Godot 4.7: bodies, rigs, moves, flesh, cloth, clothing, lighting and GDScript code intelligence.",
-    "version": "0.15.0"
+    "version": "0.15.1"
   },
   "plugins": [
     {
@@ -119,8 +119,8 @@
     {
       "name": "follow-through",
       "source": "./plugins/follow-through",
-      "version": "0.2.4",
-      "description": "Secondary motion for Blender assets headed to Godot 4.7 - the parts nobody keyframes: cloth, soft volumes and flesh. A router skill measures a mesh, classifies it by the dimension of what moves (strand, shell, volume) and how it is held, and types it - jello, slime, clay, a breast, a bloater's belly - from a registry of names, taught examples and anatomical zones that Claude extends by teaching, including from zones marked on labelled 2D renders mapped back onto the mesh. Cloth becomes a pinned SoftBody3D; jello, pudding, slime, clay and water balloons become lattice shape-matching bodies with squash and plasticity (Godot's Jolt soft body has no volume constraints); a rigged body's soft masses become jiggle bones sprung in a SkeletonModifier3D with exact integration and volume-keeping squash, exported with rig-anything's walk. Materials carry physical frequencies, every export is read back, and headless verifiers measure pins, stretch, volume kept, penetration, settling and each spring's frequency. Since 0.2.2 verify_volume takes clip= to choose the clip played under the flesh. Since 0.2.3 the clay ball and water balloon samples keep their face order between builds. Since 0.2.4 a flesh type's anchor names a bone role, read from rig-anything's body map, and jiggle bones are tagged ft_role.",
+      "version": "0.2.5",
+      "description": "Secondary motion for Blender assets headed to Godot 4.7 - the parts nobody keyframes: cloth, soft volumes and flesh. A router skill measures a mesh, classifies it by the dimension of what moves (strand, shell, volume) and how it is held, and types it - jello, slime, clay, a breast, a bloater's belly - from a registry of names, taught examples and anatomical zones that Claude extends by teaching, including from zones marked on labelled 2D renders mapped back onto the mesh. Cloth becomes a pinned SoftBody3D; jello, pudding, slime, clay and water balloons become lattice shape-matching bodies with squash and plasticity (Godot's Jolt soft body has no volume constraints); a rigged body's soft masses become jiggle bones sprung in a SkeletonModifier3D with exact integration and volume-keeping squash, exported with rig-anything's walk. Materials carry physical frequencies, every export is read back, and headless verifiers measure pins, stretch, volume kept, penetration, settling and each spring's frequency. Since 0.2.2 verify_volume takes clip= to choose the clip played under the flesh. Since 0.2.3 the clay ball and water balloon samples keep their face order between builds. Since 0.2.4 a flesh type's anchor names a bone role, read from rig-anything's body map, and jiggle bones are tagged ft_role. Since 0.2.5 a breast rides the chest role (where the arms attach), not the nearest spine bone.",
       "category": "development",
       "keywords": [
         "3d",

@@ -279,3 +279,26 @@ silent drift.
 - **`radial.skin` reports `coverage: 1.0` without measuring it.** The starfish fixture counts the
   weighted vertices itself (`skin.measured_coverage`). Measure it in `radial.skin` the way
   `hoppers.skin` does.
+
+---
+
+## 5.9 flesh reads the buttocks low, on every body measured
+
+Found in 02 step 2e (September 2026). **Open.**
+
+**Problem.** `flesh.find_regions` places a buttock at the fold under it, not on the mass itself:
+- **Belle:** hip joints at 0.873 m. Her hand-marked buttocks put the bone head at about 0.862 m, facing slightly up. The measured regions put it at 0.794 m, facing down (normal z -0.23).
+- **Sample bodies** (`samples.score_flesh`): the Figure's measured butts sit 0.13 m from their known centres, just over the 0.12 m tolerance, so they score as misses. The Bloater's sit 0.06 m off.
+
+**It is not the zone.** The butt zone's height range (-0.5 to 0.3, where 0 is the hips and 1 the shoulders) was tried at -0.25..0.35, -0.15..0.40 and -0.05..0.45:
+- Belle's measured regions only exist below the hip joint. At -0.15 or above, no butt is found at all.
+- The sample distances get worse (0.134 and 0.066 at -0.25).
+
+**Cause.** The lean envelope (`flesh._envelope`, a line refitted along the body without its outliers) counts the upper buttock as part of wide hips, so only the fold below stands out as excess. `build_belle.py` already notes the measure "reads the seat low", and set Belle's swing limit by hand because of it.
+
+**Steps.**
+1. Measure the envelope's rejected rings on Belle and on the Figure at buttock height.
+2. Try an envelope fitted across the waist-to-thigh span without the pelvis band, or seed the butt from the most posterior skin behind the hip joints (the pelvis and legs' `upper` roles give both heights).
+3. Judge any change by `score_flesh` on both samples and by Belle's marked-versus-measured head, not by the zone.
+
+**Done when** both sample bodies score their butts within tolerance and Belle's measured buttock head is within 3 cm of her marked one, with every other region unchanged.
