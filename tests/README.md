@@ -62,6 +62,9 @@ grungist-creek's `build_human.py` assembles its manifest by hand. So `mpfb_woman
 `flesh_figure` are not played in Godot. A manifest writer for them is filed under
 `docs/improvements/01`.
 
+A manifest with no `gaits` - the starfish's radial crawl - is reported as skipped: `verify_moves.gd`
+drives a gait ladder, and radial bodies have no engine verifier of their own yet.
+
 ## Writing one
 
 A fixture is `tests/fixtures/<name>.py`. It imports `_harness`, builds, and returns a dict:

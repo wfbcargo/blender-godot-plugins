@@ -216,15 +216,21 @@ def run_godot(godot, project, out_root, names):
                         m["scene"] = "res://%s/%s/%s" % (GODOT_STAGE, name, m["scene"].rsplit("/", 1)[-1])
                     with open(dst / p.name, "w", encoding="utf-8") as fh:
                         json.dump(m, fh, indent=1)
-                    manifests.append("res://%s/%s/%s" % (GODOT_STAGE, name, p.name))
+                    if m.get("gaits"):
+                        manifests.append("res://%s/%s/%s" % (GODOT_STAGE, name, p.name))
+                    else:
+                        # verify_moves drives a gait ladder. A radial body's crawl has no `gaits`
+                        # entry, and no engine verifier of its own yet.
+                        results.append(("verify_moves %s" % name, True,
+                                        "skipped - its manifest has no gaits for MovesController to drive"))
             if name in GODOT_WARDROBE:
                 wardrobe.append(name)
         if not manifests and not wardrobe:
-            return [("godot", True, "no fixture in this run exports anything Godot checks")]
+            return results or [("godot", True, "no fixture in this run exports anything Godot checks")]
 
         code, out = _godot(godot, project, "--import")
         if code != 0:
-            return [("godot import", False, "exit %s: %s" % (code, out.strip().splitlines()[-1:] or ""))]
+            return results + [("godot import", False, "exit %s: %s" % (code, out.strip().splitlines()[-1:] or ""))]
 
         if manifests:
             code, out = _godot(godot, project, "-s", "res://addons/rig_anything/verify_moves.gd", "--",
