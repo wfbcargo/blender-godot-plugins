@@ -140,12 +140,21 @@ class Body:
         to `skinned_bones`. The two differ on an unskinned bone that is on a
         limb or the axial chain but not the root - the Rigify sample Figure's
         hands carry no skin and are still hands - and the role is the intent:
-        a control is what is excluded, not whatever lacks weight."""
+        a control is what is excluded, not whatever lacks weight.
+
+        Bones the body map leaves to their own module - maw, fin, radial and
+        tentacle bones, and bones other plugins added - have no roles, so they
+        keep the skin rule: an unskinned one (a maw's mouth socket) is not body."""
         roles = self.bm.get("roles")
+        skinned = self.skinned_bones()
         if roles is None:
-            skinned = self.skinned_bones()
             return [b for b in self.bones if skinned is None or b.name in skinned] or self.bones
         controls = set(roles["controls"])
+        if skinned is not None:
+            own = set()
+            for key in ("maw_bones", "fin_bones", "radial_bones", "tentacle_bones", "added_bones"):
+                own.update(self.bm.get(key) or ())
+            controls.update(n for n in own if n not in skinned)
         return [b for b in self.bones if b.name not in controls] or self.bones
 
     def com(self, posed):
