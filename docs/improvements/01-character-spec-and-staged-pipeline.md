@@ -2,6 +2,18 @@
 
 Categories: **2 cross-plugin ordering**, **4 re-derived decisions**. Biggest time saver.
 
+> **Done** (September 2026). Checked against "Done when":
+> - **Belle and all 16 people build from spec files alone** - met. The build scripts only pick a spec.
+> - **Rebuilt manifests match the committed ones** - met. Same clips, checks, colliders and durations; the only
+>   additions are `contacts` and documentation fields.
+> - **`build(spec, from_stage=...)` in a fresh session reproduces the build** - met. The `pipeline_woman` fixture
+>   resumes export in a second Blender with an identical manifest; Belle resumed from her .blend runs garments and
+>   export only.
+> - **Out-of-order stages refuse with the order** - met.
+> - **A new character needs no new code** - met for anything the spec covers (see `spec.GAPS`: hair until a hair
+>   plugin exists, flesh zones while 05 · 5.9 is open).
+> - Specs are TOML, not YAML: Blender's Python has `tomllib` and no YAML parser.
+
 ## Problem
 
 A character is built by a hand-written script that calls five plugins in an order only the author

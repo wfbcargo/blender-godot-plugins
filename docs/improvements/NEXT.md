@@ -22,7 +22,7 @@ behind.
 | [05 Feature gaps](05-feature-gaps.md) 5.1 jump sinks | **Done** - rig-anything 0.14.2. Belle's Jump ships unforced. |
 | 05 · 5.6 garment nondeterminism | **Done** - wardrobe 0.1.1, guarded by `regress.py --twice` with shuffled faces (1a). |
 | 05 · 5.7 faces shuffled between builds | **Done** - Blender's `create_uvsphere`, not the join. humanform 0.6.2, follow-through 0.2.3. |
-| [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | Not started. Biggest time saver. |
+| [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | **Done** - character-pipeline 0.1.0; Belle and the 16 people build from `grungist-creek/characters/*.toml`. |
 | [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | **Done, lean** - roles, profiles, consumers; Belle keeps her hand marks. Butt placement open as 05 · 5.9. |
 | [04 Checks that match the eye](04-checks-that-match-the-eye.md) | Not started. |
 | 05 · 5.2 hair, 5.3 compression, 5.4 skirts, 5.5 muscle | Not started. |
@@ -188,6 +188,17 @@ A full `regress.py --twice --jobs 2 --godot` run takes about 10 minutes on this 
 
   1a, 1b and 1c run in parallel; 1d starts with the schema and stage table, and wires in 1a-1c as they land;
   1e after 1d.
+
+  **01 DONE** (rig-anything 0.18.0, follow-through 0.2.6, wardrobe 0.2.0, character-pipeline 0.1.0).
+  - All 17 characters were rebuilt from specs and compared with what was committed: glbs structurally identical,
+    manifests with the same clips, checks, gaits, colliders, heights and durations. New: the crowd's `contacts`, and
+    `brief`/`note`/`style` as documentation. Both demo self-tests pass; Belle's garments verify as before.
+  - The `pipeline_woman` fixture covers a spec build, a rerun, an out-of-order refusal and a second-Blender resume.
+  - Found on the way: stage records on the rig leaked 7 kB into every glb (now a Text datablock), and a rerun could
+    never skip flesh once garments were on (preconditions now guard running only).
+  - Open: `export.height` keeps two conventions (mesh top for the crowd, the Idle clip for Belle) until one is chosen;
+    `upper_body` means measured reports in the crowd's manifests and Belle's input table in her old one.
+    `human_*.blend` / `belle_realistic.blend` were not rebuilt (scratch only); they update on the next real build.
 
 - **04 Checks that match the eye.** 04a first: wardrobe's hole check counts cloth pressed into a
   crease as a hole. Belle's shorts fail it at 1.71% (limit 0.5%) where the screenshots show no gap;
