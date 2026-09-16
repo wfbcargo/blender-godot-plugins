@@ -55,6 +55,7 @@ SCHEMA = "character-pipeline/1"
 
 # Fields a spec may carry that no plugin owns yet, and where they live until one does.
 GAPS = {
+    "export.height": "two conventions for standing height (mesh top, Idle clip) until one is chosen",
     "hair": "no hair plugin (improvements 05 5.2): the pipeline's own shell_bun builder takes the params",
     "flesh.zones": "only needed while flesh reads some masses wrong (05 5.9): marked on the flesh sheet",
     "moves.clearance_check": "a report-only limb clearance pass on chosen roles; not a move_set option",
@@ -116,6 +117,9 @@ class Export:
     res_dir: str = ""
     blend: str | None = None
     note: str = ""
+    # how height_m.stand is measured: "mesh" (the top of the skinned mesh; the crowd) or "idle" (the Idle
+    # clip's standing height, which a hair bun does not raise; Belle). One convention should win - filed.
+    height: str = "mesh"
 
 
 @dataclass
@@ -245,10 +249,13 @@ def parse(data, path=None):
         pass                                        # garments on an unfleshed body are normal
 
     e = _take(data, "export", dict, required=True)
-    _unknown(e, ("dir", "res_dir", "blend", "note"), "[export]")
+    _unknown(e, ("dir", "res_dir", "blend", "note", "height"), "[export]")
+    if e.get("height", "mesh") not in ("mesh", "idle"):
+        raise SpecError("export.height must be \"mesh\" or \"idle\"")
     export = Export(dir=_take(e, "dir", str, required=True, where="export."),
                     res_dir=_take(e, "res_dir", str, required=True, where="export."),
-                    blend=_take(e, "blend", str), note=_take(e, "note", str, default=""))
+                    blend=_take(e, "blend", str), note=_take(e, "note", str, default=""),
+                    height=_take(e, "height", str, default="mesh"))
 
     project = None
     if path:

@@ -5,8 +5,8 @@
     report = runner.build(spec, from_stage="garments")                         # in a .blend saved after moves
     report = runner.build(spec, to_stage="moves", save=False)
 
-Each stage that runs stores an input hash and its report on the rig (`rig["character_pipeline"]`,
-JSON). The hash covers the spec sections the stage reads, the hashes of the stages it needs and the
+Each stage that runs stores an input hash and its report in the file (a Text datablock,
+`character_pipeline:<id>`, so nothing of it reaches an exported glb). The hash covers the spec sections the stage reads, the hashes of the stages it needs and the
 plugin versions, so:
 
 - a stage whose inputs have not changed since it last ran in this file is skipped ("unchanged"),
@@ -38,22 +38,46 @@ class BuildRefused(RuntimeError):
     pass
 
 
+def _text_name(ch):
+    return f"{KEY}:{ch.id}"
+
+
 def records(ch):
-    rig = bpy.data.objects.get(ch.rig)
-    raw = rig.get(KEY) if rig is not None else None
+    """{stage: {hash, report, versions, seconds}} for this character, as the open file holds them.
+
+    Kept in a Text datablock, `character_pipeline:<id>`, not on the rig: a custom property on the rig
+    goes into every glb it is exported with as node extras, and build bookkeeping has no place in the
+    engine. A text saves with the .blend and is never exported. The records only count while the rig
+    they describe exists."""
+    text = bpy.data.texts.get(_text_name(ch))
+    if text is None or bpy.data.objects.get(ch.rig) is None:
+        return {}
     try:
-        return json.loads(raw) if isinstance(raw, str) else {}
+        data = json.loads(text.as_string())
     except ValueError:
         return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _store(ch, name, entry):
-    rig = bpy.data.objects.get(ch.rig)
-    if rig is None:
+    if bpy.data.objects.get(ch.rig) is None:
         return
     data = records(ch)
     data[name] = entry
-    rig[KEY] = json.dumps(data, default=str)
+    text = bpy.data.texts.get(_text_name(ch)) or bpy.data.texts.new(_text_name(ch))
+    text.clear()
+    text.write(json.dumps(data, indent=1, default=str))
+
+
+def _forget(ch, stage_names):
+    text = bpy.data.texts.get(_text_name(ch))
+    data = records(ch)
+    if text is None or not any(n in data for n in stage_names):
+        return
+    for n in stage_names:
+        data.pop(n, None)
+    text.clear()
+    text.write(json.dumps(data, indent=1, default=str))
 
 
 def _hash(ch, name, needs, sections, done, versions):
@@ -124,6 +148,8 @@ def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=prin
         out = run(ch, ctx)
         took = round(time.time() - t0, 1)
         done[name] = h
+        # what came after this stage was built on what it just replaced
+        _forget(ch, names[i + 1:])
         _store(ch, name, {"hash": h, "report": _small(out), "versions": versions, "seconds": took})
         stored = records(ch)
         report[name] = {"status": "ran", "seconds": took, "report": out}

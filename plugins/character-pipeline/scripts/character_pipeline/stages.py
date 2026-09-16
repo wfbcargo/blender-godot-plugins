@@ -267,25 +267,43 @@ def check_export(ch):
 
 
 def run_export(ch, ctx):
-    from rig_analysis import export as ra_export
+    from rig_analysis import export as ra_export, stored
+    from wardrobe import presets
     os.makedirs(ch.out_dir(), exist_ok=True)
     glb = os.path.join(ch.out_dir(), f"{ch.id}.glb")
-    extra = {"style": ch.moves.style, "stance_width": ch.moves.stance_width, "posture": ch.moves.posture,
-             "note": ch.export.note or f"{ch.name}: built by character-pipeline from {os.path.basename(ch.path or '')}"}
-    if ch.outfit:
-        extra["garments"] = [f"{ch.export.res_dir}/{ch.id}_{(g.name or g.preset).lower()}.glb" for g in ch.outfit]
+    reports = stored.load(ch.rig, roles=ch.moves.roles)
+    garment_names = [g.name or presets.get(g.preset).get("name") or g.preset for g in ch.outfit]
+    extra = {
+        "style": ch.moves.style,
+        "posture": ch.moves.posture,
+        "stance_width": ch.moves.stance_width,
+        # the upper-body parameters each clip was authored with, arm hang as measured
+        "upper_body": {r: (reports.get(r) or {}).get("upper") for r in ch.moves.roles},
+        "note": ch.export.note or f"{ch.name}: built by character-pipeline from {os.path.basename(ch.path or '')}",
+    }
+    if garment_names:
+        # the garments a controller equips, innermost first
+        extra["garments"] = [f"{ch.export.res_dir}/{ch.id}_{n.lower()}.glb" for n in garment_names]
     if ch.body.source == "brief":
-        extra["brief"] = ch.body.brief
-    e = ra_export.export_character(ch.mesh, ch.rig, glb, ch.id, name=ch.name,
-                                   res_path=f"{ch.export.res_dir}/{ch.id}.glb", roles=ch.moves.roles,
-                                   loops=ch.moves.loops, gaits=ch.moves.export_gaits,
+        extra["brief"] = dict(ch.body.brief, name=ch.name)
+    e = ra_export.export_character(ch.mesh, ch.rig, glb, name=ch.name, creature=ch.id, reports=reports,
+                                   res_path=f"{ch.export.res_dir}/{ch.id}.glb", roles=list(ch.moves.roles),
+                                   loops=list(ch.moves.loops), gaits=list(ch.moves.export_gaits),
                                    force=bool(ch.moves.may_fail), extra=extra)
-    if "error" in e or not e.get("exported", True):
-        raise RuntimeError(f"export refused: {e.get('error') or e.get('stage')}")
-    forced = sorted(set(e.get("forced_clips") or []) - {f"{ch.name}_{r}" for r in ch.moves.may_fail})
+    if "error" in e:
+        raise RuntimeError(f"export refused: {e['error']}")
+    forced = sorted(set(e["manifest"].get("forced_clips") or [])
+                    - {f"{ch.name}_{r}" for r in ch.moves.may_fail} - set(ch.moves.may_fail))
     if forced:
         raise RuntimeError(f"export: clips shipped only by force that the spec does not allow: {forced}")
-    return e
+    if ch.export.height == "idle" and (reports.get("Idle") or {}).get("standing_height_m") is not None:
+        import json
+        with open(e["moves"], encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        manifest["height_m"]["stand"] = reports["Idle"]["standing_height_m"]
+        with open(e["moves"], "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
+    return {k: e.get(k) for k in ("glb", "moves", "verified", "clips", "bones", "problems")}
 
 
 # (name, needs, spec sections its hash covers, precondition check, run, applies to this spec)
