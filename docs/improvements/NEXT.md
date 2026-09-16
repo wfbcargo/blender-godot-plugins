@@ -143,9 +143,52 @@ A full `regress.py --twice --jobs 2 --godot` run takes about 10 minutes on this 
 
   2a first; 2b, 2c and 2d touch different files and can run in parallel; 2e after 2d.
 
-- **01 Character spec and staged pipeline.** One YAML per character, a stage runner with
+- **01 Character spec and staged pipeline.** Planned 2026-09-16. One spec per character, a stage runner with
   preconditions and saved results, tuned numbers moved into plugin presets. `build_human.py` and
-  `build_belle.py` become thin callers.
+  `build_belle.py` become thin callers. Scope: Belle and the 16 people in `build_human.CHARACTERS`. Nora
+  (`assets/wardrobe/build_person.py`, a sculpted body on mocap) stays a script.
+
+  **Format: TOML, not YAML.** Blender 5.2's Python 3.13 ships `tomllib` and has no YAML parser. TOML keeps
+  comments, which a tuned number needs.
+
+  Six branches, each ending as before (`--twice`, reviewed goldens, merge, install, push):
+
+  **1a `export-character`** (rig-anything). `export.export_character(mesh, rig, reports=None, glb, name,
+  res_path, extra=None)` writes the `.moves.json` MovesController reads: `scene`, `clips`, `loops`,
+  `implied_speed_mps`, `height_m`, `gaits`, `contacts`, `collider`, `verified`, `clip_checks`, `forced_clips`.
+  These are the fields `build_human.export` assembles by hand today. It loads stored reports when given none (1d
+  of 03). `mpfb_woman_curvy`, `rigify_human`, `quadruped` and `flesh_figure` export through it, so
+  `regress.py --godot` plays them in `verify_moves.gd`.
+
+  **1b `presets`** (follow-through, wardrobe). follow-through types get `limit_share` (breast 0.66, butt 1.9),
+  used by `flesh.prepare` when present. wardrobe gets garment presets (`sports_top`, `shorts_mid_thigh` from
+  Belle's `GARMENTS`/`COVER`) holding the tailor, ease and cover arguments, and `wardrobe.dress(body,
+  preset)` runs them.
+
+  **1c `ordering-guards`** (rig-anything, wardrobe). `upper`/`verify.limb_clearance` measure against the body
+  mesh only, ignoring meshes a garment tag marks. `wardrobe.tailor` warns when the body has a follow-through
+  spec but no jiggle groups yet.
+
+  **1d `character-pipeline`** (new plugin). The spec schema as a validated dataclass read from TOML; every
+  field maps to a plugin argument, and gaps are listed. `pipeline.build(spec, from_stage, to_stage, force)`
+  runs stages `body`, `bake`, `hair`, `flesh`, `moves`, `garments`, `export`:
+  - Preconditions are checked from the objects, so running out of order refuses and names the order.
+  - Each stage stores an input hash and its report on the rig (`rig["character_pipeline"]`), so a fresh
+    session resumes and unchanged stages are skipped.
+  - A `pipeline_figure` fixture proves three things: a spec-built body matches the hand-built one, garments
+    before moves refuses, and `from_stage="garments"` in a second Blender reproduces the full build.
+
+  **1e `convert-project`** (grungist-creek). `characters/<name>.toml` for Belle and the 16. The build scripts
+  become thin callers. Every character is rebuilt in scratch and its manifests are compared with the
+  committed ones using the harness tolerance. The project's assets are replaced only if they match, and a
+  character that doesn't match is reported, not committed.
+
+  **1f `docs`**. The new plugin's SKILL.md with Belle as the worked example; humanform, rig-anything,
+  follow-through and wardrobe point at it for "build a whole character".
+
+  1a, 1b and 1c run in parallel; 1d starts with the schema and stage table, and wires in 1a-1c as they land;
+  1e after 1d.
+
 - **04 Checks that match the eye.** 04a first: wardrobe's hole check counts cloth pressed into a
   crease as a hole. Belle's shorts fail it at 1.71% (limit 0.5%) where the screenshots show no gap;
   the sports top passes at 0.23%. Then review strips written by every export, and a motion critic.
