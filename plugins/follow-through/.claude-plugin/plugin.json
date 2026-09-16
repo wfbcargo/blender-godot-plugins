@@ -6,8 +6,8 @@
     "name": "Paul Lovy",
     "url": "https://paullovy.com"
   },
-  "homepage": "https://github.com/wfbcargo/PaulClaudePlugins",
-  "repository": "https://github.com/wfbcargo/PaulClaudePlugins",
+  "homepage": "https://github.com/wfbcargo/blender-godot-plugins",
+  "repository": "https://github.com/wfbcargo/blender-godot-plugins",
   "license": "MIT",
   "keywords": ["blender", "godot", "cloth", "fabric", "soft-body", "jello", "jiggle", "jiggle-bones", "flesh", "shape-matching", "plasticity", "clay", "slime", "secondary-motion", "physics", "gltf", "jolt", "gamedev", "3d", "simulation"]
 }

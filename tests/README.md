@@ -73,7 +73,7 @@ regression that a value comparison alone would miss.
 
 ## What it caught the first time
 
-- Against the checkout before `71d84fe` (the MPFB ground-root crouch fix), `mpfb_woman_curvy`
+- Against the checkout before `2fe56b8` (the MPFB ground-root crouch fix), `mpfb_woman_curvy`
   moves in 98 keys — all crouch — and `dressed_figure` not at all. `flesh_figure` moves in exactly
   four: the buttock anchor `spine` → `spine.001`, which is follow-through 0.2.1's registry-anchor
   fix, the other change in that range.

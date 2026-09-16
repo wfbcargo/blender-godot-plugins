@@ -37,8 +37,8 @@ The runner finds Godot from `--godot`, `LOOKDEV_GODOT`, `GODOT_PATH`, or a
 ## Install
 
 ```
-/plugin marketplace add wfbcargo/PaulClaudePlugins
-/plugin install lookdev@paul-claude-plugins
+/plugin marketplace add wfbcargo/blender-godot-plugins
+/plugin install lookdev@blender-godot-plugins
 ```
 
 ## Quick start

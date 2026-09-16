@@ -1,76 +1,40 @@
-# PaulClaudePlugins
+# blender-godot-plugins
 
-A [Claude Code](https://claude.com/claude-code) plugin marketplace by
-[Paul Lovy](https://paullovy.com).
+[Claude Code](https://claude.com/claude-code) plugins for making 3D characters and creatures in
+Blender and putting them in a Godot 4.7 game, by [Paul Lovy](https://paullovy.com).
 
 ## Install the marketplace
 
 ```
-/plugin marketplace add wfbcargo/PaulClaudePlugins
+/plugin marketplace add wfbcargo/blender-godot-plugins
 ```
 
 Then install a plugin from it:
 
 ```
-/plugin install claude-architect@paul-claude-plugins
+/plugin install rig-anything@blender-godot-plugins
 ```
 
+> **Moved from `PaulClaudePlugins`.** These plugins used to be listed in the
+> `paul-claude-plugins` marketplace. If you installed one from there, add this marketplace and
+> reinstall it as `<plugin>@blender-godot-plugins`. `claude-architect` and `claude-boundaries`
+> stay in [PaulClaudePlugins](https://github.com/wfbcargo/PaulClaudePlugins).
+
+## How they fit together
+
+```
+humanform  ->  rig-anything / animate-anything  ->  follow-through  ->  wardrobe  ->  lookdev
+ a body         a rig and its moves                 flesh and cloth     clothes       light it
+```
+
+A body from `humanform` (or any mesh) is rigged and given moves by `rig-anything`;
+`animate-anything` builds on its engine for actions beyond walking. `follow-through` adds what moves on its own -
+jiggle bones, cloth, soft volumes - and `wardrobe` dresses the body on top of that flesh. Everything
+exports to glTF, is read back to check it, and ships with Godot-side runtimes and headless
+verifiers. `lookdev` lights the scene they end up in, and `godot-lsp` gives Claude code
+intelligence on the GDScript that drives them.
+
 ## Plugins
-
-### [`claude-architect`](./plugins/claude-architect/)
-
-A recursive multi-agent orchestration framework. One long-horizon orchestrator
-decomposes work into epics / specs / implementations, runs each in an isolated git
-worktree, and drives a review + spec-audit + architecture-audit + merge pipeline
-before every squash-merge. Ships nine role-pinned subagents and the methodology
-that ties them together.
-
-Model and effort both follow role, not depth: model by whether a mistake is
-*silent* (orchestration, architecture drift, merges, missed bugs stay top-tier),
-effort by how much the agent must derive for itself (orchestrators `high`, leaves
-`medium`). If you only have one model, point every agent at it and keep the
-effort split — it applies to the highest-volume role, so most of the saving
-survives. A `/architect` skill classifies each request and routes it, so
-decomposition happens by default rather than by hope. See the
-[plugin README](./plugins/claude-architect/README.md) and
-[`ORCHESTRATION.md`](./plugins/claude-architect/ORCHESTRATION.md).
-
-### [`claude-boundaries`](./plugins/claude-boundaries/)
-
-Declare your architecture's layers, containers and contracts in one file; the
-plugin turns it into a check that runs with **no project dependencies**, and
-wires that check into hooks so every coding agent inherits the rules — stated at
-session start, a violating edit handed straight back, and no turn allowed to end
-while a violation stands.
-
-Nine rules cover direction, layer skipping, declared edges, public surface,
-purity, escaping relative imports, third-party imports, package-manifest
-agreement and type-only edges, across two topologies (folders under one `src/`,
-or workspace packages). A check that scanned zero files exits non-zero rather
-than green, because a map pointing where the code isn't is a broken
-configuration wearing a green tick. Projects with no map are unaffected: every
-hook is a silent no-op.
-
-The config is a strict superset of `claude-architect`'s `containers.yaml`, so
-**one file serves both** — that plugin uses the map to *dispatch*, this one to
-*enforce*. Neither requires the other. See the
-[plugin README](./plugins/claude-boundaries/README.md).
-
-### [`godot-lsp`](./plugins/godot-lsp/)
-
-GDScript code intelligence — hover, go-to-definition, find-references, symbols
-and diagnostics on `.gd` files, answered by Godot's own analyser.
-
-Godot ships a real language server, but it only listens on **TCP**, while Claude
-Code runs every LSP server over **stdio** — the `transport: "socket"` setting is
-accepted and then ignored, so the two never meet on their own. This is the
-missing pipe: 55 lines, no dependencies, no build step, since Godot already uses
-the same `Content-Length` framing and the bytes need no translation.
-
-The one requirement is that the **Godot editor be open** — the language server
-lives in the editor, not the engine, so there is nothing headless to talk to.
-Hovering `Node` then returns the entire engine class reference. See the
-[plugin README](./plugins/godot-lsp/README.md).
 
 ### [`rig-anything`](./plugins/rig-anything/)
 
@@ -205,6 +169,22 @@ a headless verifier skins every vertex from the final pose and ray-casts along
 each body normal to count holes and skin through the cloth over a walk. See the
 [plugin README](./plugins/wardrobe/README.md).
 
+### [`godot-lsp`](./plugins/godot-lsp/)
+
+GDScript code intelligence — hover, go-to-definition, find-references, symbols
+and diagnostics on `.gd` files, answered by Godot's own analyser.
+
+Godot ships a real language server, but it only listens on **TCP**, while Claude
+Code runs every LSP server over **stdio** — the `transport: "socket"` setting is
+accepted and then ignored, so the two never meet on their own. This is the
+missing pipe: 55 lines, no dependencies, no build step, since Godot already uses
+the same `Content-Length` framing and the bytes need no translation.
+
+The one requirement is that the **Godot editor be open** — the language server
+lives in the editor, not the engine, so there is nothing headless to talk to.
+Hovering `Node` then returns the entire engine class reference. See the
+[plugin README](./plugins/godot-lsp/README.md).
+
 ## Developing these plugins
 
 The repository copy is canonical, but Claude Code loads skills from
@@ -221,7 +201,7 @@ than silently discarded — move the edit into the repo, or pass `--force`. An
 installed copy that is itself a git checkout is never overwritten.
 
 That covers this machine only. For the others: push, then
-`/plugin marketplace update paul-claude-plugins`.
+`/plugin marketplace update blender-godot-plugins`.
 
 Before changing anything shared, and before calling it done, run the fixtures:
 
@@ -244,26 +224,6 @@ tools/regress.py                    # rebuild the fixtures, compare to goldens
 tests/fixtures/                     # bodies built from generators and seeds
 tests/golden/                       # what a build produced when it was last reviewed
 plugins/
-  claude-architect/
-    .claude-plugin/plugin.json      # plugin manifest
-    agents/                         # the nine subagents
-    skills/architect/               # the /architect entry point
-    skills/seam/                    # designing contracts between parallel units
-    ORCHESTRATION.md                # the methodology
-    docs/                           # model routing + at-a-moment procedures
-    scripts/                        # worktree recipes + container-map tooling
-    wiki-template/                  # a .wiki/ starter skeleton
-    README.md
-  claude-boundaries/
-    .claude-plugin/plugin.json
-    hooks/                          # SessionStart brief, post-edit check, stop gate
-    scripts/                        # the CLI and the dependency-free checker
-    skills/boundaries/              # placement, and what to do about a violation
-    agents/boundary-audit.md        # the judgement no checker can make
-    commands/                       # /boundaries:init | :check | :map
-    templates/                      # folders and packages starter maps
-    tests/                          # 71 tests, no dependencies
-    README.md
   godot-lsp/
     .claude-plugin/plugin.json
     .lsp.json                       # the gdscript server registration

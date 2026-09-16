@@ -31,8 +31,8 @@ Named after the animation principle *follow-through and overlapping action*.
 ## Install
 
 ```
-/plugin marketplace add wfbcargo/PaulClaudePlugins
-/plugin install follow-through@paul-claude-plugins
+/plugin marketplace add wfbcargo/blender-godot-plugins
+/plugin install follow-through@blender-godot-plugins
 ```
 
 Then copy `godot/addons/follow_through` into each Godot project.

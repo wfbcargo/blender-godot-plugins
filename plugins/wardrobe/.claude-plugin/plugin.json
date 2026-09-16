@@ -6,8 +6,8 @@
     "name": "Paul Lovy",
     "url": "https://paullovy.com"
   },
-  "homepage": "https://github.com/wfbcargo/PaulClaudePlugins",
-  "repository": "https://github.com/wfbcargo/PaulClaudePlugins",
+  "homepage": "https://github.com/wfbcargo/blender-godot-plugins",
+  "repository": "https://github.com/wfbcargo/blender-godot-plugins",
   "license": "MIT",
   "keywords": ["blender", "godot", "clothing", "garment", "wardrobe", "layered-clothing", "skinning", "poke-through", "body-masking", "hem", "spring-bones", "gltf", "gamedev", "3d", "character"]
 }

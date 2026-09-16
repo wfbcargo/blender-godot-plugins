@@ -4,7 +4,7 @@ Lessons from building 16 realistic people and two versions of Belle (grungist-cr
 with humanform, rig-anything, animate-anything, follow-through and wardrobe. Each file below is a
 self-contained work item: the problem, what we saw, the design, steps, and how to know it's done.
 Start a new conversation with "Read `docs/improvements/<file>` and plan it" (the repo is
-`C:/Users/pauli/Code/PaulClaudePlugins`).
+`C:/Users/pauli/Code/blender-godot-plugins`).
 
 Most of the time went not into hard problems but into rediscovering the same kinds of problem at
 every step. They fall into six categories. When a new issue turns up, file it under one of these

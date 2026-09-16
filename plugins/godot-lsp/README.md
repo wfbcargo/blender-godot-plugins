@@ -18,8 +18,8 @@ nothing needs reframing — bytes go straight through in both directions.
 ## Install
 
 ```
-/plugin marketplace add wfbcargo/PaulClaudePlugins
-/plugin install godot-lsp@paul-claude-plugins
+/plugin marketplace add wfbcargo/blender-godot-plugins
+/plugin install godot-lsp@blender-godot-plugins
 ```
 
 Requires Node (any recent version) and Godot **4.x**. Nothing to configure.

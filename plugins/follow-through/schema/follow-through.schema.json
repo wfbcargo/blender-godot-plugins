@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/wfbcargo/PaulClaudePlugins/plugins/follow-through/schema/follow-through.schema.json",
+  "$id": "https://github.com/wfbcargo/blender-godot-plugins/plugins/follow-through/schema/follow-through.schema.json",
   "title": "follow-through secondary motion spec",
   "description": "What moves on its own on one object, and how. Written by follow-through in Blender as the object custom property `follow_through`, carried by glTF as node extras (export_extras=True), and read in Godot 4.7 as node.get_meta(\"extras\")[\"follow_through\"]. glTF numbers arrive in Godot as floats, so every integer field below must be accepted as a whole-valued float.",
   "type": "object",

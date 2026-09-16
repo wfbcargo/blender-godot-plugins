@@ -19,7 +19,7 @@ Line endings are ignored when comparing, since a Windows checkout has CRLF where
 copy may have LF.
 
 This installs for this machine only. For other machines: push, then update the marketplace
-(`/plugin marketplace update paul-claude-plugins`).
+(`/plugin marketplace update blender-godot-plugins`).
 """
 import argparse
 import fnmatch

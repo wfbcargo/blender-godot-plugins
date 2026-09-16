@@ -4,9 +4,13 @@ A handoff for a fresh conversation. Start with:
 
 > Read `docs/improvements/NEXT.md`, then the work item it points at, and plan it.
 
-State as of 2026-09-16. Everything below is on `main` in this repo (`3a75c6f` and later) and on
+State as of 2026-09-16. Everything below is on `main` in this repo (`b5333bc` and later) and on
 `master` in `grungist-creek` (`3263b74`), both pushed. Installed plugin copies in
 `~/.claude/skills` match the repo.
+
+This repo was split out of `PaulClaudePlugins` on 2026-09-16 with its history kept, so every commit
+hash here differs from the same commit there. `claude-architect` and `claude-boundaries` stayed
+behind.
 
 ---
 
