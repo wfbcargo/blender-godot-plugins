@@ -12,6 +12,7 @@ python tools/regress.py --jobs 2              # two Blenders at once
 python tools/regress.py --plugins <checkout>  # run the fixtures against another checkout
 python tools/regress.py --update              # rewrite the goldens, then review the diff
 python tools/regress.py --twice --jobs 2      # build each fixture twice; the builds must agree
+python tools/regress.py --godot <project>     # then play the exports in Godot's verifiers
 ```
 
 A change is not by itself a failure — a fix moves numbers. The point is that the move is **seen**,
@@ -29,10 +30,35 @@ with `--jobs 2`; the rabbit is most of it, because a voxel remesh is slow.
 | `mpfb_woman_curvy` | a woman from a seeded brief: ANSUR fit through MPFB2, baked, Idle/Walk/Run/Crouch/CrouchWalk, exported | humanform's fit and check, `bake_for_game`, `move_set`, the crouch on an MPFB rig, the export re-check |
 | `rabbit` | `hopper_samples.rabbit`, detected, rigged, skinned, hopped, exported | leg detection against the sample's known joints, `hoppers.build`/`skin`, `hop.move_set`, `export_creature` |
 | `flesh_figure` | follow-through's `Figure` and `Bloater`, rigged, walked, fleshed, exported | `fit_basic_human`, bind coverage, `flesh.prepare` region placement, the glTF read back |
-| `dressed_figure` | a shirt cut onto the fleshed `Figure` | `tailor`/`fit`/`hem`/`cover`, and the flesh-before-garments order |
+| `dressed_figure` | a shirt cut onto the fleshed `Figure`, and that body exported walking | `tailor`/`fit`/`hem`/`cover`, the flesh-before-garments order, and (with `--godot`) the shirt worn in Godot |
 
 Still missing, from `docs/improvements/03`: `rigify_human`, `quadruped`, `cricket`, the radial
-bodies, and the Godot-side verifiers (`--godot`).
+bodies.
+
+## In the engine: `--godot <project>`
+
+A glb that Blender wrote correctly can still play wrongly in Godot. `--godot` takes each fixture that
+built, copies its `.glb` and `.moves.json` files into `<project>/_regress/<fixture>/`, imports them,
+and runs the project's copies of the verifiers:
+
+- **`verify_moves.gd`** on every manifest. It checks MovesController's gait choice and playback rate
+  from standing to the fastest gait and back, the hysteresis around each change of gait, and the
+  stride phase carried across it. A manifest's `scene` is repointed at the glb beside it.
+- **`verify_wardrobe.gd`** for the fixtures listed in `GODOT_WARDROBE`. `dressed_figure` has its
+  shirt put on the body it was cut from, walked for 240 frames, and counted for holes and skin
+  through the cloth. The limits are 0.5% each.
+
+`_regress/` is removed afterwards whatever happens (and grungist-creek ignores it). Before
+anything runs, the project's `addons/{rig_anything,wardrobe,follow_through}` are compared with this
+repo's, ignoring line endings. A difference prints a warning, because the project's copy is what
+the verifiers load. The first run found `verify_volume.gd` ahead in the project (a `clip=`
+argument); that change now lives here.
+
+Only fixtures that write a `.moves.json` reach `verify_moves`. rig-anything's hopper and radial
+exporters write one, but a biped or quadruped exported with `export.export` gets only a `.rig.json`:
+grungist-creek's `build_human.py` assembles its manifest by hand. So `mpfb_woman_curvy` and
+`flesh_figure` are not played in Godot. A manifest writer for them is filed under
+`docs/improvements/01`.
 
 ## Writing one
 

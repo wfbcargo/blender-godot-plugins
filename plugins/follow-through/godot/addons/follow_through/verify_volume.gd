@@ -27,6 +27,8 @@ extends SceneTree
 ##   within_limit      offset never past max_offset_m while the clip plays
 ##   finite
 ##
+## clip=<name> plays that clip under the flesh (default: the first in the AnimationPlayer's list).
+##
 ## colliders=auto gives every unskinned mesh without a spec a convex collider (AnimatableBody3D,
 ## so a moved prop carries what rests on it); colliders=none tests the bodies alone.
 ## Prints one `FT_RESULT {json}` line per body, then `FT_SUMMARY ... PASSED|FAILED`.
@@ -97,9 +99,14 @@ func _start() -> void:
 	if not players.is_empty():
 		var ap: AnimationPlayer = players[0]
 		var clips := ap.get_animation_list()
-		if not clips.is_empty():
-			ap.get_animation(clips[0]).loop_mode = Animation.LOOP_LINEAR
-			ap.play(clips[0])
+		# clip=<name> picks the clip; the first in the list may be a one-shot (a Crouch sorts
+		# before a Walk), and looping a one-shot snaps the body back to rest every cycle
+		var clip: String = args.get("clip", clips[0] if not clips.is_empty() else "")
+		if clip != "" and ap.has_animation(clip):
+			ap.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
+			ap.play(clip)
+		elif clip != "":
+			printerr("verify_volume: no clip %s in %s" % [clip, clips])
 
 
 func _add_colliders(node: Node) -> void:

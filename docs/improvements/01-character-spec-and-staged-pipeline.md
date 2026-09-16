@@ -88,6 +88,16 @@ export: {dir: res://assets/belle, manifest_extra: [heights, contacts, garments]}
   settings; flesh types own limit shares; gait styles already own gait shape. A build script never
   holds a tuned number.
 
+- **The `export` stage's `.moves.json` belongs in rig-anything, not in a build script.** The hopper
+  and radial exporters (`hop.export_creature`, `radial_moves.export_creature`) write the manifest
+  MovesController reads. A biped or quadruped exported with `export.export` gets only a `.rig.json`,
+  and `build_human.py` assembles `scene`, `clips`, `loops`, `implied_speed_mps`, `gaits`,
+  `collider`, `height_m` and `verified` by hand. The regression harness hit this in 03 step 1e:
+  `mpfb_woman_curvy`, `flesh_figure`, `rigify_human` and `quadruped` cannot reach `verify_moves.gd`
+  under `regress.py --godot`. Give rig-anything an `export_character(mesh, rig, reports, glb,
+  name, res_path)` in the shape of `export_creature`, and let `manifest_extra` add to what it wrote.
+  Once one exists, add those fixtures' manifests to `--godot`.
+
 **Where it lives**: a new small plugin in this repo (working name `character-pipeline`), depending
 on humanform, rig-anything, follow-through and wardrobe. It owns the spec schema, the stages and
 the presets that span plugins. Presets that belong to one plugin (a garment's ease, a flesh type's
