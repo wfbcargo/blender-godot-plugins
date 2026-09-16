@@ -135,7 +135,9 @@ def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=prin
         if i >= stop:
             break
         rec = stored.get(name)
-        if not force and rec is not None and rec.get("hash") == h and check(ch) is None:
+        # preconditions guard running a stage, not skipping one: once garments are on, flesh's "no
+        # garments bound" can never hold again, and a finished build must still rerun as unchanged
+        if not force and rec is not None and rec.get("hash") == h:
             done[name] = h
             report[name] = {"status": "unchanged", "report": rec.get("report")}
             log(f"[{ch.id}] {name}: unchanged")

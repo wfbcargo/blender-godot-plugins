@@ -49,7 +49,7 @@ REPO = Path(__file__).resolve().parent.parent
 FIXTURES = REPO / "tests" / "fixtures"
 GOLDEN = REPO / "tests" / "golden"
 SCRIPT_VARS = {"RA_SCRIPTS": "rig-anything", "HF_SCRIPTS": "humanform",
-               "FT_SCRIPTS": "follow-through", "WD_SCRIPTS": "wardrobe"}
+               "FT_SCRIPTS": "follow-through", "WD_SCRIPTS": "wardrobe", "CP_SCRIPTS": "character-pipeline"}
 
 # Keys whose value is a path, a duration or a date: real output, never the same twice. Matched as
 # whole words of the key (split on `_`), never as substrings: `*file*` once skipped `profile`, `*dir*`
@@ -155,6 +155,8 @@ GODOT_WARDROBE = {
                        "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
     "dressed_presets": {"body": "figure.glb", "garment": "sports_top.glb,shorts_mid_thigh.glb",
                         "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
+    "pipeline_woman": {"body": "fixwoman.glb", "garment": "fixwoman_sportstop.glb,fixwoman_shorts.glb",
+                       "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
 }
 # The Godot addons the verifiers load from the project, and where this repo keeps each one.
 GODOT_ADDONS = {"rig_anything": "rig-anything", "wardrobe": "wardrobe", "follow_through": "follow-through"}
