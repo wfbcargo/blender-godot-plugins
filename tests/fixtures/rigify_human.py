@@ -51,12 +51,11 @@ def build():
             raise RuntimeError("move_set: " + moves["error"])
         out = os.path.join(H.out_dir(), "rigify_human")
         os.makedirs(out, exist_ok=True)
-        exported = export.export(BODY, rig, os.path.join(out, "figure.glb"),
-                                 foot_bones=["foot.L", "foot.R"],
-                                 actions=[moves[r]["action"] for r in ROLES],
-                                 loop_clips=[moves[r]["action"] for r in LOOPS],
-                                 gaits=[moves[r]["action"] for r in GAITS], forward="-Y",
-                                 skip_bad_clips=True)
+        # export_character writes figure.moves.json for `--godot`, with the dropped slides left out
+        char = export.export_character(BODY, rig, os.path.join(out, "figure.glb"), name=BODY,
+                                       reports=moves, roles=ROLES, loops=LOOPS, gaits=GAITS,
+                                       forward="-Y", skip_bad_clips=True)
+        exported = char.get("export", {})
     finally:
         window.scene = previous
 
@@ -77,6 +76,7 @@ def build():
                                       for n, c in (exported.get("clips") or {}).get("clips", {}).items()}),
                    "failing": H.stable((exported.get("clips") or {}).get("failing")),
                    "preflight": H.stable(exported.get("preflight"))},
+        "moves_json": H.moves_manifest(char),
     }
 
 

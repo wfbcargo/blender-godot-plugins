@@ -901,6 +901,132 @@ def export(mesh_name, rig_name, filepath, foot_bones, actions=None,
     return manifest
 
 
+def _res_path(glb_path):
+    """`res://` path of `glb_path` inside the Godot project holding it (the nearest folder above
+    with a project.godot), else `res://<file name>`."""
+    full = os.path.abspath(glb_path)
+    d = os.path.dirname(full)
+    while True:
+        if os.path.isfile(os.path.join(d, "project.godot")):
+            return "res://" + os.path.relpath(full, d).replace(os.sep, "/")
+        parent = os.path.dirname(d)
+        if parent == d:
+            return "res://" + os.path.basename(full)
+        d = parent
+
+
+def export_character(mesh_name, rig_name, glb_path, name=None, reports=None, res_path=None,
+                     roles=None, loops=None, gaits=None, foot_bones=None, forward="-Y", up="Z",
+                     floor=0.0, force=False, skip_bad_clips=False, sidecar=True, creature=None,
+                     extra=None):
+    """Export a biped or quadruped through `export` and write `<glb base>.moves.json` beside it:
+    the manifest `MovesController` reads, as `hop.export_creature` and
+    `radial_moves.export_creature` write for their bodies.
+
+    reports     {role: report} from `actions.move_set` (or `locomotion.cycle`); None loads what
+                the set functions stored on the rig's actions (`stored.resolve`).
+    roles       the roles to export, in order (default: every report). One must be Idle:
+                MovesController starts on it.
+    loops       roles whose clip loops (default: those whose report measured a `loop_seam`).
+    gaits       roles that are locomotion (default: those with a `natural_speed_mps`, i.e. the
+                `cycle` reports). They get `gaits` and `contacts` entries and the export's gait
+                checks.
+    foot_bones  default: the end bone of every leg in `bodymap.build(rig)["roles"]["limbs"]`.
+    name        the display name; `creature` the id, default the glb's base name.
+    res_path    the glb's `res://` path (`scene`). Default: its path inside the Godot project that
+                holds it (the folder with project.godot), else `res://<file name>`.
+    force, skip_bad_clips, sidecar   as `export`. A dropped clip leaves the manifest too.
+    extra       fields merged into the manifest last - a project's own (`style`, `note`, ...),
+                replacing any written here.
+
+    Writes creature, name, rig, scene, clips, loops, implied_speed_mps (by role), height_m (stand
+    is the mesh top at rest; crouch and crouch_walk when those roles were exported), gaits,
+    contacts, verified, clip_checks, forced_clips, known_failures (authoring failures by role),
+    collider (`collider`), and dropped_clips when any were. Returns {glb, moves, manifest,
+    verified, clips, bones, problems, export}, or {error, ...} with nothing written after the
+    refusal."""
+    from . import bodymap, locomotion, stored
+    reports = stored.resolve(reports, rig_name, roles)
+    roles = list(roles) if roles is not None else list(reports)
+    missing = [r for r in roles if not isinstance(reports.get(r), dict)]
+    errored = ["%s: %s" % (r, reports[r]["error"]) for r in roles
+               if r not in missing and "error" in reports[r]]
+    if missing or errored:
+        return {"error": "not exporting roles that were not authored: "
+                + "; ".join(missing + errored)}
+    if "Idle" not in roles:
+        return {"error": "no Idle role - MovesController starts every character on its Idle clip"}
+    if loops is None:
+        loops = [r for r in roles if reports[r].get("loop_seam") is not None]
+    if gaits is None:
+        gaits = [r for r in roles if "natural_speed_mps" in reports[r]]
+    if foot_bones is None:
+        bm = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
+        if "error" in bm:
+            return {"error": bm["error"]}
+        foot_bones = [l["end"] for l in bm["roles"]["limbs"].values() if l["role"] == "leg" and l["end"]]
+        if not foot_bones:
+            return {"error": "no legs on %s to take foot bones from - pass foot_bones" % rig_name}
+
+    clip = {r: reports[r]["action"] for r in roles}
+    e = export(mesh_name, rig_name, glb_path, foot_bones=foot_bones, actions=list(clip.values()),
+               loop_clips=[clip[r] for r in roles if r in loops], floor=floor, up=up, forward=forward,
+               force=force, skip_bad_clips=skip_bad_clips, sidecar=sidecar,
+               gaits=[clip[r] for r in roles if r in gaits])
+    if not e.get("exported"):
+        return {"error": "export refused at %s: %s" % (e.get("stage"), e.get("note") or e.get("error")),
+                "export": e}
+    checks = e["clips"]["clips"]
+    kept = [r for r in roles if clip[r] in checks]
+    if "Idle" not in kept:
+        return {"error": "the Idle clip was dropped from the export: %s"
+                % "; ".join(e["dropped_clips"].get(clip["Idle"], [])), "export": e}
+    role_of = {clip[r]: r for r in kept}
+    loco = locomotion.engine_manifest(rig_name, {r: reports[r] for r in kept if r in gaits},
+                                      forward=forward, up=up, floor=floor, mesh_name=mesh_name)
+    if "collider" not in loco:
+        return {"error": "no collider: %s" % (loco.get("error") or "; ".join(loco["problems"])),
+                "export": e, "engine": loco}
+
+    heights = {"stand": loco["collider"]["height"]}
+    for role, key, field in (("Crouch", "crouch", "crouched_height_m"),
+                             ("CrouchWalk", "crouch_walk", "end_height_m")):
+        if role in kept and reports[role].get(field) is not None:
+            heights[key] = reports[role][field]
+    base = os.path.splitext(glb_path)[0]
+    creature = creature or os.path.basename(base)
+    moves = {
+        "creature": creature, "name": name or creature, "rig": rig_name,
+        "scene": res_path or _res_path(glb_path),
+        "clips": {r: clip[r] for r in kept},
+        "loops": [clip[r] for r in kept if r in loops],
+        "implied_speed_mps": {role_of[k]: c["implied_speed_playback_mps"] for k, c in checks.items()
+                              if c.get("implied_speed_playback_mps")},
+        "height_m": heights,
+        "gaits": loco.get("gaits", {}),
+        "contacts": loco.get("contacts", {}),
+        "verified": e["verified"],
+        "clip_checks": {k: {"passed": c.get("passed"), "lowest_foot": c.get("lowest_foot"),
+                            "loop_seam": c.get("loop_seam"), "failures": c.get("failures", [])}
+                        for k, c in checks.items()},
+        # clips that failed their playback checks and were shipped only because force was passed
+        "forced_clips": e.get("forced_clips", {}),
+        # what each role's authoring reported failing
+        "known_failures": {r: reports[r]["failures"] for r in kept if reports[r].get("failures")},
+        # the capsule MovesController builds: trunk and hips, arms left out
+        "collider": loco["collider"],
+    }
+    if e.get("dropped_clips"):
+        moves["dropped_clips"] = e["dropped_clips"]
+    moves.update(extra or {})
+    path = base + ".moves.json"
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(moves, fh, indent=2)
+    return {"glb": glb_path, "moves": path, "manifest": moves, "verified": e["verified"],
+            "clips": [clip[r] for r in kept], "bones": e["preflight"]["bones"],
+            "problems": loco["problems"], "export": e}
+
+
 def summarize(manifest):
     """One screen of the things worth reading."""
     if "error" in manifest:
