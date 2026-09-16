@@ -23,7 +23,6 @@ HEAD_AT = -0.6            # the muzzle's forward coordinate - a person reads it 
 # truth key -> the metarig bones whose heads are that leg's joints, root to tip
 LEG_BONES = {"front": ("front_thigh", "front_shin", "front_foot", "front_toe"),
              "rear": ("thigh", "shin", "foot", "toe")}
-FOOT_BONES = ["front_foot.L", "front_foot.R", "foot.L", "foot.R"]
 HEADLINE = ("passed", "failures", "hip_drop_m", "max_drop_m", "drop_limited_by", "balance",
             "stride_m", "implied_speed_playback_mps", "planted_drift", "stance_slip", "loop_seam",
             "lowest_point", "skin_lowest", "tightest_joint_degrees")
@@ -76,10 +75,11 @@ def build():
 
     out = os.path.join(H.out_dir(), "quadruped")
     os.makedirs(out, exist_ok=True)
-    exported = export.export(ob.name, rig.name, os.path.join(out, "dog.glb"), foot_bones=FOOT_BONES,
-                             actions=[moves[r]["action"] for r in ROLES],
-                             loop_clips=[moves[r]["action"] for r in LOOPS],
-                             gaits=[moves[r]["action"] for r in GAITS], forward="-Y")
+    # export_character writes dog.moves.json for `--godot`. The feet it checks are the legs' end bones
+    # by role - front_foot.L/R and foot.L/R, the bones this fixture used to name by hand.
+    char = export.export_character(ob.name, rig.name, os.path.join(out, "dog.glb"), name="Dog",
+                                   reports=moves, roles=ROLES, loops=LOOPS, gaits=GAITS, forward="-Y")
+    exported = char.get("export", {})
 
     return {
         "roles": H.roles(rig.name),
@@ -102,6 +102,7 @@ def build():
                                       for n, c in (exported.get("clips") or {}).get("clips", {}).items()}),
                    "failing": H.stable((exported.get("clips") or {}).get("failing")),
                    "preflight": H.stable(exported.get("preflight"))},
+        "moves_json": H.moves_manifest(char),
     }
 
 

@@ -279,6 +279,39 @@ authored again successfully. The stored text is unrounded - a manifest from
 stored reports is the same file as one from the originals (the `rabbit` fixture checks this
 in a second Blender) - and it does not reach the glb.
 
+**A biped or quadruped: `export.export_character` writes the `.moves.json`.** `export.export`
+writes only the glb and a `.rig.json`. Hoppers and radial bodies have `export_creature`.
+`export_character` runs `export`, then `locomotion.engine_manifest` for the gaits, and writes
+`<glb base>.moves.json` beside the glb:
+
+```python
+r = export.export_character("MyMesh", rig, r"C:/proj/assets/humans/ann/ann.glb", name="Ann",
+                            reports=res,              # move_set's; None reads the stored ones
+                            extra={"style": "brisk", "note": "built by ..."})
+```
+
+- **What it writes.** `creature` (the glb's base name unless given), `name`, `rig`, `scene`,
+  `clips` and `loops` (by role), `implied_speed_mps` (by role), `height_m` (`stand` is the mesh
+  top, plus `crouch` and `crouch_walk` when those roles are exported), `gaits`, `contacts`,
+  `verified`, `clip_checks`, `forced_clips`, `known_failures` (each role's authoring failures),
+  `collider`, and `dropped_clips` if any. `extra` is merged in last, so a project's own fields
+  (`style`, `posture`, `stance_width`, `upper_body`, `note`) go there and can replace any of
+  these.
+- **Defaults, all from the reports and the rig, never from bone names.**
+  - `roles`: every report. One of them must be `Idle`.
+  - `loops`: roles whose report measured a `loop_seam`, so Crouch and Jump are left out.
+  - `gaits`: roles with a `natural_speed_mps`, i.e. the `cycle` reports.
+  - `foot_bones`: each leg's end bone from `bodymap.build(rig)["roles"]["limbs"]`.
+  - `scene`: the glb's `res://` path in the Godot project folder that holds it.
+- **Refusals.** It refuses, writing no manifest, when a role errored, when there is no Idle
+  (MovesController starts on it), when the export refuses, or when no collider can be
+  measured. A clip dropped by `skip_bad_clips` is left out of `clips` and `loops` too.
+
+On grungist-creek's Hugo it writes the same manifest as `build_human.py`'s hand-assembled one.
+Only `scene` differs (a path), plus the added `contacts` and the project's own fields. The
+`mpfb_woman_curvy`, `rigify_human`, `quadruped` and `flesh_figure` fixtures export through it,
+so `regress.py --godot` plays them in `verify_moves.gd`.
+
 **In Godot, drive it with `MovesController`.** Copy
 `${CLAUDE_PLUGIN_ROOT}/godot/addons/rig_anything` to `<project>/addons/` once. It is a
 `CharacterBody3D` (`class_name MovesController`) that reads any `.moves.json`: set

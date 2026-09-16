@@ -434,6 +434,8 @@ def build_bodies(rig=True, walk=True, rig_anything=None):
                 from rig_analysis import locomotion as lm
                 r = lm.cycle(res["rig"], froude="walk", action_name=name + "Walk")
                 made["bodies"][name]["walk"] = {k: r[k] for k in ("action", "speed_mps", "frames") if k in r}
+                # the whole report, for rig-anything's export_character (its gaits and contacts)
+                made["bodies"][name]["walk_report"] = r
     finally:
         win.scene = prev
     return made
