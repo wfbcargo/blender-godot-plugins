@@ -1952,11 +1952,20 @@ def maw_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None, aq
         "Purge": lambda: purge(rig_name, action_name=name("Purge"), engulf_clip=name("Engulf"),
                                **common),
     }
-    return {role: makers[role]() for role in roles}
+    out = {role: makers[role]() for role in roles}
+    from . import stored as report_store    # `stored` is a local name in this module
+    report_store.store(out, rig_name)       # on the actions, so export works in a later session
+    return out
 
 
-def engine_manifest(reports, rig_name):
-    """The `maw` entry of `.moves.json`, from `maw_set` reports."""
+ROLES = tuple(dict.fromkeys(r for roles in DEFAULT_ROLES.values() for r in roles))
+
+
+def engine_manifest(reports=None, rig_name=None):
+    """The `maw` entry of `.moves.json`, from `maw_set` reports - or, with
+    `reports=None`, from those `maw_set` stored on `rig_name`'s actions."""
+    from . import stored as report_store
+    reports = report_store.resolve(reports, rig_name, ROLES)
     rig = bpy.data.objects[rig_name]
     d = read(rig)
     sc = sum(rig.matrix_world.to_scale()) / 3.0

@@ -28,12 +28,12 @@ def reload_all():
     This function does not reload the package itself, so a list changed here
     is not seen until `importlib.reload(rig_analysis)` - a new module left off
     the stale list kept running its old code while its file was already fixed."""
-    from . import (measure, verify, views, report, fit, skin, decompose, build, gait,
+    from . import (stored, measure, verify, views, report, fit, skin, decompose, build, gait,
                    export, bodymap, motion, keyposes, upper, actions, locomotion, wings,
                    flight, maw, fins, swim, radial, radial_moves, radial_samples)
-    # dependency order: actions imports keyposes, motion and bodymap; flight
+    # dependency order: stored imports nothing of ours; actions imports keyposes, motion and bodymap; flight
     # imports all of them; radial_moves imports radial and swim
-    mods = [measure, verify, views, report, fit, skin, decompose, build, gait, export,
+    mods = [stored, measure, verify, views, report, fit, skin, decompose, build, gait, export,
             wings, maw, fins, radial, bodymap, motion, keyposes, upper, actions, locomotion,
             flight, swim,
             radial_moves, radial_samples]

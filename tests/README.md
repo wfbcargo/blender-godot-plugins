@@ -34,6 +34,14 @@ with `--jobs 2`; the rabbit is most of it, because a voxel remesh is slow.
 Still missing, from `docs/improvements/03`: `rigify_human`, `quadruped`, `cricket`, the radial
 bodies, and the Godot-side verifiers (`--godot`).
 
+**`rabbit` also exports in a fresh session.** After its export it saves `rabbit.blend`, and a
+second Blender opens that file and runs `tests/fixtures/_export_only.py`, which calls
+`hop.export_creature(..., None, ...)` with no reports in hand - only what `move_set` stored on the
+actions (`rig_analysis.stored`). `fresh_session.manifest_equal` is whether the two `.moves.json`
+agree, path-like values aside; when they do not, `fresh_session.differs` names the first keys.
+It proves a .blend saved after authoring exports the same creature later (03 step 6). Helpers
+whose names start with `_` are not fixtures, so the runner never runs `_export_only.py` itself.
+
 ## Writing one
 
 A fixture is `tests/fixtures/<name>.py`. It imports `_harness`, builds, and returns a dict:

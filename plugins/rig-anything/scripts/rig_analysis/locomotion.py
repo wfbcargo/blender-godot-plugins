@@ -84,7 +84,7 @@ import math
 import bpy
 from mathutils import Vector
 
-from . import bodymap, gait, motion, verify
+from . import bodymap, gait, motion, stored, verify
 
 G = 9.81
 
@@ -1104,12 +1104,13 @@ GAIT_KEYS = ("gait", "froude", "duty_factor", "natural_speed_mps", "stride_m",
              "stroke_m", "stride_frequency_hz", "hip_height_m", "spine_flex_deg")
 
 
-def engine_manifest(rig_name, reports, forward="-Y", up="Z", floor=0.0, mesh_name=None):
+def engine_manifest(rig_name, reports=None, forward="-Y", up="Z", floor=0.0, mesh_name=None):
     """The `gaits` and `contacts` entries an engine controller reads, and with
     `mesh_name` the `collider` ({radius, height}, `export.collider`).
 
     `reports` is {role: report} from `cycle` (or `actions.move_set`); roles
-    whose report did not come from `cycle` are skipped. Contacts are read back
+    whose report did not come from `cycle` are skipped; None reads the reports a
+    set function stored on the rig's actions (`stored.load`). Contacts are read back
     from Blender's playback of each clip with `detect`, not copied from the plan,
     and each foot carries its end bone's length, because an engine skeleton
     knows a bone's head but not where it ends - and the tail is the contact.
@@ -1121,6 +1122,7 @@ def engine_manifest(rig_name, reports, forward="-Y", up="Z", floor=0.0, mesh_nam
     rig = bpy.data.objects.get(rig_name)
     if rig is None or rig.type != "ARMATURE":
         return {"error": "no armature named " + repr(rig_name)}
+    reports = stored.resolve(reports, rig_name)
     scale = sum(rig.matrix_world.to_scale()) / 3.0
     gaits, contacts, problems = {}, {}, []
     for role, r in reports.items():

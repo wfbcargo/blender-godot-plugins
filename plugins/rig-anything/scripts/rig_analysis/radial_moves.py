@@ -71,6 +71,7 @@ import bpy
 from mathutils import Matrix, Vector
 
 from . import radial as rad
+from . import stored
 
 TAU = 2.0 * math.pi
 FLESH = 1030.0          # kg/m3 - cnidarian and echinoderm tissue sits near seawater
@@ -782,15 +783,34 @@ def move_set(rig_name, prefix=None, fps=None, mass_kg=None):
         makers = {"Sway": lambda: sway(rig_name, action_name=nm("Sway"), fps=fps),
                   "Retract": lambda: retract(rig_name, action_name=nm("Retract"), fps=fps),
                   "Extend": lambda: retract(rig_name, action_name=nm("Extend"), fps=fps, extend=True)}
-    return {role: make() for role, make in makers.items()}
+    out = {role: make() for role, make in makers.items()}
+    stored.store(out, rig_name)             # on the actions, so export works in a later session
+    return out
 
 
 LOOPS = ("Pulse", "Drift", "Crawl", "Idle", "Row", "RowBack", "Sway")
+ROLES = ("Pulse", "Drift", "Turn", "Crawl", "Idle", "Row", "RowBack", "Sway", "Retract", "Extend")
 
 
-def engine_manifest(reports, rig_name, mass_kg=None):
+def _stored_mass(reports):
+    """The mass `move_set` was given, as its reports' plans recorded it - so a manifest built
+    from stored reports in a later session plans with the same mass."""
+    for r in reports.values():
+        p = r.get("plan") if isinstance(r, dict) else None
+        if isinstance(p, dict) and p.get("mass_source") == "given" and p.get("mass_kg"):
+            return p["mass_kg"]
+    return None
+
+
+def engine_manifest(reports=None, rig_name=None, mass_kg=None):
     """The `radial` entry of `.moves.json`: the body, its appendages with their
-    angles in model space, the clips and the numbers that play them."""
+    angles in model space, the clips and the numbers that play them.
+
+    `reports=None` reads the reports `move_set` stored on the rig's actions, and
+    the mass it was given unless `mass_kg` says otherwise."""
+    if reports is None:
+        reports = stored.resolve(None, rig_name, ROLES)
+        mass_kg = mass_kg or _stored_mass(reports)
     rr = rad.RadialRig(rig_name)
     st = rr.st
     ok = {k: r for k, r in reports.items() if isinstance(r, dict) and "error" not in r}
@@ -837,7 +857,8 @@ def engine_manifest(reports, rig_name, mass_kg=None):
 def export_creature(mesh_name, rig_name, reports, glb_path, creature, res_path=None, mass_kg=None):
     """Export the glb through `export.export` - read back and duration-checked -
     and write `<name>.moves.json` beside it with the `radial` block, in the shape
-    the other creatures' manifests have."""
+    the other creatures' manifests have. `reports=None` exports what `move_set`
+    stored on the rig's actions."""
     import json
     import os
     from . import export

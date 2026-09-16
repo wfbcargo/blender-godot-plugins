@@ -66,7 +66,7 @@ import bpy
 import numpy as np
 from mathutils import Matrix, Vector
 
-from . import gait, motion, verify
+from . import gait, motion, stored, verify
 from . import tentacles as tn
 
 # ---- numbers, with where they come from
@@ -920,10 +920,15 @@ def octopus_set(rig_name, roles=None, prefix=None):
         makers[role] = (lambda role=role: crawl(rig_name, role, action_name=name(role)))
     for side in ("L", "R"):
         makers["Turn" + side] = (lambda side=side: turn(rig_name, side, action_name=name("Turn" + side)))
-    return {role: makers[role]() for role in (roles or ROLES)}
+    out = {role: makers[role]() for role in (roles or ROLES)}
+    stored.store(out, rig_name)             # on the actions, so export works in a later session
+    return out
 
 
-def engine_manifest(rig_name, reports):
+def engine_manifest(rig_name, reports=None):
+    """The octopus entry of `.moves.json`. `reports=None` reads the reports
+    `octopus_set` stored on the rig's actions."""
+    reports = stored.resolve(reports, rig_name, ROLES)
     o = Octopus(rig_name)
     p = o.plan()
     ok = {k: r for k, r in reports.items() if "error" not in r}
