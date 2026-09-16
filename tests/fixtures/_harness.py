@@ -68,12 +68,14 @@ def out_dir():
 
 
 def enable_addons(*modules):
-    """Turn on add-ons a fixture needs. `--factory-startup` starts with Rigify off, and
-    rig-anything's `fit_basic_human` then fails with `'Armature' object has no attribute
-    'rigify_colors'` - a real trap, filed under improvements category 1."""
+    """Turn on add-ons a fixture needs that no plugin enables for itself - `--factory-startup`
+    starts with every optional add-on off. Rigify is not one of them any more: rig-anything's
+    `fit.ensure_rigify` turns it on wherever a metarig is added, so a fixture that calls
+    `fit_basic_human` or `fit_basic_quadruped` needs nothing here, and must not, or it hides a
+    regression of that."""
     import addon_utils
     for module in modules:
-        addon_utils.enable(module, default_set=False, persistent=True)
+        addon_utils.enable(module, default_set=True, persistent=True)  # an add-on may read its prefs entry
 
 
 def clear_scene():

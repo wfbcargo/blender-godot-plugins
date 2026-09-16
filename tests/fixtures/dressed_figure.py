@@ -19,7 +19,6 @@ BODY = "Figure"
 def build():
     import bpy
     H.clear_scene()
-    H.enable_addons("rigify")
     from follow_through import flesh, samples
     from wardrobe import samples as wd_samples
 

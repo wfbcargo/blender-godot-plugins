@@ -18,6 +18,7 @@ armature is created alongside it.
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
 import math
 import os
@@ -37,13 +38,40 @@ ARM_BONES = ("shoulder", "upper_arm", "forearm", "hand")
 # the reference metarig
 # --------------------------------------------------------------------------
 
+def ensure_rigify():
+    """Turn the Rigify add-on on if it is off, and return its module.
+
+    Rigify ships with Blender, so `import rigify` succeeds whether or not the
+    add-on is enabled - but only enabling it registers the properties its
+    metarig `create()` writes. Under `blender --factory-startup` it is off, and
+    the metarig then dies with `'Armature' object has no attribute
+    'rigify_colors'`. Whether it is on is read from that property.
+
+    The module is looked up in `addon_utils.modules()` - `rigify` from
+    addons_core, or a `bl_ext.<repo>.rigify` extension where one is installed
+    instead - and enabled with `default_set=True`, as the Preferences checkbox
+    does. It has to be: Rigify's `register()` reads its own entry in
+    `preferences.addons`, and with `default_set=False` that entry does not exist,
+    so registration raises a KeyError halfway through and leaves Rigify
+    half-registered - enough properties for a metarig, logged as an exception.
+    """
+    import addon_utils
+    names = [m.__name__ for m in addon_utils.modules()
+             if m.__name__ == "rigify" or m.__name__.endswith(".rigify")]
+    if not names:
+        raise RuntimeError("the Rigify add-on is not installed in this Blender")
+    module = "rigify" if "rigify" in names else sorted(names)[0]
+    if not hasattr(bpy.types.Armature, "rigify_colors"):
+        addon_utils.enable(module, default_set=True, persistent=True)
+        if not hasattr(bpy.types.Armature, "rigify_colors"):
+            raise RuntimeError("enabling %s did not register Rigify's properties" % module)
+    return importlib.import_module(module)
+
+
 def add_basic_human(name="metarig"):
-    """Instantiate Rigify's Basic/basic_human, returning the armature object."""
-    try:
-        import rigify
-    except ImportError:
-        bpy.ops.preferences.addon_enable(module="rigify")
-        import rigify
+    """Instantiate Rigify's Basic/basic_human, returning the armature object.
+    Enables Rigify first if it is off (`ensure_rigify`)."""
+    rigify = ensure_rigify()
 
     path = os.path.join(os.path.dirname(rigify.__file__),
                         "metarigs", "Basic", "basic_human.py")
@@ -353,11 +381,9 @@ QUAD_REAR = ("thigh", "shin", "foot", "toe", "pelvis")
 
 
 def add_basic_quadruped(name="metarig"):
-    try:
-        import rigify
-    except ImportError:
-        bpy.ops.preferences.addon_enable(module="rigify")
-        import rigify
+    """Instantiate Rigify's Basic/basic_quadruped, returning the armature object.
+    Enables Rigify first if it is off (`ensure_rigify`)."""
+    rigify = ensure_rigify()
     path = os.path.join(os.path.dirname(rigify.__file__),
                         "metarigs", "Basic", "basic_quadruped.py")
     if not os.path.exists(path):

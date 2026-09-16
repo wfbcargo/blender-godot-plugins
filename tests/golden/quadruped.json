@@ -1,0 +1,813 @@
+{
+ "fixture": "quadruped",
+ "plugins": {
+  "rig-anything": "0.14.2"
+ },
+ "report": {
+  "bind": {
+   "bones_without_group": [],
+   "coverage": 1.0,
+   "deform_bones": 34,
+   "passed": true,
+   "vertex_groups": 34
+  },
+  "export": {
+   "clips": {
+    "Dog_Crouch": {
+     "engine_duration_s": 0.5,
+     "failures": [],
+     "implied_speed_playback_mps": null,
+     "locomotion": false,
+     "loops": false,
+     "passed": true
+    },
+    "Dog_Idle": {
+     "engine_duration_s": 2.0417,
+     "failures": [],
+     "implied_speed_playback_mps": null,
+     "locomotion": false,
+     "loops": true,
+     "passed": true
+    },
+    "Dog_Run": {
+     "engine_duration_s": 1.0417,
+     "failures": [],
+     "implied_speed_playback_mps": 1.3053,
+     "locomotion": true,
+     "loops": true,
+     "passed": true
+    },
+    "Dog_Trot": {
+     "engine_duration_s": 1.0417,
+     "failures": [],
+     "implied_speed_playback_mps": 0.9388,
+     "locomotion": true,
+     "loops": true,
+     "passed": true
+    },
+    "Dog_Walk": {
+     "engine_duration_s": 1.375,
+     "failures": [],
+     "implied_speed_playback_mps": 0.4388,
+     "locomotion": true,
+     "loops": true,
+     "passed": true
+    }
+   },
+   "exported": true,
+   "failing": {},
+   "note": null,
+   "preflight": {
+    "bones": 34,
+    "mesh": "DogTest",
+    "origin": {
+     "centroid_fraction": 0.021,
+     "centroid_offset": 0.02724,
+     "mesh_mean_xy": [
+      0.0,
+      -0.02724
+     ],
+     "mesh_offset": 0.0,
+     "mesh_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "note": "centred",
+     "offset": 0.0,
+     "offset_worst": 0.0,
+     "passed": true,
+     "rig": "DogTest_metarig",
+     "rig_world": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "passed": true,
+    "problems": [],
+    "rig": "DogTest_metarig",
+    "warnings": [
+     "33 bone names use '.' (e.g. spine.004, spine.003, spine.002). Bone names are not node names so this normally survives, but it is not the spelling Godot's humanoid retargeting profile expects - prefer _L/_R if you retarget.",
+     "2052 vertices of DogTest are pulled by more than 4 bones - the exporter keeps the 4 heaviest, so they deform differently in the engine (bake_for_game limits and normalises)"
+    ]
+   },
+   "stage": "done",
+   "verified": {
+    "durations_match": true,
+    "mismatches": []
+   }
+  },
+  "fit": {
+   "bones_placed": 34,
+   "forward_anchors": [
+    [
+     -0.659,
+     -0.6599
+    ],
+    [
+     -0.3161,
+     -0.2515
+    ],
+    [
+     0.3419,
+     0.2703
+    ],
+    [
+     1.1044,
+     0.629
+    ]
+   ],
+   "landmarks": {
+    "complete": true,
+    "forward": "Y",
+    "front_fwd": -0.25155,
+    "front_neg": [
+     -0.08132,
+     -0.25155,
+     0.00607
+    ],
+    "front_pos": [
+     0.08132,
+     -0.25155,
+     0.00607
+    ],
+    "ground": 0.0,
+    "head_end_guessed": false,
+    "lateral": "X",
+    "mid_lateral": 0.0,
+    "nose": [
+     -0.002738,
+     -0.659923,
+     0.636461
+    ],
+    "rear_fwd": 0.27028,
+    "rear_neg": [
+     -0.09,
+     0.27028,
+     0.0
+    ],
+    "rear_pos": [
+     0.09,
+     0.27028,
+     0.0
+    ],
+    "spine_confident": true,
+    "spine_height": 0.4496,
+    "tail_tip": [
+     -0.001483,
+     0.628985,
+     0.30629
+    ],
+    "top": 0.75617,
+    "up": "Z"
+   },
+   "lateral_scale": 0.7206,
+   "target": "DogTest",
+   "up_anchors": [
+    [
+     0.0,
+     0.0
+    ],
+    [
+     0.7418,
+     0.4496
+    ],
+    [
+     0.9809,
+     0.7562
+    ]
+   ]
+  },
+  "ground_contacts": {
+   "count": 4,
+   "midline": 0,
+   "positions": [
+    [
+     -0.09,
+     0.27028,
+     0.0
+    ],
+    [
+     -0.08132,
+     -0.25155,
+     0.00607
+    ],
+    [
+     0.08132,
+     -0.25155,
+     0.00607
+    ],
+    [
+     0.09,
+     0.27028,
+     0.0
+    ]
+   ],
+   "raw": 4
+  },
+  "headline": {
+   "Crouch": {
+    "balance": {
+     "com_fwd_end": 0.0271,
+     "com_fwd_start": 0.0272,
+     "margin_m": 0.2894,
+     "support_fwd": [
+      -0.2703,
+      0.3166
+     ]
+    },
+    "drop_limited_by": "legs",
+    "failures": [],
+    "hip_drop_m": 0.0908,
+    "lowest_point": -0.0,
+    "max_drop_m": 0.1513,
+    "passed": true,
+    "planted_drift": {
+     "front_thigh.L": 0.0,
+     "front_thigh.R": 0.0,
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "skin_lowest": -0.0,
+    "tightest_joint_degrees": {
+     "front_thigh.L": 90.3,
+     "front_thigh.R": 90.3,
+     "thigh.L": 78.7,
+     "thigh.R": 78.7
+    }
+   },
+   "Idle": {
+    "balance": null,
+    "failures": [],
+    "loop_seam": 0.0,
+    "lowest_point": -0.0,
+    "passed": true,
+    "planted_drift": {
+     "front_thigh.L": 0.0,
+     "front_thigh.R": 0.0,
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "skin_lowest": -0.0,
+    "tightest_joint_degrees": {
+     "front_thigh.L": 157.0,
+     "front_thigh.R": 157.0,
+     "thigh.L": 130.9,
+     "thigh.R": 130.9
+    }
+   },
+   "Run": {
+    "balance": null,
+    "failures": [],
+    "implied_speed_playback_mps": 1.3055,
+    "loop_seam": 0.0,
+    "lowest_point": 0.0,
+    "passed": true,
+    "planted_drift": {},
+    "skin_lowest": 0.0,
+    "stride_m": 1.3599,
+    "tightest_joint_degrees": {
+     "front_thigh.L": 58.7,
+     "front_thigh.R": 60.0,
+     "thigh.L": 54.5,
+     "thigh.R": 51.3
+    }
+   },
+   "Trot": {
+    "balance": null,
+    "failures": [],
+    "implied_speed_playback_mps": 0.939,
+    "loop_seam": 0.0,
+    "lowest_point": 0.0,
+    "passed": true,
+    "planted_drift": {},
+    "skin_lowest": 0.0,
+    "stride_m": 0.9781,
+    "tightest_joint_degrees": {
+     "front_thigh.L": 75.9,
+     "front_thigh.R": 75.9,
+     "thigh.L": 66.8,
+     "thigh.R": 66.8
+    }
+   },
+   "Walk": {
+    "balance": null,
+    "failures": [],
+    "implied_speed_playback_mps": 0.4389,
+    "loop_seam": 0.0,
+    "lowest_point": 0.0,
+    "passed": true,
+    "planted_drift": {},
+    "skin_lowest": 0.0,
+    "stride_m": 0.6035,
+    "tightest_joint_degrees": {
+     "front_thigh.L": 92.0,
+     "front_thigh.R": 92.0,
+     "thigh.L": 81.9,
+     "thigh.R": 81.9
+    }
+   }
+  },
+  "joint_error_vs_truth": {
+   "all": {
+    "mean": 0.026849,
+    "worst": 0.04517
+   },
+   "front.L": {
+    "mean": 0.02357,
+    "per_joint": [
+     0.02299,
+     0.01202,
+     0.03939,
+     0.01988
+    ],
+    "worst": 0.039392
+   },
+   "front.R": {
+    "mean": 0.02357,
+    "per_joint": [
+     0.02299,
+     0.01202,
+     0.03939,
+     0.01988
+    ],
+    "worst": 0.039392
+   },
+   "rear.L": {
+    "mean": 0.030127,
+    "per_joint": [
+     0.03025,
+     0.04517,
+     0.04384,
+     0.00125
+    ],
+    "worst": 0.045169
+   },
+   "rear.R": {
+    "mean": 0.030127,
+    "per_joint": [
+     0.03025,
+     0.04517,
+     0.04384,
+     0.00125
+    ],
+    "worst": 0.045169
+   }
+  },
+  "mesh": {
+   "rest_size": [
+    0.3124,
+    1.2889,
+    0.7562
+   ],
+   "vertices": 7722
+  },
+  "moves": {
+   "Crouch": {
+    "action": "Dog_Crouch",
+    "balance": {
+     "com_fwd_end": 0.0271,
+     "com_fwd_start": 0.0272,
+     "margin_m": 0.2894,
+     "support_fwd": [
+      -0.2703,
+      0.3166
+     ]
+    },
+    "com_source": "skin (1 meshes)",
+    "crouched_height_m": 0.6654,
+    "depth": 0.6,
+    "drop_limited_by": "legs",
+    "end_height_m": 0.6654,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     12
+    ],
+    "hip_drop_m": 0.0908,
+    "hip_shift_m": 0.0,
+    "lean_degrees": 0.0,
+    "lowest_point": -0.0,
+    "max_drop_m": 0.1513,
+    "passed": true,
+    "planted_drift": {
+     "front_thigh.L": 0.0,
+     "front_thigh.R": 0.0,
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "prediction_error": 0.0,
+    "rest_error": 0.0,
+    "rig": "DogTest_metarig",
+    "skin_lowest": -0.0,
+    "standing_height_m": 0.7562,
+    "tightest_joint_degrees": {
+     "front_thigh.L": 90.3,
+     "front_thigh.R": 90.3,
+     "thigh.L": 78.7,
+     "thigh.R": 78.7
+    },
+    "tolerance": 0.00644,
+    "upright": false
+   },
+   "Idle": {
+    "action": "Dog_Idle",
+    "balance": null,
+    "end_height_m": 0.7562,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     49
+    ],
+    "hip_shift_m": 0.0,
+    "loop_seam": 0.0,
+    "lowest_point": -0.0,
+    "passed": true,
+    "planted_drift": {
+     "front_thigh.L": 0.0,
+     "front_thigh.R": 0.0,
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "posture": null,
+    "prediction_error": 0.0,
+    "rest_error": 0.0,
+    "rig": "DogTest_metarig",
+    "skin_lowest": -0.0,
+    "stance_width": null,
+    "standing_height_m": 0.7562,
+    "tightest_joint_degrees": {
+     "front_thigh.L": 157.0,
+     "front_thigh.R": 157.0,
+     "thigh.L": 130.9,
+     "thigh.R": 130.9
+    },
+    "tolerance": 0.00644,
+    "upper": null
+   },
+   "Run": {
+    "action": "Dog_Run",
+    "adjustments": [],
+    "attempts": 1,
+    "balance": null,
+    "bounce_scale": null,
+    "contact_slip": {
+     "front_thigh.L": 0.00365,
+     "front_thigh.R": 0.00408,
+     "thigh.L": 0.00406,
+     "thigh.R": 0.00363
+    },
+    "contacts": {
+     "front_thigh.L": {
+      "bones": [
+       "front_foot.L",
+       "front_toe.L"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "front_thigh.R": {
+      "bones": [
+       "front_foot.R",
+       "front_toe.R"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "thigh.L": {
+      "bones": [
+       "foot.L",
+       "toe.L"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "thigh.R": {
+      "bones": [
+       "foot.R",
+       "toe.R"
+      ],
+      "grounded": true,
+      "source": "skin"
+     }
+    },
+    "drop_m": 0.067,
+    "drop_share": 0.165,
+    "duty_asked": 0.338262,
+    "duty_factor": 0.338,
+    "end_height_m": 0.6837,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     25
+    ],
+    "froude": 3.0,
+    "froude_requested": 3.0,
+    "gait": "gallop",
+    "hip_height_m": 0.4253,
+    "implied_speed_cycle_mps": 1.3599,
+    "implied_speed_playback_mps": 1.3055,
+    "lift_m": 0.082,
+    "lift_scale": null,
+    "limited_by": [],
+    "loop_seam": 0.0,
+    "lowest_point": 0.0,
+    "max_drop": 0.22,
+    "min_knee": null,
+    "natural_speed_mps": 3.5377,
+    "passed": true,
+    "peak_reach": {
+     "front_thigh.L": 0.986,
+     "front_thigh.R": 0.986,
+     "thigh.L": 0.97,
+     "thigh.R": 0.97
+    },
+    "phase_offsets": {
+     "front_thigh.L": 0.6,
+     "front_thigh.R": 0.5,
+     "thigh.L": 0.0,
+     "thigh.R": 0.1
+    },
+    "planted_drift": {},
+    "posture": null,
+    "prediction_error": 0.0,
+    "rest_error": 0.341057,
+    "rig": "DogTest_metarig",
+    "skin_lowest": 0.0,
+    "spine_flex_deg": 9.0,
+    "stance_shift_m": {
+     "front_thigh.L": 0.0,
+     "front_thigh.R": 0.0,
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "stance_width": null,
+    "standing_height_m": 0.7562,
+    "stride_frequency_hz": 2.601,
+    "stride_m": 1.3599,
+    "stride_scale": null,
+    "stroke_m": 0.46,
+    "stroke_over_leg": 1.42,
+    "style": null,
+    "support_normal": [
+     -0.0,
+     0.0189,
+     0.9998
+    ],
+    "sway_share": 0.0,
+    "tightest_joint_degrees": {
+     "front_thigh.L": 58.7,
+     "front_thigh.R": 60.0,
+     "thigh.L": 54.5,
+     "thigh.R": 51.3
+    },
+    "tolerance": 0.00644,
+    "upper": null
+   },
+   "Trot": {
+    "action": "Dog_Trot",
+    "adjustments": [],
+    "attempts": 1,
+    "balance": null,
+    "bounce_scale": null,
+    "contact_slip": {
+     "front_thigh.L": 0.0034,
+     "front_thigh.R": 0.0034,
+     "thigh.L": 0.00338,
+     "thigh.R": 0.00338
+    },
+    "contacts": {
+     "front_thigh.L": {
+      "bones": [
+       "front_foot.L",
+       "front_toe.L"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "front_thigh.R": {
+      "bones": [
+       "front_foot.R",
+       "front_toe.R"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "thigh.L": {
+      "bones": [
+       "foot.L",
+       "toe.L"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "thigh.R": {
+      "bones": [
+       "foot.R",
+       "toe.R"
+      ],
+      "grounded": true,
+      "source": "skin"
+     }
+    },
+    "drop_m": 0.0548,
+    "drop_share": 0.135,
+    "duty_asked": 0.45,
+    "duty_factor": 0.45,
+    "end_height_m": 0.7092,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     25
+    ],
+    "froude": 1.0,
+    "froude_requested": 1.0,
+    "gait": "trot",
+    "hip_height_m": 0.4253,
+    "implied_speed_cycle_mps": 0.9781,
+    "implied_speed_playback_mps": 0.939,
+    "lift_m": 0.0583,
+    "lift_scale": null,
+    "limited_by": [],
+    "loop_seam": 0.0,
+    "lowest_point": 0.0,
+    "max_drop": 0.18,
+    "min_knee": null,
+    "natural_speed_mps": 2.0425,
+    "passed": true,
+    "peak_reach": {
+     "front_thigh.L": 0.989,
+     "front_thigh.R": 0.989,
+     "thigh.L": 0.97,
+     "thigh.R": 0.97
+    },
+    "phase_offsets": {
+     "front_thigh.L": 0.0,
+     "front_thigh.R": 0.5,
+     "thigh.L": 0.5,
+     "thigh.R": 0.0
+    },
+    "planted_drift": {},
+    "posture": null,
+    "prediction_error": 0.0,
+    "rest_error": 0.228526,
+    "rig": "DogTest_metarig",
+    "skin_lowest": 0.0,
+    "spine_flex_deg": 0.0,
+    "stance_shift_m": {
+     "front_thigh.L": 0.0,
+     "front_thigh.R": 0.0,
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "stance_width": null,
+    "standing_height_m": 0.7562,
+    "stride_frequency_hz": 2.088,
+    "stride_m": 0.9781,
+    "stride_scale": null,
+    "stroke_m": 0.4401,
+    "stroke_over_leg": 1.359,
+    "style": null,
+    "support_normal": [
+     -0.0,
+     0.0189,
+     0.9998
+    ],
+    "sway_share": 0.0,
+    "tightest_joint_degrees": {
+     "front_thigh.L": 75.9,
+     "front_thigh.R": 75.9,
+     "thigh.L": 66.8,
+     "thigh.R": 66.8
+    },
+    "tolerance": 0.00644,
+    "upper": null
+   },
+   "Walk": {
+    "action": "Dog_Walk",
+    "adjustments": [],
+    "attempts": 1,
+    "balance": null,
+    "bounce_scale": null,
+    "contact_slip": {
+     "front_thigh.L": 0.00342,
+     "front_thigh.R": 0.00342,
+     "thigh.L": 0.00342,
+     "thigh.R": 0.00342
+    },
+    "contacts": {
+     "front_thigh.L": {
+      "bones": [
+       "front_foot.L",
+       "front_toe.L"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "front_thigh.R": {
+      "bones": [
+       "front_foot.R",
+       "front_toe.R"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "thigh.L": {
+      "bones": [
+       "foot.L",
+       "toe.L"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "thigh.R": {
+      "bones": [
+       "foot.R",
+       "toe.R"
+      ],
+      "grounded": true,
+      "source": "skin"
+     }
+    },
+    "drop_m": 0.0459,
+    "drop_share": 0.1131,
+    "duty_asked": 0.650619,
+    "duty_factor": 0.651,
+    "end_height_m": 0.707,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     33
+    ],
+    "froude": 0.2,
+    "froude_requested": 0.2,
+    "gait": "walk",
+    "hip_height_m": 0.4253,
+    "implied_speed_cycle_mps": 0.4526,
+    "implied_speed_playback_mps": 0.4389,
+    "lift_m": 0.0404,
+    "lift_scale": null,
+    "limited_by": [],
+    "loop_seam": 0.0,
+    "lowest_point": 0.0,
+    "max_drop": 0.1358,
+    "min_knee": null,
+    "natural_speed_mps": 0.9134,
+    "passed": true,
+    "peak_reach": {
+     "front_thigh.L": 0.986,
+     "front_thigh.R": 0.986,
+     "thigh.L": 0.968,
+     "thigh.R": 0.968
+    },
+    "phase_offsets": {
+     "front_thigh.L": 0.25,
+     "front_thigh.R": 0.75,
+     "thigh.L": 0.0,
+     "thigh.R": 0.5
+    },
+    "planted_drift": {},
+    "posture": null,
+    "prediction_error": 0.0,
+    "rest_error": 0.196413,
+    "rig": "DogTest_metarig",
+    "skin_lowest": 0.0,
+    "spine_flex_deg": 0.0,
+    "stance_shift_m": {
+     "front_thigh.L": 0.0,
+     "front_thigh.R": 0.0,
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "stance_width": null,
+    "standing_height_m": 0.7562,
+    "stride_frequency_hz": 1.514,
+    "stride_m": 0.6035,
+    "stride_scale": null,
+    "stroke_m": 0.3927,
+    "stroke_over_leg": 1.212,
+    "style": null,
+    "support_normal": [
+     -0.0,
+     0.0189,
+     0.9998
+    ],
+    "sway_share": 0.0,
+    "tightest_joint_degrees": {
+     "front_thigh.L": 92.0,
+     "front_thigh.R": 92.0,
+     "thigh.L": 81.9,
+     "thigh.R": 81.9
+    },
+    "tolerance": 0.00644,
+    "upper": null
+   }
+  }
+ }
+}
