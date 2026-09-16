@@ -85,11 +85,146 @@ def _descendants_names(bone, side):
     return out
 
 
-def build(rig_name, forward="-Y", up="Z", floor=0.0):
+def bound_meshes(rig):
+    """The mesh objects an Armature modifier binds to `rig`."""
+    return [o for o in bpy.data.objects if o.type == "MESH"
+            and any(m.type == "ARMATURE" and m.object == rig for m in o.modifiers)]
+
+
+def skinned_bone_names(rig, meshes=None):
+    """Names of `rig`'s bones that carry any skin weight on `meshes` (default: the meshes bound
+    to it), or None when there is no mesh to read."""
+    if meshes is None:
+        meshes = bound_meshes(rig)
+    else:
+        meshes = [bpy.data.objects[m] if isinstance(m, str) else m for m in meshes]
+        meshes = [m for m in meshes if m is not None and m.type == "MESH"]
+    if not meshes:
+        return None
+    bone_names = set(rig.data.bones.keys())
+    out = set()
+    for m in meshes:
+        groups = {g.index: g.name for g in m.vertex_groups if g.name in bone_names}
+        if not groups:
+            continue
+        for v in m.data.vertices:
+            for g in v.groups:
+                if g.weight > 1e-4 and g.group in groups:
+                    out.add(groups[g.group])
+    return out
+
+
+def _roles(rig, limbs, axial_names, pelvis_idx, legs, neck, head_idx, head_guessed, tail_axial,
+           height, meshes, excluded):
+    """Bones named by what they do, so no consumer re-derives them. See `build`'s `roles`."""
+    warnings = []
+    skinned = skinned_bone_names(rig, meshes)
+    bones = [b for b in rig.data.bones if b.name not in excluded]
+
+    # limbs by role and rank: a quadruped's front feet are `front_foot.L`, a biped's `foot.L`
+    out_limbs = {}
+    for role, end_word in (("leg", "foot"), ("arm", "hand")):
+        group = [l for l in limbs if l["role"] == role]
+        attach = sorted({l["axial_index"] for l in group if l["axial_index"] is not None},
+                        reverse=True)                                     # head end first
+        ranks = {1: [""], 2: ["front_", "hind_"], 3: ["front_", "mid_", "hind_"]}.get(len(attach))
+        for l in group:
+            if ranks is None or l["axial_index"] is None:
+                rank = "rank%d_" % (attach.index(l["axial_index"]) if l["axial_index"] in attach else 0)
+            else:
+                rank = ranks[attach.index(l["axial_index"])]
+            key = "%s%s.%s" % (rank, end_word, l["side"])
+            if key in out_limbs:
+                warnings.append("two %s limbs claim %s: %s and %s"
+                                % (role, key, out_limbs[key]["upper"], l["upper"]))
+                continue
+            out_limbs[key] = {"role": role, "girdle": l["girdle"], "upper": l["upper"],
+                              "lower": l["lower"], "end": l["end"], "digits": list(l["digits"])}
+
+    pelvis = axial_names[pelvis_idx] if legs and 0 <= pelvis_idx < len(axial_names) else None
+    arm_attach = [l["axial_index"] for l in limbs if l["role"] == "arm" and l["axial_index"] is not None]
+    leg_attach = sorted({l["axial_index"] for l in legs})
+    if arm_attach:
+        chest = axial_names[max(arm_attach)]
+    elif len(leg_attach) > 1:                     # a quadruped's shoulders carry its front legs
+        chest = axial_names[leg_attach[-1]]
+    else:
+        chest = None
+    head = axial_names[head_idx] if head_idx is not None else None
+
+    # The root: a motion bone at the rear end of the chain (or parentless and off it), not the
+    # pelvis, that moves no skin - or, with no skin to read, lies wholly below the ankles.
+    # MPFB's and most game rigs' root lies on the floor under the whole skeleton.
+    ankles = min((height(l["rest_eff"]) for l in legs), default=None)
+    candidates = []
+    if axial_names and (pelvis is None or pelvis_idx > 0):
+        candidates.append(axial_names[0])
+    candidates += [b.name for b in bones if b.parent is None and not side_of(b.name)[0]
+                   and b.name not in axial_names]
+    root = None
+    for name in candidates:
+        b = rig.data.bones[name]
+        low = ankles is not None and max(height(b.head_local), height(b.tail_local)) <= ankles
+        if name in (pelvis, chest, head):
+            continue
+        if (skinned is not None and name not in skinned) or (skinned is None and low):
+            root = name
+            if skinned is None:
+                warnings.append("root %s found by height alone (no mesh bound to read skin)" % name)
+            break
+
+    limb_bones = set()
+    for l in limbs:
+        limb_bones.update(n for n in (l["girdle"], l["upper"], l["lower"], l["end"]) if n)
+        limb_bones.update(l["digits"])
+    unskinned = sorted(b.name for b in bones if skinned is not None and b.name not in skinned)
+    axial_set = set(axial_names)
+    controls = [n for n in unskinned if n not in limb_bones and (n not in axial_set or n == root)]
+
+    if legs and pelvis is None:
+        warnings.append("no pelvis: the legs attach to no axial bone")
+    if head is None:
+        warnings.append("no head bone")
+    elif head_guessed:
+        warnings.append("head %s guessed from position (no bone called head)" % head)
+    if skinned is not None:
+        dead = [n for n in limb_bones if n not in skinned and not side_of(n)[1].lower().startswith(("heel", "palm"))]
+        if dead:
+            warnings.append("limb bones with no skin: " + ", ".join(sorted(dead)[:6]))
+
+    return {
+        "profile": None,
+        "root": root,
+        "pelvis": pelvis,
+        "chest": chest,
+        "neck": list(neck),
+        "head": head,
+        "tail": list(tail_axial),
+        "breast_anchor": chest,
+        "butt_anchor": pelvis,
+        "limbs": out_limbs,
+        "skinned": skinned is not None,
+        "unskinned": unskinned,
+        "controls": controls,
+        "warnings": warnings,
+    }
+
+
+def build(rig_name, forward="-Y", up="Z", floor=0.0, meshes=None):
     """Describe a rig's body. Everything positional is in ARMATURE space.
 
     `forward`/`up` are world axes, as everywhere else in this package. `floor`
-    is the world height of the ground.
+    is the world height of the ground. `meshes` are the skin read for `roles`
+    (default: every mesh an Armature modifier binds to the rig).
+
+    `roles` names bones by what they do, so nothing downstream re-derives them:
+    `root` (a motion bone that moves no skin, or lies under the ankles), `pelvis`
+    (where the legs attach), `chest` (where the arms attach; the front legs on a
+    quadruped), `neck`, `head`, `tail`, `breast_anchor` and `butt_anchor`,
+    `limbs` keyed `foot.L` / `hand.R` / `front_foot.L` with girdle, upper, lower,
+    end and digits, `unskinned` bones and `controls` (unskinned and on no limb
+    chain), and whether skin was read at all. Roles are derived here once; a
+    disagreement is a warning in `roles["warnings"]`, never a silent guess.
     """
     rig = bpy.data.objects.get(rig_name)
     if rig is None or rig.type != "ARMATURE":
@@ -437,8 +572,13 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0):
         if p:
             tails.append([x.name for x in p if x.name not in pos])
 
+    roles = _roles(rig, limbs, axial_names, pelvis_idx, legs, neck, head_idx, head_guessed,
+                   tail_axial, height, meshes,
+                   maw_names | fin_names | radial_names | tentacle_names)
+
     return {
         "rig": rig.name,
+        "roles": roles,
         "forward": forward, "up": up, "floor": floor,
         "fwd": fwd, "up_vec": upv, "lat": lat,
         "height": body_height, "size": size,
@@ -520,6 +660,13 @@ def summary(bm):
         lines.append("  RADIAL %d hub, rib and arm bones - posed by radial.RadialRig" % len(bm["radial_bones"]))
     if bm.get("tentacle_bones"):
         lines.append("  TENTACLES %d bones - posed by the tentacles module" % len(bm["tentacle_bones"]))
-    for w in bm["warnings"]:
+    r = bm.get("roles") or {}
+    if r:
+        lines.append("  ROLES root %s, pelvis %s, chest %s, head %s%s"
+                     % (r["root"], r["pelvis"], r["chest"], r["head"],
+                        "" if r["skinned"] else "  (no skin read)"))
+        if r["controls"]:
+            lines.append("  controls %s" % ", ".join(r["controls"]))
+    for w in bm["warnings"] + r.get("warnings", []):
         lines.append("  WARN " + w)
     return "\n".join(lines)

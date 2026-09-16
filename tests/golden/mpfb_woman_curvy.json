@@ -1,7 +1,7 @@
 {
  "fixture": "mpfb_woman_curvy",
  "plugins": {
-  "humanform": "0.6.1",
+  "humanform": "0.6.2",
   "rig-anything": "0.15.0"
  },
  "report": {
@@ -469,7 +469,7 @@
      "FixWoman_body",
      "FixWoman_rig"
     ],
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-84log5s1\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-111v3q42\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "morph_targets": false,
     "options_dropped_by_this_blender": [],
     "skipped": [],
@@ -493,7 +493,7 @@
      "FixWoman_Run": 1.041667,
      "FixWoman_Walk": 1.375
     },
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-84log5s1\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-111v3q42\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "generator": "Khronos glTF Blender I/O v5.2.40",
     "gltf_version": 2,
     "joints": 53,
@@ -544,7 +544,7 @@
      "51 bone names use '.' (e.g. spine.001, spine.002, spine.003). Bone names are not node names so this normally survives, but it is not the spelling Godot's humanoid retargeting profile expects - prefer _L/_R if you retarget."
     ]
    },
-   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-84log5s1\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
+   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-111v3q42\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
    "stage": "done",
    "verified": {
     "durations_match": true,
@@ -1118,6 +1118,75 @@
      "thorax_turn": 3.113
     }
    }
+  },
+  "roles": {
+   "breast_anchor": "spine.003",
+   "butt_anchor": "spine",
+   "chest": "spine.003",
+   "controls": [
+    "root"
+   ],
+   "head": "spine.005",
+   "limbs": {
+    "foot.L": {
+     "digits": [
+      "toe.L"
+     ],
+     "end": "foot.L",
+     "girdle": null,
+     "lower": "shin.L",
+     "role": "leg",
+     "upper": "thigh.L"
+    },
+    "foot.R": {
+     "digits": [
+      "toe.R"
+     ],
+     "end": "foot.R",
+     "girdle": null,
+     "lower": "shin.R",
+     "role": "leg",
+     "upper": "thigh.R"
+    },
+    "hand.L": {
+     "digits": [
+      "f_index.01.L",
+      "f_index.02.L",
+      "f_index.03.L"
+     ],
+     "end": "hand.L",
+     "girdle": "shoulder.L",
+     "lower": "forearm.L",
+     "role": "arm",
+     "upper": "upper_arm.L"
+    },
+    "hand.R": {
+     "digits": [
+      "f_index.01.R",
+      "f_index.02.R",
+      "f_index.03.R"
+     ],
+     "end": "hand.R",
+     "girdle": "shoulder.R",
+     "lower": "forearm.R",
+     "role": "arm",
+     "upper": "upper_arm.R"
+    }
+   },
+   "neck": [
+    "spine.004"
+   ],
+   "pelvis": "spine",
+   "profile": null,
+   "root": "root",
+   "skinned": true,
+   "tail": [],
+   "unskinned": [
+    "root"
+   ],
+   "warnings": [
+    "head spine.005 guessed from position (no bone called head)"
+   ]
   },
   "structure": {
    "body_faces": {

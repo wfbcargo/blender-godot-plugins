@@ -61,6 +61,7 @@ def build():
         window.scene = previous
 
     return {
+        "roles": H.roles(rig),
         "mesh": {"vertices": len(bpy.data.objects[BODY].data.vertices)},
         "rig": {"bones": len(bpy.data.objects[rig].data.bones)},
         "bind_coverage": made["bodies"][BODY].get("coverage"),

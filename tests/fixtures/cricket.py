@@ -55,6 +55,7 @@ def build():
                                                 "body_m", "gaits", "contacts", "hop", "verified")}
 
     return {
+        "roles": H.roles(rig),
         "mesh": {"vertices": len(ob.data.vertices),
                  "dimensions": [round(x, 5) for x in ob.dimensions]},
         "detection": {"kind": detection["kind"], "kind_guessed": detection["kind_guessed"],

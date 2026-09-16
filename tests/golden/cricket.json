@@ -1,7 +1,7 @@
 {
  "fixture": "cricket",
  "plugins": {
-  "rig-anything": "0.14.2"
+  "rig-anything": "0.15.0"
  },
  "report": {
   "detection": {
@@ -893,6 +893,75 @@
   },
   "rig": {
    "bones": 27
+  },
+  "roles": {
+   "breast_anchor": "spine.007",
+   "butt_anchor": "spine.003",
+   "chest": "spine.007",
+   "controls": [],
+   "head": "head",
+   "limbs": {
+    "front_foot.L": {
+     "digits": [],
+     "end": "fore_tarsus.L",
+     "girdle": null,
+     "lower": "fore_tibia.L",
+     "role": "leg",
+     "upper": "fore_femur.L"
+    },
+    "front_foot.R": {
+     "digits": [],
+     "end": "fore_tarsus.R",
+     "girdle": null,
+     "lower": "fore_tibia.R",
+     "role": "leg",
+     "upper": "fore_femur.R"
+    },
+    "hind_foot.L": {
+     "digits": [],
+     "end": "hind_tarsus.L",
+     "girdle": null,
+     "lower": "hind_tibia.L",
+     "role": "leg",
+     "upper": "hind_femur.L"
+    },
+    "hind_foot.R": {
+     "digits": [],
+     "end": "hind_tarsus.R",
+     "girdle": null,
+     "lower": "hind_tibia.R",
+     "role": "leg",
+     "upper": "hind_femur.R"
+    },
+    "mid_foot.L": {
+     "digits": [],
+     "end": "mid_tarsus.L",
+     "girdle": null,
+     "lower": "mid_tibia.L",
+     "role": "leg",
+     "upper": "mid_femur.L"
+    },
+    "mid_foot.R": {
+     "digits": [],
+     "end": "mid_tarsus.R",
+     "girdle": null,
+     "lower": "mid_tibia.R",
+     "role": "leg",
+     "upper": "mid_femur.R"
+    }
+   },
+   "neck": [],
+   "pelvis": "spine.003",
+   "profile": null,
+   "root": null,
+   "skinned": true,
+   "tail": [
+    "spine.002",
+    "spine.001",
+    "spine"
+   ],
+   "unskinned": [],
+   "warnings": []
   },
   "skin": {
    "bones_without_skin": [],

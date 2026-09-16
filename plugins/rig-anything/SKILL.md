@@ -407,6 +407,26 @@ jump is a launch, an engine-owned ballistic flight, and a landing, with the body
 offsets the engine applies between them. `hopper_samples.build_all()` makes the test
 cricket and rabbit, and `hoppers.score` measures a detection against their joints.
 
+### Bone roles
+
+Anything that needs to know which bone is the pelvis, the chest or a foot reads it from the body
+map rather than from names, so a fix made for one rig reaches every consumer:
+
+```python
+r = bodymap.build(rig)["roles"]      # skin read from the meshes bound to the rig, or meshes=[...]
+r["root"]        # a motion bone that moves no skin (MPFB's root on the floor), else None
+r["pelvis"], r["chest"], r["neck"], r["head"], r["tail"]
+r["butt_anchor"], r["breast_anchor"]              # pelvis and chest
+r["limbs"]["foot.L"]    # {"role", "girdle", "upper", "lower", "end", "digits"}; "front_foot.L" on four legs
+r["controls"]    # no skin and on no limb chain: the root, Rigify's heel helpers, IK and pole bones
+r["unskinned"], r["skinned"], r["warnings"]       # skinned: whether any skin was read at all
+```
+
+Roles come from structure (where the legs attach, where the arms attach, which end of the axial
+chain is the head), with names only as tie-breakers: a Rigify body renamed to `mixamorig:` gets
+the same roles (the `mixamo_names` fixture). `chest` on a quadruped is where the front legs attach.
+With no mesh bound, `root` falls back to "lies wholly below the ankles" and says so in `warnings`.
+
 ## Rules
 
 **Never trust a measurement you have not sanity-checked.** This harness exists
