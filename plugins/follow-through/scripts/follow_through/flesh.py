@@ -169,13 +169,36 @@ def _edges(obj):
     return e.reshape(-1, 2)
 
 
-def body_frame(rig, chs, P):
+def bone_roles(rig, obj=None):
+    """rig-anything's bone roles for `rig` (`bodymap.build(...)["roles"]`), or None.
+
+    Roles name bones by what they do - `pelvis` (where the legs attach), `chest` (where the arms
+    attach), `head`, and each limb's girdle, upper, lower and end - so a flesh type's `anchor` and the
+    body's hip and shoulder heights are read, not searched for. Used only when rig-anything's
+    `rig_analysis` is importable and knows roles; everything here has a fallback without it."""
+    try:
+        from rig_analysis import bodymap
+    except ImportError:
+        return None
+    bm = bodymap.build(rig.name, meshes=[obj] if obj is not None else None)
+    roles = bm.get("roles") if isinstance(bm, dict) else None
+    return roles or None
+
+
+def _role_bone(rig, roles, role):
+    """The bone a role names on `rig`, or None: an unknown role, a list role, or no roles at all."""
+    name = (roles or {}).get(role)
+    return name if isinstance(name, str) and rig is not None and name in rig.data.bones else None
+
+
+def body_frame(rig, chs, P, roles=None):
     """Up, forward and lateral for the body, and landmark heights.
 
     Up is world Z (Blender). Forward is the side the feet point to when there are
     feet (toe bones ahead of the ankle), else -Y, rig-anything's convention.
     Lateral is up x forward. Heights are hip (where the legs join), shoulder
-    (where the arms join) and the body's top and bottom."""
+    (where the arms join) and the body's top and bottom: from `roles` (the legs' upper
+    bones, the arms' girdles and upper bones) when given, else from bone names."""
     up = np.array([0.0, 0.0, 1.0])
     fwd = None
     names = {b.name.lower(): b for b in rig.data.bones}
@@ -197,9 +220,19 @@ def body_frame(rig, chs, P):
         zs = [(mw @ b.head_local).z for n, b in names.items() if any(w in n for w in words)]
         return float(max(zs)) if zs else None
 
+    def limb_height(role, parts):
+        zs = [(mw @ rig.data.bones[n].head_local).z
+              for limb in ((roles or {}).get("limbs") or {}).values() if limb.get("role") == role
+              for n in (limb.get(k) for k in parts) if n and n in rig.data.bones]
+        return float(max(zs)) if zs else None
+
     lo, hi = float(P[:, 2].min()), float(P[:, 2].max())
-    hip = join_height(("thigh", "upper_leg", "upperleg", "hip"))
-    shoulder = join_height(("upper_arm", "upperarm", "shoulder", "clavicle"))
+    hip = limb_height("leg", ("upper",))
+    if hip is None:
+        hip = join_height(("thigh", "upper_leg", "upperleg", "hip"))
+    shoulder = limb_height("arm", ("girdle", "upper"))
+    if shoulder is None:
+        shoulder = join_height(("upper_arm", "upperarm", "shoulder", "clavicle"))
     return {"up": up, "forward": fwd, "lateral": lat, "bottom": lo, "top": hi,
             "hip": hip if hip is not None else lo + 0.5 * (hi - lo),
             "shoulder": shoulder if shoulder is not None else lo + 0.8 * (hi - lo),
@@ -216,7 +249,8 @@ def tissue(obj_name, rig_name=None, side=SIDE_BONES):
     P = _world_vertices(obj)
     n = len(P)
     chs = chains(rig, side)
-    frame = body_frame(rig, chs, P)
+    roles = bone_roles(rig, obj)
+    frame = body_frame(rig, chs, P, roles)
     H = max(frame["top"] - frame["bottom"], 1e-6)
 
     # nearest point on every chain, for every vertex
@@ -325,7 +359,8 @@ def tissue(obj_name, rig_name=None, side=SIDE_BONES):
     relative = np.where(lean > 0, excess / np.maximum(lean, 1e-9), 0.0)
     return {"object": obj.name, "rig": rig.name, "P": P, "height": H, "chains": chs,
             "chain_of": chain_of, "arc": arc, "searched": searched, "lean": lean,
-            "excess": excess, "relative": relative, "frame": frame, "rings": rings}
+            "excess": excess, "relative": relative, "frame": frame, "rings": rings,
+            "roles": roles}
 
 
 def _chain_from_skin(obj, rig, chs):
@@ -666,7 +701,7 @@ def _region(obj, t, c, rname, tname, entry, verts, area, normals, body_volume, n
         "peak_m": round(peak, 4), "peak_relative": round(peak_rel, 3),
         "mass_kg": round(volume * density, 3),
         "head": head, "tail": tail, "normal": n_mean,
-        "anchor_bone": (_pelvis_bone(t) if entry.get("anchor") == "pelvis" else None) or _anchor_bone(t, head),
+        "anchor_bone": _anchor_from_role(t, entry.get("anchor")) or _anchor_bone(t, head),
         "place": {**{k: round(v, 3) for k, v in coords.items()}, "chain": role},
         "paired": rname.endswith((".L", ".R")),
         "features": _region_features(coords, role, peak_rel, volume / max(body_volume, 1e-9)),
@@ -684,10 +719,24 @@ def _region_features(coords, role, peak_rel, volume_fraction):
             "chain_leg": float(role == "leg")}
 
 
+def _anchor_from_role(t, role):
+    """The bone a type's registry `anchor` names, or None to fall back on the nearest core bone.
+
+    `anchor` is a rig-anything bone role (`pelvis`, `chest`, `head`, ...), read from `t["roles"]`.
+    Without roles (rig-anything not importable) `pelvis` is still found by `_pelvis_bone`."""
+    if not role:
+        return None
+    rig = bpy.data.objects.get(t.get("rig") or "")
+    bone = _role_bone(rig, t.get("roles"), role)
+    if bone is None and role == "pelvis":
+        bone = _pelvis_bone(t)
+    return bone
+
+
 def _pelvis_bone(t):
     """The bone the legs hang from: the parent most leg chains start under, or None.
 
-    For a flesh type whose registry entry says `"anchor": "pelvis"` (buttocks). The nearest bone
+    The fallback for `"anchor": "pelvis"` (buttocks) when rig-anything's roles are not to hand. The nearest bone
     put an MPFB woman's buttocks on her thighs - her pelvis bone starts at the hip joints and the
     seat hangs below them - so every stride swung them with the leg, and a thigh lifted level in a
     crouch turned gravity on them: on their swing limit half the time."""
@@ -759,6 +808,7 @@ def zone_around(region, pad=0.08):
 # ------------------------------------------------------------------ rigging
 
 JIGGLE_PREFIX = "ft_jiggle_"
+ROLE_PROP = "ft_role"     # on every bone follow-through adds; rig-anything's bodymap skips tagged bones
 
 
 def add_jiggle_bones(obj_name, regions, rig_name=None, weight_scale=1.0):
@@ -792,6 +842,9 @@ def add_jiggle_bones(obj_name, regions, rig_name=None, weight_scale=1.0):
                 bone.parent = parent
             bone.use_deform = True
             bone.use_connect = False
+            # tagged, so rig-anything's body map leaves it out: an unsided bone on the spine
+            # otherwise reads as the end of the axial chain and costs the rig its pelvis role
+            bone[ROLE_PROP] = "jiggle"
             made.append(bone.name)
         bpy.ops.object.mode_set(mode="OBJECT")
     finally:
