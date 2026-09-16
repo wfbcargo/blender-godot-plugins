@@ -998,12 +998,12 @@ def _check_common(body, bm, keyed, ev, infos_by_frame, planted, posed_limbs,
     if wrong:
         failures.append("mid-joint bends the wrong way on " + ", ".join(wrong))
 
-    # 6. nothing through the floor - of the bones that carry skin. A bone with
-    # no weight is a control (MPFB's root dips under the floor as the hips
-    # drop) and step 7 already holds the skin itself; with no mesh bound, every
+    # 6. nothing through the floor - of every bone but the controls
+    # (`roles["controls"]`, see `motion.Body.body_bones`). A control is not body
+    # (MPFB's root dips under the floor as the hips drop) and step 7 already
+    # holds the skin itself; with no mesh bound there are no controls and every
     # bone stands in for the body.
-    skinned = body.skinned_bones()
-    floor_bones = [b for b in body.bones if skinned is None or b.name in skinned] or body.bones
+    floor_bones = body.body_bones()
     lowest, lowest_at = float("inf"), None
     for f, _ in keyed:
         for b in floor_bones:
