@@ -149,9 +149,12 @@ def run_fixture(name, blender, out_root, env):
 # --godot: the engine side of each fixture. Every `.moves.json` a fixture exports goes through
 # rig-anything's MovesController verifier. A fixture named here also has its garment worn by the
 # body it was cut from, walked, and counted for holes and poke-through by wardrobe's verifier.
+# `garment` may list several files, comma-separated: they are worn together.
 GODOT_WARDROBE = {
     "dressed_figure": {"body": "figure.glb", "garment": "shirt.glb",
                        "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
+    "dressed_presets": {"body": "figure.glb", "garment": "sports_top.glb,shorts_mid_thigh.glb",
+                        "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
 }
 # The Godot addons the verifiers load from the project, and where this repo keeps each one.
 GODOT_ADDONS = {"rig_anything": "rig-anything", "wardrobe": "wardrobe", "follow_through": "follow-through"}
@@ -256,12 +259,14 @@ def run_godot(godot, project, out_root, names):
 
         for name in wardrobe:
             spec = GODOT_WARDROBE[name]
-            found = {k: sorted((stage / name).rglob(spec[k])) for k in ("body", "garment")}
-            if not found["body"] or not found["garment"]:
+            wanted = [spec["body"]] + spec["garment"].split(",")
+            found = {f: sorted((stage / name).rglob(f)) for f in wanted}
+            if not all(found.values()):
                 results.append(("verify_wardrobe %s" % name, False,
-                                "the fixture did not export %s and %s" % (spec["body"], spec["garment"])))
+                                "the fixture did not export %s" % " and ".join(wanted)))
                 continue
-            res = {k: "res://" + v[0].relative_to(project).as_posix() for k, v in found.items()}
+            at = {f: "res://" + v[0].relative_to(project).as_posix() for f, v in found.items()}
+            res = {"body": at[spec["body"]], "garment": ",".join(at[f] for f in wanted[1:])}
             code, out = _godot(godot, project, "--fixed-fps", "60", "-s", "res://addons/wardrobe/verify_wardrobe.gd",
                                "--", "body=" + res["body"], "garment=" + res["garment"], *spec["args"])
             line = [l for l in out.splitlines() if l.startswith("WD_RESULT ")]

@@ -102,6 +102,14 @@ offset, `squash` stretches it along its length with the cross-section at 1/sqrt 
 mass keeps its volume, `max_offset_m` caps the swing, `response` scales how hard the body's
 own motion throws it (1 physical).
 
+**Swing limits come from the type.** Nothing but `max_offset_m` keeps flesh out of the body, so
+a type can own it: `max_offset_m = limit_share x peak_m`. `breast` has 0.66 (swung in further than
+it stands out, the skin passes into the chest) and `butt` 1.9 (set on Godot's self-test on Belle,
+because the measure reads the seat low - improvements 05 5.9); each type's `limit_note` says why.
+A type without one uses its material's `max_offset x 2 x peak_m`. Override per call with
+`overrides={"butt": {"limit_share": 1.6}}`, afterwards with `set_params(..., max_offset_m=...)`,
+or give a taught type one with `registry.define(..., limit_share=, limit_note=)`.
+
 **5. Export with the animation - through rig-anything**, which carries extras since this
 release, then read it back:
 

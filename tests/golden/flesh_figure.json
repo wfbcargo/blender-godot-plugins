@@ -1,7 +1,7 @@
 {
  "fixture": "flesh_figure",
  "plugins": {
-  "follow-through": "0.2.4",
+  "follow-through": "0.2.5",
   "rig-anything": "0.17.0"
  },
  "report": {
@@ -82,7 +82,7 @@
          ],
          "mass_kg": 4.122,
          "material": "soft_fat",
-         "max_offset_m": 0.1817,
+         "max_offset_m": 0.0999,
          "name": "breast.L",
          "parent": "spine.003",
          "peak_m": 0.1514,
@@ -111,7 +111,7 @@
          ],
          "mass_kg": 3.841,
          "material": "soft_fat",
-         "max_offset_m": 0.1765,
+         "max_offset_m": 0.0971,
          "name": "breast.R",
          "parent": "spine.003",
          "peak_m": 0.1471,
@@ -140,7 +140,7 @@
          ],
          "mass_kg": 1.059,
          "material": "soft_fat",
-         "max_offset_m": 0.1484,
+         "max_offset_m": 0.235,
          "name": "butt.L",
          "parent": "spine",
          "peak_m": 0.1237,
@@ -169,7 +169,7 @@
          ],
          "mass_kg": 1.046,
          "material": "soft_fat",
-         "max_offset_m": 0.1486,
+         "max_offset_m": 0.2352,
          "name": "butt.R",
          "parent": "spine",
          "peak_m": 0.1238,
@@ -381,7 +381,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-me48f4el\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-slkupgys\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -768,7 +768,7 @@
          ],
          "mass_kg": 4.112,
          "material": "soft_fat",
-         "max_offset_m": 0.105,
+         "max_offset_m": 0.0577,
          "name": "breast.L",
          "parent": "spine.003",
          "peak_m": 0.0875,
@@ -797,7 +797,7 @@
          ],
          "mass_kg": 3.925,
          "material": "soft_fat",
-         "max_offset_m": 0.1067,
+         "max_offset_m": 0.0587,
          "name": "breast.R",
          "parent": "spine.003",
          "peak_m": 0.0889,
@@ -826,7 +826,7 @@
          ],
          "mass_kg": 0.815,
          "material": "soft_fat",
-         "max_offset_m": 0.1098,
+         "max_offset_m": 0.1738,
          "name": "butt.L",
          "parent": "spine",
          "peak_m": 0.0915,
@@ -855,7 +855,7 @@
          ],
          "mass_kg": 0.776,
          "material": "soft_fat",
-         "max_offset_m": 0.1094,
+         "max_offset_m": 0.1733,
          "name": "butt.R",
          "parent": "spine",
          "peak_m": 0.0912,
@@ -1096,7 +1096,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-me48f4el\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-slkupgys\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",
