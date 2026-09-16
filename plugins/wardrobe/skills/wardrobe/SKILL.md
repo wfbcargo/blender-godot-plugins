@@ -189,6 +189,14 @@ right thigh (0.08%); level 0, holes 1, poke 5 on the left buttock.
 
 ## Rules
 
+**Flesh before garments.** A garment is cut from the skin and copies its weights, so a body
+fleshed afterwards leaves the garment with no jiggle bones in it. `tailor.shirt`/`tailor.pants`
+warn when the body carries a follow-through jiggle spec whose `ft_jiggle_*` vertex groups are
+missing: printed as `wardrobe.tailor WARNING`, and listed under `warnings` in the garment's
+`wardrobe_cut_report` (the key is there only when there is a warning). A body with no
+follow-through spec is simply not fleshed and gets none. The cut garment's `wardrobe_cut`
+property is also what rig-anything's arm clearance reads to leave garments out.
+
 **Hide skin only where the cloth moves like it.** Hiding all covered skin, the sample shirt
 left 38 thigh vertices uncovered in the worst frame of the walk (0.72%, a fail): the thighs
 swing out from under a hem hung from the torso. `cover` hides a vertex only when the cloth

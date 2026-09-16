@@ -639,6 +639,33 @@ def _bound_meshes(rig):
         m.type == "ARMATURE" and m.object == rig for m in o.modifiers)]
 
 
+# follow-through routes that make a mesh its own simulated body (cloth, a jello) rather than skin
+_SIMULATED_ROUTES = ("soft_body", "shape_matching")
+
+
+def not_body_reason(ob):
+    """Why a mesh bound to a rig is not the body's skin, or None when it is.
+
+    A garment - wardrobe's `wardrobe_cut` (set by `tailor.shirt`/`tailor.pants`) or its
+    `wardrobe` spec - stands off the skin, so arms measured against it hang out by the cloth's
+    thickness (8 mm of sports top at the armpits sent Belle's arms over her head). A
+    follow-through cloth or volume (`follow_through` routed to a soft body or shape matching) is
+    not skin either. A fleshed body's `follow_through` spec (route jiggle_bones) is skin."""
+    if ob.get("wardrobe_cut") is not None or ob.get("wardrobe") is not None:
+        return "wardrobe garment"
+    ft = ob.get("follow_through")
+    if ft is not None and ft.get("route") in _SIMULATED_ROUTES:
+        return "follow-through " + str(ft.get("route"))
+    return None
+
+
+def clearance_meshes(rig):
+    """The meshes bound to `rig` that a limb clearance measures against: its body's skin, without
+    garments or simulated cloth and volumes (`not_body_reason`). Only clearance uses this; every
+    other check still reads every bound mesh."""
+    return [o for o in _bound_meshes(rig) if not_body_reason(o) is None]
+
+
 def _play(rig, action, frames, meshes=(), upw=None, mesh_frames=None):
     """{frame: pose matrices} and {frame: lowest evaluated skin height} over
     `frames`, with the action bound; the rig is left as it was found."""
@@ -845,6 +872,7 @@ def limb_clearance(rig_name, action_name, mesh_name=None, every=2, roles=("arm",
     Each limb vertex is tested against the nearest body triangle: negative
     distance (by that triangle's normal) is through the skin. A graze reads as
     a few millimetres; a hand in the hip reads centimetres negative.
+    Garments and simulated cloth bound to the rig are left out (`clearance_meshes`).
     """
     from mathutils.bvhtree import BVHTree
     from . import bodymap
@@ -856,7 +884,7 @@ def limb_clearance(rig_name, action_name, mesh_name=None, every=2, roles=("arm",
     if "error" in bm:
         return {"error": bm["error"]}
     meshes = ([bpy.data.objects[mesh_name]] if mesh_name and bpy.data.objects.get(mesh_name)
-              else _bound_meshes(rig))
+              else clearance_meshes(rig))
     if not meshes:
         return {"error": "no skinned mesh on " + rig_name}
     limbs = [l for l in bm["limbs"] if l["role"] in roles]
