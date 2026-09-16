@@ -4,13 +4,19 @@ A handoff for a fresh conversation. Start with:
 
 > Read `docs/improvements/NEXT.md`, then the work item it points at, and plan it.
 
-State as of 2026-09-16. Everything below is on `main` in this repo and on `master` in `grungist-creek`,
-both pushed. Installed plugin copies in
-`~/.claude/skills` match the repo.
+State as of 2026-09-16. Everything below is on `main` here and on `master` in `grungist-creek`, both
+pushed, with no open branches or worktrees. Installed copies in `~/.claude/skills` match the repo:
+- rig-anything 0.18.0
+- follow-through 0.2.6
+- wardrobe 0.2.0
+- humanform 0.6.3
+- character-pipeline 0.1.0
+- animate-anything 0.9.0
+- lookdev 0.1.0
+- godot-lsp 0.1.0
 
-This repo was split out of `PaulClaudePlugins` on 2026-09-16 with its history kept, so every commit
-hash here differs from the same commit there. `claude-architect` and `claude-boundaries` stayed
-behind.
+Read the repo's `CLAUDE.md` first: worktrees, scratch folders, the regression harness, install and version rules,
+and the gotchas are there.
 
 ---
 
@@ -18,261 +24,165 @@ behind.
 
 | Item | Status |
 |---|---|
-| [03 Regression harness and install](03-regression-harness-and-install.md) | **Done** - eight fixtures, `--twice`, `--godot`, stored move reports, save guard. |
-| [05 Feature gaps](05-feature-gaps.md) 5.1 jump sinks | **Done** - rig-anything 0.14.2. Belle's Jump ships unforced. |
-| 05 · 5.6 garment nondeterminism | **Done** - wardrobe 0.1.1, guarded by `regress.py --twice` with shuffled faces (1a). |
-| 05 · 5.7 faces shuffled between builds | **Done** - Blender's `create_uvsphere`, not the join. humanform 0.6.2, follow-through 0.2.3. |
-| [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | **Done** - character-pipeline 0.1.0; Belle and the 16 people build from `grungist-creek/characters/*.toml`. |
-| [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | **Done, lean** - roles, profiles, consumers; Belle keeps her hand marks. Butt placement open as 05 · 5.9. |
-| [04 Checks that match the eye](04-checks-that-match-the-eye.md) | Not started. |
-| 05 · 5.2 hair, 5.3 compression, 5.4 skirts, 5.5 muscle | Not started. |
+| [03 Regression harness and install](03-regression-harness-and-install.md) | **Done.** |
+| [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | **Done, lean.** One "done when" unmet: Belle still needs hand-marked flesh zones (blocked on 05 · 5.9). |
+| [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | **Done.** Belle and the 16 people build from `grungist-creek/characters/*.toml`. Two small conventions open (below). |
+| [04 Checks that match the eye](04-checks-that-match-the-eye.md) | **Not started.** Next. |
+| [05 Feature gaps](05-feature-gaps.md) | 5.1, 5.6, 5.7 done. Open: 5.2 hair, 5.3 compression garments, 5.4 skirts, 5.5 muscle, 5.8 fixture findings, 5.9 buttocks read low. |
+| Old project notes | Not triaged (item 7 below). |
 
-Already built and worth knowing about before starting anything:
+What exists now, and is worth knowing before starting anything:
 
-- `python tools/regress.py --jobs 2` - eight fixtures rebuilt headless and compared to
-  `tests/golden/`; `--twice` before merging, `--godot <project>` when an export or addon changed.
-  See [`tests/README.md`](../../tests/README.md) and the repo's `CLAUDE.md`.
-- `python tools/install.py <plugin>` or `--all` - the only way into `~/.claude/skills`. Refuses to
-  overwrite a copy edited in place.
-
----
-
-## Remaining work, in the order I would take it
-
-### 1. Finish 03 - DONE (2026-09-16)
-
-All of 03 is done. What was built, and what it found:
-
-- **`regress.py --twice`** (1a): each fixture builds twice, and a build that does not reproduce fails
-  as `NONDETERMINISTIC` before any golden is compared or written. `REGRESS_SHUFFLE_FACES=1` stores
-  `dressed_figure`'s body faces in a random order, which is 5.6's cause; that reproduces the drift on
-  wardrobe 0.1.0 and passes on 0.1.1.
-- **Eight fixtures** (1b, 1c): `cricket`, `starfish`, `rigify_human` and `quadruped` join the four.
-  `quadruped_samples.dog` is new in rig-anything and scored against known joints (mean error
-  27 mm). rig-anything enables Rigify itself, and needs `default_set=True`: with `False`, Rigify
-  registers half-way. 03's "done when": against the checkout before the ground-root crouch fix,
-  `mpfb_woman_curvy` moves only in Crouch, CrouchWalk and Jump. A Rigify rig moves only in Jump,
-  and that change is the separate jump-floor fix.
-- **Stored move reports** (1d, 03 step 6): every set function stores each role's report on its
-  action, and a failed role on the rig. Every manifest and exporter loads them when given no
-  reports. The `rabbit` fixture proves it: a second Blender exports from the saved .blend and
-  writes the same manifest. rig-anything 0.15.0.
-- **`regress.py --godot <project>`** (1e): exports are played in grungist-creek. Every manifest
-  with gaits goes through `verify_moves.gd`, and `dressed_figure`'s shirt is worn and walked by
-  `verify_wardrobe.gd`. The addon drift check found `verify_volume.gd`'s `clip=` living only in the
-  project; it is now in follow-through 0.2.2. Bipeds and quadrupeds have no `.moves.json` writer,
-  filed under 01.
-- **`CLAUDE.md`** (1f, 03 step 8): worktrees, scratch folders, the fixtures before done, install and
-  version rules, and the gotchas.
-- **Blend hygiene** (1g, 03 step 7, in grungist-creek): `belle_demo.blend` is split into
-  `belle_stylized.blend` and `creature_tests.blend`, with a backup and every object and action
-  accounted for. `assets/save_guard.py` refuses a save that would delete a scene the session never
-  loaded, and every build script that overwrites a file uses it. `belle_demo.blend` and its backup
-  are still on disk, for Paul to retire.
-- **Found along the way:** filed as 05 · 5.8. The cricket's landing fails its slide check, so it never
-  exports. The slides put feet through the floor on a Rigify biped. A symmetric starfish gets 3- and
-  4-bone arms. `radial.skin` reports coverage without measuring it.
-
-A full `regress.py --twice --jobs 2 --godot` run takes about 10 minutes on this machine (the rabbit and the cricket are 6 of them).
-
-### 2. Small fixes found along the way - DONE (2026-09-16)
-
-- **5.7.** The planned `join_into` was not built, because the join was not the cause. Blender 5.2's
-  `bmesh.ops.create_uvsphere` shuffles its faces in every process, and humanform's eyes were two of
-  them. Every uv sphere that reaches an output now has its faces sorted. `mpfb_woman_curvy` reports
-  face-order hashes, so `--twice` catches a regression. See 05 · 5.7.
-
-### 3. The large items
-
-- **02 Bone roles and rig profiles.** Planned 2026-09-16 from an inventory of every bone pick in the
-  plugins and the project scripts. What the inventory added to the design in 02:
-  - `controls` needs skin, so roles are read against the meshes bound to the rig (Armature modifier), and
-    they can change after `bake_for_game` or after jiggle and hem bones are added.
-  - The map today files MPFB's `root` (2 mm above the floor, no skin) under `rear`, and guesses the head.
-  - `chest` is `front_attach` in `bodymap.build`, computed but never returned.
-  - On the Rigify Figure the hands and heels carry no skin, so "unskinned" alone is not `controls`.
-  - follow-through keeps a second body decomposition (`flesh.chains`, hip and shoulder heights from
-    name substrings); only breast and butt map to one anchor bone, the other flesh types stay nearest-segment.
-  - Generators write names (`skeleton.BONES`, `scaffold.RENAME`, `fit` templates, `build`, `hoppers`); they
-    should write the profile, and `hoppers` already stores `pelvis`.
-
-  Six branches, each ending as 03's did (`--twice`, reviewed goldens, merge, install, push):
-
-  **2a-2d DONE** (rig-anything 0.16.0-0.17.0, follow-through 0.2.4, wardrobe 0.1.2, humanform 0.6.3). Found on the way:
-  jiggle bones read as the rear of the spine and took the pelvis (fixed: plugin-added bones are left out and listed
-  as `added_bones`; `flesh_figure` now reports roles after flesh), and `regress.py` had been skipping `profile`,
-  `direction_model` and `path_m` as volatile (substring patterns; now whole words, and a key ending in a unit is a
-  measurement). Deferred to 2e: `breast` -> `chest` anchor, which moves the Bloater's breast parents
-  `spine.002` -> `spine.003`. 2e revised by measurement: on current main an unmarked Belle's breasts already sit
-  within ~3 cm of the hand marks on `spine.003`; her unmarked butt sits 7 cm low facing down, and thighs are found
-  that she does not use.
-
-  **2a `bone-roles`** (rig-anything; the contract, done first). `bodymap.build(..., meshes=None)` returns
-  `roles`: `root` (an unsided axial end that is unskinned, or with no skin data lies wholly below the
-  ankles), `pelvis`, `chest` (the arms' attach bone; the front legs' on a quadruped), `neck`, `head`, `tail`,
-  `breast_anchor` = chest, `butt_anchor` = pelvis, `limbs` by role and rank (`hand.L`, `foot.L`, `front_foot.L`),
-  `unskinned`, `controls` (unskinned and not on a limb chain), `skinned` (whether skin was read), `warnings`.
-  Additive: nothing that reads the map changes. Fixtures report `roles` (new golden keys only); a new
-  `mixamo_names` fixture renames the Rigify Figure to `mixamorig:` names and must get the same roles.
-
-  **2b `rig-profiles`** (rig-anything, humanform). `rig_analysis/profiles/{mpfb_game_engine,
-  rigify_basic_human,rigify_basic_quadruped,rig_anything_generic}.json`: detect, claimed roles, rotation
-  mode, rest facts, a `bake` block. `bodymap.load_profile(rig)` by `rig["body_profile"]` or `detect`;
-  claimed roles are checked against the derived ones and a disagreement is a warning. humanform's
-  scaffold and rig-anything's fitters and builders tag the rig. `bake_for_game` and `preflight` read the
-  `bake` block. Goldens unchanged apart from the `profile` in `roles`.
-
-  **2c `roles-in-rig-anything`**. `actions._check_common` floor bones, `verify` clip floor set and
-  `clearance_bones`, and `keyposes` crouch trunk read `root`/`controls` in place of their local rules.
-  Behaviour-preserving: every golden identical.
-
-  **2d `roles-downstream`** (follow-through, wardrobe, humanform). Registry `anchor` names a role
-  (`butt` -> `pelvis`, `breast` -> `chest`); `flesh._pelvis_bone` reads it. `wardrobe.rigmap.humanoid` maps
-  from roles when rig-anything is importable, name tables otherwise. `humanform.eyes` and
-  `build_belle`/`build_person` head picks read `head`. Goldens unchanged except corrections, each named.
-
-  **2e DONE, lean** (follow-through 0.2.5). Measured before building:
-  - Belle's unmarked breasts already sit within ~3 cm of her hand marks, on `spine.003`, so the chin bug is gone.
-  - `breast` now anchors to the `chest` role, which moves the Bloater's breast bones `spine.002` -> `spine.003`
-    (reviewed golden change).
-  - The buttocks read low on every body measured, and no zone height fixes it (filed as 05 · 5.9).
-  - Belle keeps her hand marks and her assets, as agreed.
-
-  **2f DONE.** rig-anything SKILL.md has "Bone roles" and "Profiles"; `joint-conventions.md` takes joints from
-  roles; follow-through's SKILL.md files describe `anchor` as a role.
-
-  2a first; 2b, 2c and 2d touch different files and can run in parallel; 2e after 2d.
-
-- **01 Character spec and staged pipeline.** Planned 2026-09-16. One spec per character, a stage runner with
-  preconditions and saved results, tuned numbers moved into plugin presets. `build_human.py` and
-  `build_belle.py` become thin callers. Scope: Belle and the 16 people in `build_human.CHARACTERS`. Nora
-  (`assets/wardrobe/build_person.py`, a sculpted body on mocap) stays a script.
-
-  **Format: TOML, not YAML.** Blender 5.2's Python 3.13 ships `tomllib` and has no YAML parser. TOML keeps
-  comments, which a tuned number needs.
-
-  Six branches, each ending as before (`--twice`, reviewed goldens, merge, install, push):
-
-  **1a `export-character`** (rig-anything). `export.export_character(mesh, rig, reports=None, glb, name,
-  res_path, extra=None)` writes the `.moves.json` MovesController reads: `scene`, `clips`, `loops`,
-  `implied_speed_mps`, `height_m`, `gaits`, `contacts`, `collider`, `verified`, `clip_checks`, `forced_clips`.
-  These are the fields `build_human.export` assembles by hand today. It loads stored reports when given none (1d
-  of 03). `mpfb_woman_curvy`, `rigify_human`, `quadruped` and `flesh_figure` export through it, so
-  `regress.py --godot` plays them in `verify_moves.gd`.
-
-  **1b `presets`** (follow-through, wardrobe). follow-through types get `limit_share` (breast 0.66, butt 1.9),
-  used by `flesh.prepare` when present. wardrobe gets garment presets (`sports_top`, `shorts_mid_thigh` from
-  Belle's `GARMENTS`/`COVER`) holding the tailor, ease and cover arguments, and `wardrobe.dress(body,
-  preset)` runs them.
-
-  **1c `ordering-guards`** (rig-anything, wardrobe). `upper`/`verify.limb_clearance` measure against the body
-  mesh only, ignoring meshes a garment tag marks. `wardrobe.tailor` warns when the body has a follow-through
-  spec but no jiggle groups yet.
-
-  **1d `character-pipeline`** (new plugin). The spec schema as a validated dataclass read from TOML; every
-  field maps to a plugin argument, and gaps are listed. `pipeline.build(spec, from_stage, to_stage, force)`
-  runs stages `body`, `bake`, `hair`, `flesh`, `moves`, `garments`, `export`:
-  - Preconditions are checked from the objects, so running out of order refuses and names the order.
-  - Each stage stores an input hash and its report on the rig (`rig["character_pipeline"]`), so a fresh
-    session resumes and unchanged stages are skipped.
-  - A `pipeline_figure` fixture proves three things: a spec-built body matches the hand-built one, garments
-    before moves refuses, and `from_stage="garments"` in a second Blender reproduces the full build.
-
-  **1e `convert-project`** (grungist-creek). `characters/<name>.toml` for Belle and the 16. The build scripts
-  become thin callers. Every character is rebuilt in scratch and its manifests are compared with the
-  committed ones using the harness tolerance. The project's assets are replaced only if they match, and a
-  character that doesn't match is reported, not committed.
-
-  **1f `docs`**. The new plugin's SKILL.md with Belle as the worked example; humanform, rig-anything,
-  follow-through and wardrobe point at it for "build a whole character".
-
-  1a, 1b and 1c run in parallel; 1d starts with the schema and stage table, and wires in 1a-1c as they land;
-  1e after 1d.
-
-  **01 DONE** (rig-anything 0.18.0, follow-through 0.2.6, wardrobe 0.2.0, character-pipeline 0.1.0).
-  - All 17 characters were rebuilt from specs and compared with what was committed: glbs structurally identical,
-    manifests with the same clips, checks, gaits, colliders, heights and durations. New: the crowd's `contacts`, and
-    `brief`/`note`/`style` as documentation. Both demo self-tests pass; Belle's garments verify as before.
-  - The `pipeline_woman` fixture covers a spec build, a rerun, an out-of-order refusal and a second-Blender resume.
-  - Found on the way: stage records on the rig leaked 7 kB into every glb (now a Text datablock), and a rerun could
-    never skip flesh once garments were on (preconditions now guard running only).
-  - Open: `export.height` keeps two conventions (mesh top for the crowd, the Idle clip for Belle) until one is chosen;
-    `upper_body` means measured reports in the crowd's manifests and Belle's input table in her old one.
-    `human_*.blend` / `belle_realistic.blend` were not rebuilt (scratch only); they update on the next real build.
-
-- **04 Checks that match the eye.** 04a first: wardrobe's hole check counts cloth pressed into a
-  crease as a hole. Belle's shorts fail it at 1.71% (limit 0.5%) where the screenshots show no gap;
-  the sports top passes at 0.23%. Then review strips written by every export, and a motion critic.
-- **05 · 5.2-5.5** - hair (Belle's reads as a helmet), compression garments (her top traces the body),
-  skirts, muscle definition. Independent; take them as the look of a character demands.
-
-### 4. Triage the old project notes
-
-`grungist-creek/docs/plugin-improvements.md` predates this round. Some entries are stale; some are
-not filed anywhere yet and may still be live - notably `flesh.add_jiggle_bones` stripping weights on a
-re-run, the jiggle modifier needing physics-tick processing, the hard `max_offset_m` clamp, and the
-volume API gaps (`collision_mask`, `tumble`, `push`). Check each against current code and either
-file it under a category in [README.md](README.md) or strike it.
+- **`python tools/regress.py --jobs 2`** rebuilds 11 fixtures headless and compares them to `tests/golden/`:
+  `mpfb_woman_curvy`, `rigify_human`, `mixamo_names`, `quadruped`, `rabbit`, `cricket`, `starfish`,
+  `flesh_figure`, `dressed_figure`, `dressed_presets`, `pipeline_woman`.
+  - `--twice` fails a build that doesn't reproduce.
+  - `--godot C:/Users/pauli/Code/GoDot/grungist-creek` plays the exports in the engine's verifiers.
+  - A full `--twice --godot` run takes about 12-15 minutes. See `tests/README.md`.
+- **Bone roles:** `bodymap.build(rig)["roles"]` gives root, pelvis, chest, neck, head, tail, anchors, hands and feet, and
+  controls. Rig profiles live in `rig_analysis/profiles/`. rig-anything SKILL.md, "Bone roles".
+- **Characters:** `character_pipeline.runner.build(spec)` runs the stages body, bake, hair, flesh, moves, garments,
+  export. They refuse out of order, record their inputs in the .blend, and resume in a fresh session. Its SKILL.md
+  has Belle as the worked example.
+  - `assets/humans/build_human.py who=<name>` and `assets/belle/build_belle.py` are thin callers.
+- **Presets and exporter:** wardrobe garment presets with `wardrobe.dress`; follow-through `limit_share` per flesh type;
+  `export.export_character` writes the `.moves.json` for bipeds and quadrupeds.
 
 ---
 
-## Things that cost time to learn this round
+## What to do next, in order
 
-**Running Blender headless**
+### 1. 04a - the hole check counts cloth in a crease as a hole
 
-- Binary: `C:/Program Files/Blender Foundation/Blender 5.2/blender.exe -b --factory-startup --python <script> -- key=value`.
-- `bpy.context.window` exists in background mode in Blender 5.2, so scene switching works.
-- Rigify is off under `--factory-startup` (see above). MPFB is not: humanform enables it.
-- humanform writes to the real library at `~/.claude/humanform/library` unless `HUMANFORM_LIBRARY`
-  says otherwise. Fixtures redirect it; ad-hoc build scripts do not.
-- A background command's output file stayed empty until it finished - run long builds in the
-  foreground with a generous timeout instead.
+Belle's shorts fail `verify_wardrobe.gd` at 1.708% holes (limit 0.5%) where the renders show no gap; the sports top
+passes at 0.227%. The same numbers came from the old hand-built assets and from the spec-built ones, so this is the
+check, not the build. Every wardrobe result is less trustworthy until it is fixed.
 
-**Building the project's characters without touching its assets**
+- Design and steps: 04 section **a**.
+- Reproduce with:
 
-`build_belle.py` and `build_human.py` write into `PROJECT/assets/...`. Copy
-`assets/humans/` and `assets/belle/build_belle.py` into a scratch folder with the same layout and set
-`PROJECT` to it (and `BLEND_COPY`). Point `RA_SCRIPTS`, `HF_SCRIPTS`, `FT_SCRIPTS`, `WD_SCRIPTS` at this
-repo's `plugins/<name>/scripts` to test a checkout. A crowd person builds in 10-20 s; Belle in 20 s
-warm, a few minutes cold. `who=tomas` needs `C:/Users/pauli/Code/Blender/humanform_hands_feet_demo.blend`
-passed as the file to open.
+  ```
+  "$GODOT" --headless --fixed-fps 60 --path . -s res://addons/wardrobe/verify_wardrobe.gd -- \
+      body=res://assets/belle/belle.glb garment=res://assets/belle/belle_shorts.glb frames=240 every=8 hem=true jiggle=true
+  ```
 
-**Verifying in Godot** (`GODOT` = the `_console` build, path in the project's CLAUDE.md)
+  The failing frame is 88; the fixtures `dressed_figure` and `dressed_presets` pass and must keep passing.
+- Done when Belle's shorts pass without loosening the limit, a real hole (a deliberately removed garment face)
+  still fails, and the goldens that move are reviewed.
 
-```
-"$GODOT" --headless --import --path .
-"$GODOT" --headless --path . belle_demo.tscn -- --selftest
-"$GODOT" --headless --path . people_demo.tscn -- --selftest
-"$GODOT" --headless --fixed-fps 60 --path . -s res://addons/wardrobe/verify_wardrobe.gd -- \
-    body=res://assets/belle/belle.glb garment=res://assets/belle/belle_sportstop.glb \
-    frames=240 every=8 hem=true jiggle=true
-```
+### 2. Small open findings (05 · 5.8), each with its numbers in the golden
 
-To compare against committed assets, `git show HEAD:<path> > assets/_old/<file>`, reimport, run the
-verifier on both, and delete the folder afterwards.
+Take them one at a time; each is a short branch.
 
-**Finding a nondeterminism** - what worked for 5.6, in order: compare the written files; if they
-differ, checksum each stage's output inside two full builds and find the first that disagrees;
-checksum that stage's inputs, hashing structure (face order, sorted and unsorted) as well as
-positions; then reproduce it minimally, three runs, three hashes.
+- **The cricket's landing never exports.** JumpLand fails its foot-slide check by 0.14 mm (0.5 mm against a
+  0.36 mm limit at `hop.py` ~1251). Decide whether that is a real slide or a limit too tight at 30 mm scale.
+  The messages also name legs by root bone (`fore_femur.L`), not leg (`fore.L`).
+- **The slides put feet through the floor on a Rigify biped.** `rigify_human` drops Slide, SlideRecover and
+  SlideToCrouch with the reasons under `export.dropped_clips`.
+- **Starfish arms get 3 and 4 bones** off a rounding edge in `radial.build`. Take one count per appendage kind.
+- **`radial.skin` reports coverage without measuring it.**
 
-**Tooling gotchas**
+### 3. 05 · 5.9 - flesh reads the buttocks low, then retire Belle's hand marks
 
-- `git merge -F -` does not read stdin (commit does). Write the message to a file.
-- JSON the build scripts write is CRLF on Windows while git stores LF: `git status` lists every
-  rebuilt manifest as modified when `git diff` is empty. Trust the diff.
-- A rebuilt glb can change for reasons that have nothing to do with the change being tested -
-  humanform 0.6.1 adding `"cupsize": null` to the sheet extras grew every crowd glb by 20 bytes.
-  Parse the glTF JSON chunk and diff it before believing a binary changed meaningfully.
+On every body measured, the buttock region sits under the mass (Belle 7 cm low, facing down), because the lean
+envelope absorbs the upper buttock. Changing the zone height does not help. 5.9 has the numbers and the steps.
 
-## Loose ends in the repos
+When it is fixed, remove the `[[flesh.zones]]` from `grungist-creek/characters/belle.toml`. Then prove the result:
+- rebuild her
+- run `belle_demo.tscn -- --selftest` and the wardrobe verifier
 
-- Merged branches still exist locally in grungist-creek: `belle`, `belle-jump-unforced`,
-  `humanform-plan`, `tomas-walk`.
-- `grungist-creek/tomas_demo.tscn` (untracked, pointing at a missing `tomas_demo.gd`) was moved out of
-  the project into a session scratch folder, which the OS cleans up, so treat it as gone.
-- `C:/Users/pauli/Code/Blender/belle_demo.blend` and `belle_demo.backup.blend` (100 MB each) are
-  still there after the split. Retire them once `belle_stylized.blend` and `creature_tests.blend`
-  have been opened by hand.
-- This repo is public, and `plugins/humanform/data/` (ANSUR II public CSVs and the seed contact
-  sheets) is published with it - a deliberate choice, recorded here in case it is revisited.
+That meets the last unmet "done when" of 02. Belle's swing limits live in follow-through's registry (`limit_share`)
+and were tuned against the low reading, so check them again on the self-test.
+
+### 4. Loose ends from 01
+
+- **Standing height has two conventions.** `export.height = "mesh"` (the crowd: mesh top) and `"idle"` (Belle: the
+  Idle clip's standing height, which a hair bun doesn't raise). Pick one, move the crowd or Belle, and remove the
+  spec field.
+- **`upper_body` in a manifest means different things.** For the crowd it is the move reports; in Belle's old
+  manifest it was her input table. No Godot code reads it. Decide what it is for, or drop it.
+- **The body stage reports `stature: null`.** `stages.run_body` reads `fit.stature`, and humanform's result has it
+  elsewhere. This is cosmetic.
+- **Nora (`assets/wardrobe/build_person.py`) is still a script.** She has a sculpted body on mocap, and nothing in a
+  spec covers that. Convert her only if a spec grows a source for it.
+- **The real `.blend` files were not rebuilt** (`C:/Users/pauli/Code/Blender/human_*.blend`, `belle_realistic.blend`).
+  The spec builds ran in scratch. The next real `build_human.py who=<name>` saves them through the pipeline's
+  scene guard.
+
+### 5. 04 b-d - review strips, a motion critic, numeric guards
+
+These come after 04a. 04 has the design:
+- **b:** fixed-scale review strips written by every export.
+- **c:** a critic that judges a clip's motion from those strips.
+- **d:** numeric guards distilled from what the critic keeps finding.
+
+The character pipeline's stage table already reserves a `review` stage after `export` for this.
+
+### 6. 05 · 5.2-5.5 - the look of a character
+
+These are independent; take them as a character needs them:
+- hair (Belle's reads as a helmet; today it is the pipeline's `shell_bun`, listed in `spec.GAPS`)
+- compression garments (her top traces the body)
+- skirts and dresses
+- muscle definition (Dante reads average)
+
+A new hair or garment kind should arrive as a plugin preset or builder that a spec names, not as code in a build
+script.
+
+### 7. Triage the old project notes
+
+`grungist-creek/docs/plugin-improvements.md` predates all of this. Some entries are stale. Others may still be live
+and are not filed anywhere:
+- `flesh.add_jiggle_bones` stripping weights on a re-run
+- the jiggle modifier needing physics-tick processing
+- the hard `max_offset_m` clamp
+- the volume API gaps (`collision_mask`, `tumble`, `push`)
+
+Check each against current code, then file it under a category in [README.md](README.md) or strike it.
+
+---
+
+## Things that cost time to learn
+
+Most of this is now in `CLAUDE.md`. The rest:
+
+- **Building the project's characters without touching its assets.** Copy these into a scratch folder with the same
+  layout:
+  - `characters/`
+  - `assets/humans/build_human.py`
+  - `assets/belle/build_belle.py`
+
+  Then point the specs' `blend =` at scratch and set `PROJECT` to that folder. Set `RA_SCRIPTS`, `HF_SCRIPTS`,
+  `FT_SCRIPTS`, `WD_SCRIPTS` and `CP_SCRIPTS` to this repo's `plugins/<name>/scripts`, and `HUMANFORM_LIBRARY` to a
+  copy of `~/.claude/humanform/library`.
+  - Timing: a crowd person builds in 10-20 s, Belle in about 40 s.
+  - `who=tomas` needs `C:/Users/pauli/Code/Blender/humanform_hands_feet_demo.blend` opened.
+  - Always check the spec's `blend` path first. A build saves there.
+- **Comparing a rebuild with committed assets.** Compare manifests with `regress.compare` at the harness tolerance.
+  Compare glbs by their glTF JSON chunk with `extras` set aside. Both one-offs were in the 01 conversion; bone-role
+  tags, rig profiles and humanform sheets are all extras.
+- **Verifying in Godot** (`GODOT` = the `_console` build, path in grungist-creek's CLAUDE.md):
+
+  ```
+  "$GODOT" --headless --import --path .
+  "$GODOT" --headless --path . belle_demo.tscn -- --selftest
+  "$GODOT" --headless --path . people_demo.tscn -- --selftest
+  ```
+
+- **Finding a nondeterminism.** What worked, in order:
+  1. Compare the written files.
+  2. Checksum each stage's output in two builds and find the first that disagrees.
+  3. Hash that stage's inputs, structure (face order, sorted and unsorted) as well as positions.
+  4. Reproduce it minimally: three processes, three hashes.
+
+  5.7 ended in Blender itself: `create_uvsphere` shuffles faces per process.
+- **Parallel agents.** Give each agent a worktree, a scratch folder, and a list of the files it must not touch. Keep
+  version bumps, NEXT.md and tests/README.md for whoever merges. Merges then only conflicted in goldens, which
+  resolve by taking one side and re-recording with `--twice --update`, then reviewing the diff.
+
+## Loose ends outside the code
+
+- `C:/Users/pauli/Code/Blender/belle_demo_before_rebuild.blend` (100 MB) is still there. `belle_demo.blend` and its
+  backup are in the Recycle Bin, split into `belle_stylized.blend` and `creature_tests.blend`.
+- This repo is public, and `plugins/humanform/data/` (ANSUR II public CSVs and the seed contact sheets) is published
+  with it. That was a deliberate choice, recorded here in case it is revisited.
