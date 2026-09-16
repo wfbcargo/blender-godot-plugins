@@ -84,9 +84,53 @@ A full `regress.py --twice --jobs 2 --godot` run takes about 10 minutes on this 
 
 ### 3. The large items
 
-- **02 Bone roles and rig profiles.** Name root, pelvis, chest, head and anchors once in
-  `bodymap.build`; an MPFB profile carries its quirks. Fixes the class of bug where follow-through put
-  both breast bones on Belle's chin. Do before 01: 01's stages get simpler when roles exist.
+- **02 Bone roles and rig profiles.** Planned 2026-09-16 from an inventory of every bone pick in the
+  plugins and the project scripts. What the inventory added to the design in 02:
+  - `controls` needs skin, so roles are read against the meshes bound to the rig (Armature modifier), and
+    they can change after `bake_for_game` or after jiggle and hem bones are added.
+  - The map today files MPFB's `root` (2 mm above the floor, no skin) under `rear`, and guesses the head.
+  - `chest` is `front_attach` in `bodymap.build`, computed but never returned.
+  - On the Rigify Figure the hands and heels carry no skin, so "unskinned" alone is not `controls`.
+  - follow-through keeps a second body decomposition (`flesh.chains`, hip and shoulder heights from
+    name substrings); only breast and butt map to one anchor bone, the other flesh types stay nearest-segment.
+  - Generators write names (`skeleton.BONES`, `scaffold.RENAME`, `fit` templates, `build`, `hoppers`); they
+    should write the profile, and `hoppers` already stores `pelvis`.
+
+  Six branches, each ending as 03's did (`--twice`, reviewed goldens, merge, install, push):
+
+  **2a `bone-roles`** (rig-anything; the contract, done first). `bodymap.build(..., meshes=None)` returns
+  `roles`: `root` (an unsided axial end that is unskinned, or with no skin data lies wholly below the
+  ankles), `pelvis`, `chest` (the arms' attach bone; the front legs' on a quadruped), `neck`, `head`, `tail`,
+  `breast_anchor` = chest, `butt_anchor` = pelvis, `limbs` by role and rank (`hand.L`, `foot.L`, `front_foot.L`),
+  `unskinned`, `controls` (unskinned and not on a limb chain), `skinned` (whether skin was read), `warnings`.
+  Additive: nothing that reads the map changes. Fixtures report `roles` (new golden keys only); a new
+  `mixamo_names` fixture renames the Rigify Figure to `mixamorig:` names and must get the same roles.
+
+  **2b `rig-profiles`** (rig-anything, humanform). `rig_analysis/profiles/{mpfb_game_engine,
+  rigify_basic_human,rigify_basic_quadruped,rig_anything_generic}.json`: detect, claimed roles, rotation
+  mode, rest facts, a `bake` block. `bodymap.load_profile(rig)` by `rig["body_profile"]` or `detect`;
+  claimed roles are checked against the derived ones and a disagreement is a warning. humanform's
+  scaffold and rig-anything's fitters and builders tag the rig. `bake_for_game` and `preflight` read the
+  `bake` block. Goldens unchanged apart from the `profile` in `roles`.
+
+  **2c `roles-in-rig-anything`**. `actions._check_common` floor bones, `verify` clip floor set and
+  `clearance_bones`, and `keyposes` crouch trunk read `root`/`controls` in place of their local rules.
+  Behaviour-preserving: every golden identical.
+
+  **2d `roles-downstream`** (follow-through, wardrobe, humanform). Registry `anchor` names a role
+  (`butt` -> `pelvis`, `breast` -> `chest`); `flesh._pelvis_bone` reads it. `wardrobe.rigmap.humanoid` maps
+  from roles when rig-anything is importable, name tables otherwise. `humanform.eyes` and
+  `build_belle`/`build_person` head picks read `head`. Goldens unchanged except corrections, each named.
+
+  **2e `flesh-from-roles`** (follow-through; proof on Belle). Breast bone head and tail from `breast_anchor`
+  and the region's peak normal, not the nearest core segment. Belle rebuilt in scratch with her hand-marked
+  zones removed: no bone on the chin, buttocks on the pelvis, and garments still passing `verify_wardrobe`.
+
+  **2f `docs`**. rig-anything SKILL.md "Bone roles and profiles", the joint-conventions reference,
+  follow-through's registry docs, 02's status.
+
+  2a first; 2b, 2c and 2d touch different files and can run in parallel; 2e after 2d.
+
 - **01 Character spec and staged pipeline.** One YAML per character, a stage runner with
   preconditions and saved results, tuned numbers moved into plugin presets. `build_human.py` and
   `build_belle.py` become thin callers.
