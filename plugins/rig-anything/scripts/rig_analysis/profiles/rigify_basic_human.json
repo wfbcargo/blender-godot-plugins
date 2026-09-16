@@ -1,0 +1,18 @@
+{
+  "about": "Rigify's Basic/basic_human metarig as fit.fit_basic_human fits it (the metarig itself, not a generated rig). No root bone, no bone called head. Rest bends and stance are the fitted mesh's, so none are claimed.",
+  "detect": {
+    "bones_all": ["spine", "spine.003", "spine.006", "thigh.L", "upper_arm.L", "heel.02.L", "pelvis.L"],
+    "bones_none": ["front_thigh.L"]
+  },
+  "roles": {
+    "pelvis": "spine",
+    "chest": "spine.003",
+    "neck": ["spine.004", "spine.005"],
+    "head": "spine.006"
+  },
+  "rotation_mode": {"shoulder.?": "YXZ", "breast.?": "YXZ", "pelvis.?": "YXZ", "*": "QUATERNION"},
+  "rest": {},
+  "bake": {
+    "max_influences": 4
+  }
+}

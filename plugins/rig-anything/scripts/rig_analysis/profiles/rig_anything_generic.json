@@ -1,0 +1,13 @@
+{
+  "about": "build.build_from_parts: spine .. spine.00N from the tail end, an optional head and tail.00N, limbs leg1_upper.L / arm2_lower.R. Whether there is a head, a tail or a neck, and where the limbs attach, depends on the mesh, so no role is claimed.",
+  "detect": {
+    "bones_all": ["spine"],
+    "bones_any": ["leg[0-9]*_upper.[LR]", "arm[0-9]*_upper.[LR]", "leg[0-9].[LR]", "arm[0-9].[LR]"]
+  },
+  "roles": {},
+  "rotation_mode": "QUATERNION",
+  "rest": {},
+  "bake": {
+    "max_influences": 4
+  }
+}

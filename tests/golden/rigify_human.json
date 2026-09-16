@@ -2,7 +2,7 @@
  "fixture": "rigify_human",
  "plugins": {
   "follow-through": "0.2.3",
-  "rig-anything": "0.15.0"
+  "rig-anything": "0.16.0"
  },
  "report": {
   "bind_coverage": 1.0,
@@ -1237,7 +1237,7 @@
     "spine.005"
    ],
    "pelvis": "spine",
-   "profile": null,
+   "profile": "rigify_basic_human",
    "root": null,
    "skinned": true,
    "tail": [],
@@ -1248,7 +1248,6 @@
     "heel.02.R"
    ],
    "warnings": [
-    "head spine.006 guessed from position (no bone called head)",
     "limb bones with no skin: hand.L, hand.R"
    ]
   }

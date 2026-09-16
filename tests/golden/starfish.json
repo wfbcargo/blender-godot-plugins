@@ -1,7 +1,7 @@
 {
  "fixture": "starfish",
  "plugins": {
-  "rig-anything": "0.15.0"
+  "rig-anything": "0.16.0"
  },
  "report": {
   "detection": {
@@ -79,8 +79,8 @@
     "StarTest_rig_Crawl",
     "StarTest_rig_Idle"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-111v3q42\\a\\starfish\\starfish\\starfish.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-111v3q42\\a\\starfish\\starfish\\starfish.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-hl4rc0yc\\a\\starfish\\starfish\\starfish.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-hl4rc0yc\\a\\starfish\\starfish\\starfish.moves.json",
    "verified": {
     "durations_match": true,
     "mismatches": []

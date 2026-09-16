@@ -1,7 +1,7 @@
 {
  "fixture": "cricket",
  "plugins": {
-  "rig-anything": "0.15.0"
+  "rig-anything": "0.16.0"
  },
  "report": {
   "detection": {
@@ -952,7 +952,7 @@
    },
    "neck": [],
    "pelvis": "spine.003",
-   "profile": null,
+   "profile": "rig_anything_hopper",
    "root": null,
    "skinned": true,
    "tail": [

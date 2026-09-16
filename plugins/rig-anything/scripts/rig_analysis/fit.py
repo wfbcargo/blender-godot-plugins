@@ -237,6 +237,7 @@ def fit_basic_human(obj_name, forward_sign=-1, name=None, snap_medial=True):
     ui, li, fi = AXIS_INDEX[lm["up"]], AXIS_INDEX[lm["lateral"]], AXIS_INDEX[lm["forward"]]
 
     rig = add_basic_human(name or (obj_name + "_metarig"))
+    rig["body_profile"] = "rigify_basic_human"          # bodymap.load_profile
     ref = reference_layout(rig)
 
     # --- correspondences between reference heights and measured ones
@@ -488,6 +489,7 @@ def fit_basic_quadruped(obj_name, head_at=None, name=None, snap_medial=True):
     ui, li, fi = AXIS_INDEX[lm["up"]], AXIS_INDEX[lm["lateral"]], AXIS_INDEX[lm["forward"]]
 
     rig = add_basic_quadruped(name or (obj_name + "_metarig"))
+    rig["body_profile"] = "rigify_basic_quadruped"      # bodymap.load_profile
     ref = reference_layout(rig)
 
     ref_front = ref["front_thigh.L"][0][fi]

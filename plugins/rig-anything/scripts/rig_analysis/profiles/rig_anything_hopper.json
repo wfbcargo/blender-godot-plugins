@@ -1,0 +1,14 @@
+{
+  "about": "hoppers.build: spine .. spine.00N rooted at the pelvis, always ending in a bone called head; legs <rank>_<segment>.<side> (hind_femur.L, fore_tibia.R, mid_tarsus.L) carrying hop_role. The pelvis depends on the creature and is stored on the rig data (hopper), not claimed here.",
+  "detect": {
+    "bones_all": ["spine", "head", "hind_femur.L", "hind_femur.R", "hind_tibia.L", "hind_tibia.R"]
+  },
+  "roles": {
+    "head": "head"
+  },
+  "rotation_mode": "QUATERNION",
+  "rest": {},
+  "bake": {
+    "max_influences": 4
+  }
+}

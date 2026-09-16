@@ -1,7 +1,7 @@
 {
  "fixture": "rabbit",
  "plugins": {
-  "rig-anything": "0.15.0"
+  "rig-anything": "0.16.0"
  },
  "report": {
   "detection": {
@@ -106,8 +106,8 @@
     "RabbitTest_rig_JumpAir",
     "RabbitTest_rig_JumpLand"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-111v3q42\\a\\rabbit\\rabbit\\rabbit.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-111v3q42\\a\\rabbit\\rabbit\\rabbit.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-hl4rc0yc\\a\\rabbit\\rabbit\\rabbit.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-hl4rc0yc\\a\\rabbit\\rabbit\\rabbit.moves.json",
    "verified": {
     "durations_match": true,
     "mismatches": []
@@ -1187,7 +1187,7 @@
     "spine.007"
    ],
    "pelvis": "spine.002",
-   "profile": null,
+   "profile": "rig_anything_hopper",
    "root": null,
    "skinned": true,
    "tail": [

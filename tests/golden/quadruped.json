@@ -1,7 +1,7 @@
 {
  "fixture": "quadruped",
  "plugins": {
-  "rig-anything": "0.15.0"
+  "rig-anything": "0.16.0"
  },
  "report": {
   "bind": {
@@ -862,7 +862,7 @@
     "spine.010"
    ],
    "pelvis": "spine.005",
-   "profile": null,
+   "profile": "rigify_basic_quadruped",
    "root": null,
    "skinned": true,
    "tail": [
@@ -872,9 +872,7 @@
     "spine"
    ],
    "unskinned": [],
-   "warnings": [
-    "head spine.011 guessed from position (no bone called head)"
-   ]
+   "warnings": []
   }
  }
 }

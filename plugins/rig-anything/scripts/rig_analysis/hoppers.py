@@ -938,6 +938,7 @@ def build(mesh_name, detection=None, rig_name=None, kind=None, forward="-Y", up=
     lateral = Vector((0.0, 0.0, 0.0))
     lateral[li] = 1.0
     rig = build_mod._write(obj, bones, rig_name, ui, li, lateral)
+    rig["body_profile"] = "rig_anything_hopper"         # bodymap.load_profile
     coll = obj.users_collection[0] if obj.users_collection else None
     if coll is not None and rig.name not in coll.objects:
         for c in list(rig.users_collection):

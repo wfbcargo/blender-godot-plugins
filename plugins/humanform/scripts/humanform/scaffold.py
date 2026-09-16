@@ -531,6 +531,9 @@ def rig(human, rig_name=None):
     HumanService, _, _, _ = services()
     rig_ob = HumanService.add_builtin_rig(human, "game_engine")
     rig_ob.name = rig_ob.data.name = rig_name or f"{human.name}_rig"
+    # rig-anything's profile for exactly this rig after RENAME: its roles (head spine.005), rotation
+    # mode and how its skin is baked for a game (rig_analysis/profiles/mpfb_game_engine.json)
+    rig_ob["body_profile"] = "mpfb_game_engine"
     renamed = 0
     for b in rig_ob.data.bones:
         new = RENAME.get(b.name)
