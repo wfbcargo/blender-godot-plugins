@@ -36,6 +36,7 @@ because a voxel remesh is slow.
 | `starfish` | `radial_samples.starfish`, detected as `asteroid`, rigged, skinned, crawled, exported | `radial.detect`'s hub and arms, `radial.build`/`skin` and the weights actually written, `radial_moves` Crawl and Idle, the `radial` manifest |
 | `rigify_human` | follow-through's `Figure`, unfleshed, given every biped move, exported | `fit_basic_human` with Rigify off, `move_set`'s ten default roles on a rig with no ground root, the export re-check. The three slides fail their floor checks and are dropped from the export with the reasons in the golden |
 | `quadruped` | `quadruped_samples.dog`, fitted, bound, given Idle/Walk/Trot/Run/Crouch, exported | four ground contacts, `fit_basic_quadruped` scored against the sample's known joints, `skin.bind`, `move_set` on four legs, the export re-check |
+| `mixamo_names` | the Rigify `Figure`, fitted and bound, then every bone renamed to `mixamorig:` | `bodymap` roles come from structure: the same root, pelvis, chest, head, hands, feet and controls under Mixamo names (`same`) |
 
 ## In the engine: `--godot <project>`
 

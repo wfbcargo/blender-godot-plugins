@@ -69,6 +69,7 @@ def build():
 
     eyes = bpy.data.objects.get(NAME + "_eyes")
     return {
+        "roles": H.roles(rig),
         # The order faces are stored in, which no measurement sees: humanform's eyes came out
         # shuffled in every process until 5.7, and a body that joins them inherits it. Under
         # `--twice` a change here is NONDETERMINISTIC.

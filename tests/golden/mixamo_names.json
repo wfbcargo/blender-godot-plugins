@@ -1,0 +1,84 @@
+{
+ "fixture": "mixamo_names",
+ "plugins": {
+  "follow-through": "0.2.3",
+  "rig-anything": "0.15.0"
+ },
+ "report": {
+  "differences": {},
+  "not_in_table": [
+   "breast.L",
+   "breast.R",
+   "pelvis.L",
+   "pelvis.R"
+  ],
+  "renamed": 25,
+  "roles": {
+   "breast_anchor": "mixamorig:Spine2",
+   "butt_anchor": "mixamorig:Hips",
+   "chest": "mixamorig:Spine2",
+   "controls": [
+    "mixamorig:LeftHeel",
+    "mixamorig:RightHeel"
+   ],
+   "head": "mixamorig:Head",
+   "limbs": {
+    "foot.L": {
+     "digits": [
+      "mixamorig:LeftToeBase"
+     ],
+     "end": "mixamorig:LeftFoot",
+     "girdle": null,
+     "lower": "mixamorig:LeftLeg",
+     "role": "leg",
+     "upper": "mixamorig:LeftUpLeg"
+    },
+    "foot.R": {
+     "digits": [
+      "mixamorig:RightToeBase"
+     ],
+     "end": "mixamorig:RightFoot",
+     "girdle": null,
+     "lower": "mixamorig:RightLeg",
+     "role": "leg",
+     "upper": "mixamorig:RightUpLeg"
+    },
+    "hand.L": {
+     "digits": [],
+     "end": "mixamorig:LeftHand",
+     "girdle": "mixamorig:LeftShoulder",
+     "lower": "mixamorig:LeftForeArm",
+     "role": "arm",
+     "upper": "mixamorig:LeftArm"
+    },
+    "hand.R": {
+     "digits": [],
+     "end": "mixamorig:RightHand",
+     "girdle": "mixamorig:RightShoulder",
+     "lower": "mixamorig:RightForeArm",
+     "role": "arm",
+     "upper": "mixamorig:RightArm"
+    }
+   },
+   "neck": [
+    "mixamorig:Neck",
+    "mixamorig:Neck1"
+   ],
+   "pelvis": "mixamorig:Hips",
+   "profile": null,
+   "root": null,
+   "skinned": true,
+   "tail": [],
+   "unskinned": [
+    "mixamorig:LeftHand",
+    "mixamorig:LeftHeel",
+    "mixamorig:RightHand",
+    "mixamorig:RightHeel"
+   ],
+   "warnings": [
+    "limb bones with no skin: mixamorig:LeftHand, mixamorig:RightHand"
+   ]
+  },
+  "same": true
+ }
+}

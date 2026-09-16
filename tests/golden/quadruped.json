@@ -1,7 +1,7 @@
 {
  "fixture": "quadruped",
  "plugins": {
-  "rig-anything": "0.14.2"
+  "rig-anything": "0.15.0"
  },
  "report": {
   "bind": {
@@ -808,6 +808,73 @@
     "tolerance": 0.00644,
     "upper": null
    }
+  },
+  "roles": {
+   "breast_anchor": "spine.008",
+   "butt_anchor": "spine.005",
+   "chest": "spine.008",
+   "controls": [],
+   "head": "spine.011",
+   "limbs": {
+    "front_foot.L": {
+     "digits": [
+      "front_toe.L"
+     ],
+     "end": "front_foot.L",
+     "girdle": "shoulder.L",
+     "lower": "front_shin.L",
+     "role": "leg",
+     "upper": "front_thigh.L"
+    },
+    "front_foot.R": {
+     "digits": [
+      "front_toe.R"
+     ],
+     "end": "front_foot.R",
+     "girdle": "shoulder.R",
+     "lower": "front_shin.R",
+     "role": "leg",
+     "upper": "front_thigh.R"
+    },
+    "hind_foot.L": {
+     "digits": [
+      "toe.L"
+     ],
+     "end": "foot.L",
+     "girdle": null,
+     "lower": "shin.L",
+     "role": "leg",
+     "upper": "thigh.L"
+    },
+    "hind_foot.R": {
+     "digits": [
+      "toe.R"
+     ],
+     "end": "foot.R",
+     "girdle": null,
+     "lower": "shin.R",
+     "role": "leg",
+     "upper": "thigh.R"
+    }
+   },
+   "neck": [
+    "spine.009",
+    "spine.010"
+   ],
+   "pelvis": "spine.005",
+   "profile": null,
+   "root": null,
+   "skinned": true,
+   "tail": [
+    "spine.003",
+    "spine.002",
+    "spine.001",
+    "spine"
+   ],
+   "unskinned": [],
+   "warnings": [
+    "head spine.011 guessed from position (no bone called head)"
+   ]
   }
  }
 }

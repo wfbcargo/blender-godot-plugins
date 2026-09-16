@@ -1,8 +1,8 @@
 {
  "fixture": "rigify_human",
  "plugins": {
-  "follow-through": "0.2.1",
-  "rig-anything": "0.14.2"
+  "follow-through": "0.2.3",
+  "rig-anything": "0.15.0"
  },
  "report": {
   "bind_coverage": 1.0,
@@ -1184,6 +1184,73 @@
   },
   "rig": {
    "bones": 29
+  },
+  "roles": {
+   "breast_anchor": "spine.003",
+   "butt_anchor": "spine",
+   "chest": "spine.003",
+   "controls": [
+    "heel.02.L",
+    "heel.02.R"
+   ],
+   "head": "spine.006",
+   "limbs": {
+    "foot.L": {
+     "digits": [
+      "toe.L"
+     ],
+     "end": "foot.L",
+     "girdle": null,
+     "lower": "shin.L",
+     "role": "leg",
+     "upper": "thigh.L"
+    },
+    "foot.R": {
+     "digits": [
+      "toe.R"
+     ],
+     "end": "foot.R",
+     "girdle": null,
+     "lower": "shin.R",
+     "role": "leg",
+     "upper": "thigh.R"
+    },
+    "hand.L": {
+     "digits": [],
+     "end": "hand.L",
+     "girdle": "shoulder.L",
+     "lower": "forearm.L",
+     "role": "arm",
+     "upper": "upper_arm.L"
+    },
+    "hand.R": {
+     "digits": [],
+     "end": "hand.R",
+     "girdle": "shoulder.R",
+     "lower": "forearm.R",
+     "role": "arm",
+     "upper": "upper_arm.R"
+    }
+   },
+   "neck": [
+    "spine.004",
+    "spine.005"
+   ],
+   "pelvis": "spine",
+   "profile": null,
+   "root": null,
+   "skinned": true,
+   "tail": [],
+   "unskinned": [
+    "hand.L",
+    "hand.R",
+    "heel.02.L",
+    "heel.02.R"
+   ],
+   "warnings": [
+    "head spine.006 guessed from position (no bone called head)",
+    "limb bones with no skin: hand.L, hand.R"
+   ]
   }
  }
 }

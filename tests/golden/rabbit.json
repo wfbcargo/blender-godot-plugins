@@ -1,7 +1,7 @@
 {
  "fixture": "rabbit",
  "plugins": {
-  "rig-anything": "0.14.2"
+  "rig-anything": "0.15.0"
  },
  "report": {
   "detection": {
@@ -106,8 +106,8 @@
     "RabbitTest_rig_JumpAir",
     "RabbitTest_rig_JumpLand"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-donc9hpo\\rabbit\\rabbit\\rabbit.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-donc9hpo\\rabbit\\rabbit\\rabbit.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-111v3q42\\a\\rabbit\\rabbit\\rabbit.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-111v3q42\\a\\rabbit\\rabbit\\rabbit.moves.json",
    "verified": {
     "durations_match": true,
     "mismatches": []
@@ -1133,6 +1133,68 @@
   },
   "rig": {
    "bones": 25
+  },
+  "roles": {
+   "breast_anchor": "spine.005",
+   "butt_anchor": "spine.002",
+   "chest": "spine.005",
+   "controls": [],
+   "head": "head",
+   "limbs": {
+    "front_foot.L": {
+     "digits": [
+      "fore_digits.L"
+     ],
+     "end": "fore_paw.L",
+     "girdle": null,
+     "lower": "fore_forearm.L",
+     "role": "leg",
+     "upper": "fore_humerus.L"
+    },
+    "front_foot.R": {
+     "digits": [
+      "fore_digits.R"
+     ],
+     "end": "fore_paw.R",
+     "girdle": null,
+     "lower": "fore_forearm.R",
+     "role": "leg",
+     "upper": "fore_humerus.R"
+    },
+    "hind_foot.L": {
+     "digits": [
+      "hind_toes.L"
+     ],
+     "end": "hind_metatarsus.L",
+     "girdle": null,
+     "lower": "hind_tibia.L",
+     "role": "leg",
+     "upper": "hind_femur.L"
+    },
+    "hind_foot.R": {
+     "digits": [
+      "hind_toes.R"
+     ],
+     "end": "hind_metatarsus.R",
+     "girdle": null,
+     "lower": "hind_tibia.R",
+     "role": "leg",
+     "upper": "hind_femur.R"
+    }
+   },
+   "neck": [
+    "spine.006",
+    "spine.007"
+   ],
+   "pelvis": "spine.002",
+   "profile": null,
+   "root": null,
+   "skinned": true,
+   "tail": [
+    "spine"
+   ],
+   "unskinned": [],
+   "warnings": []
   },
   "skin": {
    "bones_without_skin": [],

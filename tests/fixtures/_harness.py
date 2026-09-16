@@ -85,6 +85,14 @@ def clear_scene():
         bpy.data.objects.remove(o, do_unlink=True)
 
 
+def roles(rig_name, meshes=None):
+    """rig-anything's bone roles for a rig, as a golden holds them (02): which bone is the root,
+    pelvis, chest, head, each hand and foot, and which carry no skin."""
+    from rig_analysis import bodymap
+    bm = bodymap.build(rig_name, meshes=meshes)
+    return {"error": bm["error"]} if "error" in bm else stable(bm["roles"])
+
+
 def face_order(obj):
     """A short hash of the order `obj`'s faces are stored in (each face's vertex indices, in turn).
 

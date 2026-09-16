@@ -82,6 +82,7 @@ def build():
                              gaits=[moves[r]["action"] for r in GAITS], forward="-Y")
 
     return {
+        "roles": H.roles(rig.name),
         "mesh": {"vertices": len(ob.data.vertices), "rest_size": rest_size},
         "ground_contacts": {"count": contacts["count"], "raw": contacts["raw_contacts"],
                             "midline": contacts["midline_contacts"],
