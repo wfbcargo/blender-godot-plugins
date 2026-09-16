@@ -1,0 +1,516 @@
+[
+ {
+  "name": "male-hands-base",
+  "region": "hands",
+  "targets": {},
+  "fit": {
+   "max_tol": 0.487,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1975,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0874,
+     0.0888
+    ],
+    "palm_length": [
+     0.1186,
+     0.1174
+    ],
+    "wrist_circ": [
+     0.1765,
+     0.1769
+    ],
+    "foot": [
+     0.2714,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.0993,
+     0.0993
+    ],
+    "ankle_circ": [
+     0.221,
+     0.2211
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-decr": 0.31248,
+   "hf:r-hand-scale-decr": 0.31248,
+   "hf:l-hand-fingers-length-decr": 0.2573,
+   "hf:r-hand-fingers-length-decr": 0.2573,
+   "hf:measure-wrist-circ-decr": 0.49669
+  }
+ },
+ {
+  "name": "male-hands-121-0",
+  "region": "hands",
+  "targets": {
+   "hf:l-hand-fingers-distance-incr": 0.59,
+   "hf:l-hand-fingers-distance-decr": 0.0,
+   "hf:r-hand-fingers-distance-incr": 0.59,
+   "hf:r-hand-fingers-distance-decr": 0.0
+  },
+  "offsets": {
+   "palm": 0.29
+  },
+  "fit": {
+   "max_tol": 0.216,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1977,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0903,
+     0.0901
+    ],
+    "palm_length": [
+     0.119,
+     0.1192
+    ],
+    "wrist_circ": [
+     0.1761,
+     0.1769
+    ],
+    "foot": [
+     0.2714,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.0992,
+     0.0993
+    ],
+    "ankle_circ": [
+     0.2211,
+     0.2211
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-decr": 0.27684,
+   "hf:r-hand-scale-decr": 0.27684,
+   "hf:l-hand-fingers-length-decr": 0.33992,
+   "hf:r-hand-fingers-length-decr": 0.33992,
+   "hf:measure-wrist-circ-decr": 0.63261,
+   "hf:l-hand-fingers-distance-incr": 0.59,
+   "hf:r-hand-fingers-distance-incr": 0.59
+  }
+ },
+ {
+  "name": "male-hands-121-1",
+  "region": "hands",
+  "targets": {
+   "hf:l-hand-fingers-diameter-incr": 0.0,
+   "hf:l-hand-fingers-diameter-decr": 0.206,
+   "hf:r-hand-fingers-diameter-incr": 0.0,
+   "hf:r-hand-fingers-diameter-decr": 0.206,
+   "hf:l-hand-fingers-distance-incr": 0.0,
+   "hf:l-hand-fingers-distance-decr": 0.855,
+   "hf:r-hand-fingers-distance-incr": 0.0,
+   "hf:r-hand-fingers-distance-decr": 0.855
+  },
+  "fit": {
+   "max_tol": 1.345,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1996,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0848,
+     0.0888
+    ],
+    "palm_length": [
+     0.1209,
+     0.1174
+    ],
+    "wrist_circ": [
+     0.1747,
+     0.1769
+    ],
+    "foot": [
+     0.2715,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.0993,
+     0.0993
+    ],
+    "ankle_circ": [
+     0.2208,
+     0.2211
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-decr": 0.21243,
+   "hf:r-hand-scale-decr": 0.21243,
+   "hf:l-hand-fingers-length-decr": 0.36095,
+   "hf:r-hand-fingers-length-decr": 0.36095,
+   "hf:measure-wrist-circ-decr": 0.51881,
+   "hf:l-hand-fingers-distance-decr": 0.855,
+   "hf:r-hand-fingers-distance-decr": 0.855,
+   "hf:l-hand-fingers-diameter-decr": 0.206,
+   "hf:r-hand-fingers-diameter-decr": 0.206
+  }
+ },
+ {
+  "name": "male-hands-121-2",
+  "region": "hands",
+  "targets": {
+   "hf:l-hand-fingers-distance-incr": 0.589,
+   "hf:l-hand-fingers-distance-decr": 0.0,
+   "hf:r-hand-fingers-distance-incr": 0.589,
+   "hf:r-hand-fingers-distance-decr": 0.0
+  },
+  "offsets": {
+   "palm": 0.68,
+   "wrist": 0.29
+  },
+  "fit": {
+   "max_tol": 0.649,
+   "measurements": 3,
+   "sizes": {
+    "hand": [
+     0.199,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0924,
+     0.0919
+    ],
+    "palm_length": [
+     0.1215,
+     0.1217
+    ],
+    "wrist_circ": [
+     0.1784,
+     0.1795
+    ],
+    "foot": [
+     0.2714,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.0993,
+     0.0993
+    ],
+    "ankle_circ": [
+     0.2211,
+     0.2211
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-decr": 0.15528,
+   "hf:r-hand-scale-decr": 0.15528,
+   "hf:l-hand-fingers-length-decr": 0.58258,
+   "hf:r-hand-fingers-length-decr": 0.58258,
+   "hf:measure-wrist-circ-decr": 0.64066,
+   "hf:l-hand-fingers-distance-incr": 0.589,
+   "hf:r-hand-fingers-distance-incr": 0.589
+  }
+ },
+ {
+  "name": "male-hands-121-3",
+  "region": "hands",
+  "targets": {
+   "hf:l-hand-fingers-diameter-incr": 0.335,
+   "hf:l-hand-fingers-diameter-decr": 0.0,
+   "hf:r-hand-fingers-diameter-incr": 0.335,
+   "hf:r-hand-fingers-diameter-decr": 0.0,
+   "hf:l-hand-fingers-distance-incr": 0.577,
+   "hf:l-hand-fingers-distance-decr": 0.0,
+   "hf:r-hand-fingers-distance-incr": 0.577,
+   "hf:r-hand-fingers-distance-decr": 0.0
+  },
+  "offsets": {
+   "palm": 0.01
+  },
+  "fit": {
+   "max_tol": 0.437,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1958,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0897,
+     0.0889
+    ],
+    "palm_length": [
+     0.1166,
+     0.1175
+    ],
+    "wrist_circ": [
+     0.1775,
+     0.1769
+    ],
+    "foot": [
+     0.2714,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.0993,
+     0.0993
+    ],
+    "ankle_circ": [
+     0.2211,
+     0.2211
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-decr": 0.40418,
+   "hf:r-hand-scale-decr": 0.40418,
+   "hf:l-hand-fingers-length-decr": 0.1718,
+   "hf:r-hand-fingers-length-decr": 0.1718,
+   "hf:measure-wrist-circ-decr": 0.45973,
+   "hf:l-hand-fingers-distance-incr": 0.577,
+   "hf:r-hand-fingers-distance-incr": 0.577,
+   "hf:l-hand-fingers-diameter-incr": 0.335,
+   "hf:r-hand-fingers-diameter-incr": 0.335
+  }
+ },
+ {
+  "name": "male-hands-121-4",
+  "region": "hands",
+  "targets": {},
+  "offsets": {
+   "palm": -0.65
+  },
+  "fit": {
+   "max_tol": 0.61,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1953,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0844,
+     0.086
+    ],
+    "palm_length": [
+     0.1139,
+     0.1133
+    ],
+    "wrist_circ": [
+     0.1783,
+     0.1769
+    ],
+    "foot": [
+     0.2715,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.0995,
+     0.0993
+    ],
+    "ankle_circ": [
+     0.2211,
+     0.2211
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-decr": 0.537,
+   "hf:r-hand-scale-decr": 0.537,
+   "hf:l-hand-fingers-length-incr": 0.07868,
+   "hf:r-hand-fingers-length-incr": 0.07868,
+   "hf:measure-wrist-circ-decr": 0.17868
+  }
+ },
+ {
+  "name": "male-hands-121-5",
+  "region": "hands",
+  "targets": {
+   "hf:l-hand-fingers-diameter-incr": 0.003,
+   "hf:l-hand-fingers-diameter-decr": 0.0,
+   "hf:r-hand-fingers-diameter-incr": 0.003,
+   "hf:r-hand-fingers-diameter-decr": 0.0,
+   "hf:l-hand-fingers-distance-incr": 0.538,
+   "hf:l-hand-fingers-distance-decr": 0.0,
+   "hf:r-hand-fingers-distance-incr": 0.538,
+   "hf:r-hand-fingers-distance-decr": 0.0
+  },
+  "offsets": {
+   "palm": 1.37,
+   "wrist": -0.61
+  },
+  "fit": {
+   "max_tol": 0.662,
+   "measurements": 3,
+   "sizes": {
+    "hand": [
+     0.1979,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0951,
+     0.0949
+    ],
+    "palm_length": [
+     0.124,
+     0.126
+    ],
+    "wrist_circ": [
+     0.1722,
+     0.1714
+    ],
+    "foot": [
+     0.2713,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.0992,
+     0.0993
+    ],
+    "ankle_circ": [
+     0.2211,
+     0.2211
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-decr": 0.03591,
+   "hf:r-hand-scale-decr": 0.03591,
+   "hf:l-hand-fingers-length-decr": 1.0,
+   "hf:r-hand-fingers-length-decr": 1.0,
+   "hf:measure-wrist-circ-decr": 1.0,
+   "hf:l-hand-fingers-distance-incr": 0.538,
+   "hf:r-hand-fingers-distance-incr": 0.538,
+   "hf:l-hand-fingers-diameter-incr": 0.003,
+   "hf:r-hand-fingers-diameter-incr": 0.003
+  }
+ },
+ {
+  "name": "male-hands-121-6",
+  "region": "hands",
+  "targets": {
+   "hf:l-hand-fingers-diameter-incr": 0.573,
+   "hf:l-hand-fingers-diameter-decr": 0.0,
+   "hf:r-hand-fingers-diameter-incr": 0.573,
+   "hf:r-hand-fingers-diameter-decr": 0.0,
+   "hf:l-hand-fingers-distance-incr": 0.595,
+   "hf:l-hand-fingers-distance-decr": 0.0,
+   "hf:r-hand-fingers-distance-incr": 0.595,
+   "hf:r-hand-fingers-distance-decr": 0.0
+  },
+  "fit": {
+   "max_tol": 0.529,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1955,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0897,
+     0.0888
+    ],
+    "palm_length": [
+     0.1164,
+     0.1174
+    ],
+    "wrist_circ": [
+     0.1776,
+     0.1769
+    ],
+    "foot": [
+     0.2714,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.0993,
+     0.0993
+    ],
+    "ankle_circ": [
+     0.2211,
+     0.2211
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-decr": 0.42773,
+   "hf:r-hand-scale-decr": 0.42773,
+   "hf:l-hand-fingers-length-decr": 0.15677,
+   "hf:r-hand-fingers-length-decr": 0.15677,
+   "hf:measure-wrist-circ-decr": 0.43823,
+   "hf:l-hand-fingers-distance-incr": 0.595,
+   "hf:r-hand-fingers-distance-incr": 0.595,
+   "hf:l-hand-fingers-diameter-incr": 0.573,
+   "hf:r-hand-fingers-diameter-incr": 0.573
+  }
+ },
+ {
+  "name": "male-hands-121-7",
+  "region": "hands",
+  "targets": {
+   "hf:l-hand-fingers-diameter-incr": 0.466,
+   "hf:l-hand-fingers-diameter-decr": 0.0,
+   "hf:r-hand-fingers-diameter-incr": 0.466,
+   "hf:r-hand-fingers-diameter-decr": 0.0,
+   "hf:l-hand-fingers-distance-incr": 0.883,
+   "hf:l-hand-fingers-distance-decr": 0.0,
+   "hf:r-hand-fingers-distance-incr": 0.883,
+   "hf:r-hand-fingers-distance-decr": 0.0
+  },
+  "offsets": {
+   "palm": -0.6,
+   "wrist": -0.5
+  },
+  "fit": {
+   "max_tol": 0.886,
+   "measurements": 30,
+   "sizes": {
+    "hand": [
+     0.197,
+     0.1971
+    ],
+    "hand_breadth": [
+     0.0889,
+     0.0862
+    ],
+    "palm_length": [
+     0.1119,
+     0.1136
+    ],
+    "wrist_circ": [
+     0.1724,
+     0.1724
+    ],
+    "foot": [
+     0.2714,
+     0.2714
+    ],
+    "foot_breadth": [
+     0.0993,
+     0.0993
+    ],
+    "ankle_circ": [
+     0.221,
+     0.2211
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-decr": 0.65072,
+   "hf:r-hand-scale-decr": 0.65072,
+   "hf:l-hand-fingers-length-incr": 0.22814,
+   "hf:r-hand-fingers-length-incr": 0.22814,
+   "hf:measure-wrist-circ-decr": 0.49067,
+   "hf:l-hand-fingers-distance-incr": 0.883,
+   "hf:r-hand-fingers-distance-incr": 0.883,
+   "hf:l-hand-fingers-diameter-incr": 0.466,
+   "hf:r-hand-fingers-diameter-incr": 0.466
+  }
+ }
+]

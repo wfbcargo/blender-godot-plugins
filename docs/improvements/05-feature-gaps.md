@@ -5,7 +5,28 @@ how much they block characters today.
 
 ---
 
-## 5.1 Biped jump sinks into the floor (bug)
+## 5.1 Biped jump sinks into the floor (bug) - DONE
+
+> **Fixed** (September 2026, rig-anything). Two causes, one per body plan:
+>
+> - **The dip.** `keyposes.Poser.blend` evaluates *both* keys' targets against the frame it is
+>   drawing, so the launch's "hang the leg 80% of its length under the hips" resolved, while the
+>   hips were still down in the load's crouch, to a point under the ground. A foot whose target
+>   would put its sole through the floor now stays where it was planted until the hips have risen
+>   enough for the target to clear it - whole, not just at that height, because holding the height
+>   alone let it slide 1.1 cm sideways and the export re-check rightly called that skating. The
+>   threshold is `Poser.foot_lift`: how far the foot's end sits above the lowest skin under it at
+>   rest, measured as a distance, so a clip the engine has thrown into the air (which lowers the
+>   poser's floor) is not held to the ground it left.
+> - **The check.** A clip now carries the floor it was authored against (`action["rig_anything_floor"]`,
+>   stamped by `hop.air`), and the exporter measures it against that rather than the origin. A clip
+>   with its own floor is one the engine flies, so what its feet do under a notional ground is
+>   reported (`declared_floor_m`, `floor_notes`) but does not refuse the export.
+>
+> Belle now builds with every clip passing, `forced_clips: {}` and no `force=1`; the rabbit exports
+> all six clips for the first time. Covered by the `mpfb_woman_curvy` and `rabbit` fixtures (03).
+> Remaining: `MAY_FAIL` is gone from `build_belle.py`, but the committed `belle.glb` and the crowd's
+> exports still date from before the fix and would want rebuilding.
 
 **Problem.** `rig_analysis/actions.jump` fails its own playback check on both Belles: the left foot
 goes 1.3-1.4 cm under the floor and the skin ~3 cm through it at frame 7, between the load key
@@ -17,6 +38,14 @@ load / air / land clips like the hoppers'), `animate-anything/SKILL.md:361`.
 **Likely cause.** Launch's biped legs use hip-relative, unplanted targets (`legs_by_zone`, middle zone
 `(0.8, -0.1, 0.1)`) while the load's feet are planted; smoothstep blending a planted target toward
 a hip-relative one (or the foot/toe pitch) dips the foot before the hips rise.
+
+**A second clip fails the same way, on a different body.** The regression harness's `rabbit`
+fixture (03) shows `hop.export_creature` refusing on current main: `JumpAir` puts a foot 0.074 m
+and the skin 0.091 m below the floor at frame 1, though the same clip passed its authoring check.
+`JumpAir` is the ballistic phase - the engine owns its vertical motion - so measuring it against
+the floor may be the wrong check rather than the wrong clip. Whichever it is, hoppers and bipeds
+fail it alike, so fix them together. `tests/golden/rabbit.json` records the refusal, so the fix
+will show up as a diff.
 
 **Steps.**
 1. Measure foot, toe and skin height per frame 1-22 on Belle and on `HumanoidRig`/`RigTest_rig`
@@ -124,3 +153,78 @@ a precedent) and critic review. (3) Fat-aware scaling. (4) Normal-map bake via l
 
 **Done when** Dante reads as muscular in a front render without forcing the muscle macro, and a soft
 body with the same muscle value shows much less definition.
+
+---
+
+## 5.6 wardrobe's garment step is not reproducible between builds - DONE
+
+> **Fixed** (September 2026, wardrobe). The cause was two steps apart from the symptom.
+> `bpy.ops.object.join` - joining the eyes and the hair into the body - writes the same faces in a
+> different order on every run: same vertices, same triangle *set*, shuffled. Probing a build stage
+> by stage showed the body, the rig, the bone map and the cut all agreeing, and only `fit.ease`
+> diverging; probing inside it showed the body's triangle list hashing differently while its sorted
+> form matched. A BVH built in that order breaks near-ties differently, so `find_nearest` answers a
+> vertex on a seam with one triangle in one build and its neighbour in the next, the push-out lands
+> fractions of a millimetre apart, and sixteen relax iterations turn that into millimetres of cloth.
+>
+> `fit.canonical_tris` now sorts a mesh's triangles before any BVH is built from it (`fit.body_bvh`,
+> `cover.garment_bvh`, `cover.compute`, `hem.prepare`), which makes a fit independent of the order
+> its mesh arrived in - vertex order is stable across those joins, so sorting on vertex indices is
+> canonical. Two full builds of Belle now write byte-identical `belle_sportstop.glb` and
+> `belle_shorts.glb`. The join itself is still nondeterministic: that is 5.7.
+
+**Problem.** Rebuilding Belle twice from the same brief produced sports tops whose vertices differ
+by up to 9.9 mm, and shorts that differ too. The body is not the cause: across three builds her
+exported `Belle_body` is identical in POSITION, NORMAL, TEXCOORD_0, JOINTS_0 and WEIGHTS_0, and
+every bone's rest head and tail matches to 1e-7. Checksums taken inside the build, at the moment
+the garment is cut, agree on both the body mesh and the rig - and the garments still come out
+different.
+
+It is not the garment code in isolation either. Cutting and easing the same garment twice in one
+session is bit-identical, and running that same cut from a saved `.blend` in three separate
+processes gives one checksum three times (so it is not Python hash-order across processes, which
+Blender fixes anyway). Only a *full build* varies, and one of its two runs matched the isolated
+result exactly - as if something earlier in the build leaves state that the saved blend does not
+carry.
+
+**Why it matters.** It puts a floor under any wardrobe regression test, it makes a rebuild a
+coin-flip against the 0.5% hole limit (Belle's top came out at 0.23% of hidden vertices in the
+committed build and 0.57% in a rebuild - pass and fail), and it means "rebuild and diff" cannot
+prove a wardrobe change safe. The `dressed_figure` fixture (03) *is* reproducible, so whatever
+this is, it does not reach the sample body - which makes it a good control for finding it.
+
+**Steps.**
+1. Bisect the build: checksum the garment after `tailor` alone, then after each `fit.ease`
+   iteration, in two runs of the full build, and find the first step that disagrees.
+2. Suspect state the saved blend does not carry: a depsgraph not yet updated when the BVH is
+   built (`fit.body_bvh` reads `body.data`, so a stale *evaluated* mesh elsewhere is the more
+   likely path), leftover flesh marks, or an operator that ran earlier in the session.
+3. Once found, add the reproducibility to the harness: build one character twice in one
+   `regress.py` run and compare the two, rather than comparing against a golden.
+
+**Done when** two full builds of Belle from the same brief produce byte-identical garments, and a
+`--twice` check in the harness proves it.
+
+---
+
+## 5.7 `bpy.ops.object.join` shuffles the face order
+
+**Problem.** Joining the eyes into a baked body gives the same vertices in the same order and the
+same set of faces, in a different order on every run. Minimal repro: build one humanform body,
+`export.bake_for_game`, then join `<name>_eyes` as `build_human.bake` does, and hash
+`[tuple(q.vertices) for q in me.polygons]` - three runs, three hashes, while the sorted form and
+the vertex hash hold. `bake_for_game` on its own is deterministic; the join is not.
+
+**Why it still matters.** 5.6 made wardrobe immune, and rig-anything's glTF export already writes
+the same indices either way, so nothing shipped is affected today. But every future consumer that
+walks faces in mesh order inherits the same trap, and "rebuild and diff" stays weaker than it
+looks: a body's `.blend` is not reproducible even when its geometry is.
+
+**Steps.** (1) Confirm where the order comes from - Blender joins in the order of the selected
+bases, which the context's selection set does not preserve. (2) Give rig-anything a deterministic
+`join_into(target, others)` that merges through bmesh in the order it was handed, keeping vertex
+groups, materials, UVs and custom normals, and point `build_human.bake` and Belle's `hair()` at it.
+(3) Prove it with the minimal repro above, three runs, one hash.
+
+**Done when** joining the same meshes twice gives byte-identical face order, and a whole character
+build is reproducible down to its `.blend`.

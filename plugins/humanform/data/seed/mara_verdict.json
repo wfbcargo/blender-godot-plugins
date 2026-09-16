@@ -1,0 +1,11 @@
+{"region": "face", "panels": [
+  {"panel": 0, "keep": false, "tags": []},
+  {"panel": 1, "keep": false, "artefacts": "blotchy dent-like shading at the temple and lower forehead in profile; mottled cheek and nasolabial surface in front", "tags": []},
+  {"panel": 2, "keep": true, "evidence": "longer face with a squarer jaw, straight longer nose, wider nostrils and fuller lips than 0; clean continuous profile", "tags": ["long face", "square jaw", "straight nose", "full lips"]},
+  {"panel": 3, "keep": false, "artefacts": "mottled cheek and nasolabial surface in front; faint lumps on the cheek in profile", "tags": []},
+  {"panel": 4, "keep": true, "evidence": "heavy brow over deep-set sockets, broad low nose bridge, full lips and a pointed forward chin in profile", "tags": ["heavy brow", "deep-set eyes", "broad nose", "full lips"]},
+  {"panel": 5, "keep": false, "artefacts": "dark dent-like patch at the temple in profile; mouth line cut hard with creased corners", "tags": []},
+  {"panel": 6, "keep": false, "artefacts": "mottled cheek surface in front", "tags": []},
+  {"panel": 7, "keep": true, "evidence": "short nose with a rounded tip, higher cheekbones, fuller lower lip and a firm projecting chin in profile; clean surface", "tags": ["rounded nose tip", "high cheekbones", "full lower lip", "prominent chin"]},
+  {"panel": 8, "keep": true, "evidence": "wide jaw, broad nose and wide thin lips; clean mouth and profile", "tags": ["wide jaw", "broad nose", "thin wide lips"]}
+], "best": [7, 2]}

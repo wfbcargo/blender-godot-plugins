@@ -25,6 +25,7 @@ no idea which bones are controls that carry no skin. A ground root simply sits o
 | Flesh bone placement | follow-through put both breast bones on Belle's chin | marked by hand on render sheets |
 | Buttocks anchor | nearest bone was the thigh; jiggle sat on its limit half the time | `flesh.py:687 _pelvis_bone`, `builtin.json` `"anchor": "pelvis"` |
 | Spine / limb names | wardrobe finds them by name regex | `wardrobe/rigmap.py:43 humanoid()` |
+| Rigify off | any fresh or `--factory-startup` Blender: `fit_basic_human` dies with `'Armature' object has no attribute 'rigify_colors'` | the fixtures call `H.enable_addons("rigify")`; `fit` should enable it itself, or name it in the error |
 
 Nearest-geometry bone picks that can go wrong the same way: `flesh.py:709 _anchor_bone`,
 `flesh.py` nearest chain / core ancestor, `maw.py:1087`, `wardrobe/hem.py:183-200`,

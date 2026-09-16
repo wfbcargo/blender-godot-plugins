@@ -205,12 +205,15 @@ required. Template fitting (phase 2) will need Rigify enabled:
 
 ## Developing it
 
-The repository copy is canonical. Blender only auto-loads skills from
-`~/.claude/skills/`, so copy it there to test:
+The repository copy is canonical. Claude Code only auto-loads skills from
+`~/.claude/skills/`, so install it there to test:
 
 ```
-cp -r plugins/rig-anything ~/.claude/skills/
+python tools/install.py rig-anything
 ```
+
+The installer mirrors the repo over the installed copy and records what it wrote, so it
+refuses rather than discarding an edit made in place. See `tools/install.py --help`.
 
 Blender sessions are long-lived and cache imports, so always
 `rig_analysis.reload_all()` after editing.

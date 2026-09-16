@@ -1,0 +1,490 @@
+[
+ {
+  "name": "female-hands-base",
+  "region": "hands",
+  "targets": {},
+  "fit": {
+   "max_tol": 0.642,
+   "measurements": 1,
+   "sizes": {
+    "hand": [
+     0.1915,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0831,
+     0.0812
+    ],
+    "palm_length": [
+     0.1136,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1593,
+     0.1594
+    ],
+    "foot": [
+     0.2585,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0952,
+     0.0949
+    ],
+    "ankle_circ": [
+     0.2163,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-incr": 0.177,
+   "hf:r-hand-scale-incr": 0.177,
+   "hf:l-hand-fingers-length-decr": 0.055,
+   "hf:r-hand-fingers-length-decr": 0.055,
+   "hf:measure-wrist-circ-incr": 0.319
+  }
+ },
+ {
+  "name": "female-hands-21-0",
+  "region": "hands",
+  "targets": {},
+  "offsets": {
+   "wrist": 0.34
+  },
+  "fit": {
+   "max_tol": 0.727,
+   "measurements": 1,
+   "sizes": {
+    "hand": [
+     0.1915,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0831,
+     0.0812
+    ],
+    "palm_length": [
+     0.1136,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1593,
+     0.1622
+    ],
+    "foot": [
+     0.2585,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0952,
+     0.0949
+    ],
+    "ankle_circ": [
+     0.2163,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-incr": 0.177,
+   "hf:r-hand-scale-incr": 0.177,
+   "hf:l-hand-fingers-length-decr": 0.055,
+   "hf:r-hand-fingers-length-decr": 0.055,
+   "hf:measure-wrist-circ-incr": 0.319
+  }
+ },
+ {
+  "name": "female-hands-21-1",
+  "region": "hands",
+  "targets": {
+   "hf:l-hand-fingers-distance-incr": 0.0,
+   "hf:l-hand-fingers-distance-decr": 0.705,
+   "hf:r-hand-fingers-distance-incr": 0.0,
+   "hf:r-hand-fingers-distance-decr": 0.705
+  },
+  "fit": {
+   "max_tol": 0.738,
+   "measurements": 1,
+   "sizes": {
+    "hand": [
+     0.1915,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.081,
+     0.0812
+    ],
+    "palm_length": [
+     0.1138,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1565,
+     0.1594
+    ],
+    "foot": [
+     0.2585,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0952,
+     0.0949
+    ],
+    "ankle_circ": [
+     0.2163,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-incr": 0.177,
+   "hf:r-hand-scale-incr": 0.177,
+   "hf:l-hand-fingers-length-decr": 0.055,
+   "hf:r-hand-fingers-length-decr": 0.055,
+   "hf:measure-wrist-circ-incr": 0.319,
+   "hf:l-hand-fingers-distance-decr": 0.705,
+   "hf:r-hand-fingers-distance-decr": 0.705
+  }
+ },
+ {
+  "name": "female-hands-21-2",
+  "region": "hands",
+  "targets": {
+   "hf:l-hand-fingers-diameter-incr": 0.313,
+   "hf:l-hand-fingers-diameter-decr": 0.0,
+   "hf:r-hand-fingers-diameter-incr": 0.313,
+   "hf:r-hand-fingers-diameter-decr": 0.0
+  },
+  "offsets": {
+   "palm": 1.1
+  },
+  "fit": {
+   "max_tol": 1.092,
+   "measurements": 11,
+   "sizes": {
+    "hand": [
+     0.1924,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0878,
+     0.0855
+    ],
+    "palm_length": [
+     0.1182,
+     0.1215
+    ],
+    "wrist_circ": [
+     0.1595,
+     0.1594
+    ],
+    "foot": [
+     0.2587,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0951,
+     0.0949
+    ],
+    "ankle_circ": [
+     0.218,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-incr": 0.3073,
+   "hf:r-hand-scale-incr": 0.3073,
+   "hf:l-hand-fingers-length-decr": 0.57274,
+   "hf:r-hand-fingers-length-decr": 0.57274,
+   "hf:measure-wrist-circ-incr": 0.25077,
+   "hf:l-hand-fingers-diameter-incr": 0.313,
+   "hf:r-hand-fingers-diameter-incr": 0.313
+  }
+ },
+ {
+  "name": "female-hands-21-3",
+  "region": "hands",
+  "targets": {
+   "hf:l-hand-fingers-diameter-incr": 0.0,
+   "hf:l-hand-fingers-diameter-decr": 0.574,
+   "hf:r-hand-fingers-diameter-incr": 0.0,
+   "hf:r-hand-fingers-diameter-decr": 0.574
+  },
+  "offsets": {
+   "palm": -0.18
+  },
+  "fit": {
+   "max_tol": 0.66,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1901,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0824,
+     0.0804
+    ],
+    "palm_length": [
+     0.1125,
+     0.1134
+    ],
+    "wrist_circ": [
+     0.1593,
+     0.1594
+    ],
+    "foot": [
+     0.2589,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.095,
+     0.0949
+    ],
+    "ankle_circ": [
+     0.2183,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-incr": 0.1562,
+   "hf:r-hand-scale-incr": 0.1562,
+   "hf:l-hand-fingers-length-decr": 0.01241,
+   "hf:r-hand-fingers-length-decr": 0.01241,
+   "hf:measure-wrist-circ-incr": 0.33163,
+   "hf:l-hand-fingers-diameter-decr": 0.574,
+   "hf:r-hand-fingers-diameter-decr": 0.574
+  }
+ },
+ {
+  "name": "female-hands-21-4",
+  "region": "hands",
+  "targets": {
+   "hf:l-hand-fingers-diameter-incr": 0.0,
+   "hf:l-hand-fingers-diameter-decr": 0.91,
+   "hf:r-hand-fingers-diameter-incr": 0.0,
+   "hf:r-hand-fingers-diameter-decr": 0.91,
+   "hf:l-hand-fingers-distance-incr": 0.0,
+   "hf:l-hand-fingers-distance-decr": 0.051,
+   "hf:r-hand-fingers-distance-incr": 0.0,
+   "hf:r-hand-fingers-distance-decr": 0.051
+  },
+  "fit": {
+   "max_tol": 0.573,
+   "measurements": 1,
+   "sizes": {
+    "hand": [
+     0.1903,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0824,
+     0.0812
+    ],
+    "palm_length": [
+     0.1129,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1591,
+     0.1594
+    ],
+    "foot": [
+     0.2585,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0952,
+     0.0949
+    ],
+    "ankle_circ": [
+     0.2163,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-incr": 0.177,
+   "hf:r-hand-scale-incr": 0.177,
+   "hf:l-hand-fingers-length-decr": 0.055,
+   "hf:r-hand-fingers-length-decr": 0.055,
+   "hf:measure-wrist-circ-incr": 0.319,
+   "hf:l-hand-fingers-distance-decr": 0.051,
+   "hf:r-hand-fingers-distance-decr": 0.051,
+   "hf:l-hand-fingers-diameter-decr": 0.91,
+   "hf:r-hand-fingers-diameter-decr": 0.91
+  }
+ },
+ {
+  "name": "female-hands-21-5",
+  "region": "hands",
+  "targets": {
+   "hf:l-hand-fingers-diameter-incr": 0.0,
+   "hf:l-hand-fingers-diameter-decr": 0.562,
+   "hf:r-hand-fingers-diameter-incr": 0.0,
+   "hf:r-hand-fingers-diameter-decr": 0.562
+  },
+  "offsets": {
+   "palm": 0.7,
+   "wrist": 0.14
+  },
+  "fit": {
+   "max_tol": 0.725,
+   "measurements": 4,
+   "sizes": {
+    "hand": [
+     0.1924,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0858,
+     0.0839
+    ],
+    "palm_length": [
+     0.1168,
+     0.119
+    ],
+    "wrist_circ": [
+     0.1605,
+     0.1606
+    ],
+    "foot": [
+     0.2588,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0949,
+     0.0949
+    ],
+    "ankle_circ": [
+     0.2179,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-incr": 0.29234,
+   "hf:r-hand-scale-incr": 0.29234,
+   "hf:l-hand-fingers-length-decr": 0.4118,
+   "hf:r-hand-fingers-length-decr": 0.4118,
+   "hf:measure-wrist-circ-incr": 0.27661,
+   "hf:l-hand-fingers-diameter-decr": 0.562,
+   "hf:r-hand-fingers-diameter-decr": 0.562
+  }
+ },
+ {
+  "name": "female-hands-21-7",
+  "region": "hands",
+  "targets": {
+   "hf:l-hand-fingers-distance-incr": 0.0,
+   "hf:l-hand-fingers-distance-decr": 0.179,
+   "hf:r-hand-fingers-distance-incr": 0.0,
+   "hf:r-hand-fingers-distance-decr": 0.179
+  },
+  "offsets": {
+   "wrist": 0.35
+  },
+  "fit": {
+   "max_tol": 0.395,
+   "measurements": 2,
+   "sizes": {
+    "hand": [
+     0.1915,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0823,
+     0.0812
+    ],
+    "palm_length": [
+     0.1138,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1621,
+     0.1622
+    ],
+    "foot": [
+     0.2588,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0946,
+     0.0949
+    ],
+    "ankle_circ": [
+     0.2179,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-incr": 0.18243,
+   "hf:r-hand-scale-incr": 0.18243,
+   "hf:l-hand-fingers-length-decr": 0.07544,
+   "hf:r-hand-fingers-length-decr": 0.07544,
+   "hf:measure-wrist-circ-incr": 0.38112,
+   "hf:l-hand-fingers-distance-decr": 0.179,
+   "hf:r-hand-fingers-distance-decr": 0.179
+  }
+ },
+ {
+  "name": "female-hands-21-8",
+  "region": "hands",
+  "targets": {
+   "hf:l-hand-fingers-diameter-incr": 0.265,
+   "hf:l-hand-fingers-diameter-decr": 0.0,
+   "hf:r-hand-fingers-diameter-incr": 0.265,
+   "hf:r-hand-fingers-diameter-decr": 0.0
+  },
+  "offsets": {
+   "wrist": 0.24
+  },
+  "fit": {
+   "max_tol": 0.804,
+   "measurements": 16,
+   "sizes": {
+    "hand": [
+     0.1912,
+     0.1915
+    ],
+    "hand_breadth": [
+     0.0836,
+     0.0812
+    ],
+    "palm_length": [
+     0.1136,
+     0.1146
+    ],
+    "wrist_circ": [
+     0.1614,
+     0.1614
+    ],
+    "foot": [
+     0.2589,
+     0.2588
+    ],
+    "foot_breadth": [
+     0.0949,
+     0.0949
+    ],
+    "ankle_circ": [
+     0.2182,
+     0.2182
+    ]
+   }
+  },
+  "shape": {
+   "hf:l-hand-scale-incr": 0.16711,
+   "hf:r-hand-scale-incr": 0.16711,
+   "hf:l-hand-fingers-length-decr": 0.07214,
+   "hf:r-hand-fingers-length-decr": 0.07214,
+   "hf:measure-wrist-circ-incr": 0.36337,
+   "hf:l-hand-fingers-diameter-incr": 0.265,
+   "hf:r-hand-fingers-diameter-incr": 0.265
+  }
+ }
+]

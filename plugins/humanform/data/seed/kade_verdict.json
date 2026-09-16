@@ -1,0 +1,11 @@
+{"region": "face", "panels": [
+  {"panel": 0, "keep": false, "tags": []},
+  {"panel": 1, "keep": true, "evidence": "rounder and fuller than 0: padded cheeks, softer jaw corner, fleshy lower face; clean surface", "tags": ["round face", "full cheeks", "soft jaw"]},
+  {"panel": 2, "keep": true, "evidence": "narrower face and jaw, longer narrower nose, thinner lips; no dents or ridges", "tags": ["narrow face", "long nose", "thin lips"]},
+  {"panel": 3, "keep": true, "evidence": "wide cheekbones and flared ears, jaw tapering to a narrow chin, receding chin in profile", "tags": ["wide cheekbones", "protruding ears", "tapered jaw", "receding chin"]},
+  {"panel": 4, "keep": true, "evidence": "broader lower face, long upper lip, fuller lips; full rounded jaw in profile", "tags": ["full lips", "long upper lip", "broad lower face"]},
+  {"panel": 5, "keep": true, "evidence": "long narrow face, long straight nose, narrow jaw, thin lips; clean straight profile", "tags": ["long face", "straight nose", "narrow jaw"]},
+  {"panel": 6, "keep": false, "artefacts": "lumpy brow ridge; uneven cheek and jowl bulge in profile, jutting lower face", "tags": []},
+  {"panel": 7, "keep": true, "evidence": "broad fleshy face, wide nose, heavy mouth with forward lips, full rounded chin", "tags": ["broad nose", "fleshy face", "protruding lips"]},
+  {"panel": 8, "keep": true, "evidence": "longer face, defined high nose bridge, squarer chin, thin level lips; clean angular profile", "tags": ["high nose bridge", "square chin", "long face", "thin lips"]}
+], "best": [8, 2, 5]}

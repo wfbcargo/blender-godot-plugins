@@ -1,0 +1,94 @@
+{
+ "fixture": "dressed_figure",
+ "plugins": {
+  "follow-through": "0.2.1",
+  "rig-anything": "0.14.1",
+  "wardrobe": "0.1.0"
+ },
+ "report": {
+  "body": {
+   "flesh_regions": 11,
+   "jiggle_bones": 11,
+   "vertices": 17112
+  },
+  "cover": {
+   "body": "Figure",
+   "body_verts": 17112,
+   "covered": 5865,
+   "disagree": 936,
+   "edge": 1861,
+   "garment": "Shirt",
+   "hidden": 4004,
+   "hidden_gap_max_m": 0.0257,
+   "hidden_gap_median_m": 0.0055,
+   "margin": 0.03,
+   "max_gap": 0.1,
+   "tris_hidden": 7625,
+   "tris_total": 34220
+  },
+  "ease": {
+   "gap_max_m": 0.0684,
+   "gap_median_m": 0.0068,
+   "gap_min_m": 0.0058,
+   "gap_p95_m": 0.0399,
+   "verts": 6220
+  },
+  "export": {
+   "edge": 1861,
+   "exported": true,
+   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-gdhgre20\\dressed_figure\\dressed_figure\\shirt.glb",
+   "garment": "Shirt",
+   "hem_bones": 16,
+   "hem_head_error_m": 1e-06,
+   "hidden": 4004,
+   "joints": 56,
+   "passed": true,
+   "problems": [],
+   "size_bytes": 465316,
+   "weight_sum_min": 1.0
+  },
+  "exported": true,
+  "garment": {
+   "groups": 57,
+   "vertices": 6220
+  },
+  "hem_rings": [
+   {
+    "bones": 8,
+    "frequency_hz": 1.75,
+    "gap_min_m": 0.031,
+    "hinge_m": 0.135,
+    "parents": [
+     "spine",
+     "spine.001",
+     "spine.002"
+    ],
+    "ring": "hem",
+    "weighted_verts": 1345
+   },
+   {
+    "bones": 4,
+    "frequency_hz": 2.31,
+    "gap_min_m": 0.0135,
+    "hinge_m": 0.06,
+    "parents": [
+     "upper_arm.L"
+    ],
+    "ring": "cuff.L",
+    "weighted_verts": 213
+   },
+   {
+    "bones": 4,
+    "frequency_hz": 2.32,
+    "gap_min_m": 0.0135,
+    "hinge_m": 0.059,
+    "parents": [
+     "upper_arm.R"
+    ],
+    "ring": "cuff.R",
+    "weighted_verts": 216
+   }
+  ],
+  "passed": true
+ }
+}

@@ -1086,6 +1086,11 @@ def air(rig_name, launch_report, action_name=None, fps=None):
         P.bm["floor"] = 0.0
     if "error" in report:
         return report
+    # The clip carries the floor it was authored against. The authoring check knows this
+    # body is in the air and lets its feet hang below the ground it left; the exporter's
+    # re-check, running later on nothing but the written clip, measured it against the
+    # origin and refused the whole export over a foot 7 cm "through the floor".
+    action["rig_anything_floor"] = air_floor
     report.update({"rig": rig_name, "action": action.name, "role": "JumpAir", "frames": [1, n], "fps": fps_now,
                    "flight_time_s": jp["flight_time_s"], "floor_below_body_m": round(-air_floor, 5)})
     report["_reach_key"] = reach

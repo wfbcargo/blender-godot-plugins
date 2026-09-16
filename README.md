@@ -160,10 +160,89 @@ whose presets don't convert: under Jolt the cloth has no bending, stiffness abov
 0.9 flutters indefinitely, and damping is a per-second rate standing in for the
 air. See the [plugin README](./plugins/follow-through/README.md).
 
+### [`humanform`](./plugins/humanform/)
+
+Adult human bodies in Blender, built in layers with a measured gate between
+every one — the body the other plugins start from.
+
+A brief ("a 28-year-old woman, 1.70 m, curvy") is resolved against **ANSUR II**:
+6,068 measured adults as a multivariate normal per sex over 65 variables,
+conditioned on what the brief fixes, so every measurement it doesn't name is the
+one people like that actually have. MPFB2 then builds the mesh, and a
+Levenberg–Marquardt solve over its macros and sixteen fine targets fits it to
+those landmarks — heights, segment lengths, widths, and girths *with* their
+breadths and depths, because girth alone answered every waist with a pregnant
+belly.
+
+`humancheck` is the gate, and it is the reason the ladder works: it measures a
+body in its rig's rest pose, renders a fixed orthographic contact sheet in clay,
+normals and silhouette with target and measured landmark lines, and hands both
+to a critic subagent that **writes its questions before it looks**. `humanlib`
+makes the next body cheap: a library indexed by ANSUR z-scores and critic-written
+tags, reuse in under a second, faces, hands, feet and eyes as parts that move
+between bodies without stitching, and verdict statistics that steer later designs
+away from what critics keep rejecting. See the
+[plugin README](./plugins/humanform/README.md).
+
+### [`wardrobe`](./plugins/wardrobe/)
+
+Layered clothing for rigged Blender characters headed to Godot 4.7 — a garment
+that fits, never shows the body through it, and swings where it hangs free.
+
+A garment is **cut from the body it will be worn on**, so it inherits that
+body's own skin weights — `follow-through`'s jiggle bones included, and a shirt
+therefore follows the flesh under it with no extra work. It is then eased off
+the skin by a relax-and-push loop that bridges hollows and lets cloth hang
+straight from the widest point above rather than tucking under a buttock. What
+hangs free is sprung: a ring of bones around the hem and each cuff, each with an
+inward backstop measured from its rest gap.
+
+The skin underneath is **not drawn** — but only where the cloth is skinned like
+the skin under it, because a thigh under a hem hung from the torso swings out
+from beneath it. In Godot one call adds the garment's bones to the body's
+skeleton, rebuilds the body without the covered triangles and springs the hem;
+a headless verifier skins every vertex from the final pose and ray-casts along
+each body normal to count holes and skin through the cloth over a walk. See the
+[plugin README](./plugins/wardrobe/README.md).
+
+## Developing these plugins
+
+The repository copy is canonical, but Claude Code loads skills from
+`~/.claude/skills/`. Install one, or every plugin already installed there:
+
+```
+python tools/install.py wardrobe
+python tools/install.py --all --dry-run
+```
+
+The installer mirrors the repo over the installed copy and records a hash of
+every file it wrote, so a copy that was edited in place is **refused** rather
+than silently discarded — move the edit into the repo, or pass `--force`. An
+installed copy that is itself a git checkout is never overwritten.
+
+That covers this machine only. For the others: push, then
+`/plugin marketplace update paul-claude-plugins`.
+
+Before changing anything shared, and before calling it done, run the fixtures:
+
+```
+python tools/regress.py --jobs 2
+```
+
+Four bodies are rebuilt from nothing in headless Blender - a woman from a seeded
+brief, a rabbit, two fleshed sample figures and a shirt cut onto one of them -
+and every number is compared to `tests/golden/`. A fix moves numbers; the point
+is that the move is seen on every fixture rather than on whichever character was
+being built at the time. See [`tests/README.md`](./tests/README.md).
+
 ## Layout
 
 ```
 .claude-plugin/marketplace.json     # marketplace manifest
+tools/install.py                    # repo -> ~/.claude/skills, edits refused
+tools/regress.py                    # rebuild the fixtures, compare to goldens
+tests/fixtures/                     # bodies built from generators and seeds
+tests/golden/                       # what a build produced when it was last reviewed
 plugins/
   claude-architect/
     .claude-plugin/plugin.json      # plugin manifest
@@ -221,6 +300,22 @@ plugins/
     scripts/follow_through/         # Blender: measure, classify, spec, cloth, export
     godot/addons/follow_through/    # SoftBody3D runtime and headless verifier
     references/                     # concepts from zero; cloth research and measurements
+    README.md
+  humanform/
+    .claude-plugin/plugin.json
+    skills/humanform/               # the build ladder and its gates
+    skills/humancheck/              # measure, contact sheet, critic
+    skills/humanlib/                # the library, parts, the one-call pipeline
+    scripts/humanform/              # Blender: body, measure, views, scaffold, library
+    data/                           # ANSUR II public CSVs, presets, the seed library
+    references/                     # proportions, and the critic's question bank
+    README.md
+  wardrobe/
+    .claude-plugin/plugin.json
+    skills/wardrobe/                # cut, fit, skin, hem bones, cover, export
+    scripts/wardrobe/               # Blender: rigmap, tailor, fit, cover, hem, spec, export
+    godot/addons/wardrobe/          # equip/unequip/hide, hem modifier, verifier
+    references/garments.md          # how engines dress characters, and what was measured
     README.md
 ```
 

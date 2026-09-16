@@ -1,0 +1,1153 @@
+{
+ "fixture": "rabbit",
+ "plugins": {
+  "rig-anything": "0.14.1"
+ },
+ "report": {
+  "detection": {
+   "hind_over_others": 1.560344,
+   "kind": "leporid",
+   "kind_guessed": true,
+   "legs": {
+    "fore.L": {
+     "joints": 5,
+     "segments": [
+      [
+       "humerus",
+       0.061215
+      ],
+      [
+       "forearm",
+       0.066538
+      ],
+      [
+       "paw",
+       0.030369
+      ],
+      [
+       "digits",
+       0.014958
+      ]
+     ]
+    },
+    "fore.R": {
+     "joints": 5,
+     "segments": [
+      [
+       "humerus",
+       0.061215
+      ],
+      [
+       "forearm",
+       0.066538
+      ],
+      [
+       "paw",
+       0.030369
+      ],
+      [
+       "digits",
+       0.014958
+      ]
+     ]
+    },
+    "hind.L": {
+     "joints": 5,
+     "segments": [
+      [
+       "femur",
+       0.087998
+      ],
+      [
+       "tibia",
+       0.101147
+      ],
+      [
+       "metatarsus",
+       0.055833
+      ],
+      [
+       "toes",
+       0.025085
+      ]
+     ]
+    },
+    "hind.R": {
+     "joints": 5,
+     "segments": [
+      [
+       "femur",
+       0.087998
+      ],
+      [
+       "tibia",
+       0.101147
+      ],
+      [
+       "metatarsus",
+       0.055833
+      ],
+      [
+       "toes",
+       0.025085
+      ]
+     ]
+    }
+   },
+   "warnings": []
+  },
+  "export": {
+   "bones": 25,
+   "clips": [
+    "RabbitTest_rig_Idle",
+    "RabbitTest_rig_Hop",
+    "RabbitTest_rig_Bound",
+    "RabbitTest_rig_JumpLaunch",
+    "RabbitTest_rig_JumpAir",
+    "RabbitTest_rig_JumpLand"
+   ],
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-skowx80w\\rabbit\\rabbit\\rabbit.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-skowx80w\\rabbit\\rabbit\\rabbit.moves.json",
+   "verified": {
+    "durations_match": true,
+    "mismatches": []
+   }
+  },
+  "joint_error_vs_truth": {
+   "fore.L": {
+    "joints": 5,
+    "mean": 0.008332,
+    "per_joint_tip_first": [
+     0.00401,
+     0.00224,
+     0.00033,
+     0.01227,
+     0.02281
+    ],
+    "truth_joints": 5,
+    "worst": 0.022814
+   },
+   "fore.R": {
+    "joints": 5,
+    "mean": 0.008332,
+    "per_joint_tip_first": [
+     0.00401,
+     0.00224,
+     0.00033,
+     0.01227,
+     0.02281
+    ],
+    "truth_joints": 5,
+    "worst": 0.022814
+   },
+   "hind.L": {
+    "joints": 5,
+    "mean": 0.012483,
+    "per_joint_tip_first": [
+     0.005,
+     0.00512,
+     0.00545,
+     0.02632,
+     0.02052
+    ],
+    "truth_joints": 5,
+    "worst": 0.026321
+   },
+   "hind.R": {
+    "joints": 5,
+    "mean": 0.012483,
+    "per_joint_tip_first": [
+     0.005,
+     0.00512,
+     0.00545,
+     0.02632,
+     0.02052
+    ],
+    "truth_joints": 5,
+    "worst": 0.026321
+   }
+  },
+  "manifest": {
+   "body_m": {
+    "length": 0.4238
+   },
+   "clips": {
+    "Bound": "RabbitTest_rig_Bound",
+    "Hop": "RabbitTest_rig_Hop",
+    "Idle": "RabbitTest_rig_Idle",
+    "JumpAir": "RabbitTest_rig_JumpAir",
+    "JumpLand": "RabbitTest_rig_JumpLand",
+    "JumpLaunch": "RabbitTest_rig_JumpLaunch"
+   },
+   "contacts": {
+    "Bound": {
+     "feet": [
+      {
+       "bone": "fore_paw.R",
+       "duty_factor": 0.125,
+       "leg": "fore_humerus.R",
+       "length": 0.03037,
+       "stance": [
+        [
+         0.5625,
+         0.6875
+        ]
+       ]
+      },
+      {
+       "bone": "fore_paw.L",
+       "duty_factor": 0.125,
+       "leg": "fore_humerus.L",
+       "length": 0.03037,
+       "stance": [
+        [
+         0.5,
+         0.625
+        ]
+       ]
+      },
+      {
+       "bone": "hind_metatarsus.R",
+       "duty_factor": 0.312,
+       "leg": "hind_femur.R",
+       "length": 0.05583,
+       "stance": [
+        [
+         0.0,
+         0.3125
+        ]
+       ]
+      },
+      {
+       "bone": "hind_metatarsus.L",
+       "duty_factor": 0.312,
+       "leg": "hind_femur.L",
+       "length": 0.05583,
+       "stance": [
+        [
+         0.0,
+         0.3125
+        ]
+       ]
+      }
+     ],
+     "flight_fraction": 0.5,
+     "statically_stable_fraction": 0.0
+    },
+    "Hop": {
+     "feet": [
+      {
+       "bone": "fore_paw.R",
+       "duty_factor": 0.333,
+       "leg": "fore_humerus.R",
+       "length": 0.03037,
+       "stance": [
+        [
+         0.0,
+         0.0417
+        ],
+        [
+         0.7083,
+         1.0
+        ]
+       ]
+      },
+      {
+       "bone": "fore_paw.L",
+       "duty_factor": 0.375,
+       "leg": "fore_humerus.L",
+       "length": 0.03037,
+       "stance": [
+        [
+         0.5833,
+         0.9583
+        ]
+       ]
+      },
+      {
+       "bone": "hind_metatarsus.R",
+       "duty_factor": 0.542,
+       "leg": "hind_femur.R",
+       "length": 0.05583,
+       "stance": [
+        [
+         0.0,
+         0.5417
+        ]
+       ]
+      },
+      {
+       "bone": "hind_metatarsus.L",
+       "duty_factor": 0.542,
+       "leg": "hind_femur.L",
+       "length": 0.05583,
+       "stance": [
+        [
+         0.0,
+         0.5417
+        ]
+       ]
+      }
+     ],
+     "flight_fraction": 0.042,
+     "statically_stable_fraction": 0.042
+    }
+   },
+   "gaits": {
+    "Bound": {
+     "duty_factor": 0.28,
+     "froude": 9.498,
+     "gait": "half-bound",
+     "hip_height_m": 0.1296,
+     "natural_speed_mps": 3.4755,
+     "spine_flex_deg": 8.0,
+     "stride_frequency_hz": 3.3535,
+     "stride_m": 1.0364,
+     "stroke_m": 0.2902
+    },
+    "Hop": {
+     "duty_factor": 0.5,
+     "froude": 0.082,
+     "gait": "hop",
+     "hip_height_m": 0.1296,
+     "natural_speed_mps": 0.3227,
+     "spine_flex_deg": 4.0,
+     "stride_frequency_hz": 1.1977,
+     "stride_m": 0.2695,
+     "stroke_m": 0.1347
+    }
+   },
+   "height_m": {
+    "stand": 0.1977
+   },
+   "hop": {
+    "checks": {
+     "Bound": {
+      "contact_slip_m": {
+       "fore_humerus.L": 0.0,
+       "fore_humerus.R": 0.0,
+       "hind_femur.L": 0.0,
+       "hind_femur.R": 0.0
+      },
+      "flipped_faces": 532,
+      "loop_seam": 0.0,
+      "passed": true,
+      "prediction_error": 0.0,
+      "stretch_max": 7.919,
+      "stretch_p99": 2.944
+     },
+     "Hop": {
+      "contact_slip_m": {
+       "fore_humerus.L": 0.0,
+       "fore_humerus.R": 0.0,
+       "hind_femur.L": 0.0,
+       "hind_femur.R": 0.0
+      },
+      "flipped_faces": 377,
+      "loop_seam": 0.0,
+      "passed": true,
+      "prediction_error": 0.0,
+      "stretch_max": 8.198,
+      "stretch_p99": 2.713
+     },
+     "Idle": {
+      "loop_seam": 0.0,
+      "passed": true,
+      "prediction_error": 0.0
+     },
+     "JumpAir": {
+      "flipped_faces": 254,
+      "passed": true,
+      "prediction_error": 0.0,
+      "stretch_max": 7.916,
+      "stretch_p99": 2.844
+     },
+     "JumpLand": {
+      "flipped_faces": 56,
+      "passed": true,
+      "prediction_error": 0.0,
+      "stretch_max": 2.608,
+      "stretch_p99": 1.691
+     },
+     "JumpLaunch": {
+      "flipped_faces": 381,
+      "passed": true,
+      "prediction_error": 0.0,
+      "stretch_max": 7.916,
+      "stretch_p99": 2.844
+     }
+    },
+    "clips": {
+     "Bound": "RabbitTest_rig_Bound",
+     "Hop": "RabbitTest_rig_Hop",
+     "Idle": "RabbitTest_rig_Idle",
+     "JumpAir": "RabbitTest_rig_JumpAir",
+     "JumpLand": "RabbitTest_rig_JumpLand",
+     "JumpLaunch": "RabbitTest_rig_JumpLaunch"
+    },
+    "evidence": [
+     "hind pair 10.8% longer than the others on the skin",
+     "hind foot segment 1 lies on the floor (8 deg, 0.081 long)",
+     "hind legs stand heel down on a flat foot, the shank rising from the heel"
+    ],
+    "gaits": {
+     "Bound": {
+      "ankle_deg": {
+       "hind_femur.L": {
+        "last_stance": 131.4,
+        "min": 68.4,
+        "strike": 112.2
+       },
+       "hind_femur.R": {
+        "last_stance": 131.4,
+        "min": 68.4,
+        "strike": 112.2
+       }
+      },
+      "fore_touchdown_phase": {
+       "fore_humerus.L": 0.5,
+       "fore_humerus.R": 0.56
+      },
+      "frequency_hz": 3.3535,
+      "froude": 9.498,
+      "hind_duty": 0.28,
+      "hind_overstep_m": 0.3725,
+      "playback_speed_scale": 2.3754,
+      "source": "half-bound, Simons 1996 (3.5 Hz at 12 km/h); duties, pitch and flex design",
+      "speed_mps": 3.4755,
+      "stride_m": 1.0364
+     },
+     "Hop": {
+      "ankle_deg": {
+       "hind_femur.L": {
+        "last_stance": 133.5,
+        "min": 66.9,
+        "strike": 103.1
+       },
+       "hind_femur.R": {
+        "last_stance": 133.5,
+        "min": 66.9,
+        "strike": 103.1
+       }
+      },
+      "fore_touchdown_phase": {
+       "fore_humerus.L": 0.58,
+       "fore_humerus.R": 0.68
+      },
+      "frequency_hz": 1.1977,
+      "froude": 0.082,
+      "hind_duty": 0.5,
+      "hind_overstep_m": -0.061,
+      "playback_speed_scale": 1.2476,
+      "source": "hind stance 0.40 s (Hall 2022); duty 0.5, stroke 0.55 leg, pitch and flex design",
+      "speed_mps": 0.3227,
+      "stride_m": 0.2695
+     }
+    },
+    "hind_over_others": 1.56034,
+    "jump": {
+     "air_duration_s": 0.3333,
+     "angle_deg": 40.0,
+     "apex_m": 0.18953,
+     "extension_onset_s": {
+      "ankle": 0.0833,
+      "hip": 0.0417,
+      "knee": 0.0417
+     },
+     "flight_time_s": 0.39314,
+     "knee_deg": {
+      "cocked": 72.1,
+      "plan_takeoff": 140.0,
+      "takeoff": 130.2
+     },
+     "land_duration_s": 0.292,
+     "land_offset_model": [
+      0.0,
+      0.02262,
+      -0.02696
+     ],
+     "launch_duration_s": 0.4167,
+     "push": {
+      "angle_deg": 39.9,
+      "plan_deg": 40.0,
+      "push_frames": 2,
+      "push_m": 0.1492,
+      "push_s": 0.0995,
+      "speed_mps": 3.0
+     },
+     "push_start_s": 0.3333,
+     "range_m": 0.90349,
+     "seams_m": {
+      "air -> land": 1e-05,
+      "launch -> air": 0.00059
+     },
+     "source": "UNVERIFIED design (no rabbit take-off measurement found); ankle 137 deg at toe-off from Hall 2022, proximal-to-distal order from Astley & Roberts 2014",
+     "speed_mps": 3.0,
+     "takeoff_offset_model": [
+      0.0,
+      0.0884,
+      0.11437
+     ],
+     "takeoff_velocity_model": [
+      0.0,
+      1.92836,
+      2.29813
+     ],
+     "touch_clearance_m": 0.01202,
+     "touchdown_frame": {
+      "fore_humerus.L": 2,
+      "fore_humerus.R": 2,
+      "hind_femur.L": 3,
+      "hind_femur.R": 3
+     }
+    },
+    "kind": "leporid",
+    "kind_guessed": true,
+    "legs": [
+     {
+      "bones": [
+       "fore_humerus.L",
+       "fore_forearm.L",
+       "fore_paw.L",
+       "fore_digits.L"
+      ],
+      "lengths_m": [
+       0.06121,
+       0.06654,
+       0.03037,
+       0.01496
+      ],
+      "measured": [
+       false,
+       false,
+       true,
+       true,
+       false
+      ],
+      "name": "fore.L",
+      "plantigrade": false,
+      "rank": "fore",
+      "rest_angles_deg": [
+       170.6,
+       105.47,
+       180.0
+      ],
+      "roles": [
+       "humerus",
+       "forearm",
+       "paw",
+       "digits"
+      ],
+      "saltatorial": false,
+      "side": "L"
+     },
+     {
+      "bones": [
+       "fore_humerus.R",
+       "fore_forearm.R",
+       "fore_paw.R",
+       "fore_digits.R"
+      ],
+      "lengths_m": [
+       0.06121,
+       0.06654,
+       0.03037,
+       0.01496
+      ],
+      "measured": [
+       false,
+       false,
+       true,
+       true,
+       false
+      ],
+      "name": "fore.R",
+      "plantigrade": false,
+      "rank": "fore",
+      "rest_angles_deg": [
+       170.6,
+       105.47,
+       180.0
+      ],
+      "roles": [
+       "humerus",
+       "forearm",
+       "paw",
+       "digits"
+      ],
+      "saltatorial": false,
+      "side": "R"
+     },
+     {
+      "bones": [
+       "hind_femur.L",
+       "hind_tibia.L",
+       "hind_metatarsus.L",
+       "hind_toes.L"
+      ],
+      "lengths_m": [
+       0.088,
+       0.10115,
+       0.05583,
+       0.02508
+      ],
+      "measured": [
+       false,
+       false,
+       true,
+       false,
+       true
+      ],
+      "name": "hind.L",
+      "plantigrade": true,
+      "rank": "hind",
+      "rest_angles_deg": [
+       77.42,
+       36.33,
+       180.0
+      ],
+      "roles": [
+       "femur",
+       "tibia",
+       "metatarsus",
+       "toes"
+      ],
+      "saltatorial": true,
+      "side": "L"
+     },
+     {
+      "bones": [
+       "hind_femur.R",
+       "hind_tibia.R",
+       "hind_metatarsus.R",
+       "hind_toes.R"
+      ],
+      "lengths_m": [
+       0.088,
+       0.10115,
+       0.05583,
+       0.02508
+      ],
+      "measured": [
+       false,
+       false,
+       true,
+       false,
+       true
+      ],
+      "name": "hind.R",
+      "plantigrade": true,
+      "rank": "hind",
+      "rest_angles_deg": [
+       77.42,
+       36.33,
+       180.0
+      ],
+      "roles": [
+       "femur",
+       "tibia",
+       "metatarsus",
+       "toes"
+      ],
+      "saltatorial": true,
+      "side": "R"
+     }
+    ],
+    "loops": [
+     "RabbitTest_rig_Idle",
+     "RabbitTest_rig_Hop",
+     "RabbitTest_rig_Bound"
+    ],
+    "mass_kg": 7.1159,
+    "mass_source": "skin volume x 1050 kg/m3",
+    "problems": []
+   },
+   "implied_speed_mps": {
+    "RabbitTest_rig_Bound": 1.4631,
+    "RabbitTest_rig_Hop": 0.2587
+   },
+   "loops": [
+    "RabbitTest_rig_Idle",
+    "RabbitTest_rig_Hop",
+    "RabbitTest_rig_Bound"
+   ],
+   "verified": {
+    "durations_match": true,
+    "mismatches": []
+   }
+  },
+  "mesh": {
+   "dimensions": [
+    0.1751,
+    0.4757,
+    0.3181
+   ],
+   "vertices": 29884
+  },
+  "moves": {
+   "Bound": {
+    "action": "RabbitTest_rig_Bound",
+    "ankle_deg": {
+     "hind_femur.L": {
+      "last_stance": 131.4,
+      "min": 68.4,
+      "strike": 112.2
+     },
+     "hind_femur.R": {
+      "last_stance": 131.4,
+      "min": 68.4,
+      "strike": 112.2
+     }
+    },
+    "ankle_plan_deg": {
+     "min": 66.0,
+     "strike": 103.0,
+     "toe_off": 137.0
+    },
+    "attempts": 7,
+    "balance": null,
+    "body_pitch_deg": [
+     -5.0,
+     24.9
+    ],
+    "contact_slip_m": {
+     "fore_humerus.L": 0.0,
+     "fore_humerus.R": 0.0,
+     "hind_femur.L": 0.0,
+     "hind_femur.R": 0.0
+    },
+    "duty_factor": 0.28,
+    "end_height_m": 0.1937,
+    "failures": [],
+    "femur_metatarsus_max_deg": 5.29,
+    "flipped_faces": 532,
+    "fore_duty": 0.1207,
+    "fore_touchdown_phase": {
+     "fore_humerus.L": 0.5,
+     "fore_humerus.R": 0.56
+    },
+    "fps": 24,
+    "frames": [
+     1,
+     17
+    ],
+    "froude": 9.498,
+    "gait": "half-bound",
+    "hind_height_mismatch_m": 0.0,
+    "hind_overstep_m": 0.3725,
+    "hip_height_m": 0.1296,
+    "implied_speed_cycle_mps": 1.5546,
+    "limited_by": [
+     "hind stroke 100%, fore duty 88% (fore_humerus.L, fore_humerus.R out of reach)",
+     "hind stroke 100%, fore duty 77% (fore_humerus.L, fore_humerus.R out of reach)",
+     "hind stroke 100%, fore duty 68% (fore_humerus.L, fore_humerus.R out of reach)",
+     "hind stroke 100%, fore duty 60% (fore_humerus.L, fore_humerus.R out of reach)",
+     "hind stroke 100%, fore duty 53% (fore_humerus.L, fore_humerus.R out of reach)",
+     "hind stroke 100%, fore duty 46% (fore_humerus.L out of reach)"
+    ],
+    "loop_seam": 0.0,
+    "lowest_point": 0.0069,
+    "natural_speed_mps": 3.4755,
+    "passed": true,
+    "plan": {
+     "flex": 8.0,
+     "fore_duty": 0.26,
+     "fore_lag": 0.06,
+     "fore_on": 0.5,
+     "fore_stroke_m": 0.26946,
+     "frames": 16,
+     "frequency_hz": 3.3535,
+     "froude": 9.49762,
+     "hind_ahead": 0.15,
+     "hind_duty": 0.28,
+     "hind_leg_m": 0.24498,
+     "hind_stroke_m": 0.29018,
+     "hip_height_rest_m": 0.12964,
+     "pitch": 6.0,
+     "role": "Bound",
+     "scale_to_reference": 1.08928,
+     "source": "half-bound, Simons 1996 (3.5 Hz at 12 km/h); duties, pitch and flex design",
+     "speed_mps": 3.47547,
+     "stride_m": 1.03637
+    },
+    "planted_drift": {},
+    "playback_speed_scale": 2.3754,
+    "prediction_error": 3e-06,
+    "rest_error": 0.15865,
+    "rig": "RabbitTest_rig",
+    "role": "Bound",
+    "skin_lowest": -0.0025,
+    "spine_flex_deg": 8.0,
+    "stance_speed_ratio": 1.0,
+    "standing_height_m": 0.1977,
+    "stretch_ignored_edges": 5,
+    "stretch_max": 7.919,
+    "stretch_p99": 2.944,
+    "stride_frequency_hz": 3.3535,
+    "stride_m": 1.0364,
+    "stroke_m": 0.2902,
+    "tightest_joint_degrees": {
+     "fore_humerus.L": 104.4,
+     "fore_humerus.R": 104.3,
+     "hind_femur.L": 63.5,
+     "hind_femur.R": 63.5
+    },
+    "tolerance": 0.00212
+   },
+   "Hop": {
+    "action": "RabbitTest_rig_Hop",
+    "ankle_deg": {
+     "hind_femur.L": {
+      "last_stance": 133.5,
+      "min": 66.9,
+      "strike": 103.1
+     },
+     "hind_femur.R": {
+      "last_stance": 133.5,
+      "min": 66.9,
+      "strike": 103.1
+     }
+    },
+    "ankle_plan_deg": {
+     "min": 66.0,
+     "strike": 103.0,
+     "toe_off": 137.0
+    },
+    "attempts": 1,
+    "balance": null,
+    "body_pitch_deg": [
+     3.3,
+     34.1
+    ],
+    "contact_slip_m": {
+     "fore_humerus.L": 0.0,
+     "fore_humerus.R": 0.0,
+     "hind_femur.L": 0.0,
+     "hind_femur.R": 0.0
+    },
+    "duty_factor": 0.5,
+    "end_height_m": 0.1787,
+    "failures": [],
+    "femur_metatarsus_max_deg": 4.07,
+    "flipped_faces": 377,
+    "fore_duty": 0.36,
+    "fore_touchdown_phase": {
+     "fore_humerus.L": 0.58,
+     "fore_humerus.R": 0.68
+    },
+    "fps": 24,
+    "frames": [
+     1,
+     25
+    ],
+    "froude": 0.082,
+    "gait": "hop",
+    "hind_height_mismatch_m": 0.0,
+    "hind_overstep_m": -0.061,
+    "hip_height_m": 0.1296,
+    "implied_speed_cycle_mps": 0.2695,
+    "limited_by": [],
+    "loop_seam": 0.0,
+    "lowest_point": 0.0069,
+    "natural_speed_mps": 0.3227,
+    "passed": true,
+    "plan": {
+     "flex": 4.0,
+     "fore_duty": 0.36,
+     "fore_lag": 0.1,
+     "fore_on": 0.58,
+     "fore_stroke_m": 0.09701,
+     "frames": 24,
+     "frequency_hz": 1.19768,
+     "froude": 0.08191,
+     "hind_ahead": 0.15,
+     "hind_duty": 0.5,
+     "hind_leg_m": 0.24498,
+     "hind_stroke_m": 0.13474,
+     "hip_height_rest_m": 0.12964,
+     "pitch": 4.0,
+     "role": "Hop",
+     "scale_to_reference": 1.08928,
+     "source": "hind stance 0.40 s (Hall 2022); duty 0.5, stroke 0.55 leg, pitch and flex design",
+     "speed_mps": 0.32275,
+     "stride_m": 0.26948
+    },
+    "planted_drift": {},
+    "playback_speed_scale": 1.2476,
+    "prediction_error": 3e-06,
+    "rest_error": 0.0881,
+    "rig": "RabbitTest_rig",
+    "role": "Hop",
+    "skin_lowest": 0.0003,
+    "spine_flex_deg": 4.0,
+    "stance_speed_ratio": 1.0,
+    "standing_height_m": 0.1977,
+    "stretch_ignored_edges": 5,
+    "stretch_max": 8.198,
+    "stretch_p99": 2.713,
+    "stride_frequency_hz": 1.1977,
+    "stride_m": 0.2695,
+    "stroke_m": 0.1347,
+    "tightest_joint_degrees": {
+     "fore_humerus.L": 109.7,
+     "fore_humerus.R": 108.0,
+     "hind_femur.L": 66.8,
+     "hind_femur.R": 66.8
+    },
+    "tolerance": 0.00212
+   },
+   "Idle": {
+    "action": "RabbitTest_rig_Idle",
+    "balance": null,
+    "end_height_m": 0.1977,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     49
+    ],
+    "hip_shift_m": 0.0,
+    "loop_seam": 0.0,
+    "lowest_point": 0.0069,
+    "passed": true,
+    "planted_drift": {
+     "fore_humerus.L": 0.0,
+     "fore_humerus.R": 0.0,
+     "hind_femur.L": 0.0,
+     "hind_femur.R": 0.0
+    },
+    "posture": null,
+    "prediction_error": 0.0,
+    "rest_error": 0.0,
+    "rig": "RabbitTest_rig",
+    "skin_lowest": -0.0002,
+    "stance_width": null,
+    "standing_height_m": 0.1977,
+    "tightest_joint_degrees": {
+     "fore_humerus.L": 163.1,
+     "fore_humerus.R": 163.1,
+     "hind_femur.L": 76.7,
+     "hind_femur.R": 76.7
+    },
+    "tolerance": 0.00212,
+    "upper": null
+   },
+   "JumpAir": {
+    "action": "RabbitTest_rig_JumpAir",
+    "balance": null,
+    "end_height_m": 0.1477,
+    "failures": [],
+    "flight_time_s": 0.39314,
+    "flipped_faces": 254,
+    "floor_below_body_m": 0.0884,
+    "fps": 24,
+    "frames": [
+     1,
+     9
+    ],
+    "lowest_point": -0.0807,
+    "passed": true,
+    "planted_drift": {},
+    "prediction_error": 3e-06,
+    "rest_error": 0.140332,
+    "rig": "RabbitTest_rig",
+    "role": "JumpAir",
+    "seams": {
+     "air -> land": [
+      1e-05,
+      "hind_metatarsus.L"
+     ],
+     "launch -> air": [
+      0.00059,
+      "hind_toes.L"
+     ]
+    },
+    "skin_lowest": -0.0906,
+    "standing_height_m": 0.1977,
+    "stretch_ignored_edges": 5,
+    "stretch_max": 7.916,
+    "stretch_p99": 2.844,
+    "tightest_joint_degrees": {
+     "fore_humerus.L": 55.7,
+     "fore_humerus.R": 55.7,
+     "hind_femur.L": 73.3,
+     "hind_femur.R": 73.3
+    },
+    "tolerance": 0.00212
+   },
+   "JumpLand": {
+    "action": "RabbitTest_rig_JumpLand",
+    "balance": null,
+    "end_height_m": 0.1977,
+    "failures": [],
+    "flipped_faces": 56,
+    "fps": 24,
+    "frames": [
+     1,
+     8
+    ],
+    "land_offset_model": [
+     0.0,
+     0.02262,
+     -0.02696
+    ],
+    "landing": {
+     "duration_s": 0.292,
+     "path_m": 0.0352
+    },
+    "lowest_point": 0.0069,
+    "passed": true,
+    "planted_drift": {
+     "fore_humerus.L": 0.0,
+     "fore_humerus.R": 0.0,
+     "hind_femur.L": 0.0,
+     "hind_femur.R": 0.0
+    },
+    "prediction_error": 1e-06,
+    "rest_error": 0.04201,
+    "rig": "RabbitTest_rig",
+    "role": "JumpLand",
+    "seams": {
+     "air -> land": [
+      1e-05,
+      "hind_metatarsus.L"
+     ],
+     "launch -> air": [
+      0.00059,
+      "hind_toes.L"
+     ]
+    },
+    "skin_lowest": -0.0002,
+    "standing_height_m": 0.1977,
+    "stretch_ignored_edges": 5,
+    "stretch_max": 2.608,
+    "stretch_p99": 1.691,
+    "tightest_joint_degrees": {
+     "fore_humerus.L": 96.3,
+     "fore_humerus.R": 96.3,
+     "hind_femur.L": 70.0,
+     "hind_femur.R": 70.0
+    },
+    "tolerance": 0.00212,
+    "touch_clearance_m": 0.01202,
+    "touchdown_frame": {
+     "fore_humerus.L": 2,
+     "fore_humerus.R": 2,
+     "hind_femur.L": 3,
+     "hind_femur.R": 3
+    }
+   },
+   "JumpLaunch": {
+    "action": "RabbitTest_rig_JumpLaunch",
+    "balance": null,
+    "end_height_m": 0.3337,
+    "extension_onset_s": {
+     "ankle": 0.0833,
+     "hip": 0.0417,
+     "knee": 0.0417
+    },
+    "failures": [],
+    "flipped_faces": 381,
+    "fps": 24,
+    "frames": [
+     1,
+     11
+    ],
+    "knee_deg": {
+     "cocked": 72.1,
+     "plan_takeoff": 140.0,
+     "takeoff": 130.2
+    },
+    "lowest_point": 0.0069,
+    "marks": {
+     "cocked": 4,
+     "push_start": 9,
+     "takeoff": 11
+    },
+    "passed": true,
+    "plan": {
+     "angle": 40.0,
+     "ankle_takeoff": 137.0,
+     "apex_m": 0.18953,
+     "cock_s": 0.2,
+     "flight_time_s": 0.39314,
+     "knee_takeoff": 140.0,
+     "land_knee": null,
+     "range_m": 0.90349,
+     "source": "UNVERIFIED design (no rabbit take-off measurement found); ankle 137 deg at toe-off from Hall 2022, proximal-to-distal order from Astley & Roberts 2014",
+     "speed": 3.0
+    },
+    "planted_drift": {
+     "hind_femur.L": 0.0,
+     "hind_femur.R": 0.0
+    },
+    "prediction_error": 3e-06,
+    "rest_error": 0.0,
+    "rig": "RabbitTest_rig",
+    "role": "JumpLaunch",
+    "seams": {
+     "air -> land": [
+      1e-05,
+      "hind_metatarsus.L"
+     ],
+     "launch -> air": [
+      0.00059,
+      "hind_toes.L"
+     ]
+    },
+    "skin_lowest": -0.0026,
+    "standing_height_m": 0.1977,
+    "stretch_ignored_edges": 5,
+    "stretch_max": 7.916,
+    "stretch_p99": 2.844,
+    "takeoff": {
+     "angle_deg": 39.9,
+     "plan_deg": 40.0,
+     "push_frames": 2,
+     "push_m": 0.1492,
+     "push_s": 0.0995,
+     "speed_mps": 3.0
+    },
+    "takeoff_offset_model": [
+     0.0,
+     0.0884,
+     0.11437
+    ],
+    "takeoff_pitch_deg": 12.0,
+    "takeoff_velocity_model": [
+     0.0,
+     1.92836,
+     2.29813
+    ],
+    "tightest_joint_degrees": {
+     "fore_humerus.L": 55.7,
+     "fore_humerus.R": 55.7,
+     "hind_femur.L": 72.1,
+     "hind_femur.R": 72.1
+    },
+    "tolerance": 0.00212
+   }
+  },
+  "rig": {
+   "bones": 25
+  },
+  "skin": {
+   "bones_without_skin": [],
+   "closed_folds": {},
+   "coverage": 1.0,
+   "fused_webs": {},
+   "groups": 25,
+   "leg_skin_grown": {
+    "fore.L": 279,
+    "fore.R": 279,
+    "hind.L": 952,
+    "hind.R": 952
+   },
+   "mesh": "RabbitTest",
+   "note": "weights written from the detected parts; bone heat is not used",
+   "passed": true,
+   "rig": "RabbitTest_rig",
+   "warnings": []
+  }
+ }
+}
