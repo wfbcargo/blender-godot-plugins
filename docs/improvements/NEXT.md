@@ -8,7 +8,7 @@ State as of 2026-09-16. Everything below is on `main` here and on `master` in `g
 pushed, with no open branches or worktrees. Installed copies in `~/.claude/skills` match the repo:
 - rig-anything 0.18.0
 - follow-through 0.2.6
-- wardrobe 0.2.0
+- wardrobe 0.2.1
 - humanform 0.6.3
 - character-pipeline 0.1.0
 - animate-anything 0.9.0
@@ -27,7 +27,7 @@ and the gotchas are there.
 | [03 Regression harness and install](03-regression-harness-and-install.md) | **Done.** |
 | [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | **Done, lean.** One "done when" unmet: Belle still needs hand-marked flesh zones (blocked on 05 · 5.9). |
 | [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | **Done.** Belle and the 16 people build from `grungist-creek/characters/*.toml`. Two small conventions open (below). |
-| [04 Checks that match the eye](04-checks-that-match-the-eye.md) | **Not started.** Next. |
+| [04 Checks that match the eye](04-checks-that-match-the-eye.md) | **a done** (wardrobe 0.2.1). b-d not started. |
 | [05 Feature gaps](05-feature-gaps.md) | 5.1, 5.6, 5.7 done. Open: 5.2 hair, 5.3 compression garments, 5.4 skirts, 5.5 muscle, 5.8 fixture findings, 5.9 buttocks read low. |
 | Old project notes | Not triaged (item 7 below). |
 
@@ -52,23 +52,12 @@ What exists now, and is worth knowing before starting anything:
 
 ## What to do next, in order
 
-### 1. 04a - the hole check counts cloth in a crease as a hole
+### 1. 04a - done (wardrobe 0.2.1)
 
-Belle's shorts fail `verify_wardrobe.gd` at 1.708% holes (limit 0.5%) where the renders show no gap; the sports top
-passes at 0.227%. The same numbers came from the old hand-built assets and from the spec-built ones, so this is the
-check, not the build. Every wardrobe result is less trustworthy until it is fixed.
-
-- Design and steps: 04 section **a**.
-- Reproduce with:
-
-  ```
-  "$GODOT" --headless --fixed-fps 60 --path . -s res://addons/wardrobe/verify_wardrobe.gd -- \
-      body=res://assets/belle/belle.glb garment=res://assets/belle/belle_shorts.glb frames=240 every=8 hem=true jiggle=true
-  ```
-
-  The failing frame is 88; the fixtures `dressed_figure` and `dressed_presets` pass and must keep passing.
-- Done when Belle's shorts pass without loosening the limit, a real hole (a deliberately removed garment face)
-  still fails, and the goldens that move are reviewed.
+The hole check now counts only skin a viewer can see into; Belle passes all 7 clips in the shorts, the top and both at
+the unchanged 0.5%, and a cut patch still fails. What was found and what shipped is under 04 section **a**. When
+checking a garment, pass `clip=` for every clip: the default is the first in the list, and the sports top's earlier
+"passes" was only its crouch.
 
 ### 2. Small open findings (05 · 5.8), each with its numbers in the golden
 

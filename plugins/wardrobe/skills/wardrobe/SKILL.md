@@ -193,16 +193,24 @@ godot --headless --fixed-fps 60 --path <project> -s res://addons/wardrobe/verify
 ```
 
 It walks the body on a circle with its flesh jiggling, and every sampled frame skins every body
-and garment vertex from the final pose and casts rays along each body normal.
+and garment vertex from the final pose and casts lines from the skin along each body normal. Hidden
+skin with no cloth on that line is then looked at from 48 directions within 80 degrees of its
+normal: it is a hole only if some view reaches it and sees into the body.
 
 | check | limit | failing means |
 |---|---|---|
-| `holes` | 0.5% of hidden verts | hidden skin the cloth left: raise `agree` or `margin`, or ease |
+| `holes` | 0.5% of hidden verts | hidden skin a viewer can see into: raise `agree` or `margin`, or ease |
+| `occluded` | reported | hidden skin off the cloth that nothing outside can see (a fold, a crouch) |
+| `coincident` | reported | hidden skin with cloth pressed within 3 mm |
 | `poke` | 0.5% of drawn verts | drawn skin through the cloth: more ease, a lower `share`, or hide it |
 | `hide_unmatched` | 0 | the body in Godot is not the body the garment was fitted to |
 | hem finite, within `max_offset_m` | - | a spring blew up |
 
-`still=true jiggle=false` checks the rest pose: it must read 0 and 0. Measured on Nora (30k
+`still=true jiggle=false` checks the rest pose: it must read 0 and 0. `clip=` picks the clip; check
+every clip a character has, because a crouch opens what a walk never does. `cut=0.04` removes a
+4 cm patch of the garment and must fail - the proof that the check still sees a real hole.
+`shot=<frame>` without `--headless` renders that frame's holes from outside (body back faces
+magenta, so magenta means you see in), and `trace=holes` prints each candidate's open views. Measured on Nora (30k
 vertices, motion-capture walk, 360 frames): briefs, bra, trousers, T-shirt - holes 17 (0.13%),
 skin through 50 on the upper arms (0.30%); briefs, bra, shorts, long sleeve - 16 and 0; underwear
 alone - 2 and 94 (0.34%). Hem modifiers 40-51 us a frame each. `trace=true` prints every sample. Measured on the sample
@@ -259,7 +267,19 @@ has; stale hem bones from an earlier build went out with rests 16 cm off.
 **Buried skin is not a hole.** With the arms down an armpit folds shut: its normal meets the
 body's own side before any cloth, and 60 such vertices a frame were counted holes. Hidden skin
 beyond a cell of cloth - under a hem hanging 5-8 cm off the back - was counted too (47 at rest).
-The verifier casts hole candidates against the body and the full ray reach.
+
+**A hole is what a viewer can see, so the verifier looks.** Belle's shorts failed crouch, crouch
+walk and jump at 1.7-1.9% holes where renders showed none, and her sports top failed walk and jump.
+Three different things, all measurement: rays started 0.5 mm off the skin stepped over cloth
+pressed closer than that; a barycentric edge tolerance (0.03 mm on a 3 cm face) let a line slip
+between two faces at a fold; and 8 belly vertices under the waistband had no cloth on their normal
+at all - the raised thighs, 13-25 cm off, closed them in, past the old 12 cm body test. More ease
+made it worse, because it widened that pocket. Lines now start at the skin with a 1 mm edge
+tolerance, and a hidden vertex with no cloth on its normal is looked at from 48 directions: a view
+must reach it past drawn skin and outward-facing cloth, and past it see the inside of the body or
+nothing (skin in front of cloth shows the cloth). Belle passes every clip in both garments at the
+same 0.5%; the 5 holes left were rendered and are real (a waistband gap on the walk, the top's hem
+off the breast on the jump); cutting 6 triangles out of the shorts still fails.
 
 **Model in the rest pose the clothes will bend least from.** A T-posed body put every shirt's
 armpit through 80 degrees on the way to a walk, and it folded into spikes; posed 45 degrees down,

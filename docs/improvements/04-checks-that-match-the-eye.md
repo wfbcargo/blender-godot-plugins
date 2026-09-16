@@ -40,6 +40,27 @@ risk, not a hole) and `poke`. Only `holes` and `poke` count against the limits.
 To confirm a real hole, render the flagged vertex from outside with the garment drawn. If skin
 pixels show, it is a hole.
 
+**Done in wardrobe 0.2.1, not as designed above.** Measured before building: the tangent-ray
+crease was not the cause. Of the 9 holes in Belle's worst crouch frame, the normal line crossed
+cloth at 0.01-0.4 mm for 1 (rays started 0.5 mm off the skin, both ways, and stepped over it), and
+not at all within 15 cm for 8 - belly under the waistband, shut in by the raised thighs 13-25 cm
+off, beyond the 12 cm body test. Two more a frame slipped between faces at a fold (a 1e-3
+barycentric edge tolerance). A nearest-point `coincident` class would have fixed only the first.
+What shipped:
+- lines start at the skin, with a 1 mm edge tolerance;
+- `coincident` (cloth within 3 mm, either side) is reported, not limited;
+- hidden skin with no cloth on its normal is looked at from 48 directions within 80 degrees, 50 cm
+  out. It is a hole only if a view reaches it past drawn skin and outward-facing cloth and past it
+  sees the inside of the body or nothing; otherwise it is `occluded` (reported). Skin in front of
+  cloth shows the cloth: 3 breast vertices on the jump were that until the look-back was added;
+- `cut=` removes a patch of the garment as a control (in the harness on `dressed_figure`), and
+  `shot=` renders a frame's holes in the frame that was measured, body back faces magenta.
+
+Belle, 7 clips x shorts, top and both, 240 frames: all pass at 0.5% (worst 0.38%, shorts walk).
+The holes left were rendered and are real: a waistband gap on the walk (magenta through it) and the
+top's hem standing off the breast on the jump (background through it). Cutting 6 triangles from
+the shorts fails at 0.57%.
+
 ### b. Automatic review strips
 
 Every export also writes a **review sheet**: `views.render_clip(..., frame_height_m=<shared>)`

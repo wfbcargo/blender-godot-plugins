@@ -149,10 +149,13 @@ def run_fixture(name, blender, out_root, env):
 # --godot: the engine side of each fixture. Every `.moves.json` a fixture exports goes through
 # rig-anything's MovesController verifier. A fixture named here also has its garment worn by the
 # body it was cut from, walked, and counted for holes and poke-through by wardrobe's verifier.
-# `garment` may list several files, comma-separated: they are worn together.
+# `garment` may list several files, comma-separated: they are worn together. Each of `controls` is
+# run with the same args plus its own and must fail: `cut=` removes a patch of the garment, so a
+# check that stops seeing real holes fails the harness.
 GODOT_WARDROBE = {
     "dressed_figure": {"body": "figure.glb", "garment": "shirt.glb",
-                       "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
+                       "args": ["frames=240", "every=8", "hem=true", "jiggle=true"],
+                       "controls": [["cut=0.04"]]},
     "dressed_presets": {"body": "figure.glb", "garment": "sports_top.glb,shorts_mid_thigh.glb",
                         "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
     "pipeline_woman": {"body": "fixwoman.glb", "garment": "fixwoman_sportstop.glb,fixwoman_shorts.glb",
@@ -269,17 +272,22 @@ def run_godot(godot, project, out_root, names):
                 continue
             at = {f: "res://" + v[0].relative_to(project).as_posix() for f, v in found.items()}
             res = {"body": at[spec["body"]], "garment": ",".join(at[f] for f in wanted[1:])}
-            code, out = _godot(godot, project, "--fixed-fps", "60", "-s", "res://addons/wardrobe/verify_wardrobe.gd",
-                               "--", "body=" + res["body"], "garment=" + res["garment"], *spec["args"])
-            line = [l for l in out.splitlines() if l.startswith("WD_RESULT ")]
-            if not line:
-                results.append(("verify_wardrobe %s" % name, False, "no WD_RESULT, exit %s" % code))
-                continue
-            r = json.loads(line[-1][len("WD_RESULT "):])
-            results.append(("verify_wardrobe %s" % name, bool(r.get("passed")),
-                            "holes %.3f%% poke %.3f%% over %s frames%s" % (
-                                100 * r.get("holes_frac", 0), 100 * r.get("poke_frac", 0), r.get("frames"),
-                                "".join("\n            " + p for p in r.get("problems", [])))))
+            runs = [("verify_wardrobe %s" % name, spec["args"], True)]
+            runs += [("verify_wardrobe %s %s (must fail)" % (name, " ".join(c)), spec["args"] + c, False)
+                     for c in spec.get("controls", [])]
+            for label, args, should_pass in runs:
+                code, out = _godot(godot, project, "--fixed-fps", "60", "-s", "res://addons/wardrobe/verify_wardrobe.gd",
+                                   "--", "body=" + res["body"], "garment=" + res["garment"], *args)
+                line = [l for l in out.splitlines() if l.startswith("WD_RESULT ")]
+                if not line:
+                    results.append((label, False, "no WD_RESULT, exit %s" % code))
+                    continue
+                r = json.loads(line[-1][len("WD_RESULT "):])
+                results.append((label, bool(r.get("passed")) == should_pass,
+                                "holes %.3f%% (occluded %s, coincident %s) poke %.3f%% over %s frames%s" % (
+                                    100 * r.get("holes_frac", 0), r.get("occluded_worst"), r.get("coincident_worst"),
+                                    100 * r.get("poke_frac", 0), r.get("frames"),
+                                    "".join("\n            " + p for p in r.get("problems", [])))))
     finally:
         shutil.rmtree(stage, ignore_errors=True)
     return results

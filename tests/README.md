@@ -51,7 +51,9 @@ and runs the project's copies of the verifiers:
   stride phase carried across it. A manifest's `scene` is repointed at the glb beside it.
 - **`verify_wardrobe.gd`** for the fixtures listed in `GODOT_WARDROBE`. `dressed_figure` has its
   shirt put on the body it was cut from, walked for 240 frames, and counted for holes and skin
-  through the cloth. The limits are 0.5% each.
+  through the cloth. The limits are 0.5% each. A fixture's `controls` run again with extra
+  arguments and must fail: `dressed_figure` with `cut=0.04`, a 4 cm patch removed from the shirt, so
+  a hole check that stops seeing real holes fails the harness.
 
 `_regress/` is removed afterwards whatever happens (and grungist-creek ignores it). Before
 anything runs, the project's `addons/{rig_anything,wardrobe,follow_through}` are compared with this
