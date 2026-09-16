@@ -24,6 +24,7 @@ Then install a plugin from it:
 
 ```
 humanform  ->  rig-anything / animate-anything  ->  follow-through  ->  wardrobe  ->  lookdev
+                              character-pipeline: one spec, all of the above, in order
  a body         a rig and its moves                 flesh and cloth     clothes       light it
 ```
 
@@ -168,6 +169,18 @@ skeleton, rebuilds the body without the covered triangles and springs the hem;
 a headless verifier skins every vertex from the final pose and ray-casts along
 each body normal to count holes and skin through the cloth over a walk. See the
 [plugin README](./plugins/wardrobe/README.md).
+
+
+### [`character-pipeline`](./plugins/character-pipeline/)
+
+A whole character from one TOML spec: a humanform body from a brief, baked, with hair, follow-through
+flesh, rig-anything's move set and wardrobe garments, exported for Godot.
+
+Each stage checks the file before it runs, so garments before moves or flesh after garments refuse
+and name the order. Each stage records what it was built from in the .blend, so a rebuild skips what
+has not changed and a fresh Blender session resumes from a saved file. Tuned numbers live in the
+plugins that own them (gait styles, flesh limit shares, garment presets), so a new character is a
+description, a style and an outfit. See the [plugin README](./plugins/character-pipeline/README.md).
 
 ### [`godot-lsp`](./plugins/godot-lsp/)
 

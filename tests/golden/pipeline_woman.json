@@ -1,0 +1,131 @@
+{
+ "fixture": "pipeline_woman",
+ "plugins": {
+  "character-pipeline": "0.1.0",
+  "follow-through": "0.2.5",
+  "humanform": "0.6.3",
+  "rig-anything": "0.17.0",
+  "wardrobe": "0.1.2"
+ },
+ "report": {
+  "flesh_limits_m": {},
+  "flesh_regions": [
+   "breast.L breast",
+   "breast.R breast"
+  ],
+  "fresh_session": {
+   "exit": 0,
+   "manifest_equal": true,
+   "statuses": {
+    "bake": "in file",
+    "body": "in file",
+    "export": "ran",
+    "flesh": "in file",
+    "garments": "in file",
+    "moves": "in file"
+   }
+  },
+  "garments": {
+   "Shorts": {
+    "jiggle_groups": [
+     "ft_jiggle_breast.L",
+     "ft_jiggle_breast.R"
+    ],
+    "passed": true,
+    "verts": 620
+   },
+   "SportsTop": {
+    "jiggle_groups": [
+     "ft_jiggle_breast.L",
+     "ft_jiggle_breast.R"
+    ],
+    "passed": true,
+    "verts": 1182
+   }
+  },
+  "manifest": {
+   "clips": {
+    "Idle": "FixWoman_Idle",
+    "Run": "FixWoman_Run",
+    "Walk": "FixWoman_Walk"
+   },
+   "collider": {
+    "height": 1.6985,
+    "radius": 0.2223
+   },
+   "dropped_clips": [],
+   "fields": {
+    "first": "brief",
+    "last": "verified",
+    "len": 22
+   },
+   "gaits": {
+    "Run": {
+     "duty_factor": 0.345,
+     "froude": 2.0,
+     "gait": "run",
+     "hip_height_m": 0.8635,
+     "natural_speed_mps": 4.1161,
+     "spine_flex_deg": 0.0,
+     "stride_frequency_hz": 1.683,
+     "stride_m": 2.4452,
+     "stroke_m": 0.8425
+    },
+    "Walk": {
+     "duty_factor": 0.55,
+     "froude": 0.163,
+     "gait": "walk",
+     "hip_height_m": 0.8635,
+     "natural_speed_mps": 1.174,
+     "spine_flex_deg": 0.0,
+     "stride_frequency_hz": 1.062,
+     "stride_m": 1.1054,
+     "stroke_m": 0.608
+    }
+   },
+   "height_m": {
+    "stand": 1.6985
+   },
+   "loops": [
+    "FixWoman_Idle",
+    "FixWoman_Walk",
+    "FixWoman_Run"
+   ],
+   "problems": []
+  },
+  "moves": {
+   "Idle": {
+    "drop_m": null,
+    "failures": [],
+    "passed": true
+   },
+   "Run": {
+    "drop_m": 0.0604,
+    "failures": [],
+    "passed": true
+   },
+   "Walk": {
+    "drop_m": 0.0302,
+    "failures": [],
+    "passed": true
+   }
+  },
+  "refused": "[fixwoman] garments are bound to the rig (Shorts, SportsTop) - run moves before garments: rig-anything measures arm hang against every mesh on the rig",
+  "rerun": {
+   "bake": "unchanged",
+   "body": "unchanged",
+   "export": "unchanged",
+   "flesh": "unchanged",
+   "garments": "unchanged",
+   "moves": "unchanged"
+  },
+  "stages": {
+   "bake": "ran",
+   "body": "ran",
+   "export": "ran",
+   "flesh": "ran",
+   "garments": "ran",
+   "moves": "ran"
+  }
+ }
+}

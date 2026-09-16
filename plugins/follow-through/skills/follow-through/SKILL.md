@@ -5,6 +5,8 @@ description: Recognise secondary motion on a Blender asset - the parts that move
 
 # follow-through
 
+> **Building a whole character?** Write a spec and let `character-pipeline` run this plugin in the right order with the others - see that plugin's SKILL.md.
+
 Primary motion is what an animator keys: a walk, a bite. **Follow-through** is what
 trails behind it and settles - a cape after a turn, a jello after it is set down, a belly
 after a footfall. Nobody keys it; something simulates it. This skill decides *what* that

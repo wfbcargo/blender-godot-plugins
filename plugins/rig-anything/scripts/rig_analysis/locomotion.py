@@ -109,6 +109,12 @@ MIN_DUTY = 0.2
 # reads. An explicit argument always beats the style; an `upper` dict is laid
 # over the style's rather than replacing it.
 GAIT_STYLES = {
+    # an adult with nothing more said about them: the walk and run as the speed says, the hip drop
+    # capped (grungist-creek's crowd and Belle were built on this before it had a name)
+    "adult": {
+        "walk": {"max_drop": 0.035},
+        "run": {"max_drop": 0.07},
+    },
     # short steps, feet low, long double support, soft knees, arms hanging
     # with little swing a little behind vertical, so a stooped body's hands
     # fall at the front of the thighs rather than out past the knees, a slight

@@ -5,6 +5,8 @@ description: Analyse a Blender mesh to work out how it should be rigged - whethe
 
 # rig-anything
 
+> **Building a whole character?** Write a spec and let `character-pipeline` run this plugin in the right order with the others - see that plugin's SKILL.md.
+
 Works out how an arbitrary Blender mesh should be rigged, rigs it, and gives
 it a walk cycle - including shapes no template covers. **It measures,
 classifies, builds a skeleton, binds it, and generates a looping gait for any

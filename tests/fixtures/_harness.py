@@ -23,7 +23,7 @@ import traceback
 
 REPO = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 PLUGINS = {"RA_SCRIPTS": "rig-anything", "HF_SCRIPTS": "humanform",
-           "FT_SCRIPTS": "follow-through", "WD_SCRIPTS": "wardrobe"}
+           "FT_SCRIPTS": "follow-through", "WD_SCRIPTS": "wardrobe", "CP_SCRIPTS": "character-pipeline"}
 
 
 def scripts(var):
