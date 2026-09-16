@@ -51,9 +51,13 @@ GOLDEN = REPO / "tests" / "golden"
 SCRIPT_VARS = {"RA_SCRIPTS": "rig-anything", "HF_SCRIPTS": "humanform",
                "FT_SCRIPTS": "follow-through", "WD_SCRIPTS": "wardrobe"}
 
-# Keys whose value is a path, a duration or a date: real output, never the same twice.
-VOLATILE = ["*path*", "*file*", "*dir*", "*timing*", "*elapsed*", "*when*", "*date*",
-            "*timestamp*", "*secs*", "*seconds"]
+# Keys whose value is a path, a duration or a date: real output, never the same twice. Matched as
+# whole words of the key (split on `_`), never as substrings: `*file*` once skipped `profile`, `*dir*`
+# a radial arm's `direction_model` and `*path*` a distance, `path_m`. A key ending in a unit is a
+# measurement whatever else it says.
+VOLATILE = {"path", "paths", "filepath", "file", "files", "filename", "dir", "directory", "timing",
+            "timings", "elapsed", "when", "date", "timestamp", "secs", "seconds"}
+UNITS = {"m", "m2", "m3", "mm", "cm", "deg", "rad", "mps", "hz", "kg", "pct"}
 # A value that is an absolute path is volatile whatever its key is called - `sidecar` was one.
 PATHLIKE = re.compile(r"^([A-Za-z]:[\\/]|\\\\|/[^/])")
 # Relative tolerance by dotted key pattern; the first match wins, else DEFAULT_TOLERANCE.
@@ -73,8 +77,10 @@ def fixtures():
 
 
 def volatile(key):
-    k = key.lower()
-    return any(fnmatch.fnmatch(k, pat) for pat in VOLATILE)
+    words = [w for w in re.split(r"[_\W]+", key.lower()) if w]
+    if not words or words[-1] in UNITS:
+        return False
+    return any(w in VOLATILE for w in words)
 
 
 def flatten(value, prefix=""):

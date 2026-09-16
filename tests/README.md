@@ -107,7 +107,9 @@ plugin on this checkout's copy.
 
 ## Comparison
 
-Reports are flattened to dotted keys and compared one by one: numbers within a relative tolerance
+Keys holding a path, a duration or a date are skipped (`VOLATILE`), matched as whole words of the key -
+substrings once skipped `profile`, `direction_model` and `path_m` - and a key ending in a unit (`_m`, `_deg`) is
+always compared. Reports are flattened to dotted keys and compared one by one: numbers within a relative tolerance
 (`DEFAULT_TOLERANCE`, 1e-3, with per-pattern overrides in `TOLERANCES`), everything else exactly.
 Keys that appear or vanish are changes too — a report that stops carrying `balance` is a
 regression that a value comparison alone would miss.

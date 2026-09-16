@@ -98,6 +98,15 @@ A full `regress.py --twice --jobs 2 --godot` run takes about 10 minutes on this 
 
   Six branches, each ending as 03's did (`--twice`, reviewed goldens, merge, install, push):
 
+  **2a-2d DONE** (rig-anything 0.16.0-0.17.0, follow-through 0.2.4, wardrobe 0.1.2, humanform 0.6.3). Found on the way:
+  jiggle bones read as the rear of the spine and took the pelvis (fixed: plugin-added bones are left out and listed
+  as `added_bones`; `flesh_figure` now reports roles after flesh), and `regress.py` had been skipping `profile`,
+  `direction_model` and `path_m` as volatile (substring patterns; now whole words, and a key ending in a unit is a
+  measurement). Deferred to 2e: `breast` -> `chest` anchor, which moves the Bloater's breast parents
+  `spine.002` -> `spine.003`. 2e revised by measurement: on current main an unmarked Belle's breasts already sit
+  within ~3 cm of the hand marks on `spine.003`; her unmarked butt sits 7 cm low facing down, and thighs are found
+  that she does not use.
+
   **2a `bone-roles`** (rig-anything; the contract, done first). `bodymap.build(..., meshes=None)` returns
   `roles`: `root` (an unsided axial end that is unskinned, or with no skin data lies wholly below the
   ankles), `pelvis`, `chest` (the arms' attach bone; the front legs' on a quadruped), `neck`, `head`, `tail`,

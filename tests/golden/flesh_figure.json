@@ -381,7 +381,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-hl4rc0yc\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-emz8_ml_\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -652,6 +652,67 @@
       "volume_m3": 0.001544
      }
     ],
+    "roles": {
+     "breast_anchor": "spine.003",
+     "butt_anchor": "spine",
+     "chest": "spine.003",
+     "controls": [],
+     "head": "spine.006",
+     "limbs": {
+      "foot.L": {
+       "digits": [
+        "toe.L"
+       ],
+       "end": "foot.L",
+       "girdle": null,
+       "lower": "shin.L",
+       "role": "leg",
+       "upper": "thigh.L"
+      },
+      "foot.R": {
+       "digits": [
+        "toe.R"
+       ],
+       "end": "foot.R",
+       "girdle": null,
+       "lower": "shin.R",
+       "role": "leg",
+       "upper": "thigh.R"
+      },
+      "hand.L": {
+       "digits": [],
+       "end": "hand.L",
+       "girdle": "shoulder.L",
+       "lower": "forearm.L",
+       "role": "arm",
+       "upper": "upper_arm.L"
+      },
+      "hand.R": {
+       "digits": [],
+       "end": "hand.R",
+       "girdle": "shoulder.R",
+       "lower": "forearm.R",
+       "role": "arm",
+       "upper": "upper_arm.R"
+      }
+     },
+     "neck": [
+      "spine.004",
+      "spine.005"
+     ],
+     "pelvis": "spine",
+     "profile": "rigify_basic_human",
+     "root": null,
+     "skinned": true,
+     "tail": [],
+     "unskinned": [
+      "hand.L",
+      "hand.R"
+     ],
+     "warnings": [
+      "limb bones with no skin: hand.L, hand.R"
+     ]
+    },
     "walk": {
      "action": "BloaterWalk",
      "frames": [
@@ -1035,7 +1096,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-hl4rc0yc\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-emz8_ml_\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",
@@ -1306,6 +1367,72 @@
       "volume_m3": 0.001089
      }
     ],
+    "roles": {
+     "breast_anchor": "spine.003",
+     "butt_anchor": "spine",
+     "chest": "spine.003",
+     "controls": [
+      "heel.02.L",
+      "heel.02.R"
+     ],
+     "head": "spine.006",
+     "limbs": {
+      "foot.L": {
+       "digits": [
+        "toe.L"
+       ],
+       "end": "foot.L",
+       "girdle": null,
+       "lower": "shin.L",
+       "role": "leg",
+       "upper": "thigh.L"
+      },
+      "foot.R": {
+       "digits": [
+        "toe.R"
+       ],
+       "end": "foot.R",
+       "girdle": null,
+       "lower": "shin.R",
+       "role": "leg",
+       "upper": "thigh.R"
+      },
+      "hand.L": {
+       "digits": [],
+       "end": "hand.L",
+       "girdle": "shoulder.L",
+       "lower": "forearm.L",
+       "role": "arm",
+       "upper": "upper_arm.L"
+      },
+      "hand.R": {
+       "digits": [],
+       "end": "hand.R",
+       "girdle": "shoulder.R",
+       "lower": "forearm.R",
+       "role": "arm",
+       "upper": "upper_arm.R"
+      }
+     },
+     "neck": [
+      "spine.004",
+      "spine.005"
+     ],
+     "pelvis": "spine",
+     "profile": "rigify_basic_human",
+     "root": null,
+     "skinned": true,
+     "tail": [],
+     "unskinned": [
+      "hand.L",
+      "hand.R",
+      "heel.02.L",
+      "heel.02.R"
+     ],
+     "warnings": [
+      "limb bones with no skin: hand.L, hand.R"
+     ]
+    },
     "walk": {
      "action": "FigureWalk",
      "frames": [

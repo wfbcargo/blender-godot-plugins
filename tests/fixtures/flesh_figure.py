@@ -67,6 +67,9 @@ def _each(made, out, ra_export, ft_export, flesh):
                                     actions=[name + "Walk"], loop_clips=[name + "Walk"], forward="-Y")
         verified = ft_export.verify(path, expect_meshes=[name]) if exported.get("exported") else None
         bodies[name] = {
+            # after flesh: the jiggle bones must not change which bone is the pelvis (02 - a jiggle
+            # bone once read as the rear of the spine and took the pelvis with it)
+            "roles": H.roles(name + "_metarig"),
             "mesh": {"vertices": len(bpy.data.objects[name].data.vertices)},
             "bind_coverage": made["bodies"][name].get("coverage"),
             "walk": H.stable(made["bodies"][name].get("walk")),
