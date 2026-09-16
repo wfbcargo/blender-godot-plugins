@@ -223,11 +223,26 @@ installed copy that is itself a git checkout is never overwritten.
 That covers this machine only. For the others: push, then
 `/plugin marketplace update paul-claude-plugins`.
 
+Before changing anything shared, and before calling it done, run the fixtures:
+
+```
+python tools/regress.py --jobs 2
+```
+
+Four bodies are rebuilt from nothing in headless Blender - a woman from a seeded
+brief, a rabbit, two fleshed sample figures and a shirt cut onto one of them -
+and every number is compared to `tests/golden/`. A fix moves numbers; the point
+is that the move is seen on every fixture rather than on whichever character was
+being built at the time. See [`tests/README.md`](./tests/README.md).
+
 ## Layout
 
 ```
 .claude-plugin/marketplace.json     # marketplace manifest
 tools/install.py                    # repo -> ~/.claude/skills, edits refused
+tools/regress.py                    # rebuild the fixtures, compare to goldens
+tests/fixtures/                     # bodies built from generators and seeds
+tests/golden/                       # what a build produced when it was last reviewed
 plugins/
   claude-architect/
     .claude-plugin/plugin.json      # plugin manifest
