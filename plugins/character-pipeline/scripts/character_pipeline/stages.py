@@ -238,21 +238,23 @@ def check_garments(ch):
 
 
 def run_garments(ch, ctx):
-    import wardrobe
-    if not hasattr(wardrobe, "dress"):
-        from wardrobe import presets  # noqa: F401  (1b: `wardrobe.dress` and garment presets)
+    from wardrobe import presets
     _rest(ch)
-    out, made = {}, []
+    out, made, res = {}, {}, []                     # made: preset -> garment object name
     for g in ch.outfit:
-        name = g.name or g.preset
+        preset = presets.get(g.preset)
+        name = g.name or preset.get("name") or g.preset
         path = os.path.join(ch.out_dir(), f"{ch.id}_{name.lower()}.glb")
-        r = wardrobe.dress(ch.mesh, g.preset, name=name, colour=g.colour, out_path=path)
-        if not r.get("passed", r.get("export", {}).get("passed", True)):
-            raise RuntimeError(f"garments: {name} did not pass: {r}")
-        out[name] = r
-        made.append(f"{ch.export.res_dir}/{ch.id}_{name.lower()}.glb")
-    ctx["garment_res"] = made
-    return {"garments": out, "res": made}
+        # worn over whichever of the presets it names are in this outfit, innermost first
+        over = [made[p] for p in preset.get("worn_over", []) if p in made]
+        r = presets.dress(ch.mesh, g.preset, name=name, colour=g.colour, out_path=path, over=over)
+        if not r.get("passed"):
+            raise RuntimeError(f"garments: {name} did not pass: {r.get('problems')}")
+        made[g.preset] = name
+        out[name] = {k: r.get(k) for k in ("verts", "cut", "cover", "jiggle_groups", "export", "passed")}
+        res.append(f"{ch.export.res_dir}/{ch.id}_{name.lower()}.glb")
+    ctx["garment_res"] = res
+    return {"garments": out, "res": res}
 
 
 def check_export(ch):
