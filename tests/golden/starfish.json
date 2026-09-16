@@ -1,0 +1,395 @@
+{
+ "fixture": "starfish",
+ "plugins": {
+  "rig-anything": "0.14.2"
+ },
+ "report": {
+  "detection": {
+   "R_hub": 0.059459,
+   "arm_gaps_deg": [
+    71.50422,
+    70.343402,
+    73.809806,
+    71.888523,
+    72.45405
+   ],
+   "arms": {
+    "arm01": {
+     "length": 0.079361,
+     "loose": false,
+     "role": "arm",
+     "root_r": 0.891562,
+     "theta_deg": 18.673059,
+     "vertices": 257,
+     "width": 0.01805
+    },
+    "arm02": {
+     "length": 0.0805,
+     "loose": false,
+     "role": "arm",
+     "root_r": 0.880895,
+     "theta_deg": 90.177278,
+     "vertices": 239,
+     "width": 0.019197
+    },
+    "arm03": {
+     "length": 0.082536,
+     "loose": false,
+     "role": "arm",
+     "root_r": 0.814462,
+     "theta_deg": 160.52068,
+     "vertices": 283,
+     "width": 0.018956
+    },
+    "arm04": {
+     "length": 0.075538,
+     "loose": false,
+     "role": "arm",
+     "root_r": 0.95674,
+     "theta_deg": -125.669514,
+     "vertices": 254,
+     "width": 0.016325
+    },
+    "arm05": {
+     "length": 0.076934,
+     "loose": false,
+     "role": "arm",
+     "root_r": 0.919185,
+     "theta_deg": -53.780991,
+     "vertices": 264,
+     "width": 0.016474
+    }
+   },
+   "fineness": 0.263931,
+   "hub_height": 0.031386,
+   "hub_vertices": 1211,
+   "kind": "asteroid",
+   "kind_guessed": false,
+   "kind_suggested": "asteroid",
+   "notes": [],
+   "oral_source": "appendages lie in the plane - oral side taken as the floor side (a sea star's mouth is underneath)",
+   "order": 5,
+   "rigid": 0,
+   "symmetry_score": 0.7904,
+   "warnings": []
+  },
+  "export": {
+   "bones": 20,
+   "clips": [
+    "StarTest_rig_Crawl",
+    "StarTest_rig_Idle"
+   ],
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\a8503271-845e-4294-b7a2-428cd425ecd1\\scratchpad\\fixtures-creatures\\run1\\a\\starfish\\starfish\\starfish.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\a8503271-845e-4294-b7a2-428cd425ecd1\\scratchpad\\fixtures-creatures\\run1\\a\\starfish\\starfish\\starfish.moves.json",
+   "verified": {
+    "durations_match": true,
+    "mismatches": []
+   }
+  },
+  "manifest": {
+   "body_m": {
+    "diameter": 0.11892,
+    "height": 0.03139
+   },
+   "clips": {
+    "Crawl": "StarTest_rig_Crawl",
+    "Idle": "StarTest_rig_Idle"
+   },
+   "loops": [
+    "StarTest_rig_Crawl",
+    "StarTest_rig_Idle"
+   ],
+   "radial": {
+    "appendages": [
+     {
+      "bone_lengths_m": [
+       0.01904,
+       0.01903,
+       0.01902,
+       0.0186
+      ],
+      "bones": [
+       "arm05_1",
+       "arm05_2",
+       "arm05_3",
+       "arm05_4"
+      ],
+      "direction_model": [
+       -0.80676,
+       0.0,
+       0.59087
+      ],
+      "length_m": 0.0769,
+      "loose": false,
+      "name": "arm05",
+      "parent": "hub",
+      "role": "arm",
+      "theta_deg": -53.781
+     },
+     {
+      "bone_lengths_m": [
+       0.02039,
+       0.02054,
+       0.02039,
+       0.02016
+      ],
+      "bones": [
+       "arm03_1",
+       "arm03_2",
+       "arm03_3",
+       "arm03_4"
+      ],
+      "direction_model": [
+       0.33347,
+       -0.0,
+       -0.94276
+      ],
+      "length_m": 0.0825,
+      "loose": false,
+      "name": "arm03",
+      "parent": "hub",
+      "role": "arm",
+      "theta_deg": 160.521
+     },
+     {
+      "bone_lengths_m": [
+       0.01849,
+       0.0183,
+       0.01882,
+       0.01791
+      ],
+      "bones": [
+       "arm04_1",
+       "arm04_2",
+       "arm04_3",
+       "arm04_4"
+      ],
+      "direction_model": [
+       -0.81239,
+       0.0,
+       -0.58311
+      ],
+      "length_m": 0.0755,
+      "loose": false,
+      "name": "arm04",
+      "parent": "hub",
+      "role": "arm",
+      "theta_deg": -125.67
+     },
+     {
+      "bone_lengths_m": [
+       0.02556,
+       0.02597,
+       0.02518
+      ],
+      "bones": [
+       "arm02_1",
+       "arm02_2",
+       "arm02_3"
+      ],
+      "direction_model": [
+       1.0,
+       -0.0,
+       -0.00309
+      ],
+      "length_m": 0.0805,
+      "loose": false,
+      "name": "arm02",
+      "parent": "hub",
+      "role": "arm",
+      "theta_deg": 90.177
+     },
+     {
+      "bone_lengths_m": [
+       0.01957,
+       0.0198,
+       0.01975,
+       0.01768
+      ],
+      "bones": [
+       "arm01_1",
+       "arm01_2",
+       "arm01_3",
+       "arm01_4"
+      ],
+      "direction_model": [
+       0.32017,
+       0.0,
+       0.94736
+      ],
+      "length_m": 0.0794,
+      "loose": false,
+      "name": "arm01",
+      "parent": "hub",
+      "role": "arm",
+      "theta_deg": 18.673
+     }
+    ],
+    "axis_aboral_model": [
+     0.0,
+     1.0,
+     -0.0
+    ],
+    "body": {
+     "diameter_m": 0.11892,
+     "fineness": 0.26393,
+     "height_m": 0.03139,
+     "mass_kg": 0.18424
+    },
+    "clips": {
+     "Crawl": "StarTest_rig_Crawl",
+     "Idle": "StarTest_rig_Idle"
+    },
+    "heading_quantum_deg": 72.0,
+    "kind": "asteroid",
+    "loops": [
+     "StarTest_rig_Crawl",
+     "StarTest_rig_Idle"
+    ],
+    "order": 5,
+    "plan": {
+     "bounce_hz": 0.22494,
+     "bounce_share_of_height": 0.12,
+     "heading_error_deg": 0.0,
+     "heading_free": true,
+     "kind": "asteroid",
+     "mass_source": "skin volume x 1030 kg/m3",
+     "mode": "tube_feet",
+     "notes": [
+      "1 mm/s is Asterias rubens (one study); the bounce is anchored at 0.27 Hz for 50 g (assumed) and its height is a design number"
+     ],
+     "order": 5,
+     "speed_mps": 0.001,
+     "stride_m": 0.00445
+    },
+    "playback_speed_scale": {
+     "Crawl": 0.4593
+    },
+    "problems": [],
+    "reference_model": [
+     0.0,
+     0.0,
+     1.0
+    ],
+    "ribs": []
+   },
+   "verified": {
+    "durations_match": true,
+    "mismatches": []
+   }
+  },
+  "mesh": {
+   "dimensions": [
+    0.23608,
+    0.24803,
+    0.03139
+   ],
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "vertices": 2508
+  },
+  "moves": {
+   "Crawl": {
+    "action": "StarTest_rig_Crawl",
+    "arm_tip_lift_m": 0.0,
+    "balance": null,
+    "bounce_m": 0.00377,
+    "end_height_m": 0.0335,
+    "failures": [],
+    "flipped_faces": 0,
+    "fps": 24,
+    "frames": [
+     1,
+     49
+    ],
+    "kind": "asteroid",
+    "loop_seam": 0.0,
+    "lowest_point": 0.013,
+    "passed": true,
+    "plan": {
+     "bounce_hz": 0.22494,
+     "bounce_share_of_height": 0.12,
+     "diameter_m": 0.11892,
+     "fineness": 0.26393,
+     "heading_error_deg": 0.0,
+     "heading_free": true,
+     "height_m": 0.03139,
+     "kind": "asteroid",
+     "mass_kg": 0.18424,
+     "mass_source": "skin volume x 1030 kg/m3",
+     "mode": "tube_feet",
+     "notes": [
+      "1 mm/s is Asterias rubens (one study); the bounce is anchored at 0.27 Hz for 50 g (assumed) and its height is a design number"
+     ],
+     "order": 5,
+     "speed_mps": 0.001,
+     "stride_m": 0.00445
+    },
+    "planted_drift": {},
+    "playback_speed_scale": 0.4593,
+    "prediction_error": 0.0,
+    "rest_error": 0.0,
+    "rig": "StarTest_rig",
+    "role": "Crawl",
+    "skin_lowest": 0.0,
+    "standing_height_m": 0.0335,
+    "stretch_max": 1.254,
+    "tightest_joint_degrees": {},
+    "tolerance": 0.00122
+   },
+   "Idle": {
+    "action": "StarTest_rig_Idle",
+    "balance": null,
+    "end_height_m": 0.0335,
+    "failures": [],
+    "flipped_faces": 0,
+    "fps": 24,
+    "frames": [
+     1,
+     97
+    ],
+    "kind": "asteroid",
+    "loop_seam": 0.0,
+    "lowest_point": 0.013,
+    "passed": true,
+    "planted_drift": {},
+    "prediction_error": 0.0,
+    "rest_error": 0.001447,
+    "rig": "StarTest_rig",
+    "role": "Idle",
+    "skin_lowest": 0.0,
+    "standing_height_m": 0.0335,
+    "stretch_max": 1.024,
+    "tightest_joint_degrees": {},
+    "tolerance": 0.00122
+   }
+  },
+  "rig": {
+   "appendages": {
+    "arm01": 4,
+    "arm02": 3,
+    "arm03": 4,
+    "arm04": 4,
+    "arm05": 4
+   },
+   "bones": 20,
+   "kind": "asteroid",
+   "ribs": 0,
+   "rig": "StarTest_rig"
+  },
+  "skin": {
+   "bones_weighted": 20,
+   "bones_without_skin": [],
+   "coverage": 1.0,
+   "measured_coverage": 1.0,
+   "mesh": "StarTest",
+   "note": "weights written from the body's own parts; bone heat is not used",
+   "passed": true,
+   "rig": "StarTest_rig",
+   "vertices": 2508
+  }
+ }
+}

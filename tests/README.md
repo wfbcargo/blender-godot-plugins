@@ -21,8 +21,9 @@ on every fixture rather than on one character, and that accepting it is a review
 ## Fixtures
 
 Each is a script Blender runs in its own process, building from nothing — no `.blend`, no stored
-asset — and writing a report of what it got. About four minutes for all four, or two and a half
-with `--jobs 2`; the rabbit is most of it, because a voxel remesh is slow.
+asset — and writing a report of what it got. About six minutes for all six, or four with
+`--jobs 2`; the rabbit and the cricket are most of it (about 140 s and 125 s alone), because a
+voxel remesh is slow.
 
 | Fixture | Builds | Exercises |
 |---|---|---|
@@ -30,9 +31,11 @@ with `--jobs 2`; the rabbit is most of it, because a voxel remesh is slow.
 | `rabbit` | `hopper_samples.rabbit`, detected, rigged, skinned, hopped, exported | leg detection against the sample's known joints, `hoppers.build`/`skin`, `hop.move_set`, `export_creature` |
 | `flesh_figure` | follow-through's `Figure` and `Bloater`, rigged, walked, fleshed, exported | `fit_basic_human`, bind coverage, `flesh.prepare` region placement, the glTF read back |
 | `dressed_figure` | a shirt cut onto the fleshed `Figure` | `tailor`/`fit`/`hem`/`cover`, and the flesh-before-garments order |
+| `cricket` | `hopper_samples.cricket`, detected, rigged, skinned, walked, jumped, exported | six-leg detection against the sample's known joints, the orthopteran branch of `hop.move_set` (Idle, Walk, JumpLaunch/Air/Land), `export_creature`'s refusal of a failed clip |
+| `starfish` | `radial_samples.starfish`, detected as `asteroid`, rigged, skinned, crawled, exported | `radial.detect`'s hub and arms, `radial.build`/`skin` and the weights actually written, `radial_moves` Crawl and Idle, the `radial` manifest |
 
-Still missing, from `docs/improvements/03`: `rigify_human`, `quadruped`, `cricket`, the radial
-bodies, and the Godot-side verifiers (`--godot`).
+Still missing, from `docs/improvements/03`: `rigify_human`, `quadruped`, and the Godot-side
+verifiers (`--godot`).
 
 ## Writing one
 
