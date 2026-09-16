@@ -4,8 +4,8 @@ A handoff for a fresh conversation. Start with:
 
 > Read `docs/improvements/NEXT.md`, then the work item it points at, and plan it.
 
-State as of 2026-09-16. Everything below is on `main` in this repo (`b5333bc` and later) and on
-`master` in `grungist-creek` (`3263b74`), both pushed. Installed plugin copies in
+State as of 2026-09-16. Everything below is on `main` in this repo and on `master` in `grungist-creek`,
+both pushed. Installed plugin copies in
 `~/.claude/skills` match the repo.
 
 This repo was split out of `PaulClaudePlugins` on 2026-09-16 with its history kept, so every commit
@@ -41,25 +41,91 @@ Already built and worth knowing about before starting anything:
 
 ### 1. Finish 03 - small, and every later item leans on it
 
-- **`--twice` reproducibility check** (owed by 5.6). Build a fixture twice in one `regress.py` run and
-  compare the two reports to each other, not to a golden. Belle's garments differed by 9.9 mm between
-  builds and no golden could have caught it, because the golden was recorded from one of the draws.
-- **Missing fixtures**: `rigify_human` (`fit_basic_human` on a sample mesh), `quadruped`, `cricket`
-  (`hopper_samples.cricket`), a radial body (`radial_samples`), and `--godot <project>` to run the
-  Godot verifiers and self-tests on the exported fixtures. Generators and seeds, never a `.blend`.
-- **Step 6 - stage results on objects, not session memory.** A first instance exists:
-  `hop.air` stamps `action["rig_anything_floor"]` and the exporter reads it. Generalise to
-  `move_set` writing each role's report onto its action, so export works in a fresh session.
-- **Step 7 - blend hygiene.** Split `C:/Users/pauli/Code/Blender/belle_demo.blend` into Belle and the
-  72 creature test objects; build scripts refuse to save over a file with scenes they did not make.
-- **Step 8 - agent hygiene.** Write down in a CLAUDE.md or SKILL.md section: own scratch subfolder,
-  own worktree, `tools/regress.py` before reporting done.
+Planned 2026-09-16 against a clean baseline: `regress.py --jobs 2` passed on `main` from this repo
+(`rabbit` 140 s, the other three about 20 s each). Six branches, in order. Each one ends the same
+way: `regress.py --jobs 2` (plus `--twice` once 1a exists), goldens reviewed in the diff, merge
+`--no-ff`, push, `tools/install.py --all`. One worktree under `.worktrees/` and one scratch subfolder
+per branch.
+
+**1a. `regress-twice` - the reproducibility check owed by 5.6.**
+- `tools/regress.py --twice`: each fixture builds twice (`out/<name>/a`, `out/<name>/b`, both queued so
+  `--jobs` parallelises them). The two reports are compared with each other through the existing
+  `compare()` at the default tolerance (1e-3 relative is about 1 mm on a body, so 9.9 mm shows).
+  A difference prints `NONDETERMINISTIC <fixture>: <key>` and fails the run; build `a` is still
+  compared with the golden.
+- Proof: first `--plugins <worktree at 4f46876> --twice --only dressed_figure` (the checkout before
+  the 5.6 fix). That drift came from `object.join` in Belle's build and the sample Figure may have no
+  join, so it may not reproduce. If not, prove the check with a `REGRESS_JITTER=1` switch that moves
+  one reported value randomly. Record which one proved it.
+- `tests/README.md`.
+
+**1b. `fixtures-creatures` - cricket and starfish, generators that already exist.**
+- `tests/fixtures/cricket.py`: the rabbit's pipeline on `hopper_samples.cricket` - the orthopteran
+  branch of `hop.move_set` (Idle, Walk, JumpLaunch/Air/Land). Time it first (voxel 0.00022); if it runs
+  far past the rabbit's 140 s, pass a coarser `voxel=` and say so in the docstring.
+- `tests/fixtures/starfish.py`: `radial_samples.starfish` -> `radial.detect(kind="asteroid")` (no
+  vision in a fixture) -> `radial.build` -> `radial.skin` -> `radial_moves.move_set` ->
+  `export_creature`. Golden: coverage, arms, crawl checks, manifest.
+- Both run `--twice` before their goldens are recorded.
+
+**1c. `fixtures-biped-quadruped`.**
+- `tests/fixtures/rigify_human.py`: `follow_through.samples.build_bodies(rig=True, walk=False)`'s
+  `Figure` without flesh -> `actions.move_set` with every biped role -> `export.export`. Golden: crouch
+  and jump hip drop, balance, export checks.
+- New `rig_analysis/quadruped_samples.py`: a seeded dog from `hopper_samples._union_mesh` with
+  `truth()` joints; `measure.analyze` must see exactly 4 ground contacts. Fixture `quadruped.py`:
+  `fit_basic_quadruped` -> bind -> `move_set` (Idle, Walk, Trot, Run, Crouch) -> export, joints scored.
+- Folded in from section 2: `fit_basic_human`/`fit_basic_quadruped` enable Rigify themselves;
+  fixtures drop `H.enable_addons("rigify")`.
+- 03's "done when": revert the ground-root crouch fix in a scratch worktree - only crouch keys move,
+  in `mpfb_woman_curvy` (and `rigify_human` if it applies). rig-anything 0.14.3.
+
+**1d. `persist-move-reports` - step 6.** Every `engine_manifest` (locomotion, hop, radial_moves,
+flight, swim, maw, octopus) builds from the in-memory `reports` its set function returned; only the
+floor is on the action (`hop.py:1093`).
+- New `rig_analysis/stored.py`: `store(reports)` writes `action["rig_anything_report"]` as JSON of the
+  report through `hop._clean` (moved here: drops `_` keys, rounds) plus `role`; `load(rig_name)`
+  returns `{role: report}` from the actions whose stored `rig` matches. Measure a stored report first;
+  over ~64 kB, store only the keys the manifests read.
+- `store()` at the end of `actions.move_set`, `hop.move_set`/`jump_set`, `radial_moves.move_set`,
+  `flight_set`, `swim_set`, `maw_set`, `octopus_set`. Every `engine_manifest`/`export_creature` takes
+  `reports=None` -> `load()`. `rig_anything_floor` stays.
+- Proof: `rabbit.py` saves `rabbit.blend`, starts a second Blender on it with `_export_only.py`, exports
+  without reports, and reports `fresh_session_manifest_equal`. No existing golden value may move (so
+  the properties do not leak into the glb). rig-anything 0.15.0; `build_human.py` needs no change.
+
+**1e. `regress-godot` - `--godot <project>`.**
+- After the fixtures pass: copy their `.glb` / `.moves.json` into `<project>/_regress/`, `--headless
+  --import`, `verify_moves.gd dir=res://_regress`, and `verify_wardrobe.gd` for `dressed_figure`.
+  Pass/fail from each `PASSED`/`FAILED` line and exit code. `_regress/` always removed, and ignored in
+  grungist-creek.
+- First diff the project's `addons/{rig_anything,wardrobe,follow_through}` against
+  `plugins/*/godot/addons` (line endings ignored) and warn on drift.
+- `verify_moves.gd` checks a walk-to-run ladder; if hopper/radial manifests do not fit it, `--godot`
+  covers the biped and quadruped fixtures and the README says so.
+- Delete grungist-creek's untracked `tomas_demo.tscn` (references a missing script) so the import is
+  quiet.
+
+**1f. `docs-hygiene` - step 8.** A `CLAUDE.md` here: own worktree and scratch subfolder per agent;
+`regress.py --jobs 2 --twice` before reporting done (`--godot` when an addon changed); `install.py`
+the only install; goldens move only in a reviewed commit; the tooling gotchas below. Update 03's
+status block, this file, and the README's missing-fixtures line. A full `--twice` run will be
+12-15 minutes with the new fixtures - required before merge, not every edit.
+
+**1g. grungist-creek `blend-hygiene` - step 7.**
+- Copy `C:/Users/pauli/Code/Blender/belle_demo.blend` to `belle_demo.backup.blend`, inventory its
+  scenes and objects, save `belle.blend` (Belle's scene) and `creature_tests.blend` (the 72 test
+  objects) as copies, reopen each and count. Show the counts before retiring `belle_demo.blend`.
+- `assets/save_guard.py`: `save_owned(path, scenes)` reads the scene names already in the file on disk
+  (`bpy.data.libraries.load`) and refuses to overwrite one holding a scene not in `scenes`. Used by
+  `build_person.py` (4 saves), `build_outfits.py` and `build_human.py`. Proof: a headless run against
+  a copy with an extra scene refuses.
 
 ### 2. Small fixes found along the way
 
 - **rig-anything should enable Rigify itself.** Under `--factory-startup` it is off, and
   `fit_basic_human` dies with `'Armature' object has no attribute 'rigify_colors'`. Fixtures work
-  around it with `H.enable_addons("rigify")`. Filed in 02's quirk table.
+  around it with `H.enable_addons("rigify")`. Filed in 02's quirk table. Taken in 1c.
 - **5.7 - a deterministic join.** `bpy.ops.object.join` (eyes and hair into a body) writes the same
   faces in a different order every run. wardrobe is immune now and the glTF exporter writes the same
   indices either way, so nothing shipped is affected - but a `.blend` is not reproducible and any
