@@ -31,13 +31,27 @@ from . import rigmap
 EASE_GROUP = "wd_ease"
 
 
+def canonical_tris(me):
+    """A mesh's triangles in an order that does not depend on how its faces happen to be stored.
+
+    `bpy.ops.object.join` - joining the eyes and the hair into a body - writes the same faces in
+    a different order on every run: same vertices, same triangles, shuffled. A BVH built in that
+    order breaks near-ties differently, so `find_nearest` answers a vertex on a seam with one
+    triangle in one build and its neighbour in the next, the push-out lands fractions of a
+    millimetre apart, and sixteen relax iterations turn that into millimetres of garment. Sorting
+    the triangles makes a fit reproducible whatever order the mesh arrived in. Vertex order is
+    stable across those joins, so sorting on vertex indices is canonical. (improvements 5.6)
+    """
+    me.calc_loop_triangles()
+    return sorted(tuple(t.vertices) for t in me.loop_triangles)
+
+
 def body_bvh(body):
     """BVH of the body's rest surface in its object space, and its triangles."""
     body = rigmap._obj(body)
     me = body.data
-    me.calc_loop_triangles()
     verts = [v.co.copy() for v in me.vertices]
-    tris = [tuple(t.vertices) for t in me.loop_triangles]
+    tris = canonical_tris(me)
     return BVHTree.FromPolygons(verts, tris, all_triangles=True), verts, tris
 
 

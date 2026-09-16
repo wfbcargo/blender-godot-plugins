@@ -14,9 +14,9 @@
   "cover": {
    "body": "Figure",
    "body_verts": 17112,
-   "covered": 5864,
-   "disagree": 935,
-   "edge": 1860,
+   "covered": 5865,
+   "disagree": 936,
+   "edge": 1861,
    "garment": "Shirt",
    "hidden": 4004,
    "hidden_gap_max_m": 0.0257,
@@ -29,14 +29,14 @@
   "ease": {
    "gap_max_m": 0.0684,
    "gap_median_m": 0.0068,
-   "gap_min_m": 0.0057,
-   "gap_p95_m": 0.04,
+   "gap_min_m": 0.0058,
+   "gap_p95_m": 0.0399,
    "verts": 6220
   },
   "export": {
-   "edge": 1860,
+   "edge": 1861,
    "exported": true,
-   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-2_g1jiy0\\dressed_figure\\dressed_figure\\shirt.glb",
+   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-gdhgre20\\dressed_figure\\dressed_figure\\shirt.glb",
    "garment": "Shirt",
    "hem_bones": 16,
    "hem_head_error_m": 1e-06,
@@ -44,7 +44,7 @@
    "joints": 56,
    "passed": true,
    "problems": [],
-   "size_bytes": 465224,
+   "size_bytes": 465316,
    "weight_sum_min": 1.0
   },
   "exported": true,

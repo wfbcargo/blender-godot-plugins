@@ -118,8 +118,7 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
     kind = fit.kind_of(g)
     tags = fit.tag_loops(fit.boundary_loops(bm), kind)
     me = g.data
-    me.calc_loop_triangles()
-    gbvh = BVHTree.FromPolygons([v.co.copy() for v in me.vertices], [tuple(t.vertices) for t in me.loop_triangles],
+    gbvh = BVHTree.FromPolygons([v.co.copy() for v in me.vertices], fit.canonical_tris(me),
                                 all_triangles=True)
     bbvh, _, _ = fit.body_bvh(b)
     stops = [bbvh] + [fit.body_bvh(o)[0] for o in under]

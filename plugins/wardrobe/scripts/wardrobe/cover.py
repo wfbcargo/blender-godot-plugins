@@ -29,15 +29,14 @@ import bpy
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
-from . import rigmap
+from . import fit, rigmap
 
 
 def garment_bvh(garment):
     g = rigmap._obj(garment)
     me = g.data
-    me.calc_loop_triangles()
     verts = [v.co.copy() for v in me.vertices]
-    tris = [tuple(t.vertices) for t in me.loop_triangles]
+    tris = fit.canonical_tris(me)
     return BVHTree.FromPolygons(verts, tris, all_triangles=True)
 
 
@@ -56,9 +55,8 @@ def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True):
     b = rigmap._obj(body)
     to_body = b.matrix_world.inverted() @ g.matrix_world
     me = g.data
-    me.calc_loop_triangles()
     gv = [to_body @ v.co for v in me.vertices]
-    gtris = [tuple(t.vertices) for t in me.loop_triangles]
+    gtris = fit.canonical_tris(me)
     bvh = BVHTree.FromPolygons(gv, gtris, all_triangles=True)
     gw = _weights(g)
     bw = _weights(b)

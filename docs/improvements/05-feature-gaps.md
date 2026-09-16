@@ -156,7 +156,22 @@ body with the same muscle value shows much less definition.
 
 ---
 
-## 5.6 wardrobe's garment step is not reproducible between builds
+## 5.6 wardrobe's garment step is not reproducible between builds - DONE
+
+> **Fixed** (September 2026, wardrobe). The cause was two steps apart from the symptom.
+> `bpy.ops.object.join` - joining the eyes and the hair into the body - writes the same faces in a
+> different order on every run: same vertices, same triangle *set*, shuffled. Probing a build stage
+> by stage showed the body, the rig, the bone map and the cut all agreeing, and only `fit.ease`
+> diverging; probing inside it showed the body's triangle list hashing differently while its sorted
+> form matched. A BVH built in that order breaks near-ties differently, so `find_nearest` answers a
+> vertex on a seam with one triangle in one build and its neighbour in the next, the push-out lands
+> fractions of a millimetre apart, and sixteen relax iterations turn that into millimetres of cloth.
+>
+> `fit.canonical_tris` now sorts a mesh's triangles before any BVH is built from it (`fit.body_bvh`,
+> `cover.garment_bvh`, `cover.compute`, `hem.prepare`), which makes a fit independent of the order
+> its mesh arrived in - vertex order is stable across those joins, so sorting on vertex indices is
+> canonical. Two full builds of Belle now write byte-identical `belle_sportstop.glb` and
+> `belle_shorts.glb`. The join itself is still nondeterministic: that is 5.7.
 
 **Problem.** Rebuilding Belle twice from the same brief produced sports tops whose vertices differ
 by up to 9.9 mm, and shorts that differ too. The body is not the cause: across three builds her
@@ -189,3 +204,27 @@ this is, it does not reach the sample body - which makes it a good control for f
 
 **Done when** two full builds of Belle from the same brief produce byte-identical garments, and a
 `--twice` check in the harness proves it.
+
+---
+
+## 5.7 `bpy.ops.object.join` shuffles the face order
+
+**Problem.** Joining the eyes into a baked body gives the same vertices in the same order and the
+same set of faces, in a different order on every run. Minimal repro: build one humanform body,
+`export.bake_for_game`, then join `<name>_eyes` as `build_human.bake` does, and hash
+`[tuple(q.vertices) for q in me.polygons]` - three runs, three hashes, while the sorted form and
+the vertex hash hold. `bake_for_game` on its own is deterministic; the join is not.
+
+**Why it still matters.** 5.6 made wardrobe immune, and rig-anything's glTF export already writes
+the same indices either way, so nothing shipped is affected today. But every future consumer that
+walks faces in mesh order inherits the same trap, and "rebuild and diff" stays weaker than it
+looks: a body's `.blend` is not reproducible even when its geometry is.
+
+**Steps.** (1) Confirm where the order comes from - Blender joins in the order of the selected
+bases, which the context's selection set does not preserve. (2) Give rig-anything a deterministic
+`join_into(target, others)` that merges through bmesh in the order it was handed, keeping vertex
+groups, materials, UVs and custom normals, and point `build_human.bake` and Belle's `hair()` at it.
+(3) Prove it with the minimal repro above, three runs, one hash.
+
+**Done when** joining the same meshes twice gives byte-identical face order, and a whole character
+build is reproducible down to its `.blend`.
