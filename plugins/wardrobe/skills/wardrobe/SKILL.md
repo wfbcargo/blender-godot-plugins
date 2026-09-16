@@ -37,7 +37,7 @@ if P not in sys.path:
 import wardrobe
 importlib.reload(wardrobe)
 wardrobe.reload_all()
-from wardrobe import tailor, fit, cover, hem, spec, export, views, samples
+from wardrobe import tailor, fit, cover, hem, spec, export, views, samples, presets
 ```
 
 **The whole sample in one call** (cut, fit, hem, cover, spec, export, read back):
@@ -45,6 +45,26 @@ from wardrobe import tailor, fit, cover, hem, spec, export, views, samples
 ```python
 samples.shirt("Figure", r"C:/proj/assets/wardrobe/shirt.glb")
 ```
+
+**A garment from a preset.** Tuned numbers belong in `presets/garments.json`, not in a build
+script. Each preset holds the cut (`shirt`/`pants`) and the `tailor`, `paint`, `ease`, `hem`,
+`cover` and `layer_cover` arguments, the spec kind, layer and colour, and a `note` saying why:
+
+```python
+presets.list()   # bra, briefs, longsleeve, shorts, shorts_mid_thigh, sports_top, trousers, tshirt
+r = wardrobe.dress("Belle", "sports_top", out_path=r"C:/proj/assets/belle/belle_sportstop.glb")
+b = wardrobe.dress("Nora", "briefs", out_path=...)
+t = wardrobe.dress("Nora", "trousers", out_path=..., over=[b["garment"]])   # eased over, hides what it covers
+```
+
+`dress(body, preset, name=None, colour=None, out_path=None, layer=None, over=())` runs tailor ->
+paint_ease -> ease -> skin -> hem -> cover -> spec -> export, skipping a step whose arguments are
+null; without `out_path` nothing is exported. It returns `verts`, `cut`, `skin`, `ease`, `hem`,
+`cover` (summary) and `cover_report`, `jiggle_groups`, `export` (summary) and `export_report`,
+`passed` and `problems` - it does not raise on a failed export. `sports_top` and
+`shorts_mid_thigh` are Belle's; the other six are Nora's three layers (`presets.exclusive()`
+lists what is worn instead of what). Nora's build also smooths armpit weights with project code
+that `dress` does not run. The `dressed_presets` fixture holds both of Belle's on the sample body.
 
 **Step by step:**
 

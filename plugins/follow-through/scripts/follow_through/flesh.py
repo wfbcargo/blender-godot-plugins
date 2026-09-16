@@ -907,11 +907,20 @@ def jiggle_block(obj, rig, regions, overrides=None):
     from . import registry
     from .spec import to_gltf
     inv = rig.matrix_world.inverted()
+    types = registry.load()["types"]
     out = []
     for r in regions:
         params = dict(registry.material(r["material"]).get("jiggle", {})) if r.get("material") else {}
+        # the swing limit as a share of peak_m: the type's own, unless an override names a share or
+        # the material fraction (`max_offset`) instead
+        share = types.get(r["type"], {}).get("limit_share")
         for key in (r["type"], r["name"]):
-            params.update((overrides or {}).get(key, {}))
+            o = (overrides or {}).get(key, {})
+            if "limit_share" in o:
+                share = o["limit_share"]
+            elif "max_offset" in o:
+                share = None
+            params.update(o)
         head = inv @ _vec(r["head"])
         tail = inv @ _vec(r["tail"])
         entry = {
@@ -919,8 +928,11 @@ def jiggle_block(obj, rig, regions, overrides=None):
             "bone": JIGGLE_PREFIX + r["name"], "parent": r["anchor_bone"],
             "head": [round(x, 5) for x in to_gltf(head)], "tail": [round(x, 5) for x in to_gltf(tail)],
             "mass_kg": r["mass_kg"], "volume_m3": r["volume_m3"], "peak_m": r["peak_m"], "vertices": r["count"],
-            # the furthest the tail may leave its rest place: a fraction of the bulge's own size
-            "max_offset_m": round(float(params.get("max_offset", 0.5)) * 2.0 * r["peak_m"], 4),
+            # the furthest the tail may leave its rest place: the type's `limit_share` of how far the
+            # mass stands out (tuned per type - its `limit_note` says how), or else a fraction of the
+            # bulge's own size from the material
+            "max_offset_m": (round(float(share) * r["peak_m"], 4) if share is not None
+                             else round(float(params.get("max_offset", 0.5)) * 2.0 * r["peak_m"], 4)),
         }
         for k in ("frequency_hz", "damping_ratio", "squash", "gravity_scale", "aim", "translate", "response"):
             if k in params:
@@ -933,7 +945,9 @@ def prepare(obj_name, rig_name=None, types=None, overrides=None, weight_scale=1.
     """Find the soft masses on a skinned body, give each a jiggle bone, and write the spec.
 
     `types` limits which flesh types are looked for; `overrides` is
-    {region or type name: {"frequency_hz": ..., "damping_ratio": ...}}; `regions` skips the
+    {region or type name: {"frequency_hz": ..., "damping_ratio": ..., "limit_share": ...}}. Each
+    region's `max_offset_m` is its type's `limit_share` x peak_m when the type has one (breast,
+    butt), else the material's `max_offset` x 2 x peak_m. `regions` skips the
     search and rigs these instead - from marks.regions() (zones marked on 2D renders) or a
     filtered find_regions()."""
     from . import classify, spec

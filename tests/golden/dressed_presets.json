@@ -1,0 +1,126 @@
+{
+ "fixture": "dressed_presets",
+ "plugins": {
+  "follow-through": "0.2.5",
+  "rig-anything": "0.17.0",
+  "wardrobe": "0.1.2"
+ },
+ "report": {
+  "body": {
+   "flesh_regions": 11,
+   "jiggle_bones": 11,
+   "vertices": 17112
+  },
+  "body_export": {
+   "durations_match": true,
+   "exported": true
+  },
+  "garments": {
+   "shorts_mid_thigh": {
+    "cover": {
+     "body": "Figure",
+     "body_verts": 17112,
+     "covered": 2396,
+     "disagree": 0,
+     "edge": 425,
+     "garment": "Shorts",
+     "hidden": 1971,
+     "hidden_gap_max_m": 0.0119,
+     "hidden_gap_median_m": 0.0075,
+     "margin": 0.03,
+     "max_gap": 0.1,
+     "tris_hidden": 3728,
+     "tris_total": 34220
+    },
+    "cut": {
+     "leg.L": 2552,
+     "leg.R": 2551,
+     "pieces_dropped": 0,
+     "waist": 9713
+    },
+    "ease": {
+     "gap_max_m": 0.0121,
+     "gap_median_m": 0.008,
+     "gap_min_m": 0.0079,
+     "gap_p95_m": 0.0086,
+     "verts": 2615
+    },
+    "export": {
+     "edge": 425,
+     "exported": true,
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-38r2fk09\\a\\dressed_presets\\dressed_presets\\shorts_mid_thigh.glb",
+     "garment": "Shorts",
+     "hem_bones": 0,
+     "hem_head_error_m": 0.0,
+     "hidden": 1971,
+     "joints": 40,
+     "passed": true,
+     "problems": [],
+     "size_bytes": 198864,
+     "weight_sum_min": 1.0
+    },
+    "exported": true,
+    "garment": "Shorts",
+    "groups": 40,
+    "hem_rings": null,
+    "jiggle_groups": 11,
+    "passed": true,
+    "problems": [],
+    "vertices": 2615
+   },
+   "sports_top": {
+    "cover": {
+     "body": "Figure",
+     "body_verts": 17112,
+     "covered": 3247,
+     "disagree": 0,
+     "edge": 564,
+     "garment": "SportsTop",
+     "hidden": 2683,
+     "hidden_gap_max_m": 0.0091,
+     "hidden_gap_median_m": 0.0075,
+     "margin": 0.03,
+     "max_gap": 0.1,
+     "tris_hidden": 5141,
+     "tris_total": 34220
+    },
+    "cut": {
+     "hem": 8079,
+     "neck": 2525,
+     "pieces_dropped": 0,
+     "sleeve.L": 1685,
+     "sleeve.R": 1684
+    },
+    "ease": {
+     "gap_max_m": 0.0095,
+     "gap_median_m": 0.008,
+     "gap_min_m": 0.0059,
+     "gap_p95_m": 0.0084,
+     "verts": 3501
+    },
+    "export": {
+     "edge": 564,
+     "exported": true,
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-38r2fk09\\a\\dressed_presets\\dressed_presets\\sports_top.glb",
+     "garment": "SportsTop",
+     "hem_bones": 0,
+     "hem_head_error_m": 0.0,
+     "hidden": 2683,
+     "joints": 40,
+     "passed": true,
+     "problems": [],
+     "size_bytes": 261408,
+     "weight_sum_min": 1.0
+    },
+    "exported": true,
+    "garment": "SportsTop",
+    "groups": 40,
+    "hem_rings": null,
+    "jiggle_groups": 11,
+    "passed": true,
+    "problems": [],
+    "vertices": 3501
+   }
+  }
+ }
+}
