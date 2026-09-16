@@ -1,0 +1,1029 @@
+{
+ "fixture": "mpfb_woman_curvy",
+ "plugins": {
+  "humanform": "0.6.1",
+  "rig-anything": "0.14.1"
+ },
+ "report": {
+  "bake": {
+   "groups": 52,
+   "height_m": 1.6985,
+   "report": {
+    "groups_kept": 52,
+    "groups_removed": 152,
+    "influences": 4,
+    "mesh": "FixWoman_body",
+    "modifiers_applied": [
+     "Hide helpers"
+    ],
+    "shape_keys_baked": {
+     "first": "$md-$as-$fe-$yn",
+     "last": "$md-$fe-$yn-$av$mu-max$wg-$avcup-min$fi",
+     "len": 55
+    },
+    "unweighted_vertices": 0,
+    "vertices": {
+     "after": 13380,
+     "before": 19158
+    },
+    "vertices_limited": 608
+   },
+   "unweighted": 0,
+   "vertices": 13380
+  },
+  "engine": {
+   "collider": {
+    "height": 1.6985,
+    "radius": 0.2193
+   },
+   "gaits": {
+    "Run": {
+     "duty_factor": 0.345,
+     "froude": 2.0,
+     "gait": "run",
+     "hip_height_m": 0.8635,
+     "natural_speed_mps": 4.1161,
+     "spine_flex_deg": 0.0,
+     "stride_frequency_hz": 1.683,
+     "stride_m": 2.4452,
+     "stroke_m": 0.8425
+    },
+    "Walk": {
+     "duty_factor": 0.55,
+     "froude": 0.163,
+     "gait": "walk",
+     "hip_height_m": 0.8635,
+     "natural_speed_mps": 1.174,
+     "spine_flex_deg": 0.0,
+     "stride_frequency_hz": 1.062,
+     "stride_m": 1.1054,
+     "stroke_m": 0.608
+    }
+   },
+   "problems": []
+  },
+  "export": {
+   "clips": {
+    "clips": {
+     "FixWoman_Crouch": {
+      "blender_cycle_s": 0.4583,
+      "engine_duration_s": 0.5,
+      "failures": [],
+      "fps": 24,
+      "frames": [
+       1,
+       12
+      ],
+      "gait": false,
+      "locomotion": false,
+      "loop_seam": null,
+      "loops": false,
+      "lowest_foot": 0.011,
+      "note": "one-shot, not a cycle - no speed reported (it travels 0.0000 m, but not per stride)",
+      "passed": true,
+      "recheck": {
+       "balance": {
+        "com_source": "skin (2 meshes)",
+        "frame": 12,
+        "margin_m": 0.0699
+       },
+       "clearance": null,
+       "contacts": {
+        "thigh.L": {
+         "duty_factor": 1.0,
+         "sideways": 0.0,
+         "speed_mismatch": 0.0,
+         "stance": [
+          [
+           0.0,
+           1.0
+          ]
+         ],
+         "uneven": 0.0,
+         "vertical": 0.0
+        },
+        "thigh.R": {
+         "duty_factor": 1.0,
+         "sideways": 0.0,
+         "speed_mismatch": 0.0,
+         "stance": [
+          [
+           0.0,
+           1.0
+          ]
+         ],
+         "uneven": 0.0,
+         "vertical": 0.0
+        }
+       },
+       "failures": [],
+       "loop_seam": null,
+       "lowest_bone": {
+        "bone": "toe.L",
+        "frame": 12,
+        "height": 0.011
+       },
+       "skin_lowest": {
+        "frame": 12,
+        "height": -0.0
+       },
+       "stance_speed_mps": -0.0
+      }
+     },
+     "FixWoman_CrouchWalk": {
+      "blender_cycle_s": 1.0,
+      "duty_factor": 0.542,
+      "engine_duration_s": 1.0417,
+      "failures": [],
+      "fps": 24,
+      "frames": [
+       1,
+       25
+      ],
+      "gait": false,
+      "implied_speed_cycle_mps": 0.6514,
+      "implied_speed_playback_mps": 0.6254,
+      "locomotion": true,
+      "loop_seam": 0.0,
+      "loops": true,
+      "lowest_foot": 0.011,
+      "passed": true,
+      "recheck": {
+       "balance": null,
+       "clearance": null,
+       "contacts": {
+        "thigh.L": {
+         "duty_factor": 0.542,
+         "sideways": 0.0,
+         "speed_mismatch": 0.0,
+         "stance": [
+          [
+           0.0,
+           0.5417
+          ]
+         ],
+         "uneven": 0.0,
+         "vertical": 0.0
+        },
+        "thigh.R": {
+         "duty_factor": 0.542,
+         "sideways": 0.0,
+         "speed_mismatch": 0.0,
+         "stance": [
+          [
+           0.5,
+           1.0417
+          ]
+         ],
+         "uneven": 0.0,
+         "vertical": 0.0
+        }
+       },
+       "failures": [],
+       "loop_seam": 0.0,
+       "lowest_bone": {
+        "bone": "toe.L",
+        "frame": 12,
+        "height": 0.011
+       },
+       "skin_lowest": {
+        "frame": 12,
+        "height": -0.0
+       },
+       "stance_speed_mps": 0.6514
+      },
+      "speed_source": "stance feet (median backward speed while planted)",
+      "stride_m": 0.3257,
+      "use": "implied_speed_playback_mps - the engine loops over all 25 keyed frames"
+     },
+     "FixWoman_Idle": {
+      "blender_cycle_s": 2.0,
+      "engine_duration_s": 2.0417,
+      "failures": [],
+      "fps": 24,
+      "frames": [
+       1,
+       49
+      ],
+      "gait": false,
+      "locomotion": false,
+      "loop_seam": 0.0,
+      "loops": true,
+      "lowest_foot": 0.011,
+      "note": "stride 0.0000 m is under 5% of the 1.693 m creature - not locomotion, no speed reported",
+      "passed": true,
+      "recheck": {
+       "balance": {
+        "com_source": "skin (2 meshes)",
+        "frame": 37,
+        "margin_m": 0.0712
+       },
+       "clearance": null,
+       "contacts": {
+        "thigh.L": {
+         "duty_factor": 1.0,
+         "sideways": 0.0,
+         "speed_mismatch": 0.0,
+         "stance": [
+          [
+           0.0,
+           1.0
+          ]
+         ],
+         "uneven": 0.0,
+         "vertical": 0.0
+        },
+        "thigh.R": {
+         "duty_factor": 1.0,
+         "sideways": 0.0,
+         "speed_mismatch": 0.0,
+         "stance": [
+          [
+           0.0,
+           1.0
+          ]
+         ],
+         "uneven": 0.0,
+         "vertical": 0.0
+        }
+       },
+       "failures": [],
+       "loop_seam": 0.0,
+       "lowest_bone": {
+        "bone": "toe.L",
+        "frame": 37,
+        "height": 0.011
+       },
+       "skin_lowest": {
+        "frame": 21,
+        "height": -0.0
+       },
+       "stance_speed_mps": -0.0
+      }
+     },
+     "FixWoman_Run": {
+      "blender_cycle_s": 1.0,
+      "duty_factor": 0.375,
+      "engine_duration_s": 1.0417,
+      "failures": [],
+      "fps": 24,
+      "frames": [
+       1,
+       25
+      ],
+      "gait": true,
+      "implied_speed_cycle_mps": 2.4452,
+      "implied_speed_playback_mps": 2.3474,
+      "locomotion": true,
+      "loop_seam": 0.0,
+      "loops": true,
+      "lowest_foot": 0.011,
+      "passed": true,
+      "recheck": {
+       "balance": null,
+       "clearance": null,
+       "contacts": {
+        "thigh.L": {
+         "duty_factor": 0.375,
+         "sideways": 0.0,
+         "speed_mismatch": 0.0,
+         "stance": [
+          [
+           0.0,
+           0.375
+          ]
+         ],
+         "uneven": 0.0,
+         "vertical": 0.0
+        },
+        "thigh.R": {
+         "duty_factor": 0.375,
+         "sideways": 0.0,
+         "speed_mismatch": 0.0,
+         "stance": [
+          [
+           0.5,
+           0.875
+          ]
+         ],
+         "uneven": 0.0,
+         "vertical": 0.0
+        }
+       },
+       "failures": [],
+       "loop_seam": 0.0,
+       "lowest_bone": {
+        "bone": "toe.L",
+        "frame": 8,
+        "height": 0.011
+       },
+       "skin_lowest": {
+        "frame": 9,
+        "height": -0.0048
+       },
+       "stance_speed_mps": 2.4452
+      },
+      "speed_source": "stance feet (median backward speed while planted)",
+      "stride_m": 0.8913,
+      "use": "implied_speed_playback_mps - the engine loops over all 25 keyed frames"
+     },
+     "FixWoman_Walk": {
+      "blender_cycle_s": 1.3333,
+      "duty_factor": 0.562,
+      "engine_duration_s": 1.375,
+      "failures": [],
+      "fps": 24,
+      "frames": [
+       1,
+       33
+      ],
+      "gait": true,
+      "implied_speed_cycle_mps": 0.829,
+      "implied_speed_playback_mps": 0.8039,
+      "locomotion": true,
+      "loop_seam": 0.0,
+      "loops": true,
+      "lowest_foot": 0.011,
+      "passed": true,
+      "recheck": {
+       "balance": null,
+       "clearance": null,
+       "contacts": {
+        "thigh.L": {
+         "duty_factor": 0.562,
+         "sideways": 0.0,
+         "speed_mismatch": 0.0,
+         "stance": [
+          [
+           0.0,
+           0.5625
+          ]
+         ],
+         "uneven": 0.0,
+         "vertical": 0.0
+        },
+        "thigh.R": {
+         "duty_factor": 0.562,
+         "sideways": 0.0,
+         "speed_mismatch": 0.0,
+         "stance": [
+          [
+           0.5,
+           1.0625
+          ]
+         ],
+         "uneven": 0.0,
+         "vertical": 0.0
+        }
+       },
+       "failures": [],
+       "loop_seam": 0.0,
+       "lowest_bone": {
+        "bone": "toe.L",
+        "frame": 2,
+        "height": 0.011
+       },
+       "skin_lowest": {
+        "frame": 2,
+        "height": -0.0
+       },
+       "stance_speed_mps": 0.829
+      },
+      "speed_source": "stance feet (median backward speed while planted)",
+      "stride_m": 0.6198,
+      "use": "implied_speed_playback_mps - the engine loops over all 33 keyed frames"
+     }
+    },
+    "failed": {},
+    "failing": {},
+    "floor_tolerance_m": 0.00847,
+    "passed": true,
+    "problems": [],
+    "rig": "FixWoman_rig",
+    "size_m": 1.6933
+   },
+   "dropped_clips": {},
+   "export": {
+    "exported": [
+     "FixWoman_body",
+     "FixWoman_rig"
+    ],
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-56z32csr\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "morph_targets": false,
+    "options_dropped_by_this_blender": [],
+    "skipped": [],
+    "staged_clips": [
+     "FixWoman_Crouch",
+     "FixWoman_CrouchWalk",
+     "FixWoman_Idle",
+     "FixWoman_Run",
+     "FixWoman_Walk"
+    ],
+    "written": true
+   },
+   "exported": true,
+   "file": {
+    "animations": {
+     "FixWoman_Crouch": 0.5,
+     "FixWoman_CrouchWalk": 1.041667,
+     "FixWoman_Idle": 2.041667,
+     "FixWoman_Run": 1.041667,
+     "FixWoman_Walk": 1.375
+    },
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-56z32csr\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "generator": "Khronos glTF Blender I/O v5.2.40",
+    "gltf_version": 2,
+    "joints": 53,
+    "meshes": [
+     "FixWoman_body"
+    ],
+    "nodes": {
+     "first": "f_index.03.L",
+     "last": "FixWoman_rig",
+     "len": 55
+    },
+    "size_bytes": 1393044,
+    "skins": 1
+   },
+   "forced_clips": {},
+   "godot": "const FIXWOMAN_CROUCHWALK_CLIP_IMPLIED_SPEED := 0.6254   # stance feet sweep back at this, duty 0.542, over 1.042 s\nconst FIXWOMAN_RUN_CLIP_IMPLIED_SPEED := 2.347   # stance feet sweep back at this, duty 0.375, over 1.042 s\nconst FIXWOMAN_WALK_CLIP_IMPLIED_SPEED := 0.8039   # stance feet sweep back at this, duty 0.562, over 1.375 s",
+   "preflight": {
+    "bones": 53,
+    "mesh": "FixWoman_body",
+    "origin": {
+     "centroid_fraction": 0.124,
+     "centroid_offset": 0.13803,
+     "mesh_mean_xy": [
+      0.0,
+      -0.13803
+     ],
+     "mesh_offset": 0.0,
+     "mesh_world": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "note": "centred",
+     "offset": 0.0,
+     "offset_worst": 0.0,
+     "passed": true,
+     "rig": "FixWoman_rig",
+     "rig_world": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "passed": true,
+    "problems": [],
+    "rig": "FixWoman_rig",
+    "warnings": [
+     "51 bone names use '.' (e.g. spine.001, spine.002, spine.003). Bone names are not node names so this normally survives, but it is not the spelling Godot's humanoid retargeting profile expects - prefer _L/_R if you retarget."
+    ]
+   },
+   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-56z32csr\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
+   "stage": "done",
+   "verified": {
+    "durations_match": true,
+    "mismatches": []
+   }
+  },
+  "fit": {
+   "ansur": "measured",
+   "check": {
+    "fail": 0,
+    "info": 1,
+    "pass": 30,
+    "warn": 1
+   },
+   "macros": {
+    "age": 0.523,
+    "cupsize": 0.5,
+    "firmness": 0.4,
+    "height": 0.613,
+    "muscle": 0.16,
+    "proportions": 0.5,
+    "weight": 0.626
+   },
+   "notes": []
+  },
+  "moves": {
+   "Crouch": {
+    "action": "FixWoman_Crouch",
+    "balance": {
+     "com_fwd_end": 0.1558,
+     "com_fwd_start": 0.137,
+     "margin_m": 0.0699,
+     "support_fwd": [
+      0.0261,
+      0.2257
+     ]
+    },
+    "com_source": "skin (2 meshes)",
+    "crouched_height_m": 1.2816,
+    "depth": 0.6,
+    "drop_limited_by": "legs",
+    "end_height_m": 1.2816,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     12
+    ],
+    "hip_drop_m": 0.2698,
+    "hip_shift_m": -0.3405,
+    "lean_degrees": 45.0,
+    "lowest_point": 0.011,
+    "max_drop_m": 0.4496,
+    "passed": true,
+    "planted_drift": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "prediction_error": 1e-06,
+    "rest_error": 0.0,
+    "rig": "FixWoman_rig",
+    "skin_lowest": -0.0,
+    "standing_height_m": 1.6991,
+    "tightest_joint_degrees": {
+     "thigh.L": 106.3,
+     "thigh.R": 106.3,
+     "upper_arm.L": 122.4,
+     "upper_arm.R": 122.4
+    },
+    "tolerance": 0.00847,
+    "upright": true
+   },
+   "CrouchWalk": {
+    "action": "FixWoman_CrouchWalk",
+    "attempts": 1,
+    "balance": null,
+    "base": "crouch 0.60",
+    "depth": 0.6,
+    "depth_requested": 0.6,
+    "end_height_m": 1.2718,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     25
+    ],
+    "gait": "walk",
+    "implied_speed_cycle_mps": 0.6514,
+    "implied_speed_playback_mps": 0.6254,
+    "lift_m": 0.0814,
+    "loop_seam": 0.0,
+    "lowest_point": 0.011,
+    "passed": true,
+    "phase_offsets": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.5
+    },
+    "planted_drift": {},
+    "prediction_error": 1e-06,
+    "reach_shrunk": false,
+    "rest_error": 0.706819,
+    "rig": "FixWoman_rig",
+    "skin_lowest": -0.0,
+    "stance_slip": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "standing_height_m": 1.6991,
+    "stride_m": 0.3257,
+    "tightest_joint_degrees": {
+     "thigh.L": 83.7,
+     "thigh.R": 83.7,
+     "upper_arm.L": 145.0,
+     "upper_arm.R": 145.0
+    },
+    "tolerance": 0.00847
+   },
+   "Idle": {
+    "action": "FixWoman_Idle",
+    "arm_clearance_m": 0.019,
+    "arm_pose": {
+     "upper_arm.L": {
+      "elbow_flex_deg": [
+       12.0,
+       12.0
+      ],
+      "hand_rise": [
+       -0.155,
+       -0.145
+      ],
+      "upper_arm_deg": [
+       3.0,
+       5.0
+      ]
+     },
+     "upper_arm.R": {
+      "elbow_flex_deg": [
+       12.0,
+       12.0
+      ],
+      "hand_rise": [
+       -0.155,
+       -0.145
+      ],
+      "upper_arm_deg": [
+       3.0,
+       5.0
+      ]
+     }
+    },
+    "balance": null,
+    "end_height_m": 1.6991,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     49
+    ],
+    "hip_shift_m": 0.0,
+    "loop_seam": 0.0,
+    "lowest_point": 0.011,
+    "passed": true,
+    "planted_drift": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "posture": null,
+    "prediction_error": 1e-06,
+    "rest_error": 0.385648,
+    "rig": "FixWoman_rig",
+    "skin_lowest": -0.0,
+    "stance_width": 1.0,
+    "standing_height_m": 1.6991,
+    "tightest_joint_degrees": {
+     "thigh.L": 162.3,
+     "thigh.R": 162.3,
+     "upper_arm.L": 168.0,
+     "upper_arm.R": 168.0
+    },
+    "tolerance": 0.00847,
+    "upper": {
+     "arm_forward": 4.0,
+     "arm_out": {
+      "upper_arm.L": 10.7,
+      "upper_arm.R": 10.7
+     },
+     "arm_out_measured": {
+      "upper_arm.L": 8.8,
+      "upper_arm.R": 8.8
+     },
+     "arm_swing": 0.0,
+     "breath": 1.0,
+     "clearance_m": 0.019,
+     "clearance_tries": [
+      [
+       0.005,
+       8.8
+      ],
+      [
+       0.019,
+       10.7
+      ]
+     ],
+     "elbow": 12.0,
+     "elbow_swing": 0.0,
+     "hand_clearance": 0.015,
+     "hand_in": 0.0,
+     "head_hold": 0.85,
+     "lean": 0.0,
+     "lean_bob": 0.0,
+     "pelvis_list": 0.0,
+     "pelvis_turn": 0.0,
+     "side_bend": 0.0,
+     "thorax_turn": 0.0
+    }
+   },
+   "Run": {
+    "action": "FixWoman_Run",
+    "adjustments": [],
+    "arm_clearance_m": 0.0241,
+    "arm_pose": {
+     "upper_arm.L": {
+      "elbow_flex_deg": [
+       85.0,
+       85.0
+      ],
+      "hand_rise": [
+       0.121,
+       0.467
+      ],
+      "upper_arm_deg": [
+       -40.0,
+       13.7
+      ]
+     },
+     "upper_arm.R": {
+      "elbow_flex_deg": [
+       85.0,
+       85.0
+      ],
+      "hand_rise": [
+       0.121,
+       0.467
+      ],
+      "upper_arm_deg": [
+       -40.0,
+       13.7
+      ]
+     }
+    },
+    "attempts": 1,
+    "balance": null,
+    "bounce_scale": null,
+    "contact_slip": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "contacts": {
+     "thigh.L": {
+      "bones": [
+       "foot.L",
+       "toe.L"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "thigh.R": {
+      "bones": [
+       "foot.R",
+       "toe.R"
+      ],
+      "grounded": true,
+      "source": "skin"
+     }
+    },
+    "drop_m": 0.0604,
+    "drop_share": 0.07,
+    "duty_asked": 0.34455,
+    "duty_factor": 0.345,
+    "end_height_m": 1.6421,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     25
+    ],
+    "froude": 2.0,
+    "froude_requested": 2.0,
+    "gait": "run",
+    "hip_height_m": 0.8635,
+    "implied_speed_cycle_mps": 2.4452,
+    "implied_speed_playback_mps": 2.3474,
+    "lift_m": 0.1803,
+    "lift_scale": null,
+    "limited_by": [
+     "hips dropped to the limit (7.0% of hip height)",
+     "ground time cut from 0.38 to 0.34",
+     "stride shortened to 100%, and the speed with it"
+    ],
+    "loop_seam": 0.0,
+    "lowest_point": 0.011,
+    "max_drop": 0.07,
+    "min_knee": null,
+    "natural_speed_mps": 4.1161,
+    "passed": true,
+    "peak_reach": {
+     "thigh.L": 0.995,
+     "thigh.R": 0.995
+    },
+    "phase_offsets": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.5
+    },
+    "planted_drift": {},
+    "posture": null,
+    "prediction_error": 1e-06,
+    "rest_error": 0.507172,
+    "rig": "FixWoman_rig",
+    "skin_lowest": -0.0048,
+    "spine_flex_deg": 0.0,
+    "stance_shift_m": {
+     "thigh.L": -0.0688,
+     "thigh.R": 0.0688
+    },
+    "stance_width": 1.0,
+    "standing_height_m": 1.6991,
+    "stride_frequency_hz": 1.683,
+    "stride_m": 2.4452,
+    "stride_scale": null,
+    "stroke_m": 0.8425,
+    "stroke_over_leg": 1.035,
+    "style": "custom",
+    "support_normal": [
+     0.0,
+     0.0,
+     1.0
+    ],
+    "sway_share": 0.0,
+    "tightest_joint_degrees": {
+     "thigh.L": 84.8,
+     "thigh.R": 84.8,
+     "upper_arm.L": 95.0,
+     "upper_arm.R": 95.0
+    },
+    "tolerance": 0.00847,
+    "upper": {
+     "arm_forward": -15.0,
+     "arm_out": {
+      "upper_arm.L": 9.1,
+      "upper_arm.R": 9.1
+     },
+     "arm_out_measured": {
+      "upper_arm.L": 9.1,
+      "upper_arm.R": 9.1
+     },
+     "arm_swing": 25.0,
+     "breath": 0.0,
+     "clearance_m": 0.0241,
+     "clearance_tries": [
+      [
+       0.0241,
+       9.1
+      ]
+     ],
+     "elbow": 85.0,
+     "elbow_swing": 0.0,
+     "hand_clearance": 0.015,
+     "hand_in": 5.0,
+     "head_hold": 0.85,
+     "lean": 8.071,
+     "lean_bob": 2.0,
+     "pelvis_list": 3.0,
+     "pelvis_turn": 9.0,
+     "side_bend": 1.5,
+     "thorax_turn": 7.1
+    }
+   },
+   "Walk": {
+    "action": "FixWoman_Walk",
+    "adjustments": [],
+    "arm_clearance_m": 0.0215,
+    "arm_pose": {
+     "upper_arm.L": {
+      "elbow_flex_deg": [
+       7.0,
+       23.0
+      ],
+      "hand_rise": [
+       -0.177,
+       0.004
+      ],
+      "upper_arm_deg": [
+       -12.9,
+       19.1
+      ]
+     },
+     "upper_arm.R": {
+      "elbow_flex_deg": [
+       7.0,
+       23.0
+      ],
+      "hand_rise": [
+       -0.177,
+       0.004
+      ],
+      "upper_arm_deg": [
+       -12.9,
+       19.1
+      ]
+     }
+    },
+    "attempts": 1,
+    "balance": null,
+    "bounce_scale": null,
+    "contact_slip": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "contacts": {
+     "thigh.L": {
+      "bones": [
+       "foot.L",
+       "toe.L"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "thigh.R": {
+      "bones": [
+       "foot.R",
+       "toe.R"
+      ],
+      "grounded": true,
+      "source": "skin"
+     }
+    },
+    "drop_m": 0.0302,
+    "drop_share": 0.035,
+    "duty_asked": 0.55,
+    "duty_factor": 0.55,
+    "end_height_m": 1.6564,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     33
+    ],
+    "froude": 0.163,
+    "froude_requested": 0.2,
+    "gait": "walk",
+    "hip_height_m": 0.8635,
+    "implied_speed_cycle_mps": 0.829,
+    "implied_speed_playback_mps": 0.8039,
+    "lift_m": 0.098,
+    "lift_scale": null,
+    "limited_by": [
+     "hips dropped to the limit (3.5% of hip height)",
+     "ground time cut from 0.65 to 0.55",
+     "stride shortened to 90%, and the speed with it"
+    ],
+    "loop_seam": 0.0,
+    "lowest_point": 0.011,
+    "max_drop": 0.035,
+    "min_knee": null,
+    "natural_speed_mps": 1.174,
+    "passed": true,
+    "peak_reach": {
+     "thigh.L": 0.995,
+     "thigh.R": 0.995
+    },
+    "phase_offsets": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.5
+    },
+    "planted_drift": {},
+    "posture": null,
+    "prediction_error": 1e-06,
+    "rest_error": 0.520217,
+    "rig": "FixWoman_rig",
+    "skin_lowest": -0.0,
+    "spine_flex_deg": 0.0,
+    "stance_shift_m": {
+     "thigh.L": -0.0688,
+     "thigh.R": 0.0688
+    },
+    "stance_width": 1.0,
+    "standing_height_m": 1.6991,
+    "stride_frequency_hz": 1.062,
+    "stride_m": 1.1054,
+    "stride_scale": null,
+    "stroke_m": 0.608,
+    "stroke_over_leg": 0.747,
+    "style": "custom",
+    "support_normal": [
+     0.0,
+     0.0,
+     1.0
+    ],
+    "sway_share": 0.01,
+    "tightest_joint_degrees": {
+     "thigh.L": 111.2,
+     "thigh.R": 111.2,
+     "upper_arm.L": 157.0,
+     "upper_arm.R": 157.0
+    },
+    "tolerance": 0.00847,
+    "upper": {
+     "arm_forward": 2.0,
+     "arm_out": {
+      "upper_arm.L": 11.8,
+      "upper_arm.R": 11.8
+     },
+     "arm_out_measured": {
+      "upper_arm.L": 10.9,
+      "upper_arm.R": 10.9
+     },
+     "arm_swing": 14.874,
+     "breath": 0.0,
+     "clearance_m": 0.0215,
+     "clearance_tries": [
+      [
+       0.012,
+       10.9
+      ],
+      [
+       0.0215,
+       11.8
+      ]
+     ],
+     "elbow": 15.0,
+     "elbow_swing": 8.0,
+     "hand_clearance": 0.015,
+     "hand_in": 0.0,
+     "head_hold": 0.85,
+     "lean": 3.017,
+     "lean_bob": 1.0,
+     "pelvis_list": 4.0,
+     "pelvis_turn": 4.017,
+     "side_bend": 1.5,
+     "thorax_turn": 3.113
+    }
+   }
+  }
+ }
+}

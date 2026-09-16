@@ -12,3 +12,6 @@ Thumbs.db
 # Python bytecode from Blender importing the rig-anything scripts
 __pycache__/
 *.pyc
+
+# Fixture output when a fixture is run by hand without out=
+tests/_out/

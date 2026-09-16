@@ -1,0 +1,1320 @@
+{
+ "fixture": "flesh_figure",
+ "plugins": {
+  "follow-through": "0.2.1",
+  "rig-anything": "0.14.1"
+ },
+ "report": {
+  "bodies": {
+   "Bloater": {
+    "bind_coverage": 1.0,
+    "durations_match": true,
+    "exported": true,
+    "mesh": {
+     "vertices": 22748
+    },
+    "prepare": {
+     "bones": [
+      "ft_jiggle_bloater_belly",
+      "ft_jiggle_breast.L",
+      "ft_jiggle_breast.R",
+      "ft_jiggle_butt.L",
+      "ft_jiggle_butt.R",
+      "ft_jiggle_love_handle.L",
+      "ft_jiggle_love_handle.R",
+      "ft_jiggle_arm_flab.L",
+      "ft_jiggle_arm_flab.R",
+      "ft_jiggle_thigh.L",
+      "ft_jiggle_thigh.R"
+     ],
+     "declined": [
+      "belly: 0 bulging vertices in its zone"
+     ],
+     "object": "Bloater",
+     "rig": "Bloater_metarig",
+     "spec": {
+      "class": "flesh",
+      "confidence": 0.8,
+      "family": "volume",
+      "guessed": [],
+      "jiggle": {
+       "armature": "Bloater_metarig",
+       "regions": [
+        {
+         "aim": 0.6,
+         "bone": "ft_jiggle_bloater_belly",
+         "damping_ratio": 0.18,
+         "frequency_hz": 1.8,
+         "gravity_scale": 1.2,
+         "head": [
+          -0.0006,
+          1.06863,
+          -0.0255
+         ],
+         "mass_kg": 29.164,
+         "material": "bloated",
+         "max_offset_m": 0.2653,
+         "name": "bloater_belly",
+         "parent": "spine.003",
+         "peak_m": 0.1658,
+         "response": 1.0,
+         "squash": 0.75,
+         "tail": [
+          -0.00973,
+          0.98308,
+          0.18919
+         ],
+         "translate": 0.6,
+         "type": "bloater_belly",
+         "vertices": 2686,
+         "volume_m3": 0.029164
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_breast.L",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          0.05618,
+          1.02945,
+          0.01099
+         ],
+         "mass_kg": 4.122,
+         "material": "soft_fat",
+         "max_offset_m": 0.1817,
+         "name": "breast.L",
+         "parent": "spine.002",
+         "peak_m": 0.1514,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          0.18168,
+          1.11507,
+          0.14803
+         ],
+         "translate": 0.35,
+         "type": "breast",
+         "vertices": 664,
+         "volume_m3": 0.004339
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_breast.R",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          -0.06015,
+          1.03952,
+          0.01329
+         ],
+         "mass_kg": 3.841,
+         "material": "soft_fat",
+         "max_offset_m": 0.1765,
+         "name": "breast.R",
+         "parent": "spine.002",
+         "peak_m": 0.1471,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          -0.18101,
+          1.12409,
+          0.14591
+         ],
+         "translate": 0.35,
+         "type": "breast",
+         "vertices": 629,
+         "volume_m3": 0.004043
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_butt.L",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          0.06281,
+          0.92415,
+          0.01779
+         ],
+         "mass_kg": 1.059,
+         "material": "soft_fat",
+         "max_offset_m": 0.1484,
+         "name": "butt.L",
+         "parent": "spine",
+         "peak_m": 0.1237,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          0.13467,
+          0.90089,
+          -0.12621
+         ],
+         "translate": 0.35,
+         "type": "butt",
+         "vertices": 218,
+         "volume_m3": 0.001114
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_butt.R",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          -0.06156,
+          0.92463,
+          0.01719
+         ],
+         "mass_kg": 1.046,
+         "material": "soft_fat",
+         "max_offset_m": 0.1486,
+         "name": "butt.R",
+         "parent": "spine",
+         "peak_m": 0.1238,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          -0.13598,
+          0.9006,
+          -0.12589
+         ],
+         "translate": 0.35,
+         "type": "butt",
+         "vertices": 213,
+         "volume_m3": 0.001101
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_love_handle.L",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          0.00745,
+          1.02865,
+          0.04736
+         ],
+         "mass_kg": 2.508,
+         "material": "soft_fat",
+         "max_offset_m": 0.2102,
+         "name": "love_handle.L",
+         "parent": "spine.002",
+         "peak_m": 0.1752,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          0.24493,
+          0.9612,
+          -3e-05
+         ],
+         "translate": 0.35,
+         "type": "love_handle",
+         "vertices": 218,
+         "volume_m3": 0.00264
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_love_handle.R",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          -0.00493,
+          1.03325,
+          0.01462
+         ],
+         "mass_kg": 1.749,
+         "material": "soft_fat",
+         "max_offset_m": 0.2122,
+         "name": "love_handle.R",
+         "parent": "spine.002",
+         "peak_m": 0.1768,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          -0.25247,
+          0.9674,
+          0.00989
+         ],
+         "translate": 0.35,
+         "type": "love_handle",
+         "vertices": 134,
+         "volume_m3": 0.001841
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_arm_flab.L",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          0.35643,
+          1.20721,
+          0.00139
+         ],
+         "mass_kg": 1.131,
+         "material": "soft_fat",
+         "max_offset_m": 0.0556,
+         "name": "arm_flab.L",
+         "parent": "upper_arm.L",
+         "peak_m": 0.0463,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          0.40352,
+          1.25033,
+          -0.01745
+         ],
+         "translate": 0.35,
+         "type": "arm_flab",
+         "vertices": 584,
+         "volume_m3": 0.001191
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_arm_flab.R",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          -0.34125,
+          1.21877,
+          0.01868
+         ],
+         "mass_kg": 1.072,
+         "material": "soft_fat",
+         "max_offset_m": 0.0613,
+         "name": "arm_flab.R",
+         "parent": "upper_arm.R",
+         "peak_m": 0.0511,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          -0.38306,
+          1.25562,
+          -0.03214
+         ],
+         "translate": 0.35,
+         "type": "arm_flab",
+         "vertices": 619,
+         "volume_m3": 0.001129
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_thigh.L",
+         "damping_ratio": 0.6,
+         "frequency_hz": 6.0,
+         "gravity_scale": 0.5,
+         "head": [
+          0.13199,
+          0.50117,
+          0.02296
+         ],
+         "mass_kg": 1.605,
+         "material": "firm_flesh",
+         "max_offset_m": 0.0194,
+         "name": "thigh.L",
+         "parent": "thigh.L",
+         "peak_m": 0.0323,
+         "response": 1.0,
+         "squash": 0.2,
+         "tail": [
+          0.15419,
+          0.49452,
+          0.06149
+         ],
+         "translate": 0.15,
+         "type": "thigh",
+         "vertices": 1149,
+         "volume_m3": 0.001528
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_thigh.R",
+         "damping_ratio": 0.6,
+         "frequency_hz": 6.0,
+         "gravity_scale": 0.5,
+         "head": [
+          -0.13189,
+          0.50143,
+          0.02284
+         ],
+         "mass_kg": 1.621,
+         "material": "firm_flesh",
+         "max_offset_m": 0.0196,
+         "name": "thigh.R",
+         "parent": "thigh.R",
+         "peak_m": 0.0326,
+         "response": 1.0,
+         "squash": 0.2,
+         "tail": [
+          -0.15476,
+          0.49475,
+          0.06145
+         ],
+         "translate": 0.15,
+         "type": "thigh",
+         "vertices": 1146,
+         "volume_m3": 0.001544
+        }
+       ],
+       "space": "gltf_armature"
+      },
+      "route": "jiggle_bones",
+      "schema": "follow-through/1",
+      "source": {
+       "object": "Bloater",
+       "pin_group": "ft_pin",
+       "tool": "follow-through",
+       "version": "0.2.0",
+       "vertices": 22748
+      },
+      "type": "arm_flab,bloater_belly,breast,butt,love_handle,thigh"
+     },
+     "warnings": []
+    },
+    "read_back": {
+     "meshes": [
+      "Bloater"
+     ],
+     "missing_specs": [],
+     "passed": true,
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-xnaod7ee\\flesh_figure\\flesh_figure\\bloater.glb",
+     "specs": [
+      {
+       "class": "flesh",
+       "gltf_vertices": 22748,
+       "jiggle_head_error_m": 1e-05,
+       "jiggle_regions": 11,
+       "node": "Bloater",
+       "primitives": 1,
+       "problems": [],
+       "route": "jiggle_bones"
+      }
+     ],
+     "unexpected_meshes": []
+    },
+    "region_count": 11,
+    "regions": [
+     {
+      "head": [
+       0.356433,
+       -0.001394,
+       1.207208
+      ],
+      "mass_kg": 1.131,
+      "name": "arm_flab.L",
+      "normal": [
+       0.707298,
+       0.283082,
+       0.647761
+      ],
+      "peak_m": 0.0463,
+      "tail": [
+       0.403519,
+       0.017451,
+       1.250332
+      ],
+      "type": "arm_flab",
+      "vertex_count": 584,
+      "volume_m3": 0.001191
+     },
+     {
+      "head": [
+       -0.341255,
+       -0.018684,
+       1.21877
+      ],
+      "mass_kg": 1.072,
+      "name": "arm_flab.R",
+      "normal": [
+       -0.554282,
+       0.673854,
+       0.488562
+      ],
+      "peak_m": 0.0511,
+      "tail": [
+       -0.383056,
+       0.032135,
+       1.255615
+      ],
+      "type": "arm_flab",
+      "vertex_count": 619,
+      "volume_m3": 0.001129
+     },
+     {
+      "head": [
+       -0.000601,
+       0.025505,
+       1.068628
+      ],
+      "mass_kg": 29.164,
+      "name": "bloater_belly",
+      "normal": [
+       -0.039452,
+       -0.928252,
+       -0.369853
+      ],
+      "peak_m": 0.1658,
+      "tail": [
+       -0.009725,
+       -0.189194,
+       0.983084
+      ],
+      "type": "bloater_belly",
+      "vertex_count": 2686,
+      "volume_m3": 0.029164
+     },
+     {
+      "head": [
+       0.056177,
+       -0.010993,
+       1.029453
+      ],
+      "mass_kg": 4.122,
+      "name": "breast.L",
+      "normal": [
+       0.613405,
+       -0.669787,
+       0.418474
+      ],
+      "peak_m": 0.1514,
+      "tail": [
+       0.181676,
+       -0.148028,
+       1.115071
+      ],
+      "type": "breast",
+      "vertex_count": 664,
+      "volume_m3": 0.004339
+     },
+     {
+      "head": [
+       -0.060149,
+       -0.013288,
+       1.039524
+      ],
+      "mass_kg": 3.841,
+      "name": "breast.R",
+      "normal": [
+       -0.609308,
+       -0.668587,
+       0.426305
+      ],
+      "peak_m": 0.1471,
+      "tail": [
+       -0.181014,
+       -0.145913,
+       1.124088
+      ],
+      "type": "breast",
+      "vertex_count": 629,
+      "volume_m3": 0.004043
+     },
+     {
+      "head": [
+       0.062808,
+       -0.017792,
+       0.924145
+      ],
+      "mass_kg": 1.059,
+      "name": "butt.L",
+      "normal": [
+       0.441943,
+       0.885572,
+       -0.143
+      ],
+      "peak_m": 0.1237,
+      "tail": [
+       0.134673,
+       0.126213,
+       0.900892
+      ],
+      "type": "butt",
+      "vertex_count": 218,
+      "volume_m3": 0.001114
+     },
+     {
+      "head": [
+       -0.061559,
+       -0.017194,
+       0.924627
+      ],
+      "mass_kg": 1.046,
+      "name": "butt.R",
+      "normal": [
+       -0.456412,
+       0.877484,
+       -0.147343
+      ],
+      "peak_m": 0.1238,
+      "tail": [
+       -0.135982,
+       0.125889,
+       0.900601
+      ],
+      "type": "butt",
+      "vertex_count": 213,
+      "volume_m3": 0.001101
+     },
+     {
+      "head": [
+       0.00745,
+       -0.047359,
+       1.028655
+      ],
+      "mass_kg": 2.508,
+      "name": "love_handle.L",
+      "normal": [
+       0.944695,
+       0.188528,
+       -0.268344
+      ],
+      "peak_m": 0.1752,
+      "tail": [
+       0.244926,
+       3.2e-05,
+       0.961199
+      ],
+      "type": "love_handle",
+      "vertex_count": 218,
+      "volume_m3": 0.00264
+     },
+     {
+      "head": [
+       -0.004928,
+       -0.014623,
+       1.033247
+      ],
+      "mass_kg": 1.749,
+      "name": "love_handle.R",
+      "normal": [
+       -0.966228,
+       0.01848,
+       -0.257024
+      ],
+      "peak_m": 0.1768,
+      "tail": [
+       -0.252469,
+       -0.009888,
+       0.9674
+      ],
+      "type": "love_handle",
+      "vertex_count": 134,
+      "volume_m3": 0.001841
+     },
+     {
+      "head": [
+       0.131991,
+       -0.022964,
+       0.501175
+      ],
+      "mass_kg": 1.605,
+      "name": "thigh.L",
+      "normal": [
+       0.493793,
+       -0.856891,
+       -0.148008
+      ],
+      "peak_m": 0.0323,
+      "tail": [
+       0.154194,
+       -0.061493,
+       0.49452
+      ],
+      "type": "thigh",
+      "vertex_count": 1149,
+      "volume_m3": 0.001528
+     },
+     {
+      "head": [
+       -0.131887,
+       -0.022844,
+       0.50143
+      ],
+      "mass_kg": 1.621,
+      "name": "thigh.R",
+      "normal": [
+       -0.5042,
+       -0.850953,
+       -0.147179
+      ],
+      "peak_m": 0.0326,
+      "tail": [
+       -0.154761,
+       -0.061449,
+       0.494753
+      ],
+      "type": "thigh",
+      "vertex_count": 1146,
+      "volume_m3": 0.001544
+     }
+    ],
+    "walk": {
+     "action": "BloaterWalk",
+     "frames": [
+      1,
+      33
+     ]
+    }
+   },
+   "Figure": {
+    "bind_coverage": 1.0,
+    "durations_match": true,
+    "exported": true,
+    "mesh": {
+     "vertices": 17112
+    },
+    "prepare": {
+     "bones": [
+      "ft_jiggle_breast.L",
+      "ft_jiggle_breast.R",
+      "ft_jiggle_butt.L",
+      "ft_jiggle_butt.R",
+      "ft_jiggle_belly",
+      "ft_jiggle_love_handle.L",
+      "ft_jiggle_love_handle.R",
+      "ft_jiggle_arm_flab.L",
+      "ft_jiggle_arm_flab.R",
+      "ft_jiggle_thigh.L",
+      "ft_jiggle_thigh.R"
+     ],
+     "declined": [
+      "bloater_belly: needs 20% of the body's volume and to stand 8% of its height out; has 16.5% and 6.3%"
+     ],
+     "object": "Figure",
+     "rig": "Figure_metarig",
+     "spec": {
+      "class": "flesh",
+      "confidence": 0.8,
+      "family": "volume",
+      "guessed": [],
+      "jiggle": {
+       "armature": "Figure_metarig",
+       "regions": [
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_breast.L",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          0.02991,
+          1.20015,
+          -0.01827
+         ],
+         "mass_kg": 4.112,
+         "material": "soft_fat",
+         "max_offset_m": 0.105,
+         "name": "breast.L",
+         "parent": "spine.003",
+         "peak_m": 0.0875,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          0.08815,
+          1.20332,
+          0.08567
+         ],
+         "translate": 0.35,
+         "type": "breast",
+         "vertices": 826,
+         "volume_m3": 0.004329
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_breast.R",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          -0.02837,
+          1.20077,
+          -0.01775
+         ],
+         "mass_kg": 3.925,
+         "material": "soft_fat",
+         "max_offset_m": 0.1067,
+         "name": "breast.R",
+         "parent": "spine.003",
+         "peak_m": 0.0889,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          -0.09046,
+          1.20346,
+          0.08562
+         ],
+         "translate": 0.35,
+         "type": "breast",
+         "vertices": 791,
+         "volume_m3": 0.004132
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_butt.L",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          0.05754,
+          0.91267,
+          0.03597
+         ],
+         "mass_kg": 0.815,
+         "material": "soft_fat",
+         "max_offset_m": 0.1098,
+         "name": "butt.L",
+         "parent": "spine",
+         "peak_m": 0.0915,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          0.1394,
+          0.94996,
+          -0.051
+         ],
+         "translate": 0.35,
+         "type": "butt",
+         "vertices": 315,
+         "volume_m3": 0.000858
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_butt.R",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          -0.0568,
+          0.91251,
+          0.03515
+         ],
+         "mass_kg": 0.776,
+         "material": "soft_fat",
+         "max_offset_m": 0.1094,
+         "name": "butt.R",
+         "parent": "spine",
+         "peak_m": 0.0912,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          -0.14038,
+          0.95,
+          -0.04949
+         ],
+         "translate": 0.35,
+         "type": "butt",
+         "vertices": 300,
+         "volume_m3": 0.000817
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_belly",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          0.00011,
+          0.94119,
+          -0.09778
+         ],
+         "mass_kg": 3.706,
+         "material": "soft_fat",
+         "max_offset_m": 0.1445,
+         "name": "belly",
+         "parent": "spine.001",
+         "peak_m": 0.1204,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          0.00028,
+          0.94133,
+          0.06552
+         ],
+         "translate": 0.35,
+         "type": "belly",
+         "vertices": 523,
+         "volume_m3": 0.003901
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_love_handle.L",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          0.05425,
+          1.01346,
+          0.00882
+         ],
+         "mass_kg": 0.215,
+         "material": "soft_fat",
+         "max_offset_m": 0.0737,
+         "name": "love_handle.L",
+         "parent": "spine.001",
+         "peak_m": 0.0614,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          0.13609,
+          1.03608,
+          -0.00958
+         ],
+         "translate": 0.35,
+         "type": "love_handle",
+         "vertices": 91,
+         "volume_m3": 0.000227
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_love_handle.R",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          -0.05466,
+          1.0135,
+          0.00834
+         ],
+         "mass_kg": 0.203,
+         "material": "soft_fat",
+         "max_offset_m": 0.073,
+         "name": "love_handle.R",
+         "parent": "spine.001",
+         "peak_m": 0.0608,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          -0.13648,
+          1.03602,
+          -0.00822
+         ],
+         "translate": 0.35,
+         "type": "love_handle",
+         "vertices": 87,
+         "volume_m3": 0.000213
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_arm_flab.L",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          0.37332,
+          1.20973,
+          0.01058
+         ],
+         "mass_kg": 0.367,
+         "material": "soft_fat",
+         "max_offset_m": 0.0264,
+         "name": "arm_flab.L",
+         "parent": "upper_arm.L",
+         "peak_m": 0.022,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          0.38557,
+          1.21969,
+          -0.01599
+         ],
+         "translate": 0.35,
+         "type": "arm_flab",
+         "vertices": 522,
+         "volume_m3": 0.000386
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_arm_flab.R",
+         "damping_ratio": 0.25,
+         "frequency_hz": 2.7,
+         "gravity_scale": 1.0,
+         "head": [
+          -0.37913,
+          1.20807,
+          0.01595
+         ],
+         "mass_kg": 0.356,
+         "material": "soft_fat",
+         "max_offset_m": 0.0265,
+         "name": "arm_flab.R",
+         "parent": "upper_arm.R",
+         "peak_m": 0.0221,
+         "response": 1.0,
+         "squash": 0.5,
+         "tail": [
+          -0.38717,
+          1.21338,
+          -0.01356
+         ],
+         "translate": 0.35,
+         "type": "arm_flab",
+         "vertices": 525,
+         "volume_m3": 0.000374
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_thigh.L",
+         "damping_ratio": 0.6,
+         "frequency_hz": 6.0,
+         "gravity_scale": 0.5,
+         "head": [
+          0.10928,
+          0.51675,
+          -0.00215
+         ],
+         "mass_kg": 1.141,
+         "material": "firm_flesh",
+         "max_offset_m": 0.0125,
+         "name": "thigh.L",
+         "parent": "thigh.L",
+         "peak_m": 0.0208,
+         "response": 1.0,
+         "squash": 0.2,
+         "tail": [
+          0.13592,
+          0.51249,
+          -0.00981
+         ],
+         "translate": 0.15,
+         "type": "thigh",
+         "vertices": 986,
+         "volume_m3": 0.001086
+        },
+        {
+         "aim": 1.0,
+         "bone": "ft_jiggle_thigh.R",
+         "damping_ratio": 0.6,
+         "frequency_hz": 6.0,
+         "gravity_scale": 0.5,
+         "head": [
+          -0.11006,
+          0.51711,
+          -0.00223
+         ],
+         "mass_kg": 1.143,
+         "material": "firm_flesh",
+         "max_offset_m": 0.0126,
+         "name": "thigh.R",
+         "parent": "thigh.R",
+         "peak_m": 0.021,
+         "response": 1.0,
+         "squash": 0.2,
+         "tail": [
+          -0.1375,
+          0.51313,
+          -0.00811
+         ],
+         "translate": 0.15,
+         "type": "thigh",
+         "vertices": 991,
+         "volume_m3": 0.001089
+        }
+       ],
+       "space": "gltf_armature"
+      },
+      "route": "jiggle_bones",
+      "schema": "follow-through/1",
+      "source": {
+       "object": "Figure",
+       "pin_group": "ft_pin",
+       "tool": "follow-through",
+       "version": "0.2.0",
+       "vertices": 17112
+      },
+      "type": "arm_flab,belly,breast,butt,love_handle,thigh"
+     },
+     "warnings": []
+    },
+    "read_back": {
+     "meshes": [
+      "Figure"
+     ],
+     "missing_specs": [],
+     "passed": true,
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-xnaod7ee\\flesh_figure\\flesh_figure\\figure.glb",
+     "specs": [
+      {
+       "class": "flesh",
+       "gltf_vertices": 17112,
+       "jiggle_head_error_m": 1e-05,
+       "jiggle_regions": 11,
+       "node": "Figure",
+       "primitives": 1,
+       "problems": [],
+       "route": "jiggle_bones"
+      }
+     ],
+     "unexpected_meshes": []
+    },
+    "region_count": 11,
+    "regions": [
+     {
+      "head": [
+       0.373322,
+       -0.010581,
+       1.209731
+      ],
+      "mass_kg": 0.367,
+      "name": "arm_flab.L",
+      "normal": [
+       0.396269,
+       0.859727,
+       0.322243
+      ],
+      "peak_m": 0.022,
+      "tail": [
+       0.385569,
+       0.015989,
+       1.21969
+      ],
+      "type": "arm_flab",
+      "vertex_count": 522,
+      "volume_m3": 0.000386
+     },
+     {
+      "head": [
+       -0.379126,
+       -0.015946,
+       1.208067
+      ],
+      "mass_kg": 0.356,
+      "name": "arm_flab.R",
+      "normal": [
+       -0.259107,
+       0.950583,
+       0.171041
+      ],
+      "peak_m": 0.0221,
+      "tail": [
+       -0.38717,
+       0.013563,
+       1.213377
+      ],
+      "type": "arm_flab",
+      "vertex_count": 525,
+      "volume_m3": 0.000374
+     },
+     {
+      "head": [
+       0.000112,
+       0.097784,
+       0.941189
+      ],
+      "mass_kg": 3.706,
+      "name": "belly",
+      "normal": [
+       0.001051,
+       -0.999999,
+       0.000865
+      ],
+      "peak_m": 0.1204,
+      "tail": [
+       0.000284,
+       -0.06552,
+       0.94133
+      ],
+      "type": "belly",
+      "vertex_count": 523,
+      "volume_m3": 0.003901
+     },
+     {
+      "head": [
+       0.02991,
+       0.018268,
+       1.200154
+      ],
+      "mass_kg": 4.112,
+      "name": "breast.L",
+      "normal": [
+       0.488645,
+       -0.872078,
+       0.026575
+      ],
+      "peak_m": 0.0875,
+      "tail": [
+       0.088147,
+       -0.085667,
+       1.203321
+      ],
+      "type": "breast",
+      "vertex_count": 826,
+      "volume_m3": 0.004329
+     },
+     {
+      "head": [
+       -0.028368,
+       0.01775,
+       1.200771
+      ],
+      "mass_kg": 3.925,
+      "name": "breast.R",
+      "normal": [
+       -0.514792,
+       -0.857025,
+       0.022296
+      ],
+      "peak_m": 0.0889,
+      "tail": [
+       -0.09046,
+       -0.085621,
+       1.20346
+      ],
+      "type": "breast",
+      "vertex_count": 791,
+      "volume_m3": 0.004132
+     },
+     {
+      "head": [
+       0.057538,
+       -0.035966,
+       0.912672
+      ],
+      "mass_kg": 0.815,
+      "name": "butt.L",
+      "normal": [
+       0.654234,
+       0.695085,
+       0.298052
+      ],
+      "peak_m": 0.0915,
+      "tail": [
+       0.139397,
+       0.051004,
+       0.949965
+      ],
+      "type": "butt",
+      "vertex_count": 315,
+      "volume_m3": 0.000858
+     },
+     {
+      "head": [
+       -0.056802,
+       -0.035154,
+       0.91251
+      ],
+      "mass_kg": 0.776,
+      "name": "butt.R",
+      "normal": [
+       -0.670125,
+       0.67867,
+       0.300565
+      ],
+      "peak_m": 0.0912,
+      "tail": [
+       -0.140381,
+       0.049491,
+       0.949997
+      ],
+      "type": "butt",
+      "vertex_count": 300,
+      "volume_m3": 0.000817
+     },
+     {
+      "head": [
+       0.054253,
+       -0.00882,
+       1.013455
+      ],
+      "mass_kg": 0.215,
+      "name": "love_handle.L",
+      "normal": [
+       0.941977,
+       0.211794,
+       0.260428
+      ],
+      "peak_m": 0.0614,
+      "tail": [
+       0.136089,
+       0.00958,
+       1.036081
+      ],
+      "type": "love_handle",
+      "vertex_count": 91,
+      "volume_m3": 0.000227
+     },
+     {
+      "head": [
+       -0.054656,
+       -0.008336,
+       1.013498
+      ],
+      "mass_kg": 0.203,
+      "name": "love_handle.R",
+      "normal": [
+       -0.946323,
+       0.191424,
+       0.260441
+      ],
+      "peak_m": 0.0608,
+      "tail": [
+       -0.136483,
+       0.008216,
+       1.036018
+      ],
+      "type": "love_handle",
+      "vertex_count": 87,
+      "volume_m3": 0.000213
+     },
+     {
+      "head": [
+       0.109278,
+       0.002154,
+       0.51675
+      ],
+      "mass_kg": 1.141,
+      "name": "thigh.L",
+      "normal": [
+       0.949933,
+       0.273018,
+       -0.151946
+      ],
+      "peak_m": 0.0208,
+      "tail": [
+       0.135922,
+       0.009812,
+       0.512488
+      ],
+      "type": "thigh",
+      "vertex_count": 986,
+      "volume_m3": 0.001086
+     },
+     {
+      "head": [
+       -0.110065,
+       0.002227,
+       0.517114
+      ],
+      "mass_kg": 1.143,
+      "name": "thigh.R",
+      "normal": [
+       -0.968043,
+       0.207731,
+       -0.140499
+      ],
+      "peak_m": 0.021,
+      "tail": [
+       -0.137502,
+       0.008115,
+       0.513132
+      ],
+      "type": "thigh",
+      "vertex_count": 991,
+      "volume_m3": 0.001089
+     }
+    ],
+    "walk": {
+     "action": "FigureWalk",
+     "frames": [
+      1,
+      33
+     ]
+    }
+   }
+  },
+  "scene": "FollowThroughBodies"
+ }
+}

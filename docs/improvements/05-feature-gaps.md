@@ -18,6 +18,14 @@ load / air / land clips like the hoppers'), `animate-anything/SKILL.md:361`.
 `(0.8, -0.1, 0.1)`) while the load's feet are planted; smoothstep blending a planted target toward
 a hip-relative one (or the foot/toe pitch) dips the foot before the hips rise.
 
+**A second clip fails the same way, on a different body.** The regression harness's `rabbit`
+fixture (03) shows `hop.export_creature` refusing on current main: `JumpAir` puts a foot 0.074 m
+and the skin 0.091 m below the floor at frame 1, though the same clip passed its authoring check.
+`JumpAir` is the ballistic phase - the engine owns its vertical motion - so measuring it against
+the floor may be the wrong check rather than the wrong clip. Whichever it is, hoppers and bipeds
+fail it alike, so fix them together. `tests/golden/rabbit.json` records the refusal, so the fix
+will show up as a diff.
+
 **Steps.**
 1. Measure foot, toe and skin height per frame 1-22 on Belle and on `HumanoidRig`/`RigTest_rig`
    (which pass - find what differs).

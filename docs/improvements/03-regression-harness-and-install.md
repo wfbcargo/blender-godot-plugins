@@ -2,6 +2,13 @@
 
 Category: **5 tooling friction**. Do this before 01 or 02 - they change shared code.
 
+> **Steps 1-5 are done** (September 2026). wardrobe and humanform are in this repo (humanform with
+> its nine commits); `tools/install.py` mirrors a plugin into `~/.claude/skills` and refuses to
+> discard a copy edited in place; `tools/regress.py` rebuilds four fixtures headless and compares
+> them to `tests/golden/`. See `tests/README.md`. Still open: **6** (stage results on objects, not
+> session memory), **7** (split `belle_demo.blend`), **8** (agent hygiene), and the fixtures not yet
+> written - `rigify_human`, `quadruped`, the hoppers' cricket, the radial bodies, and `--godot`.
+
 ## Problem
 
 - **No regression tests for rig-anything, animate-anything, follow-through or lookdev.** The only
