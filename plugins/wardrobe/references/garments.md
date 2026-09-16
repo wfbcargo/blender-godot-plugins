@@ -82,6 +82,12 @@ a T-shirt cut from it (6220 vertices).
 - **Hiding all covered skin** left 38 thigh vertices uncovered in the worst frame of the walk
   (0.72%); hiding only skin whose weights share 70% with the cloth over it, 1.
 - **Exact ray tests miss at vertices**: 72 false holes at rest, 0 with an edge tolerance.
+- **A normal ray is not a viewer** (Belle, realistic, 16 120 vertices, shorts and sports top over 7
+  clips, 240 frames): the ray-only check failed shorts crouch 1.71%, crouch walk 1.90%, jump 1.71%,
+  top walk 0.68%, jump 0.91%. Of the 9 holes in the worst crouch frame, 8 had no cloth on the normal
+  within 15 cm and were shut in by the thighs, 1 had cloth 0.4 mm off. Starting at the skin, a 1 mm
+  edge tolerance and 48 views per candidate: worst 0.38% (shorts walk), 0.34% (top jump), both
+  rendered and real; occluded up to 9, coincident up to 116. 0.2-0.6 s a sample on Belle.
 - **Non-bone vertex groups** (`wd_hide_*` left on the body) were taken for weights in a
   re-run; the file read back clean and the spec hid nothing. Weights are filtered to deform bones.
 - **Transferred weights** on the cut shirt's own shape shared a median 98% (5th percentile 82%)
