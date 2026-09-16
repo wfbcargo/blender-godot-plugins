@@ -236,3 +236,30 @@ groups, materials, UVs and custom normals, and point `build_human.bake` and Bell
 
 **Done when** joining the same meshes twice gives byte-identical face order, and a whole character
 build is reproducible down to its `.blend`.
+
+---
+
+## 5.8 Found by the new fixtures (03 steps 1b, 1c)
+
+Each of these is recorded as-is in a golden, so a fix shows up as a reviewed change and not as
+silent drift.
+
+- **The cricket's landing fails its own foot-slide check, so the cricket never exports.**
+  `hop.jump_set`'s JumpLand reports "fore_femur.L/R slides 0.0005 after touching down"; the limit
+  is `0.012 * bm["size"]` (`hop.py` ~1251), about 0.36 mm on a 30 mm body. `export_creature` then
+  refuses, and `tests/golden/cricket.json` holds the refusal and an empty `manifest`. Decide whether
+  0.5 mm is a real slide on a cricket (then fix the landing) or the limit is too tight at that scale.
+  The same messages name a leg by its root bone (`fore_femur.L`) where the leg's name (`fore.L`)
+  was meant.
+- **The three slides put feet through the floor on a Rigify biped.** On follow-through's `Figure`
+  with `fit_basic_human`, `actions.slide` has a toe 0.16 m and skin 0.11 m below the floor at frame
+  8; `slide_recover(to="stand")` and `(to="crouch")` a foot 0.025 m under at frame 4, starting
+  0.18 m from where Slide ends. No fixture exercised the slides before. `rigify_human` exports with
+  `skip_bad_clips=True` and the golden lists them under `export.dropped_clips`.
+- **A symmetric starfish gets arms with different bone counts.** `radial.build` uses
+  `round(L / (1.2 * W))`. Metaball arm widths vary about ±10%, so one arm lands at 3.49 (3 bones)
+  and another at 3.66 (4). This is deterministic, but it sits on a rounding edge that any change to
+  the mesher can flip. Take one count per appendage *kind* (the median), not one per arm.
+- **`radial.skin` reports `coverage: 1.0` without measuring it.** The starfish fixture counts the
+  weighted vertices itself (`skin.measured_coverage`). Measure it in `radial.skin` the way
+  `hoppers.skin` does.
