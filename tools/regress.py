@@ -205,23 +205,29 @@ def run_godot(godot, project, out_root, names):
             files = [p for p in src.rglob("*") if p.is_file() and "_humanform_library" not in p.parts
                      and (p.suffix == ".glb" or p.name.endswith(".moves.json"))]
             for p in files:
-                dst.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(p, dst / p.name)
+                # Keep the fixture's own layout: `rabbit` writes a second rabbit.moves.json under
+                # fresh_session/, and a flat copy would verify one file twice.
+                rel = p.relative_to(src)
+                target = dst / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(p, target)
                 if p.name.endswith(".moves.json"):
+                    res_dir = "res://%s/%s" % (GODOT_STAGE, (Path(name) / rel.parent).as_posix())
                     # A manifest names its glb by the res:// path it was exported for; here it is
                     # beside the manifest, wherever that was meant to be.
-                    with open(dst / p.name, encoding="utf-8") as fh:
+                    with open(target, encoding="utf-8") as fh:
                         m = json.load(fh)
                     if m.get("scene"):
-                        m["scene"] = "res://%s/%s/%s" % (GODOT_STAGE, name, m["scene"].rsplit("/", 1)[-1])
-                    with open(dst / p.name, "w", encoding="utf-8") as fh:
+                        m["scene"] = "%s/%s" % (res_dir, m["scene"].rsplit("/", 1)[-1])
+                    with open(target, "w", encoding="utf-8") as fh:
                         json.dump(m, fh, indent=1)
+                    label = (Path(name) / rel).as_posix()
                     if m.get("gaits"):
-                        manifests.append("res://%s/%s/%s" % (GODOT_STAGE, name, p.name))
+                        manifests.append("%s/%s" % (res_dir, p.name))
                     else:
                         # verify_moves drives a gait ladder. A radial body's crawl has no `gaits`
                         # entry, and no engine verifier of its own yet.
-                        results.append(("verify_moves %s" % name, True,
+                        results.append(("verify_moves %s" % label, True,
                                         "skipped - its manifest has no gaits for MovesController to drive"))
             if name in GODOT_WARDROBE:
                 wardrobe.append(name)
@@ -244,13 +250,14 @@ def run_godot(godot, project, out_root, names):
 
         for name in wardrobe:
             spec = GODOT_WARDROBE[name]
-            base = "res://%s/%s/" % (GODOT_STAGE, name)
-            if not (stage / name / spec["body"]).is_file() or not (stage / name / spec["garment"]).is_file():
+            found = {k: sorted((stage / name).rglob(spec[k])) for k in ("body", "garment")}
+            if not found["body"] or not found["garment"]:
                 results.append(("verify_wardrobe %s" % name, False,
                                 "the fixture did not export %s and %s" % (spec["body"], spec["garment"])))
                 continue
+            res = {k: "res://" + v[0].relative_to(project).as_posix() for k, v in found.items()}
             code, out = _godot(godot, project, "--fixed-fps", "60", "-s", "res://addons/wardrobe/verify_wardrobe.gd",
-                               "--", "body=" + base + spec["body"], "garment=" + base + spec["garment"], *spec["args"])
+                               "--", "body=" + res["body"], "garment=" + res["garment"], *spec["args"])
             line = [l for l in out.splitlines() if l.startswith("WD_RESULT ")]
             if not line:
                 results.append(("verify_wardrobe %s" % name, False, "no WD_RESULT, exit %s" % code))

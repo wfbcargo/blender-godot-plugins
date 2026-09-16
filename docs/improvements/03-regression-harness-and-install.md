@@ -2,12 +2,13 @@
 
 Category: **5 tooling friction**. Do this before 01 or 02 - they change shared code.
 
-> **Steps 1-5 are done** (September 2026). wardrobe and humanform are in this repo (humanform with
-> its nine commits); `tools/install.py` mirrors a plugin into `~/.claude/skills` and refuses to
-> discard a copy edited in place; `tools/regress.py` rebuilds four fixtures headless and compares
-> them to `tests/golden/`. See `tests/README.md`. Still open: **6** (stage results on objects, not
-> session memory), **7** (split `belle_demo.blend`), **8** (agent hygiene), and the fixtures not yet
-> written - `rigify_human`, `quadruped`, the hoppers' cricket, the radial bodies, and `--godot`.
+> **Done** (September 2026). Steps 1-5: wardrobe and humanform are in this repo, `tools/install.py`
+> is the one install path, and `tools/regress.py` compares fixtures with goldens. Finishing it (see
+> `NEXT.md` section 1): eight fixtures (`mpfb_woman_curvy`, `rabbit`, `flesh_figure`,
+> `dressed_figure`, `cricket`, `starfish`, `rigify_human`, `quadruped`), `--twice` for
+> reproducibility, and `--godot` for the engine verifiers. **6** moves report on their actions
+> (`rig_analysis.stored`), with a fresh-session export proven in `rabbit`. **7** `belle_demo.blend`
+> split, and `grungist-creek/assets/save_guard.py`. **8** the repo's `CLAUDE.md`.
 
 ## Problem
 

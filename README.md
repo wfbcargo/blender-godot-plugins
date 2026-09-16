@@ -207,13 +207,15 @@ Before changing anything shared, and before calling it done, run the fixtures:
 
 ```
 python tools/regress.py --jobs 2
+python tools/regress.py --twice --jobs 2 --godot <a Godot project>   # before merging
 ```
 
-Four bodies are rebuilt from nothing in headless Blender - a woman from a seeded
-brief, a rabbit, two fleshed sample figures and a shirt cut onto one of them -
-and every number is compared to `tests/golden/`. A fix moves numbers; the point
-is that the move is seen on every fixture rather than on whichever character was
-being built at the time. See [`tests/README.md`](./tests/README.md).
+Eight bodies are rebuilt from nothing in headless Blender: a woman from a seeded brief, a Rigify
+biped, a dog, a rabbit, a cricket, a starfish, two fleshed figures, and a shirt cut onto one of
+them. Every number is compared to `tests/golden/`. `--twice` builds each one again and requires
+the two builds to agree, and `--godot` plays the exports through the engine-side verifiers. A fix
+moves numbers; the point is that the move is seen on every fixture, not only on whichever character
+was being built at the time. See [`tests/README.md`](./tests/README.md) and [`CLAUDE.md`](./CLAUDE.md).
 
 ## Layout
 
