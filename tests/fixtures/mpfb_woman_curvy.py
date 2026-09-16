@@ -50,9 +50,9 @@ def build():
         options[role] = dict(held, froude=froude)
     # Crouch and CrouchWalk are here because they are where an MPFB body goes wrong: its ground
     # root bone lies on the floor and carries no skin, and a crouch that takes it for the belly
-    # drops no hips at all. Jump is left out until 05's 5.1 is fixed - it sinks through the floor
-    # and could only be exported with force.
-    roles = ("Idle",) + tuple(GAITS) + ("Crouch", "CrouchWalk")
+    # drops no hips at all. Jump is here because it used to put a toe through the floor at the
+    # one frame between its load and its launch (05's 5.1), and exports unforced now.
+    roles = ("Idle",) + tuple(GAITS) + ("Crouch", "CrouchWalk", "Jump")
     moves = ra_actions.move_set(rig, prefix=NAME, roles=roles, options=options)
     if "error" in moves:
         raise RuntimeError("move_set: " + moves["error"])
@@ -60,7 +60,8 @@ def build():
     out = os.path.join(H.out_dir(), "mpfb_woman_curvy")
     os.makedirs(out, exist_ok=True)
     clips = [moves[r]["action"] for r in roles]
-    loops = [moves[r]["action"] for r in roles if r != "Crouch"]   # a crouch holds, it does not loop
+    held = ("Crouch", "Jump")                        # these hold their last pose, they do not loop
+    loops = [moves[r]["action"] for r in roles if r not in held]
     exported = ra_export.export(body, rig, os.path.join(out, NAME.lower() + ".glb"),
                                 foot_bones=["foot.L", "foot.R"], actions=clips, loop_clips=loops,
                                 gaits=[moves[r]["action"] for r in GAITS], forward="-Y")

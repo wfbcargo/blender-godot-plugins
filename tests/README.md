@@ -77,11 +77,11 @@ regression that a value comparison alone would miss.
   moves in 98 keys — all crouch — and `dressed_figure` not at all. `flesh_figure` moves in exactly
   four: the buttock anchor `spine` → `spine.001`, which is follow-through 0.2.1's registry-anchor
   fix, the other change in that range.
-- On current main, the rabbit's **`JumpAir` clip fails the export-time floor re-check** (foot
-  0.074 m below the floor at frame 1) although it passed at authoring, so `export_creature`
-  refuses. A clip whose vertical motion the engine owns is being measured against the floor.
-  Filed under `docs/improvements/05` 5.1; the golden records the refusal, so the fix will show as
-  a diff.
+- The rabbit's **`JumpAir` clip failed the export-time floor re-check** (foot 0.074 m below the
+  floor at frame 1) although it passed at authoring, so `export_creature` refused - a clip whose
+  vertical motion the engine owns, measured against the floor. Fixed with the biped jump under
+  `docs/improvements/05` 5.1: a clip now carries the floor it was authored against. The rabbit
+  exports all six clips, and the goldens moved to match.
 - `--factory-startup` starts with **Rigify disabled**, and `fit_basic_human` then dies with
   `'Armature' object has no attribute 'rigify_colors'` — the trap already filed under category 1.
   Fixtures call `H.enable_addons("rigify")`; rig-anything should do it itself.

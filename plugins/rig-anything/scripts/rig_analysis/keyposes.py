@@ -249,6 +249,28 @@ class Poser:
         return self.lat if (limb["rest_root"] - self.centre).dot(self.lat) > 0.0 \
             else -self.lat
 
+    def foot_lift(self, limb):
+        """How far this foot's end sits above the lowest skin under it, at rest.
+
+        The height its target may not go below, so the sole lands on the floor rather than
+        through it. Measured as a distance rather than as a rest height above the floor,
+        because a clip the engine has thrown into the air lowers the poser's floor by the
+        jump's height - and a foot hanging under an airborne body is meant to be below where
+        it stands, just not below the ground the engine has put beneath it.
+        """
+        cache = self.__dict__.setdefault("_foot_lifts", {})
+        if limb["name"] in cache:
+            return cache[limb["name"]]
+        bones = [n for n in [limb["end"] or limb["lower"]] + list(limb.get("digits") or []) if n]
+        entries = [(n, self.rig.data.bones[n].head_local.copy(),
+                    self.rig.data.bones[n].tail_local.copy()) for n in bones]
+        bottoms = [self.height(p) for _, head, tail in entries for p in (head, tail)]
+        for measured in self.body.chain_skin(entries).values():
+            if measured["rest_bottom"] is not None:      # skin, where the bone is not the lowest
+                bottoms.append(measured["rest_bottom"] - self.bm["floor"])
+        cache[limb["name"]] = self.height(limb["rest_eff"]) - min(bottoms)
+        return cache[limb["name"]]
+
     def rest_target(self, limb, posed):
         if limb["role"] == "leg":
             return limb["rest_eff"].copy()
@@ -353,6 +375,27 @@ class Poser:
                 pole, pole_w = pa, 1.0 - lw
 
             plant_w = lerp(float(planted_a), float(planted_b), lw)
+            if limb["role"] == "leg":
+                # No foot is asked to stand below the floor. Both keys' targets are evaluated
+                # against *this* frame's body, so a key meaning "hang the leg 80% of its
+                # length under the hips" resolves, while the hips are still down in a crouch,
+                # to a point under the ground: the one frame between a jump's load and its
+                # launch put an MPFB woman's toe 1.5 cm through the floor and her skin 2.5 cm.
+                # Held so the sole rests on the floor, the leg stays down until the hips have
+                # risen enough for the target to clear it - which is what a take-off looks
+                # like. A planted foot and a slide's floor targets already sit exactly there.
+                if self.height(target) < self.foot_lift(limb):
+                    # It has not left the ground yet, so it stays where it was planted -
+                    # whole, not just at that height: clamping the height alone let the foot
+                    # slide 1.1 cm sideways towards the launch's outward target while it was
+                    # still down, and the export's re-check called it skating. Still planted,
+                    # too: released early, the sole pitches into the floor even with the
+                    # ankle where it rests.
+                    target = ta.copy()
+                    under = self.foot_lift(limb) - self.height(target)
+                    if under > 0.0:                       # in case it was already down there
+                        target = target + self.up * under
+                    plant_w = 1.0
             plant_ws[limb["name"]] = plant_w
 
             def tilt_of(key, t):

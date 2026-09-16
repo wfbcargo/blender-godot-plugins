@@ -261,6 +261,67 @@
        "stance_speed_mps": -0.0
       }
      },
+     "FixWoman_Jump": {
+      "blender_cycle_s": 0.875,
+      "engine_duration_s": 0.9167,
+      "failures": [],
+      "fps": 24,
+      "frames": [
+       1,
+       22
+      ],
+      "gait": false,
+      "locomotion": false,
+      "loop_seam": null,
+      "loops": false,
+      "lowest_foot": 0.011,
+      "note": "one-shot, not a cycle - no speed reported (it travels 0.1604 m, but not per stride)",
+      "passed": true,
+      "recheck": {
+       "balance": null,
+       "clearance": null,
+       "contacts": {
+        "thigh.L": {
+         "duty_factor": 0.318,
+         "sideways": 0.0,
+         "speed_mismatch": 0.0,
+         "stance": [
+          [
+           0.0,
+           0.3182
+          ]
+         ],
+         "uneven": 0.0,
+         "vertical": 0.0
+        },
+        "thigh.R": {
+         "duty_factor": 0.318,
+         "sideways": 0.0,
+         "speed_mismatch": 0.0,
+         "stance": [
+          [
+           0.0,
+           0.3182
+          ]
+         ],
+         "uneven": 0.0,
+         "vertical": 0.0
+        }
+       },
+       "failures": [],
+       "loop_seam": null,
+       "lowest_bone": {
+        "bone": "toe.L",
+        "frame": 6,
+        "height": 0.011
+       },
+       "skin_lowest": {
+        "frame": 6,
+        "height": -0.0
+       },
+       "stance_speed_mps": -0.0
+      }
+     },
      "FixWoman_Run": {
       "blender_cycle_s": 1.0,
       "duty_factor": 0.375,
@@ -408,7 +469,7 @@
      "FixWoman_body",
      "FixWoman_rig"
     ],
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-56z32csr\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-g0i1j9o5\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "morph_targets": false,
     "options_dropped_by_this_blender": [],
     "skipped": [],
@@ -416,6 +477,7 @@
      "FixWoman_Crouch",
      "FixWoman_CrouchWalk",
      "FixWoman_Idle",
+     "FixWoman_Jump",
      "FixWoman_Run",
      "FixWoman_Walk"
     ],
@@ -427,10 +489,11 @@
      "FixWoman_Crouch": 0.5,
      "FixWoman_CrouchWalk": 1.041667,
      "FixWoman_Idle": 2.041667,
+     "FixWoman_Jump": 0.916667,
      "FixWoman_Run": 1.041667,
      "FixWoman_Walk": 1.375
     },
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-56z32csr\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-g0i1j9o5\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "generator": "Khronos glTF Blender I/O v5.2.40",
     "gltf_version": 2,
     "joints": 53,
@@ -442,7 +505,7 @@
      "last": "FixWoman_rig",
      "len": 55
     },
-    "size_bytes": 1393044,
+    "size_bytes": 1466576,
     "skins": 1
    },
    "forced_clips": {},
@@ -481,7 +544,7 @@
      "51 bone names use '.' (e.g. spine.001, spine.002, spine.003). Bone names are not node names so this normally survives, but it is not the spelling Godot's humanoid retargeting profile expects - prefer _L/_R if you retarget."
     ]
    },
-   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-56z32csr\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
+   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-g0i1j9o5\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
    "stage": "done",
    "verified": {
     "durations_match": true,
@@ -697,6 +760,37 @@
      "side_bend": 0.0,
      "thorax_turn": 0.0
     }
+   },
+   "Jump": {
+    "action": "FixWoman_Jump",
+    "balance": null,
+    "end_height_m": 1.6991,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     22
+    ],
+    "launch_rise_m": 0.0407,
+    "load_drop_m": 0.3147,
+    "lowest_point": 0.011,
+    "passed": true,
+    "planted_drift": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
+    "prediction_error": 1e-06,
+    "rest_error": 0.0,
+    "rig": "FixWoman_rig",
+    "skin_lowest": -0.0,
+    "standing_height_m": 1.6991,
+    "tightest_joint_degrees": {
+     "thigh.L": 68.9,
+     "thigh.R": 68.9,
+     "upper_arm.L": 87.8,
+     "upper_arm.R": 87.8
+    },
+    "tolerance": 0.00847
    },
    "Run": {
     "action": "FixWoman_Run",

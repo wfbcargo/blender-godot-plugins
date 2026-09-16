@@ -367,7 +367,12 @@ def clip_report(rig_name, foot_bones, actions=None, loop_clips=None, floor=0.0,
             failed[name] = "no such action"
             continue
         loops = True if loop_clips is None else (name in loop_clips)
-        c = verify.check_clip(rig_name, name, foot_bones, floor=floor, up=up,
+        # A clip may carry the floor it was authored against: an airborne clip (a hopper's
+        # JumpAir) is authored in place with the ground it left below the body, and holding
+        # it to the origin's floor fails every hanging foot and refuses the whole export.
+        clip = bpy.data.actions.get(name)
+        clip_floor = clip.get("rig_anything_floor", floor) if clip else floor
+        c = verify.check_clip(rig_name, name, foot_bones, floor=clip_floor, up=up,
                               forward=forward, tolerance=tolerance, loop=loops)
         if "error" in c:
             problems.append(name + ": " + c["error"])
@@ -398,7 +403,7 @@ def clip_report(rig_name, foot_bones, actions=None, loop_clips=None, floor=0.0,
             "lowest_foot": c["lowest_foot"],
         }
         if recheck:
-            r = verify.recheck(rig_name, name, forward=forward, up=up, floor=floor,
+            r = verify.recheck(rig_name, name, forward=forward, up=up, floor=clip_floor,
                                loop=loops, clearance=clearance)
             if "error" in r:
                 # a body the map cannot read (a rock with a clip) has nothing
@@ -411,6 +416,16 @@ def clip_report(rig_name, foot_bones, actions=None, loop_clips=None, floor=0.0,
                 failures += [f for f in r["failures"]
                              # the seam and rotation modes are already reported above
                              if not f.startswith(("loop seam", "rotation mode"))]
+        if clip_floor != floor:
+            # This clip declared a floor of its own, so its body is one the engine flies:
+            # the ground it left is below it and the clip only shapes what the body does in
+            # the air. Its authoring check already drops floor failures for that reason
+            # ("in the air: the floor is the engine's business"); the re-check measures
+            # against the declared floor and reports what it finds, but a foot or skin hanging
+            # under a notional ground does not refuse the export.
+            entry["declared_floor_m"] = round(clip_floor, 5)
+            entry["floor_notes"] = [f for f in failures if "floor" in f]
+            failures = [f for f in failures if "floor" not in f]
         entry["passed"] = not failures
         entry["failures"] = failures
         if locomotion:

@@ -6,6 +6,7 @@ check here that knows the right answer), `hoppers.build`/`skin` rig it, `hop.mov
 Idle, Hop, Bound and the three jump clips, and `hop.export_creature` writes the glb and reads
 its durations back.
 """
+import json
 import os
 import sys
 
@@ -34,6 +35,15 @@ def build():
     out = os.path.join(H.out_dir(), "rabbit")
     os.makedirs(out, exist_ok=True)
     exported = hop.export_creature(ob.name, rig, moves, os.path.join(out, "rabbit.glb"), "rabbit")
+    # A refused export reports every clip's checks; a successful one reports the file it wrote
+    # and puts the checks in the manifest beside it. The golden wants them either way.
+    manifest_path = os.path.join(out, "rabbit.moves.json")
+    manifest = {}
+    if os.path.isfile(manifest_path):
+        with open(manifest_path, encoding="utf-8") as fh:
+            written = json.load(fh)
+        manifest = {k: written.get(k) for k in ("clips", "loops", "implied_speed_mps", "height_m",
+                                                "body_m", "gaits", "contacts", "hop", "verified")}
 
     return {
         "mesh": {"vertices": len(ob.data.vertices),
@@ -49,6 +59,7 @@ def build():
         "skin": H.stable(skinned),
         "moves": {role: H.stable(report) for role, report in moves.items()},
         "export": H.stable(exported),
+        "manifest": H.stable(manifest),
     }
 
 

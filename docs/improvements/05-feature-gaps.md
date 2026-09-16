@@ -5,7 +5,28 @@ how much they block characters today.
 
 ---
 
-## 5.1 Biped jump sinks into the floor (bug)
+## 5.1 Biped jump sinks into the floor (bug) - DONE
+
+> **Fixed** (September 2026, rig-anything). Two causes, one per body plan:
+>
+> - **The dip.** `keyposes.Poser.blend` evaluates *both* keys' targets against the frame it is
+>   drawing, so the launch's "hang the leg 80% of its length under the hips" resolved, while the
+>   hips were still down in the load's crouch, to a point under the ground. A foot whose target
+>   would put its sole through the floor now stays where it was planted until the hips have risen
+>   enough for the target to clear it - whole, not just at that height, because holding the height
+>   alone let it slide 1.1 cm sideways and the export re-check rightly called that skating. The
+>   threshold is `Poser.foot_lift`: how far the foot's end sits above the lowest skin under it at
+>   rest, measured as a distance, so a clip the engine has thrown into the air (which lowers the
+>   poser's floor) is not held to the ground it left.
+> - **The check.** A clip now carries the floor it was authored against (`action["rig_anything_floor"]`,
+>   stamped by `hop.air`), and the exporter measures it against that rather than the origin. A clip
+>   with its own floor is one the engine flies, so what its feet do under a notional ground is
+>   reported (`declared_floor_m`, `floor_notes`) but does not refuse the export.
+>
+> Belle now builds with every clip passing, `forced_clips: {}` and no `force=1`; the rabbit exports
+> all six clips for the first time. Covered by the `mpfb_woman_curvy` and `rabbit` fixtures (03).
+> Remaining: `MAY_FAIL` is gone from `build_belle.py`, but the committed `belle.glb` and the crowd's
+> exports still date from before the fix and would want rebuilding.
 
 **Problem.** `rig_analysis/actions.jump` fails its own playback check on both Belles: the left foot
 goes 1.3-1.4 cm under the floor and the skin ~3 cm through it at frame 7, between the load key
