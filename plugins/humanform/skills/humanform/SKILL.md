@@ -5,6 +5,8 @@ description: Build adult human bodies in Blender that look right and work downst
 
 # humanform
 
+> **Building a whole character?** Write a spec and let `character-pipeline` run this plugin in the right order with the others - see that plugin's SKILL.md.
+
 People are built in layers, coarse to fine, and a layer is only built on top of one that has
 been **measured**. The research behind this plugin, and the full plan, are in
 `grungist-creek/docs/humanform-plan.md`.

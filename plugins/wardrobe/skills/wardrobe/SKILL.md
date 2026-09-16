@@ -5,6 +5,8 @@ description: Dress rigged Blender characters for Godot 4.7 - put a shirt (and la
 
 # wardrobe
 
+> **Building a whole character?** Write a spec and let `character-pipeline` run this plugin in the right order with the others - see that plugin's SKILL.md.
+
 Clothing on a skinned body, the way games do it: the garment is **skinned to the body's
 skeleton**, the skin it covers is **not drawn**, and the parts that hang free get **sprung
 bones**. Background, research and sources: `${CLAUDE_PLUGIN_ROOT}/references/garments.md`.
