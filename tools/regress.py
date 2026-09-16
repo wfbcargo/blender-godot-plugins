@@ -5,6 +5,7 @@
     python tools/regress.py --only rabbit        # one
     python tools/regress.py --plugins <checkout> # exercise another checkout of the plugins
     python tools/regress.py --update             # rewrite the goldens, then review the diff
+    python tools/regress.py --twice              # build each fixture twice; the builds must agree
 
 Each fixture (tests/fixtures/<name>.py) is a script Blender runs in its own process, building
 something from nothing and writing a JSON report of what it got. This compares that report to
@@ -13,6 +14,12 @@ tests/golden/<name>.json key by key, with a numeric tolerance, and exits non-zer
 A change is not by itself a failure - a fix moves numbers. The point is that it is *seen*, on
 every fixture rather than on whichever character was being built at the time, and that accepting
 it is a reviewed commit to tests/golden.
+
+A golden only catches what differs from the one build it was recorded from. A step that gives a
+different answer on every run - wardrobe's garments moved 9.9 mm between two builds of Belle - is
+invisible to it, because the golden is one of the draws. `--twice` builds every fixture a second
+time in the same run and compares the two builds with each other; a disagreement is
+NONDETERMINISTIC and fails the run, and no golden is written from a build that did not reproduce.
 
 Blender is found at $BLENDER, or the newest under Program Files, or `blender` on PATH.
 """
@@ -125,6 +132,13 @@ def run_fixture(name, blender, out_root, env):
         return json.load(fh), took
 
 
+def show(changes, was="was", now="now", limit=40):
+    for key, before, after in changes[:limit]:
+        print("          %s\n            %s %r\n            %s %r" % (key, was, before, now, after))
+    if len(changes) > limit:
+        print("          ... and %d more" % (len(changes) - limit))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -132,6 +146,8 @@ def main(argv=None):
     ap.add_argument("--plugins", metavar="CHECKOUT",
                     help="a repo checkout whose plugins/<name>/scripts the fixtures import")
     ap.add_argument("--update", action="store_true", help="rewrite goldens from this run")
+    ap.add_argument("--twice", action="store_true",
+                    help="build every fixture twice and fail if the two builds disagree")
     ap.add_argument("--jobs", type=int, default=1, help="fixtures to run at once (default 1)")
     ap.add_argument("--keep", metavar="DIR", help="keep each fixture's output here, not in a temp dir")
     ap.add_argument("--blender", default=find_blender())
@@ -164,15 +180,35 @@ def main(argv=None):
     failures, updated = [], []
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
-            runs = {name: pool.submit(run_fixture, name, args.blender, out_root, env) for name in names}
+            # With --twice each build gets its own folder - and so its own humanform library, so
+            # the second build cannot warm-start from the first and hide a difference.
+            builds = ("a", "b") if args.twice else ("",)
+            runs = {(name, b): pool.submit(run_fixture, name, args.blender, out_root / b, env)
+                    for name in names for b in builds}
             for name in names:
-                fresh, took = runs[name].result()
+                fresh, took = runs[(name, builds[0])].result()
                 versions = " ".join("%s %s" % (k, v) for k, v in sorted(fresh.get("plugins", {}).items()))
                 head = "%s [%.0fs] %s" % (name, took, versions)
                 if "error" in fresh:
                     print("  ERROR   %s\n          %s" % (head, fresh["error"]))
                     failures.append(name)
                     continue
+                if args.twice:
+                    second, took_b = runs[(name, "b")].result()
+                    head = "%s [%.0fs + %.0fs] %s" % (name, took, took_b, versions)
+                    if "error" in second:
+                        print("  ERROR   %s (second build)\n          %s" % (head, second["error"]))
+                        failures.append(name)
+                        continue
+                    differ = compare(fresh, second)
+                    if differ:
+                        # Checked before the golden: a build that does not reproduce is not a
+                        # result to compare, and never one to record.
+                        print("  NONDETERMINISTIC %s: %d key(s) differ between two builds"
+                              % (head, len(differ)))
+                        show(differ, "a", "b")
+                        failures.append(name)
+                        continue
                 golden_path = GOLDEN / (name + ".json")
                 if args.update or not golden_path.is_file():
                     with open(golden_path, "w", encoding="utf-8") as fh:
@@ -187,10 +223,7 @@ def main(argv=None):
                     continue
                 failures.append(name)
                 print("  CHANGED %s: %d key(s)" % (head, len(changes)))
-                for key, before, after in changes[:40]:
-                    print("          %s\n            was %r\n            now %r" % (key, before, after))
-                if len(changes) > 40:
-                    print("          ... and %d more" % (len(changes) - 40))
+                show(changes)
     finally:
         if temp:
             temp.cleanup()

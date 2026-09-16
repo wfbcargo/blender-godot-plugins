@@ -20,7 +20,7 @@ behind.
 |---|---|
 | [03 Regression harness and install](03-regression-harness-and-install.md) | Steps 1-5 **done**. Steps 6-8 and five fixtures open. |
 | [05 Feature gaps](05-feature-gaps.md) 5.1 jump sinks | **Done** - rig-anything 0.14.2. Belle's Jump ships unforced. |
-| 05 · 5.6 garment nondeterminism | **Done** except the `--twice` harness check its "done when" asked for. wardrobe 0.1.1. |
+| 05 · 5.6 garment nondeterminism | **Done** - wardrobe 0.1.1, guarded by `regress.py --twice` with shuffled faces (1a). |
 | 05 · 5.7 `object.join` shuffles faces | **Open**, filed with a minimal repro. |
 | [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | Not started. Biggest time saver. |
 | [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | Not started. |
@@ -47,17 +47,13 @@ way: `regress.py --jobs 2` (plus `--twice` once 1a exists), goldens reviewed in 
 `--no-ff`, push, `tools/install.py --all`. One worktree under `.worktrees/` and one scratch subfolder
 per branch.
 
-**1a. `regress-twice` - the reproducibility check owed by 5.6.**
-- `tools/regress.py --twice`: each fixture builds twice (`out/<name>/a`, `out/<name>/b`, both queued so
-  `--jobs` parallelises them). The two reports are compared with each other through the existing
-  `compare()` at the default tolerance (1e-3 relative is about 1 mm on a body, so 9.9 mm shows).
-  A difference prints `NONDETERMINISTIC <fixture>: <key>` and fails the run; build `a` is still
-  compared with the golden.
-- Proof: first `--plugins <worktree at 4f46876> --twice --only dressed_figure` (the checkout before
-  the 5.6 fix). That drift came from `object.join` in Belle's build and the sample Figure may have no
-  join, so it may not reproduce. If not, prove the check with a `REGRESS_JITTER=1` switch that moves
-  one reported value randomly. Record which one proved it.
-- `tests/README.md`.
+**1a. `regress-twice` - DONE.** `regress.py --twice` builds each fixture twice, each build in its
+own folder, and fails with `NONDETERMINISTIC` when they disagree, before any golden comparison or
+`--update`. Proof: against the checkout before the 5.6 fix, `dressed_figure` agreed with itself,
+because the sample body is never joined. The jitter switch was not built. `H.shuffle_faces`
+(`REGRESS_SHUFFLE_FACES=1`) reproduces 5.6's actual cause instead, and it gives NONDETERMINISTIC on
+wardrobe 0.1.0 and passes on 0.1.1. A full `--twice --jobs 2` run of the four fixtures passes. See
+`tests/README.md`.
 
 **1b. `fixtures-creatures` - cricket and starfish, generators that already exist.**
 - `tests/fixtures/cricket.py`: the rabbit's pipeline on `hopper_samples.cricket` - the orthopteran
