@@ -27,6 +27,40 @@ from mathutils import Vector
 
 from . import rigmap
 
+FLESH_FIRST = ("flesh after garments loses the jiggle weights - run follow_through.flesh.prepare "
+               "before cutting")
+
+
+def flesh_order_warnings(body):
+    """Warnings when `body` is meant to carry follow-through flesh but its jiggle weights are not
+    there yet: a garment cut now copies skin weights with no jiggle bones in them, and its breasts,
+    belly and buttocks stay rigid while the body's jiggle. A body with no follow-through spec is
+    simply not fleshed, and gets no warning."""
+    ft = body.get("follow_through")
+    jiggle = ft.get("jiggle") if ft is not None else None
+    regions = list(jiggle.get("regions") or []) if jiggle is not None else []
+    if not regions:
+        return []
+    groups = {g.name for g in body.vertex_groups}
+    missing = sorted(str(r.get("bone")) for r in regions if r.get("bone") not in groups)
+    if not missing:
+        return []
+    if not any(n.startswith("ft_jiggle_") for n in groups):
+        what = "%s has a follow-through jiggle spec (%d regions) but no ft_jiggle_* vertex groups" % (
+            body.name, len(regions))
+    else:
+        what = "%s's follow-through jiggle regions have no vertex groups: %s" % (body.name, ", ".join(missing))
+    return [what + ": " + FLESH_FIRST]
+
+
+def _warn(obj, cuts, warnings):
+    """Warnings go in the cut report (only when there are any) and are printed, as wardrobe's
+    summaries are."""
+    if warnings:
+        cuts["warnings"] = warnings
+        for w in warnings:
+            print("wardrobe.tailor WARNING %s: %s" % (obj.name, w))
+
 
 def _weight_of(dl, v, idx):
     d = v[dl]
@@ -152,6 +186,7 @@ def shirt(body, name="Shirt", sleeve=0.45, hem=-0.08, neck=(-0.04, 0.12)):
     mod.object = rig
     obj["wardrobe_cut"] = {"kind": "shirt", "body": body.name, "sleeve": sleeve, "hem": hem, "neck": list(neck),
                            "hem_z": hem_z, "torso_m": torso, "hip_z": hip_z, "shoulder_z": shoulder_z}
+    _warn(obj, cuts, flesh_order_warnings(body))
     obj["wardrobe_cut_report"] = cuts
     return obj
 
@@ -233,6 +268,7 @@ def pants(body, name="Trousers", waist=0.30, leg=1.9, leg_angle=0.0):
     obj["wardrobe_cut"] = {"kind": "pants", "body": body.name, "waist": waist, "leg": leg, "leg_angle": leg_angle,
                            "crotch_z": crotch_z,
                            "waist_z": waist_z, "hip_z": hip_z, "torso_m": torso, "hang_below": hip_z - 0.06}
+    _warn(obj, cuts, flesh_order_warnings(body))
     obj["wardrobe_cut_report"] = cuts
     return obj
 

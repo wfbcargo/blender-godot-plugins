@@ -282,7 +282,7 @@ def _clearance_setup(poser):
     reach, trunk_bones = verify.clearance_bones(rig, bm, poser.arms)
     to_arm = rig.matrix_world.inverted()
     body_pts, tris, limb_v = [], [], []
-    for ob in verify._bound_meshes(rig):
+    for ob in verify.clearance_meshes(rig):      # the skin, not a garment over it
         m = to_arm @ ob.matrix_world
         names = {g.index: g.name for g in ob.vertex_groups}
         index = {}
