@@ -93,6 +93,18 @@ def roles(rig_name, meshes=None):
     return {"error": bm["error"]} if "error" in bm else stable(bm["roles"])
 
 
+def moves_manifest(result):
+    """What `export.export_character` wrote to `.moves.json`, as a golden holds it: which fields,
+    the clips and loops, heights, gaits and collider. Contacts and clip checks are left out (the
+    export's own report carries the checks)."""
+    if "error" in result:
+        return {"error": result["error"]}
+    m = result["manifest"]
+    return stable({"fields": sorted(m), "clips": m["clips"], "loops": m["loops"],
+                   "height_m": m["height_m"], "gaits": m["gaits"], "collider": m["collider"],
+                   "dropped_clips": sorted(m.get("dropped_clips", {})), "problems": result["problems"]})
+
+
 def face_order(obj):
     """A short hash of the order `obj`'s faces are stored in (each face's vertex indices, in turn).
 

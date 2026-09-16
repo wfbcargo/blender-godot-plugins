@@ -6,8 +6,10 @@ binds it and gives it a contact-locomotion walk. `flesh.prepare` then finds the 
 hangs a sprung jiggle bone in each. What the golden holds is where those regions landed and how
 big they are - the measurement that decides whether a breast bone ends up on a chin.
 
-The export is read back by `follow_through.export.verify`, which checks every jiggle bone is in
-the skin where the spec puts it.
+Each body is given an Idle after its flesh and goes out through rig-anything's
+`export_character`, which writes the `.moves.json` `regress.py --godot` plays. The export is read
+back by `follow_through.export.verify`, which checks every jiggle bone is in the skin where the
+spec puts it.
 """
 import os
 import sys
@@ -43,19 +45,19 @@ def build():
     bodies = {}
     out = os.path.join(H.out_dir(), "flesh_figure")
     os.makedirs(out, exist_ok=True)
-    from rig_analysis import export as ra_export
+    from rig_analysis import actions, export as ra_export
 
     # The samples build in a scene of their own; the exporter works on the active one.
     window = bpy.context.window
     previous, window.scene = window.scene, bpy.data.scenes[made["scene"]]
     try:
-        bodies = _each(made, out, ra_export, ft_export, flesh)
+        bodies = _each(made, out, actions, ra_export, ft_export, flesh)
     finally:
         window.scene = previous
     return {"scene": made["scene"], "bodies": bodies}
 
 
-def _each(made, out, ra_export, ft_export, flesh):
+def _each(made, out, actions, ra_export, ft_export, flesh):
     import bpy
     bodies = {}
     for name in made["bodies"]:
@@ -63,8 +65,16 @@ def _each(made, out, ra_export, ft_export, flesh):
         regions = [region_row(r) for r in prepared.get("regions", [])]
         regions.sort(key=lambda r: (r.get("type", ""), r.get("name", "")))
         path = os.path.join(out, name.lower() + ".glb")
-        exported = ra_export.export(name, name + "_metarig", path, foot_bones=["foot.L", "foot.R"],
-                                    actions=[name + "Walk"], loop_clips=[name + "Walk"], forward="-Y")
+        # An Idle, authored after the flesh: MovesController starts every character on one. Then
+        # export_character writes <name>.moves.json beside the glb for `--godot`, with the walk as
+        # the one gait.
+        rig = name + "_metarig"
+        idle = actions.move_set(rig, prefix=name, roles=("Idle",))
+        if "error" in idle:
+            raise RuntimeError("%s Idle: %s" % (name, idle["error"]))
+        reports = {"Idle": idle["Idle"], "Walk": made["bodies"][name]["walk_report"]}
+        char = ra_export.export_character(name, rig, path, name=name, reports=reports, forward="-Y")
+        exported = char.get("export", {})
         verified = ft_export.verify(path, expect_meshes=[name]) if exported.get("exported") else None
         bodies[name] = {
             # after flesh: the jiggle bones must not change which bone is the pelvis (02 - a jiggle
@@ -79,6 +89,8 @@ def _each(made, out, ra_export, ft_export, flesh):
             "exported": exported.get("exported"),
             "durations_match": (exported.get("verified") or {}).get("durations_match"),
             "read_back": H.stable(verified) if verified else None,
+            "idle": H.stable({k: idle["Idle"].get(k) for k in ("passed", "failures", "loop_seam")}),
+            "moves_json": H.moves_manifest(char),
         }
     return bodies
 

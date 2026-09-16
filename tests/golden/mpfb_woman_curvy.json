@@ -1,8 +1,8 @@
 {
  "fixture": "mpfb_woman_curvy",
  "plugins": {
-  "humanform": "0.6.2",
-  "rig-anything": "0.16.0"
+  "humanform": "0.6.3",
+  "rig-anything": "0.17.0"
  },
  "report": {
   "bake": {
@@ -469,7 +469,7 @@
      "FixWoman_body",
      "FixWoman_rig"
     ],
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-hl4rc0yc\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-r7ulce04\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "morph_targets": false,
     "options_dropped_by_this_blender": [],
     "skipped": [],
@@ -493,7 +493,7 @@
      "FixWoman_Run": 1.041667,
      "FixWoman_Walk": 1.375
     },
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-hl4rc0yc\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-r7ulce04\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "generator": "Khronos glTF Blender I/O v5.2.40",
     "gltf_version": 2,
     "joints": 53,
@@ -544,7 +544,7 @@
      "51 bone names use '.' (e.g. spine.001, spine.002, spine.003). Bone names are not node names so this normally survives, but it is not the spelling Godot's humanoid retargeting profile expects - prefer _L/_R if you retarget."
     ]
    },
-   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-hl4rc0yc\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
+   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-r7ulce04\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
    "stage": "done",
    "verified": {
     "durations_match": true,
@@ -1118,6 +1118,74 @@
      "thorax_turn": 3.113
     }
    }
+  },
+  "moves_json": {
+   "clips": {
+    "Crouch": "FixWoman_Crouch",
+    "CrouchWalk": "FixWoman_CrouchWalk",
+    "Idle": "FixWoman_Idle",
+    "Jump": "FixWoman_Jump",
+    "Run": "FixWoman_Run",
+    "Walk": "FixWoman_Walk"
+   },
+   "collider": {
+    "height": 1.6985,
+    "radius": 0.2193
+   },
+   "dropped_clips": [],
+   "fields": [
+    "clip_checks",
+    "clips",
+    "collider",
+    "contacts",
+    "creature",
+    "forced_clips",
+    "gaits",
+    "height_m",
+    "implied_speed_mps",
+    "known_failures",
+    "loops",
+    "name",
+    "rig",
+    "scene",
+    "verified"
+   ],
+   "gaits": {
+    "Run": {
+     "duty_factor": 0.345,
+     "froude": 2.0,
+     "gait": "run",
+     "hip_height_m": 0.8635,
+     "natural_speed_mps": 4.1161,
+     "spine_flex_deg": 0.0,
+     "stride_frequency_hz": 1.683,
+     "stride_m": 2.4452,
+     "stroke_m": 0.8425
+    },
+    "Walk": {
+     "duty_factor": 0.55,
+     "froude": 0.163,
+     "gait": "walk",
+     "hip_height_m": 0.8635,
+     "natural_speed_mps": 1.174,
+     "spine_flex_deg": 0.0,
+     "stride_frequency_hz": 1.062,
+     "stride_m": 1.1054,
+     "stroke_m": 0.608
+    }
+   },
+   "height_m": {
+    "crouch": 1.2816,
+    "crouch_walk": 1.2718,
+    "stand": 1.6985
+   },
+   "loops": [
+    "FixWoman_Idle",
+    "FixWoman_Walk",
+    "FixWoman_Run",
+    "FixWoman_CrouchWalk"
+   ],
+   "problems": []
   },
   "roles": {
    "breast_anchor": "spine.003",

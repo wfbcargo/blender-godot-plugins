@@ -30,7 +30,7 @@ def build():
     import bpy
     H.clear_scene()
     import rig_analysis  # noqa: F401
-    from rig_analysis import actions as ra_actions, export as ra_export, locomotion as ra_loco
+    from rig_analysis import actions as ra_actions, export as ra_export
     import humanform  # noqa: F401
     from humanform import pipeline, sheet
 
@@ -59,13 +59,14 @@ def build():
 
     out = os.path.join(H.out_dir(), "mpfb_woman_curvy")
     os.makedirs(out, exist_ok=True)
-    clips = [moves[r]["action"] for r in roles]
-    held = ("Crouch", "Jump")                        # these hold their last pose, they do not loop
-    loops = [moves[r]["action"] for r in roles if r not in held]
-    exported = ra_export.export(body, rig, os.path.join(out, NAME.lower() + ".glb"),
-                                foot_bones=["foot.L", "foot.R"], actions=clips, loop_clips=loops,
-                                gaits=[moves[r]["action"] for r in GAITS], forward="-Y")
-    loco = ra_loco.engine_manifest(rig, {r: moves[r] for r in GAITS}, forward="-Y", mesh_name=body)
+    # Through export_character, which writes fixwoman.moves.json for `--godot`. Its defaults are what
+    # this fixture used to pass by hand: the feet are the legs' end bones, Crouch and Jump hold their
+    # last pose (no loop seam) while the rest loop, and Walk and Run (the `cycle` reports) are the gaits.
+    char = ra_export.export_character(body, rig, os.path.join(out, NAME.lower() + ".glb"), name=NAME,
+                                      reports={r: moves[r] for r in roles}, forward="-Y")
+    exported = char.get("export", {})
+    loco = {"collider": char["manifest"]["collider"], "gaits": char["manifest"]["gaits"],
+            "problems": char["problems"]} if "manifest" in char else {"problems": [char["error"]]}
 
     eyes = bpy.data.objects.get(NAME + "_eyes")
     return {
@@ -85,6 +86,7 @@ def build():
         "export": H.stable(exported),
         "engine": {"collider": H.stable(loco.get("collider")), "gaits": H.stable(loco.get("gaits")),
                    "problems": loco.get("problems")},
+        "moves_json": H.moves_manifest(char),
     }
 
 

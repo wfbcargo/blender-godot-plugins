@@ -1,7 +1,7 @@
 {
  "fixture": "quadruped",
  "plugins": {
-  "rig-anything": "0.16.0"
+  "rig-anything": "0.17.0"
  },
  "report": {
   "bind": {
@@ -808,6 +808,83 @@
     "tolerance": 0.00644,
     "upper": null
    }
+  },
+  "moves_json": {
+   "clips": {
+    "Crouch": "Dog_Crouch",
+    "Idle": "Dog_Idle",
+    "Run": "Dog_Run",
+    "Trot": "Dog_Trot",
+    "Walk": "Dog_Walk"
+   },
+   "collider": {
+    "height": 0.7562,
+    "radius": 0.3512
+   },
+   "dropped_clips": [],
+   "fields": [
+    "clip_checks",
+    "clips",
+    "collider",
+    "contacts",
+    "creature",
+    "forced_clips",
+    "gaits",
+    "height_m",
+    "implied_speed_mps",
+    "known_failures",
+    "loops",
+    "name",
+    "rig",
+    "scene",
+    "verified"
+   ],
+   "gaits": {
+    "Run": {
+     "duty_factor": 0.338,
+     "froude": 3.0,
+     "gait": "gallop",
+     "hip_height_m": 0.4253,
+     "natural_speed_mps": 3.5377,
+     "spine_flex_deg": 9.0,
+     "stride_frequency_hz": 2.601,
+     "stride_m": 1.3599,
+     "stroke_m": 0.46
+    },
+    "Trot": {
+     "duty_factor": 0.45,
+     "froude": 1.0,
+     "gait": "trot",
+     "hip_height_m": 0.4253,
+     "natural_speed_mps": 2.0425,
+     "spine_flex_deg": 0.0,
+     "stride_frequency_hz": 2.088,
+     "stride_m": 0.9781,
+     "stroke_m": 0.4401
+    },
+    "Walk": {
+     "duty_factor": 0.651,
+     "froude": 0.2,
+     "gait": "walk",
+     "hip_height_m": 0.4253,
+     "natural_speed_mps": 0.9134,
+     "spine_flex_deg": 0.0,
+     "stride_frequency_hz": 1.514,
+     "stride_m": 0.6035,
+     "stroke_m": 0.3927
+    }
+   },
+   "height_m": {
+    "crouch": 0.6654,
+    "stand": 0.7562
+   },
+   "loops": [
+    "Dog_Idle",
+    "Dog_Walk",
+    "Dog_Trot",
+    "Dog_Run"
+   ],
+   "problems": []
   },
   "roles": {
    "breast_anchor": "spine.008",
