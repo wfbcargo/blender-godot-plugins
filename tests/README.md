@@ -65,6 +65,14 @@ grungist-creek's `build_human.py` assembles its manifest by hand. So `mpfb_woman
 A manifest with no `gaits` - the starfish's radial crawl - is reported as skipped: `verify_moves.gd`
 drives a gait ladder, and radial bodies have no engine verifier of their own yet.
 
+**`rabbit` also exports in a fresh session.** After its export it saves `rabbit.blend`, and a
+second Blender opens that file and runs `tests/fixtures/_export_only.py`, which calls
+`hop.export_creature(..., None, ...)` with no reports in hand - only what `move_set` stored on the
+actions (`rig_analysis.stored`). `fresh_session.manifest_equal` is whether the two `.moves.json`
+agree, path-like values aside; when they do not, `fresh_session.differs` names the first keys.
+It proves a .blend saved after authoring exports the same creature later (03 step 6). Helpers
+whose names start with `_` are not fixtures, so the runner never runs `_export_only.py` itself.
+
 ## Writing one
 
 A fixture is `tests/fixtures/<name>.py`. It imports `_harness`, builds, and returns a dict:

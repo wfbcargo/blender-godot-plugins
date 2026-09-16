@@ -14,7 +14,7 @@ import math
 import bpy
 from mathutils import Matrix, Vector
 
-from . import bodymap, gait, motion, verify
+from . import bodymap, gait, motion, stored, verify
 
 
 def _support(body, legs):
@@ -1149,7 +1149,8 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
     `gait_cycle`, which is built on the crouch pose.
 
     For the engine side, `locomotion.engine_manifest` turns these reports into
-    the gait and contact-schedule entries a controller reads.
+    the gait and contact-schedule entries a controller reads. Each report is also
+    stored on its action (`stored.store`), so that works in a later session too.
     """
     bm = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
     if "error" in bm:
@@ -1198,4 +1199,5 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
     for role in roles:
         fn, kw = makers[role]
         out[role] = fn(rig_name, **dict(common, **dict(kw, **options.get(role, {}))))
+    stored.store(out, rig_name)
     return out

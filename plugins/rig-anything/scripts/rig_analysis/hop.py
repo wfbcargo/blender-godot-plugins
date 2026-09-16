@@ -69,7 +69,7 @@ import math
 import bpy
 from mathutils import Matrix, Vector
 
-from . import bodymap, hoppers, keyposes as kp, locomotion as lm, motion
+from . import bodymap, hoppers, keyposes as kp, locomotion as lm, motion, stored
 
 G = 9.81
 
@@ -1310,6 +1310,7 @@ def jump_set(rig_name, prefix=None, fps=None, speed=None, angle=None):
             r["seams"] = seams
             for k in [k for k in r if k.startswith("_")]:
                 del r[k]
+    stored.store(out, rig_name)
     return out
 
 
@@ -1323,6 +1324,7 @@ def jump_set(rig_name, prefix=None, fps=None, speed=None, angle=None):
 INSECT_WALK_FROUDE = 0.04
 
 LOOPS = ("Idle", "Walk", "Hop", "Bound")
+ROLES = ("Idle", "Walk", "Hop", "Bound", "JumpLaunch", "JumpAir", "JumpLand")
 
 
 def move_set(rig_name, prefix=None, fps=None):
@@ -1343,25 +1345,20 @@ def move_set(rig_name, prefix=None, fps=None):
         out["Walk"] = lm.cycle(rig_name, froude=INSECT_WALK_FROUDE, action_name=nm("Walk"),
                                forward=H.st["forward"], fps=fps)
     out.update(jump_set(rig_name, prefix=prefix, fps=fps))
+    stored.store(out, rig_name)             # on the actions, so export works in a later session
     return out
 
 
-def _clean(v):
-    if isinstance(v, float):
-        return round(v, 5)
-    if isinstance(v, dict):
-        return {k: _clean(x) for k, x in v.items() if not str(k).startswith("_")}
-    if isinstance(v, (list, tuple)):
-        return [_clean(x) for x in v]
-    if isinstance(v, Vector):
-        return [round(x, 5) for x in v]
-    return v
+_clean = stored.clean                       # drops `_` keys, rounds to 5 places, vectors as lists
 
 
-def engine_manifest(rig_name, reports):
+def engine_manifest(rig_name, reports=None):
     """The `hop` block of `.moves.json`: the legs as detected, which pair jumps,
     the gaits and the jump's numbers and offsets - plus `gaits` and `contacts`
-    in the shape `creature_controller.gd` already reads."""
+    in the shape `creature_controller.gd` already reads.
+
+    `reports=None` reads the reports `move_set` stored on this rig's actions."""
+    reports = stored.resolve(reports, rig_name, ROLES)
     H = Hopper(rig_name)
     st = H.st
     ok = {k: r for k, r in reports.items() if isinstance(r, dict) and "error" not in r}
@@ -1420,10 +1417,14 @@ def engine_manifest(rig_name, reports):
 def export_creature(mesh_name, rig_name, reports, glb_path, creature, res_path=None):
     """Export through `export.export` - read back, durations checked - and write
     `<name>.moves.json` beside it with the `hop` block and the `gaits` /
-    `contacts` entries the other creatures carry."""
+    `contacts` entries the other creatures carry.
+
+    `reports` may be None: the reports `move_set` stored on the rig's actions are
+    used, so a .blend saved after authoring exports in a fresh session."""
     import json
     import os
     from . import export
+    reports = stored.resolve(reports, rig_name, ROLES)
     m = engine_manifest(rig_name, reports)
     if m["problems"]:
         return {"error": "not exporting clips that failed: " + "; ".join(m["problems"]), "manifest": m}

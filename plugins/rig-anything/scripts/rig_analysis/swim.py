@@ -49,7 +49,7 @@ import math
 import bpy
 from mathutils import Matrix, Vector
 
-from . import bodymap, fins as fin_mod, motion
+from . import bodymap, fins as fin_mod, motion, stored
 
 STRIDE = 0.7            # body lengths per tail beat (0.6-0.8: Videler; Wardle)
 CAUDAL_MAX = 45.0       # tail fin against its peduncle, degrees - a design bound
@@ -840,7 +840,12 @@ def swim_set(rig_name, prefix=None, mode=None, fps=None, forward="-Y", up="Z", m
         "Escape": lambda: escape(rig_name, action_name=name("Escape"), **common),
         "Brake": lambda: brake(rig_name, action_name=name("Brake"), **common),
     }
-    return {role: makers[role]() for role in roles}
+    out = {role: makers[role]() for role in roles}
+    stored.store(out, rig_name)             # on the actions, so export works in a later session
+    return out
+
+
+ROLES = ("Swim", "Sprint", "Glide", "Hover", "TurnL", "TurnR", "Escape", "Brake")
 
 
 PLAN_KEYS = ("mode", "plane", "length_m", "mass_kg", "stride_m", "tail_amplitude_m",
@@ -849,8 +854,10 @@ PLAN_KEYS = ("mode", "plane", "length_m", "mass_kg", "stride_m", "tail_amplitude
              "turn_radius_m", "coast_share", "notes")
 
 
-def engine_manifest(reports):
-    """The `swim` entry of `.moves.json`."""
+def engine_manifest(reports=None, rig_name=None):
+    """The `swim` entry of `.moves.json` - from `swim_set`'s reports, or with
+    `reports=None` from those it stored on `rig_name`'s actions."""
+    reports = stored.resolve(reports, rig_name, ROLES)
     ok = {k: r for k, r in reports.items() if isinstance(r, dict) and "error" not in r}
     pl = ok.get("Swim", {}).get("plan", {})
     out = {k: pl.get(k) for k in PLAN_KEYS}

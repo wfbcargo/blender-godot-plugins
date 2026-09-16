@@ -255,6 +255,28 @@ the problem and judge it, while an unmeasurable clip means the deliverable itsel
 is missing. Drop one deliberately with `skip_bad_clips=True`, which reports what
 it dropped.
 
+**Export does not need the session that authored the moves.** Every set function -
+`actions.move_set`, `hop.move_set` / `jump_set`, `radial_moves.move_set`, `flight.flight_set`,
+`swim.swim_set`, `maw.maw_set`, `octopus.octopus_set` - stores each role's report on its
+action as a JSON string (`action["rig_anything_report"]`, via `rig_analysis.stored`), and the
+action is saved with the .blend. Pass `None` for the reports and the manifest or exporter
+reads them back for that rig:
+
+```python
+# a later session, the .blend reopened - no `res` in hand
+hop.export_creature("MyRabbit", "MyRabbit_rig", None, path_glb, "rabbit")
+rm.export_creature("MyJelly", "MyJelly_rig", None, path_glb, "jellyfish")   # and the mass move_set was given
+m = locomotion.engine_manifest(rig)                   # gaits + contacts from actions.move_set's reports
+m = flight.engine_manifest(rig_name=rig)              # flight and swim take the rig by keyword
+m = maw.engine_manifest(None, rig)
+```
+
+`stored.load(rig)` returns `{role: report}` in authoring order; a role authored again
+replaces the older copy. Reports with an `error` are not stored, so a manifest built later
+lacks a failed role rather than listing it. The stored text is unrounded - a manifest from
+stored reports is the same file as one from the originals (the `rabbit` fixture checks this
+in a second Blender) - and it does not reach the glb.
+
 **In Godot, drive it with `MovesController`.** Copy
 `${CLAUDE_PLUGIN_ROOT}/godot/addons/rig_anything` to `<project>/addons/` once. It is a
 `CharacterBody3D` (`class_name MovesController`) that reads any `.moves.json`: set

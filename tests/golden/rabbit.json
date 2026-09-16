@@ -1,7 +1,7 @@
 {
  "fixture": "rabbit",
  "plugins": {
-  "rig-anything": "0.14.1"
+  "rig-anything": "0.14.2"
  },
  "report": {
   "detection": {
@@ -106,12 +106,15 @@
     "RabbitTest_rig_JumpAir",
     "RabbitTest_rig_JumpLand"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-skowx80w\\rabbit\\rabbit\\rabbit.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-skowx80w\\rabbit\\rabbit\\rabbit.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-donc9hpo\\rabbit\\rabbit\\rabbit.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-donc9hpo\\rabbit\\rabbit\\rabbit.moves.json",
    "verified": {
     "durations_match": true,
     "mismatches": []
    }
+  },
+  "fresh_session": {
+   "manifest_equal": true
   },
   "joint_error_vs_truth": {
    "fore.L": {

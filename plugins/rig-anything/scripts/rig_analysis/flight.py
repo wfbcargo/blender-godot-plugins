@@ -61,7 +61,7 @@ import math
 import bpy
 from mathutils import Vector
 
-from . import bodymap, keyposes as kp, motion, wings as wing_mod
+from . import bodymap, keyposes as kp, motion, stored, wings as wing_mod
 
 G = 9.81
 RHO = 1.225
@@ -831,7 +831,12 @@ def flight_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
         "Dive": lambda: dive(rig_name, action_name=name("Dive"), **common),
         "Land": lambda: land(rig_name, action_name=name("Land"), glide_clip=name("Glide"), **common),
     }
-    return {role: makers[role]() for role in roles}
+    out = {role: makers[role]() for role in roles}
+    stored.store(out, rig_name)             # on the actions, so export works in a later session
+    return out
+
+
+ROLES = ("Glide", "Flap", "WingSpread", "TakeOff", "Dive", "Land")
 
 
 FLIGHT_KEYS = ("mass_kg", "mass_source", "span_m", "area_m2", "aspect_ratio",
@@ -840,8 +845,10 @@ FLIGHT_KEYS = ("mass_kg", "mass_source", "span_m", "area_m2", "aspect_ratio",
                "glide_angle_deg", "takeoff_leg_share", "downstroke_fraction", "notes")
 
 
-def engine_manifest(reports):
-    """The `flight` entry an engine controller reads, from `flight_set` reports."""
+def engine_manifest(reports=None, rig_name=None):
+    """The `flight` entry an engine controller reads, from `flight_set` reports -
+    or, with `reports=None`, from those `flight_set` stored on `rig_name`'s actions."""
+    reports = stored.resolve(reports, rig_name, ROLES)
     flap_r = reports.get("Flap", {})
     pl = flap_r.get("plan", {})
     problems = ["%s did not pass: %s" % (role, "; ".join(r.get("failures", [])))
