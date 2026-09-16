@@ -153,3 +153,39 @@ a precedent) and critic review. (3) Fat-aware scaling. (4) Normal-map bake via l
 
 **Done when** Dante reads as muscular in a front render without forcing the muscle macro, and a soft
 body with the same muscle value shows much less definition.
+
+---
+
+## 5.6 wardrobe's garment step is not reproducible between builds
+
+**Problem.** Rebuilding Belle twice from the same brief produced sports tops whose vertices differ
+by up to 9.9 mm, and shorts that differ too. The body is not the cause: across three builds her
+exported `Belle_body` is identical in POSITION, NORMAL, TEXCOORD_0, JOINTS_0 and WEIGHTS_0, and
+every bone's rest head and tail matches to 1e-7. Checksums taken inside the build, at the moment
+the garment is cut, agree on both the body mesh and the rig - and the garments still come out
+different.
+
+It is not the garment code in isolation either. Cutting and easing the same garment twice in one
+session is bit-identical, and running that same cut from a saved `.blend` in three separate
+processes gives one checksum three times (so it is not Python hash-order across processes, which
+Blender fixes anyway). Only a *full build* varies, and one of its two runs matched the isolated
+result exactly - as if something earlier in the build leaves state that the saved blend does not
+carry.
+
+**Why it matters.** It puts a floor under any wardrobe regression test, it makes a rebuild a
+coin-flip against the 0.5% hole limit (Belle's top came out at 0.23% of hidden vertices in the
+committed build and 0.57% in a rebuild - pass and fail), and it means "rebuild and diff" cannot
+prove a wardrobe change safe. The `dressed_figure` fixture (03) *is* reproducible, so whatever
+this is, it does not reach the sample body - which makes it a good control for finding it.
+
+**Steps.**
+1. Bisect the build: checksum the garment after `tailor` alone, then after each `fit.ease`
+   iteration, in two runs of the full build, and find the first step that disagrees.
+2. Suspect state the saved blend does not carry: a depsgraph not yet updated when the BVH is
+   built (`fit.body_bvh` reads `body.data`, so a stale *evaluated* mesh elsewhere is the more
+   likely path), leftover flesh marks, or an operator that ran earlier in the session.
+3. Once found, add the reproducibility to the harness: build one character twice in one
+   `regress.py` run and compare the two, rather than comparing against a golden.
+
+**Done when** two full builds of Belle from the same brief produce byte-identical garments, and a
+`--twice` check in the harness proves it.
