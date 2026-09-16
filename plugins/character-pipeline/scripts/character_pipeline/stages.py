@@ -47,7 +47,7 @@ def garments_bound(ch):
             continue
         if not any(m.type == "ARMATURE" and m.object == rig for m in o.modifiers):
             continue
-        if o.get("wardrobe_garment") or o.get("wardrobe_cut_report") is not None or o.get("wardrobe") is not None:
+        if o.get("wardrobe_cut") is not None or o.get("wardrobe") is not None:     # set by tailor / spec.write
             out.append(o.name)
     return sorted(out)
 
