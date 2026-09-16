@@ -10,8 +10,62 @@
     "bind_coverage": 1.0,
     "durations_match": true,
     "exported": true,
+    "idle": {
+     "failures": [],
+     "loop_seam": 0.0,
+     "passed": true
+    },
     "mesh": {
      "vertices": 22748
+    },
+    "moves_json": {
+     "clips": {
+      "Idle": "Bloater_Idle",
+      "Walk": "BloaterWalk"
+     },
+     "collider": {
+      "height": 1.7668,
+      "radius": 0.2886
+     },
+     "dropped_clips": [],
+     "fields": [
+      "clip_checks",
+      "clips",
+      "collider",
+      "contacts",
+      "creature",
+      "forced_clips",
+      "gaits",
+      "height_m",
+      "implied_speed_mps",
+      "known_failures",
+      "loops",
+      "name",
+      "rig",
+      "scene",
+      "verified"
+     ],
+     "gaits": {
+      "Walk": {
+       "duty_factor": 0.651,
+       "froude": 0.2,
+       "gait": "walk",
+       "hip_height_m": 0.7724,
+       "natural_speed_mps": 1.2311,
+       "spine_flex_deg": 0.0,
+       "stride_frequency_hz": 1.123,
+       "stride_m": 1.0962,
+       "stroke_m": 0.7132
+      }
+     },
+     "height_m": {
+      "stand": 1.7668
+     },
+     "loops": [
+      "Bloater_Idle",
+      "BloaterWalk"
+     ],
+     "problems": []
     },
     "prepare": {
      "bones": [
@@ -381,7 +435,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-slkupgys\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-q_kku_rp\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -725,8 +779,62 @@
     "bind_coverage": 1.0,
     "durations_match": true,
     "exported": true,
+    "idle": {
+     "failures": [],
+     "loop_seam": 0.0,
+     "passed": true
+    },
     "mesh": {
      "vertices": 17112
+    },
+    "moves_json": {
+     "clips": {
+      "Idle": "Figure_Idle",
+      "Walk": "FigureWalk"
+     },
+     "collider": {
+      "height": 1.7668,
+      "radius": 0.1697
+     },
+     "dropped_clips": [],
+     "fields": [
+      "clip_checks",
+      "clips",
+      "collider",
+      "contacts",
+      "creature",
+      "forced_clips",
+      "gaits",
+      "height_m",
+      "implied_speed_mps",
+      "known_failures",
+      "loops",
+      "name",
+      "rig",
+      "scene",
+      "verified"
+     ],
+     "gaits": {
+      "Walk": {
+       "duty_factor": 0.651,
+       "froude": 0.2,
+       "gait": "walk",
+       "hip_height_m": 0.8272,
+       "natural_speed_mps": 1.2739,
+       "spine_flex_deg": 0.0,
+       "stride_frequency_hz": 1.085,
+       "stride_m": 1.1739,
+       "stroke_m": 0.7638
+      }
+     },
+     "height_m": {
+      "stand": 1.7668
+     },
+     "loops": [
+      "Figure_Idle",
+      "FigureWalk"
+     ],
+     "problems": []
     },
     "prepare": {
      "bones": [
@@ -1096,7 +1204,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-slkupgys\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-q_kku_rp\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",
