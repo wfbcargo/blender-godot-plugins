@@ -1,0 +1,918 @@
+{
+ "fixture": "cricket",
+ "plugins": {
+  "rig-anything": "0.14.2"
+ },
+ "report": {
+  "detection": {
+   "hind_over_others": 3.368972,
+   "kind": "orthopteran",
+   "kind_guessed": true,
+   "legs": {
+    "fore.L": {
+     "joints": 4,
+     "segments": [
+      [
+       "femur",
+       0.002371
+      ],
+      [
+       "tibia",
+       0.003641
+      ],
+      [
+       "tarsus",
+       0.002817
+      ]
+     ]
+    },
+    "fore.R": {
+     "joints": 4,
+     "segments": [
+      [
+       "femur",
+       0.002371
+      ],
+      [
+       "tibia",
+       0.003641
+      ],
+      [
+       "tarsus",
+       0.002817
+      ]
+     ]
+    },
+    "hind.L": {
+     "joints": 4,
+     "segments": [
+      [
+       "femur",
+       0.012684
+      ],
+      [
+       "tibia",
+       0.012554
+      ],
+      [
+       "tarsus",
+       0.00516
+      ]
+     ]
+    },
+    "hind.R": {
+     "joints": 4,
+     "segments": [
+      [
+       "femur",
+       0.012684
+      ],
+      [
+       "tibia",
+       0.012554
+      ],
+      [
+       "tarsus",
+       0.00516
+      ]
+     ]
+    },
+    "mid.L": {
+     "joints": 4,
+     "segments": [
+      [
+       "femur",
+       0.002219
+      ],
+      [
+       "tibia",
+       0.00419
+      ],
+      [
+       "tarsus",
+       0.002808
+      ]
+     ]
+    },
+    "mid.R": {
+     "joints": 4,
+     "segments": [
+      [
+       "femur",
+       0.002219
+      ],
+      [
+       "tibia",
+       0.00419
+      ],
+      [
+       "tarsus",
+       0.002808
+      ]
+     ]
+    }
+   },
+   "warnings": []
+  },
+  "export": {
+   "error": "not exporting clips that failed: JumpLand did not pass: fore_femur.L slides 0.0005 after touching down; fore_femur.R slides 0.0005 after touching down",
+   "manifest": {
+    "checks": {
+     "Idle": {
+      "loop_seam": 0.0,
+      "passed": true,
+      "prediction_error": 0.0
+     },
+     "JumpAir": {
+      "flipped_faces": 2,
+      "passed": true,
+      "prediction_error": 0.0,
+      "stretch_max": 9.75,
+      "stretch_p99": 2.525
+     },
+     "JumpLand": {
+      "flipped_faces": 2,
+      "passed": false,
+      "prediction_error": 0.0,
+      "stretch_max": 4.398,
+      "stretch_p99": 1.444
+     },
+     "JumpLaunch": {
+      "flipped_faces": 154,
+      "passed": true,
+      "prediction_error": 0.0,
+      "stretch_max": 9.75,
+      "stretch_p99": 2.525
+     },
+     "Walk": {
+      "loop_seam": 0.0,
+      "passed": true,
+      "prediction_error": 0.0
+     }
+    },
+    "clips": {
+     "Idle": "CricketTest_rig_Idle",
+     "JumpAir": "CricketTest_rig_JumpAir",
+     "JumpLand": "CricketTest_rig_JumpLand",
+     "JumpLaunch": "CricketTest_rig_JumpLaunch",
+     "Walk": "CricketTest_rig_Walk"
+    },
+    "evidence": [
+     "hind pair 179.3% longer than the others on the skin",
+     "hind femur 2.7x as thick as the mid femur"
+    ],
+    "hind_over_others": 3.36897,
+    "jump": {
+     "air_duration_s": 0.2917,
+     "angle_deg": 25.0,
+     "apex_m": 0.03641,
+     "extension_onset_s": null,
+     "flight_time_s": 0.17232,
+     "knee_deg": {
+      "cocked": 12.5,
+      "plan_takeoff": 145.0,
+      "takeoff": 145.0
+     },
+     "land_duration_s": 0.292,
+     "land_offset_model": [
+      0.0,
+      0.00264,
+      -0.00566
+     ],
+     "launch_duration_s": 0.375,
+     "push": {
+      "angle_deg": 24.9,
+      "plan_deg": 25.0,
+      "push_frames": 2,
+      "push_m": 0.0216,
+      "push_s": 0.0216,
+      "speed_mps": 2.0
+     },
+     "push_start_s": 0.2917,
+     "range_m": 0.31235,
+     "seams_m": {
+      "air -> land": 0.0,
+      "launch -> air": 1e-05
+     },
+     "source": "Acheta: 1-3 m/s at 20-30 deg, knee 10-150 deg, co-contraction 10-120 ms (Hustert & Baldus 2010)",
+     "speed_mps": 2.0,
+     "takeoff_offset_model": [
+      0.0,
+      0.00801,
+      0.0196
+     ],
+     "takeoff_velocity_model": [
+      0.0,
+      0.84524,
+      1.81262
+     ],
+     "touch_clearance_m": 0.00059,
+     "touchdown_frame": {
+      "fore_femur.L": 3,
+      "fore_femur.R": 3,
+      "hind_femur.L": 2,
+      "hind_femur.R": 2,
+      "mid_femur.L": 2,
+      "mid_femur.R": 2
+     }
+    },
+    "kind": "orthopteran",
+    "kind_guessed": true,
+    "legs": [
+     {
+      "bones": [
+       "fore_femur.L",
+       "fore_tibia.L",
+       "fore_tarsus.L"
+      ],
+      "lengths_m": [
+       0.00237,
+       0.00364,
+       0.00282
+      ],
+      "measured": [
+       true,
+       true,
+       true,
+       true
+      ],
+      "name": "fore.L",
+      "plantigrade": false,
+      "rank": "fore",
+      "rest_angles_deg": [
+       97.47,
+       111.95
+      ],
+      "roles": [
+       "femur",
+       "tibia",
+       "tarsus"
+      ],
+      "saltatorial": false,
+      "side": "L"
+     },
+     {
+      "bones": [
+       "fore_femur.R",
+       "fore_tibia.R",
+       "fore_tarsus.R"
+      ],
+      "lengths_m": [
+       0.00237,
+       0.00364,
+       0.00282
+      ],
+      "measured": [
+       true,
+       true,
+       true,
+       true
+      ],
+      "name": "fore.R",
+      "plantigrade": false,
+      "rank": "fore",
+      "rest_angles_deg": [
+       97.47,
+       111.95
+      ],
+      "roles": [
+       "femur",
+       "tibia",
+       "tarsus"
+      ],
+      "saltatorial": false,
+      "side": "R"
+     },
+     {
+      "bones": [
+       "mid_femur.L",
+       "mid_tibia.L",
+       "mid_tarsus.L"
+      ],
+      "lengths_m": [
+       0.00222,
+       0.00419,
+       0.00281
+      ],
+      "measured": [
+       true,
+       true,
+       true,
+       true
+      ],
+      "name": "mid.L",
+      "plantigrade": false,
+      "rank": "mid",
+      "rest_angles_deg": [
+       101.68,
+       127.42
+      ],
+      "roles": [
+       "femur",
+       "tibia",
+       "tarsus"
+      ],
+      "saltatorial": false,
+      "side": "L"
+     },
+     {
+      "bones": [
+       "mid_femur.R",
+       "mid_tibia.R",
+       "mid_tarsus.R"
+      ],
+      "lengths_m": [
+       0.00222,
+       0.00419,
+       0.00281
+      ],
+      "measured": [
+       true,
+       true,
+       true,
+       true
+      ],
+      "name": "mid.R",
+      "plantigrade": false,
+      "rank": "mid",
+      "rest_angles_deg": [
+       101.68,
+       127.42
+      ],
+      "roles": [
+       "femur",
+       "tibia",
+       "tarsus"
+      ],
+      "saltatorial": false,
+      "side": "R"
+     },
+     {
+      "bones": [
+       "hind_femur.L",
+       "hind_tibia.L",
+       "hind_tarsus.L"
+      ],
+      "lengths_m": [
+       0.01268,
+       0.01255,
+       0.00516
+      ],
+      "measured": [
+       true,
+       true,
+       true,
+       true
+      ],
+      "name": "hind.L",
+      "plantigrade": false,
+      "rank": "hind",
+      "rest_angles_deg": [
+       32.0,
+       40.54
+      ],
+      "roles": [
+       "femur",
+       "tibia",
+       "tarsus"
+      ],
+      "saltatorial": true,
+      "side": "L"
+     },
+     {
+      "bones": [
+       "hind_femur.R",
+       "hind_tibia.R",
+       "hind_tarsus.R"
+      ],
+      "lengths_m": [
+       0.01268,
+       0.01255,
+       0.00516
+      ],
+      "measured": [
+       true,
+       true,
+       true,
+       true
+      ],
+      "name": "hind.R",
+      "plantigrade": false,
+      "rank": "hind",
+      "rest_angles_deg": [
+       32.0,
+       40.54
+      ],
+      "roles": [
+       "femur",
+       "tibia",
+       "tarsus"
+      ],
+      "saltatorial": true,
+      "side": "R"
+     }
+    ],
+    "loops": [
+     "CricketTest_rig_Idle",
+     "CricketTest_rig_Walk"
+    ],
+    "mass_kg": 0.001,
+    "mass_source": "skin volume x 1100 kg/m3",
+    "problems": [
+     "JumpLand did not pass: fore_femur.L slides 0.0005 after touching down; fore_femur.R slides 0.0005 after touching down"
+    ]
+   }
+  },
+  "joint_error_vs_truth": {
+   "fore.L": {
+    "joints": 4,
+    "mean": 0.000372,
+    "per_joint_tip_first": [
+     0.00021,
+     3e-05,
+     0.00011,
+     0.00115
+    ],
+    "truth_joints": 4,
+    "worst": 0.001149
+   },
+   "fore.R": {
+    "joints": 4,
+    "mean": 0.000372,
+    "per_joint_tip_first": [
+     0.00021,
+     3e-05,
+     0.00011,
+     0.00115
+    ],
+    "truth_joints": 4,
+    "worst": 0.001149
+   },
+   "hind.L": {
+    "joints": 4,
+    "mean": 0.000429,
+    "per_joint_tip_first": [
+     0.00015,
+     0.0001,
+     0.00047,
+     0.00099
+    ],
+    "truth_joints": 4,
+    "worst": 0.000993
+   },
+   "hind.R": {
+    "joints": 4,
+    "mean": 0.000429,
+    "per_joint_tip_first": [
+     0.00015,
+     0.0001,
+     0.00047,
+     0.00099
+    ],
+    "truth_joints": 4,
+    "worst": 0.000993
+   },
+   "mid.L": {
+    "joints": 4,
+    "mean": 0.000361,
+    "per_joint_tip_first": [
+     0.00023,
+     3e-05,
+     0.00016,
+     0.00103
+    ],
+    "truth_joints": 4,
+    "worst": 0.001028
+   },
+   "mid.R": {
+    "joints": 4,
+    "mean": 0.000361,
+    "per_joint_tip_first": [
+     0.00023,
+     3e-05,
+     0.00016,
+     0.00103
+    ],
+    "truth_joints": 4,
+    "worst": 0.001028
+   }
+  },
+  "manifest": {},
+  "mesh": {
+   "dimensions": [
+    0.0208,
+    0.03182,
+    0.00816
+   ],
+   "vertices": 27558
+  },
+  "moves": {
+   "Idle": {
+    "action": "CricketTest_rig_Idle",
+    "balance": null,
+    "end_height_m": 0.0079,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     49
+    ],
+    "hip_shift_m": 0.0,
+    "loop_seam": 0.0,
+    "lowest_point": 0.0002,
+    "passed": true,
+    "planted_drift": {
+     "fore_femur.L": 0.0,
+     "fore_femur.R": 0.0,
+     "hind_femur.L": 0.0,
+     "hind_femur.R": 0.0,
+     "mid_femur.L": 0.0,
+     "mid_femur.R": 0.0
+    },
+    "posture": null,
+    "prediction_error": 0.0,
+    "rest_error": 0.0,
+    "rig": "CricketTest_rig",
+    "skin_lowest": -0.0,
+    "stance_width": null,
+    "standing_height_m": 0.0079,
+    "tightest_joint_degrees": {
+     "fore_femur.L": 96.0,
+     "fore_femur.R": 96.0,
+     "hind_femur.L": 31.8,
+     "hind_femur.R": 31.8,
+     "mid_femur.L": 100.3,
+     "mid_femur.R": 100.3
+    },
+    "tolerance": 0.00014,
+    "upper": null
+   },
+   "JumpAir": {
+    "action": "CricketTest_rig_JumpAir",
+    "balance": null,
+    "end_height_m": 0.0073,
+    "failures": [],
+    "flight_time_s": 0.17232,
+    "flipped_faces": 2,
+    "floor_below_body_m": 0.00801,
+    "fps": 24,
+    "frames": [
+     1,
+     8
+    ],
+    "lowest_point": -0.0078,
+    "passed": true,
+    "planted_drift": {},
+    "prediction_error": 0.0,
+    "rest_error": 0.023269,
+    "rig": "CricketTest_rig",
+    "role": "JumpAir",
+    "seams": {
+     "air -> land": [
+      0.0,
+      "head"
+     ],
+     "launch -> air": [
+      1e-05,
+      "hind_tarsus.R"
+     ]
+    },
+    "skin_lowest": -0.008,
+    "standing_height_m": 0.0079,
+    "stretch_ignored_edges": 20,
+    "stretch_max": 9.75,
+    "stretch_p99": 2.525,
+    "tightest_joint_degrees": {
+     "fore_femur.L": 73.4,
+     "fore_femur.R": 73.4,
+     "hind_femur.L": 40.9,
+     "hind_femur.R": 40.9,
+     "mid_femur.L": 45.0,
+     "mid_femur.R": 45.0
+    },
+    "tolerance": 0.00014
+   },
+   "JumpLand": {
+    "action": "CricketTest_rig_JumpLand",
+    "balance": null,
+    "end_height_m": 0.0079,
+    "failures": [
+     "fore_femur.L slides 0.0005 after touching down",
+     "fore_femur.R slides 0.0005 after touching down"
+    ],
+    "flipped_faces": 2,
+    "fps": 24,
+    "frames": [
+     1,
+     8
+    ],
+    "land_offset_model": [
+     0.0,
+     0.00264,
+     -0.00566
+    ],
+    "landing": {
+     "duration_s": 0.292,
+     "path_m": 0.0062
+    },
+    "lowest_point": 0.0002,
+    "passed": false,
+    "planted_drift": {
+     "fore_femur.L": 0.00051,
+     "fore_femur.R": 0.00051,
+     "hind_femur.L": 0.0,
+     "hind_femur.R": 0.0,
+     "mid_femur.L": 0.0,
+     "mid_femur.R": 0.0
+    },
+    "prediction_error": 0.0,
+    "rest_error": 0.008186,
+    "rig": "CricketTest_rig",
+    "role": "JumpLand",
+    "seams": {
+     "air -> land": [
+      0.0,
+      "head"
+     ],
+     "launch -> air": [
+      1e-05,
+      "hind_tarsus.R"
+     ]
+    },
+    "skin_lowest": -0.0,
+    "standing_height_m": 0.0079,
+    "stretch_ignored_edges": 20,
+    "stretch_max": 4.398,
+    "stretch_p99": 1.444,
+    "tightest_joint_degrees": {
+     "fore_femur.L": 96.4,
+     "fore_femur.R": 96.4,
+     "hind_femur.L": 30.3,
+     "hind_femur.R": 30.3,
+     "mid_femur.L": 80.2,
+     "mid_femur.R": 80.2
+    },
+    "tolerance": 0.00014,
+    "touch_clearance_m": 0.00059,
+    "touchdown_frame": {
+     "fore_femur.L": 3,
+     "fore_femur.R": 3,
+     "hind_femur.L": 2,
+     "hind_femur.R": 2,
+     "mid_femur.L": 2,
+     "mid_femur.R": 2
+    }
+   },
+   "JumpLaunch": {
+    "action": "CricketTest_rig_JumpLaunch",
+    "balance": null,
+    "end_height_m": 0.0144,
+    "failures": [],
+    "flipped_faces": 154,
+    "fps": 24,
+    "frames": [
+     1,
+     10
+    ],
+    "knee_deg": {
+     "cocked": 12.5,
+     "plan_takeoff": 145.0,
+     "takeoff": 145.0
+    },
+    "lowest_point": 0.0002,
+    "marks": {
+     "cocked": 4,
+     "push_start": 8,
+     "takeoff": 10
+    },
+    "passed": true,
+    "plan": {
+     "angle": 25.0,
+     "apex_m": 0.03641,
+     "cock_s": 0.06,
+     "flight_time_s": 0.17232,
+     "knee_cocked": 12.0,
+     "knee_takeoff": 145.0,
+     "land_knee": 25.0,
+     "range_m": 0.31235,
+     "source": "Acheta: 1-3 m/s at 20-30 deg, knee 10-150 deg, co-contraction 10-120 ms (Hustert & Baldus 2010)",
+     "speed": 2.0
+    },
+    "planted_drift": {
+     "hind_femur.L": 0.0,
+     "hind_femur.R": 0.0
+    },
+    "prediction_error": 0.0,
+    "rest_error": 0.0,
+    "rig": "CricketTest_rig",
+    "role": "JumpLaunch",
+    "seams": {
+     "air -> land": [
+      0.0,
+      "head"
+     ],
+     "launch -> air": [
+      1e-05,
+      "hind_tarsus.R"
+     ]
+    },
+    "skin_lowest": -0.0,
+    "standing_height_m": 0.0079,
+    "stretch_ignored_edges": 20,
+    "stretch_max": 9.75,
+    "stretch_p99": 2.525,
+    "takeoff": {
+     "angle_deg": 24.9,
+     "plan_deg": 25.0,
+     "push_frames": 2,
+     "push_m": 0.0216,
+     "push_s": 0.0216,
+     "speed_mps": 2.0
+    },
+    "takeoff_offset_model": [
+     0.0,
+     0.00801,
+     0.0196
+    ],
+    "takeoff_pitch_deg": 7.5,
+    "takeoff_velocity_model": [
+     0.0,
+     0.84524,
+     1.81262
+    ],
+    "tightest_joint_degrees": {
+     "fore_femur.L": 73.4,
+     "fore_femur.R": 73.4,
+     "hind_femur.L": 12.5,
+     "hind_femur.R": 12.5,
+     "mid_femur.L": 45.0,
+     "mid_femur.R": 45.0
+    },
+    "tolerance": 0.00014
+   },
+   "Walk": {
+    "action": "CricketTest_rig_Walk",
+    "adjustments": [],
+    "attempts": 1,
+    "balance": null,
+    "bounce_scale": null,
+    "contact_slip": {
+     "fore_femur.L": 0.0,
+     "fore_femur.R": 0.0,
+     "hind_femur.L": 0.0,
+     "hind_femur.R": 0.0,
+     "mid_femur.L": 0.0,
+     "mid_femur.R": 0.0
+    },
+    "contacts": {
+     "fore_femur.L": {
+      "bones": [
+       "fore_tarsus.L"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "fore_femur.R": {
+      "bones": [
+       "fore_tarsus.R"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "hind_femur.L": {
+      "bones": [
+       "hind_tarsus.L"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "hind_femur.R": {
+      "bones": [
+       "hind_tarsus.R"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "mid_femur.L": {
+      "bones": [
+       "mid_tarsus.L"
+      ],
+      "grounded": true,
+      "source": "skin"
+     },
+     "mid_femur.R": {
+      "bones": [
+       "mid_tarsus.R"
+      ],
+      "grounded": true,
+      "source": "skin"
+     }
+    },
+    "drop_m": 0.0,
+    "drop_share": 0.0,
+    "duty_asked": 0.705556,
+    "duty_factor": 0.706,
+    "end_height_m": 0.0082,
+    "failures": [],
+    "fps": 24,
+    "frames": [
+     1,
+     33
+    ],
+    "froude": 0.04,
+    "froude_requested": 0.04,
+    "gait": "tripod",
+    "hip_height_m": 0.0036,
+    "implied_speed_cycle_mps": 0.0024,
+    "implied_speed_playback_mps": 0.0023,
+    "lift_m": 0.0013,
+    "lift_scale": null,
+    "limited_by": [],
+    "loop_seam": 0.0,
+    "lowest_point": 0.0002,
+    "max_drop": 0.116,
+    "min_knee": null,
+    "natural_speed_mps": 0.0377,
+    "passed": true,
+    "peak_reach": {
+     "fore_femur.L": 0.864,
+     "fore_femur.R": 0.864,
+     "hind_femur.L": 0.28,
+     "hind_femur.R": 0.28,
+     "mid_femur.L": 0.856,
+     "mid_femur.R": 0.856
+    },
+    "phase_offsets": {
+     "fore_femur.L": 0.0,
+     "fore_femur.R": 0.5,
+     "hind_femur.L": 0.0,
+     "hind_femur.R": 0.5,
+     "mid_femur.L": 0.5,
+     "mid_femur.R": 0.0
+    },
+    "planted_drift": {},
+    "posture": null,
+    "prediction_error": 0.0,
+    "rest_error": 0.001789,
+    "rig": "CricketTest_rig",
+    "skin_lowest": -0.0,
+    "spine_flex_deg": 0.0,
+    "stance_shift_m": {
+     "fore_femur.L": 0.0,
+     "fore_femur.R": 0.0,
+     "hind_femur.L": 0.0,
+     "hind_femur.R": 0.0,
+     "mid_femur.L": 0.0,
+     "mid_femur.R": 0.0
+    },
+    "stance_width": null,
+    "standing_height_m": 0.0079,
+    "stride_frequency_hz": 11.884,
+    "stride_m": 0.0032,
+    "stride_scale": null,
+    "stroke_m": 0.0022,
+    "stroke_over_leg": 0.178,
+    "style": null,
+    "support_normal": [
+     -0.0,
+     -0.0014,
+     1.0
+    ],
+    "sway_share": 0.0,
+    "tightest_joint_degrees": {
+     "fore_femur.L": 71.5,
+     "fore_femur.R": 71.5,
+     "hind_femur.L": 30.8,
+     "hind_femur.R": 30.8,
+     "mid_femur.L": 82.2,
+     "mid_femur.R": 82.2
+    },
+    "tolerance": 0.00014,
+    "upper": null
+   }
+  },
+  "rig": {
+   "bones": 27
+  },
+  "skin": {
+   "bones_without_skin": [],
+   "closed_folds": {},
+   "coverage": 1.0,
+   "fused_webs": {},
+   "groups": 27,
+   "leg_skin_grown": {
+    "fore.L": 290,
+    "fore.R": 290,
+    "hind.L": 1471,
+    "hind.R": 1471,
+    "mid.L": 253,
+    "mid.R": 253
+   },
+   "mesh": "CricketTest",
+   "note": "weights written from the detected parts; bone heat is not used",
+   "passed": true,
+   "rig": "CricketTest_rig",
+   "warnings": []
+  }
+ }
+}
