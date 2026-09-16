@@ -19,13 +19,16 @@ before fixing it - the category says where the fix belongs.
 | 5 | **Tooling friction** | No regression tests, three plugin copies, manual installs, an unversioned plugin, state lost between Blender sessions, blends that mix unrelated scenes | The repo and its scripts - see [03](03-regression-harness-and-install.md) |
 | 6 | **Feature gaps** | The pipeline cannot do it at all (hair, skirts, compression garments, muscle definition) or does it wrongly (jump sinks) | The owning plugin - see [05](05-feature-gaps.md) |
 
+> **Picking this up in a new conversation?** Start with [NEXT.md](NEXT.md) - what is done, what is
+> left in the order to take it, and what cost time to learn.
+
 ## Work items, in order of time saved
 
 1. [Character spec and staged pipeline](01-character-spec-and-staged-pipeline.md) - one declarative file per character; stages with preconditions and saved results.
 2. [Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) - name the root, pelvis, chest and anchors once; every plugin reads roles instead of guessing.
-3. [Regression harness and install](03-regression-harness-and-install.md) - golden baselines, one rebuild-and-compare command, an install script, wardrobe under git.
+3. [Regression harness and install](03-regression-harness-and-install.md) - golden baselines, one rebuild-and-compare command, an install script, wardrobe under git. *Steps 1-5 done.*
 4. [Checks that match the eye](04-checks-that-match-the-eye.md) - wardrobe hole precision, auto review strips, a motion critic.
-5. [Feature gaps](05-feature-gaps.md) - jump floor bug, hair, compression garments, skirts, muscle definition.
+5. [Feature gaps](05-feature-gaps.md) - jump floor bug, hair, compression garments, skirts, muscle definition, garment and join nondeterminism. *5.1 and 5.6 done.*
 
 Do 03 first if you are about to change shared code: without it every other item is verified on one
 character at a time.

@@ -156,7 +156,7 @@ body with the same muscle value shows much less definition.
 
 ---
 
-## 5.6 wardrobe's garment step is not reproducible between builds - DONE
+## 5.6 wardrobe's garment step is not reproducible between builds - DONE, except `--twice`
 
 > **Fixed** (September 2026, wardrobe). The cause was two steps apart from the symptom.
 > `bpy.ops.object.join` - joining the eyes and the hair into the body - writes the same faces in a
@@ -172,6 +172,9 @@ body with the same muscle value shows much less definition.
 > its mesh arrived in - vertex order is stable across those joins, so sorting on vertex indices is
 > canonical. Two full builds of Belle now write byte-identical `belle_sportstop.glb` and
 > `belle_shorts.glb`. The join itself is still nondeterministic: that is 5.7.
+>
+> **Still owed:** the `--twice` check below was not built. The reproducibility was proven by hand,
+> building Belle twice and comparing the files; nothing yet stops it regressing.
 
 **Problem.** Rebuilding Belle twice from the same brief produced sports tops whose vertices differ
 by up to 9.9 mm, and shorts that differ too. The body is not the cause: across three builds her
