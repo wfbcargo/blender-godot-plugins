@@ -348,8 +348,14 @@ func _measure(reg: Dictionary, w: float, delta: float, push: Vector3, d: float, 
 ##   swing_kept                    RMS offset over the unlimited swing's RMS: 1 when the limit never bites
 ##   ladder                        [limit_m, on_limit_share] for the 33 limits of ladder_limits(max_offset_m),
 ##                                 each measured on a shadow spring given that limit
+##
+## The report also carries `problems`: a region measure_limits() never touched is left out of
+## `regions`, so without it the report is empty, and an empty report used to read downstream as every
+## region settled and inside the band. `regions_total`, `regions_measured` and `measuring` say what
+## happened; `flesh.suggest_limits` fails on any problem.
 func limit_report() -> Dictionary:
 	var out := {}
+	var problems := PackedStringArray()
 	for reg in regions:
 		if not reg.has("m"):
 			continue
@@ -384,7 +390,16 @@ func limit_report() -> Dictionary:
 			"demand": demand,
 			"ladder": ladder,
 			"swing_kept": snappedf(sqrt(m["sq"] / maxf(m["free_sq"], 1e-12)) if m["free_sq"] > 0.0 else 1.0, 0.001)}
-	return {"schema": "follow-through/flesh-limits/1", "on_limit_tolerance_m": ON_LIMIT_M, "regions": out}
+		if n == 0:
+			problems.append("%s: 0 ticks measured" % reg["name"])
+	if out.is_empty():
+		problems.append("no region was measured (%d in the spec): call measure_limits() before %s" % [
+			regions.size(), "the run" if measuring else "print_limit_report(), and while the body animates"])
+	elif out.size() < regions.size():
+		problems.append("%d of %d regions were not measured" % [regions.size() - out.size(), regions.size()])
+	return {"schema": "follow-through/flesh-limits/1", "on_limit_tolerance_m": ON_LIMIT_M,
+		"measuring": measuring, "regions_total": regions.size(), "regions_measured": out.size(),
+		"problems": problems, "regions": out}
 
 
 ## Print limit_report() as one machine-readable line: `FT_FLESH_LIMITS {json}`. `label` names the
@@ -392,6 +407,8 @@ func limit_report() -> Dictionary:
 func print_limit_report(label := "") -> void:
 	var r := limit_report()
 	r["body"] = label if label != "" else String(name).trim_suffix("_jiggle")
+	for p in r["problems"]:
+		printerr("follow_through: %s's limit report measured nothing usable: %s" % [r["body"], p])
 	print("FT_FLESH_LIMITS " + JSON.stringify(r))
 
 

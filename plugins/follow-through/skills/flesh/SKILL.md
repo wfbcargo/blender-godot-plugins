@@ -179,17 +179,27 @@ How it works:
   region will do with that limit. The rungs are one grid for every region (1 cm x 2^(k/8)), so a
   left and right side are measured on the same limits.
 - A region outside the **band, 3-9% of ticks on the limit**, gets the measured rung nearest 6%. It lands
-  there when applied. The Figure and Bloater settled in one run, or two when a limit started past the
-  ladder's end.
+  there when applied: the Figure settled in one run and the Bloater in two (its love handles started
+  at 21 cm, past the ladder), every region a limit could fix. The rest are `capped`, below.
 - `.L`/`.R` pairs share a limit, chosen only on rungs measured on both sides. A report made before
   the grid gets `interpolated` pair rows: apply them and run again.
-- A breast is never raised past `limit_max_share` (0.66 x peak). It is reported `capped` instead: lower
-  `response` or raise `damping_ratio`.
+- **No limit is ever raised past what the mass stands out of the body** - the bone's tip moves by the
+  whole offset, so a larger one puts the skin inside. Every flesh type has a `limit_max_share`
+  (`breast` 0.66, `butt` 0.9, the rest 1.0), and a type without one is capped at 1.0. Over the cap,
+  the limit is tightened onto the loosest measured rung inside it when that still keeps the region
+  out of the band's top; when nothing can do both, the row is `capped`, the limit is left alone, and
+  it names what to change instead - `response`, `gravity_scale`, `frequency_hz`, `damping_ratio`. A
+  region smaller than g/(2 pi f)^2 (3.4 cm at `soft_fat`'s 2.7 Hz) hangs off its limit whatever the
+  body does, and the row says so.
+- `verify_flesh.gd` also fails a region whose peak offset passed its own stand-out (`within_body`).
 - The band is Belle's: her self-test fails at 10%, and her eye-approved regions sit at 7.5-9% there and
   4.4-4.9% on this course (`references/flesh.md` "Swing limits from Godot").
 - Tune at the `response` the game plays at.
 - A game's own self-test can report the same thing: call `jiggle.measure_limits()` when its script
-  starts and `jiggle.print_limit_report("Belle")` when it ends.
+  starts and `jiggle.print_limit_report("Belle")` when it ends. **Both, or neither.** Without
+  `measure_limits()` the report has no regions, and the line says so: `problems`,
+  `regions_measured: 0`, and `suggest_limits` comes back with `in_band` and `settled` false and
+  refuses to apply. A run that measured nothing is not a run that passed.
 
 ## Rules
 

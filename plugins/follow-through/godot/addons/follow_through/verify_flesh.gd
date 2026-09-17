@@ -20,6 +20,15 @@ extends SceneTree
 ##   moved             peak offset > 2 mm: the load reached the bone
 ##   on_limit          on_limit_share < max_share (default 0.10, belle_demo's line): pinned on
 ##                     its limit the clamp stops the swing dead - allowed for moments, not as the look
+##   within_body       peak offset <= body_share x peak_m (default 1.0): the bone's tip moves by the
+##                     whole offset, so a mass that travels further than it stands out carries its
+##                     skin through the surface it sits on. A limit is what lets that happen, so a
+##                     suggestion raised past it is the bug this check catches, not a pass
+##
+## A run that measured nothing fails: no body built, or a `limit_report()` problem - no region
+## measured (measure_limits() not called), or a region with 0 ticks. The report keeps those apart
+## from what it did measure: `problems` is what was never measured, and only that makes a suggestion
+## built on the report untrustworthy; `failures` is a check that measured and did not pass.
 ##
 ## Arguments:
 ##   response=<x>      JiggleModifier.response_scale (default 1; Belle's demo plays at 1.5)
@@ -28,6 +37,7 @@ extends SceneTree
 ##   walk=, idle=      clip names (default: the first clip with "walk" / "idle" in its name)
 ##   walk_mps=1.2 run_mps=2.6 jump_mps=3.28 (a 0.55 m jump, belle_controller.gd's JUMP_HEIGHT)
 ##   max_share=0.10    the on_limit check's line
+##   body_share=1.0    the within_body check's line, as a share of peak_m
 ##   out=<path>        also write the reports, as a JSON list, to that file
 
 const FollowThrough = preload("res://addons/follow_through/follow_through.gd")
@@ -63,6 +73,7 @@ var height := 0.0
 var vy := 0.0
 var jumped := false
 var max_share := 0.10
+var body_share := 1.0
 
 
 func _initialize() -> void:
@@ -71,6 +82,7 @@ func _initialize() -> void:
 		if kv.size() == 2:
 			args[kv[0]] = kv[1]
 	max_share = float(args.get("max_share", "0.10"))
+	body_share = float(args.get("body_share", "1.0"))
 	if args.get("scene", "") == "":
 		printerr("verify_flesh: pass scene=res://...")
 		quit(2)
@@ -198,22 +210,48 @@ func _finish() -> void:
 		r["course"] = "verify_flesh/1"
 		r["response_scale"] = m["mod"].response_scale
 		r["max_share"] = max_share
-		var body_ok: bool = m["finite"]
+		r["body_share"] = body_share
+		# `problems` is what was never measured; `failures` is what was measured and is wrong.
+		# Only the first makes a suggestion built on this report untrustworthy.
+		var problems: PackedStringArray = r["problems"]
+		if not m["finite"]:
+			problems.append("an offset went NaN or inf")
+		var failures := PackedStringArray()
+		# a run that measured nothing is not a run that passed
+		var body_ok: bool = m["finite"] and problems.is_empty()
 		for rname in r["regions"]:
 			var g: Dictionary = r["regions"][rname]
+			var peak_m := float(g["peak_m"])
 			var checks := {
 				"finite": m["finite"],
 				"within_limit": float(g["peak_offset_m"]) <= float(g["max_offset_m"]) + 1e-4,
 				"moved": float(g["peak_offset_m"]) > 0.002,
 				"on_limit": float(g["on_limit_share"]) < max_share,
+				"within_body": peak_m <= 0.0 or float(g["peak_offset_m"]) <= body_share * peak_m + 1e-4,
 			}
+			if not checks["within_body"]:
+				failures.append("%s swung %.3f m, past %.2f x its %.3f m stand-out: its limit (%.3f m) lets its skin into the body" % [
+					rname, float(g["peak_offset_m"]), body_share, peak_m, float(g["max_offset_m"])])
 			g["checks"] = checks
 			g["passed"] = not checks.values().has(false)
+			if not g["passed"]:
+				var bad := []
+				for k in checks:
+					if not checks[k] and k != "within_body":
+						bad.append(k)
+				if not bad.is_empty():
+					failures.append("%s: %s" % [rname, ", ".join(bad)])
 			body_ok = body_ok and g["passed"]
+		r["problems"] = problems          # a PackedStringArray is a value: put the appends back
+		r["failures"] = failures
 		r["passed"] = body_ok
 		ok = ok and body_ok
 		all.append(r)
 		print("FT_FLESH_LIMITS " + JSON.stringify(r))
+		for p in problems:
+			print("  PROBLEM " + p)
+		for f in failures:
+			print("  FAILED  " + f)
 		for rname in r["regions"]:
 			var g: Dictionary = r["regions"][rname]
 			print("  %-16s %s  limit %.3f  peak %.3f  free peak %.3f  on the limit %4.1f%% in %d contacts (longest %d ticks)  %s" % [

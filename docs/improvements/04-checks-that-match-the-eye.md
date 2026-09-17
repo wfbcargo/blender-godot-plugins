@@ -149,32 +149,57 @@ already known:
      chosen only on rungs measured on both sides; a report from before the grid gets `interpolated`
      rows that say to run again, and never reads across a step larger than the band.
      A share that falls across the band between two neighbouring rungs takes the looser one
-     (`cliff`), and a band past the ladder's end takes the end and says to run again. A type's
-     `limit_max_share` caps a raise (breast 0.66) and is reported `capped`. `flesh.apply_limits`
-     writes the result into the spec. Old `FLESH` self-test lines get an estimate.
+     (`cliff`), and a band past the ladder's end takes the end and says to run again.
+     `flesh.apply_limits` writes the result into the spec. Old `FLESH` self-test lines get an estimate.
+   - **Never past the body.** The jiggle bone's tip moves by the whole offset, so a limit larger than
+     the region's stand-out puts its skin inside the surface it sits on. Every flesh type has a
+     `limit_max_share` - `breast` 0.66, `butt` 0.9, the other five 1.0 - and a type the registry does
+     not name is capped at `limits.DEFAULT_MAX_SHARE` = 1.0, so none is left unguarded. Over the cap
+     the limit is tightened onto the loosest measured rung inside it, but only when that rung still
+     keeps the region out of the band's top; otherwise the region keeps its limit, the row is
+     `capped`, and it names what to change instead (`response`, `gravity_scale`, `frequency_hz`,
+     `damping_ratio`, with the g/(2 pi f)^2 sag spelled out when that is the cause). A pair is chosen
+     among the rungs inside the tighter of its two caps whenever one of those puts both sides in the
+     band. `verify_flesh.gd` gains `within_body`: a region whose peak offset passed its own stand-out
+     fails. Before this, the Figure's 2.2 cm arm flab was raised to 5.66 cm at response 1.0 and
+     6.73 cm at 1.5 - 2.6 and 3.1 x - every run, and the run reported PASSED.
+   - **A run that measured nothing fails**, as wardrobe's verifier does since 74af7a9.
+     `limit_report()` leaves out a region `measure_limits()` never touched, so a self-test that
+     prints without starting it emits a report with no regions, and that used to read as
+     `in_band: true, settled: true`. The report now carries `measuring`, `regions_total`,
+     `regions_measured` and `problems` (never measured) apart from `failures` (measured and wrong);
+     `verify_flesh.gd` fails the body on a problem; `limits.suggest` turns a body with no regions or
+     a region with 0 ticks into its own `problems` with `in_band` and `settled` false; and
+     `flesh.apply_limits` refuses such a suggestion.
    - **Band.** The 9% upper edge sits under the self-test's 10% failing line. At that line Belle's
      5.8 cm buttocks (11-12%) were rejected, and her accepted regions sit at 7.5-9.0%, about 0.3
      points apart between runs. The 3% lower edge comes from the course: below it, only the jumps
      touch the limit (the sample bodies' shipped limits: 0.5-1.2%, 4-7 contacts of 1-3 ticks, every
      one a jump). Belle's shipped limits read 4.4-4.9% on the course at her response of 1.5, inside
      the band, and are kept.
-   - **Converged.** Suggestions were applied in Blender, exported and re-run with no override, on
-     the shared grid. Every applied row measured within 0.13 points of its expected share (one tick
-     is 0.12), and every pair shared 32-33 of 33 rungs:
-     - Figure: every region inside in one step. Arm flab went from 88-91% (held for 3 s) to
-       6.3/5.4%, breasts from 1.1/1.2% to 5.4/3.2%.
-     - Bloater: two steps, because its love handles started at 21 cm, past the ladder. Every region
-       ended at 3.4-5.5%.
-     - At response 1.5 both settle in one step. The Figure's breast.L stays at 11.9%, `capped` at
-       0.66 x peak.
+   - **Converged**, with run 2 and run 3 identical (a fixed point, not a walk):
+     - Figure at response 1: 7 of 9 regions inside after one suggestion (breasts 1.1/1.2% -> 5.4/3.2,
+       butts 0.7 -> 3.3/3.7, belly 1.0 -> 4.9). The arm flab is `capped` - it needs 3.7 cm and stands
+       2.2 cm out.
+     - Bloater at response 1: 9 of 11 at 3.4-5.5% after two, its love handles having started at
+       21 cm, past the ladder. Its arm flab is `capped` too.
+     - Following the capped rows' own advice (response 0.3, `gravity_scale` 0.3) the Figure settles
+       whole in two runs: every region 4.2-6.5%, `in_band`, `settled`, `FT_SUMMARY PASSED` with
+       `within_body` included.
 
      Numbers are in `follow-through/references/flesh.md` "Swing limits from Godot".
    - **Golden:** `flesh_figure` gains `bodies.Figure.limit_suggestion`: a made-up ladder report for
      the Figure's regions that takes every branch, suggested and applied after the export, with
-     `expected_is_true` checking every measured row's expected share against the share function,
-     and a second body of own-limit ladders for `interpolated`. Nothing else moved.
+     `expected_is_true` checking every measured row's expected share against the share function, a
+     second body of own-limit ladders for `interpolated` and a third of one region shipped at
+     1.2 x peak_m for the tighten-onto-the-cap branch. `bodies.Figure.no_measurement` holds the
+     refusals: an empty report and a 0-tick one, and the `ValueError` `apply_limits` raises.
    - **Not done:** belle_demo.gd's self-test (grungist-creek) does not call `measure_limits` yet. The
-     registry's `limit_share` values are unchanged. `regress.py --godot` does not run
+     registry's `limit_share` values are unchanged, and so is the material default a type without one
+     gets, `max_offset x 2 x peak_m` = 1.2 x peak_m - looser than the 1.0 cap, so an uncapped type's
+     shipped limit can only be lowered by a suggestion, never raised. Both sample bodies' arm flab
+     fails `within_body` at that shipped limit and needs its material retuned (at `soft_fat`'s 2.7 Hz
+     it hangs 3.4 cm off a 2.2 cm flab), not its limit. `regress.py --godot` does not run
      `verify_flesh.gd`.
 
 ## Done when

@@ -1138,8 +1138,13 @@ def suggest_limits(report, band=None, target=None, caps=None):
     printed: the `FT_FLESH_LIMITS {json}` lines, the log holding them, the `out=` JSON file, or the
     parsed dicts. A region on its limit for less than `band[0]` or more than `band[1]` of the ticks
     (default `limits.BAND`) gets a limit read off the unlimited swing's demand curve that puts
-    it at `target` (the middle). `caps` defaults to each registry type's `limit_max_share`.
-    See `limits.suggest` for the returned rows; `apply_limits` writes them into the spec."""
+    it at `target` (the middle). `caps` defaults to each registry type's `limit_max_share`, and a
+    type with none is capped at `limits.DEFAULT_MAX_SHARE` x peak_m: no suggestion ever carries a
+    mass further than it stands out of the body.
+
+    A report that measured nothing fails: the result's `problems` say what, and `in_band` and
+    `settled` are then false. See `limits.suggest` for the returned rows; `apply_limits` writes them
+    into the spec."""
     from . import limits, registry
     if caps is None:
         caps = {name: t["limit_max_share"] for name, t in registry.load()["types"].items()
@@ -1151,12 +1156,19 @@ def apply_limits(obj_name, suggestion, body=None):
     """Write a `suggest_limits` result's `suggested_max_offset_m` into `obj_name`'s jiggle spec.
 
     `body` names the body in the suggestion (default: `obj_name`, or the only one). Regions the
-    suggestion does not name are left alone. Returns {region: [old, new]} for what changed."""
+    suggestion does not name are left alone. A suggestion with `problems` - a report that measured
+    nothing - is refused. Returns {region: [old, new]} for what changed."""
     from . import spec
+    if not suggestion.get("measured", True):
+        raise ValueError("this suggestion came from a report that measured nothing: "
+                         + "; ".join(suggestion.get("problems", [])))
     bodies = suggestion["bodies"]
     key = body or (obj_name if obj_name in bodies else (next(iter(bodies)) if len(bodies) == 1 else None))
     if key not in bodies:
         raise ValueError(f"no body {body or obj_name!r} in the suggestion; it has {sorted(bodies)}")
+    if not bodies[key]:
+        raise ValueError(f"the suggestion measured no region of {key!r}: "
+                         + "; ".join(suggestion.get("problems", [])))
     obj = bpy.data.objects[obj_name]
     s = spec.read(obj)
     if s is None or "jiggle" not in s:

@@ -107,8 +107,9 @@ def define(name, family, classes, material=None, names=(), description="", zone=
     `pelvis`, `chest` or `head` - instead of the core bone nearest the region. `limit_share` sets a
     flesh type's swing limit, `max_offset_m = limit_share x peak_m`, in place of the material's;
     `limit_note` says where the number came from; `limit_max_share` is the most
-    `flesh.suggest_limits` may raise it to (a breast swung in further than two thirds of its
-    stand-out passes into the chest). `lean="profile"` reads a flesh type's excess from the side,
+    `flesh.suggest_limits` may raise it to, as a share of peak_m (a breast swung in further than two
+    thirds of its stand-out passes into the chest). A type with none is capped at
+    `limits.DEFAULT_MAX_SHARE`, 1.0 - its own stand-out - so no type is left unguarded. `lean="profile"` reads a flesh type's excess from the side,
     across chains, instead of from rings round one (`flesh.measured`): for a mass where
     one chain ends and the next begins, as a buttock sits between the spine and the thighs."""
     if not re.fullmatch(r"[a-z][a-z0-9_]*", name):

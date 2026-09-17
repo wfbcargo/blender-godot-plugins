@@ -21,6 +21,18 @@ never offered as a measurement: a report whose pair ladders share under half the
 is chosen between rungs with basis 'interpolated' (run again), and a step between two rungs larger
 than the band's width is unknown there, not a line.
 
+A suggestion is never raised past what the mass's own geometry allows: `max_offset_m` at most
+`limit_max_share x peak_m`, the type's if the registry gives one and `DEFAULT_MAX_SHARE` otherwise.
+The tip of a jiggle bone moves by the whole offset, so an offset larger than the region's stand-out
+carries its skin through the surface it sits on - the reason `breast` is capped at 0.66. Without a
+default, a type with no cap could be raised to the ladder's loosest rung, four times its limit, every
+run: the Figure's arm flab reached 3.1 x its 2.2 cm stand-out that way.
+
+A run that measured nothing fails, the way wardrobe's verifier does: a body with no regions, or a
+region with no ticks, is a `problem`, and `in_band` and `settled` are then false. `limit_report()`
+skips a region `measure_limits()` never touched, so a self-test that prints the report without
+starting it emits a report with no regions at all.
+
 No bpy here: `flesh.suggest_limits` and `flesh.apply_limits` wrap this with the registry's caps and
 the spec.
 """
@@ -38,6 +50,10 @@ SCHEMA = "follow-through/flesh-limits/1"
 BAND = (0.03, 0.09)
 TARGET = 0.06
 MIN_OFFSET_M = 0.005          # never suggest a limit tighter than this: a bone that cannot move
+# The most a limit may be, as a share of peak_m, for a type the registry gives no `limit_max_share`.
+# The bone's tip moves by the whole offset, so at 1.0 the skin lands on the surface the mass sits on
+# and past it goes inside. Types bounded tighter than their own stand-out say so (breast 0.66).
+DEFAULT_MAX_SHARE = 1.0
 # A report line with no ladder (belle_demo's older FLESH lines) is scaled as share ~ limit^(-1/0.575):
 # Belle's butt read 11-12% on the limit at 5.8 cm and 8-9% at 6.9 cm (ln 1.35 / ln 1.19 = 1.74).
 LEGACY_EXPONENT = 0.575
@@ -102,21 +118,28 @@ def ladder_limits(limit_m, base_m=LADDER_BASE_M, steps=LADDER_STEPS):
     return [round(base_m * 2.0 ** (k / 8.0), 4) for k in range(k0 - steps, k0 + steps + 1)]
 
 
-def suggest(report, band=BAND, target=None, caps=None, min_offset_m=MIN_OFFSET_M, pairs=True):
+def suggest(report, band=BAND, target=None, caps=None, min_offset_m=MIN_OFFSET_M, pairs=True,
+            default_max_share=DEFAULT_MAX_SHARE):
     """A suggested `max_offset_m` and `limit_share` per region, from Godot's limit report.
 
     report   anything `read_reports` reads
     band     (low, high) share of time on the limit that is left as it is
     target   the share a region outside the band is moved to (default the middle of the band)
-    caps     {type: largest limit_share} - a limit that anatomy bounds (a breast swung in further than
-             two thirds of its stand-out passes its skin into the chest) is never raised past it;
-             a region that would need more is marked `capped`, with what to change instead
+    caps     {type: largest limit_share} - anatomy's bound on a limit (a breast swung in further than
+             two thirds of its stand-out passes its skin into the chest). No suggestion goes past it.
+             A limit over it is tightened onto the loosest measured rung inside it when that still
+             keeps the region out of the band's top; when no limit can do both - the region needs a
+             looser one than its own geometry has - it keeps the limit it has and is marked `capped`,
+             with what to change instead. A limit is never tightened onto a rung that pins the region
     pairs    give `<x>.L` and `<x>.R` one limit, chosen on both ladders (a course turns one way, so
              the two sides of a symmetric body do not measure the same)
+    default_max_share  the cap for a type `caps` does not name, so no type is left unguarded
 
-    Returns {"band", "target", "in_band" (every region measured inside), "settled" (nothing to
-    change), "capped" [body/region], "bodies": {body: {region: row}}, "types": {type: {"limit_share":
-    median suggested share, "regions": n}}}. A row carries `action` keep / lower / raise,
+    Returns {"band", "target", "measured" (some region was), "problems" (what measured nothing),
+    "in_band" (every region measured inside), "settled" (nothing to change), "capped" [body/region],
+    "bodies": {body: {region: row}}, "types": {type: {"limit_share":
+    median suggested share, "regions": n}}}. `in_band` and `settled` are false whenever there are
+    problems: a run that measured nothing is not a run that passed. A row carries `action` keep / lower / raise,
     `max_offset_m` and `on_limit_share` as measured, `in_band`, `suggested_max_offset_m`,
     `suggested_limit_share` (None without peak_m), `basis` ('in band'; 'ladder', a measured rung;
     'pair', a rung measured on both sides' ladders; 'cliff', the looser of two neighbouring measured
@@ -127,21 +150,31 @@ def suggest(report, band=BAND, target=None, caps=None, min_offset_m=MIN_OFFSET_M
     lo, hi = band
     t = (lo + hi) / 2.0 if target is None else float(target)
     caps = caps or {}
-    out = {"schema": SCHEMA, "band": [lo, hi], "target": round(t, 4), "in_band": True, "settled": True,
-           "capped": [], "bodies": {}, "types": {}}
+    out = {"schema": SCHEMA, "band": [lo, hi], "target": round(t, 4), "measured": False, "problems": [],
+           "in_band": True, "settled": True, "capped": [], "bodies": {}, "types": {}}
     shares_by_type = {}
     for body in read_reports(report):
         bname = body.get("body", "body%d" % len(out["bodies"]))
         regions = body.get("regions", {})
+        out["problems"].extend("%s: %s" % (bname, p) for p in body.get("problems", []))
+        if not regions:
+            # limit_report() skips a region measure_limits() never touched: print_limit_report()
+            # called without it prints exactly this, and it used to read as settled and in band
+            out["problems"].append("%s: the report measured no regions - call measure_limits() "
+                                   "before print_limit_report()" % bname)
         rows = {}
         for name, g in sorted(regions.items()):
             if name in rows:
                 continue
+            if "ticks" in g and int(g["ticks"]) <= 0:
+                out["problems"].append("%s/%s: 0 ticks measured" % (bname, name))
             other = _mirror(name)
             if pairs and other in regions and g.get("ladder") and regions[other].get("ladder"):
-                rows.update(_suggest_pair({name: g, other: regions[other]}, lo, hi, t, caps, min_offset_m))
+                rows.update(_suggest_pair({name: g, other: regions[other]}, lo, hi, t, caps, min_offset_m,
+                                          default_max_share))
             else:
-                rows[name] = _suggest_region(g, lo, hi, t, caps, min_offset_m)
+                rows[name] = _suggest_region(g, lo, hi, t, caps, min_offset_m, default_max_share)
+        out["measured"] = out["measured"] or bool(rows)
         for name in sorted(rows):
             row = rows[name]
             out["in_band"] = out["in_band"] and row["in_band"]
@@ -151,6 +184,11 @@ def suggest(report, band=BAND, target=None, caps=None, min_offset_m=MIN_OFFSET_M
             if row["suggested_limit_share"] is not None and row.get("type"):
                 shares_by_type.setdefault(row["type"], []).append(row["suggested_limit_share"])
         out["bodies"][bname] = {n: rows[n] for n in sorted(rows)}
+    if not out["measured"] and not out["problems"]:
+        out["problems"].append("nothing was measured at all")
+    if out["problems"]:
+        out["in_band"] = False
+        out["settled"] = False
     for tname, shares in sorted(shares_by_type.items()):
         s = sorted(shares)
         mid = s[len(s) // 2] if len(s) % 2 else (s[len(s) // 2 - 1] + s[len(s) // 2]) / 2.0
@@ -194,7 +232,7 @@ def _share_between(ladder, L, max_step):
     return None
 
 
-def _suggest_pair(both, lo, hi, t, caps, min_offset_m):
+def _suggest_pair(both, lo, hi, t, caps, min_offset_m, default_max_share=DEFAULT_MAX_SHARE):
     """One limit for a left and right region. Kept when both already share a limit (to 0.5 mm) and
     both read inside the band; otherwise chosen by `_choose` on the rungs measured on every side (one
     grid, `ladder_limits`, so all of them but an end rung when the two limits round to different
@@ -206,7 +244,8 @@ def _suggest_pair(both, lo, hi, t, caps, min_offset_m):
     limits = [float(both[n]["max_offset_m"]) for n in names]
     if all(rows[n]["in_band"] for n in names) and max(limits) - min(limits) < 5e-4:
         return {n: _finish(rows[n], both[n], float(both[n]["max_offset_m"]), "in band",
-                           float(both[n]["on_limit_share"]), caps, min_offset_m) for n in names}
+                           float(both[n]["on_limit_share"]), caps, min_offset_m, default_max_share,
+                           (lo, hi)) for n in names}
     ladders = {n: _ladder(both[n]) for n in names}
     candidates = []
     for L, _ in ladders[names[0]]:
@@ -223,7 +262,18 @@ def _suggest_pair(both, lo, hi, t, caps, min_offset_m):
             if all(q is not None for q, _ in sides.values()):
                 candidates.append((L, sides))
     if not candidates:
-        return {n: _suggest_region(both[n], lo, hi, t, caps, min_offset_m) for n in names}
+        return {n: _suggest_region(both[n], lo, hi, t, caps, min_offset_m, default_max_share)
+                for n in names}
+    # A pair is one limit, and the cap must not split it: when a rung inside the tighter of the two
+    # caps puts both sides in the band, choose among those. Otherwise leave the choice alone and let
+    # `_finish` cap each side - there is no shared limit that is both inside the geometry and out of
+    # the band's top, and saying so per side is the answer.
+    allowed = [caps.get(both[n].get("type", ""), default_max_share) * float(both[n]["peak_m"])
+               for n in names if both[n].get("peak_m") and caps.get(both[n].get("type", ""), default_max_share)]
+    if allowed:
+        tight = [c for c in candidates if c[0] <= min(allowed) + 1e-6]
+        if any(all(lo <= q <= hi for q, _ in c[1].values()) for c in tight):
+            candidates = tight
     L, basis, note = _choose(candidates, lo, hi, t)
     shares = dict(candidates)[L]
     if interpolated:
@@ -237,7 +287,15 @@ def _suggest_pair(both, lo, hi, t, caps, min_offset_m):
         rows[n]["notes"].append("one limit for %s and %s" % (names[0], names[1]))
         if note:
             rows[n]["notes"].append(note)
-        out[n] = _finish(rows[n], both[n], L, basis, shares[n][0], caps, min_offset_m)
+        out[n] = _finish(rows[n], both[n], L, basis, shares[n][0], caps, min_offset_m, default_max_share,
+                         (lo, hi))
+    apart = abs(out[names[0]]["suggested_max_offset_m"] - out[names[1]]["suggested_max_offset_m"]) >= 5e-4
+    if apart and not all(out[n]["action"] == "keep" for n in names):
+        # both sides keeping the limits they shipped with is the `capped` note's business, not this one
+        for n in names:
+            out[n]["notes"].append("the two sides end apart (%s): no one limit is inside both sides' "
+                                   "geometry and out of the band's top" % ", ".join(
+                                       "%s %.4f m" % (m, out[m]["suggested_max_offset_m"]) for m in names))
     return out
 
 
@@ -282,6 +340,18 @@ def _choose(candidates, lo, hi, t):
                              "apply and run again" % (100 * hi, L))
 
 
+def _gravity_sag(g):
+    """How far gravity alone can carry a region: a spring at f Hz whose rest point turns with the
+    anchor settles g/(2 pi f)^2 away from it. A region smaller than that sits on its limit whatever
+    the body does, and no limit inside its own geometry can free it (follow-through's soft_fat is
+    2.7 Hz: 3.4 cm, more than the sample Figure's 2.2 cm arm flab stands out)."""
+    f = float(g.get("frequency_hz") or 0.0)
+    if f <= 0.0:
+        return None
+    import math
+    return 9.81 / (2.0 * math.pi * f) ** 2
+
+
 def _row(g, lo, hi):
     s0 = float(g["on_limit_share"])
     return {"type": g.get("type", ""), "max_offset_m": float(g["max_offset_m"]), "on_limit_share": s0,
@@ -289,7 +359,7 @@ def _row(g, lo, hi):
             "notes": []}
 
 
-def _suggest_region(g, lo, hi, t, caps, min_offset_m):
+def _suggest_region(g, lo, hi, t, caps, min_offset_m, default_max_share=DEFAULT_MAX_SHARE):
     L0 = float(g["max_offset_m"])
     s0 = float(g["on_limit_share"])
     row = _row(g, lo, hi)
@@ -309,7 +379,7 @@ def _suggest_region(g, lo, hi, t, caps, min_offset_m):
             L = L0 * (s0 / t) ** LEGACY_EXPONENT
         basis, expect = "estimate", None
         row["notes"].append("no ladder in the report: an estimate, measure again after applying it")
-    return _finish(row, g, L, basis, expect, caps, min_offset_m)
+    return _finish(row, g, L, basis, expect, caps, min_offset_m, default_max_share, (lo, hi))
 
 
 def _rung(ladder, lo_m, hi_m, loosest, default, unmeasured):
@@ -324,18 +394,43 @@ def _rung(ladder, lo_m, hi_m, loosest, default, unmeasured):
     return max(inside) if loosest else min(inside)
 
 
-def _finish(row, g, L, basis, expect, caps, min_offset_m):
+def _finish(row, g, L, basis, expect, caps, min_offset_m, default_max_share=DEFAULT_MAX_SHARE,
+            band=BAND):
+    hi = band[1]
     L0 = float(g["max_offset_m"])
     peak_m = float(g.get("peak_m") or 0.0)
     ladder = _ladder(g)
-    cap = caps.get(g.get("type", ""))
-    if cap is not None and peak_m > 0.0 and L > L0 and L > cap * peak_m + 1e-6:
-        # raising past what anatomy allows: the loosest measured rung the cap allows (or stay, if none)
-        row["capped"] = True
-        row["notes"].append("needs %.3f m but the type allows %.2f x peak_m = %.3f m: lower `response` or raise "
-                            "`damping_ratio` instead" % (L, cap, cap * peak_m))
-        L, expect = _rung(ladder, L0 + RUNG_TOL_M, cap * peak_m + 1e-6, True, (L0, row["on_limit_share"]),
-                         max(L0, cap * peak_m))
+    cap = caps.get(g.get("type", ""), default_max_share)
+    row["max_share"] = cap
+    if cap is not None and peak_m > 0.0 and L > cap * peak_m + 1e-6:
+        # past what the mass's own geometry allows. The loosest limit measured inside the cap is
+        # taken when it still keeps the region out of the band's top; otherwise no limit can do both
+        # and the region keeps the one it has, marked `capped`.
+        allowed = cap * peak_m
+        inside, q_inside = _rung(ladder, min_offset_m - 1e-6, allowed + 1e-6, True, (None, None), allowed)
+        want = ("needs %.3f m" % L if L > L0 + RUNG_TOL_M
+                else "sits at %.2f x peak_m" % (L0 / peak_m))
+        if inside is not None and (q_inside is None or q_inside <= hi):
+            row["notes"].append("%s: tightened to %.3f m, the loosest measured limit inside the "
+                                "%.2f x peak_m = %.3f m the type allows" % (want, inside, cap, allowed))
+            L, expect = inside, q_inside
+        else:
+            row["capped"] = True
+            row["notes"].append("%s, but the type allows %.2f x peak_m = %.3f m, where it would sit "
+                                "on the limit %s: the limit cannot fix this one - lower `response` or "
+                                "`gravity_scale`, or raise `frequency_hz` or `damping_ratio`" % (
+                                    want, cap, allowed,
+                                    "even more" if q_inside is None else "%.1f%% of the time" % (100 * q_inside)))
+            sag = _gravity_sag(g)
+            if sag is not None and sag > allowed:
+                row["notes"].append("it hangs off its limit whatever the motion: at %.1f Hz a turn of "
+                                    "the anchor moves its rest point by up to g/(2 pi f)^2 = %.3f m, "
+                                    "more than the %.3f m allowed - raise `frequency_hz` or lower "
+                                    "`gravity_scale`" % (float(g["frequency_hz"]), sag, allowed))
+            L, expect = L0, row["on_limit_share"]
+    elif peak_m <= 0.0 and L > L0 + RUNG_TOL_M:
+        row["notes"].append("no peak_m in the report: nothing bounds this raise, so measure the body "
+                            "and suggest again before shipping it")
     if L < min_offset_m:
         row["notes"].append("floored at %.3f m" % min_offset_m)
         L, expect = _rung(ladder, min_offset_m - 1e-6, float("inf"), False, (min_offset_m, None), min_offset_m)
@@ -352,6 +447,8 @@ def summarize(suggestion):
     lines = ["flesh limits: band %.0f-%.0f%% on the limit, target %.1f%%%s" % (
         100 * suggestion["band"][0], 100 * suggestion["band"][1], 100 * suggestion["target"],
         " - every region inside" if suggestion["in_band"] else "")]
+    for problem in suggestion.get("problems", []):
+        lines.append("  PROBLEM " + problem)
     if suggestion.get("capped"):
         lines.append("  capped (the limit cannot fix these): " + ", ".join(suggestion["capped"]))
     for body, rows in suggestion["bodies"].items():

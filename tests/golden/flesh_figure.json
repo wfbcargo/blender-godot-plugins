@@ -435,7 +435,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-33u3nl9v\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-u3ayindi\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -786,14 +786,6 @@
     },
     "limit_suggestion": {
      "applied": {
-      "arm_flab.L": [
-       0.0264,
-       0.0367
-      ],
-      "arm_flab.R": [
-       0.0265,
-       0.0367
-      ],
       "belly": [
        0.0544,
        0.0308
@@ -816,6 +808,8 @@
       ]
      },
      "capped": [
+      "Figure/arm_flab.L",
+      "Figure/arm_flab.R",
       "Figure/breast.L",
       "Figure/breast.R"
      ],
@@ -834,30 +828,36 @@
      "rows": {
       "Figure": {
        "arm_flab.L": {
-        "action": "raise",
+        "action": "keep",
         "basis": "pair",
-        "expected_on_limit_share": 0.0645,
+        "capped": true,
+        "expected_on_limit_share": 0.9,
         "in_band": false,
         "max_offset_m": 0.0264,
+        "max_share": 1.0,
         "notes": [
-         "one limit for arm_flab.L and arm_flab.R"
+         "one limit for arm_flab.L and arm_flab.R",
+         "needs 0.037 m, but the type allows 1.00 x peak_m = 0.022 m, where it would sit on the limit 100.0% of the time: the limit cannot fix this one - lower `response` or `gravity_scale`, or raise `frequency_hz` or `damping_ratio`"
         ],
         "on_limit_share": 0.9,
-        "suggested_limit_share": 1.668,
-        "suggested_max_offset_m": 0.0367
+        "suggested_limit_share": 1.2,
+        "suggested_max_offset_m": 0.0264
        },
        "arm_flab.R": {
-        "action": "raise",
+        "action": "keep",
         "basis": "pair",
-        "expected_on_limit_share": 0.0591,
+        "capped": true,
+        "expected_on_limit_share": 0.8,
         "in_band": false,
         "max_offset_m": 0.0265,
+        "max_share": 1.0,
         "notes": [
-         "one limit for arm_flab.L and arm_flab.R"
+         "one limit for arm_flab.L and arm_flab.R",
+         "needs 0.037 m, but the type allows 1.00 x peak_m = 0.022 m, where it would sit on the limit 100.0% of the time: the limit cannot fix this one - lower `response` or `gravity_scale`, or raise `frequency_hz` or `damping_ratio`"
         ],
         "on_limit_share": 0.8,
-        "suggested_limit_share": 1.661,
-        "suggested_max_offset_m": 0.0367
+        "suggested_limit_share": 1.199,
+        "suggested_max_offset_m": 0.0265
        },
        "belly": {
         "action": "lower",
@@ -865,6 +865,7 @@
         "expected_on_limit_share": 0.0551,
         "in_band": false,
         "max_offset_m": 0.0544,
+        "max_share": 1.0,
         "notes": [],
         "on_limit_share": 0.01,
         "suggested_limit_share": 0.68,
@@ -877,9 +878,10 @@
         "expected_on_limit_share": 0.14,
         "in_band": false,
         "max_offset_m": 0.0515,
+        "max_share": 0.66,
         "notes": [
          "one limit for breast.L and breast.R",
-         "needs 0.067 m but the type allows 0.66 x peak_m = 0.052 m: lower `response` or raise `damping_ratio` instead"
+         "needs 0.067 m, but the type allows 0.66 x peak_m = 0.052 m, where it would sit on the limit 17.7% of the time: the limit cannot fix this one - lower `response` or `gravity_scale`, or raise `frequency_hz` or `damping_ratio`"
         ],
         "on_limit_share": 0.14,
         "suggested_limit_share": 0.659,
@@ -892,9 +894,10 @@
         "expected_on_limit_share": 0.1,
         "in_band": false,
         "max_offset_m": 0.0527,
+        "max_share": 0.66,
         "notes": [
          "one limit for breast.L and breast.R",
-         "needs 0.067 m but the type allows 0.66 x peak_m = 0.053 m: lower `response` or raise `damping_ratio` instead"
+         "needs 0.067 m, but the type allows 0.66 x peak_m = 0.053 m, where it would sit on the limit 10.5% of the time: the limit cannot fix this one - lower `response` or `gravity_scale`, or raise `frequency_hz` or `damping_ratio`"
         ],
         "on_limit_share": 0.1,
         "suggested_limit_share": 0.66,
@@ -906,6 +909,7 @@
         "expected_on_limit_share": 0.0282,
         "in_band": false,
         "max_offset_m": 0.075,
+        "max_share": 0.9,
         "notes": [
          "one limit for butt.L and butt.R",
          "on the limit under 3% of the time even at 0.0183 m, the ladder's tightest: apply and run again"
@@ -920,6 +924,7 @@
         "expected_on_limit_share": 0.0221,
         "in_band": false,
         "max_offset_m": 0.0746,
+        "max_share": 0.9,
         "notes": [
          "one limit for butt.L and butt.R",
          "on the limit under 3% of the time even at 0.0183 m, the ladder's tightest: apply and run again"
@@ -934,6 +939,7 @@
         "expected_on_limit_share": 0.01,
         "in_band": false,
         "max_offset_m": 0.0126,
+        "max_share": 1.0,
         "notes": [
          "one limit for thigh.L and thigh.R",
          "no limit measured lands inside the band: 20.0% at 0.0130 m, 1.0% at 0.0141 m; the looser taken"
@@ -948,6 +954,7 @@
         "expected_on_limit_share": 0.01,
         "in_band": false,
         "max_offset_m": 0.0127,
+        "max_share": 1.0,
         "notes": [
          "one limit for thigh.L and thigh.R",
          "no limit measured lands inside the band: 20.0% at 0.0130 m, 1.0% at 0.0141 m; the looser taken"
@@ -964,6 +971,7 @@
         "expected_on_limit_share": 0.01,
         "in_band": false,
         "max_offset_m": 0.0126,
+        "max_share": 1.0,
         "notes": [
          "one limit for thigh.L and thigh.R",
          "the two ladders share too few rungs (built before the shared grid): chosen on shares read between rungs, apply and run again; no limit measured lands inside the band: 20.0% at 0.0126 m, 1.0% at 0.0138 m; the looser taken"
@@ -978,6 +986,7 @@
         "expected_on_limit_share": 0.01,
         "in_band": false,
         "max_offset_m": 0.0127,
+        "max_share": 1.0,
         "notes": [
          "one limit for thigh.L and thigh.R",
          "the two ladders share too few rungs (built before the shared grid): chosen on shares read between rungs, apply and run again; no limit measured lands inside the band: 20.0% at 0.0126 m, 1.0% at 0.0138 m; the looser taken"
@@ -987,6 +996,22 @@
         "suggested_max_offset_m": 0.0138
        }
       },
+      "Figure (shipped loose)": {
+       "love_handle.L": {
+        "action": "lower",
+        "basis": "in band",
+        "expected_on_limit_share": 0.0477,
+        "in_band": true,
+        "max_offset_m": 0.06,
+        "max_share": 1.0,
+        "notes": [
+         "sits at 1.20 x peak_m: tightened to 0.048 m, the loosest measured limit inside the 1.00 x peak_m = 0.050 m the type allows"
+        ],
+        "on_limit_share": 0.03,
+        "suggested_limit_share": 0.952,
+        "suggested_max_offset_m": 0.0476
+       }
+      },
       "self-test": {
        "breast.L": {
         "action": "keep",
@@ -994,6 +1019,7 @@
         "expected_on_limit_share": 0.075,
         "in_band": true,
         "max_offset_m": 0.078,
+        "max_share": 1.0,
         "notes": [],
         "on_limit_share": 0.075,
         "suggested_limit_share": null,
@@ -1005,8 +1031,10 @@
         "expected_on_limit_share": null,
         "in_band": false,
         "max_offset_m": 0.058,
+        "max_share": 1.0,
         "notes": [
-         "no ladder in the report: an estimate, measure again after applying it"
+         "no ladder in the report: an estimate, measure again after applying it",
+         "no peak_m in the report: nothing bounds this raise, so measure the body and suggest again before shipping it"
         ],
         "on_limit_share": 0.115,
         "suggested_limit_share": null,
@@ -1016,8 +1044,8 @@
      },
      "settled": false,
      "spec_limits": {
-      "arm_flab.L": 0.0367,
-      "arm_flab.R": 0.0367,
+      "arm_flab.L": 0.0264,
+      "arm_flab.R": 0.0265,
       "belly": 0.0308,
       "breast.L": 0.0515,
       "breast.R": 0.0527,
@@ -1028,7 +1056,7 @@
      },
      "types": {
       "arm_flab": {
-       "limit_share": 1.664,
+       "limit_share": 1.2,
        "regions": 2
       },
       "belly": {
@@ -1042,6 +1070,10 @@
       "butt": {
        "limit_share": 0.221,
        "regions": 2
+      },
+      "love_handle": {
+       "limit_share": 0.952,
+       "regions": 1
       },
       "thigh": {
        "limit_share": 0.661,
@@ -1100,6 +1132,30 @@
       "FigureWalk"
      ],
      "problems": []
+    },
+    "no_measurement": {
+     "apply_refused": "this suggestion came from a report that measured nothing: Belle: no region was measured (6 in the spec): call measure_limits() before print_limit_report(), and while the body animates; Belle: the report measured no regions - call measure_limits() before print_limit_report()",
+     "empty": {
+      "bodies": {
+       "Belle": {}
+      },
+      "in_band": false,
+      "measured": false,
+      "problems": [
+       "Belle: no region was measured (6 in the spec): call measure_limits() before print_limit_report(), and while the body animates",
+       "Belle: the report measured no regions - call measure_limits() before print_limit_report()"
+      ],
+      "settled": false
+     },
+     "no_ticks": {
+      "in_band": false,
+      "measured": true,
+      "problems": [
+       "Belle: breast.L: 0 ticks measured",
+       "Belle/breast.L: 0 ticks measured"
+      ],
+      "settled": false
+     }
     },
     "prepare": {
      "bones": [
@@ -1410,7 +1466,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-33u3nl9v\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-u3ayindi\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",
