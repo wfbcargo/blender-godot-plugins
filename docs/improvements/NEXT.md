@@ -25,10 +25,10 @@ and the gotchas are there.
 | Item | Status |
 |---|---|
 | [03 Regression harness and install](03-regression-harness-and-install.md) | **Done.** |
-| [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | **Done, lean.** One "done when" unmet: Belle still needs hand-marked flesh zones (blocked on 05 · 5.9). |
+| [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | **Done.** Belle's hand-marked flesh zones retired with 05 · 5.9. |
 | [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | **Done.** Belle and the 16 people build from `grungist-creek/characters/*.toml`. Two small conventions open (below). |
 | [04 Checks that match the eye](04-checks-that-match-the-eye.md) | **a done** (wardrobe 0.2.1). b-d not started. |
-| [05 Feature gaps](05-feature-gaps.md) | 5.1, 5.6, 5.7 done. Open: 5.2 hair, 5.3 compression garments, 5.4 skirts, 5.5 muscle, 5.8 fixture findings, 5.9 buttocks read low. |
+| [05 Feature gaps](05-feature-gaps.md) | 5.1, 5.6, 5.7 done. Open: 5.2 hair, 5.3 compression garments, 5.4 skirts, 5.5 muscle, 5.8 (starfish bone counts, radial.skin coverage). 5.9 done. |
 | Old project notes | Not triaged (item 7 below). |
 
 What exists now, and is worth knowing before starting anything:
@@ -71,17 +71,15 @@ Take them one at a time; each is a short branch.
 - **Starfish arms get 3 and 4 bones** off a rounding edge in `radial.build`. Take one count per appendage kind.
 - **`radial.skin` reports coverage without measuring it.**
 
-### 3. 05 · 5.9 - flesh reads the buttocks low, then retire Belle's hand marks
+### 3. 05 · 5.9 - done (follow-through 0.3.0), Belle's hand marks retired
 
-On every body measured, the buttock region sits under the mass (Belle 7 cm low, facing down), because the lean
-envelope absorbs the upper buttock. Changing the zone height does not help. 5.9 has the numbers and the steps.
-
-When it is fixed, remove the `[[flesh.zones]]` from `grungist-creek/characters/belle.toml`. Then prove the result:
-- rebuild her
-- run `belle_demo.tscn -- --selftest` and the wardrobe verifier
-
-That meets the last unmet "done when" of 02. Belle's swing limits live in follow-through's registry (`limit_share`)
-and were tuned against the low reading, so check them again on the self-test.
+Buttocks are read from the side across the spine and thigh chains; both sample bodies score their butts, and
+Belle's `[[flesh.zones]]` are gone from `grungist-creek/characters/belle.toml`. Rebuilt with every stage forced, her
+self-test passes (breasts 7.5/8.7%, buttocks 8.6/8.4% on the limit, under 10%) and the wardrobe verifier passes all 7
+clips in both garments. That meets 02's last "done when". Still open from it: the Figure's torso rings start at the
+crotch and skew its breasts, belly and false love handles (5.9 has the numbers); `render_heat` and the marks sheet
+still draw butts with the ring measure; and the crowd has not been rebuilt, so its butts still carry the old measure
+and 1.9 share until each person is rebuilt.
 
 ### 4. Loose ends from 01
 
