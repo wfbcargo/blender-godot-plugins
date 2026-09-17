@@ -23,7 +23,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 DATA = os.path.join(ROOT, "data")
 
 # dependency order
-MODULES = ("body", "slicing", "sheet", "landmarks", "skeleton", "measure", "views", "scaffold", "library", "parts", "look", "eyes", "pipeline")
+MODULES = ("body", "slicing", "sheet", "landmarks", "skeleton", "measure", "views", "scaffold", "library", "parts", "look", "eyes", "pipeline",
+           "sdf", "delta", "muscle")
 
 
 def reload_all():

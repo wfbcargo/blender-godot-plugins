@@ -21,7 +21,8 @@ been **measured**. The research behind this plugin, and the full plan, are in
 | L2 | MPFB2 base driven to the landmarks, rig renamed | **built** (0.3.0) - `scaffold` |
 | L4 | face stage (ANSUR head measures), face design parts, eyes; library and pipeline | **built** (0.4.0) - `scaffold.fit_face`, `parts`, `eyes`, `library`, `pipeline` - see the `humanlib` skill |
 | L4 | hands-and-feet stage (ANSUR hand and foot sizes), hand and foot design parts | **built** (0.5.0) - `scaffold.fit_extremities`, `parts.design` / `screen` - see `humanlib` |
-| L3-L4 | muscle definition and stylized exaggeration (SDF forms); hair | next |
+| L3-L4 | muscle definition: sculpted delta parts weighted by muscle and body fat, as geometry or a baked normal map | **built** - `muscle`, `delta`, `sdf` - see "Muscle definition" below and `humanlib` |
+| L3-L4 | stylized exaggeration; hair | next |
 | L5-L6 | reproject onto base topology, micro-detail, bake, skin | Phase 5 |
 | L7 | rig from landmarks, flesh regions, export | Phase 6 |
 
@@ -167,6 +168,45 @@ ANSUR's buttock height, as ANSUR takes it, it matches.
 - MPFB has no finger-length target per finger, no lateral hip-joint spacing, and one head height;
   faces and hands are MPFB's (Phase 4 refines them).
 - follow-through's flesh side-bone filter has not been tested with `f_index.01.L` finger names.
+
+## Muscle definition
+
+MPFB's mesh is smooth: its muscle macro makes a body bigger, not defined, so Dante read average until the
+macro was forced to 1.0. Definition is a humanlib **delta part** (per-vertex heights along the normal, in
+groups) put on after the fit:
+
+```python
+from humanform import pipeline, muscle, delta
+res = pipeline.make(brief, ...)                          # muscle left to the build and the fit
+rep = muscle.define(human, brief)                        # shape key hfd:muscle at 1: geometry
+rep = muscle.define(human, brief, geometry=False)        # key at 0: bake it instead (below)
+rep["weights"], rep["body_fat_pct"], rep["applied"]["groups"]    # per group: weight, vertices, max mm
+```
+
+- **The set** (`muscle.seed`, stored as `muscle/definition-v1` on first use): authored on MPFB's default male.
+  Seven groups are SDF sculpts - deltoids, pectorals, abdominals, obliques (with the serratus and the inguinal
+  line), quadriceps, calves, forearms: ellipsoid bellies anchored by rays from the joints, trimmed to a
+  plateau, smoothly unioned, minus cuts (sternum, linea alba) and grooves (tendinous intersections, the pec's
+  lower border). An eighth, `relief`, is MPFB's own muscle sculpt high-passed (muscle 1.0 minus 0.5 along the
+  normal, less its 6-iteration Laplacian smooth; head, hands, feet, nails, genitals masked): the back, the
+  arms and the neck, which the seven do not cover. Without it Dante's back and arms read smoother than the
+  forced-macro body's.
+- **How much shows** (`muscle.weights`): muscle term `smoothstep(0.3, 1.0, muscle)` - the brief's muscle or
+  its build's, never the fitted macro - times a per-group leanness from estimated body fat (Deurenberg on BMI
+  less 10 BMI points per unit of muscle above 0.5, 6 points leaner per unit of firmness above 0.5): abdominals
+  and obliques full at 12% and gone at 22%, pectorals and quadriceps 13-25, deltoids 14-28, relief 13-27,
+  calves and forearms 15-30; women +8 points and pectorals x0.35. Dante (BMI 27.5, firmness 0.9, build
+  muscle 0.9): 15.8%, weights 0.64-0.94, sum 6.52. The same muscle value at BMI 30 and firmness 0.25: 22.7%,
+  sum 1.60 (0.25 of Dante's), abdominals 0. Freya: 24.9%, sum 3.44.
+- **Geometry or a map.** `delta.high_copy(human, "hfd:muscle")` before `bake_for_game` gives the high
+  source; lookdev's `detail.bake_normal_from_high(body, high, out_dir, material="<name>_skin")` bakes it onto
+  the game mesh and wires the map into the skin material (glTF normalTexture). The card also applies to a
+  baked mesh (`mode="mesh"`): hm08's body is its first 13380 vertices at every stage.
+- **Proportions hold:** humancheck on Dante before and after is 32 pass, 0 warn, 0 fail (heights up to 18 mm).
+- **Resolution:** heights live on hm08's vertices (about 17 mm apart on the torso), so edges are soft; a
+  normal map baked from the same mesh carries no finer detail than the geometry.
+
+Verify: `python tools/regress.py --only muscle_definition` (repo), renders in its design doc (05 · 5.5).
 
 ## MPFB2 from a script
 

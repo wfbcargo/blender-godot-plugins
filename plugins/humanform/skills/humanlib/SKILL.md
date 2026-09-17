@@ -121,6 +121,27 @@ Hand and foot differences are subtle - critics called about half the kept design
 Seeded in the user's library: 13 hand and 11 foot parts from Mara (female) and Kade (male).
 `scripts/seed_parts.py` re-stores them from `data/seed/*_hands_*` and `*_feet_*`.
 
+## Delta parts (sculpted)
+
+A **delta** part is a shape MPFB has no target for, stored as per-vertex heights along the normal, in
+named groups, integer micrometres (`humanform.delta`):
+
+```python
+card = delta.store("muscle", "definition-v1", {"abdominals": h1, "deltoids": h2}, reference={"stature_m": 1.729})
+delta.apply(human, card, weights={"abdominals": 0.6, "deltoids": 0.9})   # shape key hfd:muscle (value=, key_name=)
+delta.apply(baked_mesh, card, weights=w, mode="mesh")                     # into the vertices of a baked body
+library.apply(human, card)                                                 # every group at 1
+high = delta.high_copy(human, "hfd:muscle")                                # for a normal-map bake (lookdev detail)
+```
+
+- **Transfer** is by vertex index: hm08's body is vertices 0..13379 on every MPFB body, before and after
+  `bake_for_game` (helpers and joined eyes come after). `check_topology` refuses another mesh. A height is
+  scaled by the wearer's stature over the reference's and pushed along the wearer's own normal (the mix of
+  its current shape keys, `hfd:` keys excluded), so it sits on the wearer's surface.
+- `hfd:` keys are not `hf:` targets, so `library.capture` never stores one in a body card; `bake_for_game`
+  folds the key in at its value.
+- The first set is `muscle` (see humanform's "Muscle definition"): `muscle.find()`, `muscle.seed()`.
+
 ## Eyes
 
 `eyes.add(human, iris=(r, g, b))` (a screen colour; `None` for a mid brown) builds `<name>_eyes` - two spheres with sclera, iris and pupil -
@@ -161,10 +182,10 @@ half their amplitude, so one unlucky batch cannot erase a feature.
 
 ## Limits
 
-- Parts are MPFB target sets. A sculpted part (a displacement delta masked to a region) is the next
-  payload type; nothing converts a non-MPFB mesh onto the shared topology yet.
-- Regions for parts: face, hands, feet. Hand and foot designs are limited to MPFB's targets: no
-  knuckle, nail, toe-length or arch-shape designs until delta (sculpted) payloads exist. Hand and foot
+- Parts are MPFB target sets or delta (sculpted) sets. Only `muscle` has a delta set; nothing converts a
+  non-MPFB mesh onto the shared topology yet, and a delta moves vertices along the normal only.
+- Regions for designed parts: face, hands, feet. Hand and foot designs are limited to MPFB's targets: no
+  knuckle, nail, toe-length or arch-shape designs yet (a delta set could carry them). Hand and foot
   parts are symmetric; there are no left- or right-only parts.
 - Hair, eyebrows and eyelashes are not parts yet; eyes and skin have flat Principled colours (lookdev later).
 - Parts on a child are applied for their look only: a hand or foot part's size offsets need a fit.

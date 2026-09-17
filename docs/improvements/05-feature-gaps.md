@@ -154,6 +154,51 @@ a precedent) and critic review. (3) Fat-aware scaling. (4) Normal-map bake via l
 **Done when** Dante reads as muscular in a front render without forcing the muscle macro, and a soft
 body with the same muscle value shows much less definition.
 
+> **Built on branch `muscle-definition`** (September 2026, humanform + lookdev; versions not bumped, not merged).
+>
+> - **Delta payload** (`humanform/delta.py`): a library part with `payload.type = "delta"` - per-vertex
+>   heights along the normal, per group, integer micrometres over hm08's 13380 body vertices. `apply` scales by
+>   the wearer's stature over the reference's and pushes along the wearer's own normals, as shape key
+>   `hfd:<region>` (baked in by `bake_for_game`, never captured as an `hf:` target) or into a baked mesh's
+>   vertices; `library.apply` dispatches to it. Transfer is by index: the card applies to a fitted body, an
+>   unfitted woman (stature 1.59 m, scale 0.92) and a `bake_for_game` mesh alike.
+> - **The set** (`humanform/muscle.py`, `sdf.py`): authored on MPFB's default male (1.729 m) in ~2 s.
+>   Seven SDF groups (deltoids 196 vertices, pectorals 392, abdominals 124, obliques 110, quadriceps 206,
+>   calves 152, forearms 188; crowns 7-14 mm): ellipsoid bellies anchored by ray casts from the joints, trimmed
+>   to a plateau (a dome read as a breast on the chest, a flat plate stood off a curved limb by 3-5 cm), masked
+>   to skin facing the belly's way, smooth-unioned, with cuts and grooves. Judged on renders, the first
+>   heights were too faint (x1.6, `HEIGHT_GAIN`), and with only the listed groups Dante's back and arms read
+>   *smoother* than the forced-macro body's - so an eighth group, `relief`, takes MPFB's own muscle sculpt
+>   high-passed (muscle 1.0 vs 0.5 along the normal minus its 6-iteration Laplacian smooth, x1.5; head,
+>   hands, feet, nails, genitals masked; 3613 vertices, +16/-11 mm). It is derived, not sculpted.
+> - **Fat-aware weights** (`muscle.weights`): smoothstep(0.3, 1.0, muscle) - the brief's or its build's muscle,
+>   not the fitted macro - times per-group leanness from body fat (Deurenberg on BMI less 10 per unit of muscle
+>   over 0.5, 6 points leaner per unit of firmness over 0.5; abdominals/obliques visible 12->22%, pectorals and
+>   quadriceps 13->25, relief 13->27, deltoids 14->28, calves/forearms 15->30; women +8, pectorals x0.35).
+>   Dante 15.8%, weight sum 6.52; a soft body with the same muscle value (0.9, BMI 30, firmness 0.25) 22.7%,
+>   sum 1.60 = 0.25 of Dante's, abdominals 0; Freya 24.9%, sum 3.44.
+> - **Normal map** (`lookdev/detail.py` `bake_normal_from_high`): selected-to-active from
+>   `delta.high_copy` onto the game mesh, only the skin material's faces, map wired into its Principled Normal.
+>   Rays found neighbouring surfaces at the nails, eyelids and ears (99.9th percentile 166 degrees), so by
+>   default the same bake runs against an exact copy of the low mesh and every texel bent there is flattened
+>   (~26k of 4.2M texels; p99.9 27 degrees on Dante). 2048 px bakes in ~5 s on CPU.
+> - **Checks:** humancheck on Dante is 32 pass / 0 warn / 0 fail before and after (heights up to 17.8 mm);
+>   Freya 32/0/0 both; the soft body 29/1/0 (2 info) before, 30/1/0 (1 info) after.
+> - **Fixture** `muscle_definition`: authors and stores the set (group hashes), reads it back, weights for the
+>   three briefs, Dante fitted and defined with humancheck before/after, the game path (bake_for_game, 512 px
+>   normal bake stats) and the transfer to an unfitted woman.
+> - **Renders** (scratch, EEVEE, fixed orthographic frames, clay = geometry path, textured = game mesh + map):
+>   Dante before (spec, muscle forced 0.95) and after (muscle left at the fit's 0.66, definition); the soft body
+>   and Freya before/after; Dante vs the soft body after, same muscle value. Dante after reads muscular from the
+>   front (pectoral edges, abdominals, serratus, back); the soft body barely changes.
+>
+> **Open:** the character-pipeline spec has no field for it yet (a `[body] definition = "geometry"|"normal"`
+> stage belongs to that plugin), and `grungist-creek/characters/dante.toml` still forces `muscle = 1.0`.
+> Definition is at hm08 vertex resolution (~17 mm), so edges are soft and the map is no sharper than the
+> geometry. The thresholds and gains are judged on three bodies, not measured; no critic subagent has judged
+> the renders. Deltas move along the normal only, and a posed body's normal map relies on MikkTSpace matching in Godot
+> (not checked in the engine).
+
 ---
 
 ## 5.6 wardrobe's garment step is not reproducible between builds - DONE

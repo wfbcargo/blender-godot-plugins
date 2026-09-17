@@ -46,11 +46,21 @@ import sys
 P = r"<skill>/blender"
 if P not in sys.path: sys.path.insert(0, P)
 import lookdev_blender; lookdev_blender.reload_all()
-from lookdev_blender import material_lint, bake, export, reference
+from lookdev_blender import material_lint, bake, export, reference, detail
 print(material_lint.summarize(material_lint.lint()))          # selected meshes, or all
 print(bake.summarize(bake.bake_object("Crate", r"C:/proj/assets/crate_tex", size=2048)))
 print(export.summarize(export.export_gltf(r"C:/proj/assets/crate.glb", ["Crate_baked"])))
+# detail that is geometry on a high copy (humanform muscle definition) -> normal map on the game mesh
+print(detail.summarize(detail.bake_normal_from_high("Dante_body", "Dante_high", r"C:/proj/assets/dante_tex",
+                                                    size=2048, material="Dante_skin")))
 ```
+
+`detail.bake_normal_from_high` keeps the low mesh's materials and adds a tangent Normal Map in front of the
+named material's Principled Normal (so glTF writes normalTexture); `material=` bakes only that material's
+faces (joined eyes overlap the skin's UVs). `clean=True` (default) bakes the low mesh against a copy of itself
+too and flattens every texel that bends there: rays that found a neighbouring surface (nails, eyelids, ears,
+between fingers) rather than detail - 99.9th-percentile bend 166 degrees on Dante without it, 27 with it.
+`stats` says how much of the map bends (>1 and >5 degrees), so a bake that found nothing shows.
 
 ## Workflow: fixed stages, each with a gate
 
