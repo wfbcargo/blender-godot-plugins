@@ -13,7 +13,7 @@
     ],
     "method": "matched",
     "over_1deg": 0.346,
-    "over_5deg": 0.164,
+    "over_5deg": 0.163,
     "p999_deg": 27.0,
     "skipped": [],
     "steep_texels": 7,
@@ -30,7 +30,23 @@
      "FixDante_body_detail_normal"
     ]
    },
-   "topology_after_bake": null
+   "topology_after_bake": null,
+   "with_eyes_joined": {
+    "matched_skin": true,
+    "matched_whole_mesh": false,
+    "materials": [
+     "FixDante_skin",
+     "HF_sclera",
+     "HF_iris_FixDante_eyes",
+     "HF_pupil"
+    ],
+    "method": "matched",
+    "reason_whole_mesh": "FixDante_body is 14402 faces, FixDante_high is 13378 - pass material= when the game mesh has the eyes joined in",
+    "refused": "FixDante_high is not FixDante_body's topology: FixDante_body is 14402 faces, FixDante_high is 13378 - pass material= when the game mesh has the eyes joined in - use method='rays'",
+    "same_stats_as_body_only": true,
+    "vertices": 14344,
+    "warnings": []
+   }
   },
   "geometry": {
    "applied": {
@@ -90,6 +106,7 @@
     "key": "hfd:muscle",
     "max_mm": 22.88,
     "mode": "key",
+    "refined_max_mm": 22.88,
     "scale": 1.1056,
     "stature_m": 1.9117
    },
@@ -124,6 +141,18 @@
     "muscle": 0.662,
     "proportions": 0.5,
     "weight": 1.0
+   },
+   "reported_spike_um": 4521,
+   "spike": {
+    "applied_over_1p5x": 0,
+    "applied_over_limit": 51,
+    "applied_spike_um": 4521,
+    "limit_um": 4422,
+    "scale": 1.1056,
+    "unguarded_over_1p5x": 6,
+    "unguarded_over_limit": 64,
+    "unguarded_spike_um": 7617,
+    "weights_of": "FixDante"
    }
   },
   "soft_over_dante": 0.256,

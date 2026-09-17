@@ -66,6 +66,14 @@ and re-points the nodes, and the scene's engine and Cycles device, samples and d
   mesh against a copy of itself and flattens texels that bend there (nails, eyelids, ears: 166 degrees without
   it). On Dante the ray bake still left hot spots at the armpit and hip UV borders and hard-edged flattened
   patches that rendered as dark streaks on the arms and flanks; the matched bake has neither.
+- **Judged over the faces being baked, i.e. `material`'s.** A finished character's game mesh is the body with
+  its eyes joined in (character-pipeline's bake stage) while the high copy is the body alone, so whole-mesh
+  counts differ - 14402 faces against 13378 - and `auto` used to drop to rays on the exact case the matched
+  bake was written for, with nothing but the returned `method` to say so. `detail.matched(low, high,
+  material)` and `detail.reason(...)` compare that material's faces instead; on Dante's joined mesh the
+  matched map then comes out identical to the body-only one, while the ray bake of the same mesh has to
+  flatten 8373 texels against 24. A fallback now puts its reason in `warnings`, and `method="matched"`
+  returns an error naming what does not line up rather than baking something else.
 - `max_deg=60`: texels bent more are flattened (7 of 262k on the fixture's 512 px map).
 - Earlier bakes' normal maps are unlinked from the materials during the bake: the high copy shares the low
   mesh's material, and a wired map was being baked in again (a re-bake came out flat).

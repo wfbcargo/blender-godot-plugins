@@ -22,6 +22,10 @@ writes it as the material's normalTexture:
   find another where they are close (the armpit and hip UV borders came out as hot spots, and the clean
   pass below left hard-edged flat patches that rendered as dark streaks on the arms and flanks); matched
   has neither. The map is as smooth as the mesh's vertices - which is all a per-vertex delta has.
+  `matched` is judged over the faces being baked, i.e. `material`'s: a finished character's game mesh is the
+  body with its eyes joined in while the high copy is the body, so whole-mesh counts differ and "auto" used
+  to drop to rays on exactly the case this was written for. `auto` falling back now says so in `warnings`,
+  and `method="matched"` names what does not line up instead of baking something else.
 - "rays": the usual selected-to-active bake, `extrusion` out from the low surface, `max_ray` long. Both
   meshes must be in the same place (a rigged low mesh is baked in its rig's rest pose).
 - `clean` (on, rays only): the same bake is run against an exact copy of `low`, and wherever that comes out bent the
@@ -91,14 +95,47 @@ def _only_material(low, material, prepare=None):
 ATTR = "lookdev_detail_tn"
 
 
-def matched(low, high):
-    """True when `high` is `low`'s own topology (same vertices and faces, in order): a delta shape key's
-    high copy of the body it was baked off."""
-    a, b = low.data, high.data
-    if len(a.vertices) != len(b.vertices) or len(a.polygons) != len(b.polygons):
-        return False
-    n = min(len(a.polygons), 64)
-    return all(tuple(a.polygons[i].vertices) == tuple(b.polygons[i].vertices) for i in range(n))
+def matched(low, high, material=None):
+    """True when `high` carries the topology of the part of `low` that is being baked - same faces, same
+    vertex indices, in order: a delta shape key's high copy of the body it was baked off.
+
+    `material` is the one `bake_normal_from_high` was given, and it is compared against, not ignored. A
+    finished character is not its body alone: the pipeline joins the eyes into the game mesh, so `low` is
+    body + eyes while `high` (`delta.high_copy`) is the body, and comparing whole meshes says no on the very
+    case the matched bake was written for. The joined geometry comes after the body, so the skin's faces are
+    the body's, in order, and those are what this compares. What the bake needs of them is that a face's
+    vertex indices mean the same vertex on both meshes; the extra ones never reach it (`_only_material`
+    deletes them, `_tangent_normals` leaves them flat)."""
+    return reason(low, high, material) is None
+
+
+def _material_faces(low, material=None):
+    """Indices of `low`'s polygons that use `material` (all of them when None), in order."""
+    if material is None:
+        return list(range(len(low.data.polygons)))
+    idx = next((i for i, s in enumerate(low.material_slots) if s.material and s.material.name == material), None)
+    if idx is None:
+        raise ValueError(f"{low.name} has no material {material!r}")
+    return [p.index for p in low.data.polygons if p.material_index == idx]
+
+
+def reason(low, high, material=None):
+    """Why `high` is not `low`'s topology over the faces being baked, or None when it is: the message a
+    silent fall back to rays would otherwise swallow."""
+    faces = _material_faces(low, material)
+    what = f"{low.name}" + (f"'s {material} faces" if material else "")
+    if len(faces) != len(high.data.polygons):
+        return (f"{what} is {len(faces)} faces, {high.name} is {len(high.data.polygons)}"
+                + ("" if material else " - pass material= when the game mesh has the eyes joined in"))
+    n = min(len(faces), 64)
+    for i, f in enumerate(faces[:n]):
+        if tuple(low.data.polygons[f].vertices) != tuple(high.data.polygons[i].vertices):
+            return f"{what} face {i} is {tuple(low.data.polygons[f].vertices)}, {high.name}'s is " \
+                   f"{tuple(high.data.polygons[i].vertices)}"
+    hi = max((max(low.data.polygons[f].vertices) for f in faces), default=-1)
+    if hi >= len(high.data.vertices):
+        return f"{what} uses vertex {hi}, {high.name} has {len(high.data.vertices)}"
+    return None
 
 
 def _tangent_normals(low, high):
@@ -122,7 +159,9 @@ def _tangent_normals(low, high):
         me.loops.foreach_get("vertex_index", vi)
         t, n = t.reshape(-1, 3), n.reshape(-1, 3)
         b = sg[:, None] * np.cross(n, t)
-        h = hn[vi]
+        # corners past high's vertices are geometry joined in after the body (the eyes): they are not baked,
+        # `_only_material` deletes them, and they keep the surface's own normal here rather than read off the end
+        h = np.where((vi < len(hn))[:, None], hn[np.minimum(vi, len(hn) - 1)], n)
         tn = np.stack([np.einsum("ij,ij->i", h, t), np.einsum("ij,ij->i", h, b), np.einsum("ij,ij->i", h, n)], axis=1)
         tn /= np.maximum(np.linalg.norm(tn, axis=1), 1e-12)[:, None]
         col = np.ones((nl, 4), np.float32)
@@ -331,10 +370,17 @@ def bake_normal_from_high(low, high, out_dir, size=2048, material=None, extrusio
     for ob in (low, high):
         if scene.objects.get(ob.name) is None:
             scene.collection.objects.link(ob)
+    why = reason(low, high, material) if method != "rays" else None
+    if method == "matched" and why:
+        return {"error": f"{high.name} is not {low.name}'s topology: {why} - use method='rays'"}
     if method == "auto":
-        method = "matched" if matched(low, high) else "rays"
-    if method == "matched" and not matched(low, high):
-        return {"error": f"{high.name} is not {low.name}'s topology: use method='rays'"}
+        method = "rays" if why else "matched"
+        if why:
+            # rays leave armpit and hip hot spots and hard-edged streaks on the arms and flanks, which is
+            # what the matched bake exists to avoid: dropping to them must never be silent.
+            warnings.append(f"method='auto' fell back to rays: {why}. The matched bake wants high to be "
+                            f"low's own topology over the faces baked (pass material=, or method='rays' "
+                            f"to say rays were meant).")
     target, tmp = low, None
     mats = [s.material for s in low.material_slots if s.material]
     if material is not None or method == "matched":

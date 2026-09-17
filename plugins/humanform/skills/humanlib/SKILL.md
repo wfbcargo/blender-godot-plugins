@@ -145,7 +145,11 @@ high = delta.high_copy(human, "hfd:muscle")                                # for
 - **A delta can only hold what the mesh can carry.** hm08's vertices are about 15 mm apart, so a form
   narrower than that lands on one vertex and renders as a facet, not a shape. Anything authored for this
   topology wants the guard muscle's set uses (`muscle.spikes` / `muscle.despike`, 4 mm off the neighbours'
-  mean) before it is stored.
+  mean) before it is stored - and again at `apply`, on what the surface ends up with. A card's groups are
+  despiked one at a time, but a body carries their weighted sum, and overlapping groups add: Dante's sum
+  stood 7.62 mm off its neighbours where no group was over 4. `apply(..., refine=)` is handed the combined
+  heights after weighting and scaling; `muscle.facet_guard(background)` is that guard, and `background` takes
+  the heights another key already put on the same surface (`delta.key_heights(body, key)`).
 
 ## Eyes
 

@@ -196,10 +196,19 @@ rep["fitted_muscle"], rep["applied_bulk"]                # the macro the fit lef
   full-body scale.
 - **A form must be wider than an edge.** hm08 has about 15 mm between vertices, so anything narrower comes out
   as one vertex standing off its neighbours - a bright facet stuck through the skin, which is how two wedges
-  appeared on Dante's outer thigh. Two limits keep every group resolvable: a groove is sunk at most
-  `GROOVE_SLOPE` (0.3) of its own radius, and `despike` pulls back any vertex more than `SPIKE_LIMIT` (4 mm)
-  off its neighbours' mean. `muscle.spikes(heights, faces)` is that measure; the fixture records it per group.
-  Raising a gain past this point does not make a muscle read, it makes a facet - widen the pad instead.
+  appeared on Dante's outer thigh. Three limits keep every form resolvable: a groove is sunk at most
+  `GROOVE_SLOPE` (0.3) of its own radius; `despike` pulls back any vertex more than `SPIKE_LIMIT` (4 mm) off
+  its neighbours' mean as each group is authored; and `muscle.facet_guard`, a `delta.apply` `refine`, does it
+  again in `define` on the **sum** of the groups at the wearer's scale. `muscle.spikes(heights, faces)` is the
+  measure throughout. Raising a gain past this point does not make a muscle read, it makes a facet - widen the
+  pad instead.
+- **Per group is not what the mesh carries.** Both keys land on one surface and the groups overlap, so they
+  add: `relief` and the sculpted limb groups spike on the same vertices - v4579 on the front-outer thigh
+  (relief 3.4 mm + quadriceps 3.0), v4735 on the back of the calf (2.9 + 3.8) - and Dante carried a 7.62 mm
+  composite while no group was over 4. That is why the guard runs on the sum and why the fixture records the
+  composite at a real body's weights (`geometry.spike`: unguarded 7617 um and 6 vertices over 1.5x the limit,
+  applied 4521 um and none), not only `stored.spike_um` per group. `define` returns the same as
+  `rep["spike_um"]`; `muscle.applied_spikes(body)` reads it back off any body's `hfd:` keys.
 - **Derived groups.** `relief` is MPFB's own muscle sculpt high-passed (muscle 1.0 minus 0.5 along the normal,
   less its 6-iteration Laplacian smooth; head, hands, feet, nails, genitals masked, and the front midline of
   the trunk, where MPFB's own crease came out as a knife cut down the sternum into a navel notch): the back,

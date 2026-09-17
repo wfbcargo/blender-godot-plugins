@@ -5,6 +5,11 @@
   library; `muscle.find` must read back the same heights.
 - `spike_um` per group: the worst height standing off its neighbours' mean. hm08's edges are about 15 mm,
   so a form narrower than that is a facet, not a muscle; `muscle.despike` holds this at SPIKE_LIMIT.
+- `geometry.spike`: per group is not what the mesh carries. Both keys land on one surface and the groups
+  overlap (relief and the sculpted limbs spike on the same vertices of the outer thigh and the calf and add),
+  so the composite at Dante's own weights and stature is recorded twice - `unguarded_spike_um` as the weighted
+  sum stands, which a change that pushes any group back up moves even though each group stays under the limit,
+  and `applied_spike_um` read back off the body's keys, which `muscle.facet_guard` holds down.
 - `muscle.weights` for three briefs with the same muscle value: Dante's (lean, firm), a soft one (BMI 30,
   slack) and Freya's. The soft body must get much less definition.
 - Dante's brief without the forced muscle macro is fitted (`pipeline.make`), defined as geometry, and
@@ -14,6 +19,10 @@
 - The same body's game path: key at 0, `delta.high_copy`, `bake_for_game`, and lookdev's
   `detail.bake_normal_from_high` onto the baked mesh (512 px here, the matched method), which the card must still
   apply to; then the same bake again, which must leave the skin's texture wired and the Cycles settings as set.
+- `game.with_eyes_joined`: the eyes joined into the baked mesh, as character-pipeline's bake stage leaves it.
+  low is then body + eyes and high is the body, so `matched` must be judged over the faces being baked -
+  `method` must still be "matched" and the map the same, while a whole-mesh comparison says no and "auto"
+  would drop to the ray bake (armpit and hip hot spots) without a word.
 - Transfer: the card on an unfitted woman's MPFB body (another shape, same topology), scaled by stature.
 """
 import hashlib
@@ -51,7 +60,7 @@ def build():
     import rig_analysis  # noqa: F401
     from rig_analysis import export as ra_export
     import humanform  # noqa: F401
-    from humanform import delta, library, measure, muscle, pipeline, scaffold, sheet
+    from humanform import delta, eyes, library, measure, muscle, pipeline, scaffold, sheet
     import lookdev_blender
     lookdev_blender.reload_all()
     from lookdev_blender import detail
@@ -77,11 +86,33 @@ def build():
     stored["spike_limit_um"] = int(round(muscle.SPIKE_LIMIT * 1e6))
     defined = muscle.define(human, sheet.new(name=NAME, **DANTE), card=card, geometry=True)
     hc = measure.run(human.name, preset="realistic", sex="male", build="muscular")
+    # Per group is not what the mesh carries: both keys land on one surface and the groups overlap, so the
+    # sums below are the facet measure. `composite` is what the weighted sum would stand off its neighbours
+    # with no guard - the number a change that pushes relief or a limb group back up moves, whether or not
+    # `facet_guard` then clamps it - and `applied` is what the body is left carrying, guard included.
+    import numpy as np
+    st = defined["applied"]["stature_m"]
+    un = muscle.spikes(delta.heights(card, defined["weights"], st), faces)
+    on = muscle.applied_spikes(human, value=1.0)
+    lim = muscle.SPIKE_LIMIT * defined["applied"]["scale"]
+    # `despike` converges rather than lands, so a few vertices sit just over the limit either way; the count
+    # half again over it (6.6 mm here - the size the facets were) is what separates a guarded body from one
+    # carrying forms the mesh cannot show.
+    composite = {"weights_of": NAME, "scale": defined["applied"]["scale"],
+                 "limit_um": int(round(lim * 1e6)),
+                 "unguarded_spike_um": int(round(float(np.abs(un).max()) * 1e6)),
+                 "unguarded_over_limit": int((np.abs(un) > lim).sum()),
+                 "unguarded_over_1p5x": int((np.abs(un) > 1.5 * lim).sum()),
+                 "applied_spike_um": int(round(float(np.abs(on).max()) * 1e6)),
+                 "applied_over_limit": int((np.abs(on) > lim).sum()),
+                 "applied_over_1p5x": int((np.abs(on) > 1.5 * lim).sum())}
     geometry = {"check_before": H.stable(made["check"]), "check_after": H.stable(hc["counts"]),
                 "macros": H.stable(made["macros"]), "applied": H.stable(defined["applied"]),
                 "fitted_muscle": defined["fitted_muscle"], "bulk_weight": defined["weights"]["bulk"],
                 "applied_bulk": H.stable(defined["applied_bulk"]["groups"]["bulk"]),
+                "spike": composite, "reported_spike_um": defined["spike_um"],
                 "keys": sorted(k.name for k in human.data.shape_keys.key_blocks if k.name.startswith("hfd:"))}
+    eyeball, _ = eyes.add(human)
 
     key = human.data.shape_keys.key_blocks["hfd:muscle"]
     key.value = 0.0
@@ -90,6 +121,7 @@ def build():
     if "error" in baked:
         raise RuntimeError("bake: " + baked["error"])
     body = bpy.data.objects[NAME + "_body"]
+    baked_vertices = len(body.data.vertices)
     sc = bpy.context.scene
     sc.cycles.samples, sc.cycles.use_denoising = 17, True
     tex_dir = os.path.join(H.out_dir(), "muscle_definition")
@@ -103,8 +135,26 @@ def build():
     rebake = {"materials": nm2["materials"], "skipped": nm2["skipped"], "same_stats": nm2["stats"] == nm["stats"],
               "textures": [t.name if t is not None else None for t in texs],
               "cycles_kept": [sc.cycles.samples, sc.cycles.use_denoising] == [17, True]}
-    game = {"baked_vertices": len(body.data.vertices), "topology_after_bake": delta.check_topology(body),
-            "rebake": rebake,
+    # The real game mesh is not the body alone: the character pipeline joins the eyes into it after
+    # `bake_for_game`, while the high copy is the body. `matched` is judged over the faces being baked, so
+    # the method must still be "matched" here - a whole-mesh comparison says no and drops to rays, which is
+    # the path that leaves armpit and hip hot spots.
+    with bpy.context.temp_override(active_object=body, object=body,
+                                   selected_editable_objects=[body, eyeball], selected_objects=[body, eyeball]):
+        bpy.ops.object.join()
+    joined = {"vertices": len(body.data.vertices), "materials": [m.name for m in body.data.materials if m],
+              "matched_whole_mesh": detail.matched(body, high),
+              "matched_skin": detail.matched(body, high, f"{NAME}_skin"),
+              "reason_whole_mesh": detail.reason(body, high),
+              "refused": detail.bake_normal_from_high(body, high, tex_dir, size=512, method="matched").get("error")}
+    nm3 = detail.bake_normal_from_high(body, high, tex_dir, size=512, material=f"{NAME}_skin")
+    if "error" in nm3:
+        raise RuntimeError("normal bake with eyes: " + nm3["error"])
+    joined["method"] = nm3["method"]
+    joined["warnings"] = nm3["warnings"]
+    joined["same_stats_as_body_only"] = nm3["stats"] == nm["stats"]
+    game = {"baked_vertices": baked_vertices, "topology_after_bake": delta.check_topology(body),
+            "rebake": rebake, "with_eyes_joined": joined,
             "normal_map": {"method": nm["method"], "materials": nm["materials"], "skipped": nm["skipped"],
                            "warnings": nm["warnings"], "steep_texels": nm["stats"]["cleaned_texels"],
                            "over_1deg": round(nm["stats"]["over_1deg"], 3),

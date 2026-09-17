@@ -197,9 +197,15 @@ def stature_of(co):
     return float(b.max() - b.min())
 
 
-def apply(ob, card, weights=None, mode="key", value=1.0, key_name=None, scale_to_body=True):
+def apply(ob, card, weights=None, mode="key", value=1.0, key_name=None, scale_to_body=True, refine=None):
     """Put a delta part on a body. Returns a report: the key or mode used, the stature it was scaled to,
-    and per group the vertices moved and the largest height (mm) after scaling and weighting."""
+    and per group the vertices moved and the largest height (mm) after scaling and weighting.
+
+    `refine(heights, faces, scale) -> heights` (optional) is handed the combined heights of every group,
+    after weighting and scaling to this body, and returns what is written. The groups are what was sculpted;
+    the combined heights are what the surface carries, and only the second can be held to what the mesh can
+    show - see `muscle.facet_guard`. The per-group rows stay as weighted and scaled, so `refined_max_mm`
+    beside `max_mm` is what refining took off."""
     ob = _obj(ob)
     problem = check_topology(ob)
     if problem:
@@ -212,16 +218,19 @@ def apply(ob, card, weights=None, mode="key", value=1.0, key_name=None, scale_to
     h = heights(card, weights, st)
     me = ob.data
     n = len(me.vertices)
-    disp = np.zeros((n, 3))
-    disp[:BODY_VERTS] = nrm * h[:, None]
     report = {"card": card.get("id"), "mode": mode, "stature_m": round(st, 4) if st else None,
               "scale": round(st / card["payload"]["reference"]["stature_m"], 4) if st else 1.0, "groups": {}}
+    report["max_mm"] = round(float(np.abs(h).max()) * 1000, 2)
+    if refine is not None:
+        h = np.asarray(refine(h, faces, report["scale"]), np.float64)
+        report["refined_max_mm"] = round(float(np.abs(h).max()) * 1000, 2)
+    disp = np.zeros((n, 3))
+    disp[:BODY_VERTS] = nrm * h[:, None]
     for g, data in card["payload"]["groups"].items():
         w = 1.0 if weights is None else float(weights.get(g, 0.0))
         gh = unpack(data) * w * (report["scale"])
         report["groups"][g] = {"weight": round(w, 3), "vertices": int(np.count_nonzero(np.abs(gh) > 1e-5)),
                                "max_mm": round(float(np.abs(gh).max()) * 1000, 2)}
-    report["max_mm"] = round(float(np.abs(h).max()) * 1000, 2)
     if mode == "key":
         if me.shape_keys is None:
             ob.shape_key_add(name="Basis", from_mix=False)
@@ -245,6 +254,37 @@ def apply(ob, card, weights=None, mode="key", value=1.0, key_name=None, scale_to
         raise ValueError("mode must be 'key' or 'mesh'")
     me.update()
     return report
+
+
+def key_heights(ob, key_name=None, value=None):
+    """What `ob`'s `hfd:` keys actually put on its surface: per-vertex heights (metres, (BODY_VERTS,))
+    along the body's own normals, read back from the shape keys rather than recomputed from a card.
+
+    `key_name` picks one key (None: every `hfd:` key on the mesh, summed - they share one surface, so what
+    a vertex stands off its neighbours is their sum). `value` overrides the key's slider; None uses it,
+    which is how the mesh is drawn. A missing key is zero."""
+    ob = _obj(ob)
+    me = ob.data
+    n = len(me.vertices)
+    out = np.zeros(BODY_VERTS, np.float64)
+    keys = me.shape_keys
+    if keys is None:
+        return out
+    names = [key_name] if key_name else [k.name for k in keys.key_blocks if k.name.startswith(KEY_PREFIX)]
+    nrm = vertex_normals(mixed_coords(ob), body_faces(ob))
+    basis = keys.key_blocks[0]
+    b = np.empty(n * 3, np.float64)
+    basis.data.foreach_get("co", b)
+    b = b.reshape(n, 3)[:BODY_VERTS]
+    tmp = np.empty(n * 3, np.float64)
+    for name in names:
+        kb = keys.key_blocks.get(name)
+        if kb is None:
+            continue
+        kb.data.foreach_get("co", tmp)
+        d = tmp.reshape(n, 3)[:BODY_VERTS] - b
+        out += np.einsum("ij,ij->i", d, nrm) * (kb.value if value is None else float(value))
+    return out
 
 
 def static_copy(ob, key_name, value=1.0, name=None):

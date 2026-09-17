@@ -248,7 +248,56 @@ body with the same muscle value shows much less definition.
 >   `grungist-creek/characters/dante.toml` and `freya.toml` (`run3/build_base.py`), with Dante's forced
 >   `muscle = 1.0` kept for the "before" body and dropped for the defined one.
 >
-> **Open:** the character-pipeline spec has no field for it yet (a `[body] definition = "geometry"|"normal"`
+> **What the mesh carries, not what was sculpted** (fourth pass, from review). Two of the guards above were
+> measuring the wrong thing, and the goldens with them.
+>
+> - `despike` ran per group and the fixture recorded `stored.spike_um` per group, but a body carries the
+>   weighted **sum** of every group on one surface - two shape keys' worth, `hfd:muscle` and
+>   `hfd:muscle-bulk`, in the same geometry - and the groups overlap. `relief` and the sculpted limb groups
+>   spike on the same vertices and add: v4579/v11197 on the front-outer thigh (relief 3.4 mm + quadriceps
+>   3.0), v4735/v11353 on the back of the calf (2.9 + 3.8), v4520/v11138 on the thigh again. At Dante's own
+>   weights and stature that summed to **7.62 mm**, 1.7x the 4 mm limit, with 64 vertices over the limit and
+>   6 over half again - the outer thigh and the calf, exactly where the third pass's facets were, and much
+>   nearer the 9.8 mm that produced them than the limit. A change that raised composite spikes while leaving
+>   every group under 4 mm moved no recorded number.
+> - `muscle.facet_guard` now despikes the composite where it is applied (`delta.apply(..., refine=)`, new),
+>   at the wearer's scale - the limit follows the wearer's edges, `SPIKE_LIMIT x stature scale`, 4.42 mm on
+>   Dante - with the bulk key's own heights (`delta.key_heights`, new) as background, so the two keys are
+>   guarded together and the whole correction goes into the definition key. On Dante the worst composite goes
+>   **7.62 -> 4.52 mm** and vertices over 1.5x the limit **6 -> 0**, while the total height on the body moves
+>   16.102 -> 15.999 m (-0.6%) and the largest single height not at all (23.57 mm): it takes off facets, not
+>   muscle. The map follows, over 5 degrees 0.164 -> 0.163 of texels. humancheck is unchanged (Dante 32 pass
+>   / 0 fail, Freya 32/0, Soft 30 pass with the two non-pass items its own before run had).
+> - The fixture records the composite at a real body's weights, both ways (`geometry.spike`): unguarded
+>   7617 um / 64 over the limit / 6 over 1.5x, applied 4521 um / 51 / 0, limit 4422 um. `despike` converges
+>   rather than lands, so the count just over the limit says little and the count half again over it says
+>   what the guard is for. The unguarded number moves whenever a change pushes a group back up, guard or no
+>   guard. `define` returns it as `spike_um`; `muscle.applied_spikes(body)` reads it off any body's keys.
+> - `detail.matched` compared whole meshes, so it said no as soon as vertex counts differed - and
+>   character-pipeline's bake stage joins the eyes into the game mesh after `bake_for_game` while
+>   `delta.high_copy` is the body alone (14402 faces against 13378). Every character built through the
+>   pipeline this feature is for would have taken `method="auto"`'s ray path, the one with the armpit and hip
+>   hot spots and the hard-edged dark streaks, with nothing but the returned `method` to say so; the fixture
+>   missed it by baking before the eyes were joined. `matched(low, high, material)` and the new
+>   `detail.reason(...)` compare the material's faces instead, `_tangent_normals` leaves joined corners flat,
+>   a fallback puts its reason in `warnings`, and `method="matched"` errors with what does not line up. On
+>   Dante's joined mesh (14344 vertices) the matched map comes out identical to the body-only one, while the
+>   ray bake of the same mesh has to flatten **8373 texels against 24**. The fixture joins the eyes and bakes
+>   again (`game.with_eyes_joined`).
+> - **Renders** (scratch `wf2/muscle-fix/run4`): `guard/{full,thigh,calf,arm,torso}.png` and
+>   `zoom/{thigh_v4579,thigh_v11197,thigh_v4520,calf_v4735,calf_v11353}.png` are the guard off (left) and on
+>   (right) on the same body at the same camera; `eyesbake/{torso,arm}.png` is the joined mesh baked matched
+>   (top) and with rays (bottom) at normal strength 1.6; `renders4/` is the third pass's whole set re-rendered
+>   with the guard on, and `build/humancheck/` the contact sheets.
+>
+> **Open:** this branch ships new modules in two plugins and has bumped neither, because seven agents share
+> the repo and the run that made it was told not to touch `plugin.json`, `marketplace.json` or `NEXT.md`.
+> Whoever merges it owes humanform a minor bump (0.6.3 -> 0.7.0: `scripts/humanform/{sdf,delta,muscle}.py`,
+> `muscle.define`, `delta.apply(refine=)`, `delta.key_heights`, two SKILL.md rewrites) and lookdev one
+> (0.1.0 -> 0.2.0: `blender/lookdev_blender/detail.py`, `detail.bake_normal_from_high`, `matched`, `reason`),
+> in each `.claude-plugin/plugin.json` and in `.claude-plugin/marketplace.json` with a "Since x.y.z" sentence,
+> since that is what other machines read.
+> The character-pipeline spec has no field for it yet (a `[body] definition = "geometry"|"normal"`
 > stage belongs to that plugin), and `grungist-creek/characters/dante.toml` still forces `muscle = 1.0`.
 > Definition is at hm08 vertex resolution (~15 mm edges), so edges are soft, the map is no sharper than the
 > geometry, and sharper forms than that need a subdivided high copy the card cannot be authored on.

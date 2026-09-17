@@ -25,10 +25,14 @@ two sides meet in a soft valley rather than a crease.
 
 hm08 has about 15 mm between vertices, so a form narrower than that cannot be carried: it comes out as a
 single vertex standing off its neighbours, which renders as a bright facet stuck through the skin (two of
-them sat on Dante's outer thigh). Two limits keep every form resolvable - a groove is never sunk deeper
-than `GROOVE_SLOPE` of its own radius, and `despike` pulls back any vertex left standing more than
-`SPIKE_LIMIT` off the mean of its neighbours. Forms are many vertices wide, so this takes off facets and
-not muscles.
+them sat on Dante's outer thigh). Three limits keep every form resolvable - a groove is never sunk deeper
+than `GROOVE_SLOPE` of its own radius; `despike` pulls back any vertex left standing more than
+`SPIKE_LIMIT` off the mean of its neighbours, per group as it is authored; and `facet_guard` does it again
+in `define`, on the weighted sum of every group at the wearer's scale, because that sum is what the surface
+carries and the groups overlap (relief and the limb groups spike on the same vertices and add - 6.6 mm of
+composite on a body where no group was over 4). Forms are many vertices wide, so this takes off facets and
+not muscles. `rep["spike_um"]` from `define` is that composite measured off the mesh, and it is what the
+fixture records: a change that brings facets back moves it.
 
 Two groups are derived, not sculpted, from MPFB's own muscle shape (muscle 1.0 against 0.5 along the normal):
 `relief` is it high-passed (the back, arms and neck the sculpted groups do not reach; off the front midline,
@@ -58,6 +62,8 @@ from . import delta, library, sdf
 
 REGION = "muscle"
 NAME = "definition-v2"
+KEY = delta.KEY_PREFIX + REGION                 # hfd:muscle - the definition groups
+BULK_KEY = KEY + "-bulk"                        # hfd:muscle-bulk - the mass the fit left under the brief
 SCULPTED = ("deltoids", "upper_arms", "pectorals", "abdominals", "obliques", "quadriceps", "calves", "forearms")
 DEFINITION = SCULPTED + ("relief",)
 GROUPS = DEFINITION + ("bulk",)
@@ -525,6 +531,39 @@ def despike(h, faces, limit=None, passes=6):
     return h
 
 
+def facet_guard(background=None):
+    """A `delta.apply` `refine` that holds what the *mesh* carries, not what was sculpted, to what hm08 can
+    show.
+
+    Every group is despiked on its own when it is authored, but the mesh does not carry a group: it carries
+    the weighted sum of all of them on one surface, and they overlap. `relief` and the sculpted limb groups
+    spike on the same vertices and add - v4735 on the back of the calf (relief 2.9 mm + calves 3.8), v4579 on
+    the front of the thigh (relief 3.4 + quadriceps 3.0) - so a composite of 6.6 mm stood on a body where no
+    group was over 4. That is the size that made the facets on Dante's outer thigh, and per-group heights
+    cannot see it.
+
+    So the composite is despiked here, at the wearer's scale, against `SPIKE_LIMIT x scale` (the wearer's
+    edges are the reference's times the same stature factor, so the limit follows them). `background` is
+    per-vertex heights already on the same surface from another key (`hfd:muscle-bulk`, read back with
+    `delta.key_heights`): they are despiked together and the whole correction goes into the key being
+    written, since the background is already on the mesh."""
+    bg = None if background is None else np.asarray(background, np.float64)
+
+    def refine(h, faces, scale):
+        total = h if bg is None else h + bg
+        fixed = despike(total, faces, limit=SPIKE_LIMIT * float(scale))
+        return h + (fixed - total)
+
+    return refine
+
+
+def applied_spikes(ob, key_name=None, value=None):
+    """How far each vertex of `ob` stands off its neighbours' mean given every `hfd:` key the body carries
+    together (`delta.key_heights`) - the composite `facet_guard` holds down, measured off the mesh itself.
+    `value` overrides the keys' sliders, so the game path (definition key at 0) can still be measured at 1."""
+    return spikes(delta.key_heights(ob, key_name, value), delta.body_faces(ob))
+
+
 def seed(store=True, name=NAME):
     """Author the set on MPFB's default male and (by default) store it in the library as a delta part.
     Returns the card. The reference body is removed afterwards."""
@@ -560,6 +599,11 @@ def define(human, brief, card=None, geometry=True, strength=1.0, weights_overrid
       from `delta.high_copy(human, "hfd:muscle")`);
     - `hfd:muscle-bulk` - the limbs' and shoulders' mass the fit left under the brief's muscle - always at 1:
       it is silhouette, which a normal map cannot carry.
+
+    Bulk is written first and the definition key second, over it: both keys land on one surface, so it is
+    their sum that `facet_guard` holds to what the mesh can carry (`rep["spike_um"]`, the worst vertex left
+    standing off its neighbours once both are on). The high copy a normal map is baked from is that sum too,
+    so the map is guarded with the geometry.
     """
     from . import scaffold
     _, _, HOP, _ = scaffold.services()
@@ -569,11 +613,16 @@ def define(human, brief, card=None, geometry=True, strength=1.0, weights_overrid
     if weights_override:
         w["weights"].update(weights_override)
     groups = card["payload"]["groups"]
-    wd = {g: v for g, v in w["weights"].items() if g != "bulk"}
-    applied = delta.apply(human, card, weights=wd, mode="key", value=1.0 if geometry else 0.0)
-    applied_bulk = None
+    applied_bulk, bulk_h = None, None
     if "bulk" in groups:
         applied_bulk = delta.apply(human, card, weights={"bulk": w["weights"]["bulk"]}, mode="key", value=1.0,
-                                   key_name=delta.KEY_PREFIX + REGION + "-bulk")
+                                   key_name=BULK_KEY, refine=facet_guard())
+        bulk_h = delta.key_heights(human, BULK_KEY, value=1.0)
+    wd = {g: v for g, v in w["weights"].items() if g != "bulk"}
+    applied = delta.apply(human, card, weights=wd, mode="key", value=1.0 if geometry else 0.0,
+                          refine=facet_guard(bulk_h))
+    d = applied_spikes(human, value=1.0)
     return dict(w, fitted_muscle=round(fitted, 4), applied=applied, applied_bulk=applied_bulk,
+                spike_um=int(round(float(np.abs(d).max()) * 1e6)),
+                spike_limit_um=int(round(SPIKE_LIMIT * float(applied["scale"]) * 1e6)),
                 geometry=bool(geometry), card=card.get("id"))
