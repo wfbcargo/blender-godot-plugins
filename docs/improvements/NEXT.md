@@ -6,12 +6,12 @@ A handoff for a fresh conversation. Start with:
 
 State as of 2026-09-16. Everything below is on `main` here and on `master` in `grungist-creek`, both
 pushed, with no open branches or worktrees. Installed copies in `~/.claude/skills` match the repo:
-- rig-anything 0.19.0
-- follow-through 0.2.6
+- rig-anything 0.20.0
+- follow-through 0.3.0
 - wardrobe 0.2.1
 - humanform 0.6.3
 - character-pipeline 0.1.0
-- animate-anything 0.9.1
+- animate-anything 0.9.2
 - lookdev 0.1.0
 - godot-lsp 0.1.0
 
@@ -66,8 +66,8 @@ Take them one at a time; each is a short branch.
 - **Done (rig-anything 0.19.0): the cricket exports.** The landing's slide was real and came from shared
   code, as did a toe drag in the walk that it hid; every clip is now checked for a foot moving along the floor.
   05 · 5.8 has the details.
-- **The slides put feet through the floor on a Rigify biped.** `rigify_human` drops Slide, SlideRecover and
-  SlideToCrouch with the reasons under `export.dropped_clips`.
+- **Done (rig-anything 0.20.0): the slides pass and export on a Rigify biped.** Three shared causes (a hand-written
+  slide path, feet not laid on the floor, feet blended along the floor between spots); 05 · 5.8 has the details.
 - **Starfish arms get 3 and 4 bones** off a rounding edge in `radial.build`. Take one count per appendage kind.
 - **`radial.skin` reports coverage without measuring it.**
 
