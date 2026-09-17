@@ -11,9 +11,11 @@ alone, 190 s beside another build under `--jobs 2`), which is not far past the r
 there was no reason to coarsen it and move what detection sees. At that voxel every joint lands
 within 1.2 mm of the truth on a 30 mm body.
 
-When it was recorded the export was refused: `JumpLand` fails because the fore feet slide 0.5 mm
-after touching down (the limit is 1.2% of body size), so the golden holds the refusal and every
-clip's checks. A fix that lets the cricket export moves `export` and fills `manifest`.
+It was first recorded with the export refused: JumpLand's forefeet met the floor short of their
+spots and slid 0.5 mm in, and behind that the walk's hind toes dragged through the end of every
+swing. Both came from shared code (`keyposes.within_reach`, the poser's floor clamp, the swing
+fold), not from the cricket, and `_check_common`'s floor-skid check now catches either on any
+creature. The cricket exports, and `manifest` holds what it wrote.
 """
 import json
 import os

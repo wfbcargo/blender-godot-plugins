@@ -298,14 +298,10 @@ def _foot(phase, duty, stroke, lift, over):
 
 
 def _within_reach(p, limb, posed, target, share=0.95):
-    """A foot in the air goes where it is asked, or as near as the leg reaches.
-    An airborne body high over its toe-off asked the forelegs for 117%."""
-    hip = posed[limb["upper"]].translation
-    d = target - hip
-    top = share * (limb["a"] + limb["b"])
-    if d.length <= top:
-        return target
-    return hip + d.normalized() * top
+    """A foot in the air goes where it is asked, or as near as the leg reaches
+    (`keyposes.within_reach`: height goes before ground position). An airborne
+    body high over its toe-off asked the forelegs for 117%."""
+    return kp.within_reach(p, limb, posed, target, share=share)
 
 
 def hop_cycle(rig_name, role="Hop", action_name=None, frames=None, fps=None, attempts=8):
@@ -516,8 +512,16 @@ def hop_cycle(rig_name, role="Hop", action_name=None, frames=None, fps=None, att
     skin_checks = skin_checks_for(body)
 
     def check(keyed, ev, infos_by_frame):
+        def in_stance(name, f):
+            leg = next((l for l in H.hind + fore if l["name"] == name), None)
+            if leg is None:
+                return False
+            duty = dH if leg in H.hind else state["dF"]
+            on = 0.0 if leg in H.hind else fore_on[name]
+            return ((f - 1) / float(n) - on) % 1.0 < duty
         r = _check_common(body, bm, keyed, ev, infos_by_frame, planted=[], posed_limbs=P.legs,
-                          rest_floor=0.0, starts_at_rest=False)
+                          rest_floor=0.0, starts_at_rest=False,
+                          skid=in_stance)  # stance is held to the stance-line test below
         E = ev["evaluated"]
         seam, bone = _pose_gap(H.rig, E[1], E[n + 1])
         r["loop_seam"] = round(seam, 6)
@@ -1073,7 +1077,7 @@ def air(rig_name, launch_report, action_name=None, fps=None):
     def check(keyed, ev, infos):
         from .actions import _check_common, _pose_gap
         r = _check_common(body, bm, keyed, ev, infos, planted=[], posed_limbs=P.legs, rest_floor=0.0,
-                          starts_at_rest=False)
+                          starts_at_rest=False, skid=False)
         # in the air: the floor is the engine's business
         r["failures"] = [x for x in r["failures"] if "past what a joint does" not in x and "floor" not in x]
         skin_report(r, skin_checks_for(body), body, ev["evaluated"], [f for f, _ in keyed])

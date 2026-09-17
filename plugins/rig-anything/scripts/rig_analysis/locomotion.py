@@ -623,6 +623,39 @@ def _swing_y(u, lift):
 
 
 SWING_HOLD = 0.7
+SWING_CLEARANCE = 0.02   # of body height: twice the band `verify` counts a contact planted in
+
+
+def _clear_fold(p, limb, reach, contact, solved, fold):
+    """The largest part of `fold` that keeps the swinging contact clear of the floor.
+
+    The fold turns the foot about the ankle, so the contact moves with it. A paw folds
+    its toe back and up; a cricket's 5 mm hind tarsus, pointing back and down, swung
+    its tip into the floor for the last third of every swing, where the floor drape
+    held it while the stride carried the leg on - a 0.4 mm drag per frame, inside the
+    band the export's re-check counts as planted. The contact may go no lower than its
+    planned swing height, or than SWING_CLEARANCE over where it stands, whichever is
+    lower."""
+    if not fold:
+        return 0.0
+    ankle = reach.ankle(contact, solved)
+
+    def contact_h(f):
+        return p.height(ankle - (reach.ankle(contact, solved + f) - contact))
+
+    want = min(p.height(contact), p.height(reach.pivot) + SWING_CLEARANCE * p.bm["height"])
+    if contact_h(fold) >= want:
+        return fold
+    if contact_h(0.0) < want:
+        return 0.0
+    lo, hi = 0.0, 1.0
+    for _ in range(12):
+        mid = 0.5 * (lo + hi)
+        if contact_h(fold * mid) >= want:
+            lo = mid
+        else:
+            hi = mid
+    return fold * lo
 
 
 def foot_state(phase, duty, stroke, lift, over, hold=SWING_HOLD):
@@ -786,20 +819,23 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
             # mid-swing the paw folds back under the leg, more the faster it goes
             fold = fold_amp * r.lims[0] * math.sin(math.pi * u)
 
-            def target(p, limb, posed, c=contact, r=r, fold=fold):
-                if not fold:
+            def folded(p, limb, posed, c=contact, r=r, fold=fold):
+                solved = r.tilt(posed[limb["upper"]].translation, c)[0]
+                return solved, _clear_fold(p, limb, r, c, solved, fold)
+
+            def target(p, limb, posed, folded=folded, c=contact, r=r):
+                solved, f = folded(p, limb, posed)
+                if not f:
                     return c + r.v
                 # The fold turns the paw, it does not move the ankle: the poser
                 # adds the roll's ankle offset for the whole tilt, so take back
                 # the part that belongs to the fold.
-                solved = r.tilt(posed[limb["upper"]].translation, c)[0]
                 return (c + r.v + p.tilt_rotation(limb, solved)[1]
-                        - p.tilt_rotation(limb, solved + fold)[1])
+                        - p.tilt_rotation(limb, solved + f)[1])
             limbs[l["name"]] = {
                 "target": target,
                 "planted": plant,
-                "tilt": (lambda p, limb, posed, t, c=contact, r=r, fold=fold:
-                         r.tilt(posed[limb["upper"]].translation, c)[0] + fold),
+                "tilt": (lambda p, limb, posed, t, folded=folded: sum(folded(p, limb, posed))),
             }
         bounce = pl["bounce"] * state["bounce"] * height_signal(p0) * (1.0 if running else -1.0)
         flex = state["flex"] * math.cos(2.0 * math.pi * (p0 - ext_phase)) * -1.0
@@ -870,8 +906,14 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
 
     def check(keyed, ev, infos_by_frame):
         from .actions import _check_common, _pose_gap
+        def in_stance(name, f):
+            if name not in offsets:
+                return False
+            return foot_state(((f - 1) / float(frames) - offsets[name]) % 1.0, duty,
+                              state["stroke"], state["lift"], 0.0)[3]
         r = _check_common(body, bm, keyed, ev, infos_by_frame, planted=[],
-                          posed_limbs=P.legs, rest_floor=floor, starts_at_rest=False)
+                          posed_limbs=P.legs, rest_floor=floor, starts_at_rest=False,
+                          skid=in_stance)  # stance is held to the skate test below
         if clamped and pl["max_drop_given"] and state["drop"] >= drop_limit - 1e-9:
             r["failures"].append(
                 "%s out of reach with the hips at max_drop %.3f (%.0f%% of hip height, "

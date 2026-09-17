@@ -67,6 +67,21 @@ def side_of(name):
     return None, short
 
 
+# The first segment of a limb, as rigs name it. A limb is called by what is
+# left of its upper bone without it - `hind_femur.L` is the hind leg - so
+# every check and report names a leg, not its root bone.
+_UPPER_SEGMENT = re.compile(r"_(upper|femur|humerus|thigh|upperarm|upperleg|coxa)$", re.IGNORECASE)
+
+
+def limb_name(upper_bone):
+    """Base name of the limb whose upper bone is `upper_bone`, without side:
+    `fore_femur.L` -> `fore`, `front_thigh.R` -> `front`. A bone that is only
+    the segment (`thigh.L`, `upper_arm.L`) keeps its name."""
+    base = side_of(upper_bone)[1]
+    stripped = _UPPER_SEGMENT.sub("", base)
+    return stripped if stripped else base
+
+
 def axis_vector(spec):
     """"-Y" -> Vector((0, -1, 0))."""
     v = Vector((0.0, 0.0, 0.0))
@@ -449,7 +464,7 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0, meshes=None):
         lowest = min(min(height(b.head_local), height(b.tail_local)) for b in every)
 
         limbs.append({
-            "name": re.sub(r"_upper$", "", side_of(upper.name)[1]) + "." + side,
+            "name": limb_name(upper.name) + "." + side,
             "side": side,
             "girdle": girdle.name if girdle else None,
             "upper": upper.name, "lower": lower.name,

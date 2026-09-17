@@ -750,9 +750,7 @@ def land(rig_name, forward="-Y", up="Z", floor=0.0, action_name="Land", glide_cl
     def reach_down(p, l, posed):
         hip = posed[l["upper"]].translation
         want = l["rest_eff"] + p.fwd * (0.25 * (l["a"] + l["b"])) + p.up * (0.12 * (l["a"] + l["b"]))
-        span = want - hip
-        top = 0.9 * (l["a"] + l["b"])
-        return hip + span * min(1.0, top / max(span.length, 1e-9))
+        return kp.within_reach(p, l, posed, want, share=0.9)
 
     # Pitching up lifts a horizontal body's front hips away from the ground its
     # front feet are reaching for - at 22 degrees the dragon's needed 102%.

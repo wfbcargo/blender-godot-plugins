@@ -330,6 +330,28 @@ shin carried the paw out level, like a swimmer. Swing holds 70% of the planted
 orientation and folds the paw back mid-swing - turning it about the ankle, not
 moving the ankle, or the fold pulled legs to 115% of their length.
 
+**A foot is on the ground or over its spot, never skidding into it.** Three
+shared pieces each dragged a cricket's feet, and each clip's own check measured
+from a touchdown it guessed, so none saw it: `hop._within_reach` pulled an
+out-of-reach foot straight back to the hip, so a landing forefoot met the floor
+short of its spot and slid 0.5 mm in (1.7% of the body); the poser's floor clamp
+tested a folded swing foot's ankle without the fold's lift, held it planted at
+floor height and dragged it 1 mm; and the swing fold, sized for paws, tipped a
+5 mm tarsus into the floor. `keyposes.within_reach` now gives up height before
+ground position, the clamp tests a swinging foot on the ankle it solves (a
+planted foot rolling over its toe keeps the old test - with the lift, a dog's toe
+sank 3.4 mm at heel-off), and `locomotion` folds only as far as the contact
+stays clear. `_check_common` checks every clip: a limb that
+stands on the floor at rest may not move along it while on it (`floor_skid`,
+0.5% of body size). Slides opt out (`skid=False`); gaits played in place pass
+their stance (`skid=in_stance`) so only swing is checked - with the three bugs
+put back, the cricket walk fails it at 1.4 mm.
+
+**Limbs are named as limbs.** `bodymap.limb_name` drops the first segment from
+the upper bone: `hind_femur.L` is `hind.L`, `front_thigh.L` is `front.L`; a bone
+that is only the segment (`thigh.L`, `upper_arm.L`) keeps its name. Every report
+key, failure and manifest contact uses it.
+
 **Skin can outrank reach.** The rat's forearm skin is weighted to its breast
 bones, so every centimetre of hip drop sank it into the floor, and its
 forelimbs stand at 98% extension so without drop they have no stroke. The cycle

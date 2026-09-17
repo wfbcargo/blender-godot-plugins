@@ -6,12 +6,12 @@ A handoff for a fresh conversation. Start with:
 
 State as of 2026-09-16. Everything below is on `main` here and on `master` in `grungist-creek`, both
 pushed, with no open branches or worktrees. Installed copies in `~/.claude/skills` match the repo:
-- rig-anything 0.18.0
+- rig-anything 0.19.0
 - follow-through 0.2.6
 - wardrobe 0.2.1
 - humanform 0.6.3
 - character-pipeline 0.1.0
-- animate-anything 0.9.0
+- animate-anything 0.9.1
 - lookdev 0.1.0
 - godot-lsp 0.1.0
 
@@ -63,9 +63,9 @@ checking a garment, pass `clip=` for every clip: the default is the first in the
 
 Take them one at a time; each is a short branch.
 
-- **The cricket's landing never exports.** JumpLand fails its foot-slide check by 0.14 mm (0.5 mm against a
-  0.36 mm limit at `hop.py` ~1251). Decide whether that is a real slide or a limit too tight at 30 mm scale.
-  The messages also name legs by root bone (`fore_femur.L`), not leg (`fore.L`).
+- **Done (rig-anything 0.19.0): the cricket exports.** The landing's slide was real and came from shared
+  code, as did a toe drag in the walk that it hid; every clip is now checked for a foot moving along the floor.
+  05 · 5.8 has the details.
 - **The slides put feet through the floor on a Rigify biped.** `rigify_human` drops Slide, SlideRecover and
   SlideToCrouch with the reasons under `export.dropped_clips`.
 - **Starfish arms get 3 and 4 bones** off a rounding edge in `radial.build`. Take one count per appendage kind.

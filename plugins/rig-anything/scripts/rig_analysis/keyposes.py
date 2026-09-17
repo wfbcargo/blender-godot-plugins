@@ -375,6 +375,12 @@ class Poser:
                 pole, pole_w = pa, 1.0 - lw
 
             plant_w = lerp(float(planted_a), float(planted_b), lw)
+
+            def tilt_of(key, t):
+                v = key.limbs.get(limb["name"], {}).get("tilt", 0.0)
+                return v(self, limb, posed, t) if callable(v) else v
+            tilt = lerp(tilt_of(a, ta), tilt_of(b, tb), lw)
+            end_rot, lift = self.tilt_rotation(limb, tilt)
             if limb["role"] == "leg":
                 # No foot is asked to stand below the floor. Both keys' targets are evaluated
                 # against *this* frame's body, so a key meaning "hang the leg 80% of its
@@ -384,7 +390,15 @@ class Poser:
                 # Held so the sole rests on the floor, the leg stays down until the hips have
                 # risen enough for the target to clear it - which is what a take-off looks
                 # like. A planted foot and a slide's floor targets already sit exactly there.
-                if self.height(target) < self.foot_lift(limb):
+                # A foot the plan has in the air is tested on the ankle the solve is given -
+                # the target plus the roll's lift. A gait that folds a swinging foot takes the
+                # fold's lift off the target, and tested without it a cricket's hind foot read
+                # as under the floor for the last third of every swing: held planted at floor
+                # height while the stride carried it on, its toe dragged 1 mm. A planted foot
+                # rolling over its toe keeps the test without the lift: that is what holds its
+                # toe on the floor as the heel rises (with it, a dog's toe sank 3.4 mm).
+                swinging = plant_w < 1.0
+                if self.height(target + lift if swinging else target) < self.foot_lift(limb):
                     # It has not left the ground yet, so it stays where it was planted -
                     # whole, not just at that height: clamping the height alone let the foot
                     # slide 1.1 cm sideways towards the launch's outward target while it was
@@ -392,17 +406,11 @@ class Poser:
                     # too: released early, the sole pitches into the floor even with the
                     # ankle where it rests.
                     target = ta.copy()
-                    under = self.foot_lift(limb) - self.height(target)
+                    under = self.foot_lift(limb) - self.height(target + lift if swinging else target)
                     if under > 0.0:                       # in case it was already down there
                         target = target + self.up * under
                     plant_w = 1.0
             plant_ws[limb["name"]] = plant_w
-
-            def tilt_of(key, t):
-                v = key.limbs.get(limb["name"], {}).get("tilt", 0.0)
-                return v(self, limb, posed, t) if callable(v) else v
-            tilt = lerp(tilt_of(a, ta), tilt_of(b, tb), lw)
-            end_rot, lift = self.tilt_rotation(limb, tilt)
             ov, info = body.solve_limb(
                 posed, limb, target + lift,
                 end_rotation=end_rot if plant_w > 0.0 else None,
@@ -435,6 +443,7 @@ class Poser:
 
     def pose(self, key):
         return self.blend(key, key, 1.0)
+
 
 
 # --------------------------------------------------------------------------
@@ -687,6 +696,29 @@ def leg_zone(poser, limb):
     centre = (max(pos) + min(pos)) * 0.5
     half = (max(pos) - min(pos)) * 0.5
     return 0.0 if half < 1e-9 else (limb["forward_pos"] - centre) / half
+
+
+def within_reach(p, limb, posed, target, share=0.95):
+    """A foot goes where it is asked, or as near as the leg reaches - giving up
+    height before its place on the ground.
+
+    Pulled straight back toward the hip, a foot out of reach loses its ground
+    position with its height, so it meets the floor short of its spot and skids
+    the rest of the way once the body comes within reach: a cricket's forefeet
+    landed and slid 0.5 mm, 1.7% of the body. Kept over the spot, it waits in
+    the air and comes straight down. Only when the spot itself is out of reach
+    across the ground does the foot fall short, as close as the leg goes."""
+    hip = posed[limb["upper"]].translation
+    d = target - hip
+    top = share * (limb["a"] + limb["b"])
+    if d.length <= top:
+        return target
+    up = p.up
+    vert = d.dot(up)
+    across = d - up * vert
+    if across.length >= top:
+        return hip + across.normalized() * top
+    return hip + across + up * math.copysign(math.sqrt(top * top - across.length_squared), vert)
 
 
 def hip_relative(fold=1.0, f=0.0, u=0.0, o=0.0):

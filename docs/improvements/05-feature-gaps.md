@@ -260,13 +260,22 @@ order inherited the trap, and "rebuild and diff" was weaker than it looked.
 Each of these is recorded as-is in a golden, so a fix shows up as a reviewed change and not as
 silent drift.
 
-- **The cricket's landing fails its own foot-slide check, so the cricket never exports.**
-  `hop.jump_set`'s JumpLand reports "fore_femur.L/R slides 0.0005 after touching down"; the limit
-  is `0.012 * bm["size"]` (`hop.py` ~1251), about 0.36 mm on a 30 mm body. `export_creature` then
-  refuses, and `tests/golden/cricket.json` holds the refusal and an empty `manifest`. Decide whether
-  0.5 mm is a real slide on a cricket (then fix the landing) or the limit is too tight at that scale.
-  The same messages name a leg by its root bone (`fore_femur.L`) where the leg's name (`fore.L`)
-  was meant.
+- **Done (rig-anything 0.19.0): the cricket's landing failed its foot-slide check, so the cricket
+  never exported.** It was a real slide, and generator code, not the cricket or the limit. JumpLand's
+  forefeet reached the floor a frame before their spots and skidded 0.5 mm in (1.7% of the body):
+  `hop._within_reach` pulled an out-of-reach foot back toward the hip, shortening its ground
+  position with its height. Behind it, the walk's hind toes dragged 1-1.4 mm through the end of
+  every swing, for two more shared reasons: the poser's floor clamp tested a swinging foot's ankle
+  without the roll's lift and held it planted at floor height, and `locomotion`'s swing fold, sized
+  for paws, tipped the 5 mm tarsus into the floor. Each clip's own check measured drift from a
+  touchdown it guessed, or only in stance, so none saw these. Fixed: `keyposes.within_reach` gives
+  up height before ground position (hop and flight use it), the clamp tests a swinging foot on the
+  ankle it solves, the fold keeps the contact clear, and `_check_common` checks every clip for a
+  grounded limb moving along the floor (`floor_skid`; slides opt out, in-place gaits pass their
+  stance). With the walk bugs put back the new check fails the cricket walk at 1.4 mm. Limbs are
+  now named by `bodymap.limb_name` (`fore.L`, not `fore_femur.L`; `front.L`, not
+  `front_thigh.L`). The same check puts the slide recoveries on a Rigify biped at 0.2-0.4 m of leg
+  dragged along the floor - evidence for the next finding.
 - **The three slides put feet through the floor on a Rigify biped.** On follow-through's `Figure`
   with `fit_basic_human`, `actions.slide` has a toe 0.16 m and skin 0.11 m below the floor at frame
   8; `slide_recover(to="stand")` and `(to="crouch")` a foot 0.025 m under at frame 4, starting
