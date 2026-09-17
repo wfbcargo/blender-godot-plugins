@@ -191,7 +191,9 @@
     "FixWoman_Idle": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1768,
        378
@@ -199,7 +201,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1768,
        378
@@ -207,7 +211,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1768,
        378
@@ -217,7 +223,9 @@
     "FixWoman_Run": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1768,
        378
@@ -225,7 +233,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1768,
        378
@@ -233,7 +243,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1768,
        378
@@ -243,7 +255,9 @@
     "FixWoman_Walk": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1768,
        378
@@ -251,7 +265,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1768,
        378
@@ -259,7 +275,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1768,
        378

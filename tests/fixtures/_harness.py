@@ -108,8 +108,8 @@ def moves_manifest(result):
 def review_sheet(review):
     """What an export's review sheet (rig-anything `review.summary`) put on disk, as a golden holds it: the
     png names in its folder, whether they match the count it reported, the `.gdignore` in `review/`, the
-    scale, cell and image sizes, the frames drawn, and per strip how many cells show a body and how many
-    differ. Pixels are not hashed: the sheet is for eyes, and a driver update is not a regression."""
+    scale, cell and image sizes, the frames drawn, and per strip how many cells show a body, how many
+    show different poses, how many touch a side edge, and whether its frames were centred. Pixels are not hashed: the sheet is for eyes, and a driver update is not a regression."""
     if not review:
         return {"missing": True}
     if "error" in review:

@@ -1406,7 +1406,9 @@
     "Figure_Crouch": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1414,7 +1416,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1422,7 +1426,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1432,7 +1438,9 @@
     "Figure_CrouchWalk": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1440,7 +1448,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1448,7 +1458,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1458,7 +1470,9 @@
     "Figure_Idle": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1466,7 +1480,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1474,7 +1490,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1484,7 +1502,9 @@
     "Figure_Jump": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1492,7 +1512,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1500,7 +1522,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1510,7 +1534,9 @@
     "Figure_Run": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1518,7 +1544,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1526,7 +1554,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1536,7 +1566,9 @@
     "Figure_Slide": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1544,7 +1576,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": true,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1552,7 +1586,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1562,7 +1598,9 @@
     "Figure_SlideRecover": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1570,7 +1608,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": true,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1578,7 +1618,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1588,7 +1630,9 @@
     "Figure_SlideToCrouch": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1596,7 +1640,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": true,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1604,7 +1650,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1614,7 +1662,9 @@
     "Figure_Trot": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1622,7 +1672,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1630,7 +1682,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1640,7 +1694,9 @@
     "Figure_Walk": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1648,7 +1704,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378
@@ -1656,7 +1714,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        1944,
        378

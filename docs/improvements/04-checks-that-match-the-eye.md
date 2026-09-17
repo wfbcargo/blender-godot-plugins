@@ -90,9 +90,25 @@ Characters then line up, regressions can be diffed visually, and the critic belo
   Cells are 320 px tall plus a label band (14%) and a ground band under the floor (4%), at least 0.6
   as wide as tall. A flat body's three-quarter view is from above (`three_quarter_above`): the starfish and the cricket.
 - Goldens record, per fixture, the png names, that they match the reported count, the `.gdignore`,
-  `review.json`, scale, cell and contact sizes, the frames drawn, and per strip `cells_with_body` and
-  `distinct_cells` - not pixel hashes. All 8 of 8 in every strip of every fixture, stable under
-  `--twice`.
+  `review.json`, scale, cell and contact sizes, the frames drawn, and per strip `cells_with_body`,
+  `distinct_cells`, `edge_cells` and `centred` - not pixel hashes.
+- **Review fixes.** `distinct_cells` first hashed each cell's bytes, and Blender's default render dither
+  (1.0) changed ~43k pixels per cell by up to 2/255, so a clip of 8 identical poses reported 8/8: the
+  check could not fail. The sheet now renders with `dither_intensity = 0` and counts cells unlike every
+  earlier one by more than 12 pixels over 10/255. The new `review_sheet` fixture (a box on one bone)
+  records a `Static` clip at 1 in every view, a `Tilt` at 8, and a `Travel` clip at 8 with 4 `edge_cells`
+  drawn in place but 1 and 0 centred. On the export fixtures the honest counts are lower where frames
+  barely differ: cricket Idle front and JumpLaunch (all views) 5, dog Idle front/right 5, rabbit Idle
+  front 4 and JumpLaunch 5, starfish Crawl 5; the humans stay 8.
+  Travelling or stretching clips spilled into the next cell (cricket JumpLaunch right, f10 over f9).
+  Every clip is now evaluated before rendering; a strip whose poses leave the rest body's cell has each
+  frame's extent centred in its cell (`centred`, `(each frame centred)` in the heading, `centre_poses=False`
+  to turn it off) and the cells widen to the widest centred pose. `edge_cells` (a body touching its cell's
+  side) is 0 in every strip of every fixture. Centred: cricket JumpAir right/above, JumpLand right,
+  JumpLaunch right/above; rabbit JumpLaunch right; Rigify Slide, SlideRecover and SlideToCrouch right.
+  Cricket cells 265 -> 294 px wide; no other fixture's cell moved. Labels and floor now sit in front of
+  the nearest pose, so a clip travelling toward the camera cannot cover them. Sheet seconds did not rise
+  (cricket 10.4 -> 7.9, Rigify 18.1 -> 12.9 on a shared machine).
 - For 04 c, scratch strips of Walter's walk and Tomas' run: the committed glbs from grungist-creek
   `5379d5e` (before the upper body moved into rig-anything) and `ed654b0` (now), and Walter and Tomas
   re-authored on today's baked bodies with rig-anything `bc1ef67^` (pre-fix) and `bc1ef67` (the arm

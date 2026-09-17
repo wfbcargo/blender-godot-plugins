@@ -123,19 +123,19 @@
     "CricketTest_rig_JumpAir",
     "CricketTest_rig_JumpLand"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips\\regress_cricket\\a\\cricket\\cricket\\cricket.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips\\regress_cricket\\a\\cricket\\cricket\\cricket.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\cricket\\cricket\\cricket.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\cricket\\cricket\\cricket.moves.json",
    "review": {
     "cell_px": [
-     265,
+     294,
      320
     ],
     "contact_px": [
-     3196,
+     3544,
      969
     ],
     "count": 16,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips\\regress_cricket\\a\\cricket\\cricket\\review\\cricket",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\cricket\\cricket\\review\\cricket",
     "frame_height_m": 0.05,
     "frames": {
      "CricketTest_rig_Idle": [
@@ -189,30 +189,36 @@
       29
      ]
     },
-    "seconds": 10.03,
+    "seconds": 7.92,
     "strips": {
      "CricketTest_rig_Idle": {
       "front": {
        "cells_with_body": 8,
-       "distinct_cells": 8,
+       "centred": false,
+       "distinct_cells": 5,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       },
       "right": {
        "cells_with_body": 8,
+       "centred": false,
        "distinct_cells": 8,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       },
       "three_quarter_above": {
        "cells_with_body": 8,
+       "centred": false,
        "distinct_cells": 8,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       }
@@ -220,25 +226,31 @@
      "CricketTest_rig_JumpAir": {
       "front": {
        "cells_with_body": 8,
+       "centred": false,
        "distinct_cells": 8,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       },
       "right": {
        "cells_with_body": 8,
+       "centred": true,
        "distinct_cells": 8,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       },
       "three_quarter_above": {
        "cells_with_body": 8,
+       "centred": true,
        "distinct_cells": 8,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       }
@@ -246,25 +258,31 @@
      "CricketTest_rig_JumpLand": {
       "front": {
        "cells_with_body": 8,
+       "centred": false,
        "distinct_cells": 8,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       },
       "right": {
        "cells_with_body": 8,
+       "centred": true,
        "distinct_cells": 8,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       },
       "three_quarter_above": {
        "cells_with_body": 8,
+       "centred": false,
        "distinct_cells": 8,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       }
@@ -272,25 +290,31 @@
      "CricketTest_rig_JumpLaunch": {
       "front": {
        "cells_with_body": 8,
-       "distinct_cells": 8,
+       "centred": false,
+       "distinct_cells": 5,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       },
       "right": {
        "cells_with_body": 8,
-       "distinct_cells": 8,
+       "centred": true,
+       "distinct_cells": 5,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       },
       "three_quarter_above": {
        "cells_with_body": 8,
-       "distinct_cells": 8,
+       "centred": true,
+       "distinct_cells": 5,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       }
@@ -298,25 +322,31 @@
      "CricketTest_rig_Walk": {
       "front": {
        "cells_with_body": 8,
+       "centred": false,
        "distinct_cells": 8,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       },
       "right": {
        "cells_with_body": 8,
+       "centred": false,
        "distinct_cells": 8,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       },
       "three_quarter_above": {
        "cells_with_body": 8,
+       "centred": false,
        "distinct_cells": 8,
+       "edge_cells": 0,
        "size_px": [
-        2120,
+        2352,
         378
        ]
       }
@@ -1267,11 +1297,11 @@
   },
   "review": {
    "cell_px": [
-    265,
+    294,
     320
    ],
    "contact_px": [
-    3196,
+    3544,
     969
    ],
    "frame_height_m": 0.05,
@@ -1352,25 +1382,31 @@
     "CricketTest_rig_Idle": {
      "front": {
       "cells_with_body": 8,
-      "distinct_cells": 8,
+      "centred": false,
+      "distinct_cells": 5,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      },
      "three_quarter_above": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      }
@@ -1378,25 +1414,31 @@
     "CricketTest_rig_JumpAir": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      },
      "right": {
       "cells_with_body": 8,
+      "centred": true,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      },
      "three_quarter_above": {
       "cells_with_body": 8,
+      "centred": true,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      }
@@ -1404,25 +1446,31 @@
     "CricketTest_rig_JumpLand": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      },
      "right": {
       "cells_with_body": 8,
+      "centred": true,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      },
      "three_quarter_above": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      }
@@ -1430,25 +1478,31 @@
     "CricketTest_rig_JumpLaunch": {
      "front": {
       "cells_with_body": 8,
-      "distinct_cells": 8,
+      "centred": false,
+      "distinct_cells": 5,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      },
      "right": {
       "cells_with_body": 8,
-      "distinct_cells": 8,
+      "centred": true,
+      "distinct_cells": 5,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      },
      "three_quarter_above": {
       "cells_with_body": 8,
-      "distinct_cells": 8,
+      "centred": true,
+      "distinct_cells": 5,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      }
@@ -1456,25 +1510,31 @@
     "CricketTest_rig_Walk": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      },
      "three_quarter_above": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
-       2120,
+       2352,
        378
       ]
      }

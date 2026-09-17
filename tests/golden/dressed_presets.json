@@ -1,9 +1,9 @@
 {
  "fixture": "dressed_presets",
  "plugins": {
-  "follow-through": "0.3.0",
-  "rig-anything": "0.20.0",
-  "wardrobe": "0.2.1"
+  "follow-through": "0.4.0",
+  "rig-anything": "0.21.0",
+  "wardrobe": "0.2.2"
  },
  "report": {
   "body": {
@@ -48,7 +48,7 @@
     "export": {
      "edge": 425,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf\\flesh\\regress_upd\\a\\dressed_presets\\dressed_presets\\shorts_mid_thigh.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\dressed_presets\\dressed_presets\\shorts_mid_thigh.glb",
      "garment": "Shorts",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
@@ -101,7 +101,7 @@
     "export": {
      "edge": 580,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf\\flesh\\regress_upd\\a\\dressed_presets\\dressed_presets\\sports_top.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\dressed_presets\\dressed_presets\\sports_top.glb",
      "garment": "SportsTop",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,

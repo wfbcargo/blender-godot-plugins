@@ -435,7 +435,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips\\regress_update\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -754,7 +754,9 @@
       "BloaterWalk": {
        "front": {
         "cells_with_body": 8,
+        "centred": false,
         "distinct_cells": 8,
+        "edge_cells": 0,
         "size_px": [
          2032,
          378
@@ -762,7 +764,9 @@
        },
        "right": {
         "cells_with_body": 8,
+        "centred": false,
         "distinct_cells": 8,
+        "edge_cells": 0,
         "size_px": [
          2032,
          378
@@ -770,7 +774,9 @@
        },
        "three_quarter": {
         "cells_with_body": 8,
+        "centred": false,
         "distinct_cells": 8,
+        "edge_cells": 0,
         "size_px": [
          2032,
          378
@@ -780,7 +786,9 @@
       "Bloater_Idle": {
        "front": {
         "cells_with_body": 8,
+        "centred": false,
         "distinct_cells": 8,
+        "edge_cells": 0,
         "size_px": [
          2032,
          378
@@ -788,7 +796,9 @@
        },
        "right": {
         "cells_with_body": 8,
+        "centred": false,
         "distinct_cells": 8,
+        "edge_cells": 0,
         "size_px": [
          2032,
          378
@@ -796,7 +806,9 @@
        },
        "three_quarter": {
         "cells_with_body": 8,
+        "centred": false,
         "distinct_cells": 8,
+        "edge_cells": 0,
         "size_px": [
          2032,
          378
@@ -1249,7 +1261,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips\\regress_update\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",
@@ -1522,7 +1534,9 @@
       "FigureWalk": {
        "front": {
         "cells_with_body": 8,
+        "centred": false,
         "distinct_cells": 8,
+        "edge_cells": 0,
         "size_px": [
          1944,
          378
@@ -1530,7 +1544,9 @@
        },
        "right": {
         "cells_with_body": 8,
+        "centred": false,
         "distinct_cells": 8,
+        "edge_cells": 0,
         "size_px": [
          1944,
          378
@@ -1538,7 +1554,9 @@
        },
        "three_quarter": {
         "cells_with_body": 8,
+        "centred": false,
         "distinct_cells": 8,
+        "edge_cells": 0,
         "size_px": [
          1944,
          378
@@ -1548,7 +1566,9 @@
       "Figure_Idle": {
        "front": {
         "cells_with_body": 8,
+        "centred": false,
         "distinct_cells": 8,
+        "edge_cells": 0,
         "size_px": [
          1944,
          378
@@ -1556,7 +1576,9 @@
        },
        "right": {
         "cells_with_body": 8,
+        "centred": false,
         "distinct_cells": 8,
+        "edge_cells": 0,
         "size_px": [
          1944,
          378
@@ -1564,7 +1586,9 @@
        },
        "three_quarter": {
         "cells_with_body": 8,
+        "centred": false,
         "distinct_cells": 8,
+        "edge_cells": 0,
         "size_px": [
          1944,
          378

@@ -352,12 +352,19 @@ the glb is written and verified:
   Rigify figure's 10 clips.
 - **Several meshes** (`review.sheet`, and the pipeline's dressed character): the first is grey,
   every further one (garments, hair) blue, green, then purple.
-- **Measured.** Per strip, `cells_with_body` (cells where a body was drawn) and `distinct_cells` (cells
-  that differ - one pose rendered 8 times says so). The manifest's `review` holds these and the
+- **Measured.** Per strip, `cells_with_body` (cells where a body was drawn), `distinct_cells` (cells
+  showing different poses: one pose rendered 8 times is 1; compared on an undithered render with a
+  tolerance of 12 pixels differing by more than 10/255, so a sub-pixel breath can merge frames) and
+  `edge_cells` (cells whose body touches their left or right edge: a pose spilling into its neighbour).
+- **Poses stay in their cells.** Every clip is evaluated before rendering. A strip whose poses would
+  reach out of the rest body's cell (the cricket's JumpLaunch stretches and rises out of it) is drawn
+  with each frame's extent centred in its cell - `centred` in the strip, `(each frame centred)` in its
+  heading - and the cells widen to the widest centred pose. How far a body travelled between frames is
+  then not shown; each pose is. `review_options={"centre_poses": False}` draws poses where they stand. The manifest's `review` holds these and the
   folder; a sheet that failed is `review.error` (and a `problems` line from `export_character`), never
   a refused export - the glb is already verified.
 - `review=False` turns it off; `review_options` go to `review.sheet` (`frame_height_m`, `views`,
-  `frames`, `cell_px`, `title`). `review.sheet(meshes, rig, actions, out_dir, ...)` renders any
+  `frames`, `cell_px`, `title`, `centre_poses`). `review.sheet(meshes, rig, actions, out_dir, ...)` renders any
   meshes on a rig - several, e.g. a body with its garments - without exporting.
 
 **In Godot, drive it with `MovesController`.** Copy

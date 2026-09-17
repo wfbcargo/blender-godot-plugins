@@ -27,14 +27,23 @@ and eight evaluations of the rig.
 
 **What is measured** (from the pixels, per strip): `cells_with_body` - cells where anything but background,
 floor line or label was drawn, so a strip that lost its body says so - and `distinct_cells`, how many of the
-cells differ, so a clip rendering one frozen pose eight times (the stale-pose bug `views.render_clip`
-documents) says so too.
+cells show different poses, so a clip rendering one frozen pose eight times (the stale-pose bug
+`views.render_clip` documents) reports 1 - and `edge_cells`, cells whose body touches their left or right
+edge, so a pose spilling into its neighbour's cell says so. Cells are compared with a tolerance
+(`PIXEL_DIFF`, `SAME_PIXELS`) on an undithered render: Blender's default dither alone made every cell of a
+frozen pose differ.
+
+**Travel.** Every clip is evaluated before anything renders. The cell width holds the widest pose drawn,
+and a strip whose poses would leave their cells - a cricket's launch stretches and rises out of its
+cell into the next - is drawn centred: each frame moved along the view's right axis so its own extent is
+centred in its cell, the cell widened to the widest pose, and `(each frame centred)` in the heading. Where
+a body stands relative to its neighbours is then not in the picture; each pose is, on its own.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
+import math
 import os
 import time
 
@@ -62,6 +71,9 @@ BODY = (0.80, 0.80, 0.82)
 GARMENTS = ((0.30, 0.48, 0.80), (0.42, 0.66, 0.45), (0.58, 0.46, 0.78))
 FLOOR = (0.95, 0.45, 0.08)
 TEXT = (0.95, 0.95, 0.95)
+# two cells show the same pose unless at least SAME_PIXELS pixels differ by more than PIXEL_DIFF (of 1.0)
+PIXEL_DIFF = 0.04
+SAME_PIXELS = 12
 
 
 def _forward_vec(forward):
@@ -87,6 +99,15 @@ def _rest_points(meshes):
         mw = ob.matrix_world
         pts.extend(mw @ v.co for v in ob.data.vertices)
     return pts
+
+
+def _np_points(mesh, matrix_world):
+    """A mesh's vertices in world space, as an (n, 3) array, through `matrix_world`."""
+    import numpy as np
+    co = np.empty(len(mesh.vertices) * 3, dtype=np.float32)
+    mesh.vertices.foreach_get("co", co)
+    m = np.array([tuple(row) for row in matrix_world], dtype=np.float64)
+    return co.reshape(-1, 3).astype(np.float64) @ m[:3, :3].T + m[:3, 3]
 
 
 def frame_height(meshes, forward="-Y"):
@@ -172,7 +193,14 @@ def _save_png(path, rgb):
 
 
 def _measure_strip(rgb, cells, cell_w, band_px):
-    """cells_with_body and distinct_cells from a strip's pixels (row 0 is the bottom)."""
+    """(cells_with_body, distinct_cells, edge_cells) from a strip's pixels (row 0 is the bottom).
+
+    Two cells are the same pose when fewer than `SAME_PIXELS` of their pixels differ by more than
+    `PIXEL_DIFF` - not when their bytes hash alike: the render is not dithered (`sheet` turns dither off),
+    but antialiasing can still move a value by a step or two. `distinct_cells` counts the cells unlike every
+    cell counted before them, so one pose drawn 8 times is 1. `edge_cells` counts cells whose body reaches
+    their left or right edge column: a pose that crosses into its neighbour's cell does, and then neither
+    frame reads on its own."""
     import numpy as np
     h = rgb.shape[0]
     body = rgb[: h - band_px]                                   # the label band is on top
@@ -185,18 +213,22 @@ def _measure_strip(rgb, cells, cell_w, band_px):
     rows = np.flatnonzero(orange.mean(axis=1) > 0.3)
     for r in rows:
         mask[max(0, r - 2):r + 3] = False
-    with_body, hashes = 0, set()
+    with_body, edges, kept = 0, 0, []
     for i in range(cells):
         cell = mask[:, i * cell_w:(i + 1) * cell_w]
         if cell.sum() > 0:
             with_body += 1
-        q = np.round(body[:, i * cell_w:(i + 1) * cell_w] * 255).astype(np.uint8)
-        hashes.add(hashlib.sha1(q.tobytes()).hexdigest())
-    return with_body, len(hashes)
+        if cell[:, 0].any() or cell[:, -1].any():
+            edges += 1
+        px = body[:, i * cell_w:(i + 1) * cell_w]
+        if all(int((np.abs(px - k).max(axis=2) > PIXEL_DIFF).sum()) >= SAME_PIXELS for k in kept):
+            kept.append(px)
+    return with_body, len(kept), edges
 
 
 def sheet(meshes, rig_name, actions, out_dir, views=None, frames=8, frame_height_m=None,
-          forward="-Y", loops=None, cell_px=CELL_PX, contact=True, gdignore=True, title=None, floor=0.0):
+          forward="-Y", loops=None, cell_px=CELL_PX, contact=True, gdignore=True, title=None, floor=0.0,
+          centre_poses=True):
     """Render the review sheet of `actions` on `meshes` (names) posed by `rig_name` into `out_dir`.
 
     views           default `REVIEW_VIEWS`, with `three_quarter_above` for a flat body (`FLAT`)
@@ -206,10 +238,13 @@ def sheet(meshes, rig_name, actions, out_dir, views=None, frames=8, frame_height
     gdignore        write `.gdignore` in `out_dir`'s parent (the `review/` folder) and in `out_dir`
     title           the name written on each strip before the clip (default the rig's)
     floor           the floor height, drawn as an orange line
+    centre_poses    a strip whose poses would reach out of their cells (a jump, a lunge, a travelling clip) is
+                    drawn with each frame's extent centred in its cell and `(each frame centred)` in its
+                    heading; False draws every pose where it stands, in cells as wide as the rest body needs
 
     Every png and review.json already in `out_dir` is replaced. Returns {dir, files, count, frame_height_m,
     cell_m, cell_px, views, frames {clip: [..]}, strips {clip: {view: {file, size_px, cells_with_body,
-    distinct_cells}}}, contact {file, size_px}, seconds}, or {error}."""
+    distinct_cells, edge_cells, centred}}}, contact {file, size_px}, seconds}, or {error}."""
     import numpy as np
     from . import verify
 
@@ -254,15 +289,19 @@ def sheet(meshes, rig_name, actions, out_dir, views=None, frames=8, frame_height
     rights = {v: dirs[v].cross(Vector((0.0, 0.0, 1.0))).normalized() * -1.0 for v in views}
     # the widest the rest body is across any view, with room for a stride or a reach
     across = max(max(p.dot(rights[v]) for p in rest) - min(p.dot(rights[v]) for p in rest) for v in views)
-    cell_w_m = max(scale * CELL_ASPECT, across * 1.3)
-    cell_w_px = max(8, int(round(cell_px * cell_w_m / scale)))
-    cell_w_m = cell_w_px * scale / cell_px                      # whole pixels per cell
+    rest_cell_m = max(scale * CELL_ASPECT, across * 1.3)
+    px_m = scale / cell_px
     band_px = int(round(cell_px * LABEL_BAND))
     ground_px = int(round(cell_px * GROUND_BAND))
     height_m = scale * (cell_px + band_px + ground_px) / cell_px
-    width_px, height_px = cell_w_px * frames, cell_px + band_px + ground_px
+    height_px = cell_px + band_px + ground_px
     # the camera's target: the frame's centre raised by half the label band, lowered by half the ground band
     target = centre + Vector((0.0, 0.0, scale * (band_px - ground_px) / cell_px / 2.0))
+    looks = {}
+    for view in views:
+        # a level camera frames from the floor up; one from above looks at the body's middle
+        looks[view] = target if abs(dirs[view].z) < 1e-6 else \
+            Vector(((lo.x + hi.x) / 2.0, (lo.y + hi.y) / 2.0, (lo.z + hi.z) / 2.0)) + target - centre
 
     main = bpy.context.scene
     prev_frame = main.frame_current
@@ -278,6 +317,62 @@ def sheet(meshes, rig_name, actions, out_dir, views=None, frames=8, frame_height
     made = []                                                   # objects to remove, with their data
     files, strips, frame_lists = [], {}, {}
     try:
+        if prev_nla is not None:
+            ad.use_nla = False
+        # Every clip's frames first, frozen as meshes (not yet in the render scene), with where each frame's
+        # body lies across each view: the cell width then holds every pose, and a strip that would spill is centred.
+        shapes_of, shifts, centred = {}, {}, {}
+        need_m = 0.0                                            # the widest half-pose drawn, about its cell's centre
+        near_m = 0.0                                            # the nearest any pose comes to a camera
+        for action, act in zip(actions, acts):
+            binding = verify.bind_action(rig, act)
+            if not binding["bound"]:
+                return {"error": "%s: %s" % (action, binding["note"])}
+            fl = clip_frames(act, frames, action in loops)
+            frame_lists[action] = fl
+            shapes, spans = [], []          # per cell: [(mesh object, frozen)] and {view: (lo, hi)} about its centre
+            for f in fl:
+                main.frame_set(f)
+                dg = bpy.context.evaluated_depsgraph_get()
+                dg.update()
+                cell, pts = [], []
+                for k, ob in enumerate(mesh_objs):
+                    shape = bpy.data.meshes.new_from_object(ob.evaluated_get(dg), depsgraph=dg)
+                    fr = bpy.data.objects.new("review_frozen", shape)
+                    fr.color = (GARMENTS[(k - 1) % len(GARMENTS)] if k else BODY) + (1.0,)
+                    made.append(fr)
+                    cell.append((ob, fr))
+                    pts.append(_np_points(shape, ob.matrix_world))
+                pts = np.concatenate(pts)
+                span = {}
+                for view in views:
+                    r = np.array(tuple(rights[view]))
+                    along = pts @ r - float(looks[view].dot(rights[view]))
+                    span[view] = (float(along.min()), float(along.max()))
+                    toward_cam = pts @ np.array(tuple(dirs[view])) - float(looks[view].dot(dirs[view]))
+                    near_m = max(near_m, float(toward_cam.max()))
+                shapes.append(cell)
+                spans.append(span)
+            shapes_of[action] = shapes
+            shifts[action], centred[action] = {}, {}
+            for view in views:
+                # A pose reaching past its cell crosses into the next one and neither reads: then every frame
+                # of the strip is centred on its own extent. Only those strips can widen the cells (a strip
+                # drawn where it stands, `centre_poses=False`, keeps the rest body's width and may spill).
+                spill = any(max(-s[view][0], s[view][1]) > rest_cell_m / 2.0 - px_m for s in spans)
+                centres = bool(centre_poses and spill)
+                sh = [-(s[view][0] + s[view][1]) / 2.0 if centres else 0.0 for s in spans]
+                centred[action][view] = centres
+                shifts[action][view] = sh
+                if centres:
+                    need_m = max(need_m, max(max(-(s[view][0] + d), s[view][1] + d) for s, d in zip(spans, sh)))
+        # whole pixels per cell: the rest body's cell, grown if a pose that is drawn in its cell needs more
+        cell_w_px = max(8, int(round(rest_cell_m / px_m)))
+        if 2.0 * need_m > (cell_w_px - 1) * px_m:
+            cell_w_px = int(math.ceil(2.0 * need_m / px_m)) + 4
+        cell_w_m = cell_w_px * px_m
+        width_px = cell_w_px * frames
+
         scene.collection.objects.link(cam)
         scene.camera = cam
         world.color = BACKGROUND
@@ -286,6 +381,8 @@ def sheet(meshes, rig_name, actions, out_dir, views=None, frames=8, frame_height
         scene.render.resolution_x, scene.render.resolution_y = width_px, height_px
         scene.render.resolution_percentage = 100
         scene.render.film_transparent = False
+        # no dither: its noise changes every cell's pixels a little, and one pose must render as one image
+        scene.render.dither_intensity = 0.0
         scene.render.image_settings.file_format = "PNG"
         scene.render.image_settings.color_mode = "RGB"
         try:
@@ -302,50 +399,38 @@ def sheet(meshes, rig_name, actions, out_dir, views=None, frames=8, frame_height
         cam_data.sensor_fit = "VERTICAL"
         cam_data.ortho_scale = height_m
         cam_data.clip_start = 0.001
-        cam_data.clip_end = radius * 40.0 + cell_w_m * frames
+        # labels and floor stand in front of every pose (a clip can travel toward the camera), the camera further
+        front_m = max(radius * 3.0, near_m + radius * 0.5)
+        cam_m = front_m + radius * 3.0
+        cam_data.clip_end = cam_m * 2.0 + radius * 40.0 + cell_w_m * frames
 
-        if prev_nla is not None:
-            ad.use_nla = False
         band_m = LABEL_BAND * scale
         name = title or rig_name
-        for action, act in zip(actions, acts):
-            binding = verify.bind_action(rig, act)
-            if not binding["bound"]:
-                return {"error": "%s: %s" % (action, binding["note"])}
-            fl = clip_frames(act, frames, action in loops)
-            frame_lists[action] = fl
-            shapes = []                                         # per cell: [(mesh object, shape)]
-            for f in fl:
-                main.frame_set(f)
-                dg = bpy.context.evaluated_depsgraph_get()
-                dg.update()
-                cell = []
-                for k, ob in enumerate(mesh_objs):
-                    shape = bpy.data.meshes.new_from_object(ob.evaluated_get(dg), depsgraph=dg)
-                    fr = bpy.data.objects.new("review_frozen", shape)
-                    fr.color = (GARMENTS[(k - 1) % len(GARMENTS)] if k else BODY) + (1.0,)
+        for action in actions:
+            fl, shapes = frame_lists[action], shapes_of[action]
+            for cell in shapes:
+                for _ob, fr in cell:
                     scene.collection.objects.link(fr)
-                    made.append(fr)
-                    cell.append((ob, fr))
-                shapes.append(cell)
             strips[action] = {}
             for view in views:
-                d, right = dirs[view], rights[view]
+                d, right, look_at = dirs[view], rights[view], looks[view]
                 level = abs(d.z) < 1e-6
-                # a level camera frames from the floor up; one from above looks at the body's middle
-                look_at = target if level else Vector(((lo.x + hi.x) / 2.0, (lo.y + hi.y) / 2.0, (lo.z + hi.z) / 2.0))                     + target - centre
-                cam.location = look_at + d * radius * 6.0
+                cam.location = look_at + d * cam_m
                 rot = (-d).to_track_quat("-Z", "Y").to_euler()
                 cam.rotation_euler = rot
                 up = rot.to_matrix() @ Vector((0.0, 1.0, 0.0))
                 for i, cell in enumerate(shapes):
-                    offset = Matrix.Translation(right * (i - (frames - 1) / 2.0) * cell_w_m)
+                    along = (i - (frames - 1) / 2.0) * cell_w_m + shifts[action][view][i]
+                    offset = Matrix.Translation(right * along)
                     for ob, fr in cell:
                         fr.matrix_world = offset @ ob.matrix_world
                 extras = []
-                toward = d * radius * 3.0                        # labels and floor in front of every body
+                toward = d * front_m                             # labels and floor in front of every body
                 top_left = look_at - right * cell_w_m * frames / 2.0 + up * height_m / 2.0 + toward
-                extras.append(_text(scene, "%s   %s   %s" % (name, action, view), band_m * 0.34, rot,
+                heading = "%s   %s   %s" % (name, action, view)
+                if centred[action][view]:
+                    heading += "   (each frame centred)"
+                extras.append(_text(scene, heading, band_m * 0.34, rot,
                                     top_left - up * band_m * 0.42 + right * cell_w_m * 0.04))
                 for i, f in enumerate(fl):
                     extras.append(_text(scene, "f%d" % f, band_m * 0.28, rot,
@@ -366,9 +451,10 @@ def sheet(meshes, rig_name, actions, out_dir, views=None, frames=8, frame_height
                         else:
                             bpy.data.meshes.remove(data)
                 rgb = _png_pixels(path)
-                with_body, distinct = _measure_strip(rgb, frames, cell_w_px, band_px)
+                with_body, distinct, edges = _measure_strip(rgb, frames, cell_w_px, band_px)
                 strips[action][view] = {"file": path, "size_px": [int(rgb.shape[1]), int(rgb.shape[0])],
-                                        "cells_with_body": with_body, "distinct_cells": distinct}
+                                        "cells_with_body": with_body, "distinct_cells": distinct,
+                                        "edge_cells": edges, "centred": centred[action][view]}
                 files.append(path)
             for cell in shapes:
                 for _ob, fr in cell:
@@ -464,6 +550,7 @@ def summary(r):
         return {"error": r["error"]}
     return {"dir": r["dir"], "count": r["count"], "frame_height_m": r["frame_height_m"],
             "cell_px": r["cell_px"], "views": r["views"], "frames": r["frames"],
-            "strips": {c: {v: {k: s[k] for k in ("size_px", "cells_with_body", "distinct_cells")}
+            "strips": {c: {v: {k: s[k] for k in ("size_px", "cells_with_body", "distinct_cells", "edge_cells",
+                                                                "centred")}
                            for v, s in vs.items()} for c, vs in r["strips"].items()},
             "contact_px": (r.get("contact") or {}).get("size_px"), "seconds": r["seconds"]}

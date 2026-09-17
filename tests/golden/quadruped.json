@@ -1003,7 +1003,9 @@
     "Dog_Crouch": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378
@@ -1011,7 +1013,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378
@@ -1019,7 +1023,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378
@@ -1029,7 +1035,9 @@
     "Dog_Idle": {
      "front": {
       "cells_with_body": 8,
-      "distinct_cells": 8,
+      "centred": false,
+      "distinct_cells": 5,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378
@@ -1037,7 +1045,9 @@
      },
      "right": {
       "cells_with_body": 8,
-      "distinct_cells": 8,
+      "centred": false,
+      "distinct_cells": 5,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378
@@ -1045,7 +1055,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378
@@ -1055,7 +1067,9 @@
     "Dog_Run": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378
@@ -1063,7 +1077,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378
@@ -1071,7 +1087,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378
@@ -1081,7 +1099,9 @@
     "Dog_Trot": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378
@@ -1089,7 +1109,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378
@@ -1097,7 +1119,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378
@@ -1107,7 +1131,9 @@
     "Dog_Walk": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378
@@ -1115,7 +1141,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378
@@ -1123,7 +1151,9 @@
      },
      "three_quarter": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2856,
        378

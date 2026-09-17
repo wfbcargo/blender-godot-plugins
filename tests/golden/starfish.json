@@ -79,8 +79,8 @@
     "StarTest_rig_Crawl",
     "StarTest_rig_Idle"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips\\regress_upd2\\a\\starfish\\starfish\\starfish.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips\\regress_upd2\\a\\starfish\\starfish\\starfish.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\starfish\\starfish\\starfish.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\starfish\\starfish\\starfish.moves.json",
    "review": {
     "cell_px": [
      295,
@@ -91,7 +91,7 @@
      390
     ],
     "count": 7,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips\\regress_upd2\\a\\starfish\\starfish\\review\\starfish",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\starfish\\starfish\\review\\starfish",
     "frame_height_m": 0.35,
     "frames": {
      "StarTest_rig_Crawl": [
@@ -115,12 +115,14 @@
       85
      ]
     },
-    "seconds": 6.05,
+    "seconds": 5.43,
     "strips": {
      "StarTest_rig_Crawl": {
       "front": {
        "cells_with_body": 8,
-       "distinct_cells": 8,
+       "centred": false,
+       "distinct_cells": 5,
+       "edge_cells": 0,
        "size_px": [
         2360,
         378
@@ -128,7 +130,9 @@
       },
       "right": {
        "cells_with_body": 8,
-       "distinct_cells": 8,
+       "centred": false,
+       "distinct_cells": 5,
+       "edge_cells": 0,
        "size_px": [
         2360,
         378
@@ -136,7 +140,9 @@
       },
       "three_quarter_above": {
        "cells_with_body": 8,
-       "distinct_cells": 8,
+       "centred": false,
+       "distinct_cells": 5,
+       "edge_cells": 0,
        "size_px": [
         2360,
         378
@@ -146,7 +152,9 @@
      "StarTest_rig_Idle": {
       "front": {
        "cells_with_body": 8,
+       "centred": false,
        "distinct_cells": 8,
+       "edge_cells": 0,
        "size_px": [
         2360,
         378
@@ -154,7 +162,9 @@
       },
       "right": {
        "cells_with_body": 8,
+       "centred": false,
        "distinct_cells": 8,
+       "edge_cells": 0,
        "size_px": [
         2360,
         378
@@ -162,7 +172,9 @@
       },
       "three_quarter_above": {
        "cells_with_body": 8,
+       "centred": false,
        "distinct_cells": 8,
+       "edge_cells": 0,
        "size_px": [
         2360,
         378
@@ -514,7 +526,9 @@
     "StarTest_rig_Crawl": {
      "front": {
       "cells_with_body": 8,
-      "distinct_cells": 8,
+      "centred": false,
+      "distinct_cells": 5,
+      "edge_cells": 0,
       "size_px": [
        2360,
        378
@@ -522,7 +536,9 @@
      },
      "right": {
       "cells_with_body": 8,
-      "distinct_cells": 8,
+      "centred": false,
+      "distinct_cells": 5,
+      "edge_cells": 0,
       "size_px": [
        2360,
        378
@@ -530,7 +546,9 @@
      },
      "three_quarter_above": {
       "cells_with_body": 8,
-      "distinct_cells": 8,
+      "centred": false,
+      "distinct_cells": 5,
+      "edge_cells": 0,
       "size_px": [
        2360,
        378
@@ -540,7 +558,9 @@
     "StarTest_rig_Idle": {
      "front": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2360,
        378
@@ -548,7 +568,9 @@
      },
      "right": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2360,
        378
@@ -556,7 +578,9 @@
      },
      "three_quarter_above": {
       "cells_with_body": 8,
+      "centred": false,
       "distinct_cells": 8,
+      "edge_cells": 0,
       "size_px": [
        2360,
        378
