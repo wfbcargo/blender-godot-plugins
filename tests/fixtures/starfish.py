@@ -11,8 +11,9 @@ do. What detection would have guessed on its own is reported beside it (`kind_su
 The sample is built at the world origin, resting on the floor, which is where `radial.detect` and
 `build` expect a body - so nothing is moved before export.
 
-`radial.skin` reports `coverage` as a constant 1.0, so the fixture also counts the vertices that
-actually carry weight (`skin.measured_coverage`).
+`radial.skin` measures its coverage by reading the weights back from the mesh. The fixture reports
+what `radial.skin` returns and counts the weighted vertices itself as well, failing if the two
+disagree, so the golden's `skin.coverage` is a measurement and not a constant.
 """
 import json
 import math
@@ -25,12 +26,11 @@ import _harness as H  # noqa: E402
 H.use("RA_SCRIPTS")
 
 
-def _measured_coverage(obj, rig):
-    """Share of vertices with some weight on a bone of `rig`."""
+def _unweighted(obj, rig):
+    """Vertices with no weight on any bone of `rig`, counted independently of `radial.skin`."""
     bones = {b.name for b in rig.data.bones}
     index = {g.index for g in obj.vertex_groups if g.name in bones}
-    covered = sum(1 for v in obj.data.vertices if any(g.group in index and g.weight > 0.0 for g in v.groups))
-    return round(covered / float(max(1, len(obj.data.vertices))), 5)
+    return sum(1 for v in obj.data.vertices if not any(g.group in index and g.weight > 0.0 for g in v.groups))
 
 
 def build():
@@ -48,8 +48,12 @@ def build():
         raise RuntimeError(built["error"])
     rig = built["rig"]
     skinned = radial.skin(rig)
-    if isinstance(skinned, dict) and "error" not in skinned:
-        skinned = dict(skinned, measured_coverage=_measured_coverage(ob, bpy.data.objects[rig]))
+    if "error" in skinned:
+        raise RuntimeError(skinned["error"])
+    counted = _unweighted(ob, bpy.data.objects[rig])
+    if counted != skinned["vertices_unweighted"]:
+        raise RuntimeError("radial.skin says %d vertices are unweighted, the fixture counts %d"
+                           % (skinned["vertices_unweighted"], counted))
     moves = radial_moves.move_set(rig)
 
     out = os.path.join(H.out_dir(), "starfish")
