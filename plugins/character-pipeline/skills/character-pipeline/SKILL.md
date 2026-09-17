@@ -77,7 +77,6 @@ colour = [0.035, 0.16, 0.20]
 dir = "assets/belle"               # under the project (characters/ sits in it)
 res_dir = "res://assets/belle"
 blend = "C:/Users/pauli/Code/Blender/belle_realistic.blend"
-height = "idle"                    # height_m.stand from the Idle clip ("mesh": the mesh top)
 ```
 
 `spec.load(path)` checks it and names the field it rejects. `spec.GAPS` lists what a spec may carry
@@ -115,6 +114,20 @@ runner.build(spec, from_stage="moves", to_stage="moves", force=True)   # rerun o
 - A stage whose checks fail raises `stages.StageRefused` naming what to run first.
 - With `save` (the default) the .blend goes to `export.blend`, refusing to overwrite a file holding a
   scene this session lacks.
+
+What the stages write that is the pipeline's own convention rather than a plugin's:
+
+- **`height_m.stand` is the Idle clip's standing height** for every character: the rig standing at
+  rest, which a hair bun does not raise. rig-anything's exporter writes the collider height there,
+  and the export stage replaces it. There is no spec field for it; a spec that still has
+  `export.height` is rejected with a message saying to delete the line. With no `standing_height_m`
+  in the stored Idle report (a report from an older rig-anything) export raises and asks for moves
+  to be rerun, rather than falling back to the mesh top.
+- **The manifest has no `upper_body`.** The clips' upper-body parameters are in the move reports
+  stored on the actions; nothing in Godot read the copy.
+- **The body stage reports `stature`** in metres, read from where humanform's `pipeline.make` has it:
+  the fit's `stature` residual row, `fit.aged.stature` or `fit.stature` (aged and child bodies), or
+  measured with `scaffold.stature` for a body reused from the library.
 
 The `pipeline_woman` regression fixture builds a spec end to end and resumes it in a second Blender.
 

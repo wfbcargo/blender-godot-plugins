@@ -5,12 +5,13 @@ takes it through body, bake, flesh, moves, garments and export, and saves the .b
 
 - a second `build` in the same session skips every stage as unchanged;
 - a garment bound to the rig makes the moves stage refuse, naming the order;
+- a spec that still names the removed `export.height` is rejected;
 - a second Blender opens the saved .blend and runs the export stage alone (`from_stage="export"`,
   forced): the manifest it writes must equal the first one - the fresh-session resume 01 asks for.
 
-The golden holds the stage statuses, what each stage reports that a person would check (moves
-passed, flesh regions, garments passed and what they hide) and the manifest, as `moves_manifest`
-holds it.
+The golden holds the stage statuses, what each stage reports that a person would check (the body's
+stature, moves passed, flesh regions, garments passed and what they hide), the manifest as
+`moves_manifest` holds it, and the Idle clip's standing height, which `height_m.stand` must equal.
 """
 import json
 import os
@@ -66,6 +67,11 @@ def _statuses(report):
     return {k: v["status"] for k, v in report.items() if isinstance(v, dict) and "status" in v}
 
 
+def _idle_stand(ch):
+    from rig_analysis import stored
+    return (stored.load(ch.rig, roles=["Idle"]).get("Idle") or {}).get("standing_height_m")
+
+
 def _second_blender(blend, spec_path, out_json):
     code = (
         "import sys, json; sys.path[:0] = %r\n"
@@ -102,6 +108,14 @@ def build():
     except stages.StageRefused as exc:
         refused = str(exc)
 
+    # export.height was removed (one convention: the Idle clip's standing height)
+    height_field = None
+    try:
+        import tomllib
+        spec.parse(tomllib.loads(SPEC.replace("[export]", '[export]\nheight = "mesh"')))
+    except spec.SpecError as exc:
+        height_field = str(exc)
+
     manifest_path = first["export"]["report"]["moves"]
     with open(manifest_path, encoding="utf-8") as fh:
         manifest = json.load(fh)
@@ -125,6 +139,9 @@ def build():
         "stages": _statuses(first),
         "rerun": _statuses(again),
         "refused": refused,
+        "height_field": height_field,
+        "body_stature": first["body"]["report"].get("stature"),
+        "idle_standing_height_m": _idle_stand(ch),
         "moves": {role: {"passed": r["passed"], "failures": r["failures"], "drop_m": r.get("drop_m")}
                   for role, r in moves.items()},
         "flesh_regions": sorted("%s %s" % (g["name"], g["type"])
