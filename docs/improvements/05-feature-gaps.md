@@ -366,12 +366,28 @@ read from the side. What was found is under **Outcome** below; the original repo
   done-when kept fixed.
 
 **Follow-up: end rings and heat.**
-- **End rings from the wall.** `flesh.tissue` builds each chain's first and last ring (ring 0 and
-  ring `nb - 1` by arc length) from wall vertices only: radius per sector from vertices with
-  `|n . axis| < 0.5` (`END_RING_WALL`); every vertex in the ring is still measured against it.
-  Buttocks are unaffected (they read the profile). The last ring was never built on any body
-  measured - the spine's search stops above the shoulders, limbs after two segments - so on them only
-  first rings changed. On the Figure ring 0 of the spine held 223 vertices, 19 of them wall.
+- **End rings from the wall.** `flesh.tissue` builds each chain's first ring (ring 0 by arc length)
+  from wall vertices only: radius per sector from vertices with `|n . axis| < 0.5` (`END_RING_WALL`);
+  every vertex in the ring is still measured against it. So does the last ring *built* on a chain
+  searched to its end (`ch["to_end"]`: a limb of two segments or fewer, whose search limit is its
+  length, or a spine the shoulder cut takes nothing from). Buttocks are unaffected (they read the
+  profile). On the Figure ring 0 of the spine held 223 vertices, 19 of them wall. The Figure and
+  Bloater have no such chain - every limb has three or four segments and
+  stops at the wrist or ankle, and each spine is cut - so on them only first rings changed. Belle has
+  one: MPFB's `root`-`spine` chain, two segments from the floor to 0.961 m where her spine chain starts
+  (220 vertices, all searched). Filtering its top ring moves the excess of 72 vertices at 0.83-0.93 m
+  by up to 1.3 cm and the lean by up to 4.8 cm; her regions are identical (breasts 271 / 271 vertices,
+  peak 11.84 / 11.86 cm; butts 161 / 161, thighs 158 / 156, every head and tail to 0.1 mm).
+  The first version of this filtered ring `nb - 1`, with `nb = ceil(length / band) + 1`: arc never
+  passes the chain's length (past it is cap), so that ring was always empty and the last-ring half
+  never ran, on any chain (found in review); the fix counts `to_end` and the last ring with enough
+  vertices to build. The last ring with vertices is `int(length / band)`, and
+  the last one built can be earlier still: searching the Figure's limbs to their ends in scratch, the
+  arms' last built ring is 12 of `nb` 16 (length 14.3 bands; rings 13-14 at the fingertips are too
+  thin to build), the legs' 22 of 25, and the filter keeps 0-6 of their 20-51 vertices. Counting a
+  limb as searched to its end because no vertex past its limit was skinned to it (the Bloater's right
+  arm, whose hand is all cap) would have filtered its wrist ring and moved its arm flab (580 to 542
+  vertices) - not taken: the wrist is a slice through the arm, not a cap.
 - **Results** (`samples.score_flesh`, `find_regions` at rest; tail distance to the known centre):
 
   | | before | after |

@@ -19,9 +19,9 @@ skeleton together.
   envelope    per angular sector, the lean radius along the chain is a local line
               refitted without the rings standing more than 8% above it. A ramp (a
               waist widening into hips) is a line and stays lean; a bump (a buttock on
-              the back of the hips) is rejected, and is the excess. A chain's first and
-              last ring take their radius from their wall only (normal across the chain):
-              the spine's first ring is the crotch, and a line starting there read the
+              the back of the hips) is rejected, and is the excess. A chain's first ring,
+              and its last ring built when it is searched to its end, take their radius
+              from their wall only (normal across the chain): the spine's first ring is the crotch, and a line starting there read the
               figure's belly 12 cm proud and gave it love handles (05 5.9).
   profile     a mass where one chain ends and the next begins - a buttock, between the
               spine and the thighs - has no rings on both sides of it, so rings cannot
@@ -319,13 +319,21 @@ def tissue(obj_name, rig_name=None, side=SIDE_BONES):
         if ci == spine_ci:
             # well above the shoulder joints: a fitted rig can put them 12 cm under the top
             # of the shoulders, and a cut just above them excluded a bloater's chest
-            searched &= ~(on & (P[:, 2] > frame["shoulder"] + 0.10 * H))
+            cut = on & ~cap & (P[:, 2] > frame["shoulder"] + 0.10 * H)
+            searched &= ~cut
             ch["role"] = "spine"
+            # its end is searched only when the shoulder cut takes nothing of it (a spine
+            # stopping below the shoulders); otherwise its top ring is a slice at the cut
+            ch["to_end"] = not bool(cut.any())
         else:
             seg_len = np.linalg.norm(np.diff(ch["points"], axis=0), axis=1)
             limit = seg_len[:2].sum() if len(seg_len) > 2 else ch["length"]
             searched &= ~(on & (arc > limit))
             ch["role"] = "limb"
+            # searched to its end only when the limit is its length (two segments or fewer). A
+            # longer limb's last searched ring is the wrist or ankle, a slice through it - even
+            # when no hand vertex happens to be skinned to the chain
+            ch["to_end"] = len(seg_len) <= 2
 
     band = H / BANDS_PER_HEIGHT
     halves = [max(2, int(round(hw * H / band))) for hw in ENVELOPE_HALF_WIDTHS]
@@ -344,6 +352,12 @@ def tissue(obj_name, rig_name=None, side=SIDE_BONES):
         R = np.full((nb, SECTORS), np.nan)      # median radius per ring and sector
         r_of = np.zeros(len(idx))
         k_of = np.minimum((arc[idx] / band).astype(int), nb - 1)
+        # the last ring built: arc stops at the chain's length (past it is cap), so the last ring
+        # holding vertices is int(length / band) - ring nb - 1 only when the length is a whole
+        # number of bands - or the one before it when that sliver is too thin to build
+        counts = np.bincount(k_of, minlength=nb)
+        built = np.where(counts >= SECTORS // 2)[0]
+        last = int(built.max()) if ch["to_end"] and len(built) else -1
         s_of = np.zeros(len(idx), dtype=int)
         for k in range(nb):
             mk = k_of == k
@@ -370,9 +384,10 @@ def tissue(obj_name, rig_name=None, side=SIDE_BONES):
             # ring is the crotch, 0.02 m from the chain where the hip sides are 0.15 m, and a
             # line starting there skews the whole torso (05 5.9). An end ring's radius comes
             # from its wall - vertices whose normal is across the chain - and every vertex in it
-            # is still measured against that.
+            # is still measured against that. The last ring counts only on a chain searched to
+            # its end; a ring at a search cut is a slice through the body, not a cap.
             wall = np.ones(len(sel), dtype=bool)
-            if k == 0 or k == nb - 1:
+            if k == 0 or k == last:
                 wall = np.abs(normals[sel] @ ax) < END_RING_WALL
             for s in range(SECTORS):
                 hit = r[(sec == s) & wall]
