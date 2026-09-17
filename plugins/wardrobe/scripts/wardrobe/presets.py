@@ -107,7 +107,8 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
         "jiggle_groups": sorted({vg.name for vg in g.vertex_groups if vg.name.startswith("ft_jiggle_")}),
         "spec_problems": problems, "export": None, "export_report": None, "exported": False,
     }
-    # the preset's `ease.detail_limit`: a compression garment that still traces the skin fails
+    # the preset's `ease.detail_limit`: a compression garment that still carries more of the skin's
+    # own relief than the limit fails - and so does one whose limited region was never measured
     detail = builtins.list((er.get("detail") or {}).get("problems") or [])
     if cr.get("drawn_over_cloth"):
         detail.append("cover: %d drawn body triangles still lie over the cloth after lifting it" % cr["drawn_over_cloth"])

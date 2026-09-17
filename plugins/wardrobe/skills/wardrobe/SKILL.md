@@ -73,9 +73,9 @@ and the two compression presets.
 of tracing it. Their ease is measured from a compressed copy of the skin under the garment:
 
 ```python
-er = fit.ease(top, "Belle", base=0.008, smooth=1.0, flatten={"breast": 0.2}, detail_limit={"breast": 0.35})
+er = fit.ease(top, "Belle", base=0.008, smooth=1.0, flatten={"breast": 0.2}, detail_limit={"all": 0.06})
 er["compression"]   # passes, edge_m, moved_max_m, flatten.breast.projection_max_m, inside_skin_verts
-er["detail"]        # regions: {all, breast: {cloth_var, skin_var, ratio, quiet?}}, passed, problems
+er["detail"]        # regions: {all, breast: {skin_relief_mm, traced, relief_mm}}, passed, problems
 cr = cover.compute(top, "Belle", behind=0.03)   # cloth pressed up to 3 cm under the skin still covers it
 ```
 
@@ -89,12 +89,32 @@ then lifts the cloth over any skin the engine would still draw lying over it
 (`cover.drawn_over_cloth`, `fit.lift_over`; `lifted` in the report) and fails a preset whose
 `detail_limit` is exceeded.
 
-**The detail check** (`fit.detail`, in every `ease` report) is the area-weighted variance of mean
-curvature (cotangent Laplacian) over the cloth, over the skin under it, and their `ratio`, per
-region, leaving out 3 cm next to each opening. A garment eased off the skin traces it: about 0.7-1.
-On the curvy MPFB woman the sports top's breasts went from 0.73 to 0.09. Skin that varies less than
-200/m^2 (the sample figure's nipple-less breasts, 110) has nothing to trace: the region is `quiet`
-and not held to its limit. A limited region the garment does not cover is listed `unmeasured`.
+`flatten` needs the body's region to be where the region is. On a body built through
+character-pipeline follow-through's breast search lands on the jaw (its zone reaches to 1.45 of
+shoulder height), so `flatten={"breast": ...}` moves nothing there and says nothing - which is why
+`sports_top` does not ship it: `smooth` needs no region and is what takes the nipples off. Pass
+`flatten` by hand on a body whose breast region is right, and check `er["compression"]["flatten"]
+[region]["verts"]` is not 0.
+
+**The detail check** (`fit.detail`, in every `ease` report) asks how many millimetres of the skin's
+own relief the cloth carries, per region, leaving out 3 cm next to each opening:
+
+- `relief` is a surface's height over the same surface Taubin-smoothed across 3 cm - a nipple, a
+  navel, the fold under a buttock. A breast's or a thigh's own curve survives that reference, so
+  the check does not count a fitted garment's following the body's *form* as tracing its *detail*.
+- `traced` is the area-weighted slope of the cloth's relief regressed on the skin's relief under
+  it, and `relief_mm = traced x skin_relief_mm` is what a `detail_limit` holds. A regression, not a
+  ratio of amplitudes, because the projection that lays cloth on a body leaves faceting of its own
+  at the same scale - a few hundredths of a millimetre, uncorrelated with the skin, which a ratio
+  counts as tracing. A ratio also divides by however much relief the body happens to have: on the
+  nipple-less sample figure (0.05 mm over the breasts) it reported the cloth's noise against
+  nothing, and every preset's limit had to be waived for the only bodies the fixtures measure.
+- On the sample figure `shorts_mid_thigh` carries 0.054 mm over the buttocks and
+  `compression_shorts` 0.008; on that figure embossed with 12 mm bumps (`traced_detail`) the same
+  cut carries 0.258 mm uncompressed and 0.004 mm compressed, and the sports top 0.192 against 0.025.
+- A limited region that could not be measured - too little cloth or skin in it - is listed
+  `unmeasured` **and fails**. A limit nothing was measured against has not been held; wardrobe
+  0.2.2 made `verify` say the same.
 
 **Step by step:**
 
@@ -169,7 +189,7 @@ weights shared a median 98% (5th percentile 82%) with the body's own.
 | | `over`, `over_gap` | -, 3 mm | garments worn under this one, and the gap kept outside them |
 | | `hang`, `hang_window` | 1.0, 15 cm | how fully cloth hangs straight down, and how far |
 | | `smooth`, `flatten` | 0, - | compression: smoothing strength 0..1; {region: share} moved toward its membrane |
-| | `fade`, `detail_limit` | 5 cm, - | compression fades to the skin over this from the edges; {region: most cloth/skin ratio} |
+| | `fade`, `detail_limit` | 5 cm, - | compression fades to the skin over this from the edges; {region: most mm of the skin's relief carried} |
 | `hem.prepare` | `fabric` | cotton_jersey | silk, cotton_jersey, cotton_poplin, wool, denim, leather |
 | | `share` | 0.8 | the edge's weight the hem bones take |
 | | `hem_hinge`, `cuff_hinge` | 14 cm, 6 cm | hinge line above the edge |

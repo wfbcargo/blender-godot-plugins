@@ -96,8 +96,11 @@ a T-shirt cut from it (6220 vertices).
   level 1 holes 1, skin through 10 (right thigh, 0.08%); level 0 holes 1, skin through 5 (left
   buttock, 0.04%). At rest: 0 and 0. Hem peak swing 60 mm, 4 backstop hits.
 - **Compression garments** (curvy MPFB woman, 13 380 vertices, 1.76 cm torso edges; improvements
-  05 5.3). Eased from the skin the sports top kept 0.73 of the breasts' mean-curvature variance
-  (nipples traced); compressed, 0.09. Surfaces tried and dropped: flattening along skin normals
+  05 5.3). Eased from the skin the sports top carried 0.13 mm of the breasts' own relief (nipples
+  traced: skin relief 0.49 mm, `traced` 0.26); compressed, 0.00 mm and `traced` -0.005. Measured
+  again on a body embossed with 12 mm bumps (`traced_detail`), where the limits bite: sports top
+  0.192 mm uncompressed against 0.025 mm compressed, compression shorts 0.258 mm against 0.004 mm.
+  Surfaces tried and dropped: flattening along skin normals
   folded at the nipple and tore the cloth; flatten after smoothing drew the nipple back to a point;
   full-vector Taubin faded out at the leg openings folded the shorts (skin through); normal-only
   Taubin (per pass) and a final normal projection pinched the cloth over a nipple at 129 passes

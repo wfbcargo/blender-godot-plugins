@@ -13,7 +13,7 @@ tension, and pushing out keeps it off the skin. It never moves a vertex inward p
 
 **Compression** (`smooth`, `flatten`): a sports top or leggings do not trace the body, they squeeze
 it. The ease is then measured from a compressed copy of the skin under the garment (`compress`), and
-`detail` says how much of the skin's curvature the cloth kept.
+`detail` says how many millimetres of the skin's own relief the cloth still carries.
 
 **Skin** decides whether it stays over the body when the body moves. A garment cut from the
 body already carries the body's weights vertex for vertex and keeps them exactly; anything
@@ -39,7 +39,7 @@ COMPRESS_FADE = 0.05       # m from the garment's edge over which compression fa
 SMOOTH_REACH = 0.2         # m: smooth=1 runs (SMOOTH_REACH / mean edge length)^2 Taubin passes
 TAUBIN = (0.5, -0.53)      # shrink, then inflate: smooths detail without shrinking the torso
 DETAIL_BAND = 0.03         # m of cloth next to an opening left out of the detail check
-DETAIL_QUIET = 200.0       # 1/m^2: skin whose mean curvature varies less (sd 14/m, a 7 cm radius) has no detail to trace
+DETAIL_REACH = 0.03        # m: relief standing over this much surface is detail; anything broader is the body's own form
 
 
 def canonical_tris(me):
@@ -513,73 +513,77 @@ def compress(garment, body, smooth=0.0, flatten=None, fade=COMPRESS_FADE):
     return rep
 
 
-def _vertex_normals(co, tris):
+def _areas(co, tris):
+    """Each vertex's area: a third of the triangles it belongs to."""
     a, b, c = co[tris[:, 0]], co[tris[:, 1]], co[tris[:, 2]]
-    cr = np.cross(b - a, c - a)
-    n = np.zeros_like(co)
-    for k in range(3):
-        n[:, k] = np.bincount(tris.ravel(), weights=np.repeat(cr[:, k], 3), minlength=len(co))
-    return n / np.maximum(np.linalg.norm(n, axis=1), 1e-12)[:, None]
+    dbl = np.linalg.norm(np.cross(b - a, c - a), axis=1)
+    return np.bincount(tris.ravel(), weights=np.repeat(dbl / 6.0, 3), minlength=len(co))
 
 
-def mean_curvature(co, tris):
-    """Signed mean curvature per vertex (1/m, positive where the surface bulges out along the
-    triangles' winding normal) from the cotangent Laplacian, and each vertex's area (a third of
-    its triangles')."""
+def relief(co, tris, ed, reach=DETAIL_REACH):
+    """Each vertex's height (m, signed) over the same surface smoothed across `reach`.
+
+    The reference is Taubin (shrink then inflate, `TAUBIN`), as many passes as spread diffusion
+    that far - (reach / mean edge)^2, the count `compress` uses - so a breast's or a thigh's own
+    curve survives it and only what stands on that curve is left: a nipple, a navel, the fold under
+    a buttock, a rib. That is the detail a compression garment is meant to hide; the form under it
+    is not, and a check that counted the form would call every fitted garment a tracer.
+
+    Height is measured to the nearest point of the smoothed surface, not to where the vertex's own
+    copy drifted: the passes slide vertices along the surface toward even edge lengths."""
     n = len(co)
-    a, b, c = co[tris[:, 0]], co[tris[:, 1]], co[tris[:, 2]]
-    cr = np.cross(b - a, c - a)
-    dbl = np.linalg.norm(cr, axis=1)
-    ok = dbl > 1e-12
-    inv = np.where(ok, 1.0 / np.where(ok, dbl, 1.0), 0.0)
-    cot_a = ((b - a) * (c - a)).sum(1) * inv
-    cot_b = ((c - b) * (a - b)).sum(1) * inv
-    cot_c = ((a - c) * (b - c)).sum(1) * inv
-    area = np.bincount(tris.ravel(), weights=np.repeat(dbl / 6.0, 3), minlength=n)
-    L = np.zeros((n, 3))
-    normal = np.zeros((n, 3))
-    for (i, j, w) in ((tris[:, 1], tris[:, 2], cot_a), (tris[:, 2], tris[:, 0], cot_b), (tris[:, 0], tris[:, 1], cot_c)):
-        d = co[j] - co[i]
-        for k in range(3):
-            L[:, k] += np.bincount(i, weights=0.5 * w * d[:, k], minlength=n)
-            L[:, k] -= np.bincount(j, weights=0.5 * w * d[:, k], minlength=n)
-    for k in range(3):
-        normal[:, k] = np.bincount(tris.ravel(), weights=np.repeat(cr[:, k], 3), minlength=n)
-    normal /= np.maximum(np.linalg.norm(normal, axis=1), 1e-12)[:, None]
-    H = -0.5 * (L * normal).sum(1) / np.maximum(area, 1e-12)
-    return H, area
+    deg = np.bincount(ed.ravel(), minlength=n).astype(float)
+    edge = float(np.linalg.norm(co[ed[:, 0]] - co[ed[:, 1]], axis=1).mean())
+    passes = int(round((reach / max(edge, 1e-4)) ** 2))
+    X = co.copy()
+    for _ in range(passes):
+        for lam in TAUBIN:
+            X += lam * (_umbrella(X, ed, deg) - X)
+    bvh = BVHTree.FromPolygons([Vector(p) for p in X], [tuple(t) for t in tris.tolist()], all_triangles=True)
+    d = np.zeros(n)
+    for i in range(n):
+        h = bvh.find_nearest(Vector(co[i]))
+        if h[0] is not None:
+            d[i] = (Vector(co[i]) - h[0]).dot(h[1])
+    return d, passes, edge
 
 
-def _variance(H, A, mask):
-    if mask.sum() < 3:
-        return None
-    w = A[mask]
-    mu = (w * H[mask]).sum() / w.sum()
-    return float((w * (H[mask] - mu) ** 2).sum() / w.sum())
+def _moments(a, x, y):
+    """Area-weighted variance of `x`, of `y`, and their covariance."""
+    s = a.sum()
+    mx, my = (a * x).sum() / s, (a * y).sum() / s
+    return ((a * (x - mx) ** 2).sum() / s, (a * (y - my) ** 2).sum() / s,
+            (a * (x - mx) * (y - my)).sum() / s)
 
 
-def _sig(x, digits=4):
-    return None if x is None else float("%.*g" % (digits, x))
+def detail(garment, body, regions=None, limit=None, band=DETAIL_BAND, min_verts=12, reach=DETAIL_REACH):
+    """How much of the skin's own relief the cloth still carries (improvements 04 step 5).
 
+    Per region: `skin_relief_mm`, how much relief (see `relief`) the skin under the cloth has to
+    trace; `traced`, the share of it the cloth reproduces; and `relief_mm = traced x
+    skin_relief_mm`, the millimetres of the body's relief the cloth carries - the number a
+    `limit` holds. Cloth within `band` of an opening, and skin under it, is left out: an edge has
+    no surface to compare.
 
-def detail(garment, body, regions=None, limit=None, band=DETAIL_BAND, min_verts=12, quiet=DETAIL_QUIET):
-    """How much of the skin's surface detail the cloth traces (improvements 04 step 5).
+    `traced` is a regression, the area-weighted slope of the cloth's relief on the skin's relief
+    sampled under it, not a ratio of amplitudes. Cloth has relief of its own from the projection
+    that laid it on the body - faceting, at the same scale and a few hundredths of a millimetre -
+    and that is uncorrelated with the skin, so it leaves the slope alone where a ratio would count
+    it as tracing. A ratio also divides by however much relief the body happens to have, so on a
+    smooth body it reports the cloth's own noise against nothing; the millimetres do not.
 
-    Per region: the area-weighted variance of mean curvature over the cloth, over the skin under
-    it, and their `ratio`. Cloth eased off the skin traces it (about 1); a compression garment
-    should smooth it (well under 1). Cloth within `band` of an opening, and skin under it, is left
-    out: an edge has no curvature to compare. `regions`: names for `region_groups` (default: every
-    follow-through flesh type the garment carries weights of), each measured where its weight is
-    at least half its strongest on the body; "all" is always measured. `limit` {region: most ratio}: `passed` and `problems`.
-    A region whose skin varies less than `quiet` is marked `quiet` and not held to its limit: the
-    sample figure's breasts (skin 110/m^2, no nipples) kept 0.74 compressed and 0.82 not, with
-    nothing on them to trace; the curvy MPFB woman's, 673 with nipples, went from 0.73 to 0.09."""
+    `regions`: names for `region_groups` (default: every follow-through flesh type the garment
+    carries weights of), each measured where its weight is at least half its strongest on the body;
+    "all" is always measured. `limit` {region: most mm}: `passed` and `problems`. A limited region
+    that cannot be measured - too little cloth or skin in it - is a problem too, not a quiet pass:
+    a limit nothing was measured against has not been met (as `verify` learned in 0.2.2)."""
     g = rigmap._obj(garment)
     b = rigmap._obj(body)
     gco, gtris, ged, _ = _np_mesh(g)
-    bco, btris, _, bno = _np_mesh(b)
-    Hg, Ag = mean_curvature(gco, gtris)
-    Hb, Ab = mean_curvature(bco, btris)
+    bco, btris, bed, bno = _np_mesh(b)
+    Ag, Ab = _areas(gco, gtris), _areas(bco, btris)
+    Dg, g_passes, _ = relief(gco, gtris, ged, reach)
+    Db, b_passes, _ = relief(bco, btris, bed, reach)
 
     bm = bmesh.new()
     bm.from_mesh(g.data)
@@ -594,6 +598,20 @@ def detail(garment, body, regions=None, limit=None, band=DETAIL_BAND, min_verts=
     under, hit = _under(gbvh, bco, bno, ahead=0.1, behind=0.03, touch=0.0)
     tri_interior = interior[gtris].all(axis=1)
     skin = under & (hit >= 0) & tri_interior[np.maximum(hit, 0)]
+
+    # the skin's relief where each piece of cloth lies, to regress the cloth's own against
+    btris_l = [tuple(t) for t in btris.tolist()]
+    bbvh = BVHTree.FromPolygons([Vector(p) for p in bco], btris_l, all_triangles=True)
+    Ds = np.zeros(len(gco))
+    found = np.zeros(len(gco), dtype=bool)
+    for i in range(len(gco)):
+        h = bbvh.find_nearest(Vector(gco[i]), 0.08)
+        if h[0] is None:
+            continue
+        t = btris_l[h[2]]
+        u, v, w = _barycentric(h[0], Vector(bco[t[0]]), Vector(bco[t[1]]), Vector(bco[t[2]]))
+        Ds[i] = Db[t[0]] * u + Db[t[1]] * v + Db[t[2]] * w
+        found[i] = True
 
     if regions is None:
         regions = []
@@ -613,25 +631,31 @@ def detail(garment, body, regions=None, limit=None, band=DETAIL_BAND, min_verts=
             groups = region_groups(b, name)
             wg, wb = region_weights(g, groups), region_weights(b, groups)
         # half the region's strongest weight: jiggle weights share their vertices with the spine
-        cm = interior & (wg >= 0.5 * wb.max()) & (wg > 0)
+        cm = interior & found & (wg >= 0.5 * wb.max()) & (wg > 0)
         sm = skin & (wb >= 0.5 * wb.max()) & (wb > 0)
         if cm.sum() < min_verts or sm.sum() < min_verts:
             if name in limit:
-                # not a failure of the garment: a body without that flesh, or flesh found elsewhere
-                # (follow-through put an MPFB woman's breast weights on her face)
-                unmeasured.append("%s: %d cloth, %d skin verts under the garment" % (name, cm.sum(), sm.sum()))
+                # a body without that flesh, or flesh found elsewhere (follow-through put an MPFB
+                # woman's breast weights on her face): the limit is still unmet, not waived
+                unmeasured.append("%s: %d cloth, %d skin verts under the garment (least %d)"
+                                  % (name, cm.sum(), sm.sum(), min_verts))
             continue
-        cv, sv = _variance(Hg, Ag, cm), _variance(Hb, Ab, sm)
-        ratio = cv / sv if sv else None
+        # the skin's relief measured on the skin itself; sampling it at the cloth's vertices
+        # interpolates a nipple's peak away across the body triangle it stands on
+        skin_mm = 1000.0 * _moments(Ab[sm], Db[sm], Db[sm])[0] ** 0.5
+        vs, vc, cov = _moments(Ag[cm], Ds[cm], Dg[cm])
+        traced = cov / vs if vs > 0 else None
+        carried = max(0.0, traced) * skin_mm if traced is not None else None
         out[name] = {"cloth_verts": int(cm.sum()), "skin_verts": int(sm.sum()),
-                     "cloth_var": _sig(cv), "skin_var": _sig(sv), "ratio": round(ratio, 3) if ratio is not None else None}
-        if sv is not None and sv < quiet:
-            out[name]["quiet"] = True          # nothing on this skin small enough to trace: no limit
-        elif name in limit and ratio is not None and ratio > limit[name]:
-            problems.append("detail %s: cloth keeps %.2f of the skin's curvature variance, limit %.2f"
-                            % (name, ratio, limit[name]))
-    rep = {"band_m": band, "regions": out}
+                     "skin_relief_mm": round(skin_mm, 3), "cloth_relief_mm": round(1000.0 * vc ** 0.5, 3),
+                     "traced": round(traced, 3) if traced is not None else None,
+                     "relief_mm": round(carried, 3) if carried is not None else None}
+        if name in limit and carried is not None and round(carried, 3) > limit[name]:
+            problems.append("detail %s: the cloth carries %.3f mm of the skin's relief, limit %.3f mm"
+                            % (name, carried, limit[name]))
+    rep = {"band_m": band, "reach_m": reach, "passes": {"cloth": g_passes, "skin": b_passes}, "regions": out}
     if limit:
+        problems = problems + ["detail %s: not measured, so the limit is unmet" % x for x in unmeasured]
         rep.update(limit=limit, passed=not problems, problems=problems)
         if unmeasured:
             rep["unmeasured"] = unmeasured
@@ -647,8 +671,8 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
     Compression (`smooth` 0..1, `flatten` {region: share}): the ease is measured from a compressed
     copy of the body instead of the skin - smoothed over the garment's region and with the named
     regions' projection reduced - fading back to the skin over `fade` from the garment's edges
-    (see `compress`). `detail_limit` {region: ratio}: the most cloth/skin mean-curvature variance
-    each region may keep (see `detail`); the report says whether it held.
+    (see `compress`). `detail_limit` {region: mm}: the most of the skin's own relief the cloth may
+    carry over each region (see `detail`); the report says whether it held.
 
     Returns gap statistics (against the skin), `detail`, and `compression` when it was asked for."""
     g = rigmap._obj(garment)
