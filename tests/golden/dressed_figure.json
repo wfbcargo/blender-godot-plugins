@@ -1,9 +1,9 @@
 {
  "fixture": "dressed_figure",
  "plugins": {
-  "follow-through": "0.3.0",
-  "rig-anything": "0.20.0",
-  "wardrobe": "0.2.1"
+  "follow-through": "0.4.0",
+  "rig-anything": "0.21.0",
+  "wardrobe": "0.2.2"
  },
  "report": {
   "body": {
@@ -31,6 +31,51 @@
    "tris_total": 34220
   },
   "ease": {
+   "detail": {
+    "band_m": 0.03,
+    "regions": {
+     "all": {
+      "cloth_var": 34.75,
+      "cloth_verts": 5326,
+      "quiet": true,
+      "ratio": 0.801,
+      "skin_var": 43.38,
+      "skin_verts": 5097
+     },
+     "arm_flab": {
+      "cloth_var": 27.51,
+      "cloth_verts": 26,
+      "quiet": true,
+      "ratio": 0.999,
+      "skin_var": 27.55,
+      "skin_verts": 20
+     },
+     "belly": {
+      "cloth_var": 0.9737,
+      "cloth_verts": 139,
+      "quiet": true,
+      "ratio": 0.09,
+      "skin_var": 10.81,
+      "skin_verts": 139
+     },
+     "breast": {
+      "cloth_var": 90.19,
+      "cloth_verts": 733,
+      "quiet": true,
+      "ratio": 0.813,
+      "skin_var": 110.9,
+      "skin_verts": 727
+     },
+     "butt": {
+      "cloth_var": 41.51,
+      "cloth_verts": 454,
+      "quiet": true,
+      "ratio": 0.469,
+      "skin_var": 88.58,
+      "skin_verts": 382
+     }
+    }
+   },
    "gap_max_m": 0.0684,
    "gap_median_m": 0.0068,
    "gap_min_m": 0.0058,
@@ -40,7 +85,7 @@
   "export": {
    "edge": 1655,
    "exported": true,
-   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf\\flesh\\regress_upd\\a\\dressed_figure\\dressed_figure\\shirt.glb",
+   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-dx74x7i7\\a\\dressed_figure\\dressed_figure\\shirt.glb",
    "garment": "Shirt",
    "hem_bones": 16,
    "hem_head_error_m": 1e-06,
@@ -48,7 +93,7 @@
    "joints": 54,
    "passed": true,
    "problems": [],
-   "size_bytes": 468676,
+   "size_bytes": 469248,
    "weight_sum_min": 1.0
   },
   "exported": true,

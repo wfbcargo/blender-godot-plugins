@@ -8,15 +8,15 @@
       "cut": "shirt",
       "tailor": {"sleeve": -0.15, "hem": 0.30, "neck": [-0.14, 0.04]},
       "paint": null,
-      "ease": {"base": 0.008, "loose": 0.0, "hang": 0.0},
+      "ease": {"base": 0.008, "loose": 0.0, "hang": 0.0, "smooth": 1.0, "flatten": {"breast": 0.2}, "detail_limit": {"breast": 0.35}},
       "hem": null,
-      "cover": {"agree": 0.7, "margin": 0.03},
+      "cover": {"agree": 0.7, "margin": 0.03, "behind": 0.03},
       "layer_cover": {"max_gap": 0.04, "margin": 0.015},
       "spec_kind": "shirt",
       "layer": 2,
       "colour": [0.035, 0.16, 0.20],
       "worn_over": [],
-      "note": "Belle's (grungist-creek assets/belle/build_belle.py). Fitted athletic wear: a few millimetres of ease, nothing hanging. Cut sleeveless from the shoulder, its neckline over the top of the bust and its band on the ribs well below the fold under the bust: at the fold itself the skin kept drawn along the hem (cover's 3 cm margin) came through it in Godot. Relaxed over 80 passes to span the cleavage it pulled in over the nipples and fold and let skin through - ease's default 16 iterations kept. Cover agree 0.7, margin 3 cm."
+      "note": "Belle's (grungist-creek assets/belle/build_belle.py). Fitted athletic wear: a few millimetres of ease, nothing hanging. Cut sleeveless from the shoulder, its neckline over the top of the bust and its band on the ribs well below the fold under the bust: at the fold itself the skin kept drawn along the hem (cover's 3 cm margin) came through it in Godot. Relaxed over 80 passes to span the cleavage it pulled in over the nipples and fold and let skin through - ease's default 16 iterations kept. Cover agree 0.7, margin 3 cm. A compression garment (improvements 05 5.3): eased 8 mm off the body smoothed (150 Taubin passes) with the breasts moved a fifth of the way to the membrane over them, so it no longer traces the nipples; cover follows the cloth up to 3 cm under the skin. Detail limit: the cloth keeps at most 0.35 of the skin's mean-curvature variance over the breasts."
     },
     "shorts_mid_thigh": {
       "name": "Shorts",
@@ -32,6 +32,36 @@
       "colour": [0.045, 0.045, 0.055],
       "worn_over": [],
       "note": "Belle's (build_belle.py). Fitted athletic shorts: a few millimetres of ease, nothing hanging. They sit on the hips and reach a third of the way down the thigh, past the gluteal fold. Cover agree 0.7, margin 3 cm."
+    },
+    "compression_shorts": {
+      "name": "CompressionShorts",
+      "cut": "pants",
+      "tailor": {"waist": 0.16, "leg": 0.55},
+      "paint": null,
+      "ease": {"base": 0.005, "loose": 0.0, "hang": 0.0, "smooth": 1.0, "flatten": {"butt": 0.1}, "detail_limit": {"butt": 1.0}},
+      "hem": null,
+      "cover": {"agree": 0.7, "margin": 0.03, "behind": 0.03},
+      "layer_cover": {"max_gap": 0.04, "margin": 0.015},
+      "spec_kind": "shorts",
+      "layer": 2,
+      "colour": [0.03, 0.03, 0.04],
+      "worn_over": [],
+      "note": "Compression wear (improvements 05 5.3): skin-tight shorts from the hips to half way down the thigh, 5 mm off the body smoothed (150 Taubin passes) with the buttocks moved a tenth of the way to the membrane over them, so the seat reads held rather than traced. Cover follows the cloth up to 3 cm under the skin. Detail limit 1.0 over the buttocks."
+    },
+    "leggings": {
+      "name": "Leggings",
+      "cut": "pants",
+      "tailor": {"waist": 0.16, "leg": 1.94},
+      "paint": null,
+      "ease": {"base": 0.005, "loose": 0.0, "hang": 0.0, "smooth": 1.0, "flatten": {"butt": 0.1}, "detail_limit": {"butt": 1.0}},
+      "hem": null,
+      "cover": {"agree": 0.7, "margin": 0.03, "behind": 0.03},
+      "layer_cover": {"max_gap": 0.04, "margin": 0.015},
+      "spec_kind": "trousers",
+      "layer": 2,
+      "colour": [0.05, 0.05, 0.07],
+      "worn_over": [],
+      "note": "Compression wear (improvements 05 5.3): compression_shorts' fit to the ankle - 5 mm off the smoothed body, the buttocks a tenth of the way to their membrane, no hems. Detail limit 1.0 over the buttocks."
     },
 
     "briefs": {
@@ -126,5 +156,5 @@
     }
   },
 
-  "exclusive": [["shorts", "trousers"], ["tshirt", "longsleeve"], ["shorts_mid_thigh", "shorts", "trousers"]]
+  "exclusive": [["shorts", "trousers"], ["tshirt", "longsleeve"], ["shorts_mid_thigh", "shorts", "trousers"], ["compression_shorts", "leggings", "shorts_mid_thigh", "shorts", "trousers"]]
 }

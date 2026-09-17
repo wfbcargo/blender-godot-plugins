@@ -53,7 +53,7 @@ script. Each preset holds the cut (`shirt`/`pants`) and the `tailor`, `paint`, `
 `cover` and `layer_cover` arguments, the spec kind, layer and colour, and a `note` saying why:
 
 ```python
-presets.list()   # bra, briefs, longsleeve, shorts, shorts_mid_thigh, sports_top, trousers, tshirt
+presets.list()   # bra, briefs, compression_shorts, leggings, longsleeve, shorts, shorts_mid_thigh, sports_top, trousers, tshirt
 r = wardrobe.dress("Belle", "sports_top", out_path=r"C:/proj/assets/belle/belle_sportstop.glb")
 b = wardrobe.dress("Nora", "briefs", out_path=...)
 t = wardrobe.dress("Nora", "trousers", out_path=..., over=[b["garment"]])   # eased over, hides what it covers
@@ -66,7 +66,35 @@ null; without `out_path` nothing is exported. It returns `verts`, `cut`, `skin`,
 `passed` and `problems` - it does not raise on a failed export. `sports_top` and
 `shorts_mid_thigh` are Belle's; the other six are Nora's three layers (`presets.exclusive()`
 lists what is worn instead of what). Nora's build also smooths armpit weights with project code
-that `dress` does not run. The `dressed_presets` fixture holds both of Belle's on the sample body.
+that `dress` does not run. The `dressed_presets` fixture holds both of Belle's on the sample body,
+and the two compression presets.
+
+**Compression garments** - `sports_top`, `compression_shorts`, `leggings` - smooth the body instead
+of tracing it. Their ease is measured from a compressed copy of the skin under the garment:
+
+```python
+er = fit.ease(top, "Belle", base=0.008, smooth=1.0, flatten={"breast": 0.2}, detail_limit={"breast": 0.35})
+er["compression"]   # passes, edge_m, moved_max_m, flatten.breast.projection_max_m, inside_skin_verts
+er["detail"]        # regions: {all, breast: {cloth_var, skin_var, ratio, quiet?}}, passed, problems
+cr = cover.compute(top, "Belle", behind=0.03)   # cloth pressed up to 3 cm under the skin still covers it
+```
+
+`flatten` names a region by follow-through flesh type or region name (`breast`, `butt.L`), a
+rig-anything bone role (`chest`) or a vertex group, and moves it that share of the way to the
+membrane stretched over its edge. `smooth` then runs (smooth x 0.2 m / mean edge length)^2 Taubin
+passes over the skin the garment lies on (129 on a 1.8 cm MPFB torso, 383 on the 1.0 cm sample
+figure), and each skin vertex takes the nearest point of that surface. All of it fades back to the
+skin over 5 cm from the garment's edges, where cloth also keeps its ease off the real skin. `dress`
+then lifts the cloth over any skin the engine would still draw lying over it
+(`cover.drawn_over_cloth`, `fit.lift_over`; `lifted` in the report) and fails a preset whose
+`detail_limit` is exceeded.
+
+**The detail check** (`fit.detail`, in every `ease` report) is the area-weighted variance of mean
+curvature (cotangent Laplacian) over the cloth, over the skin under it, and their `ratio`, per
+region, leaving out 3 cm next to each opening. A garment eased off the skin traces it: about 0.7-1.
+On the curvy MPFB woman the sports top's breasts went from 0.73 to 0.09. Skin that varies less than
+200/m^2 (the sample figure's nipple-less breasts, 110) has nothing to trace: the region is `quiet`
+and not held to its limit. A limited region the garment does not cover is listed `unmeasured`.
 
 **Step by step:**
 
@@ -140,6 +168,8 @@ weights shared a median 98% (5th percentile 82%) with the body's own.
 | `fit.ease` | `base`, `loose` | 6 mm, 25 mm | gap everywhere, plus `loose` x `wd_ease` |
 | | `over`, `over_gap` | -, 3 mm | garments worn under this one, and the gap kept outside them |
 | | `hang`, `hang_window` | 1.0, 15 cm | how fully cloth hangs straight down, and how far |
+| | `smooth`, `flatten` | 0, - | compression: smoothing strength 0..1; {region: share} moved toward its membrane |
+| | `fade`, `detail_limit` | 5 cm, - | compression fades to the skin over this from the edges; {region: most cloth/skin ratio} |
 | `hem.prepare` | `fabric` | cotton_jersey | silk, cotton_jersey, cotton_poplin, wool, denim, leather |
 | | `share` | 0.8 | the edge's weight the hem bones take |
 | | `hem_hinge`, `cuff_hinge` | 14 cm, 6 cm | hinge line above the edge |
@@ -147,6 +177,7 @@ weights shared a median 98% (5th percentile 82%) with the body's own.
 | | `under` | - | garments the backstop measures to, besides the body |
 | `cover.compute` | `agree` | 0.7 | weight in common for skin to be hidden under cloth |
 | | `margin` | 3 cm | covered skin next to uncovered skin stays drawn |
+| | `behind` | 0 | how far under the skin cloth may lie and still cover it (compression: 3 cm) |
 
 A hem bone's frequency is a pendulum on its hinge stiffened by the fabric,
 f = sqrt((sqrt(g/L)/2pi)^2 + stiff_hz^2).
@@ -292,6 +323,24 @@ as games rig, it bends half as far.
 shirt stepped at every edge of the bra under it; measured past a strap's cut edge it rose into a
 2 cm spike. The lift is spread over neighbours and ignores hits beside an edge or far under it.
 
+**Compress the body, then ease; never ease and pull in.** Eased from the skin, a sports top traced
+an MPFB woman's nipples (breast ratio 0.73) and relaxing never pulled them in: push-out only ever
+moves cloth outward. The cloth now starts on the compressed surface. Getting that surface right took
+four tries, each visible in renders: flattening along the skin's normals folded at the nipple (the
+cloth tore open over it); weights peaked at the nipple drew it back out as a point unless smoothing
+runs after flattening; umbrella passes slide vertices along the surface, and that slide faded out at
+the leg openings folded the shorts there (skin through them); moving only along normals, per pass or
+once, crossed the nipple's moves and pinched the cloth. Each skin vertex going to the nearest point
+of the smoothed surface does none of these.
+
+**A triangle is drawn whole.** Godot drops a body triangle only when all three corners are hidden,
+so compressed cloth under a hidden corner of a drawn triangle shows skin: in the curvy woman's
+crotch, where the normal runs along the cloth and neither line meets it, and along the waistband.
+`cover` with `behind` takes the nearest cloth over its face as covering, and `dress` lifts the cloth
+over drawn triangles' covered corners (38 triangles, one pass, on the compression shorts). Skin
+beside the garment and skinned unlike it (an inner arm by a top) is left out: lifting over it ran
+away.
+
 **Hem bones come off the torso.** Parented to the torso and taking 80% of the edge, a lifting
 thigh no longer notches the hem; the price is the thigh can come through the hem from the
 front, which the backstop (it only stops the hem moving *in*) does not catch.
@@ -306,3 +355,7 @@ front, which the backstop (it only stops the hem moving *in*) does not catch.
   modelled garment works through `fit` and `skin` but has not been verified in Godot yet.
 - The hem backstop is per bone against the rest gap, not a collision with the moving thighs.
 - The body mesh's LODs are dropped when it is rebuilt without the hidden triangles.
+- `flatten` works on the flesh follow-through found. On an MPFB woman built by character-pipeline
+  its breast regions landed on the face, so `flatten={"breast": ...}` moves nothing under a top and
+  the detail limit reports the breast `unmeasured`; smoothing still applies.
+- Compression is not softness: the cloth is shaped, not simulated. It adds 1-5 s a garment.

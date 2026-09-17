@@ -95,3 +95,12 @@ a T-shirt cut from it (6220 vertices).
 - **Verified over 480 frames of walking with jiggle** (worst sampled frame):
   level 1 holes 1, skin through 10 (right thigh, 0.08%); level 0 holes 1, skin through 5 (left
   buttock, 0.04%). At rest: 0 and 0. Hem peak swing 60 mm, 4 backstop hits.
+- **Compression garments** (curvy MPFB woman, 13 380 vertices, 1.76 cm torso edges; improvements
+  05 5.3). Eased from the skin the sports top kept 0.73 of the breasts' mean-curvature variance
+  (nipples traced); compressed, 0.09. Surfaces tried and dropped: flattening along skin normals
+  folded at the nipple and tore the cloth; flatten after smoothing drew the nipple back to a point;
+  full-vector Taubin faded out at the leg openings folded the shorts (skin through); normal-only
+  Taubin (per pass) and a final normal projection pinched the cloth over a nipple at 129 passes
+  though not at 150; 4 passes of smoothing the move field put the nipples back (0.95). The nearest
+  point of the Taubin surface does none of these. Verifier over 6 clips with top + compression
+  shorts: worst holes 0.328% (Jump, uncompressed 0.275%), worst poke 0.169%.

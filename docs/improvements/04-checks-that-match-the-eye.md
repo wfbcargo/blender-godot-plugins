@@ -118,6 +118,17 @@ already known:
 5. **Garment detail check** in wardrobe. Compare mean-curvature variance of the cloth against the
    skin under it, per region. Add a `smooth` option to `fit.ease` (Laplacian smoothing of the cloth
    offset over the bust and seat) so a sports top reads compressed. Presets opt in (see 05).
+
+   **Done** (wardrobe, with 05 5.3). `fit.detail(garment, body, regions=None, limit=None)` is in
+   every `fit.ease` report: per region (`all`, and each follow-through flesh type the garment carries
+   weights of) the area-weighted variance of mean curvature from the cotangent Laplacian over the
+   cloth and over the skin under it (met along its normal 10 cm out or 3 cm in, or nearest cloth over
+   its face), and their `ratio`, leaving out 3 cm next to each opening. A preset's
+   `ease.detail_limit` fails `dress` when a ratio is over it. Skin varying less than 200/m^2 is
+   `quiet` - nothing to trace, not limited: the sample figure's breasts (110/m^2, no nipples) kept
+   0.82 eased and 0.74 compressed; on the curvy MPFB woman (673/m^2 with nipples) the sports top went
+   from 0.73 to 0.09. A limited region the garment does not cover is `unmeasured`, not a failure. The
+   check is only as good as the flesh it is given (see 05 5.3 on MPFB breasts found on the face).
 6. **Flesh limit suggestion.** The Godot self-test prints time-on-limit; add
    `follow_through.flesh.suggest_limits(report)` that maps it to `max_offset_m`. Also fix the
    buttock peak measure: it read 3.7 cm on a clearly full seat. Measure it against the lean

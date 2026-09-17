@@ -3,7 +3,7 @@
 `wardrobe.dress(body, preset)` runs a named preset's tailor, ease, skin, cover, spec and export
 arguments - the numbers `grungist-creek`'s build_belle.py held until they moved into the plugin.
 The `sports_top` and `shorts_mid_thigh` presets go onto the fleshed `Figure`, as `dressed_figure`
-builds it. The golden holds each garment's cut, ease and covered-skin counts and its export, so a
+builds it, and so do the compression presets `compression_shorts` and `leggings`, each on its own. The golden holds each garment's cut, ease and covered-skin counts and its export, so a
 change to a preset or to the steps it runs shows up here.
 """
 import os
@@ -15,7 +15,9 @@ import _harness as H  # noqa: E402
 H.use("RA_SCRIPTS", "FT_SCRIPTS", "WD_SCRIPTS")
 
 BODY = "Figure"
-PRESETS = ("sports_top", "shorts_mid_thigh")
+# sports_top, compression_shorts and leggings are compression garments (improvements 05 5.3): their
+# `ease.detail` says how much of the skin's curvature they keep, `lifted` what cover lifted them over
+PRESETS = ("sports_top", "shorts_mid_thigh", "compression_shorts", "leggings")
 
 
 def build():
@@ -46,6 +48,7 @@ def build():
                 "passed": r["passed"],
                 "problems": r["problems"],
                 "ease": H.stable(r["ease"]),
+                "lifted": r.get("lifted"),
                 "hem_rings": H.stable(r["hem"]),
                 "cover": H.stable(r["cover_report"]),
                 "export": H.stable(r["export_report"]),

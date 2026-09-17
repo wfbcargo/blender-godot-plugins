@@ -2,6 +2,7 @@
 
     fit.paint_ease(shirt)                      # how loose each part is: hem and cuffs flare
     rep = fit.ease(shirt, "Figure")            # push off the body, bridge cleavage and spine
+    rep = fit.ease(top, "Belle", smooth=1.0, flatten={"breast": 0.2})   # compression: smooth, not traced
     rep = fit.skin(shirt, "Figure")            # weights: the body's, smoothed, 4 a vertex
 
 **Ease** is the gap between garment and skin. Every vertex gets a minimum: `base` everywhere
@@ -9,6 +10,10 @@ plus `loose` times its `wd_ease` weight (a vertex group, 0..1, paintable). The g
 pushed out along its normals to that gap, then relaxed and pushed out again, repeatedly:
 relaxing pulls it across hollows - between breasts, down the spine - like fabric under
 tension, and pushing out keeps it off the skin. It never moves a vertex inward past its gap.
+
+**Compression** (`smooth`, `flatten`): a sports top or leggings do not trace the body, they squeeze
+it. The ease is then measured from a compressed copy of the skin under the garment (`compress`), and
+`detail` says how much of the skin's curvature the cloth kept.
 
 **Skin** decides whether it stays over the body when the body moves. A garment cut from the
 body already carries the body's weights vertex for vertex and keeps them exactly; anything
@@ -23,12 +28,18 @@ import heapq
 
 import bmesh
 import bpy
+import numpy as np
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
 from . import rigmap
 
 EASE_GROUP = "wd_ease"
+COMPRESS_FADE = 0.05       # m from the garment's edge over which compression fades back to the skin
+SMOOTH_REACH = 0.2         # m: smooth=1 runs (SMOOTH_REACH / mean edge length)^2 Taubin passes
+TAUBIN = (0.5, -0.53)      # shrink, then inflate: smooths detail without shrinking the torso
+DETAIL_BAND = 0.03         # m of cloth next to an opening left out of the detail check
+DETAIL_QUIET = 200.0       # 1/m^2: skin whose mean curvature varies less (sd 14/m, a 7 cm radius) has no detail to trace
 
 
 def canonical_tris(me):
@@ -274,13 +285,380 @@ def _hang(bm, hs, amount, cell=0.01):
     return moved
 
 
+# ------------------------------------------------------------------ compression and detail
+
+def _np_mesh(obj):
+    """Vertices (n, 3), canonical triangles (m, 3), edges (k, 2) and vertex normals of a mesh."""
+    me = obj.data
+    n = len(me.vertices)
+    co = np.empty(n * 3)
+    me.vertices.foreach_get("co", co)
+    no = np.empty(n * 3)
+    me.vertices.foreach_get("normal", no)
+    ed = np.empty(len(me.edges) * 2, dtype=np.int32)
+    me.edges.foreach_get("vertices", ed)
+    tris = np.array(canonical_tris(me), dtype=np.int64).reshape(-1, 3)
+    return co.reshape(n, 3), tris, ed.reshape(-1, 2).astype(np.int64), no.reshape(n, 3)
+
+
+def _umbrella(X, ed, deg):
+    """Each vertex's mean neighbour position."""
+    n = len(X)
+    s = np.empty_like(X)
+    for c in range(3):
+        s[:, c] = (np.bincount(ed[:, 0], weights=X[ed[:, 1], c], minlength=n)
+                   + np.bincount(ed[:, 1], weights=X[ed[:, 0], c], minlength=n))
+    return s / np.maximum(deg, 1)[:, None]
+
+
+def _geodesic_np(co, ed, sources, limit):
+    """Distance along edges from the `sources` mask, up to `limit` (inf beyond)."""
+    n = len(co)
+    adj = [[] for _ in range(n)]
+    lengths = np.linalg.norm(co[ed[:, 0]] - co[ed[:, 1]], axis=1)
+    for (a, b), d in zip(ed.tolist(), lengths.tolist()):
+        adj[a].append((b, d))
+        adj[b].append((a, d))
+    dist = np.full(n, np.inf)
+    heap = [(0.0, int(i)) for i in np.flatnonzero(sources)]
+    for _, i in heap:
+        dist[i] = 0.0
+    heapq.heapify(heap)
+    while heap:
+        d, i = heapq.heappop(heap)
+        if d > dist[i]:
+            continue
+        for j, w in adj[i]:
+            nd = d + w
+            if nd < dist[j] and nd <= limit:
+                dist[j] = nd
+                heapq.heappush(heap, (nd, j))
+    return dist
+
+
+def region_groups(body, key):
+    """The vertex groups a region name means on `body`: a follow-through flesh type or region
+    name ("breast", "breast.L") -> its jiggle bones; else a rig-anything bone role ("chest",
+    "pelvis") -> that bone; else a vertex group of that name."""
+    b = rigmap._obj(body)
+    names = []
+    ft = b.get("follow_through")
+    jiggle = ft.get("jiggle") if ft is not None else None
+    for r in (jiggle.get("regions") or []) if jiggle is not None else []:
+        if key in (r.get("type"), r.get("name")):
+            names.append(r.get("bone") or "ft_jiggle_" + str(r.get("name")))
+    if not names:
+        try:
+            from rig_analysis import bodymap
+            roles = bodymap.build(rigmap.rig_of(b).name, meshes=[b]).get("roles") or {}
+            if isinstance(roles.get(key), str):
+                names = [roles[key]]
+        except ImportError:
+            pass
+    if not names and key in b.vertex_groups:
+        names = [key]
+    return [n for n in names if n in b.vertex_groups]
+
+
+def region_weights(obj, groups):
+    """Per-vertex summed weight of `groups` on `obj`, capped at 1."""
+    obj = rigmap._obj(obj)
+    gi = {obj.vertex_groups[n].index for n in groups if n in obj.vertex_groups}
+    w = np.zeros(len(obj.data.vertices))
+    if not gi:
+        return w
+    for v in obj.data.vertices:
+        s = 0.0
+        for x in v.groups:
+            if x.group in gi:
+                s += x.weight
+        w[v.index] = s
+    return np.minimum(w, 1.0)
+
+
+def _under(garment_bvh, co, no, ahead=0.1, behind=0.0, touch=0.002):
+    """Mask of skin vertices the garment lies on: within `touch`, or met along the skin's normal
+    within `ahead` (or `behind` it) by cloth facing the same way."""
+    out = np.zeros(len(co), dtype=bool)
+    hit_tri = np.full(len(co), -1, dtype=np.int64)
+    for i in range(len(co)):
+        p, n = Vector(co[i]), Vector(no[i])
+        h = garment_bvh.find_nearest(p, touch)
+        if h[0] is None:
+            h = garment_bvh.ray_cast(p + n * 0.0005, n, ahead)
+            if h[0] is not None and h[1].dot(n) < 0.3:
+                h = (None,)
+        if h[0] is None and behind > 0:
+            h = garment_bvh.ray_cast(p - n * 0.0005, -n, behind)
+            if h[0] is not None and h[1].dot(n) < 0.0:
+                h = (None,)
+            if h[0] is None:
+                # a nipple's tilted normal runs past cloth pressed over it: the nearest cloth, over its face
+                near = garment_bvh.find_nearest(p, behind)
+                if near[0] is not None and near[3] > 1e-9 and abs((p - near[0]).dot(near[1])) > 0.7 * near[3]                         and near[1].dot(n) > -0.2:
+                    h = near
+        if h[0] is not None:
+            out[i] = True
+            hit_tri[i] = h[2]
+    return out, hit_tri
+
+
+def _membrane(X, ed, fill):
+    """The harmonic surface over the `fill` vertices with every other vertex held: each filled
+    vertex the mean of its neighbours. Solved directly - Jacobi passes crawl an edge a pass, and
+    stopped on a small step they left the membrane in the breast."""
+    idx = np.flatnonzero(fill)
+    pos = -np.ones(len(X), dtype=np.int64)
+    pos[idx] = np.arange(len(idx))
+    m = len(idx)
+    if m > 4000:
+        raise ValueError("flatten: a region of %d vertices is too large to fill; name a smaller one" % m)
+    K = np.zeros((m, m))
+    rhs = np.zeros((m, 3))
+    for a, b in ((ed[:, 0], ed[:, 1]), (ed[:, 1], ed[:, 0])):
+        on = fill[a]
+        ia, jb = pos[a[on]], b[on]
+        np.add.at(K, (ia, ia), 1.0)
+        inner = fill[jb]
+        np.add.at(K, (ia[inner], pos[jb[inner]]), -1.0)
+        np.add.at(rhs, ia[~inner], X[jb[~inner]])
+    M = X.copy()
+    M[idx] = np.linalg.solve(K, rhs)
+    return M
+
+
+def compress(garment, body, smooth=0.0, flatten=None, fade=COMPRESS_FADE):
+    """The body as a compression garment squeezes it, to ease the cloth off (improvements 05 5.3).
+
+    Only skin the garment lies on moves, and each vertex moves by its `fade` (0 at the edge of
+    that skin, 1 from `fade` in along the surface), so at a neckline, hem or armhole - where
+    cover keeps skin drawn - the surface is the skin and the cloth sits outside it.
+
+      flatten   {region: share}: a region (see `region_groups`) is moved `share` of the way to
+                the membrane stretched over its edge (a harmonic fill, the skin around it held),
+                scaled by the region's own weights (normalised to 1) - the feathered jiggle
+                weights make it fade out toward the chest.
+      smooth    0..1: (smooth x `SMOOTH_REACH` / mean edge length)^2 Taubin passes (shrink then inflate, so the torso
+                keeps its girth) over that skin, the rest held - after flatten, so what flatten
+                leaves at a weight's peak is smoothed too. Nipples, ribs, a navel go.
+
+    Returns positions as `_co`, a BVH of them as `_bvh` (canonical triangles `_tris`), and how far
+    the surface moved."""
+    g = rigmap._obj(garment)
+    b = rigmap._obj(body)
+    co, tris, ed, no = _np_mesh(b)
+    deg = np.bincount(ed.ravel(), minlength=len(co)).astype(float)
+    gm = g.data
+    gbvh = BVHTree.FromPolygons([v.co.copy() for v in gm.vertices], canonical_tris(gm), all_triangles=True)
+    region, _ = _under(gbvh, co, no)
+    dist = _geodesic_np(co, ed, ~region, fade)
+    t = np.clip(np.where(np.isinf(dist), 1.0, dist / max(fade, 1e-9)), 0.0, 1.0)
+    f = np.where(region, t * t * (3 - 2 * t), 0.0)
+
+    X = co.copy()
+    rep = {"smooth": float(smooth), "fade_m": fade, "region_verts": int(region.sum())}
+    # flatten first, smooth after: the lerp toward the membrane is only as smooth as the region's
+    # weights, and a weight peaked at the nipple drew the nipple back out as a point
+    flat = {}
+    for key, share in sorted((flatten or {}).items()):
+        groups = region_groups(b, key)
+        w = region_weights(b, groups)
+        w = np.where(region, w / max(float(w.max()), 1e-9), 0.0)   # share is of the whole region's projection
+        fill = w > 0.01
+        if not fill.any():
+            flat[key] = {"share": share, "groups": sorted(groups), "verts": 0}
+            continue
+        M = _membrane(X, ed, fill)
+        d = np.maximum(((X - M) * no).sum(axis=1), 0.0)
+        # toward the membrane, not along the skin's normals: those turn sharply at a nipple, and
+        # moved along them the surface folded there and the cloth eased off it tore open
+        X = X + (share * w)[:, None] * (M - X)
+        flat[key] = {"share": share, "groups": sorted(groups), "verts": int(fill.sum()),
+                     "projection_max_m": round(float(d[fill].max()), 4),
+                     "moved_max_m": round(float((share * w * d * f).max()), 4)}
+    if flat:
+        rep["flatten"] = flat
+    # the same smoothing on a coarse body and a fine one: diffusion spreads about an edge a pass,
+    # so the passes go with the square of reach over edge length (a 1.7 cm MPFB torso: 138 passes,
+    # the 1.0 cm sample figure: 400)
+    near = region[ed[:, 0]] & region[ed[:, 1]]
+    edge = float(np.linalg.norm(co[ed[near, 0]] - co[ed[near, 1]], axis=1).mean()) if near.any() else 1.0
+    passes = int(round((max(0.0, min(1.0, float(smooth))) * SMOOTH_REACH / max(edge, 1e-4)) ** 2))
+    rep["edge_m"] = round(edge, 4)
+    for _ in range(passes):
+        for lam in TAUBIN:
+            A = _umbrella(X, ed, deg)
+            X[region] += lam * (A[region] - X[region])
+    rep["passes"] = passes
+    # Each skin vertex goes to the nearest point of the smoothed surface, not to where its own
+    # vertex drifted: umbrella passes slide vertices along the surface toward even edges, and that
+    # slide, faded out toward the garment's edge, folded the surface there (skin through compression
+    # shorts at the leg openings). Moving only along normals instead - per pass or once at the end -
+    # crossed the moves of a nipple's vertices and pinched the cloth over it.
+    tris_l = [tuple(t) for t in tris.tolist()]
+    smooth_bvh = BVHTree.FromPolygons([Vector(p) for p in X], tris_l, all_triangles=True)
+    target = co.copy()
+    for i in np.flatnonzero(region):
+        h = smooth_bvh.find_nearest(Vector(co[i]))
+        if h[0] is not None:
+            target[i] = tuple(h[0])
+    S = co + f[:, None] * (target - co)
+    rep["_fade"] = f
+    moved = np.linalg.norm(S - co, axis=1)
+    rep["moved_max_m"] = round(float(moved.max()), 4)
+    rep["moved_p95_m"] = round(float(np.percentile(moved[region], 95)), 4) if region.any() else 0.0
+    rep["_co"] = S
+    rep["_tris"] = [tuple(t) for t in tris.tolist()]
+    rep["_bvh"] = BVHTree.FromPolygons([Vector(p) for p in S], rep["_tris"], all_triangles=True)
+    return rep
+
+
+def _vertex_normals(co, tris):
+    a, b, c = co[tris[:, 0]], co[tris[:, 1]], co[tris[:, 2]]
+    cr = np.cross(b - a, c - a)
+    n = np.zeros_like(co)
+    for k in range(3):
+        n[:, k] = np.bincount(tris.ravel(), weights=np.repeat(cr[:, k], 3), minlength=len(co))
+    return n / np.maximum(np.linalg.norm(n, axis=1), 1e-12)[:, None]
+
+
+def mean_curvature(co, tris):
+    """Signed mean curvature per vertex (1/m, positive where the surface bulges out along the
+    triangles' winding normal) from the cotangent Laplacian, and each vertex's area (a third of
+    its triangles')."""
+    n = len(co)
+    a, b, c = co[tris[:, 0]], co[tris[:, 1]], co[tris[:, 2]]
+    cr = np.cross(b - a, c - a)
+    dbl = np.linalg.norm(cr, axis=1)
+    ok = dbl > 1e-12
+    inv = np.where(ok, 1.0 / np.where(ok, dbl, 1.0), 0.0)
+    cot_a = ((b - a) * (c - a)).sum(1) * inv
+    cot_b = ((c - b) * (a - b)).sum(1) * inv
+    cot_c = ((a - c) * (b - c)).sum(1) * inv
+    area = np.bincount(tris.ravel(), weights=np.repeat(dbl / 6.0, 3), minlength=n)
+    L = np.zeros((n, 3))
+    normal = np.zeros((n, 3))
+    for (i, j, w) in ((tris[:, 1], tris[:, 2], cot_a), (tris[:, 2], tris[:, 0], cot_b), (tris[:, 0], tris[:, 1], cot_c)):
+        d = co[j] - co[i]
+        for k in range(3):
+            L[:, k] += np.bincount(i, weights=0.5 * w * d[:, k], minlength=n)
+            L[:, k] -= np.bincount(j, weights=0.5 * w * d[:, k], minlength=n)
+    for k in range(3):
+        normal[:, k] = np.bincount(tris.ravel(), weights=np.repeat(cr[:, k], 3), minlength=n)
+    normal /= np.maximum(np.linalg.norm(normal, axis=1), 1e-12)[:, None]
+    H = -0.5 * (L * normal).sum(1) / np.maximum(area, 1e-12)
+    return H, area
+
+
+def _variance(H, A, mask):
+    if mask.sum() < 3:
+        return None
+    w = A[mask]
+    mu = (w * H[mask]).sum() / w.sum()
+    return float((w * (H[mask] - mu) ** 2).sum() / w.sum())
+
+
+def _sig(x, digits=4):
+    return None if x is None else float("%.*g" % (digits, x))
+
+
+def detail(garment, body, regions=None, limit=None, band=DETAIL_BAND, min_verts=12, quiet=DETAIL_QUIET):
+    """How much of the skin's surface detail the cloth traces (improvements 04 step 5).
+
+    Per region: the area-weighted variance of mean curvature over the cloth, over the skin under
+    it, and their `ratio`. Cloth eased off the skin traces it (about 1); a compression garment
+    should smooth it (well under 1). Cloth within `band` of an opening, and skin under it, is left
+    out: an edge has no curvature to compare. `regions`: names for `region_groups` (default: every
+    follow-through flesh type the garment carries weights of), each measured where its weight is
+    at least half its strongest on the body; "all" is always measured. `limit` {region: most ratio}: `passed` and `problems`.
+    A region whose skin varies less than `quiet` is marked `quiet` and not held to its limit: the
+    sample figure's breasts (skin 110/m^2, no nipples) kept 0.74 compressed and 0.82 not, with
+    nothing on them to trace; the curvy MPFB woman's, 673 with nipples, went from 0.73 to 0.09."""
+    g = rigmap._obj(garment)
+    b = rigmap._obj(body)
+    gco, gtris, ged, _ = _np_mesh(g)
+    bco, btris, _, bno = _np_mesh(b)
+    Hg, Ag = mean_curvature(gco, gtris)
+    Hb, Ab = mean_curvature(bco, btris)
+
+    bm = bmesh.new()
+    bm.from_mesh(g.data)
+    boundary = np.zeros(len(gco), dtype=bool)
+    for v in bm.verts:
+        if v.is_boundary:
+            boundary[v.index] = True
+    bm.free()
+    interior = ~(_geodesic_np(gco, ged, boundary, band) <= band)
+    gtris_l = [tuple(t) for t in gtris.tolist()]
+    gbvh = BVHTree.FromPolygons([Vector(p) for p in gco], gtris_l, all_triangles=True)
+    under, hit = _under(gbvh, bco, bno, ahead=0.1, behind=0.03, touch=0.0)
+    tri_interior = interior[gtris].all(axis=1)
+    skin = under & (hit >= 0) & tri_interior[np.maximum(hit, 0)]
+
+    if regions is None:
+        regions = []
+        ft = b.get("follow_through")
+        jiggle = ft.get("jiggle") if ft is not None else None
+        for r in (jiggle.get("regions") or []) if jiggle is not None else []:
+            if r.get("type") and r.get("type") not in regions and (r.get("bone") in g.vertex_groups):
+                regions.append(r.get("type"))
+        regions = sorted(regions)
+    limit = dict(limit or {})
+    names = ["all"] + [r for r in regions if r != "all"] + sorted(k for k in limit if k != "all" and k not in regions)
+    out, problems, unmeasured = {}, [], []
+    for name in names:
+        if name == "all":
+            wg, wb = np.ones(len(gco)), np.ones(len(bco))
+        else:
+            groups = region_groups(b, name)
+            wg, wb = region_weights(g, groups), region_weights(b, groups)
+        # half the region's strongest weight: jiggle weights share their vertices with the spine
+        cm = interior & (wg >= 0.5 * wb.max()) & (wg > 0)
+        sm = skin & (wb >= 0.5 * wb.max()) & (wb > 0)
+        if cm.sum() < min_verts or sm.sum() < min_verts:
+            if name in limit:
+                # not a failure of the garment: a body without that flesh, or flesh found elsewhere
+                # (follow-through put an MPFB woman's breast weights on her face)
+                unmeasured.append("%s: %d cloth, %d skin verts under the garment" % (name, cm.sum(), sm.sum()))
+            continue
+        cv, sv = _variance(Hg, Ag, cm), _variance(Hb, Ab, sm)
+        ratio = cv / sv if sv else None
+        out[name] = {"cloth_verts": int(cm.sum()), "skin_verts": int(sm.sum()),
+                     "cloth_var": _sig(cv), "skin_var": _sig(sv), "ratio": round(ratio, 3) if ratio is not None else None}
+        if sv is not None and sv < quiet:
+            out[name]["quiet"] = True          # nothing on this skin small enough to trace: no limit
+        elif name in limit and ratio is not None and ratio > limit[name]:
+            problems.append("detail %s: cloth keeps %.2f of the skin's curvature variance, limit %.2f"
+                            % (name, ratio, limit[name]))
+    rep = {"band_m": band, "regions": out}
+    if limit:
+        rep.update(limit=limit, passed=not problems, problems=problems)
+        if unmeasured:
+            rep["unmeasured"] = unmeasured
+    return rep
+
+
 def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, inflate=True,
-         hang=1.0, hang_window=0.15, hang_bins=64, over=(), over_gap=0.003):
+         hang=1.0, hang_window=0.15, hang_bins=64, over=(), over_gap=0.003,
+         smooth=0.0, flatten=None, fade=COMPRESS_FADE, detail_limit=None):
     """Push the garment off the body to its ease, bridging hollows, and let it hang. `over`:
     garments worn under this one - it is kept `over_gap` outside each of them too.
-    Returns gap statistics."""
+
+    Compression (`smooth` 0..1, `flatten` {region: share}): the ease is measured from a compressed
+    copy of the body instead of the skin - smoothed over the garment's region and with the named
+    regions' projection reduced - fading back to the skin over `fade` from the garment's edges
+    (see `compress`). `detail_limit` {region: ratio}: the most cloth/skin mean-curvature variance
+    each region may keep (see `detail`); the report says whether it held.
+
+    Returns gap statistics (against the skin), `detail`, and `compression` when it was asked for."""
     g = rigmap._obj(garment)
-    bvh, _, tris = body_bvh(body)
+    compressing = bool(smooth) or bool(flatten)
+    comp = None
+    if compressing:
+        comp = compress(g, body, smooth=smooth, flatten=flatten, fade=fade)
+        bvh, tris = comp["_bvh"], comp["_tris"]
+    else:
+        bvh, _, tris = body_bvh(body)
     ew = _ease_weights(g)
     bm = bmesh.new()
     bm.from_mesh(g.data)
@@ -291,6 +669,24 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
     hs = _hang_setup(bm, body, bvh, tris, hang_window, hang_bins, below) if hang > 0 else None
     unders = [body_bvh(o)[0] for o in over]
 
+    floor = None
+    if compressing:
+        # start on the compressed surface: eased from the skin, relaxing pulled a nipple's tip in
+        # by a fraction of a millimetre a pass and push-out never moves cloth inward
+        raw_bvh, raw_co, raw_tris = body_bvh(body)
+        S, fade_w = comp["_co"], comp["_fade"]
+        floor = [0.0] * len(bm.verts)
+        for v in bm.verts:
+            hit = raw_bvh.find_nearest(v.co)
+            if hit[0] is None:
+                continue
+            t = raw_tris[hit[2]]
+            u, vv, w = _barycentric(hit[0], raw_co[t[0]], raw_co[t[1]], raw_co[t[2]])
+            p = S[t[0]] * u + S[t[1]] * vv + S[t[2]] * w
+            v.co = v.co + (Vector(p) - hit[0])
+            # where compression has faded out the cloth also keeps its ease off the skin itself:
+            # there cover leaves the skin drawn, and cloth under it is skin showing
+            floor[v.index] = 1.0 - float(fade_w[t[0]] * u + fade_w[t[1]] * vv + fade_w[t[2]] * w)
     if inflate:
         bm.normal_update()
         for v in bm.verts:
@@ -307,6 +703,13 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
             if s < want[v.index]:
                 worst_in = min(worst_in, s)
                 v.co = v.co + n * (want[v.index] - s)
+            if floor is not None and floor[v.index] > 0.0:
+                hit = raw_bvh.find_nearest(v.co)
+                if hit[0] is not None:
+                    s = (v.co - hit[0]).dot(hit[1])
+                    need = want[v.index] * floor[v.index]
+                    if s < need:
+                        v.co = v.co + hit[1] * (need - s)
         return worst_in
 
     push_out()
@@ -332,17 +735,75 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
         _clear_unders(bm, unders, over_gap)
         push_out()
 
-    gaps = []
+    skin_bvh = body_bvh(body)[0] if compressing else bvh
+    gaps, from_compressed = [], []
     for v in bm.verts:
-        hit = bvh.find_nearest(v.co)
+        hit = skin_bvh.find_nearest(v.co)
         if hit[0] is not None:
             gaps.append((v.co - hit[0]).dot(hit[1]))
+        if compressing:
+            hit = bvh.find_nearest(v.co)
+            if hit[0] is not None:
+                from_compressed.append((v.co - hit[0]).dot(hit[1]))
     bm.to_mesh(g.data)
     bm.free()
     g.data.update()
     gaps.sort()
-    return {"verts": len(gaps), "gap_min_m": round(gaps[0], 4), "gap_median_m": round(gaps[len(gaps) // 2], 4),
-            "gap_p95_m": round(gaps[int(len(gaps) * 0.95)], 4), "gap_max_m": round(gaps[-1], 4)}
+    out = {"verts": len(gaps), "gap_min_m": round(gaps[0], 4), "gap_median_m": round(gaps[len(gaps) // 2], 4),
+           "gap_p95_m": round(gaps[int(len(gaps) * 0.95)], 4), "gap_max_m": round(gaps[-1], 4)}
+    if compressing:
+        from_compressed.sort()
+        rep = {k: v for k, v in comp.items() if not k.startswith("_")}
+        rep["gap_min_from_compressed_m"] = round(from_compressed[0], 4)
+        rep["inside_skin_verts"] = sum(1 for x in gaps if x < 0.0)
+        out["compression"] = rep
+    out["detail"] = detail(g, body, limit=detail_limit)
+    return out
+
+
+def lift_over(garment, body, tris, gap, radius=0.02, spread=12, keep=0.8, reach=0.03):
+    """Lift the garment over the corners of these body triangles (vertex index triples) that lie
+    over its face - the skin `cover.drawn_over_cloth` found showing through a compression garment -
+    until it is `gap` outside them. Each such corner asks the cloth within `radius` to rise by what
+    it lacks, fading with distance; the lift is spread over neighbours as `_clear_unders` spreads
+    its own, and applied along the garment's normals. Returns the number of garment vertices moved."""
+    from mathutils.kdtree import KDTree
+    g = rigmap._obj(garment)
+    b = rigmap._obj(body)
+    if not tris:
+        return 0
+    me = g.data
+    gbvh = BVHTree.FromPolygons([v.co.copy() for v in me.vertices], canonical_tris(me), all_triangles=True)
+    kd = KDTree(len(me.vertices))
+    for v in me.vertices:
+        kd.insert(v.co, v.index)
+    kd.balance()
+    need = [0.0] * len(me.vertices)
+    for i in sorted({i for t in tris for i in t}):
+        co = b.data.vertices[i].co
+        h = gbvh.find_nearest(co, reach)
+        if h[0] is None or h[3] <= 1e-9:
+            continue
+        side = (co - h[0]).dot(h[1])
+        if side <= 0.0 or side < 0.7 * h[3]:
+            continue
+        for _co, j, d in kd.find_range(h[0], radius):
+            need[j] = max(need[j], (side + gap) * (1.0 - d / radius))
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.verts.ensure_lookup_table()
+    bm.normal_update()
+    nb = [[e.other_vert(v).index for e in v.link_edges] for v in bm.verts]
+    for _ in range(spread):
+        need = [max(need[k], keep * sum(need[j] for j in nb[k]) / len(nb[k])) if nb[k] else need[k]
+                for k in range(len(need))]
+    for v in bm.verts:
+        if need[v.index] > 0:
+            v.co = v.co + v.normal * need[v.index]
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    return sum(1 for x in need if x > 0)
 
 
 def _clear_unders(bm, unders, gap, spread=12, keep=0.8):

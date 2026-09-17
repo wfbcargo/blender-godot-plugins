@@ -87,7 +87,46 @@ read as hair, not a cap edge?".
 
 ---
 
-## 5.3 Compression garments
+## 5.3 Compression garments - DONE (Belle's own top not rebuilt)
+
+> **Shipped** (September 2026, wardrobe, branch `compression-garments`).
+>
+> - `fit.ease(..., smooth=0..1, flatten={region: share}, detail_limit={region: ratio})`. `fit.compress`
+>   builds the compressed body over the skin the garment lies on: each `flatten` region (follow-through
+>   type or name, rig-anything role, or vertex group, weights normalised) moves `share` of the way to
+>   the harmonic membrane over its edge (solved directly); then (smooth x 0.2 m / mean edge)^2 Taubin
+>   passes (129 on the curvy MPFB torso's 1.76 cm edges, 383 on the sample figure's 1.02 cm); each
+>   skin vertex takes the nearest point of that surface; all of it fades to the skin over 5 cm from
+>   the garment's edges, where the cloth also keeps its ease off the skin itself. The cloth starts on
+>   the compressed surface - eased from the skin, push-out never pulled the nipples in.
+> - Presets: `sports_top` (8 mm, smooth 1, breast 0.2, limit breast 0.35), new `compression_shorts`
+>   (hips to mid-thigh) and `leggings` (to the ankle), both 5 mm, smooth 1, butt 0.1, limit butt 1.0;
+>   all three `cover.behind` 3 cm.
+> - Cover: `cover.compute(behind=)` follows the line under the skin and, in a cleft where both lines
+>   miss, takes the nearest cloth over its face. A drawn body triangle is drawn whole, so `dress` lifts
+>   the cloth over the covered corners of drawn triangles that lie over it (`cover.drawn_over_cloth`,
+>   `fit.lift_over`): the curvy woman's compression shorts showed skin in the crotch and at the
+>   waistband until lifted (38 triangles, one pass).
+> - Detail check (04 step 5): `fit.detail`, in every `ease` report - see 04.
+>
+> Curvy MPFB woman (humanform, seed 11, 1.68 m, realistic; breasts marked by hand - see below),
+> sports top before/after: breast cloth/skin mean-curvature variance 493/673 = 0.73 -> 62/673 = 0.09,
+> whole top 0.53 -> 0.28; renders at a fixed camera, front and three-quarter, show the nipples gone and
+> the bust smooth. Compression shorts: seat 1.50 -> 1.20 (quiet skin, 16.6/m^2), crotch crease softened.
+> Wardrobe verifier (240 frames, jiggle, hem) on that woman, sports top + compression shorts, every clip,
+> holes / poke: Idle 0 / 0.085%, Walk 0 / 0.162%, Run 0.066 / 0.169%, Crouch 0.197 / 0.092%, CrouchWalk
+> 0 / 0.085%, Jump 0.328 / 0.169% - all pass; uncompressed the same pair was 0 / 0.107, 0 / 0.161,
+> 0.069 / 0.145, 0.138 / 0.046, 0 / 0.046, 0.275 / 0.107. With leggings instead: worst Jump 0.216 /
+> 0.180%. On the fixture's sample figure (Walk): top + shorts_mid_thigh 0.062 / 0.008%, top +
+> compression shorts 0 / 0, top + leggings 0 / 0. The `pipeline_woman` export (compressed top, no breast flatten - see
+> below) with `shorts_mid_thigh`: Idle, Walk, Run 0 holes, poke 0.145-0.153%. `cut=0.04` still fails (0.88-2.23%).
+>
+> Found on the way, not fixed here (follow-through): on an MPFB woman built through character-pipeline
+> (the `pipeline_woman` spec, and seed 11) `flesh.prepare` put both breast regions on the face - the
+> breast bones' heads at 1.50 m, weight 1.0 around the mouth, 0.013 at the nipples. So `flatten=
+> {"breast": ...}` moves nothing under that woman's top and its limit reports `unmeasured`; the
+> evidence woman had her breasts marked by hand (`region_from_group`). Belle's own top in grungist-creek
+> was not rebuilt (out of scope for this branch).
 
 **Problem.** wardrobe fits garments by easing the cloth off the skin (`fit.ease(base=0.006,
 loose=0.025, ...)`), so a skin-tight top traces every surface detail of the body under it, including

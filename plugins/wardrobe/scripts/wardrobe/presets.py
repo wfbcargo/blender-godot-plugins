@@ -79,6 +79,19 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
     if p.get("hem") is not None:
         hr = hem.prepare(g, body, under=over, **_args(p["hem"]))
     cr = cover.compute(g, body, **_args(p.get("cover")))
+    lifted = None
+    behind = (p.get("cover") or {}).get("behind") or 0.0
+    if behind > 0:
+        # a compression garment eased inside the skin: lift it over skin the engine still draws
+        lifted = []
+        for _ in range(4):
+            tris = cover.drawn_over_cloth(g, body, cr, reach=behind)
+            if not tris:
+                break
+            lifted.append({"tris": len(tris), "verts_moved": fit.lift_over(g, body, tris, (p.get("ease") or {}).get("base", 0.006))})
+            cr = cover.compute(g, body, **_args(p.get("cover")))
+        if lifted:
+            er["detail"] = fit.detail(g, body, limit=(p.get("ease") or {}).get("detail_limit"))   # of the cloth as lifted
     layers = {o: cover.compute(g, o, **_args(p.get("layer_cover"))) for o in over}
     s = spec.build(g, body, cr, hr, er, kind=p.get("spec_kind", p["cut"]),
                    layer=layer if layer is not None else p.get("layer"), layers=layers or None)
@@ -87,20 +100,26 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
         "garment": g.name, "preset": preset if isinstance(preset, str) else None, "body": body.name,
         "verts": len(g.data.vertices), "groups": len(g.vertex_groups),
         "cut": dict(g["wardrobe_cut_report"]), "painted": painted, "ease": er, "skin": sk,
+        **({"lifted": lifted} if lifted is not None else {}),
         "hem": hr["rings"] if hr else None, "hem_bones": len(hr["block"]["bones"]) if hr else 0,
         "cover": cover.summarize(cr), "cover_report": {k: v for k, v in cr.items() if not k.startswith("_")},
         "layers": {o.name: {"hidden": r["hidden"], "tris_hidden": r["tris_hidden"]} for o, r in layers.items()},
         "jiggle_groups": sorted({vg.name for vg in g.vertex_groups if vg.name.startswith("ft_jiggle_")}),
         "spec_problems": problems, "export": None, "export_report": None, "exported": False,
     }
+    # the preset's `ease.detail_limit`: a compression garment that still traces the skin fails
+    detail = builtins.list((er.get("detail") or {}).get("problems") or [])
+    if cr.get("drawn_over_cloth"):
+        detail.append("cover: %d drawn body triangles still lie over the cloth after lifting it" % cr["drawn_over_cloth"])
     if problems:
-        report.update(passed=False, problems=[f"spec: {x}" for x in problems])
+        report.update(passed=False, problems=[f"spec: {x}" for x in problems] + detail)
         return report
     if out_path is None:
-        report.update(passed=True, problems=[])
+        report.update(passed=not detail, problems=detail)
         return report
     rgb = tuple(colour if colour is not None else p.get("colour") or (0.2, 0.42, 0.75))
     m = export.garment(g.name, out_path, colour=rgb)
     report.update(export=export.summarize(m), export_report=m, exported=bool(m.get("exported")),
-                  passed=bool(m.get("passed")), problems=[] if m.get("passed") else [export.summarize(m)])
+                  passed=bool(m.get("passed")) and not detail,
+                  problems=([] if m.get("passed") else [export.summarize(m)]) + detail)
     return report
