@@ -120,7 +120,9 @@ def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=prin
     ctx = {"scratch": tempfile.mkdtemp(prefix=f"pipeline_{ch.id}_"), "versions": versions}
     for i, (name, needs, sections, check, run, _applies) in enumerate(wanted):
         needs = [n for n in needs if n in names]
-        h = _hash(ch, name, needs, sections, done, versions)
+        # the four plugins every stage builds with, and an optional one (lookdev) only where the stage reads it
+        stage_versions = plugins.stage_versions(ch, name)
+        h = _hash(ch, name, needs, sections, done, stage_versions)
         if i < start:
             rec = stored.get(name)
             if rec is None:
@@ -152,7 +154,7 @@ def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=prin
         done[name] = h
         # what came after this stage was built on what it just replaced
         _forget(ch, names[i + 1:])
-        _store(ch, name, {"hash": h, "report": _small(out), "versions": versions, "seconds": took})
+        _store(ch, name, {"hash": h, "report": _small(out), "versions": stage_versions, "seconds": took})
         stored = records(ch)
         report[name] = {"status": "ran", "seconds": took, "report": out}
         log(f"[{ch.id}] {name}: done in {took}s")

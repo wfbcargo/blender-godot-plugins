@@ -2,7 +2,7 @@
 
     body      humanform body and rig from the brief (or an object already in the file)
     bake      one skinned mesh: shape keys and helpers baked, skin material, eyes joined
-    hair      a hair mesh skinned to the head role (optional)
+    hair      humanform's hair layer from a preset, joined into the body (optional)
     flesh     follow-through jiggle bones (optional)
     moves     rig-anything's move set - after flesh, before garments
     garments  wardrobe presets, cut from the fleshed skin (optional)
@@ -18,7 +18,9 @@ by breaking them on a real character:
   rig, and 8 mm of sports top at the armpits sent Belle's run arms up over her head;
 - flesh before garments: a garment is cut from the skin and takes its weights, and cut first it
   carries no jiggle bones;
-- bake before moves.
+- bake before moves;
+- hair once: the stage joins the hair into the body and cannot take it off again, so a body that already
+  has hair refuses (`check_hair`) and changing `[hair]` means rebuilding from `body`.
 """
 
 from __future__ import annotations
@@ -26,6 +28,8 @@ from __future__ import annotations
 import os
 
 import bpy
+
+from . import spec as spec_mod
 
 
 class StageRefused(RuntimeError):
@@ -64,6 +68,30 @@ def fleshed(ch):
     if ob is None or "follow_through" not in ob:
         return False
     return any(g.name.startswith("ft_jiggle_") for g in ob.vertex_groups)
+
+
+def haired(ch):
+    """Meshes in the file that are already this character's hair - joined into the body, or a loose hair
+    object left from a run that did not finish.
+
+    humanform's `views.hair_objects` is the detector: a hair material on a mesh's slots (lookdev's `hair`
+    preset, or `hair` as a whole part of the material's name, which is what the deprecated shell_bun path
+    makes) or the `humanform_hair` property. The hair stage *joins* hair into the body, so it can only add a
+    second layer over the first; this is what stops it.
+
+    Only *this* character's meshes: the body, meshes named `<name>_*`, and meshes bound to its rig. A file
+    can hold a whole crowd (`_clear_for` clears one character out of it by name), and another character's
+    hair is not this one's."""
+    ob = _obj(ch.mesh)
+    if ob is None or ob.type != "MESH":
+        return []
+    from humanform import views
+    rig = _obj(ch.rig)
+    mine = [o for o in bpy.data.objects
+            if o.type == "MESH" and o.name != ch.mesh
+            and (o.name.startswith(ch.name + "_")
+                 or (rig is not None and any(m.type == "ARMATURE" and m.object == rig for m in o.modifiers)))]
+    return sorted(o.name for o in views.hair_objects(ob, mine))
 
 
 def moves_stored(ch):
@@ -164,6 +192,25 @@ def check_not_dressed(stage):
     return check
 
 
+def check_hair(ch):
+    """`check_not_dressed`, and then: no hair in the file already.
+
+    `run_hair` joins the hair into the body, so it can only ever add. On a rebuild where only `[hair]`
+    changed, bake's hash is unchanged and bake is skipped, so without this the new layer went on top of the
+    old one: the bun stayed in the mesh, and `humanform.hair`'s landmarks read the previous cap (weighted
+    1.0 to the head bone) as scalp, so the crown rose and the head unit `h` grew - every measurement the
+    hairline is placed from moved. Changing `[hair]` means rebuilding from `body`, which is the one stage
+    that clears the character out of the file."""
+    problem = check_not_dressed("hair")(ch)
+    if problem:
+        return problem
+    already = haired(ch)
+    if already:
+        return ("hair is already in this file (%s) and the hair stage joins a layer on rather than "
+                "replacing it - rebuild from body (from_stage=\"body\") to change [hair]" % ", ".join(already))
+    return None
+
+
 def _rest(ch):
     rig = _obj(ch.rig)
     if rig.animation_data:
@@ -174,10 +221,32 @@ def _rest(ch):
 
 
 def run_hair(ch, ctx):
-    from . import hair
-    if ch.hair.kind != "shell_bun":
-        raise RuntimeError(f"hair: no builder for kind {ch.hair.kind!r} (have: shell_bun)")
-    return hair.shell_bun(ch, **ch.hair.params)
+    """humanform's hair layer from the spec's preset and colour, joined into the body - rig-anything exports
+    one mesh. A strand part (ponytail, long_loose) is joined too: its follow-through contract is checked and
+    reported before the join, and its `ft_strand` vertex group and fallback weights survive it."""
+    if ch.hair.kind == "shell_bun":
+        from . import hair
+        out = hair.shell_bun(ch, **ch.hair.params)
+        out["deprecated"] = spec_mod.DEPRECATED["hair.kind"]
+        return out
+    from humanform import hair as hf_hair
+    _rest(ch)
+    rep = hf_hair.add(ch.mesh, preset=ch.hair.preset, colour=ch.hair.colour, name=ch.name)
+    ob = _obj(ch.mesh)
+    parts = [_obj(n) for n in rep["objects"].values()]
+    selected = [ob] + parts
+    with bpy.context.temp_override(active_object=ob, selected_editable_objects=selected, object=ob,
+                                   selected_objects=selected):
+        bpy.ops.object.join()
+    out = {"preset": rep["preset"], "colour": rep["colour"], "joined": sorted(rep["objects"].values()),
+           "head": rep["landmarks"]["head_bone"], "cap": rep["cap"], "hair": rep["hair"],
+           "parts": rep["parts"], "material": {k: rep["material"].get(k) for k in ("material", "source", "gltf")}}
+    if "contract" in rep:
+        out["strand_contract"] = rep["contract"]
+        if not rep["contract"]["passed"]:
+            raise RuntimeError(f"hair: the strand does not meet its follow-through contract: "
+                               f"{rep['contract']['problems']}")
+    return out
 
 
 def run_flesh(ch, ctx):
@@ -382,7 +451,7 @@ def run_review(ch, ctx):
 STAGES = [
     ("body", (), ("character", "body"), lambda ch: None, run_body, lambda ch: True),
     ("bake", ("body",), ("character", "body"), check_bake, run_bake, lambda ch: True),
-    ("hair", ("bake",), ("hair",), check_not_dressed("hair"), run_hair, lambda ch: ch.hair is not None),
+    ("hair", ("bake",), ("hair",), check_hair, run_hair, lambda ch: ch.hair is not None),
     ("flesh", ("bake", "hair"), ("flesh",), check_not_dressed("flesh"), run_flesh, lambda ch: ch.flesh is not None),
     ("moves", ("bake", "hair", "flesh"), ("moves",), check_not_dressed("moves"), run_moves, lambda ch: True),
     ("garments", ("moves", "flesh"), ("outfit",), check_garments, run_garments, lambda ch: bool(ch.outfit)),

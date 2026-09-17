@@ -7,9 +7,10 @@ It builds something from nothing - no .blend, no stored asset - and writes
 runs them and compares against `tests/golden/`.
 
 Which plugin checkout is exercised comes from the environment (RA_SCRIPTS, HF_SCRIPTS,
-FT_SCRIPTS, WD_SCRIPTS - the names `grungist-creek`'s build scripts already use), so the
-same fixture can be run against a worktree without editing it. Unset, they point at this
-repo's own plugins/.
+FT_SCRIPTS, WD_SCRIPTS, CP_SCRIPTS, LD_SCRIPTS - the names `grungist-creek`'s build scripts
+already use), so the same fixture can be run against a worktree without editing it. Unset,
+they point at this repo's own plugins/. Every plugin a fixture passes to `use` has its
+version recorded in the report, so a golden says which checkouts produced its numbers.
 
 A fixture must be deterministic: seed every generator, never read the user's humanform
 library (the harness points HUMANFORM_LIBRARY at a scratch folder), and report no
@@ -23,12 +24,17 @@ import traceback
 
 REPO = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 PLUGINS = {"RA_SCRIPTS": "rig-anything", "HF_SCRIPTS": "humanform",
-           "FT_SCRIPTS": "follow-through", "WD_SCRIPTS": "wardrobe", "CP_SCRIPTS": "character-pipeline"}
+           "FT_SCRIPTS": "follow-through", "WD_SCRIPTS": "wardrobe", "CP_SCRIPTS": "character-pipeline",
+           "LD_SCRIPTS": "lookdev"}
+# The folder under a plugin that holds its importable packages: `scripts` for all but lookdev, whose
+# Blender package is `blender/`. Must agree with tools/regress.py's PACKAGE_DIR, which routes --plugins.
+PACKAGE_DIR = {"lookdev": "blender"}
 
 
 def scripts(var):
     """The scripts folder for one plugin: the environment's, or this repo's."""
-    return os.environ.get(var) or os.path.join(REPO, "plugins", PLUGINS[var], "scripts")
+    plugin = PLUGINS[var]
+    return os.environ.get(var) or os.path.join(REPO, "plugins", plugin, PACKAGE_DIR.get(plugin, "scripts"))
 
 
 USED = {}

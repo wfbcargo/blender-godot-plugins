@@ -1,0 +1,164 @@
+{
+  "_comment": "humanform hair presets (hair.add). Heights are in head units h = crown top minus eye centre height, measured up (+) or down (-) from the eye centre; angles are degrees around the head's vertical axis, 0 at the front, 90 at the body's left ear. Lengths in metres. See skills/humanform/SKILL.md, Hair.",
+  "hairline": {
+    "_comment": "[azimuth, height in h] for an ear at 90 deg; azimuths are warped so the measured ear sits at 90",
+    "keys": [
+      [0, 0.55],
+      [15, 0.54],
+      [28, 0.5],
+      [38, 0.43],
+      [47, 0.33],
+      [54, 0.2],
+      [60, 0.0],
+      [66, -0.28],
+      [76, -0.36],
+      [90, -0.5],
+      [112, -0.5],
+      [128, -0.58],
+      [152, -0.72],
+      [180, -0.78]
+    ],
+    "ear_ellipse_m": [0.03, 0.036],
+    "_ear": "the ear is measured (half its extent, front-back and up-down) plus ear_margin_m; ear_ellipse_m is used only without a measured ear",
+    "ear_margin_m": 0.002,
+    "ear_scale": [0.55, 0.95]
+  },
+  "defaults": {
+    "feather_m": 0.012,
+    "feather_in_m": 0.04,
+    "edge_offset_m": 0.0006,
+    "cap_thick_m": 0.006,
+    "crown_extra_m": 0.004,
+    "cap_v_hairline": 0.045,
+    "cap_v_span_m": 0.2,
+    "cap_v_max": 0.6,
+    "axis": {
+      "azimuth": 180,
+      "elevation": 70
+    },
+    "colour": [0.17, 0.1, 0.06],
+    "subdivide": 1
+  },
+  "presets": {
+    "short_crop": {
+      "description": "Close-cropped: the feathered cap alone, thin, a little fuller at the crown.",
+      "cap_thick_m": 0.0035,
+      "crown_extra_m": 0.003,
+      "feather_m": 0.009,
+      "feather_in_m": 0.012,
+      "parts": []
+    },
+    "bob": {
+      "description": "Jaw-length bob: the cap and a fall over the ears and nape, hanging straight from the widest part of the head and turning under at the ends.",
+      "cap_thick_m": 0.007,
+      "crown_extra_m": 0.006,
+      "parts": ["fall"],
+      "fall": {
+        "face_open_deg": 60,
+        "top_h": 0.97,
+        "bottom_h": -0.95,
+        "flare_m": 0.02,
+        "tuck_m": 0.012,
+        "thick_m": 0.014,
+        "lock_m": 0.004,
+        "ragged_m": 0.012,
+        "columns": 40,
+        "rows": 20,
+        "v": [0.25, 0.975],
+        "edge_taper_deg": 50,
+        "crown_open_deg": 28,
+        "open_at": 0.35
+      },
+      "axis": {
+        "azimuth": 0,
+        "elevation": 90
+      }
+    },
+    "bun": {
+      "description": "Hair pulled back into a bun high at the back of the head: a snug cap whose strands run to the bun, and a coiled bun.",
+      "cap_thick_m": 0.007,
+      "crown_extra_m": 0.007,
+      "parts": ["bun"],
+      "axis": {
+        "to": "bun"
+      },
+      "bun": {
+        "azimuth": 180,
+        "elevation": 28,
+        "radius_m": 0.042,
+        "tube_m": 0.015,
+        "turns": 1.6,
+        "segments": [72, 10],
+        "v": [0.42, 0.7]
+      }
+    },
+    "ponytail": {
+      "description": "Hair pulled back to a tie at the back of the head and a tail hanging from it. The tail is a strand object for follow-through.",
+      "cap_thick_m": 0.005,
+      "crown_extra_m": 0.003,
+      "parts": ["tie", "strand"],
+      "axis": {
+        "to": "tie"
+      },
+      "tie": {
+        "azimuth": 180,
+        "elevation": 12,
+        "major_m": 0.014,
+        "minor_m": 0.0065,
+        "segments": [18, 8]
+      },
+      "strand": {
+        "kind": "tube",
+        "length_m": 0.32,
+        "points": 12,
+        "radius_m": [0.014, 0.03, 0.008],
+        "peak_at": 0.25,
+        "depth": 0.65,
+        "ring": 12,
+        "clearance_m": 0.006,
+        "droop": 0.45,
+        "v": [0.35, 0.985]
+      }
+    },
+    "long_loose": {
+      "description": "Long hair worn loose: the cap, a fall over the ears to below the jaw, and a curtain down the back past the shoulders. The curtain is a strand object for follow-through.",
+      "cap_thick_m": 0.008,
+      "crown_extra_m": 0.006,
+      "parts": ["fall", "strand"],
+      "fall": {
+        "face_open_deg": 64,
+        "top_h": 0.97,
+        "bottom_h": -1.8,
+        "flare_m": 0.016,
+        "tuck_m": 0.0,
+        "thick_m": 0.012,
+        "lock_m": 0.005,
+        "ragged_m": 0.02,
+        "columns": 40,
+        "rows": 24,
+        "v": [0.25, 0.7],
+        "edge_taper_deg": 50,
+        "crown_open_deg": 28,
+        "open_at": 0.35
+      },
+      "strand": {
+        "kind": "curtain",
+        "length_m": 0.3,
+        "points": 12,
+        "root_h": -0.9,
+        "width_m": 0.16,
+        "tip_narrow": 0.2,
+        "edge_curl_m": 0.008,
+        "columns": 11,
+        "rows": 16,
+        "thick_m": 0.012,
+        "clearance_m": 0.008,
+        "v": [0.55, 0.985]
+      },
+      "axis": {
+        "azimuth": 0,
+        "elevation": 90
+      }
+    }
+  }
+}

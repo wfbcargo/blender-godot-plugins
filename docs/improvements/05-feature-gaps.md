@@ -85,6 +85,153 @@ read as hair, not a cap edge?".
 
 **Done when** Belle's hair passes a critic look at 1 m in Godot, and a ponytail preset swings on a run.
 
+**Shipped (branch `hair-layer`, steps 1, 2 and 4; step 3, strand motion, is another branch).**
+- **humanform `hair`**: `hair.add(body, preset, colour)` on a baked body, presets `short_crop`, `bob`, `bun`,
+  `ponytail`, `long_loose` in `data/hair_presets.json`; brief field `sheet.new(hair={"preset", "colour"})`.
+  Placed from the head measured on the mesh (head bone role, crown, eyeballs, ear extents). The cap is the
+  body's own faces inside a hairline curve (height in head units against azimuth, warped to the measured
+  ear, with an ellipse round each ear), smooth-subdivided and offset by 0.6 mm at its boundary rising to
+  full thickness over 40 mm, the full-thickness part relaxed - tapered geometry, no wall - with the boundary at texture
+  V ~ 0.003, inside the transparent root zone, so the visible hairline is strand tips with skin between.
+  Volumes: a coiled bun (a tube wound 1.6 turns), a hair-wrapped tie, a fall from the crown for bob and
+  long_loose that hangs straight from the widest part of the head.
+- **lookdev `hair` material preset** (`presets/materials.json`, `lookdev_blender.hair`): 512x1024 strand
+  texture with root-to-tip gradient and alpha-thinned ends (glTF MASK), strand normal map, anisotropy; a
+  `lookdev` custom property that glTF keeps as material extras and Godot as `extras` metadata, which
+  `godot/addons/lookdev/lookdev_materials.gd` (`LookdevMaterials.apply`) turns into anisotropy, backlight,
+  rim, specular and a depth pre-pass blend, and strand tangents on the hair surfaces (per face, then
+  averaged mod 180 degrees where faces meet).
+- **character-pipeline**: `[hair] preset = "bun"`, `colour = [...]`; the hair stage calls humanform and
+  joins the result into the body. `kind = "shell_bun"` still parses and builds, listed in `spec.DEPRECATED`;
+  `hair` is gone from `spec.GAPS`. Belle built from `belle.toml` with `preset = "bun"` in scratch ran every
+  stage (flesh, moves, garments, export) with no problems.
+- **humancheck**: `hair.png` (lit colour head, front / three-quarter / back at 1 m and three close-ups) joins
+  the contact sheet whenever the body has hair; the critic checklist has an L6 hair block starting with
+  "does the hairline read as hair, not a cap edge?".
+- **Fixture `hair_presets`**: all five presets on a spec-built woman (cap boundary 0.6 mm and V 0.003,
+  cap clearance 0.34 mm, strand clearance 5-8 mm, contracts pass), the glb read back (MASK, two textures,
+  extras, the strand node's `ft_*` extras), how faceted each hair object's across-strand direction is
+  (`uv_tangent_turn`: the triangles more than 35 degrees from their neighbours', and the largest turn),
+  the pipeline stage joining a ponytail (434 `ft_strand` vertices), spec and brief refusals.
+
+**Strand contract** (shared with follow-through's strand work). Ponytail and long_loose put the moving part
+on its own mesh object `<base>_hair_strand`:
+- `ft_type = "strand"`;
+- `ft_root_bone` = the rig's head bone name (bone role `head`, resolved; `spine.005` on humanform rigs);
+- `ft_centreline` = flat `[x, y, z, ...]`, 12 points, object-local, root first, evenly spaced by arc length;
+- `ft_length_m`, and `ft_radius_m` per centreline point (tube half width / curtain half thickness);
+- vertex group `ft_strand`: each vertex's share of the length, 0 at the root to 1 at the tip (survives a join);
+- `humanform_hair = {"preset", "part": "strand", "kind": "tube" | "curtain"}`.
+It is skinned as a rigid fallback (head at the root blending to neck and chest toward the tip) until
+follow-through builds the chain; `humanform.hair.contract(obj)` checks it. The pipeline currently joins the
+strand into the body after checking the contract (rig-anything exports one mesh), which keeps the vertex
+group but drops the object properties: the strand-motion stage should run between `hair.add` and that join.
+
+**Review fixes (same branch).**
+- *lookdev optional to the pipeline.* `plugins.use()` imports the four plugins every build needs and lookdev
+  only where its folder is there; lookdev's version goes only into the hair stage's hash, and only for a
+  preset spec (`plugins.stage_versions`). A shell_bun spec's hair section hashes as `{kind, params}` as
+  before, so Belle's and the crowd's stored records stay valid (`pipeline_woman` golden unchanged; the
+  fixture checks `plugins.use()` with `LD_SCRIPTS` pointing at nothing).
+- *Hairline path.* The curve now comes down at the temples (0.33 h at 47 degrees against 0.26 h at 55),
+  makes a sideburn in front of the ear to 0.36 h below the eye, wraps the ear (an ellipse from the measured
+  ear, `ear_scale` [0.55, 0.95] + 2 mm) and reaches the nape at -0.78 h. Distance across the curve is taken
+  perpendicular to it, so the feather keeps its width down a sideburn. Belle's cap grew from 410 to 1054
+  body faces.
+- *Crown glints in Godot.* Two causes, both in the UVs: V was the height over the curve clamped at 0.6, so
+  the crown had runs of faces with no V change (144 flat faces on Belle's hair, 68 on the crown), and over
+  the top of the head the height's gradient lay along U and the UV frame flipped in patches. With anisotropy
+  off, or Blender's tangents, they went. V is now never clamped and further than 3 cm in it runs along the
+  strand axis's meridians (0 flat faces; `cap.uv_handedness` 602 same / 6 flipped faces more than 3 cm
+  inside the line). Round an ear the frame must still turn, so `LookdevMaterials.apply` de-indexes the
+  hair surfaces and gives each corner a tangent from the triangle's U gradient alone (material extras
+  `lookdev.mesh.tangents = "per_face"`; Belle's hair surface: 5223 vertices become one per corner). No
+  exporter change was needed - the done-when frames use the pipeline's own glb.
+- *Dark polygons in the sheen (Godot).* A tangent per face is faceted where the U field turns fast: 305 of
+  Belle's 9872 hair triangles sit more than 35 degrees from their neighbours', nearly all within 3 cm of
+  the bun's axis, and each facet catches a different part of the anisotropic lobe - half a dozen dark
+  polygons 1-2 cm across between crown and bun, at 1 m faint specks, close up marks. The tangent alone:
+  `normal_scale = 0` leaves them, `anisotropy_enabled = false` removes them. `strand_tangents` now
+  averages, for each corner, the tangents of every face meeting at its position, each flipped mod 180
+  degrees onto that face's own first (a strand axis has no direction), and keeps the face's own where the
+  mean collapses below half - the flip is what Godot's own per-vertex generator lacks round a hole. The
+  sheen is clean and the hairline and ear unchanged (`godot_tangents_fix.png`).
+- *Soft hairline in Godot.* The texture's alpha now fades toward the root (`root_fade` [0, 0.11], power
+  0.25) instead of each strand stopping; Blender and glTF still cut it at 0.5 (MASK), and Godot draws the
+  hair with `transparency = ALPHA_DEPTH_PRE_PASS` from the extras, so the fade blends: opaque hair keeps
+  depth and sorting, the edge is a fade of strand tips.
+- *Nape ridge, faceted back of the skull, bun centre.* Smooth subdivision, the relaxed offset surface
+  (4 passes, kept half its thickness off the skin; closest 0.27 mm) and a 40 mm thickness ramp; the coil's
+  inner end tapers and sinks under the first turn.
+- *Bob and long_loose.* A fall's top row lies on the cap with no thickness (its old thick top edge was the
+  shelf), its face edges thin out on the cap, its sides wave in locks (4-5 mm) and its ends are ragged
+  (12-20 mm); long_loose's fall reaches -1.8 h and the curtain starts inside it at -0.9 h, 16 cm wide, and
+  takes the body's surface from the nearest column where a ray passes beside the neck (its corners had
+  folded forward into wings).
+- Evidence: `renders` in the branch's hand-off, Belle built from `belle.toml` with `preset = "bun"` through
+  every stage; Godot frames from the pipeline's exported `belle.glb` with `LookdevMaterials.apply`.
+
+**Review fixes (round 2, same branch).**
+- *Changing `[hair]` stacked a second layer into the body.* The hair stage joins its hair into the body, so
+  it can only add; its precondition only asked "no garments bound". On a rebuild where only `[hair]` changed,
+  bake's hash is unchanged and bake is skipped, so the stage ran on an already-haired body: the old bun stayed
+  in the mesh (19989 -> 45450 vertices on the probe), and `humanform.hair`'s landmarks read the previous cap,
+  weighted 1.0 to the head bone, as scalp - the crown rose 7.8 mm, the head unit `h` grew 6.8% (0.1145 ->
+  0.1222) and the cap took 6128 body faces instead of ~1200. Every measurement the hairline is placed from
+  moved, with no warning. `stages.check_hair` now runs `stages.haired` (humanform's `views.hair_objects`,
+  which already existed) before the stage and refuses, naming the rebuild: `from_stage="body"`, the one stage
+  that clears the character out of the file. Every fixture started from an empty scene, so nothing caught it;
+  `hair_presets` now changes the preset from ponytail to bun and reruns the stage on the built body
+  (`rebuild_refused`: refused, `body_unchanged` true, 19845 vertices either way). `haired` looks only at this
+  character's meshes - the body, `<name>_*`, and whatever is bound to its rig - since a file can hold a whole
+  crowd and another character's hair is not this one's (`with_another_character` in the same report).
+- *`views._hair_material` matched `hair` as a substring.* Found by the check above: the fixture's character is
+  called HairWoman, so her `HairWoman_skin` material was read as hair and her first hair stage refused. The
+  name test (there only for the deprecated shell_bun material, `<name>_hair`) now matches `hair` as a whole
+  part of the name, not a substring; the lookdev-preset test is unchanged.
+- *`regress.py --plugins <checkout>` did not route lookdev.* `SCRIPT_VARS` and `_harness.PLUGINS` covered five
+  plugins, and the `plugins/<name>/scripts` mapping could not have reached lookdev anyway, whose Blender
+  package is `blender/`. So a run against another checkout exercised *this* tree's hair material while saying
+  otherwise, and `tests/golden/hair_presets.json` pinned lookdev's outputs - `gltf.texture_hash`,
+  `gltf.normal_hash`, `alphaCutoff`, the whole `extras.lookdev` block, and `cap.strand_turns` 14, which is
+  round(2*pi*0.09 / `tile_m`) and so depends on lookdev's `tile_m` = 0.04 - with no record of which lookdev
+  produced them. Both maps now carry `LD_SCRIPTS` with a `PACKAGE_DIR` (`lookdev` -> `blender`), the fixture
+  routes it through `H.use` rather than setting it itself, and the golden's `plugins` map records
+  `lookdev 0.1.0` beside the other five. No pinned number moved.
+- *`LookdevMaterials.tangents_per_face` tore down a mesh it could not retangent.* The per-surface guard
+  checked blend shapes and the primitive type, but the `clear_surfaces()` / `add_surface_from_arrays()`
+  rebuild and `mesh.set_meta("lookdev_tangents", "per_face")` ran unconditionally: a hair material on a mesh
+  with blend shapes round-tripped every surface through `surface_get_arrays` for nothing and was still marked
+  done, so a later correct pass was skipped - the opposite of what `references/hair.md` said. It now works out
+  what it can rebuild first and returns `false`, untouched and unmarked, when that is nothing; `apply` reports
+  only meshes it really retangented. Probe in a scratch Godot project (`tangent_probe.gd`, 4.7.2), before -> after:
+  a mesh with a blend shape, `lookdev_tangents` set -> not set; a `PRIMITIVE_LINES` surface, set -> not set;
+  `apply` on a scene holding both, the shaped mesh marked -> unmarked while its material still gets its
+  properties. The shipped path is unchanged: with no blend shapes the hair surface still de-indexes (9 shared
+  vertices -> 24 corners, index dropped, tangents written), and Belle's exported glb still reports
+  `tangents_per_face: ["after_BelleAfter_body"]` in Godot.
+- *Release bookkeeping is not on this branch.* A reviewer asked for the plugin version bumps, the
+  `marketplace.json` entries and the NEXT.md line that the last four feature merges on `main` each carried.
+  This run was told not to bump versions or touch `marketplace.json`, NEXT.md or `tests/README.md`, because
+  about seven agents are on branches at once and those three files are where they collide. So the merge owes:
+  humanform (new `hair` module and brief field), lookdev (first material-preset system, `presets/materials.json`,
+  a new Godot addon script) and character-pipeline (new `[hair]` spec field, the hair stage's new
+  precondition), each with its `marketplace.json` version and "Since x.y.z" clause, plus the NEXT.md line and
+  a `tests/README.md` mention of `LD_SCRIPTS`. humanform's layer table no longer claims a version it does not
+  have (it read "built (unreleased, branch `hair-layer`)"); the merge fills the number in.
+- Evidence: `godot_before_after.png` and `blender_before_after.png` in this branch's scratch - Belle from
+  `belle.toml` built to the hair stage with `preset = "bun"` against `shell_bun`, front / three-quarter / back
+  at 1 m and a close three-quarter, the Godot row through `LookdevMaterials.apply` on the pipeline's own glb.
+
+**Found / open.**
+- Bob and long_loose are still shells: better, but at 1 m they read as a heavy, smooth hairstyle more than
+  as loose hair; a faint line can show where a fall leaves the cap below the widest part of the head.
+- The ring the hairline leaves round each ear reads as a bare oval in humancheck's flat clay light, where
+  the ear has no relief to fill it; under Godot's key and rim it reads as hair parting round the ear.
+- EEVEE draws no anisotropy.
+- `lookdev_materials.gd` runs only in Godot, so `regress.py` holds it only through the geometry it reacts
+  to (`uv_tangent_turn`, `cap.uv_handedness`). What the shader draws needs `--godot` or an eye on a frame.
+
 ---
 
 ## 5.3 Compression garments - DONE (Belle's own top not rebuilt)
