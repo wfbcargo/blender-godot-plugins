@@ -5,8 +5,8 @@ A handoff for a fresh conversation. Start with:
 > Read `docs/improvements/NEXT.md`, then the work item it points at, and plan it.
 
 State as of 2026-09-17. Everything below is on `main` here and on `master` in `grungist-creek`, with no
-open branches or worktrees; the merges of radial-counts, flesh-end-rings and pipeline-conventions are not
-pushed yet. `python tools/regress.py --twice --jobs 2 --godot` passed on `main` after them (11 fixtures, no
+open branches or worktrees; the merges of radial-counts, flesh-end-rings and pipeline-conventions and the
+character rebuild (grungist-creek `ed654b0`) are not pushed yet. `python tools/regress.py --twice --jobs 2 --godot` passed on `main` after them (11 fixtures, no
 change, 9 manifests and the wardrobe fixtures pass in Godot). Installed copies in `~/.claude/skills` match
 the repo:
 - rig-anything 0.21.0
@@ -29,7 +29,7 @@ and the gotchas are there.
 |---|---|
 | [03 Regression harness and install](03-regression-harness-and-install.md) | **Done.** |
 | [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | **Done.** Belle's hand-marked flesh zones retired with 05 · 5.9. |
-| [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | **Done.** Belle and the 16 people build from `grungist-creek/characters/*.toml`. Its loose ends are settled (character-pipeline 0.2.0); the character rebuild that carries them into the committed assets is in progress (below). |
+| [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | **Done.** Belle and the 16 people build from `grungist-creek/characters/*.toml`. Its loose ends are settled (character-pipeline 0.2.0) and the committed characters are rebuilt on them (grungist-creek `ed654b0`). |
 | [04 Checks that match the eye](04-checks-that-match-the-eye.md) | **a done** (wardrobe 0.2.1). b-d not started. |
 | [05 Feature gaps](05-feature-gaps.md) | 5.1, 5.6, 5.7 done. Open: 5.2 hair, 5.3 compression garments, 5.4 skirts, 5.5 muscle. 5.8 done (rig-anything 0.21.0). 5.9 done, with its end-ring follow-up (follow-through 0.4.0). |
 | Old project notes | Not triaged (item 7 below). |
@@ -85,7 +85,8 @@ self-test passes (breasts 7.5/8.7%, buttocks 8.6/8.4% on the limit, under 10%) a
 clips in both garments. That meets 02's last "done when". Since follow-through 0.4.0 a chain's first ring (and its last built ring when the
 chain is searched to its end) fits its envelope from wall vertices only, so the Figure's crotch no longer skews its
 breasts and belly and its false love handles are gone; `render_heat` and the marks sheet draw a profile-read butt from
-its profile. Still open: the crowd has not been rebuilt (see 4), the Bloater's moobs score as misses (0.19 m), and
+its profile. Belle is rebuilt on 0.4.0 (see 4): breasts 267 -> 271 vertices, limit
+0.0781 m, buttocks unchanged. Still open: the Bloater's moobs score as misses (0.19 m), and
 Belle's two-segment root-spine chain counts as searched to its end, so its top ring at 0.961 m (a hand-off to the next
 chain, not a cap) is wall-filtered; her regions do not move.
 
@@ -99,16 +100,30 @@ chain, not a cap) is wall-filtered; her regions do not move.
 - **Done: `upper_body` dropped** from the manifest. rig-anything's SKILL.md (~309) still shows it as an example extra.
 - **Done: body stature reported** (`stages._stature`): fit residual row, aged, child, or measured on a reused library
   body. Only the fitted-adult path is covered by a fixture.
-- **In progress: rebuild the characters.** The committed grungist-creek manifests (`assets/belle`, `assets/humans/*`)
-  still carry `upper_body`, the crowd's `height_m.stand` is still its collider height, and the crowd's butts carry the
-  old ring measure and share. A later agent is rebuilding Belle and the 16 people through the pipeline with these
-  versions installed; mark this done when their assets are committed and `belle_demo.tscn` and `people_demo.tscn`
-  self-tests pass.
+- **Done: the characters are rebuilt** (grungist-creek `ed654b0`). Belle and the 16 people ran every stage
+  (`force=1`) through `build_belle.py` / `build_human.py` with these versions installed.
+  - `upper_body` is gone from all 17 manifests.
+  - The crowd's `height_m.stand` moved from the mesh top to the Idle standing height, by -12.6 mm (lily) to +7.8 mm
+    (walter): the Idle height is the highest rest bone point, so it is where the head bone's tip sits against the
+    scalp. `collider.height` is still the mesh top, so on the crowd the two now differ by up to 12.6 mm, not the
+    under a millimetre measured on pipeline_woman. Belle's stand (1.6998) did not change.
+  - The crowd's walks and runs changed only in `foot.L`/`foot.R` (quaternion delta up to 0.054) and their walk duty
+    factors (0.781 -> 0.75 and similar): the crowd had last been built before rig-anything 0.19's planted-foot fix.
+    The glTF JSON is otherwise identical with extras set aside.
+  - The crowd specs have no `[flesh]`, so there was no butt measure to redo; only Belle carries flesh. Her breasts
+    moved with the end rings (above); her buttocks did not.
+  - Checks: both self-tests pass (Belle's flesh 7.6/9.0% and 8.6/8.4% on the limit). `verify_wardrobe` passes all 7
+    clips in the shorts, the top and both, 21 runs; the worst holes are 0.39% (shorts walk) and the worst poke 0.24%.
+    The `cut=0.04` control fails at 6.5%.
+  - **Found: `verify_wardrobe.gd` passes a clip that does not exist.** `clip=Walk` on Belle (her clips are
+    `Belle_Walk` and so on) raises a script error at `player.get_animation(clip).loop_mode`, samples nothing and still
+    prints `WD_RESULT` with `"passed": true` and zero holes. It should fail with `unknown clip`, and so should a run
+    with no samples. Until it does, pass the full clip name and check `samples` in the result.
 - **Nora (`assets/wardrobe/build_person.py`) is still a script.** She has a sculpted body on mocap, and nothing in a
   spec covers that. Convert her only if a spec grows a source for it.
-- **The real `.blend` files were not rebuilt** (`C:/Users/pauli/Code/Blender/human_*.blend`, `belle_realistic.blend`).
-  The spec builds ran in scratch. The next real `build_human.py who=<name>` saves them through the pipeline's
-  scene guard.
+- **Done: the real `.blend` files are rebuilt.** The rebuild saved `C:/Users/pauli/Code/Blender/human_*.blend` and
+  `belle_realistic.blend` through the pipeline's scene guard; copies from before it are in that conversation's scratch
+  (`wf/rebuild/blend-backup`).
 
 ### 5. 04 b-d - review strips, a motion critic, numeric guards
 
