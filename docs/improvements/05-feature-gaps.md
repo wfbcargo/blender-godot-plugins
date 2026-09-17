@@ -162,42 +162,67 @@ body with the same muscle value shows much less definition.
 >   `hfd:<region>` (baked in by `bake_for_game`, never captured as an `hf:` target) or into a baked mesh's
 >   vertices; `library.apply` dispatches to it. Transfer is by index: the card applies to a fitted body, an
 >   unfitted woman (stature 1.59 m, scale 0.92) and a `bake_for_game` mesh alike.
-> - **The set** (`humanform/muscle.py`, `sdf.py`): authored on MPFB's default male (1.729 m) in ~2 s.
->   Seven SDF groups (deltoids 196 vertices, pectorals 392, abdominals 124, obliques 110, quadriceps 206,
->   calves 152, forearms 188; crowns 7-14 mm): ellipsoid bellies anchored by ray casts from the joints, trimmed
->   to a plateau (a dome read as a breast on the chest, a flat plate stood off a curved limb by 3-5 cm), masked
->   to skin facing the belly's way, smooth-unioned, with cuts and grooves. Judged on renders, the first
->   heights were too faint (x1.6, `HEIGHT_GAIN`), and with only the listed groups Dante's back and arms read
->   *smoother* than the forced-macro body's - so an eighth group, `relief`, takes MPFB's own muscle sculpt
->   high-passed (muscle 1.0 vs 0.5 along the normal minus its 6-iteration Laplacian smooth, x1.5; head,
->   hands, feet, nails, genitals masked; 3613 vertices, +16/-11 mm). It is derived, not sculpted.
+> - **The set** (`humanform/muscle.py`, `sdf.py`; stored as `muscle/definition-v2`): authored on MPFB's
+>   default male (1.729 m) in ~2 s. Eight SDF groups (vertices, crown/deepest groove on the reference):
+>   deltoids 198 (+17/-2 mm), upper arms 342 (+22/-8), pectorals 428 (+14/-5), abdominals 119 (+7/-4), obliques
+>   106 (+8/-2), quadriceps 358 (+25/-11), calves 230 (+23/-12), forearms 268 (+21/-9): ellipsoid bellies
+>   anchored by ray casts from the joints, trimmed to a plateau, masked to skin facing the belly's way,
+>   smooth-unioned, minus grooves - polylines of skin points with a smooth section, tapered over 15-30% of
+>   their length at both ends. Heights x1.6 (`HEIGHT_GAIN`), limbs a further x1.2-1.5 (`GROUP_GAIN`).
+>   Two derived groups from MPFB's muscle sculpt (muscle 1.0 vs 0.5 along the normal): `relief`, high-passed
+>   (minus its 6-iteration Laplacian smooth, x1.5; 3470 vertices, +16/-11 mm), and `bulk`, low-passed on the
+>   limbs and shoulders (2902 vertices, +9/-14 mm).
 > - **Fat-aware weights** (`muscle.weights`): smoothstep(0.3, 1.0, muscle) - the brief's or its build's muscle,
 >   not the fitted macro - times per-group leanness from body fat (Deurenberg on BMI less 10 per unit of muscle
 >   over 0.5, 6 points leaner per unit of firmness over 0.5; abdominals/obliques visible 12->22%, pectorals and
->   quadriceps 13->25, relief 13->27, deltoids 14->28, calves/forearms 15->30; women +8, pectorals x0.35).
->   Dante 15.8%, weight sum 6.52; a soft body with the same muscle value (0.9, BMI 30, firmness 0.25) 22.7%,
->   sum 1.60 = 0.25 of Dante's, abdominals 0; Freya 24.9%, sum 3.44.
-> - **Normal map** (`lookdev/detail.py` `bake_normal_from_high`): selected-to-active from
->   `delta.high_copy` onto the game mesh, only the skin material's faces, map wired into its Principled Normal.
->   Rays found neighbouring surfaces at the nails, eyelids and ears (99.9th percentile 166 degrees), so by
->   default the same bake runs against an exact copy of the low mesh and every texel bent there is flattened
->   (~26k of 4.2M texels; p99.9 27 degrees on Dante). 2048 px bakes in ~5 s on CPU.
-> - **Checks:** humancheck on Dante is 32 pass / 0 warn / 0 fail before and after (heights up to 17.8 mm);
->   Freya 32/0/0 both; the soft body 29/1/0 (2 info) before, 30/1/0 (1 info) after.
+>   quadriceps 13->25, relief 13->27, deltoids and upper arms 14->28, calves/forearms 15->30; women +8,
+>   pectorals x0.35). Dante 15.8%, definition total 7.42; a soft body with the same muscle value (0.9, BMI 30,
+>   firmness 0.25) 22.7%, total 1.90 = 0.26 of Dante's, abdominals 0; Freya 24.9%, total 3.98. `bulk` is not
+>   fat-scaled: (brief muscle - fitted macro) / 0.5 on its own key `hfd:muscle-bulk` - Dante 0.48 (fit 0.66),
+>   the soft body 0.37, Freya 0.34.
+> - **Normal map** (`lookdev/detail.py` `bake_normal_from_high`): onto the game mesh, only the skin material's
+>   faces, wired into its Principled Normal. When the high copy is the low mesh's own topology (`method="auto"`
+>   -> matched), no rays: the high vertex normal in each low corner's MikkTSpace frame, EMIT-baked. 2048 px in
+>   ~3 s; Dante 34.8% of texels bent >1 degree, p99.9 29 degrees. Other meshes use the ray bake with its clean
+>   pass. Texels bent over 60 degrees are flattened. A re-bake remaps the earlier image and re-points the nodes.
+> - **Checks:** humancheck on Dante is 32 pass / 0 warn / 0 fail before and after (heights up to 28 mm); Freya
+>   32/0/0 both; the soft body 29/1/0 (2 info) before, 30/1/0 (1 info) after. Dante after against the
+>   forced-macro body (muscle 0.95): upper arm 44.6 vs 38.0 cm, calf 45.0 vs 40.2, thigh 65.1 vs 64.1, bideltoid
+>   60.5 vs 57.3, chest 116.9 vs 114.7, waist 95.1 vs 94.0.
 > - **Fixture** `muscle_definition`: authors and stores the set (group hashes), reads it back, weights for the
->   three briefs, Dante fitted and defined with humancheck before/after, the game path (bake_for_game, 512 px
->   normal bake stats) and the transfer to an unfitted woman.
-> - **Renders** (scratch, EEVEE, fixed orthographic frames, clay = geometry path, textured = game mesh + map):
->   Dante before (spec, muscle forced 0.95) and after (muscle left at the fit's 0.66, definition); the soft body
->   and Freya before/after; Dante vs the soft body after, same muscle value. Dante after reads muscular from the
->   front (pectoral edges, abdominals, serratus, back); the soft body barely changes.
+>   three briefs, Dante fitted and defined with humancheck before/after, the fitted macro and bulk weight, the
+>   game path (bake_for_game, 512 px matched bake stats) and a re-bake (skin texture still wired, same stats,
+>   Cycles settings kept), and the transfer to an unfitted woman (scale 0.92, max 14.5 mm).
+>
+> **Review fixes** (second pass, after a critic judged the first renders):
+>
+> - Dante's arms and shoulders were thinner than the forced-macro body's: the fit had spent the macro on
+>   girths. `bulk` gives the brief's muscle back on the limbs; the sheets show arms, deltoids and calves at
+>   least as full as before, with the girths above.
+> - Quadriceps, calves and forearms did not read: the pads only swelled the limb. Added the grooves that make
+>   edges (rectus femoris/vastus lateralis, sartorius, above the patella, between the calf heads and the lower
+>   border of the gastrocnemius, the forearm's, biceps/triceps) and `GROUP_GAIN`.
+> - A knife-cut linea alba into a navel notch: from MPFB's own midline crease in `relief` (shown by rendering
+>   each group alone) and from mirrored pads meeting at |x| = 0 with a slope break, plus hard SDF cuts. Relief
+>   is masked off the front midline, |x| is rounded within 15 mm, the cuts became tapered grooves ending above
+>   the navel.
+> - The ray bake's armpit and hip hot spots and dark streaks: rays from one body part hitting another, and
+>   the clean pass's flattened patches with hard edges. Replaced by the matched bake for this case.
+> - Re-bake: `_bake_once` removed the image the material used (texture emptied); it also baked with the earlier
+>   map still wired into the high copy's shared material, which flattened the whole second map. Both fixed;
+>   Cycles device, samples and denoising are restored.
+> - **Renders** (scratch `wf2/muscle-fix/renders`, EEVEE, fixed orthographic frames; rows before / after, the
+>   textured sheets add after at normal strength 1.6): `Dante_clay*.png` (before = the spec with muscle forced),
+>   `Soft_clay*`, `Freya_clay*`, `*_tex*` (game mesh with bulk + map), `same_muscle_dante_vs_soft*`, full
+>   body, torso, legs and arm frames; humancheck JSON and contact sheets in `build/humancheck/<body>_<stage>`;
+>   the maps in `build/tex`.
 >
 > **Open:** the character-pipeline spec has no field for it yet (a `[body] definition = "geometry"|"normal"`
 > stage belongs to that plugin), and `grungist-creek/characters/dante.toml` still forces `muscle = 1.0`.
 > Definition is at hm08 vertex resolution (~17 mm), so edges are soft and the map is no sharper than the
-> geometry. The thresholds and gains are judged on three bodies, not measured; no critic subagent has judged
-> the renders. Deltas move along the normal only, and a posed body's normal map relies on MikkTSpace matching in Godot
-> (not checked in the engine).
+> geometry. At normal strength 1 the map is faint at full-body distance (1.6 reads); the character pipeline
+> should pick the strength. Thresholds and gains are judged on three bodies, not measured. Deltas move along the
+> normal only, and a posed body's normal map relies on MikkTSpace matching in Godot (not checked in the engine).
 
 ---
 

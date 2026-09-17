@@ -5,21 +5,31 @@ average. Definition here is a `delta` part - per-vertex heights along the normal
 once with signed distance sculpting on MPFB's default male and put on any MPFB body:
 
     rep = muscle.define(human, brief)                     # after pipeline.make, before bake_for_game
-    rep["weights"]        # per group, 0..1: muscle term x leanness for that group
+    rep["weights"]        # per group, 0..1: muscle term x leanness for that group; `bulk` below
     rep["body_fat_pct"]   # the estimate the leanness came from
     rep["applied"]        # delta.apply's report (key hfd:muscle, max heights in mm per group)
+    rep["applied_bulk"]   # the same for key hfd:muscle-bulk
 
-    rep = muscle.define(human, brief, geometry=False)     # key at 0: definition only in a normal map
+    rep = muscle.define(human, brief, geometry=False)     # hfd:muscle at 0: definition only in a normal map
     high = delta.high_copy(human, "hfd:muscle")           # ...baked by lookdev's detail.bake_normal_from_high
 
-The sculpted groups: deltoids, pectorals, abdominals, obliques (with serratus and the inguinal line),
-quadriceps, calves, forearms. A last group, `relief`, is not sculpted: it is MPFB's own muscle shape
-(muscle 1.0 against 0.5) high-passed, which gives the back, arms and neck the definition the seven do not
-reach (see `relief`). Each is a set of pads (ellipsoids whose outer surface stands `height` proud of the
-skin at an anchor found by casting a ray from inside a limb or the torso) smoothly unioned, minus cuts
-(the linea alba, the sternum) and grooves (the inguinal line, between the calf heads). A vertex's height
-is how deep it lies inside the group's field, masked to skin that faces the way its pad does - so a pad
-on the chest does not raise the inside of the arm beside it.
+The sculpted groups: deltoids, upper arms (biceps, triceps), pectorals, abdominals, obliques (with serratus
+and the inguinal line), quadriceps, calves, forearms. Each is a set of pads (ellipsoids whose outer surface
+stands `height` proud of the skin at an anchor found by casting a ray from inside a limb or the torso,
+trimmed to a plateau) smoothly unioned, minus grooves - polylines of skin points sunk with a smooth
+cross-section, tapered at both ends (the sternum, the linea alba ending above the navel, the tendinous
+intersections, the rectus femoris and sartorius lines, between the calf heads). A vertex's height is how
+deep it lies inside the group's field, masked to skin that faces the way its pad does - so a pad on the chest
+does not raise the inside of the arm beside it. Pads are mirrored with |x| rounded near the midline, so the
+two sides meet in a soft valley rather than a crease.
+
+Two groups are derived, not sculpted, from MPFB's own muscle shape (muscle 1.0 against 0.5 along the normal):
+`relief` is it high-passed (the back, arms and neck the sculpted groups do not reach; off the front midline,
+where MPFB's crease read as a knife cut), `bulk` is it low-passed on the limbs and shoulders (off the trunk
+whose girths the fit reached). The fit trades the muscle macro for weight to reach girths - Dante's brief
+says muscle 0.9, the fit lands on 0.66, and his arms come out thinner than the forced-macro body's - so
+`bulk` is weighted by that shortfall, (brief muscle - fitted macro) / 0.5, on its own key: it is mass, which
+fat does not hide and a normal map cannot carry.
 
 **How much shows** (`weights`): definition = muscle term x leanness, per group.
 
@@ -40,13 +50,14 @@ import numpy as np
 from . import delta, library, sdf
 
 REGION = "muscle"
-NAME = "definition-v1"
-SCULPTED = ("deltoids", "pectorals", "abdominals", "obliques", "quadriceps", "calves", "forearms")
-GROUPS = SCULPTED + ("relief",)
+NAME = "definition-v2"
+SCULPTED = ("deltoids", "upper_arms", "pectorals", "abdominals", "obliques", "quadriceps", "calves", "forearms")
+DEFINITION = SCULPTED + ("relief",)
+GROUPS = DEFINITION + ("bulk",)
 
 # body fat % (male) at which a group is fully visible, and at which it is gone
 VISIBLE = {"abdominals": (12.0, 22.0), "obliques": (12.0, 22.0), "pectorals": (13.0, 25.0),
-           "quadriceps": (13.0, 25.0), "deltoids": (14.0, 28.0), "calves": (15.0, 30.0), "forearms": (15.0, 30.0),
+           "quadriceps": (13.0, 25.0), "deltoids": (14.0, 28.0), "upper_arms": (14.0, 28.0), "calves": (15.0, 30.0), "forearms": (15.0, 30.0),
            "relief": (13.0, 27.0)}
 FEMALE_OFFSET = 8.0
 # a woman's pectorals lie under the breast: only their upper edge reads
@@ -81,9 +92,11 @@ def brief_inputs(brief):
             "firmness": float(firmness)}
 
 
-def weights(brief=None, sex=None, bmi=None, age=None, muscle=None, firmness=None, strength=1.0):
-    """Per-group definition weights for a brief (or the numbers directly). Returns
-    {"weights", "muscle_term", "body_fat_pct", "leanness", "inputs"}."""
+def weights(brief=None, sex=None, bmi=None, age=None, muscle=None, firmness=None, strength=1.0, fitted_muscle=None):
+    """Per-group weights for a brief (or the numbers directly). Returns {"weights", "muscle_term",
+    "body_fat_pct", "leanness", "inputs", "definition_total"}. The definition groups: muscle term x leanness.
+    `bulk`: how far `fitted_muscle` (the body's MPFB macro after the fit) sits under the brief's muscle, as a
+    share of MPFB's 0.5 -> 1.0 muscle sculpt (0 when not given, or when the fit is at or over the brief)."""
     x = brief_inputs(brief) if brief is not None else {}
     for k, v in (("sex", sex), ("bmi", bmi), ("age", age), ("muscle", muscle), ("firmness", firmness)):
         if v is not None:
@@ -94,13 +107,16 @@ def weights(brief=None, sex=None, bmi=None, age=None, muscle=None, firmness=None
     m = _smoothstep(*MUSCLE_RANGE, x["muscle"])
     off = FEMALE_OFFSET if x["sex"] == "female" else 0.0
     lean, w = {}, {}
-    for g in GROUPS:
+    for g in DEFINITION:
         full, gone = VISIBLE[g]
         lean[g] = 1.0 - _smoothstep(full + off, gone + off, fat)
         share = FEMALE_GROUP.get(g, 1.0) if x["sex"] == "female" else 1.0
         w[g] = round(float(strength) * m * lean[g] * share, 4)
+    total = round(sum(w.values()), 4)
+    w["bulk"] = 0.0 if fitted_muscle is None else \
+        round(float(np.clip((x["muscle"] - float(fitted_muscle)) / (1.0 - 0.5), 0.0, 1.0)), 4)
     return {"weights": w, "muscle_term": round(m, 4), "body_fat_pct": round(fat, 2),
-            "leanness": {g: round(v, 4) for g, v in lean.items()}, "inputs": x}
+            "leanness": {g: round(v, 4) for g, v in lean.items()}, "inputs": x, "definition_total": total}
 
 
 # ------------------------------------------------------------------ authoring
@@ -207,91 +223,120 @@ def _pad(p, n, u, a, b, h):
 
 
 def _author_group(sk, g):
-    """(pads [(prim, normal)], cuts [prim], grooves [(prim, radius, depth)]) for group g, left side."""
+    """(pads [(prim, normal, height)], grooves [(points, radius, depth, taper)]) for group g, left side.
+    A groove is a polyline of skin points: vertices within `radius` of it sink up to `depth`, fading over
+    the first and last `taper` of its length so it starts and ends without a notch."""
     L = sk.limb
-    pads, cuts, grooves = [], [], []
+    pads, grooves = [], []
 
     def pad(anchor, u, a, b, h):
         p, n = anchor[0], anchor[1]
-        pads.append(_pad(p, n, u, a, b, h * HEIGHT_GAIN))
+        pads.append(_pad(p, n, u, a, b, h * HEIGHT_GAIN * GROUP_GAIN.get(g, 1.0)))
 
-    def groove(pa, pb, r, depth):
-        grooves.append((sdf.capsule(pa, pb, r), r, depth * HEIGHT_GAIN))
+    def groove(points, r, depth, taper=0.25):
+        grooves.append((np.array([q[0] if isinstance(q, tuple) else q for q in points]), r, depth * HEIGHT_GAIN * GROUP_GAIN.get(g, 1.0), taper))
 
     Z = np.array([0.0, 0.0, 1.0])
     X = np.array([1.0, 0.0, 0.0])
     sh, el, wr = "joint-l-shoulder", "joint-l-elbow", "joint-l-hand"
     hip, kn, an = "joint-l-upper-leg", "joint-l-knee", "joint-l-ankle"
     s = sk.scale()
-    zc = lambda z: z  # noqa: E731  (torso heights are mapped inside _Skin.torso)
+    T = sk.torso
     if g == "deltoids":
-        for t, th, a, b, h in ((0.22, 90, 0.075, 0.045, 0.008), (0.12, 30, 0.06, 0.035, 0.007),
-                               (0.15, 150, 0.06, 0.035, 0.006), (-0.02, 80, 0.045, 0.045, 0.005)):
+        for t, th, a, b, h in ((0.22, 90, 0.075, 0.045, 0.011), (0.12, 30, 0.06, 0.035, 0.010),
+                               (0.15, 150, 0.06, 0.035, 0.009), (-0.02, 80, 0.045, 0.045, 0.007)):
             p, n, ax = L(sh, el, t, th)
             pad((p, n), ax, a * s, b * s, h * s)
+        # the deltoid's insertion: its front and back borders meeting on the outside of the arm
+        groove([L(sh, el, 0.08, 5), L(sh, el, 0.25, 35), L(sh, el, 0.42, 80)], 0.016 * s, 0.005 * s)
+        groove([L(sh, el, 0.08, 175), L(sh, el, 0.25, 145), L(sh, el, 0.42, 100)], 0.016 * s, 0.005 * s)
+    elif g == "upper_arms":
+        for t, th, a, b, h in ((0.58, 0, 0.10, 0.035, 0.013), (0.45, 180, 0.12, 0.04, 0.012),
+                               (0.35, -150, 0.07, 0.03, 0.008)):
+            p, n, ax = L(sh, el, t, th)
+            pad((p, n), ax, a * s, b * s, h * s)
+        # biceps from triceps on the outside and the inside of the arm
+        groove([L(sh, el, 0.45, 80), L(sh, el, 0.95, 95)], 0.016 * s, 0.006 * s)
+        groove([L(sh, el, 0.35, -80), L(sh, el, 0.9, -95)], 0.016 * s, 0.005 * s)
     elif g == "pectorals":
         tilt = _unit([np.cos(np.radians(18)), 0.0, np.sin(np.radians(18))])
-        pad(sk.torso(0.07, zc(1.22)), tilt, 0.075 * s, 0.055 * s, 0.008 * s)
-        pad(sk.torso(0.06, zc(1.30)), X, 0.05 * s, 0.028 * s, 0.004 * s)
-        pad(sk.torso(0.125, zc(1.245)), tilt, 0.04 * s, 0.04 * s, 0.006 * s)
-        a, b = sk.torso(0.0, zc(1.16))[0], sk.torso(0.0, zc(1.34))[0]
-        cuts.append(sdf.capsule(a, b, 0.007 * s))
+        pad(T(0.07, 1.22), tilt, 0.075 * s, 0.055 * s, 0.008 * s)
+        pad(T(0.06, 1.30), X, 0.05 * s, 0.028 * s, 0.004 * s)
+        pad(T(0.125, 1.245), tilt, 0.04 * s, 0.04 * s, 0.006 * s)
+        # the sternum between them: a soft valley, fading out at both ends
+        groove([T(0.0, 1.335), T(0.0, 1.25), T(0.0, 1.165)], 0.018 * s, 0.003 * s, taper=0.3)
         # the lower border: a crease under the slab; the groove between it and the deltoid
-        groove(sk.torso(0.02, zc(1.162))[0], sk.torso(0.14, zc(1.20))[0], 0.012 * s, 0.003 * s)
-        groove(sk.torso(0.115, zc(1.335))[0], sk.torso(0.155, zc(1.255))[0], 0.01 * s, 0.002 * s)
+        groove([T(0.02, 1.162), T(0.08, 1.172), T(0.14, 1.20)], 0.012 * s, 0.003 * s)
+        groove([T(0.115, 1.335), T(0.155, 1.255)], 0.01 * s, 0.002 * s)
     elif g == "abdominals":
         for z, b, h in ((1.140, 0.026, 0.009), (1.080, 0.026, 0.009), (1.022, 0.025, 0.008), (0.945, 0.045, 0.006)):
-            pad(sk.torso(0.037, zc(z)), X, 0.034 * s, b * s, h * s)
-        a, b = sk.torso(0.0, zc(1.17))[0], sk.torso(0.0, zc(0.90))[0]
-        cuts.append(sdf.capsule(a, b, 0.006 * s))
-        groove(a, b, 0.008 * s, 0.002 * s)                       # the linea alba
+            pad(T(0.037, z), X, 0.034 * s, b * s, h * s)
+        # the linea alba: a soft valley from the sternum, ending above the navel
+        groove([T(0.0, 1.175), T(0.0, 1.08), T(0.0, 1.005)], 0.016 * s, 0.003 * s, taper=0.3)
         for z in (1.111, 1.051):                                  # tendinous intersections
-            groove(sk.torso(0.0, zc(z))[0], sk.torso(0.075, zc(z + 0.004))[0], 0.008 * s, 0.003 * s)
+            groove([T(0.005, z), T(0.04, z + 0.002), T(0.075, z + 0.004)], 0.008 * s, 0.003 * s, taper=0.2)
     elif g == "obliques":
-        pad(sk.torso(0.0, zc(0.985), theta=62), Z, 0.06 * s, 0.035 * s, 0.005 * s)
+        pad(T(0.0, 0.985, theta=62), Z, 0.06 * s, 0.035 * s, 0.005 * s)
         for i, z in enumerate((1.205, 1.170, 1.135)):
-            pad(sk.torso(0.0, zc(z), theta=68 - 4 * i), _unit([0.0, -0.5, -1.0]), 0.03 * s, 0.012 * s, 0.003 * s)
-        groove(sk.torso(0.0, zc(0.955), theta=48)[0], sk.torso(0.045, zc(0.875))[0], 0.012 * s, 0.003 * s)
+            pad(T(0.0, z, theta=68 - 4 * i), _unit([0.0, -0.5, -1.0]), 0.03 * s, 0.012 * s, 0.003 * s)
+        groove([T(0.0, 0.955, theta=48), T(0.045, 0.875)], 0.012 * s, 0.003 * s)
     elif g == "quadriceps":
-        for t, th, a, b, h in ((0.55, 75, 0.13, 0.045, 0.006), (0.45, 5, 0.15, 0.035, 0.005),
-                               (0.82, -45, 0.055, 0.038, 0.007)):
+        for t, th, a, b, h in ((0.60, 65, 0.14, 0.045, 0.012),    # vastus lateralis
+                               (0.42, 5, 0.16, 0.032, 0.011),     # rectus femoris
+                               (0.80, -40, 0.065, 0.045, 0.018)): # vastus medialis: the teardrop
             p, n, ax = L(hip, kn, t, th)
             pad((p, n), ax, a * s, b * s, h * s)
-        groove(L(hip, kn, 0.2, -20)[0], L(hip, kn, 0.85, -95)[0], 0.01 * s, 0.002 * s)
+        # rectus femoris from vastus lateralis; the sartorius line down the inside to the knee;
+        # the teardrop's upper edge; the iliotibial band on the outside
+        groove([L(hip, kn, 0.25, 38), L(hip, kn, 0.55, 40), L(hip, kn, 0.85, 30)], 0.02 * s, 0.007 * s)
+        groove([L(hip, kn, 0.12, -10), L(hip, kn, 0.45, -45), L(hip, kn, 0.72, -75), L(hip, kn, 0.95, -100)],
+               0.02 * s, 0.007 * s)
+        groove([L(hip, kn, 0.30, 115), L(hip, kn, 0.65, 115), L(hip, kn, 0.92, 105)], 0.018 * s, 0.005 * s)
+        groove([L(hip, kn, 0.92, -20), L(hip, kn, 0.95, 20)], 0.016 * s, 0.005 * s, taper=0.3)  # above the patella
     elif g == "calves":
-        for t, th, a, b, h in ((0.30, -150, 0.11, 0.04, 0.008), (0.27, 145, 0.09, 0.032, 0.006),
-                               (0.52, 110, 0.09, 0.025, 0.003), (0.35, 35, 0.11, 0.02, 0.003)):
+        for t, th, a, b, h in ((0.28, -150, 0.10, 0.045, 0.018),   # gastrocnemius, medial head (lower)
+                               (0.24, 150, 0.085, 0.038, 0.015),   # lateral head
+                               (0.55, 115, 0.09, 0.025, 0.006),    # soleus showing on the outside
+                               (0.35, 40, 0.11, 0.022, 0.007)):    # tibialis anterior
             p, n, ax = L(kn, an, t, th)
             pad((p, n), ax, a * s, b * s, h * s)
-        groove(L(kn, an, 0.12, 180)[0], L(kn, an, 0.45, 180)[0], 0.008 * s, 0.002 * s)
+        # between the heads, and where they end on the Achilles tendon (the lower border of the diamond)
+        groove([L(kn, an, 0.08, 180), L(kn, an, 0.25, 180), L(kn, an, 0.42, 180)], 0.016 * s, 0.006 * s)
+        groove([L(kn, an, 0.36, 110), L(kn, an, 0.47, 150), L(kn, an, 0.53, 180), L(kn, an, 0.47, -150),
+                L(kn, an, 0.40, -105)], 0.02 * s, 0.007 * s, taper=0.15)
+        groove([L(kn, an, 0.15, 20), L(kn, an, 0.55, 15)], 0.014 * s, 0.004 * s)   # shin bone beside the tibialis
     elif g == "forearms":
-        for t, th, a, b, h in ((0.25, 60, 0.09, 0.028, 0.005), (0.30, 130, 0.09, 0.028, 0.004),
-                               (0.30, -60, 0.09, 0.03, 0.004)):
+        for t, th, a, b, h in ((0.22, 60, 0.09, 0.032, 0.012),    # brachioradialis and wrist extensors
+                               (0.28, 130, 0.09, 0.03, 0.009),
+                               (0.26, -60, 0.09, 0.034, 0.011)):  # wrist flexors
             p, n, ax = L(el, wr, t, th)
             pad((p, n), ax, a * s, b * s, h * s)
+        groove([L(el, wr, 0.1, 0), L(el, wr, 0.45, 5), L(el, wr, 0.75, 10)], 0.016 * s, 0.006 * s)
+        groove([L(el, wr, 0.15, 180), L(el, wr, 0.55, 175)], 0.014 * s, 0.004 * s)
     else:
         raise ValueError(f"unknown group {g!r}")
-    return pads, cuts, grooves
+    return pads, grooves
 
 
 HEIGHT_GAIN = 1.6          # every sculpted pad's and groove's height, as judged on Dante's renders
+# the limbs are seen from further off and their muscles lie under a rounder surface: judged on renders at
+# full-body scale, their forms need more height than the trunk's to read
+GROUP_GAIN = {"quadriceps": 1.5, "calves": 1.4, "forearms": 1.4, "upper_arms": 1.2}
 RELIEF_GAIN = 1.5
+RELIEF_MIDLINE = (0.02, 0.05)   # |x| (m, reference scale): relief gone on the front midline inside, whole outside
 RELIEF_SMOOTH = 6          # Laplacian iterations taken off MPFB's muscle shape: what is left is its relief
 RELIEF_EXCLUDE = ("genitals", "nipple", "nippleTip", "fingernails", "toenails", "ears", "lips", "scalp")
 ALIGN = (0.25, 0.6)        # skin normal . pad normal: no height below the first, full above the second
 PAD_BLEND = 0.008          # smooth union radius between a group's pads (m)
-CUT_BLEND = 0.006
+MIDLINE_SOFT = 0.015       # a pad reaching the midline meets its mirror in a valley this wide, not a crease
+BULK_FEATHER = 0.35        # bulk fades in over this share of the shoulder joint's half-width off the trunk
 
 
-def relief(ob, faces=None):
-    """The relief of MPFB's own muscle sculpt, as heights on `ob` (an MPFB human, normally the reference):
-    how far each vertex moves along its normal from muscle 0.5 to 1.0, less that movement smoothed over
-    RELIEF_SMOOTH iterations - the growth of the whole body taken out, the separations between muscles
-    (the back, the arms, the serratus, the neck) left. Zero on the head above the neck joint, the hands
-    past the wrists, the feet below the ankles and MPFB's genital, nipple, nail, ear, lip and scalp groups."""
+def _muscle_shape(ob, faces):
+    """How far each body vertex of `ob` moves along its normal from MPFB muscle 0.5 to 1.0, and the body's
+    positions and joints at 0.5."""
     from . import scaffold
     _, TS, HOP, _ = scaffold.services()
-    faces = delta.body_faces(ob) if faces is None else faces
     was = HOP.get_value("muscle", entity_reference=ob)
     try:
         HOP.set_value("muscle", 0.5, entity_reference=ob)
@@ -304,11 +349,11 @@ def relief(ob, faces=None):
         HOP.set_value("muscle", was, entity_reference=ob)
         TS.reapply_macro_details(ob)
     n0 = delta.vertex_normals(co0, faces)
-    d = np.einsum("ij,ij->i", (co1 - co0)[:delta.BODY_VERTS], n0)
-    hp = d - delta.smooth(d, faces, iterations=RELIEF_SMOOTH, share=0.5)
-    p = co0[:delta.BODY_VERTS]
-    j = _joints(ob, co0)
-    s = float((j["joint-neck"][2] - j["joint-pelvis"][2]) / (REF["neck_z"] - REF["pelvis_z"]))
+    return np.einsum("ij,ij->i", (co1 - co0)[:delta.BODY_VERTS], n0), co0, _joints(ob, co0)
+
+
+def _keep(ob, faces, p, j, s):
+    """1 on the body, 0 on the head above the neck joint, the hands, the feet and MPFB's excluded groups."""
     keep = 1.0 - np.clip((p[:, 2] - j["joint-neck"][2]) / (0.06 * s), 0.0, 1.0)
     keep *= np.clip((p[:, 2] - j["joint-l-ankle"][2]) / (0.04 * s), 0.0, 1.0)
     for side in (1.0, -1.0):
@@ -325,7 +370,83 @@ def relief(ob, faces=None):
             if any(g.group in idx and g.weight > 0.1 for g in v.groups):
                 out[v.index] = True
         keep = np.minimum(keep, delta.smooth((~out).astype(np.float64), faces, iterations=2))
-    return hp * keep * RELIEF_GAIN
+    return keep
+
+
+def _scale(j):
+    return float((j["joint-neck"][2] - j["joint-pelvis"][2]) / (REF["neck_z"] - REF["pelvis_z"]))
+
+
+def relief(ob, faces=None, shape=None):
+    """The relief of MPFB's own muscle sculpt, as heights on `ob` (an MPFB human, normally the reference):
+    how far each vertex moves along its normal from muscle 0.5 to 1.0, less that movement smoothed over
+    RELIEF_SMOOTH iterations - the growth of the whole body taken out, the separations between muscles
+    (the back, the arms, the serratus, the neck) left. Zero on the head above the neck joint, the hands
+    past the wrists, the feet below the ankles and MPFB's genital, nipple, nail, ear, lip and scalp groups."""
+    faces = delta.body_faces(ob) if faces is None else faces
+    d, co0, j = shape or _muscle_shape(ob, faces)
+    hp = d - delta.smooth(d, faces, iterations=RELIEF_SMOOTH, share=0.5)
+    p = co0[:delta.BODY_VERTS]
+    s = _scale(j)
+    # MPFB's sculpt has a midline crease down the sternum and the linea alba into the navel; high-passed and
+    # amplified it reads as a knife cut, so it is taken out on the front of the trunk (the pectorals' and
+    # abdominals' own soft grooves stand in for it)
+    n0 = delta.vertex_normals(co0, faces)
+    mid = 1.0 - np.clip((np.abs(p[:, 0]) - RELIEF_MIDLINE[0] * s) / ((RELIEF_MIDLINE[1] - RELIEF_MIDLINE[0]) * s), 0, 1)
+    mid *= np.clip((-n0[:, 1] - 0.2) / 0.3, 0.0, 1.0)
+    mid *= np.clip((p[:, 2] - (j["joint-pelvis"][2] - 0.08 * s)) / (0.04 * s), 0.0, 1.0)
+    return hp * _keep(ob, faces, p, j, s) * (1.0 - mid) * RELIEF_GAIN
+
+
+def bulk(ob, faces=None, shape=None):
+    """The mass of MPFB's muscle sculpt on the limbs and shoulders: the same movement from muscle 0.5 to 1.0,
+    smoothed (the part `relief` leaves out), zero on the trunk inside the shoulders and above the hips -
+    whose girths the fit reached - feathered over BULK_FEATHER of the shoulder joint's half-width. Weighted
+    by how far the fit left the macro under the brief's muscle (`weights`), it gives back the arms,
+    shoulders and legs the fit traded for the trunk's girths. Not definition: fat does not hide it."""
+    faces = delta.body_faces(ob) if faces is None else faces
+    d, co0, j = shape or _muscle_shape(ob, faces)
+    lo = delta.smooth(d, faces, iterations=RELIEF_SMOOTH, share=0.5)
+    p = co0[:delta.BODY_VERTS]
+    s = _scale(j)
+    sx = j["joint-l-shoulder"][0]
+    inside_x = 1.0 - np.clip((np.abs(p[:, 0]) - (1.0 - BULK_FEATHER) * sx) / (BULK_FEATHER * sx), 0.0, 1.0)
+    pz, nz = j["joint-pelvis"][2], j["joint-neck"][2]
+    trunk_z = np.clip((p[:, 2] - (pz - 0.10 * s)) / (0.10 * s), 0.0, 1.0)
+    trunk_z *= 1.0 - np.clip((p[:, 2] - (nz - 0.14 * s)) / (0.08 * s), 0.0, 1.0)
+    return lo * _keep(ob, faces, p, j, s) * (1.0 - inside_x * trunk_z)
+
+
+def _groove_depth(pts, line, r, depth, taper):
+    """How far a groove along polyline `line` (mirrored to the right side) sinks each point: `depth` on the
+    line, smoothly 0 at `r` from it, and along its length smoothly 0 at both ends over `taper` of it."""
+    out = np.zeros(len(pts))
+    lo, hi = line.min(axis=0) - r, line.max(axis=0) + r
+    q = pts.copy()
+    q[:, 0] = np.abs(q[:, 0])
+    idx = np.nonzero(np.all((q >= lo) & (q <= hi), axis=1))[0]
+    if not len(idx):
+        return out
+    q = q[idx]
+    seg = np.diff(line, axis=0)
+    seg_len = np.linalg.norm(seg, axis=1)
+    start = np.concatenate([[0.0], np.cumsum(seg_len)])
+    total = max(start[-1], 1e-9)
+    best = np.full(len(q), np.inf)
+    along = np.zeros(len(q))
+    for i, (a0, v, ln) in enumerate(zip(line[:-1], seg, seg_len)):
+        t = np.clip((q - a0) @ v / max(ln * ln, 1e-12), 0.0, 1.0)
+        dist = np.linalg.norm(q - (a0 + t[:, None] * v), axis=1)
+        closer = dist < best
+        best[closer] = dist[closer]
+        along[closer] = (start[i] + t[closer] * ln) / total
+    inside = np.clip(1.0 - best / r, 0.0, 1.0)
+    w = inside * inside * (3 - 2 * inside)
+    if taper > 0:
+        e = np.clip(np.minimum(along, 1.0 - along) / taper, 0.0, 1.0)
+        w *= e * e * (3 - 2 * e)
+    out[idx] = depth * w
+    return out
 
 
 def author(ob, groups=GROUPS, smooth_iterations=1):
@@ -338,14 +459,15 @@ def author(ob, groups=GROUPS, smooth_iterations=1):
     sk = _Skin(co, faces, joints)
     pts = co[:delta.BODY_VERTS]
     out = {}
+    shape = _muscle_shape(ob, faces) if {"relief", "bulk"} & set(groups) else None
     for g in groups:
-        if g == "relief":
-            out[g] = relief(ob, faces)
+        if g in ("relief", "bulk"):
+            out[g] = (relief if g == "relief" else bulk)(ob, faces, shape)
             continue
-        pads, cuts, grooves = _author_group(sk, g)
+        pads, grooves = _author_group(sk, g)
         d = np.full(len(pts), sdf.FAR)
         for prim, pn, ph in pads:
-            fn, (lo, hi) = sdf.mirrored_x(prim)
+            fn, (lo, hi) = sdf.mirrored_x(prim, soft=MIDLINE_SOFT)
             m = np.all((pts >= lo - sdf.MARGIN) & (pts <= hi + sdf.MARGIN), axis=1)
             idx = np.nonzero(m)[0]
             if not len(idx):
@@ -356,20 +478,9 @@ def author(ob, groups=GROUPS, smooth_iterations=1):
             # trimmed to the belly's height with a rounded shoulder
             dp = sdf.smax(fn(pts[idx]), np.full(len(idx), -ph), 0.6 * ph) + (1.0 - align) * 0.03
             d[idx] = sdf.smin(d[idx], dp, PAD_BLEND)
-        for prim in cuts:
-            fn, (lo, hi) = sdf.mirrored_x(prim)
-            m = np.all((pts >= lo - sdf.MARGIN) & (pts <= hi + sdf.MARGIN), axis=1)
-            idx = np.nonzero(m)[0]
-            if len(idx):
-                d[idx] = sdf.smax(d[idx], -fn(pts[idx]), CUT_BLEND)
         h = np.maximum(-d, 0.0)
-        for prim, r, depth in grooves:
-            fn, (lo, hi) = sdf.mirrored_x(prim)
-            m = np.all((pts >= lo - sdf.MARGIN) & (pts <= hi + sdf.MARGIN), axis=1)
-            idx = np.nonzero(m)[0]
-            if len(idx):
-                inside = np.clip(-fn(pts[idx]) / r, 0.0, 1.0)
-                h[idx] -= depth * inside * inside * (3 - 2 * inside)
+        for line, r, depth, taper in grooves:
+            h -= _groove_depth(pts, line, r, depth, taper)
         if smooth_iterations:
             h = delta.smooth(h, faces, iterations=smooth_iterations)
         out[g] = h
@@ -387,7 +498,7 @@ def seed(store=True, name=NAME):
         reference = {"body": "mpfb2 default male", "stature_m": round(delta.stature_of(co), 4)}
     finally:
         bpy.data.objects.remove(ref, do_unlink=True)
-    notes = "authored by humanform.muscle.author on MPFB's default male with SDF pads, cuts and grooves"
+    notes = "authored by humanform.muscle.author on MPFB's default male with SDF pads and grooves"
     if not store:
         return {"kind": "part", "region": REGION, "name": name, "id": None,
                 "payload": {"type": "delta", "frame": "normal", "unit": "um", "reference": reference,
@@ -405,11 +516,26 @@ def find(name=NAME):
 
 def define(human, brief, card=None, geometry=True, strength=1.0, weights_override=None):
     """Put muscle definition on an unbaked humanform body for its brief: the stored set (authored and
-    stored on first use), weighted per group by `weights`, as shape key `hfd:muscle` - at 1 with
-    `geometry`, at 0 without (bake it into a normal map from `delta.high_copy`)."""
+    stored on first use), weighted per group by `weights`. Two shape keys:
+
+    - `hfd:muscle` - the definition groups - at 1 with `geometry`, at 0 without (bake it into a normal map
+      from `delta.high_copy(human, "hfd:muscle")`);
+    - `hfd:muscle-bulk` - the limbs' and shoulders' mass the fit left under the brief's muscle - always at 1:
+      it is silhouette, which a normal map cannot carry.
+    """
+    from . import scaffold
+    _, _, HOP, _ = scaffold.services()
     card = card or find() or seed(store=True)
-    w = weights(brief, strength=strength)
+    fitted = float(HOP.get_value("muscle", entity_reference=human))
+    w = weights(brief, strength=strength, fitted_muscle=fitted)
     if weights_override:
         w["weights"].update(weights_override)
-    applied = delta.apply(human, card, weights=w["weights"], mode="key", value=1.0 if geometry else 0.0)
-    return dict(w, applied=applied, geometry=bool(geometry), card=card.get("id"))
+    groups = card["payload"]["groups"]
+    wd = {g: v for g, v in w["weights"].items() if g != "bulk"}
+    applied = delta.apply(human, card, weights=wd, mode="key", value=1.0 if geometry else 0.0)
+    applied_bulk = None
+    if "bulk" in groups:
+        applied_bulk = delta.apply(human, card, weights={"bulk": w["weights"]["bulk"]}, mode="key", value=1.0,
+                                   key_name=delta.KEY_PREFIX + REGION + "-bulk")
+    return dict(w, fitted_muscle=round(fitted, 4), applied=applied, applied_bulk=applied_bulk,
+                geometry=bool(geometry), card=card.get("id"))

@@ -1,4 +1,4 @@
-"""Muscle definition (05 · 5.5): a delta part authored, stored, weighted by the brief and put on bodies.
+"""Muscle definition (05 5.5): a delta part authored, stored, weighted by the brief and put on bodies.
 
 - The set is authored from nothing on MPFB's default male (`muscle.seed`: SDF pads, cuts and grooves for
   seven groups, plus the high-passed relief of MPFB's own muscle sculpt) and stored in the harness's
@@ -7,8 +7,11 @@
   slack) and Freya's. The soft body must get much less definition.
 - Dante's brief without the forced muscle macro is fitted (`pipeline.make`), defined as geometry, and
   humancheck is run before and after: definition must not break proportions.
+- The body's MPFB muscle macro as the fit left it, and the `bulk` weight that gives back the brief's muscle on
+  the limbs and shoulders (key `hfd:muscle-bulk`).
 - The same body's game path: key at 0, `delta.high_copy`, `bake_for_game`, and lookdev's
-  `detail.bake_normal_from_high` onto the baked mesh (512 px here), which the card must still apply to.
+  `detail.bake_normal_from_high` onto the baked mesh (512 px here, the matched method), which the card must still
+  apply to; then the same bake again, which must leave the skin's texture wired and the Cycles settings as set.
 - Transfer: the card on an unfitted woman's MPFB body (another shape, same topology), scaled by stature.
 """
 import hashlib
@@ -58,16 +61,19 @@ def build():
               "index_regions": sorted({c.get("region") for c in library.index()["items"]})}
 
     briefs = {"dante": DANTE, "soft": SOFT, "freya": FREYA}
-    weights = {k: {x: w[x] for x in ("weights", "muscle_term", "body_fat_pct")}
+    weights = {k: {x: w[x] for x in ("weights", "muscle_term", "body_fat_pct", "definition_total")}
                for k, w in ((k, muscle.weights(sheet.new(name=k, **b))) for k, b in briefs.items())}
-    total = {k: round(sum(v["weights"].values()), 4) for k, v in weights.items()}
+    total = {k: v["definition_total"] for k, v in weights.items()}
 
     made = pipeline.make(sheet.new(name=NAME, **DANTE), use_library=False)
     human = bpy.data.objects[NAME]
     defined = muscle.define(human, sheet.new(name=NAME, **DANTE), card=card, geometry=True)
     hc = measure.run(human.name, preset="realistic", sex="male", build="muscular")
     geometry = {"check_before": H.stable(made["check"]), "check_after": H.stable(hc["counts"]),
-                "macros": H.stable(made["macros"]), "applied": H.stable(defined["applied"])}
+                "macros": H.stable(made["macros"]), "applied": H.stable(defined["applied"]),
+                "fitted_muscle": defined["fitted_muscle"], "bulk_weight": defined["weights"]["bulk"],
+                "applied_bulk": H.stable(defined["applied_bulk"]["groups"]["bulk"]),
+                "keys": sorted(k.name for k in human.data.shape_keys.key_blocks if k.name.startswith("hfd:"))}
 
     key = human.data.shape_keys.key_blocks["hfd:muscle"]
     key.value = 0.0
@@ -76,12 +82,23 @@ def build():
     if "error" in baked:
         raise RuntimeError("bake: " + baked["error"])
     body = bpy.data.objects[NAME + "_body"]
-    nm = detail.bake_normal_from_high(body, high, os.path.join(H.out_dir(), "muscle_definition"), size=512,
-                                      material=f"{NAME}_skin")
+    sc = bpy.context.scene
+    sc.cycles.samples, sc.cycles.use_denoising = 17, True
+    tex_dir = os.path.join(H.out_dir(), "muscle_definition")
+    nm = detail.bake_normal_from_high(body, high, tex_dir, size=512, material=f"{NAME}_skin")
     if "error" in nm:
         raise RuntimeError("normal bake: " + nm["error"])
+    # a re-bake of the same body (a rebuild): the skin keeps a texture with the map, the scene its settings
+    nm2 = detail.bake_normal_from_high(body, high, tex_dir, size=512, material=f"{NAME}_skin")
+    skin = bpy.data.materials[f"{NAME}_skin"]
+    texs = [n.image for n in skin.node_tree.nodes if n.type == "TEX_IMAGE"]
+    rebake = {"materials": nm2["materials"], "skipped": nm2["skipped"], "same_stats": nm2["stats"] == nm["stats"],
+              "textures": [t.name if t is not None else None for t in texs],
+              "cycles_kept": [sc.cycles.samples, sc.cycles.use_denoising] == [17, True]}
     game = {"baked_vertices": len(body.data.vertices), "topology_after_bake": delta.check_topology(body),
-            "normal_map": {"materials": nm["materials"], "skipped": nm["skipped"], "warnings": nm["warnings"],
+            "rebake": rebake,
+            "normal_map": {"method": nm["method"], "materials": nm["materials"], "skipped": nm["skipped"],
+                           "warnings": nm["warnings"], "steep_texels": nm["stats"]["cleaned_texels"],
                            "over_1deg": round(nm["stats"]["over_1deg"], 3),
                            "over_5deg": round(nm["stats"]["over_5deg"], 3),
                            "p999_deg": round(nm["stats"]["p999_deg"], 0)}}

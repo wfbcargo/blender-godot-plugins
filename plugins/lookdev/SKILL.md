@@ -57,10 +57,19 @@ print(detail.summarize(detail.bake_normal_from_high("Dante_body", "Dante_high", 
 
 `detail.bake_normal_from_high` keeps the low mesh's materials and adds a tangent Normal Map in front of the
 named material's Principled Normal (so glTF writes normalTexture); `material=` bakes only that material's
-faces (joined eyes overlap the skin's UVs). `clean=True` (default) bakes the low mesh against a copy of itself
-too and flattens every texel that bends there: rays that found a neighbouring surface (nails, eyelids, ears,
-between fingers) rather than detail - 99.9th-percentile bend 166 degrees on Dante without it, 27 with it.
-`stats` says how much of the map bends (>1 and >5 degrees), so a bake that found nothing shows.
+faces (joined eyes overlap the skin's UVs). A re-bake takes over the earlier image (its users are remapped)
+and re-points the nodes, and the scene's engine and Cycles device, samples and denoising are restored.
+
+- `method="auto"` picks **matched** when the high mesh is the low mesh's own topology (humanform's
+  `delta.high_copy`): no rays - each corner gets the high vertex normal in the low corner's MikkTSpace frame,
+  and an EMIT bake fills the map. Otherwise **rays** (selected-to-active), where `clean=True` also bakes the low
+  mesh against a copy of itself and flattens texels that bend there (nails, eyelids, ears: 166 degrees without
+  it). On Dante the ray bake still left hot spots at the armpit and hip UV borders and hard-edged flattened
+  patches that rendered as dark streaks on the arms and flanks; the matched bake has neither.
+- `max_deg=60`: texels bent more are flattened (7 of 262k on the fixture's 512 px map).
+- Earlier bakes' normal maps are unlinked from the materials during the bake: the high copy shares the low
+  mesh's material, and a wired map was being baked in again (a re-bake came out flat).
+- `stats` says how much of the map bends (>1 and >5 degrees), so a bake that found nothing shows.
 
 ## Workflow: fixed stages, each with a gate
 

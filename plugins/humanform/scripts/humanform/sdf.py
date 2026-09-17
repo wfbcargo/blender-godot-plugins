@@ -78,13 +78,23 @@ def capsule(a, b, ra, rb=None):
     return fn, (np.minimum(a, b) - r, np.maximum(a, b) + r)
 
 
-def mirrored_x(prim):
-    """The primitive and its mirror across X = 0, as one: evaluated at |x| (a body's left and right)."""
+def soft_abs(x, e):
+    """|x| rounded within `e` of 0 (a parabola there, |x| outside, continuous slope)."""
+    if e <= 0:
+        return np.abs(x)
+    ax = np.abs(x)
+    return np.where(ax < e, 0.5 * (x * x / e + e), ax)
+
+
+def mirrored_x(prim, soft=0.0):
+    """The primitive and its mirror across X = 0, as one: evaluated at |x| (a body's left and right).
+    `soft` rounds |x| within that distance of the midline: a pad reaching across it then meets its mirror
+    in a soft valley instead of a crease with a slope break (a knife-cut down the sternum)."""
     fn, (lo, hi) = prim
 
     def mfn(p):
         q = p.copy()
-        q[:, 0] = np.abs(q[:, 0])
+        q[:, 0] = soft_abs(q[:, 0], soft)
         return fn(q)
     ext = max(abs(lo[0]), abs(hi[0]))
     lo2, hi2 = lo.copy(), hi.copy()

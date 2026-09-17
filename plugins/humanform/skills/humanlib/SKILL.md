@@ -140,7 +140,8 @@ high = delta.high_copy(human, "hfd:muscle")                                # for
   its current shape keys, `hfd:` keys excluded), so it sits on the wearer's surface.
 - `hfd:` keys are not `hf:` targets, so `library.capture` never stores one in a body card; `bake_for_game`
   folds the key in at its value.
-- The first set is `muscle` (see humanform's "Muscle definition"): `muscle.find()`, `muscle.seed()`.
+- The first set is `muscle/definition-v2` (see humanform's "Muscle definition"): `muscle.find()`, `muscle.seed()`.
+  `apply(..., key_name=)` puts groups on separate keys: muscle definition keeps `bulk` on `hfd:muscle-bulk`.
 
 ## Eyes
 

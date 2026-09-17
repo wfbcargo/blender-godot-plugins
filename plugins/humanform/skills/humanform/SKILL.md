@@ -179,34 +179,51 @@ groups) put on after the fit:
 from humanform import pipeline, muscle, delta
 res = pipeline.make(brief, ...)                          # muscle left to the build and the fit
 rep = muscle.define(human, brief)                        # shape key hfd:muscle at 1: geometry
-rep = muscle.define(human, brief, geometry=False)        # key at 0: bake it instead (below)
+rep = muscle.define(human, brief, geometry=False)        # hfd:muscle at 0: bake it instead (below)
 rep["weights"], rep["body_fat_pct"], rep["applied"]["groups"]    # per group: weight, vertices, max mm
+rep["fitted_muscle"], rep["applied_bulk"]                # the macro the fit left, and hfd:muscle-bulk (always 1)
 ```
 
-- **The set** (`muscle.seed`, stored as `muscle/definition-v1` on first use): authored on MPFB's default male.
-  Seven groups are SDF sculpts - deltoids, pectorals, abdominals, obliques (with the serratus and the inguinal
-  line), quadriceps, calves, forearms: ellipsoid bellies anchored by rays from the joints, trimmed to a
-  plateau, smoothly unioned, minus cuts (sternum, linea alba) and grooves (tendinous intersections, the pec's
-  lower border). An eighth, `relief`, is MPFB's own muscle sculpt high-passed (muscle 1.0 minus 0.5 along the
-  normal, less its 6-iteration Laplacian smooth; head, hands, feet, nails, genitals masked): the back, the
-  arms and the neck, which the seven do not cover. Without it Dante's back and arms read smoother than the
-  forced-macro body's.
+- **The set** (`muscle.seed`, stored as `muscle/definition-v2` on first use): authored on MPFB's default male.
+  Eight groups are SDF sculpts - deltoids, upper arms, pectorals, abdominals, obliques (with the serratus and
+  the inguinal line), quadriceps, calves, forearms: ellipsoid bellies anchored by rays from the joints,
+  trimmed to a plateau, smoothly unioned, minus grooves - polylines on the skin, sunk with a smooth section
+  and tapered at both ends: the sternum, the linea alba (ending above the navel), the tendinous intersections,
+  rectus femoris from vastus lateralis, the sartorius line to the knee, above the patella, between the calf
+  heads and where they meet the Achilles, biceps from triceps, the deltoid's borders, the forearm's. Pads are
+  mirrored with |x| rounded within 15 mm of the midline, so the sides meet in a valley, not a crease. Limb
+  groups are x1.2-1.5 taller than the trunk's (`GROUP_GAIN`): at the trunk's heights they did not read at
+  full-body scale.
+- **Derived groups.** `relief` is MPFB's own muscle sculpt high-passed (muscle 1.0 minus 0.5 along the normal,
+  less its 6-iteration Laplacian smooth; head, hands, feet, nails, genitals masked, and the front midline of
+  the trunk, where MPFB's own crease came out as a knife cut down the sternum into a navel notch): the back,
+  arms and neck. `bulk` is the same shape low-passed, on the limbs and shoulders only (the trunk inside the
+  shoulders and above the hips, whose girths the fit reached, is masked), weighted by the fit's shortfall:
+  `(brief muscle - fitted macro) / 0.5`. The fit spends the muscle macro on girths - Dante's brief says 0.9,
+  the fit lands on 0.66 - and without `bulk` his arms and shoulders came out thinner than the forced-macro
+  body's. It is mass, not definition: fat does not scale it, and it stays in the geometry on the game path.
 - **How much shows** (`muscle.weights`): muscle term `smoothstep(0.3, 1.0, muscle)` - the brief's muscle or
   its build's, never the fitted macro - times a per-group leanness from estimated body fat (Deurenberg on BMI
   less 10 BMI points per unit of muscle above 0.5, 6 points leaner per unit of firmness above 0.5): abdominals
-  and obliques full at 12% and gone at 22%, pectorals and quadriceps 13-25, deltoids 14-28, relief 13-27,
-  calves and forearms 15-30; women +8 points and pectorals x0.35. Dante (BMI 27.5, firmness 0.9, build
-  muscle 0.9): 15.8%, weights 0.64-0.94, sum 6.52. The same muscle value at BMI 30 and firmness 0.25: 22.7%,
-  sum 1.60 (0.25 of Dante's), abdominals 0. Freya: 24.9%, sum 3.44.
+  and obliques full at 12% and gone at 22%, pectorals and quadriceps 13-25, deltoids and upper arms 14-28,
+  relief 13-27, calves and forearms 15-30; women +8 points and pectorals x0.35. Dante (BMI 27.5, firmness
+  0.9, build muscle 0.9): 15.8%, weights 0.64-0.94, definition total 7.42, bulk 0.48. The same muscle value
+  at BMI 30 and firmness 0.25: 22.7%, total 1.90 (0.26 of Dante's), abdominals 0. Freya: 24.9%, total 3.98.
 - **Geometry or a map.** `delta.high_copy(human, "hfd:muscle")` before `bake_for_game` gives the high
-  source; lookdev's `detail.bake_normal_from_high(body, high, out_dir, material="<name>_skin")` bakes it onto
-  the game mesh and wires the map into the skin material (glTF normalTexture). The card also applies to a
-  baked mesh (`mode="mesh"`): hm08's body is its first 13380 vertices at every stage.
-- **Proportions hold:** humancheck on Dante before and after is 32 pass, 0 warn, 0 fail (heights up to 18 mm).
+  source (bulk included); lookdev's `detail.bake_normal_from_high(body, high, out_dir, material="<name>_skin")`
+  bakes it onto the game mesh - by the matched method, no rays, since the high copy is the body's own
+  topology - and wires the map into the skin material (glTF normalTexture). A re-bake re-points the same
+  material. At strength 1 the map shows the pectorals, abdominals and deltoids up close but reads faint at
+  full-body scale; strength 1.6 (the Normal Map node, `strength=`) reads at that distance. The card also
+  applies to a baked mesh (`mode="mesh"`): hm08's body is its first 13380 vertices at every stage.
+- **Proportions hold:** humancheck on Dante before and after is 32 pass, 0 warn, 0 fail (heights up to 28 mm,
+  bulk 7 mm); Freya 32/0/0 both; the soft body 29/1/0 (2 info) before, 30/1/0 (1 info) after. Dante after
+  against the forced-macro body: upper arm 44.6 vs 38.0 cm, calf 45.0 vs 40.2, thigh 65.1 vs 64.1,
+  bideltoid 60.5 vs 57.3; chest 116.9 vs 114.7, waist 95.1 vs 94.0.
 - **Resolution:** heights live on hm08's vertices (about 17 mm apart on the torso), so edges are soft; a
   normal map baked from the same mesh carries no finer detail than the geometry.
 
-Verify: `python tools/regress.py --only muscle_definition` (repo), renders in its design doc (05 · 5.5).
+Verify: `python tools/regress.py --only muscle_definition` (repo), renders in its design doc (05 5.5).
 
 ## MPFB2 from a script
 
