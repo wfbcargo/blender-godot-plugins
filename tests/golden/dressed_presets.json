@@ -16,6 +16,244 @@
    "exported": true
   },
   "garments": {
+   "compression_shorts": {
+    "cover": {
+     "behind": 0.03,
+     "body": "Figure",
+     "body_verts": 17112,
+     "covered": 2834,
+     "disagree": 0,
+     "drawn_over_cloth": 0,
+     "edge": 443,
+     "garment": "CompressionShorts",
+     "hidden": 2391,
+     "hidden_gap_max_m": 0.0085,
+     "hidden_gap_median_m": 0.0069,
+     "inside": 0,
+     "margin": 0.03,
+     "max_gap": 0.1,
+     "tris_hidden": 4574,
+     "tris_total": 34220
+    },
+    "cut": {
+     "leg.L": 2371,
+     "leg.R": 2371,
+     "pieces_dropped": 0,
+     "waist": 9713
+    },
+    "ease": {
+     "compression": {
+      "edge_m": 0.0104,
+      "fade_m": 0.05,
+      "flatten": {
+       "butt": {
+        "groups": [
+         "ft_jiggle_butt.L",
+         "ft_jiggle_butt.R"
+        ],
+        "moved_max_m": 0.0027,
+        "projection_max_m": 0.028,
+        "share": 0.1,
+        "verts": 828
+       }
+      },
+      "gap_min_from_compressed_m": 0.0048,
+      "inside_skin_verts": 0,
+      "moved_max_m": 0.0054,
+      "moved_p95_m": 0.0037,
+      "passes": 371,
+      "region_verts": 2755,
+      "smooth": 1.0
+     },
+     "detail": {
+      "band_m": 0.03,
+      "limit": {
+       "all": 0.06,
+       "butt": 0.1
+      },
+      "passed": true,
+      "passes": {
+       "cloth": 8,
+       "skin": 9
+      },
+      "problems": [],
+      "reach_m": 0.03,
+      "regions": {
+       "all": {
+        "cloth_relief_mm": 0.05,
+        "cloth_verts": 2212,
+        "relief_mm": 0.018,
+        "skin_relief_mm": 0.046,
+        "skin_verts": 2107,
+        "traced": 0.395
+       },
+       "butt": {
+        "cloth_relief_mm": 0.08,
+        "cloth_verts": 258,
+        "relief_mm": 0.008,
+        "skin_relief_mm": 0.069,
+        "skin_verts": 244,
+        "traced": 0.122
+       },
+       "thigh": {
+        "cloth_relief_mm": 0.058,
+        "cloth_verts": 34,
+        "relief_mm": 0.017,
+        "skin_relief_mm": 0.021,
+        "skin_verts": 22,
+        "traced": 0.803
+       }
+      }
+     },
+     "gap_max_m": 0.0091,
+     "gap_median_m": 0.0069,
+     "gap_min_m": 0.003,
+     "gap_p95_m": 0.0086,
+     "verts": 2964
+    },
+    "export": {
+     "edge": 443,
+     "exported": true,
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-cav_9qwz\\dressed_presets\\dressed_presets\\compression_shorts.glb",
+     "garment": "CompressionShorts",
+     "hem_bones": 0,
+     "hem_head_error_m": 0.0,
+     "hidden": 2391,
+     "joints": 38,
+     "passed": true,
+     "problems": [],
+     "size_bytes": 225788,
+     "weight_sum_min": 1.0
+    },
+    "exported": true,
+    "garment": "CompressionShorts",
+    "groups": 38,
+    "hem_rings": null,
+    "jiggle_groups": 9,
+    "lifted": [],
+    "passed": true,
+    "problems": [],
+    "vertices": 2964
+   },
+   "leggings": {
+    "cover": {
+     "behind": 0.03,
+     "body": "Figure",
+     "body_verts": 17112,
+     "covered": 6495,
+     "disagree": 0,
+     "drawn_over_cloth": 0,
+     "edge": 369,
+     "garment": "Leggings",
+     "hidden": 6126,
+     "hidden_gap_max_m": 0.0111,
+     "hidden_gap_median_m": 0.0077,
+     "inside": 0,
+     "margin": 0.03,
+     "max_gap": 0.1,
+     "tris_hidden": 12085,
+     "tris_total": 34220
+    },
+    "cut": {
+     "leg.L": 519,
+     "leg.R": 519,
+     "pieces_dropped": 0,
+     "waist": 9713
+    },
+    "ease": {
+     "compression": {
+      "edge_m": 0.0104,
+      "fade_m": 0.05,
+      "flatten": {
+       "butt": {
+        "groups": [
+         "ft_jiggle_butt.L",
+         "ft_jiggle_butt.R"
+        ],
+        "moved_max_m": 0.0027,
+        "projection_max_m": 0.028,
+        "share": 0.1,
+        "verts": 875
+       }
+      },
+      "gap_min_from_compressed_m": 0.0048,
+      "inside_skin_verts": 0,
+      "moved_max_m": 0.0068,
+      "moved_p95_m": 0.0054,
+      "passes": 373,
+      "region_verts": 6463,
+      "smooth": 1.0
+     },
+     "detail": {
+      "band_m": 0.03,
+      "limit": {
+       "all": 0.06,
+       "butt": 0.1
+      },
+      "passed": true,
+      "passes": {
+       "cloth": 8,
+       "skin": 9
+      },
+      "problems": [],
+      "reach_m": 0.03,
+      "regions": {
+       "all": {
+        "cloth_relief_mm": 0.048,
+        "cloth_verts": 5962,
+        "relief_mm": 0.018,
+        "skin_relief_mm": 0.043,
+        "skin_verts": 5888,
+        "traced": 0.426
+       },
+       "butt": {
+        "cloth_relief_mm": 0.079,
+        "cloth_verts": 257,
+        "relief_mm": 0.008,
+        "skin_relief_mm": 0.069,
+        "skin_verts": 242,
+        "traced": 0.115
+       },
+       "thigh": {
+        "cloth_relief_mm": 0.039,
+        "cloth_verts": 1228,
+        "relief_mm": 0.009,
+        "skin_relief_mm": 0.03,
+        "skin_verts": 1228,
+        "traced": 0.298
+       }
+      }
+     },
+     "gap_max_m": 0.0116,
+     "gap_median_m": 0.0081,
+     "gap_min_m": 0.003,
+     "gap_p95_m": 0.0103,
+     "verts": 6626
+    },
+    "export": {
+     "edge": 369,
+     "exported": true,
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-cav_9qwz\\dressed_presets\\dressed_presets\\leggings.glb",
+     "garment": "Leggings",
+     "hem_bones": 0,
+     "hem_head_error_m": 0.0,
+     "hidden": 6126,
+     "joints": 38,
+     "passed": true,
+     "problems": [],
+     "size_bytes": 489568,
+     "weight_sum_min": 1.0
+    },
+    "exported": true,
+    "garment": "Leggings",
+    "groups": 38,
+    "hem_rings": null,
+    "jiggle_groups": 9,
+    "lifted": [],
+    "passed": true,
+    "problems": [],
+    "vertices": 6626
+   },
    "shorts_mid_thigh": {
     "cover": {
      "body": "Figure",
@@ -39,6 +277,32 @@
      "waist": 9713
     },
     "ease": {
+     "detail": {
+      "band_m": 0.03,
+      "passes": {
+       "cloth": 8,
+       "skin": 9
+      },
+      "reach_m": 0.03,
+      "regions": {
+       "all": {
+        "cloth_relief_mm": 0.059,
+        "cloth_verts": 1839,
+        "relief_mm": 0.042,
+        "skin_relief_mm": 0.05,
+        "skin_verts": 1662,
+        "traced": 0.833
+       },
+       "butt": {
+        "cloth_relief_mm": 0.091,
+        "cloth_verts": 269,
+        "relief_mm": 0.054,
+        "skin_relief_mm": 0.069,
+        "skin_verts": 250,
+        "traced": 0.786
+       }
+      }
+     },
      "gap_max_m": 0.0121,
      "gap_median_m": 0.008,
      "gap_min_m": 0.0079,
@@ -56,7 +320,7 @@
      "joints": 38,
      "passed": true,
      "problems": [],
-     "size_bytes": 198240,
+     "size_bytes": 198572,
      "weight_sum_min": 1.0
     },
     "exported": true,
@@ -64,24 +328,28 @@
     "groups": 38,
     "hem_rings": null,
     "jiggle_groups": 9,
+    "lifted": null,
     "passed": true,
     "problems": [],
     "vertices": 2615
    },
    "sports_top": {
     "cover": {
+     "behind": 0.03,
      "body": "Figure",
      "body_verts": 17112,
-     "covered": 3291,
-     "disagree": 4,
-     "edge": 580,
+     "covered": 3519,
+     "disagree": 16,
+     "drawn_over_cloth": 0,
+     "edge": 633,
      "garment": "SportsTop",
-     "hidden": 2711,
-     "hidden_gap_max_m": 0.0091,
-     "hidden_gap_median_m": 0.0075,
+     "hidden": 2886,
+     "hidden_gap_max_m": 0.0147,
+     "hidden_gap_median_m": 0.0092,
+     "inside": 2,
      "margin": 0.03,
      "max_gap": 0.1,
-     "tris_hidden": 5198,
+     "tris_hidden": 5512,
      "tris_total": 34220
     },
     "cut": {
@@ -92,24 +360,66 @@
      "sleeve.R": 1682
     },
     "ease": {
-     "gap_max_m": 0.0097,
-     "gap_median_m": 0.008,
-     "gap_min_m": 0.0059,
-     "gap_p95_m": 0.0084,
+     "compression": {
+      "edge_m": 0.0102,
+      "fade_m": 0.05,
+      "gap_min_from_compressed_m": 0.0067,
+      "inside_skin_verts": 0,
+      "moved_max_m": 0.0078,
+      "moved_p95_m": 0.0043,
+      "passes": 383,
+      "region_verts": 3413,
+      "smooth": 1.0
+     },
+     "detail": {
+      "band_m": 0.03,
+      "limit": {
+       "all": 0.06
+      },
+      "passed": true,
+      "passes": {
+       "cloth": 8,
+       "skin": 9
+      },
+      "problems": [],
+      "reach_m": 0.03,
+      "regions": {
+       "all": {
+        "cloth_relief_mm": 0.096,
+        "cloth_verts": 2635,
+        "relief_mm": 0.025,
+        "skin_relief_mm": 0.033,
+        "skin_verts": 2526,
+        "traced": 0.761
+       },
+       "breast": {
+        "cloth_relief_mm": 0.181,
+        "cloth_verts": 684,
+        "relief_mm": 0.038,
+        "skin_relief_mm": 0.05,
+        "skin_verts": 672,
+        "traced": 0.759
+       }
+      }
+     },
+     "gap_max_m": 0.0155,
+     "gap_median_m": 0.0095,
+     "gap_min_m": 0.0076,
+     "gap_p95_m": 0.0122,
      "verts": 3546
     },
     "export": {
-     "edge": 580,
+     "edge": 633,
      "exported": true,
      "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\dressed_presets\\dressed_presets\\sports_top.glb",
      "garment": "SportsTop",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
-     "hidden": 2711,
+     "hidden": 2886,
      "joints": 38,
      "passed": true,
      "problems": [],
-     "size_bytes": 264020,
+     "size_bytes": 268288,
      "weight_sum_min": 1.0
     },
     "exported": true,
@@ -117,6 +427,7 @@
     "groups": 38,
     "hem_rings": null,
     "jiggle_groups": 9,
+    "lifted": [],
     "passed": true,
     "problems": [],
     "vertices": 3546

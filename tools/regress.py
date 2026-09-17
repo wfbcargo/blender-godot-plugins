@@ -160,6 +160,10 @@ GODOT_WARDROBE = {
                         "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
     "pipeline_woman": {"body": "fixwoman.glb", "garment": "fixwoman_sportstop.glb,fixwoman_shorts.glb",
                        "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
+    # the compression pair on the embossed body: cloth eased inside 12 mm of relief, and lifted back
+    # over the skin that stood through it, must still leave no hole and no skin showing
+    "traced_detail": {"body": "figure.glb", "garment": "top_compressed.glb,shorts_compressed.glb",
+                      "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
 }
 # The Godot addons the verifiers load from the project, and where this repo keeps each one.
 GODOT_ADDONS = {"rig_anything": "rig-anything", "wardrobe": "wardrobe", "follow_through": "follow-through"}

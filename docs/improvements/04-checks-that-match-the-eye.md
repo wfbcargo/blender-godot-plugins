@@ -191,6 +191,41 @@ already known:
 5. **Garment detail check** in wardrobe. Compare mean-curvature variance of the cloth against the
    skin under it, per region. Add a `smooth` option to `fit.ease` (Laplacian smoothing of the cloth
    offset over the bust and seat) so a sports top reads compressed. Presets opt in (see 05).
+
+   **Done** (wardrobe, with 05 5.3). `fit.detail(garment, body, regions=None, limit=None)` is in
+   every `fit.ease` report: per region (`all`, and each follow-through flesh type the garment carries
+   weights of), leaving out 3 cm next to each opening,
+
+   - `skin_relief_mm` - how much *relief* the skin under the cloth has (met along its normal 10 cm
+     out or 3 cm in, or nearest cloth over its face). `fit.relief` is a surface's height over the
+     same surface Taubin-smoothed across 3 cm: a nipple, a navel, the fold under a buttock. A
+     breast's or a thigh's own curve survives that reference, so the body's *form* is not counted
+     as detail - a fitted garment follows the form by definition.
+   - `traced` - the area-weighted slope of the cloth's relief regressed on the skin's relief under
+     it, and `relief_mm = traced x skin_relief_mm`, the millimetres a preset's `ease.detail_limit`
+     holds; over it, `dress` fails.
+
+   Mean-curvature variance, which this step originally asked for, was tried first and dropped. As a
+   *ratio* of cloth variance to skin variance it measures the cloth's own faceting - a few
+   hundredths of a millimetre left by the nearest-point projection, at the same scale as the detail
+   - divided by however much relief the body happens to have, so on a smooth body it reports noise
+   against nothing: the sample figure's nipple-less breasts read 0.82 eased and 0.74 compressed
+   against a 0.35 limit, and every preset's limit had to be waived by a `quiet` rule for the only
+   bodies the fixtures measure. A regression does not have that failure: faceting is uncorrelated
+   with the skin, so it does not move the slope, and millimetres do not divide by the body.
+
+   Measured: on the sample figure `shorts_mid_thigh` carries 0.054 mm over the buttocks and
+   `compression_shorts` 0.008. On the curvy MPFB woman the sports top went from 0.13 mm (skin
+   relief 0.49 mm) to 0.00 mm. The `traced_detail` fixture embosses that figure with 12 mm bumps so
+   the limits bite: the sports top carries 0.192 mm uncompressed and 0.025 mm compressed, the
+   shorts 0.258 mm and 0.004 mm. That fixture is where the enforcement is exercised - a limit that
+   passes for a real reason, two that fail, and one that is `unmeasured`.
+
+   A limited region that could not be measured is `unmeasured` **and a failure**: a limit nothing
+   was measured against has not been held (wardrobe 0.2.2 said the same of `verify`). The check is
+   only as good as the flesh it is given, and that is now loud rather than quiet - on a
+   character-pipeline MPFB woman a `breast` limit would measure nothing at all, because
+   follow-through's breast search lands on the jaw (see 05 5.3).
 6. **Flesh limit suggestion.** The Godot self-test prints time-on-limit; add
    `follow_through.flesh.suggest_limits(report)` that maps it to `max_offset_m`. Also fix the
    buttock peak measure: it read 3.7 cm on a clearly full seat. Measure it against the lean

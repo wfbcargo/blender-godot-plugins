@@ -31,6 +31,56 @@
    "tris_total": 34220
   },
   "ease": {
+   "detail": {
+    "band_m": 0.03,
+    "passes": {
+     "cloth": 8,
+     "skin": 9
+    },
+    "reach_m": 0.03,
+    "regions": {
+     "all": {
+      "cloth_relief_mm": 0.089,
+      "cloth_verts": 5326,
+      "relief_mm": 0.034,
+      "skin_relief_mm": 0.048,
+      "skin_verts": 5097,
+      "traced": 0.716
+     },
+     "arm_flab": {
+      "cloth_relief_mm": 0.087,
+      "cloth_verts": 26,
+      "relief_mm": 0.0,
+      "skin_relief_mm": 0.017,
+      "skin_verts": 20,
+      "traced": -0.576
+     },
+     "belly": {
+      "cloth_relief_mm": 0.037,
+      "cloth_verts": 139,
+      "relief_mm": 0.007,
+      "skin_relief_mm": 0.021,
+      "skin_verts": 139,
+      "traced": 0.333
+     },
+     "breast": {
+      "cloth_relief_mm": 0.088,
+      "cloth_verts": 733,
+      "relief_mm": 0.04,
+      "skin_relief_mm": 0.054,
+      "skin_verts": 727,
+      "traced": 0.73
+     },
+     "butt": {
+      "cloth_relief_mm": 0.131,
+      "cloth_verts": 454,
+      "relief_mm": 0.009,
+      "skin_relief_mm": 0.05,
+      "skin_verts": 382,
+      "traced": 0.185
+     }
+    }
+   },
    "gap_max_m": 0.0684,
    "gap_median_m": 0.0068,
    "gap_min_m": 0.0058,
@@ -48,7 +98,7 @@
    "joints": 54,
    "passed": true,
    "problems": [],
-   "size_bytes": 468676,
+   "size_bytes": 469380,
    "weight_sum_min": 1.0
   },
   "exported": true,
