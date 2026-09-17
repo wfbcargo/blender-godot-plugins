@@ -1,7 +1,7 @@
 {
  "fixture": "starfish",
  "plugins": {
-  "rig-anything": "0.21.0"
+  "rig-anything": "0.22.0"
  },
  "report": {
   "detection": {
@@ -79,8 +79,8 @@
     "StarTest_rig_Crawl",
     "StarTest_rig_Idle"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\starfish\\starfish\\starfish.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\starfish\\starfish\\starfish.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\starfish\\starfish\\starfish.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\starfish\\starfish\\starfish.moves.json",
    "review": {
     "bands_px": [
      45,
@@ -96,7 +96,7 @@
      390
     ],
     "count": 7,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\starfish\\starfish\\review\\starfish",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\starfish\\starfish\\review\\starfish",
     "frame_height_m": 0.35,
     "frames": {
      "StarTest_rig_Crawl": [
@@ -120,7 +120,7 @@
       85
      ]
     },
-    "seconds": 4.45,
+    "seconds": 2.65,
     "strips": {
      "StarTest_rig_Crawl": {
       "front": {

@@ -1,9 +1,9 @@
 {
  "fixture": "dressed_presets",
  "plugins": {
-  "follow-through": "0.4.0",
-  "rig-anything": "0.21.0",
-  "wardrobe": "0.2.2"
+  "follow-through": "0.5.0",
+  "rig-anything": "0.22.0",
+  "wardrobe": "0.3.0"
  },
  "report": {
   "body": {
@@ -114,7 +114,7 @@
     "export": {
      "edge": 443,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-cav_9qwz\\dressed_presets\\dressed_presets\\compression_shorts.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\dressed_presets\\dressed_presets\\compression_shorts.glb",
      "garment": "CompressionShorts",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
@@ -233,7 +233,7 @@
     "export": {
      "edge": 369,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-cav_9qwz\\dressed_presets\\dressed_presets\\leggings.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\dressed_presets\\dressed_presets\\leggings.glb",
      "garment": "Leggings",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
@@ -312,7 +312,7 @@
     "export": {
      "edge": 425,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\dressed_presets\\dressed_presets\\shorts_mid_thigh.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\dressed_presets\\dressed_presets\\shorts_mid_thigh.glb",
      "garment": "Shorts",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
@@ -411,7 +411,7 @@
     "export": {
      "edge": 633,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\dressed_presets\\dressed_presets\\sports_top.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\dressed_presets\\dressed_presets\\sports_top.glb",
      "garment": "SportsTop",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,

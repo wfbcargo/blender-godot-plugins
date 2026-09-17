@@ -1,7 +1,7 @@
 {
  "fixture": "rabbit",
  "plugins": {
-  "rig-anything": "0.21.0"
+  "rig-anything": "0.22.0"
  },
  "report": {
   "detection": {
@@ -106,8 +106,8 @@
     "RabbitTest_rig_JumpAir",
     "RabbitTest_rig_JumpLand"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\rabbit\\rabbit\\rabbit.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\rabbit\\rabbit\\rabbit.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\rabbit\\rabbit\\rabbit.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\rabbit\\rabbit\\rabbit.moves.json",
    "review": {
     "bands_px": [
      45,
@@ -123,7 +123,7 @@
      1258
     ],
     "count": 19,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\rabbit\\rabbit\\review\\rabbit",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\rabbit\\rabbit\\review\\rabbit",
     "frame_height_m": 0.75,
     "frames": {
      "RabbitTest_rig_Bound": [
@@ -187,7 +187,7 @@
       11
      ]
     },
-    "seconds": 11.44,
+    "seconds": 5.27,
     "strips": {
      "RabbitTest_rig_Bound": {
       "front": {

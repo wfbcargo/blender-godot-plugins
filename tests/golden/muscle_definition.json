@@ -1,8 +1,8 @@
 {
  "fixture": "muscle_definition",
  "plugins": {
-  "humanform": "0.6.3",
-  "rig-anything": "0.21.0"
+  "humanform": "0.7.0",
+  "rig-anything": "0.22.0"
  },
  "report": {
   "game": {

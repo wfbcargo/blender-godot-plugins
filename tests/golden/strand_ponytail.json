@@ -1,8 +1,8 @@
 {
  "fixture": "strand_ponytail",
  "plugins": {
-  "follow-through": "0.4.0",
-  "rig-anything": "0.21.0"
+  "follow-through": "0.5.0",
+  "rig-anything": "0.22.0"
  },
  "report": {
   "body_export": {

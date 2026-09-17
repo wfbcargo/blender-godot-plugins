@@ -1,7 +1,7 @@
 {
  "fixture": "review_sheet",
  "plugins": {
-  "rig-anything": "0.21.0"
+  "rig-anything": "0.22.0"
  },
  "report": {
   "centred": {
