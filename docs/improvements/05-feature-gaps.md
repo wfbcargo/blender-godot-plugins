@@ -132,6 +132,31 @@ crouch (a crouch must not show the skirt passing through thighs - add a thigh-in
 **Done when** a skirt preset walks, runs and crouches on the crowd women without thigh intersection
 in the verifier and reads right in the review strips.
 
+> **Shipped** (September 2026, wardrobe, branch skirts-dresses; version bump left to the merge).
+>
+> - `tailor.skirt(body, waist, length, flare)` and `tailor.dress(body, neck, sleeve, length, flare)` in
+>   `wardrobe/skirts.py`: a tube built round the body (rays to its surface without arms and fingers, hanging
+>   from the widest point, 15 mm ease, a 5 mm waistband, the hem `flare` x the widest hip girth, 2 cm off the
+>   legs); a dress is a shirt cut to the natural waist, eased, zipped to a skirt. Weights: the skin's where
+>   the cloth is within 2.5 cm of it, by distance to pelvis and thighs (1/d^6) beyond 6 cm, smoothed 4 times.
+>   Hem bones hang from whichever of torso and thighs holds the hinge. Cover hides nothing below the hip joints
+>   or facing forward - 0-18 triangles on the crowd, so a skirt hides almost nothing.
+> - Presets `skirt_knee` (0.85 of the way to the knee, flare 1.3), `skirt_mini` (0.45, flare 1.4),
+>   `dress_sleeveless`, through `wardrobe.dress` and a spec's `[[outfit]]` (Mei built with
+>   `preset = "skirt_knee"` exported `mei_skirt.glb` and listed it in her manifest).
+> - `verify_wardrobe.gd` `thighs`: garment vertices inside a leg (all four lines leave skin from inside, the
+>   inward one through leg skin), limit 0.5%, on skirts and dresses by default; control `rigid=<bone>`;
+>   `dump=<frame>` writes the measured frame as OBJ.
+> - Soft-body route: `wardrobe.dress(..., soft=True)` writes a follow-through `draped_tube` spec pinned above
+>   the hips; `Wardrobe.equip` builds the SoftBody3D. Nadia's passes `verify_cloth.gd` at rest, moved and bent.
+> - Measured (Godot, 240 frames): all three presets pass walk, run and crouch on Mei, Nadia and Rosa built
+>   from `characters/*.toml` in scratch - worst inside a thigh 4/1088, 3/640, 8/2537; no holes. The pelvis-only
+>   control fails every crouch at 149-162. Fixture `dressed_skirts` (Figure, all presets and the soft route;
+>   `--godot` wears the mini with the rigid control).
+> - Open: the sample Figure's crossing walk puts the knee skirt (4.2%) and the dress (0.9%) inside its thighs;
+>   the mini reads close to shorts in a stride; the cloth skirt has no leg colliders; "reads right in the
+>   review strips" was judged on scratch renders, since 04b's review strips are not built.
+
 ---
 
 ## 5.5 Muscle definition

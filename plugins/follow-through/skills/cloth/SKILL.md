@@ -200,6 +200,11 @@ tablecloth falling through where it had been.
 **Headless GodotPhysics3D is not a test.** Its soft bodies fall through obstacles
 headless and collide windowed. Verify on a Jolt project.
 
+**A worn skirt or dress comes from wardrobe.** `wardrobe.dress(body, "skirt_knee", soft=True)` builds the
+skirt round the body, pins everything above the widest hip level to its strongest bone (`anchor=bone`) and
+writes both specs; `Wardrobe.equip` builds this SoftBody3D. Nadia's knee skirt in cotton (1088 vertices, 384
+pins, precision 6) passed at rest, `move=1.5,0,0` and `bend=spine,x,30`: stretch p95 1.03, max 1.07.
+
 ## Limits
 
 - Godot cloth cannot bend-resist: leather and canvas differ from cotton in mass and

@@ -158,6 +158,12 @@ GODOT_WARDROBE = {
                        "controls": [["cut=0.04"]]},
     "dressed_presets": {"body": "figure.glb", "garment": "sports_top.glb,shorts_mid_thigh.glb",
                         "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
+    # the mini, not the knee skirt: the sample Figure's walk crosses its feet over the midline, and a knee-length
+    # hem between the legs is inside a thigh there (48 of 1152 vertices); the crowd women's walks do not.
+    # rigid=spine skins the skirt to the pelvis alone, and the thighs must then come through it
+    "dressed_skirts": {"body": "figure.glb", "garment": "skirtmini.glb",
+                       "args": ["frames=240", "every=8", "hem=true", "jiggle=true"],
+                       "controls": [["rigid=spine"]]},
     "pipeline_woman": {"body": "fixwoman.glb", "garment": "fixwoman_sportstop.glb,fixwoman_shorts.glb",
                        "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
 }

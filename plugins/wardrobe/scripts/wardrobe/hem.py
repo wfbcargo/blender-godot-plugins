@@ -129,9 +129,18 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
     rings = []
     if hem_bones and "hem" in tags:
         root = hm["heads"][hm["spine"][0]]
+        parents = list(hm["torso"])
+        phase = 0.0
+        if kind in ("skirt", "dress"):
+            # a skirt's hem is held by the thighs as much as the hips: each bone hangs from whichever of
+            # the torso and the thighs holds the fabric at its hinge, so a lifted thigh carries the front
+            # of the hem instead of passing through it; offset half a bone, so none sits on the midline
+            # between the legs, split evenly between them
+            parents += [l["thigh"] for l in hm["legs"].values()]
+            phase = 0.5
         rings.append({"ring": "hem", "loop": tags["hem"], "dir": -up, "centre": Vector((root.x, root.y, 0)),
                       "count": hem_bones, "hinge": hem_hinge, "ref": fwd,
-                      "parents": hm["torso"]})
+                      "parents": parents, "phase": phase})
     if kind == "pants":
         cut = g.get("wardrobe_cut")
         on_shin = float(cut.get("leg", 2.0)) > 1.0
@@ -176,7 +185,7 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
         n = r["count"]
         ring_bones = []
         for k in range(n):
-            th = 2 * math.pi * k / n
+            th = 2 * math.pi * (k + r.get("phase", 0.0)) / n
             tail_v = min(loop, key=lambda t: min(abs(t[0] - th), 2 * math.pi - abs(t[0] - th)))[1]
             tail = tail_v.co.copy()
             head = gbvh.find_nearest(tail - d * r["hinge"])[0]
@@ -201,7 +210,7 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
         for vi in band:
             v = bm.verts[vi]
             a = angle(v.co)
-            f = a / (2 * math.pi) * n
+            f = a / (2 * math.pi) * n - r.get("phase", 0.0)
             k0 = int(math.floor(f)) % n
             k1 = (k0 + 1) % n
             t = f - math.floor(f)

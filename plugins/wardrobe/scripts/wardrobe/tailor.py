@@ -273,6 +273,21 @@ def pants(body, name="Trousers", waist=0.30, leg=1.9, leg_angle=0.0):
     return obj
 
 
+def skirt(body, name="Skirt", waist=0.16, length=1.0, flare=1.25, **kw):
+    """A skirt built round `body`, not cut from it: a tube from the waistband (`waist` torso lengths above the
+    hip joints) to a hem at `length` along the leg (1 the knee), whose girth is `flare` times the widest hip
+    girth. Weighted to the body at the hips and to pelvis and thighs by distance below. See `skirts`."""
+    from . import skirts
+    return skirts.skirt(body, name=name, waist=waist, length=length, flare=flare, **kw)
+
+
+def dress(body, name="Dress", neck=(-0.10, 0.08), sleeve=-0.10, length=1.0, flare=1.25, **kw):
+    """A dress: a bodice cut from `body` (`neck` and `sleeve` as `shirt`'s) down to the natural waist, and a
+    skirt hung from its hem to `length` along the leg with `flare`. See `skirts`."""
+    from . import skirts
+    return skirts.dress(body, name=name, neck=neck, sleeve=sleeve, length=length, flare=flare, **kw)
+
+
 def _cut_side(bm, dl, idx, min_weight, co, no, sx, mid, below=-1e9):
     """_cut limited to faces whose centre lies beyond `mid` on the `sx` side of the midline."""
     def ok(f):

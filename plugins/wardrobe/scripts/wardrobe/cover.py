@@ -47,12 +47,26 @@ def _weights(obj):
             for v in obj.data.vertices]
 
 
-def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True):
+def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True, floor_z=None, max_front=None):
     """`agree`: the least share of skinning the skin and the cloth over it must have in common
     for that skin to be hidden. Skin on a thigh under a hem hung from the torso, or on an arm
-    under a cuff hung from cuff bones, moves out from under the cloth: it stays drawn."""
+    under a cuff hung from cuff bones, moves out from under the cloth: it stays drawn.
+    `floor_z` (body object space): no skin below it counts as covered. None takes the cut's
+    `cover_floor_z` - a skirt's crotch: the thighs swing out from under a skirt, so only the band
+    it always covers is hidden. `max_front`: skin facing forward more than this (its normal on the body's
+    forward axis) is not covered, below the cut's `cover_front_top_z` when it has one; None takes the cut's
+    `cover_max_front` - the belly comes away from a skirt's waistband when the body folds in a crouch."""
     g = rigmap._obj(garment)
     b = rigmap._obj(body)
+    if floor_z is None:
+        cut = g.get("wardrobe_cut")
+        floor_z = cut.get("cover_floor_z") if cut is not None else None
+    if max_front is None:
+        cut = g.get("wardrobe_cut")
+        max_front = cut.get("cover_max_front") if cut is not None else None
+    fwd = rigmap.humanoid(b)["forward"] if max_front is not None else None
+    cut = g.get("wardrobe_cut")
+    front_top = cut.get("cover_front_top_z", 1e9) if cut is not None else 1e9
     to_body = b.matrix_world.inverted() @ g.matrix_world
     me = g.data
     gv = [to_body @ v.co for v in me.vertices]
@@ -66,6 +80,10 @@ def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True):
     agrees = [False] * len(bme.vertices)
     gap = [0.0] * len(bme.vertices)
     for v in bme.vertices:
+        if floor_z is not None and v.co.z < floor_z:
+            continue
+        if fwd is not None and v.co.z < front_top and v.normal.dot(fwd) > max_front:
+            continue
         n = v.normal
         hit = bvh.ray_cast(v.co + n * 0.0005, n, max_gap)
         if hit[0] is None:
@@ -96,7 +114,9 @@ def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True):
     dist = [1e9] * len(bme.vertices)
     heap = []
     for i, cov in enumerate(covered):
-        if not cov or not agrees[i]:
+        # skin under the floor is not an edge of the cloth: the margin runs from cloth edges only
+        if (not cov or not agrees[i]) and (floor_z is None or bme.vertices[i].co.z >= floor_z) \
+                and (fwd is None or bme.vertices[i].co.z >= front_top or bme.vertices[i].normal.dot(fwd) <= max_front):
             dist[i] = 0.0
             heap.append((0.0, i))
     heapq.heapify(heap)
@@ -129,7 +149,8 @@ def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True):
             "tris_total": len(bme.loop_triangles), "tris_hidden": tris_hidden,
             "hidden_gap_median_m": round(gaps[len(gaps) // 2], 4) if gaps else None,
             "hidden_gap_max_m": round(gaps[-1], 4) if gaps else None,
-            "max_gap": max_gap, "margin": margin,
+            "max_gap": max_gap, "margin": margin, **({"floor_z": floor_z} if floor_z is not None else {}),
+            **({"max_front": max_front} if max_front is not None else {}),
             "_hidden": [i for i, f in enumerate(hidden) if f], "_edge": [i for i, f in enumerate(edge) if f]}
 
 

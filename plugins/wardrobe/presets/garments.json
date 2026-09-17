@@ -1,6 +1,6 @@
 {
   "schema": "wardrobe-presets/1",
-  "about": "Garment presets: the tuned numbers that cut, fit and hide one garment, so a build script names a preset instead of holding them. wardrobe.dress(body, preset) runs tailor -> paint_ease (if any) -> ease -> skin -> hem (if any) -> cover -> spec -> export with them. `cut` is tailor.shirt or tailor.pants; `tailor`, `paint`, `ease`, `hem` and `cover` are that call's keyword arguments (null: the step is skipped); `layer_cover` is cover.compute's arguments for what the garment hides of each garment worn under it; `spec_kind` and `layer` go to spec.build; `colour` is linear RGB; `worn_over` names the presets this one is fitted over when they are worn; `note` says where the numbers came from.",
+  "about": "Garment presets: the tuned numbers that cut, fit and hide one garment, so a build script names a preset instead of holding them. wardrobe.dress(body, preset) runs tailor -> paint_ease (if any) -> ease -> skin -> hem (if any) -> cover -> spec -> export with them. `cut` is tailor.shirt, tailor.pants, tailor.skirt or tailor.dress; `tailor`, `paint`, `ease`, `hem` and `cover` are that call's keyword arguments (null: the step is skipped); `soft` is the follow-through cloth arguments a skirt or dress takes with dress(..., soft=True); `layer_cover` is cover.compute's arguments for what the garment hides of each garment worn under it; `spec_kind` and `layer` go to spec.build; `colour` is linear RGB; `worn_over` names the presets this one is fitted over when they are worn; `note` says where the numbers came from.",
 
   "garments": {
     "sports_top": {
@@ -123,8 +123,59 @@
       "colour": [0.30, 0.44, 0.36],
       "worn_over": ["bra", "shorts", "trousers"],
       "note": "Nora's (build_outfits.py), layer 3, worn instead of the T-shirt: wool with sleeves near the wrist, the cuffs eased less than the default (0.2, not 0.3), 8 hem and 4 cuff bones. Eased at least 3 mm outside what is under it and hiding what it covers of each. Nora's build also averages the armpit weights with the project's build_person.smooth_weights; dress does not."
+    },
+
+    "skirt_knee": {
+      "name": "Skirt",
+      "cut": "skirt",
+      "tailor": {"waist": 0.16, "length": 0.85, "flare": 1.3},
+      "paint": null,
+      "ease": null,
+      "hem": {"hem_bones": 12, "hem_hinge": 0.16, "cuff_bones": 0, "fabric": "cotton_poplin"},
+      "soft": {"fabric": "cotton"},
+      "cover": {"max_gap": 0.1, "margin": 0.05, "agree": 0.5},
+      "layer_cover": {"max_gap": 0.04, "margin": 0.015},
+      "spec_kind": "skirt",
+      "layer": 2,
+      "colour": [0.30, 0.12, 0.16],
+      "worn_over": ["briefs"],
+      "note": "Built round the body (tailor.skirt), not cut from it: waistband 0.16 torso lengths above the hips, 5 mm snug there, 15 mm ease from the widest hip level down, hem at 0.85 of the way to the knee with 1.3x the widest hip girth. 12 poplin hem bones hung from the thighs. Measured in Godot on Mei, Nadia and Rosa (character-pipeline crowd bodies), walk, run and crouch: at most 4 of 1024-1088 vertices inside a thigh (0.37%), no holes, poke under 0.12%; skinned to the pelvis alone (rigid=spine) the crouch put 149-162 inside. At length 1.05 the back hem was caught between calf and thigh in a run and crouch. Cover: no skin below the hip joints or facing forward is hidden (margin 5 cm), so it hides almost nothing (2-18 triangles); a hidden front belly showed above the waistband in a crouch. soft=True routes it to follow-through cotton cloth pinned at the hips."
+    },
+    "skirt_mini": {
+      "name": "Skirt",
+      "cut": "skirt",
+      "tailor": {"waist": 0.14, "length": 0.45, "flare": 1.4},
+      "paint": null,
+      "ease": null,
+      "hem": {"hem_bones": 12, "hem_hinge": 0.08, "cuff_bones": 0, "fabric": "denim"},
+      "soft": {"fabric": "denim"},
+      "cover": {"max_gap": 0.1, "margin": 0.05, "agree": 0.5},
+      "layer_cover": {"max_gap": 0.04, "margin": 0.015},
+      "spec_kind": "skirt",
+      "layer": 2,
+      "colour": [0.10, 0.14, 0.26],
+      "worn_over": ["briefs"],
+      "note": "The skirt build as skirt_knee with a denim hem at 0.45 along the thigh, 1.4x the hip girth, 12 hem bones. At flare 1.2 a crouch put 6 of 704 vertices inside a thigh on Nadia (0.85%) and 4 of 640 on Rosa; at 1.4, 2 and 3, and none of walk, run or crouch on Mei, Nadia or Rosa fails. In a stride it follows each thigh closely and reads nearer shorts than a flared mini."
+    },
+    "dress_sleeveless": {
+      "name": "Dress",
+      "cut": "dress",
+      "tailor": {"sleeve": -0.10, "neck": [-0.10, 0.08], "waist": 0.30, "length": 0.85, "flare": 1.3},
+      "paint": null,
+      "ease": null,
+      "hem": {"hem_bones": 12, "hem_hinge": 0.16, "cuff_bones": 0, "fabric": "cotton_poplin"},
+      "soft": {"fabric": "cotton"},
+      "cover": {"max_gap": 0.1, "margin": 0.05, "agree": 0.5},
+      "layer_cover": {"max_gap": 0.04, "margin": 0.015},
+      "spec_kind": "dress",
+      "layer": 3,
+      "colour": [0.16, 0.30, 0.22],
+      "worn_over": ["bra", "briefs"],
+      "note": "A sleeveless bodice cut from the body down to the natural waist (0.30 torso lengths above the hips, eased 8 mm and hung), zipped to a skirt built from its hem to 0.85 of the way to the knee at 1.3x the widest hip girth, 12 poplin hem bones. Cover hides the bodice's skin as a shirt's, and below the waist the skirt rule (no front-facing skin, nothing below the hip joints). Walk, run and crouch pass on Mei, Nadia and Rosa: at most 8 of 2420-2537 vertices inside a thigh (0.33%), no holes, poke at most 0.23% (upper arms at the armholes). At length 1.0 a run put 14-16 inside the shins."
     }
   },
 
-  "exclusive": [["shorts", "trousers"], ["tshirt", "longsleeve"], ["shorts_mid_thigh", "shorts", "trousers"]]
+  "exclusive": [["shorts", "trousers"], ["tshirt", "longsleeve"], ["shorts_mid_thigh", "shorts", "trousers"],
+                ["skirt_knee", "skirt_mini", "dress_sleeveless", "shorts", "shorts_mid_thigh", "trousers"],
+                ["dress_sleeveless", "tshirt", "longsleeve", "sports_top"]]
 }

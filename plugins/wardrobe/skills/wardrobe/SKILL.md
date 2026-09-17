@@ -53,7 +53,8 @@ script. Each preset holds the cut (`shirt`/`pants`) and the `tailor`, `paint`, `
 `cover` and `layer_cover` arguments, the spec kind, layer and colour, and a `note` saying why:
 
 ```python
-presets.list()   # bra, briefs, longsleeve, shorts, shorts_mid_thigh, sports_top, trousers, tshirt
+presets.list()   # bra, briefs, dress_sleeveless, longsleeve, shorts, shorts_mid_thigh, skirt_knee, skirt_mini,
+                 # sports_top, trousers, tshirt
 r = wardrobe.dress("Belle", "sports_top", out_path=r"C:/proj/assets/belle/belle_sportstop.glb")
 b = wardrobe.dress("Nora", "briefs", out_path=...)
 t = wardrobe.dress("Nora", "trousers", out_path=..., over=[b["garment"]])   # eased over, hides what it covers
@@ -96,6 +97,38 @@ action="FigureWalk", views=("front", "three_quarter", "side", "back"), focus=Vec
 distance=1.6)` renders Workbench pictures with the body skin-toned and the garment blue.
 Read them: a hem tucking under the buttocks, ruffled cuffs, a crease or a notch where a
 thigh drags the hem are all visible at a glance.
+
+**Skirts and dresses** are built round the body, not cut from it - between the legs there is no skin to
+cut, and a skirt does not cling to one leg:
+
+```python
+sk = tailor.skirt("Nadia_body", waist=0.16, length=0.85, flare=1.3)      # a tube: waistband to hem
+dr = tailor.dress("Nadia_body", neck=(-0.10, 0.08), sleeve=-0.10, waist=0.30, length=0.85, flare=1.3)
+r = wardrobe.dress("Nadia_body", "skirt_knee", out_path=...)             # or skirt_mini, dress_sleeveless
+r = wardrobe.dress("Nadia_body", "skirt_knee", out_path=..., soft=True)  # follow-through cloth instead of hem bones
+```
+
+- **Shape.** Rays from outside toward a vertical axis through the hips find the body's surface (arms and
+  fingers left out) at 64 angles every centimetre. The cloth takes that radius plus `ease` (15 mm; the
+  waistband `waist_ease`, 5 mm) and hangs straight from the widest point above it. Below the widest hip
+  level it opens to a hem whose girth is `flare` times the widest hip girth, and stays `clearance` (2 cm)
+  off the legs at rest. Rings are blurred round (and, below the hips, down) and pushed back out.
+- **Weights.** Cloth within `near_gap` (2.5 cm) of skin takes that skin's weights; cloth further than
+  `far_gap` (6 cm) - between the legs, below the seat - goes by distance: pelvis above the hip joints,
+  the thighs below (1/d^6 between the two), fading over `thigh_fade`. Smoothed 4 times, four a vertex.
+- **Hem.** `hem.prepare` hangs the hem bones from whichever of the torso and the thighs holds the fabric
+  at the hinge, half a bone off the midline.
+- **Hide.** `cover` hides nothing below the hip joints (`cover_floor_z`) and nothing facing forward
+  (`cover_max_front`), both from the cut. On the crowd that is 0-18 triangles: a skirt hides almost nothing.
+- **A dress** is a `shirt` cut to the natural waist, eased, and a skirt zipped to its hem.
+- **Soft.** `soft=True` (or `skirts.soft_body(g, body, fabric)`) pins everything above the widest hip level
+  to its strongest bone and writes a follow-through `draped_tube` spec beside the wardrobe one;
+  `Wardrobe.equip` builds the SoftBody3D when `addons/follow_through` is in the project. Verify it with
+  follow-through's `verify_cloth.gd`. Nothing collides it with the legs yet.
+
+Measured in Godot on three crowd women (Mei, Nadia, Rosa), walk, run and crouch, every preset passes; at
+most 0.47% of a skirt's vertices inside a thigh. The sample Figure's knee skirt fails its walk (4.2%): that
+walk crosses the feet over the midline.
 
 **Trousers, shorts and briefs** are cut the same way:
 
@@ -203,6 +236,7 @@ normal: it is a hole only if some view reaches it and sees into the body.
 | `occluded` | reported | hidden skin off the cloth that nothing outside can see (a fold, a crouch) |
 | `coincident` | reported | hidden skin with cloth pressed within 3 mm |
 | `poke` | 0.5% of drawn verts | drawn skin through the cloth: more ease, a lower `share`, or hide it |
+| `thighs` | 0.5% of checked garment verts | a skirt or dress (spec kind; `thighs=all` for every garment) inside a leg: shorter, more flare |
 | `hide_unmatched` | 0 | the body in Godot is not the body the garment was fitted to |
 | hem finite, within `max_offset_m` | - | a spring blew up |
 
@@ -210,7 +244,7 @@ normal: it is a hole only if some view reaches it and sees into the body.
 full name (Belle's are `Belle_Walk` and so on); check every clip a character has, because a crouch
 opens what a walk never does. A run that measured nothing fails - an unknown clip (the problem lists
 the clips the body has), a missing body or garment, or `samples: 0` - so a pass always means frames
-were measured. Before wardrobe 0.2.2 an unknown clip and every `still=true` run passed with nothing sampled. `cut=0.04` removes a
+were measured. Before wardrobe 0.2.2 an unknown clip and every `still=true` run passed with nothing sampled. `rigid=spine` skins the garment to one bone and must fail `thighs` in a crouch (the crowd's knee skirts: 149-162 vertices inside, against at most 4). `dump=<frame> dump_dir=` writes that sample's skinned body and garments as OBJ, headless. `cut=0.04` removes a
 4 cm patch of the garment and must fail - the proof that the check still sees a real hole.
 `shot=<frame>` without `--headless` renders that frame's holes from outside (body back faces
 magenta, so magenta means you see in), and `trace=holes` prints each candidate's open views. Measured on Nora (30k
@@ -302,7 +336,9 @@ front, which the backstop (it only stops the hem moving *in*) does not catch.
   does not yet measure an inner garment coming through an outer one.
 - Level 2 (leashed cloth) is not built. Jolt has the skinned constraints it needs; Godot 4.7
   does not expose them, so it needs its own solver.
-- The tailor cuts shirts, trousers, shorts and briefs. Skirts and dresses need their cuts; a
-  modelled garment works through `fit` and `skin` but has not been verified in Godot yet.
+- The tailor cuts shirts, trousers, shorts and briefs and builds skirts and dresses; a modelled garment works
+  through `fit` and `skin` but has not been verified in Godot yet.
+- A soft (cloth) skirt has no leg colliders: the legs pass through it. Skirts are skinned; a stride that crosses
+  the legs over the midline (the sample Figure's) puts a knee-length hem inside a thigh.
 - The hem backstop is per bone against the rest gap, not a collision with the moving thighs.
 - The body mesh's LODs are dropped when it is rebuilt without the hidden triangles.
