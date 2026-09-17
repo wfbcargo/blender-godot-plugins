@@ -133,12 +133,19 @@ and guessing. Godot now measures it, and Blender reads what Godot measured.
 
 Beside each region it also runs shadow springs that get the same load:
 - one spring with no limit, which gives `free_peak_m` and a `demand` curve;
-- 33 springs on a ladder of limits, 2^(k/8) times the region's own (a quarter to four times it,
-  9% apart).
+- 33 springs on a ladder of limits 9% apart, a quarter to four times the region's own.
+
+The rungs are one grid for every region: 1 cm x 2^(k/8), snapped to 0.1 mm, for the 33 k around the
+rung nearest the region's limit (`JiggleModifier.ladder_limits`, mirrored by
+`limits.ladder_limits`). They are not 2^(k/8) times the region's own limit, because paired sides
+export limits 0.1-0.4 mm apart. On ladders of their own no limit would be measured on both sides, and
+a pair's limit would be chosen on shares read between rungs. Across a cliff that reading is made up:
+a made-up pair with its step between two rungs was given 0.0137 m with 2.7% expected on one side,
+where the side really sat at 20%. On one grid the Figure's and Bloater's pairs share 32 or 33 of their
+33 rungs.
 
 The load is the anchor's acceleration plus the change of gravity. It comes from the skeleton and
-never from the flesh, so each rung does exactly what the region would do with that limit. The
-region's own rung reproduces its measured share to the tick.
+never from the flesh, so each rung does exactly what the region would do with that limit.
 
 `limit_report()` returns the report, and `print_limit_report()` prints it as
 `FT_FLESH_LIMITS {json}`. `verify_flesh.gd` drives a body round a fixed 13.6 s course (below) and
@@ -147,18 +154,27 @@ prints one line per body. A game's self-test can call the same two functions aro
 **Suggesting.** `flesh.suggest_limits(report)` works through each region in this order:
 1. A region inside the band is kept.
 2. Otherwise it takes the measured rung inside the band that is nearest the target.
-3. `.L`/`.R` pairs get one limit, read on both ladders. The course turns one way, so the two sides
-   measure differently.
+3. `.L`/`.R` pairs get one limit, chosen only on rungs measured on both sides (`pair`). The course
+   turns one way, so the two sides measure differently. When no rung puts both inside the band, the
+   tightest with neither side over it is taken.
 4. Sometimes the share falls across the whole band between two neighbouring rungs. That is one long
    stay on the limit, which a limit either catches or misses. The looser rung is taken and the row
-   is marked `cliff`. The ladder is geometric, so a rerun measures the same rungs and the answer
+   is marked `cliff`. The rungs are fixed, so a rerun measures the same ones and the answer
    settles.
 5. If the band lies past the ladder's end, the end is taken and the row says to run again.
+6. A report whose pair ladders share under half their rungs was made before the grid. The pair is
+   then chosen on shares read between rungs. The row is `interpolated` and says to run again. A step
+   between two rungs larger than the band's width is never read across: that limit is not a
+   candidate.
+
+Every `expected_on_limit_share` outside `interpolated` and `estimate` rows is a measured rung. A
+limit moved by a cap or by the 5 mm floor also goes to a rung: the loosest rung under the cap, or
+the tightest over the floor.
 
 Two more cases:
 - A type's `limit_max_share` caps a raise. For breasts it is 0.66: swung in further, the skin passes
-  into the chest. The row is then `capped` and says to lower `response` or raise `damping_ratio`
-  instead.
+  into the chest. The row is then `capped` and gets the loosest rung within the cap (or keeps its
+  limit). It says to lower `response` or raise `damping_ratio` instead.
 - Old `FLESH ... on the limit x%` lines have no ladder, so they get an estimate: share ~
   limit^-1.74, from Belle's buttocks at 5.8 and 6.9 cm. The row says to measure again.
 
@@ -202,15 +218,17 @@ Speed changes at 7 m/s^2, belle_controller's `ACCEL`. Takeoff and landing each t
 CharacterBody3D's do. The walk clip plays at speed / 1.2.
 
 **Converged** on follow-through's sample bodies, built and exported the way `flesh_figure` builds
-them. Each suggested limit went into the spec through `apply_limits`, and the body was exported and
-measured again with no override. The Godot-side `limits=` override gave the same numbers.
+them, with the shared rung grid. Each suggested limit went into the spec through `apply_limits`, and
+the body was exported and measured again with no override. Every applied row's measured share matched
+its `expected_on_limit_share` to within 0.13 points (one tick is 0.12), pairs included: 33 applied
+rows over the four runs, 31 of them to the tick.
 
 | body, response | run 0 (shipped limits) | applied | run after |
 |---|---|---|---|
-| Figure, 1.0 | breasts 1.1/1.2%, butts 0.7/0.7, belly 1.0, arm flab 90.7/88.3 (held 176-184 ticks), thighs 7.1/8.7 | breasts 5.15/5.27 -> 3.64 cm, butts 7.50/7.46 -> 3.73, belly 5.44 -> 3.53, arm flab 2.64/2.65 -> 5.76, thighs kept | breasts 5.4/3.4%, butts 3.2/3.4, belly 6.0, arm flab 5.6/4.8 (longest 9 ticks), thighs 7.1/8.7: all inside, settled |
-| Bloater, 1.0 | belly 0.0%, breasts 0.5/0.5, butts 1.0/0.7, love handles 0.0/0.0, arm flab 13.9/9.6, thighs 5.1/5.0 | belly 26.5 -> 7.89 cm, breasts -> 3.74, butts -> 3.66, love handles 21.0 -> 5.31 (the ladder's end), arm flab -> 5.93 | love handles 2.7/1.2%, so run 1 moved them to 3.75 cm; run 2: every region 3.4-7.2%, settled |
-| Figure, 1.5 | breast.L 11.9%, breast.R 3.7, thighs 15.2/18.4, arm flab 90.1/87.0, butts 1.1/1.1 | arm flab -> 6.85 cm, thighs -> 2.75, butts -> 5.28; breasts capped at 0.66 x peak | every region inside except breast.L at 11.9%, reported `capped` (needs 5.6 cm, allowed 5.15): settled, `in_band` false, verifier FAILED on it |
-| Bloater, 1.5 | arm flab 21.5/14.1%, belly 0.6, love handles 0.0 | belly -> 12.16 cm, arm flab -> 7.06, breasts -> 5.29, butts -> 5.23, love handles -> 5.31 | every region 3.4-7.4%, settled |
+| Figure, 1.0 | breasts 1.1/1.2%, butts 0.7/0.7, belly 1.0, arm flab 90.7/88.3 (held 176-184 ticks), thighs 7.1/8.7 | breasts 5.15/5.27 -> 3.67 cm, butts 7.50/7.46 -> 3.67, belly 5.44 -> 3.67, arm flab 2.64/2.65 -> 5.66, thighs kept | breasts 5.4/3.2%, butts 3.3/3.7, belly 4.9, arm flab 6.3/5.4 (longest 9 ticks), thighs 7.1/8.7: all inside, settled |
+| Bloater, 1.0 | belly 0.0%, breasts 0.5/0.5, butts 1.0/0.7, love handles 0.0/0.0, arm flab 13.9/9.6, thighs 5.1/5.0 | belly 26.5 -> 8.00 cm, breasts -> 3.67, butts -> 3.67, love handles 21.0 -> 5.19 (the ladder's end), arm flab -> 6.17 | love handles 2.7/1.3%, so run 1 moved them to 3.67 cm; run 2: every region 3.4-5.5%, settled |
+| Figure, 1.5 | breast.L 11.9%, breast.R 3.7, thighs 15.2/18.4, arm flab 90.1/87.0, butts 1.1/1.1 | arm flab -> 6.73 cm, thighs -> 2.59, butts -> 5.19; breasts capped at 0.66 x peak, kept | every region inside except breast.L at 11.9%, reported `capped` (needs 5.66 cm, allowed 5.15): settled, `in_band` false, verifier FAILED on it |
+| Bloater, 1.5 | arm flab 21.5/14.1%, belly 0.6, love handles 0.0 | belly -> 12.34 cm, arm flab -> 7.34, breasts -> 5.66, butts -> 5.19, love handles -> 5.66 | every region 3.2-8.2%, settled |
 
 The suggested limits are much tighter than the shipped ones: the Figure's breasts come out at
 0.47 x peak instead of 0.66. On this course at response 1, the shipped limits bound only the jumps.

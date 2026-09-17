@@ -15,8 +15,11 @@ After the export, `limit_suggestion` feeds `flesh.suggest_limits` a Godot limit 
 Figure's real regions (names, limits and peaks from its spec; each region's time on the limit a fixed
 function of the limit, chosen to take every branch: in band, lower, raise, a capped breast pair, a
 cliff, the ladder's end, an old self-test line with no ladder, kept in band or estimated) and writes it back with
-`flesh.apply_limits`. The golden holds the suggested rows and the spec's limits afterwards. It runs
-after the export, so the glb is unchanged.
+`flesh.apply_limits`. The ladders sit on Godot's one grid of limits (`limits.ladder_limits`), and every
+row that claims a measured rung is checked against the share function at its suggested limit
+(`expected_is_true`). A second body, the thighs on ladders built from each side's own limit (a report
+from before the grid), takes the 'interpolated' branch. The golden holds the suggested rows and the
+spec's limits afterwards. It runs after the export, so the glb is unchanged.
 """
 import os
 import sys
@@ -120,19 +123,33 @@ LIMIT_SHARES = {
 
 def limit_suggestion(name, flesh):
     """`flesh.suggest_limits` on a made-up Godot limit report for the body's regions, applied."""
+    import json
     import bpy
+    from follow_through import limits
     from follow_through import spec as ft_spec
-    regions = {}
+    regions, old, truth = {}, {}, {}
     for r in ft_spec.read(bpy.data.objects[name])["jiggle"]["regions"]:
         share = LIMIT_SHARES.get(r["name"], lambda f: 0.0)
         L0 = r["max_offset_m"]
-        ladder = [[round(L0 * 2 ** (k / 8), 4), round(share(2 ** (k / 8)), 4)] for k in range(-16, 17)]
-        regions[r["name"]] = {"name": r["name"], "type": r["type"], "max_offset_m": L0, "peak_m": r["peak_m"],
-                              "on_limit_share": round(share(1.0), 4), "peak_offset_m": L0, "ladder": ladder}
+        truth[r["name"]] = (lambda share, L0: lambda L: round(share(L / L0), 4))(share, L0)
+        row = {"name": r["name"], "type": r["type"], "max_offset_m": L0, "peak_m": r["peak_m"],
+               "on_limit_share": round(share(1.0), 4), "peak_offset_m": L0}
+        # Godot's ladder: one grid of limits for every region
+        regions[r["name"]] = dict(row, ladder=[[L, truth[r["name"]](L)] for L in limits.ladder_limits(L0)])
+        if r["name"].startswith("thigh."):
+            # a report from before the grid: each side's ladder built on its own limit
+            own = [round(L0 * 2 ** (k / 8), 4) for k in range(-16, 17)]
+            old[r["name"]] = dict(row, ladder=[[L, truth[r["name"]](L)] for L in own])
     report = {"schema": "follow-through/flesh-limits/1", "body": name, "regions": regions}
+    report_old = {"schema": "follow-through/flesh-limits/1", "body": name + " (own-limit ladders)", "regions": old}
     legacy = ("FLESH breast.L         OK  max 0.078 (limit 0.078)  on the limit  7.5% of the time  steady walk 0.03\n"
               "FLESH butt.L          BAD  max 0.058 (limit 0.058)  on the limit 11.5% of the time  steady walk 0.03")
-    suggestion = flesh.suggest_limits(["FT_FLESH_LIMITS " + __import__("json").dumps(report), legacy])
+    suggestion = flesh.suggest_limits(["FT_FLESH_LIMITS " + json.dumps(report), "FT_FLESH_LIMITS " + json.dumps(report_old),
+                                       legacy])
+    # every row that claims a measured rung: its expected share is the share function at the suggested limit
+    measured = ("in band", "ladder", "pair", "cliff", "ladder end")
+    expected_is_true = {n: row["expected_on_limit_share"] == truth[n](row["suggested_max_offset_m"])
+                        for n, row in suggestion["bodies"][name].items() if row["basis"] in measured}
     applied = flesh.apply_limits(name, suggestion)
     keep = ("action", "basis", "on_limit_share", "in_band", "max_offset_m", "suggested_max_offset_m",
             "suggested_limit_share", "expected_on_limit_share", "capped", "notes")
@@ -141,6 +158,7 @@ def limit_suggestion(name, flesh):
         "types": suggestion["types"],
         "rows": {b: {n: {k: row[k] for k in keep if k in row} for n, row in rows.items()}
                  for b, rows in suggestion["bodies"].items()},
+        "expected_is_true": expected_is_true,
         "applied": applied,
         "spec_limits": {r["name"]: r["max_offset_m"]
                         for r in ft_spec.read(bpy.data.objects[name])["jiggle"]["regions"]},

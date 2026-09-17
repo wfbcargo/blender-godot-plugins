@@ -176,11 +176,13 @@ flesh.apply_limits("Bloater", s)                               # writes max_offs
 How it works:
 - Each region carries a **ladder**: its time on the limit measured on shadow springs given 33 other
   limits, from a quarter to four times its own. The flesh never feeds its load, so a rung is what the
-  region will do with that limit.
+  region will do with that limit. The rungs are one grid for every region (1 cm x 2^(k/8)), so a
+  left and right side are measured on the same limits.
 - A region outside the **band, 3-9% of ticks on the limit**, gets the measured rung nearest 6%. It lands
   there when applied. The Figure and Bloater settled in one run, or two when a limit started past the
   ladder's end.
-- `.L`/`.R` pairs share a limit.
+- `.L`/`.R` pairs share a limit, chosen only on rungs measured on both sides. A report made before
+  the grid gets `interpolated` pair rows: apply them and run again.
 - A breast is never raised past `limit_max_share` (0.66 x peak). It is reported `capped` instead: lower
   `response` or raise `damping_ratio`.
 - The band is Belle's: her self-test fails at 10%, and her eye-approved regions sit at 7.5-9% there and

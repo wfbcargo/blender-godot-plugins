@@ -788,76 +788,87 @@
      "applied": {
       "arm_flab.L": [
        0.0264,
-       0.0373
+       0.0367
       ],
       "arm_flab.R": [
        0.0265,
-       0.0373
+       0.0367
       ],
       "belly": [
        0.0544,
-       0.0297
+       0.0308
       ],
       "butt.L": [
        0.075,
-       0.0187
+       0.0183
       ],
       "butt.R": [
        0.0746,
-       0.0187
+       0.0183
       ],
       "thigh.L": [
        0.0126,
-       0.0137
+       0.0141
       ],
       "thigh.R": [
        0.0127,
-       0.0137
+       0.0141
       ]
      },
      "capped": [
       "Figure/breast.L",
       "Figure/breast.R"
      ],
+     "expected_is_true": {
+      "arm_flab.L": true,
+      "arm_flab.R": true,
+      "belly": true,
+      "breast.L": true,
+      "breast.R": true,
+      "butt.L": true,
+      "butt.R": true,
+      "thigh.L": true,
+      "thigh.R": true
+     },
      "in_band": false,
      "rows": {
       "Figure": {
        "arm_flab.L": {
         "action": "raise",
         "basis": "pair",
-        "expected_on_limit_share": 0.0562,
+        "expected_on_limit_share": 0.0645,
         "in_band": false,
         "max_offset_m": 0.0264,
         "notes": [
          "one limit for arm_flab.L and arm_flab.R"
         ],
         "on_limit_share": 0.9,
-        "suggested_limit_share": 1.695,
-        "suggested_max_offset_m": 0.0373
+        "suggested_limit_share": 1.668,
+        "suggested_max_offset_m": 0.0367
        },
        "arm_flab.R": {
         "action": "raise",
         "basis": "pair",
-        "expected_on_limit_share": 0.0532,
+        "expected_on_limit_share": 0.0591,
         "in_band": false,
         "max_offset_m": 0.0265,
         "notes": [
          "one limit for arm_flab.L and arm_flab.R"
         ],
         "on_limit_share": 0.8,
-        "suggested_limit_share": 1.688,
-        "suggested_max_offset_m": 0.0373
+        "suggested_limit_share": 1.661,
+        "suggested_max_offset_m": 0.0367
        },
        "belly": {
         "action": "lower",
         "basis": "ladder",
-        "expected_on_limit_share": 0.0617,
+        "expected_on_limit_share": 0.0551,
         "in_band": false,
         "max_offset_m": 0.0544,
         "notes": [],
         "on_limit_share": 0.01,
-        "suggested_limit_share": 0.656,
-        "suggested_max_offset_m": 0.0297
+        "suggested_limit_share": 0.68,
+        "suggested_max_offset_m": 0.0308
        },
        "breast.L": {
         "action": "keep",
@@ -892,30 +903,30 @@
        "butt.L": {
         "action": "lower",
         "basis": "ladder end",
-        "expected_on_limit_share": 0.0256,
+        "expected_on_limit_share": 0.0282,
         "in_band": false,
         "max_offset_m": 0.075,
         "notes": [
          "one limit for butt.L and butt.R",
-         "on the limit under 3% of the time even at 0.0187 m, the ladder's tightest: apply and run again"
+         "on the limit under 3% of the time even at 0.0183 m, the ladder's tightest: apply and run again"
         ],
         "on_limit_share": 0.0001,
-        "suggested_limit_share": 0.224,
-        "suggested_max_offset_m": 0.0187
+        "suggested_limit_share": 0.22,
+        "suggested_max_offset_m": 0.0183
        },
        "butt.R": {
         "action": "lower",
         "basis": "ladder end",
-        "expected_on_limit_share": 0.0201,
+        "expected_on_limit_share": 0.0221,
         "in_band": false,
         "max_offset_m": 0.0746,
         "notes": [
          "one limit for butt.L and butt.R",
-         "on the limit under 3% of the time even at 0.0187 m, the ladder's tightest: apply and run again"
+         "on the limit under 3% of the time even at 0.0183 m, the ladder's tightest: apply and run again"
         ],
         "on_limit_share": 0.0001,
-        "suggested_limit_share": 0.226,
-        "suggested_max_offset_m": 0.0187
+        "suggested_limit_share": 0.221,
+        "suggested_max_offset_m": 0.0183
        },
        "thigh.L": {
         "action": "raise",
@@ -925,25 +936,55 @@
         "max_offset_m": 0.0126,
         "notes": [
          "one limit for thigh.L and thigh.R",
-         "no limit measured lands inside the band: 20.0% at 0.0127 m, 2.7% at 0.0137 m; the looser taken"
+         "no limit measured lands inside the band: 20.0% at 0.0130 m, 1.0% at 0.0141 m; the looser taken"
         ],
         "on_limit_share": 0.2,
-        "suggested_limit_share": 0.652,
-        "suggested_max_offset_m": 0.0137
+        "suggested_limit_share": 0.671,
+        "suggested_max_offset_m": 0.0141
        },
        "thigh.R": {
         "action": "raise",
         "basis": "cliff",
-        "expected_on_limit_share": 0.0273,
+        "expected_on_limit_share": 0.01,
         "in_band": false,
         "max_offset_m": 0.0127,
         "notes": [
          "one limit for thigh.L and thigh.R",
-         "no limit measured lands inside the band: 20.0% at 0.0127 m, 2.7% at 0.0137 m; the looser taken"
+         "no limit measured lands inside the band: 20.0% at 0.0130 m, 1.0% at 0.0141 m; the looser taken"
         ],
         "on_limit_share": 0.2,
-        "suggested_limit_share": 0.646,
-        "suggested_max_offset_m": 0.0137
+        "suggested_limit_share": 0.665,
+        "suggested_max_offset_m": 0.0141
+       }
+      },
+      "Figure (own-limit ladders)": {
+       "thigh.L": {
+        "action": "raise",
+        "basis": "interpolated",
+        "expected_on_limit_share": 0.01,
+        "in_band": false,
+        "max_offset_m": 0.0126,
+        "notes": [
+         "one limit for thigh.L and thigh.R",
+         "the two ladders share too few rungs (built before the shared grid): chosen on shares read between rungs, apply and run again; no limit measured lands inside the band: 20.0% at 0.0126 m, 1.0% at 0.0138 m; the looser taken"
+        ],
+        "on_limit_share": 0.2,
+        "suggested_limit_share": 0.657,
+        "suggested_max_offset_m": 0.0138
+       },
+       "thigh.R": {
+        "action": "raise",
+        "basis": "interpolated",
+        "expected_on_limit_share": 0.01,
+        "in_band": false,
+        "max_offset_m": 0.0127,
+        "notes": [
+         "one limit for thigh.L and thigh.R",
+         "the two ladders share too few rungs (built before the shared grid): chosen on shares read between rungs, apply and run again; no limit measured lands inside the band: 20.0% at 0.0126 m, 1.0% at 0.0138 m; the looser taken"
+        ],
+        "on_limit_share": 0.2,
+        "suggested_limit_share": 0.651,
+        "suggested_max_offset_m": 0.0138
        }
       },
       "self-test": {
@@ -975,23 +1016,23 @@
      },
      "settled": false,
      "spec_limits": {
-      "arm_flab.L": 0.0373,
-      "arm_flab.R": 0.0373,
-      "belly": 0.0297,
+      "arm_flab.L": 0.0367,
+      "arm_flab.R": 0.0367,
+      "belly": 0.0308,
       "breast.L": 0.0515,
       "breast.R": 0.0527,
-      "butt.L": 0.0187,
-      "butt.R": 0.0187,
-      "thigh.L": 0.0137,
-      "thigh.R": 0.0137
+      "butt.L": 0.0183,
+      "butt.R": 0.0183,
+      "thigh.L": 0.0141,
+      "thigh.R": 0.0141
      },
      "types": {
       "arm_flab": {
-       "limit_share": 1.692,
+       "limit_share": 1.664,
        "regions": 2
       },
       "belly": {
-       "limit_share": 0.656,
+       "limit_share": 0.68,
        "regions": 1
       },
       "breast": {
@@ -999,12 +1040,12 @@
        "regions": 2
       },
       "butt": {
-       "limit_share": 0.225,
+       "limit_share": 0.221,
        "regions": 2
       },
       "thigh": {
-       "limit_share": 0.649,
-       "regions": 2
+       "limit_share": 0.661,
+       "regions": 4
       }
      }
     },

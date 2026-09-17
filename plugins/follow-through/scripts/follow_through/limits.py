@@ -7,11 +7,19 @@ Belle's self-test, reading "on the limit x% of the time" and guessing again. God
 `verify_flesh.gd` or a game's self-test), and this module turns that into a limit.
 
 Per region the report carries the limit, the share of ticks on it, and a `ladder`: the same
-share measured on shadow springs fed the same load, each given a different limit (a quarter to four
-times the region's, 33 rungs 9% apart). The load comes from the skeleton and never from the flesh, so a rung
-is exactly what the region would do with that limit, and a limit taken from a rung inside the band
-lands inside the band when applied - on the same course. An unlimited shadow gives `free_peak_m`
-and a `demand` curve, for reading only.
+share measured on shadow springs fed the same load, each given a different limit (33 rungs 9% apart,
+a quarter to four times the region's). The load comes from the skeleton and never from the flesh, so
+a rung is exactly what the region would do with that limit, and a limit taken from a rung inside the
+band lands inside the band when applied - on the same course. An unlimited shadow gives
+`free_peak_m` and a `demand` curve, for reading only.
+
+The rungs sit on one grid for every region, `ladder_limits`: LADDER_BASE_M x 2^(k/8), snapped to
+0.1 mm. Paired sides export limits a fraction of a millimetre apart; on a grid of their own their rungs
+would never coincide, and a pair's limit would be chosen on shares read between rungs - across a cliff,
+made up. On one grid every limit a pair is given was measured on both sides. A share between rungs is
+never offered as a measurement: a report whose pair ladders share under half their rungs (made before the grid)
+is chosen between rungs with basis 'interpolated' (run again), and a step between two rungs larger
+than the band's width is unknown there, not a line.
 
 No bpy here: `flesh.suggest_limits` and `flesh.apply_limits` wrap this with the registry's caps and
 the spec.
@@ -33,6 +41,10 @@ MIN_OFFSET_M = 0.005          # never suggest a limit tighter than this: a bone 
 # A report line with no ladder (belle_demo's older FLESH lines) is scaled as share ~ limit^(-1/0.575):
 # Belle's butt read 11-12% on the limit at 5.8 cm and 8-9% at 6.9 cm (ln 1.35 / ln 1.19 = 1.74).
 LEGACY_EXPONENT = 0.575
+
+LADDER_BASE_M = 0.01          # every region's rungs are LADDER_BASE_M x 2^(k/8) (jiggle_modifier.gd)
+LADDER_STEPS = 16             # rungs either side of the one nearest the region's limit
+RUNG_TOL_M = 5e-5             # two limits this close are the same rung (reports are snapped to 0.1 mm)
 
 _BELLE_LINE = re.compile(r"FLESH\s+(\S+)\s+(OK|BAD)\s+max\s+([\d.]+)\s+\(limit\s+([\d.]+)\)\s+"
                          r"on the limit\s+([\d.]+)%")
@@ -74,7 +86,20 @@ def read_reports(src):
                             "peak_offset_m": float(m.group(3)), "on_limit_share": float(m.group(5)) / 100.0}
     if legacy:
         bodies.append({"schema": SCHEMA, "body": "self-test", "regions": legacy})
+    if not bodies:
+        # a mistyped path is text with no report in it: an empty suggestion would read as settled
+        raise ValueError("no FT_FLESH_LIMITS or FLESH line in %r" % (text[:120],))
     return bodies
+
+
+def ladder_limits(limit_m, base_m=LADDER_BASE_M, steps=LADDER_STEPS):
+    """The ladder of limits Godot measures beside a region whose limit is `limit_m`: base x 2^(k/8),
+    snapped to 0.1 mm, for the 2 x steps + 1 k around the rung nearest the limit (mirrors
+    jiggle_modifier.gd's `ladder_limits`). The grid does not depend on the limit, so two regions whose
+    limits round to the same rung (within 4.4%) measure the same 33 limits, and others share the overlap."""
+    import math
+    k0 = int(round(8.0 * math.log2(max(float(limit_m), 1e-6) / base_m)))
+    return [round(base_m * 2.0 ** (k / 8.0), 4) for k in range(k0 - steps, k0 + steps + 1)]
 
 
 def suggest(report, band=BAND, target=None, caps=None, min_offset_m=MIN_OFFSET_M, pairs=True):
@@ -94,9 +119,11 @@ def suggest(report, band=BAND, target=None, caps=None, min_offset_m=MIN_OFFSET_M
     median suggested share, "regions": n}}}. A row carries `action` keep / lower / raise,
     `max_offset_m` and `on_limit_share` as measured, `in_band`, `suggested_max_offset_m`,
     `suggested_limit_share` (None without peak_m), `basis` ('in band'; 'ladder', a measured rung;
-    'pair', read on both sides' ladders; 'interpolated', 'ladder end' or 'ladder nearest' - run
-    again; 'estimate' for a line with no ladder - run again), `expected_on_limit_share` (measured on
-    the rung, or read between rungs for a pair) and any `notes`."""
+    'pair', a rung measured on both sides' ladders; 'cliff', the looser of two neighbouring measured
+    rungs the band falls between; 'ladder end' - run again; 'interpolated', a pair whose ladders share under
+    half their rungs, chosen between rungs - run again; 'estimate' for a line with no ladder - run again),
+    `expected_on_limit_share` (measured on that rung; for 'interpolated' read between rungs, and None
+    where the share steps by more than the band's width between them) and any `notes`."""
     lo, hi = band
     t = (lo + hi) / 2.0 if target is None else float(target)
     caps = caps or {}
@@ -142,21 +169,38 @@ def _ladder(g):
     return sorted((float(L), float(q)) for L, q in (g.get("ladder") or []))
 
 
-def _share_between(ladder, L):
-    """The share at limit L read on a ladder, linear between rungs; None outside it."""
-    if not ladder or L < ladder[0][0] - 5e-5 or L > ladder[-1][0] + 5e-5:
+def _on_rung(ladder, L):
+    """The share measured at limit L if L is one of the ladder's rungs, else None."""
+    for Li, q in ladder:
+        if abs(L - Li) < RUNG_TOL_M:
+            return q
+    return None
+
+
+def _share_between(ladder, L, max_step):
+    """The share at limit L read on a ladder: measured on a rung, linear between two. None outside the
+    ladder, or between two rungs whose shares differ by more than `max_step`: a cliff lies somewhere
+    between them, and a line across it would be made up."""
+    q = _on_rung(ladder, L)
+    if q is not None:
+        return q
+    if not ladder or L < ladder[0][0] or L > ladder[-1][0]:
         return None
     for (L1, q1), (L2, q2) in zip(ladder, ladder[1:]):
-        if L1 - 5e-5 <= L <= L2 + 5e-5:
-            f = 0.0 if L2 == L1 else min(max((L - L1) / (L2 - L1), 0.0), 1.0)
-            return q1 + f * (q2 - q1)
-    return ladder[0][1]
+        if L1 <= L <= L2:
+            if abs(q2 - q1) > max_step:
+                return None
+            return q1 + (L - L1) / (L2 - L1) * (q2 - q1)
+    return None
 
 
 def _suggest_pair(both, lo, hi, t, caps, min_offset_m):
     """One limit for a left and right region. Kept when both already share a limit (to 0.5 mm) and
-    both read inside the band; otherwise chosen by `_choose` on every rung of either ladder, a side's
-    share read linearly between its own rungs where the limit is not one of them."""
+    both read inside the band; otherwise chosen by `_choose` on the rungs measured on every side (one
+    grid, `ladder_limits`, so all of them but an end rung when the two limits round to different
+    rungs). Only when the ladders share under half their rungs (a report made before the grid) is a side's share read
+    between its own rungs - never across a step larger than the band's width - and the row is then
+    'interpolated': apply and run again."""
     names = sorted(both)
     rows = {n: _row(both[n], lo, hi) for n in names}
     limits = [float(both[n]["max_offset_m"]) for n in names]
@@ -165,25 +209,35 @@ def _suggest_pair(both, lo, hi, t, caps, min_offset_m):
                            float(both[n]["on_limit_share"]), caps, min_offset_m) for n in names}
     ladders = {n: _ladder(both[n]) for n in names}
     candidates = []
-    for L in sorted({L for lad in ladders.values() for L, _ in lad}):
-        sides = {}
-        for n in names:
-            q = _share_between(ladders[n], L)
-            if q is None:
-                break
-            sides[n] = (q, any(abs(L - Li) < 5e-5 for Li, _ in ladders[n]))
-        else:
+    for L, _ in ladders[names[0]]:
+        sides = {n: (_on_rung(ladders[n], L), True) for n in names}
+        if all(q is not None for q, _ in sides.values()):
             candidates.append((L, sides))
+    # ladders built on each side's own limit (a report made before the grid) coincide on a rung now and
+    # then by rounding: a handful of shared rungs is not a ladder
+    interpolated = 2 * len(candidates) < min(len(lad) for lad in ladders.values())
+    if interpolated:
+        candidates = []
+        for L in sorted({L for lad in ladders.values() for L, _ in lad}):
+            sides = {n: (_share_between(ladders[n], L, hi - lo), _on_rung(ladders[n], L) is not None) for n in names}
+            if all(q is not None for q, _ in sides.values()):
+                candidates.append((L, sides))
     if not candidates:
         return {n: _suggest_region(both[n], lo, hi, t, caps, min_offset_m) for n in names}
     L, basis, note = _choose(candidates, lo, hi, t)
     shares = dict(candidates)[L]
+    if interpolated:
+        basis = "interpolated"
+        note = "the two ladders share too few rungs (built before the shared grid): chosen on shares read between rungs, apply and run again" + (
+            "" if note is None else "; " + note)
+    elif basis == "ladder":
+        basis = "pair"
     out = {}
     for n in names:
         rows[n]["notes"].append("one limit for %s and %s" % (names[0], names[1]))
         if note:
             rows[n]["notes"].append(note)
-        out[n] = _finish(rows[n], both[n], L, "pair" if basis == "ladder" else basis, shares[n][0], caps, min_offset_m)
+        out[n] = _finish(rows[n], both[n], L, basis, shares[n][0], caps, min_offset_m)
     return out
 
 
@@ -196,7 +250,9 @@ def _choose(candidates, lo, hi, t):
        it and tighter ones under, the share falls across the whole band between two neighbouring
        limits - one long stay on the limit (a landing held, a lean) that a limit either catches or
        does not - and the looser side is taken: basis 'cliff', settled, since the ladder is geometric
-       and a rerun measures the same rungs. When every limit is under the band: basis 'ladder end',
+       and a rerun measures the same rungs. When a side there is inside the band and another under it,
+       the sides differ by more than the band and there is no cliff: basis 'ladder', settled. When
+       every limit is under the band: basis 'ladder end',
        apply and run again.
     3. Else every limit measured is over the band: the loosest, basis 'ladder end', run again."""
     def measured(sides):
@@ -210,6 +266,10 @@ def _choose(candidates, lo, hi, t):
     under = [c for c in candidates if all(q <= hi for q, _ in c[1].values())]
     if under:
         L, sides = min(under, key=lambda c: (not measured(c[1]), c[0]))
+        if len(under) < len(candidates) and max(q for q, _ in sides.values()) >= lo:
+            # one side inside, the other under: the sides differ by more than the band, not a cliff
+            return L, "ladder", ("no one limit puts every side inside the band: %s at %.4f m, the tightest "
+                                 "with no side over it" % (" and ".join("%.1f%%" % (100 * q) for q, _ in sides.values()), L))
         if len(under) < len(candidates):
             L1, s1 = max((c for c in candidates if c[0] < L), key=lambda c: c[0], default=(None, None))
             return L, "cliff", ("no limit measured lands inside the band: %s%.1f%% at %.4f m; the looser taken" % (
@@ -252,22 +312,33 @@ def _suggest_region(g, lo, hi, t, caps, min_offset_m):
     return _finish(row, g, L, basis, expect, caps, min_offset_m)
 
 
+def _rung(ladder, lo_m, hi_m, loosest, default, unmeasured):
+    """(limit, measured share) of the loosest (or tightest) rung with lo_m <= limit <= hi_m, so a limit
+    moved by a cap or the floor still lands on a measurement. `default` when no rung is in range;
+    (`unmeasured`, None) with no ladder at all."""
+    if not ladder:
+        return unmeasured, None
+    inside = [(Li, q) for Li, q in ladder if lo_m <= Li <= hi_m]
+    if not inside:
+        return default
+    return max(inside) if loosest else min(inside)
+
+
 def _finish(row, g, L, basis, expect, caps, min_offset_m):
     L0 = float(g["max_offset_m"])
     peak_m = float(g.get("peak_m") or 0.0)
     ladder = _ladder(g)
     cap = caps.get(g.get("type", ""))
     if cap is not None and peak_m > 0.0 and L > L0 and L > cap * peak_m + 1e-6:
-        # raising past what anatomy allows: go no further than the cap (or stay, if already past it)
+        # raising past what anatomy allows: the loosest measured rung the cap allows (or stay, if none)
         row["capped"] = True
         row["notes"].append("needs %.3f m but the type allows %.2f x peak_m = %.3f m: lower `response` or raise "
                             "`damping_ratio` instead" % (L, cap, cap * peak_m))
-        L = max(L0, cap * peak_m)
-        expect = _share_between(ladder, L)
+        L, expect = _rung(ladder, L0 + RUNG_TOL_M, cap * peak_m + 1e-6, True, (L0, row["on_limit_share"]),
+                         max(L0, cap * peak_m))
     if L < min_offset_m:
         row["notes"].append("floored at %.3f m" % min_offset_m)
-        L = min_offset_m
-        expect = _share_between(ladder, L)
+        L, expect = _rung(ladder, min_offset_m - 1e-6, float("inf"), False, (min_offset_m, None), min_offset_m)
     L = round(L, 4)
     row["suggested_max_offset_m"] = L
     row["suggested_limit_share"] = round(L / peak_m, 3) if peak_m > 0.0 else None

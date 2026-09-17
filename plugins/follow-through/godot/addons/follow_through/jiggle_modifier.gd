@@ -23,7 +23,8 @@ extends SkeletonModifier3D
 ##
 ## Swing limits are measured, not guessed: `measure_limits()` starts counting, per region, the
 ## ticks spent on `max_offset_m`, and runs shadow springs fed the same load - one with no limit, and
-## one on each of a ladder of limits from a quarter to four times the region's. The load comes from
+## one on each of a ladder of limits from a quarter to four times the region's, on one grid shared by
+## every region (so a left and right side measure the same limits). The load comes from
 ## the skeleton, never from the flesh, so a shadow on a limit does exactly what the region would do
 ## with that limit: one run gives time on the limit as a function of the limit, and a suggestion read
 ## off it needs no second guess. `limit_report()` returns it as the JSON Blender's
@@ -45,7 +46,11 @@ const ON_LIMIT_M := 0.001           # within this of max_offset_m counts as on t
 ## the unlimited swing was at least `offset` for that share of the ticks.
 const DEMAND_SHARES := [0.0, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10,
 	0.12, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50]
-## The ladder of limits measured beside the region's own, as factors of it: 2^(k/8), k = -16..16.
+## The ladder of limits measured beside the region's own: LADDER_BASE_M x 2^(k/8), snapped to 0.1 mm,
+## for the LADDER_STEPS k either side of the rung nearest the region's limit. One grid for every region,
+## not 2^(k/8) x its own limit: paired sides export limits a fraction of a millimetre apart, and on
+## ladders of their own no limit would be measured on both (follow_through/limits.py ladder_limits).
+const LADDER_BASE_M := 0.01
 const LADDER_STEPS := 16
 
 
@@ -272,12 +277,12 @@ func kick(velocity: Vector3, only_type := "") -> void:
 func measure_limits() -> void:
 	measuring = true
 	for reg in regions:
-		var ladder := PackedFloat32Array()
+		var ladder := PackedFloat64Array()
 		var le := []
 		var lu := []
 		var lon := PackedInt32Array()
-		for k in range(-LADDER_STEPS, LADDER_STEPS + 1):
-			ladder.append(float(reg["max_offset"]) * pow(2.0, k / 8.0))
+		for limit_m in ladder_limits(float(reg["max_offset"])):
+			ladder.append(limit_m)
 			le.append(reg["e"])
 			lu.append(reg["u"])
 			lon.append(0)
@@ -286,11 +291,21 @@ func measure_limits() -> void:
 			"ladder": ladder, "ladder_e": le, "ladder_u": lu, "ladder_on": lon}
 
 
+## The limits a region with this max_offset_m is measured on: LADDER_BASE_M x 2^(k/8) snapped to
+## 0.1 mm, k within LADDER_STEPS of round(8 log2(limit / LADDER_BASE_M)).
+static func ladder_limits(limit_m: float) -> PackedFloat64Array:
+	var k0 := roundi(8.0 * log(maxf(limit_m, 1e-6) / LADDER_BASE_M) / log(2.0))
+	var out := PackedFloat64Array()
+	for k in range(k0 - LADDER_STEPS, k0 + LADDER_STEPS + 1):
+		out.append(snappedf(LADDER_BASE_M * pow(2.0, k / 8.0), 0.0001))
+	return out
+
+
 ## One tick of measuring: the shadow springs take the same load, with no limit and on the ladder.
 func _measure(reg: Dictionary, w: float, delta: float, push: Vector3, d: float, limit: float) -> void:
 	var m: Dictionary = reg["m"]
 	var z := float(reg["damping_ratio"])
-	var ladder: PackedFloat32Array = m["ladder"]
+	var ladder: PackedFloat64Array = m["ladder"]
 	for i in ladder.size():
 		var st := spring_step(m["ladder_e"][i], m["ladder_u"][i], w, z, delta, push)
 		st = clamp_step(st[0], st[1], ladder[i])
@@ -331,7 +346,7 @@ func _measure(reg: Dictionary, w: float, delta: float, push: Vector3, d: float, 
 ##   free_over_limit_share         share of ticks the unlimited swing was at or past the limit
 ##   demand                        [share, offset]: the unlimited swing was at least offset for share of ticks
 ##   swing_kept                    RMS offset over the unlimited swing's RMS: 1 when the limit never bites
-##   ladder                        [limit_m, on_limit_share] for limits 2^(k/8) x max_offset_m, k = -16..16,
+##   ladder                        [limit_m, on_limit_share] for the 33 limits of ladder_limits(max_offset_m),
 ##                                 each measured on a shadow spring given that limit
 func limit_report() -> Dictionary:
 	var out := {}
@@ -345,7 +360,7 @@ func limit_report() -> Dictionary:
 		sorted.sort()
 		var demand := []
 		var ladder := []
-		for i in (m["ladder"] as PackedFloat32Array).size():
+		for i in (m["ladder"] as PackedFloat64Array).size():
 			ladder.append([snappedf(m["ladder"][i], 0.0001), snappedf(float(m["ladder_on"][i]) / maxf(n, 1), 0.0001)])
 		var over := 0
 		for fd in sorted:
