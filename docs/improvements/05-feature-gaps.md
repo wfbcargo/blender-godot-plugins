@@ -104,6 +104,10 @@ penetration 1.3 mm) and on an MPFB woman from `mpfb_woman_curvy`'s brief (swing 
 3.7 mm), and fails with collisions off (15-16 cm into the head). What the verifier caught on the way -
 frame-rate dependence 3.2x, a capsule head leaving the back of the skull uncovered, swing growing every
 stride without contact friction, damping 0.3 not settling - is in `follow-through/references/strands.md`.
+Chain bones record their owner (`ft_strand_owner`): re-preparing one object no longer deletes the
+chains of another whose name it prefixes (`Pigtail` / `Pigtail.001`), and colliding safe names
+(`Pigtail.001` / `Pigtail_001`, `Hair` chain 0 / `Hair_0`) get a `_v2` suffix; the fixture checks five such
+objects keep all 30 bones across a re-prepare.
 Open: `regress.py --godot` does not run `verify_strands.gd`; the sample figure's curled root reads as a
 kink when it lifts; the modifier is GDScript at roughly 0.2-0.8 ms a chain a frame.
 

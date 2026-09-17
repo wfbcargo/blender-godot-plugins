@@ -40,7 +40,14 @@ m = strand.export(".../figure_ponytail.glb", [pony.name], "Figure_metarig")   # 
 `prepare`:
 - **Bones.** The centreline resampled at equal arc length into `round(length / segment_m)` bones
   (3-8), `ft_strand_<object>_NN`, the first parented to the root bone, the rest connected, each tagged
-  `ft_role = "strand"` so rig-anything's body map leaves them out.
+  `ft_role = "strand"` so rig-anything's body map leaves them out and `ft_strand_owner = <object>`.
+  Re-running `prepare` removes only the bones that object owns (or, for a renamed object, the ones its
+  old spec lists and no other object owns), so re-preparing `Pigtail` leaves `Pigtail.001`'s chain alone.
+  A name another object's chain already holds - `Pigtail.001` and `Pigtail_001` both make
+  `ft_strand_Pigtail_001`, chain 0 of a two-chain `Hair` is `ft_strand_Hair_0` like the one chain of
+  `Hair_0` - is not taken over: the later object gets `_v2` (`_v3`...) and a warning. Fixture
+  `strand_ponytail` prepares all five and re-prepares them: 30 strand bones, unchanged, each object
+  owning every bone its spec names.
 - **Weights.** Each vertex's nearest point on the chain, in bone lengths `u`: the root bone at `u = 0`,
   each strand bone full at its middle and shared linearly with its neighbours between middles, the
   last bone full past its middle. At most two influences. Every bone weight the mesh had is replaced

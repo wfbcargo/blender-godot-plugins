@@ -43,6 +43,7 @@ from . import spec as ft_spec
 
 STRAND_PREFIX = "ft_strand_"
 ROLE_PROP = "ft_role"
+OWNER_PROP = "ft_strand_owner"
 TYPE_PROP = "ft_type"
 ROOT_PROP = "ft_root_bone"
 LINE_PROP = "ft_centreline"
@@ -355,7 +356,10 @@ def frequency(hanging_m, params):
 
 def prepare(obj_name, rig_name=None, root_bone=None, kind=None, overrides=None, bodies=None):
     """Hang a bone chain along each of a strand mesh's centrelines, weight the mesh to it and write
-    the spec. Re-running replaces the chains this object had.
+    the spec. Re-running replaces the chains this object had, and only those: every bone records
+    the object that owns it (`ft_strand_owner`), and a name another object's chain already holds
+    (`Pigtail.001` and `Pigtail_001`, or chain 0 of `Hair` and the one chain of `Hair_0`) gets a
+    `_v2`, `_v3`... suffix instead of being taken over.
 
     root_bone   the bone it grows from (default the object's `ft_root_bone`)
     kind        a strand type (`ponytail`, `long_hair`); default `ft_strand_type`, the name, the default
@@ -382,7 +386,6 @@ def prepare(obj_name, rig_name=None, root_bone=None, kind=None, overrides=None, 
     lines = centrelines(obj, rig, root_bone)
     if not lines:
         return dict(report, error=f"{obj_name}: no centreline given and no part big enough to derive one")
-    base = STRAND_PREFIX + _safe(obj_name)
     chains = []
     for ci, (pts, comp, line_rep) in enumerate(lines):
         if len(pts) < 2:
@@ -391,10 +394,13 @@ def prepare(obj_name, rig_name=None, root_bone=None, kind=None, overrides=None, 
         length = _arc(pts)[-1]
         n = int(max(params["min_bones"], min(params["max_bones"], round(length / params["segment_m"]))))
         joints = resample(pts, n)
-        chains.append({"name": f"{base}_{ci}" if len(lines) > 1 else base, "points": pts,
+        chains.append({"index": ci, "points": pts,
                        "joints": joints, "length_m": length, "vertices": comp, "centreline": line_rep})
 
-    _add_bones(rig, root_bone, chains, base)
+    base = _add_bones(rig, root_bone, chains, obj, len(lines) > 1)
+    if base != STRAND_PREFIX + _safe(obj_name):
+        report["warnings"].append(f"bone names {STRAND_PREFIX + _safe(obj_name)}_* belong to another object's chains: "
+                                  f"named {base}_* instead")
     weights = _weight(obj, rig, root_bone, chains)
     bodies = bodies if bodies is not None else [
         o for o in bpy.data.objects if o.type == "MESH" and o is not obj and not is_strand(o)
@@ -417,7 +423,31 @@ def prepare(obj_name, rig_name=None, root_bone=None, kind=None, overrides=None, 
     return report
 
 
-def _add_bones(rig, root_bone, chains, base):
+def _owned(rig_bones, obj):
+    """The bones `obj`'s chains hang on this rig: those whose `ft_strand_owner` is its name, and
+    (for an object renamed since, or bones built before owners were recorded) those its previous spec
+    names that no other object owns."""
+    others = {o.name for o in bpy.data.objects if o is not obj}
+    prev = set()
+    s = ft_spec.read(obj) or {}
+    for c in (s.get("strands") or {}).get("chains", []):
+        prev.update(b["bone"] for b in c.get("bones", []))
+    out = []
+    for b in rig_bones:
+        owner = b.get(OWNER_PROP)
+        if owner == obj.name or (b.name in prev and (owner is None or str(owner) not in others)):
+            out.append(b)
+    return out
+
+
+def _chain_names(base, chains, many):
+    for c in chains:
+        c["name"] = f"{base}_{c['index']}" if many else base
+        c["bone_names"] = [f"{c['name']}_{i:02d}" for i in range(len(c["joints"]) - 1)]
+
+
+def _add_bones(rig, root_bone, chains, obj, many):
+    """Replace `obj`'s chains on the rig; returns the name base used."""
     inv = rig.matrix_world.inverted()
     win = bpy.context.window
     prev_scene = win.scene
@@ -430,13 +460,21 @@ def _add_bones(rig, root_bone, chains, base):
         rig.select_set(True)
         bpy.ops.object.mode_set(mode="EDIT")
         eb = rig.data.edit_bones
-        for b in [b for b in eb if b.name.startswith(base + "_")]:
+        for b in _owned(eb, obj):
             eb.remove(b)
+        base = stem = STRAND_PREFIX + _safe(obj.name)
+        k = 1
+        while True:
+            _chain_names(base, chains, many)
+            if not any(n in eb for c in chains for n in c["bone_names"]):
+                break
+            k += 1
+            base = f"{stem}_v{k}"
         for c in chains:
             parent = eb[root_bone]
             names = []
             for i, (a, b) in enumerate(zip(c["joints"], c["joints"][1:])):
-                bone = eb.new(f"{c['name']}_{i:02d}")
+                bone = eb.new(c["bone_names"][i])
                 bone.head = inv @ a
                 bone.tail = inv @ b
                 bone.align_roll(Vector((1, 0, 0)) if abs((b - a).normalized().x) < 0.9 else Vector((0, 1, 0)))
@@ -445,10 +483,12 @@ def _add_bones(rig, root_bone, chains, base):
                 bone.use_deform = True
                 # tagged, so rig-anything's body map leaves it out of the head and spine
                 bone[ROLE_PROP] = "strand"
+                bone[OWNER_PROP] = obj.name
                 parent = bone
                 names.append(bone.name)
             c["bones"] = names
         bpy.ops.object.mode_set(mode="OBJECT")
+        return base
     finally:
         if bpy.context.view_layer.objects.active is not None and bpy.context.view_layer.objects.active.mode != "OBJECT":
             bpy.ops.object.mode_set(mode="OBJECT")

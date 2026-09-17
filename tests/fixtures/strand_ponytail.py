@@ -28,6 +28,43 @@ BODY = "Figure"
 ROLES = ("Idle", "Run")
 
 
+def _ownership(pony, rig):
+    """After the exports: copies of the ponytail whose names collide with it and with each other -
+    `Ponytail.001` (a duplicate), `Ponytail_001` (the same safe name), a two-chain `Hair` and a
+    one-chain `Hair_0` (chain 0 of `Hair` has its name) - prepared, then all re-prepared. Every
+    object's chains must survive the others' re-runs, with its own names."""
+    import bpy
+    from follow_through import strand
+    names = ["Ponytail.001", "Ponytail_001", "Hair", "Hair_0"]
+    for n in names:
+        o = pony.copy()
+        o.data = pony.data.copy()
+        o.name = n
+        for sc in pony.users_scene:
+            sc.collection.objects.link(o)
+    line = [list(p) for p in pony["ft_centreline"]]
+    hair = bpy.data.objects["Hair"]
+    del hair["ft_centreline"]
+    hair["ft_centrelines"] = [line, [[p[0] + 0.02, p[1], p[2]] for p in line]]
+    order = [pony.name] + names
+    first = {}
+    for n in order:
+        r = strand.prepare(n)
+        first[n] = {"chains": [c["name"] for c in r["chains"]],
+                    "renamed": [w for w in r["warnings"] if "belong to another" in w]}
+    before = sorted(b.name for b in rig.data.bones if b.name.startswith(strand.STRAND_PREFIX))
+    for n in order:
+        strand.prepare(n)
+    after = sorted(b.name for b in rig.data.bones if b.name.startswith(strand.STRAND_PREFIX))
+    intact = {}
+    for n in order:
+        o = bpy.data.objects[n]
+        spec_bones = [b["bone"] for c in strand.ft_spec.read(o)["strands"]["chains"] for b in c["bones"]]
+        intact[n] = all(b in rig.data.bones and rig.data.bones[b].get(strand.OWNER_PROP) == n for b in spec_bones)             and all(g.name in rig.data.bones for g in o.vertex_groups)
+    return {"prepared": first, "strand_bones": len(after), "unchanged_by_re_prepare": before == after,
+            "every_object_owns_its_spec_bones": intact}
+
+
 def build():
     import bpy
     from mathutils import Vector
@@ -71,6 +108,7 @@ def build():
                                           reports=moves, roles=ROLES, forward="-Y")
         exported = char.get("export", {})
         hair = strand.export(os.path.join(out, "figure_ponytail.glb"), [pony.name], rig)
+        ownership = _ownership(pony, bpy.data.objects[rig])
     finally:
         window.scene = previous
 
@@ -98,6 +136,7 @@ def build():
                         "durations_match": (exported.get("verified") or {}).get("durations_match")},
         "moves_json": H.moves_manifest(char),
         "hair_export": H.stable({k: v for k, v in hair.items() if k not in ("path",)}),
+        "ownership": ownership,
     }
 
 

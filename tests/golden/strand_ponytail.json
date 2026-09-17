@@ -114,6 +114,54 @@
    ],
    "problems": []
   },
+  "ownership": {
+   "every_object_owns_its_spec_bones": {
+    "Hair": true,
+    "Hair_0": true,
+    "Ponytail": true,
+    "Ponytail.001": true,
+    "Ponytail_001": true
+   },
+   "prepared": {
+    "Hair": {
+     "chains": [
+      "ft_strand_Hair_0",
+      "ft_strand_Hair_1"
+     ],
+     "renamed": []
+    },
+    "Hair_0": {
+     "chains": [
+      "ft_strand_Hair_0_v2"
+     ],
+     "renamed": [
+      "bone names ft_strand_Hair_0_* belong to another object's chains: named ft_strand_Hair_0_v2_* instead"
+     ]
+    },
+    "Ponytail": {
+     "chains": [
+      "ft_strand_Ponytail"
+     ],
+     "renamed": []
+    },
+    "Ponytail.001": {
+     "chains": [
+      "ft_strand_Ponytail_001"
+     ],
+     "renamed": []
+    },
+    "Ponytail_001": {
+     "chains": [
+      "ft_strand_Ponytail_001_v2"
+     ],
+     "renamed": [
+      "bone names ft_strand_Ponytail_001_* belong to another object's chains: named ft_strand_Ponytail_001_v2_* instead"
+     ]
+    }
+   },
+   "strand_bones": 30,
+   "unchanged_by_re_prepare": true
+  },
   "ponytail": {
    "centreline_points": 41,
    "faces": {
