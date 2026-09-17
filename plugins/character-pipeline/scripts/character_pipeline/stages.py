@@ -16,7 +16,9 @@ by breaking them on a real character:
   rig, and 8 mm of sports top at the armpits sent Belle's run arms up over her head;
 - flesh before garments: a garment is cut from the skin and takes its weights, and cut first it
   carries no jiggle bones;
-- bake before moves.
+- bake before moves;
+- hair once: the stage joins the hair into the body and cannot take it off again, so a body that already
+  has hair refuses (`check_hair`) and changing `[hair]` means rebuilding from `body`.
 """
 
 from __future__ import annotations
@@ -64,6 +66,22 @@ def fleshed(ch):
     if ob is None or "follow_through" not in ob:
         return False
     return any(g.name.startswith("ft_jiggle_") for g in ob.vertex_groups)
+
+
+def haired(ch):
+    """Meshes in the file that are already this character's hair - joined into the body, or a loose hair
+    object left from a run that did not finish.
+
+    humanform's `views.hair_objects` is the detector: a hair material on a mesh's slots (lookdev's `hair`
+    preset, or `hair` as a whole part of the material's name, which is what the deprecated shell_bun path
+    makes) or the `humanform_hair` property. The hair stage *joins* hair into the body, so it can only add a
+    second layer over the first; this is what stops it."""
+    ob = _obj(ch.mesh)
+    if ob is None or ob.type != "MESH":
+        return []
+    from humanform import views
+    loose = [o for o in bpy.data.objects if o.type == "MESH" and o.name != ch.mesh]
+    return sorted(o.name for o in views.hair_objects(ob, loose))
 
 
 def moves_stored(ch):
@@ -162,6 +180,25 @@ def check_not_dressed(stage):
                        else ": a garment cut first carries no jiggle weights" if stage == "flesh" else ""))
         return None
     return check
+
+
+def check_hair(ch):
+    """`check_not_dressed`, and then: no hair in the file already.
+
+    `run_hair` joins the hair into the body, so it can only ever add. On a rebuild where only `[hair]`
+    changed, bake's hash is unchanged and bake is skipped, so without this the new layer went on top of the
+    old one: the bun stayed in the mesh, and `humanform.hair`'s landmarks read the previous cap (weighted
+    1.0 to the head bone) as scalp, so the crown rose and the head unit `h` grew - every measurement the
+    hairline is placed from moved. Changing `[hair]` means rebuilding from `body`, which is the one stage
+    that clears the character out of the file."""
+    problem = check_not_dressed("hair")(ch)
+    if problem:
+        return problem
+    already = haired(ch)
+    if already:
+        return ("hair is already in this file (%s) and the hair stage joins a layer on rather than "
+                "replacing it - rebuild from body (from_stage=\"body\") to change [hair]" % ", ".join(already))
+    return None
 
 
 def _rest(ch):
@@ -362,7 +399,7 @@ def run_export(ch, ctx):
 STAGES = [
     ("body", (), ("character", "body"), lambda ch: None, run_body, lambda ch: True),
     ("bake", ("body",), ("character", "body"), check_bake, run_bake, lambda ch: True),
-    ("hair", ("bake",), ("hair",), check_not_dressed("hair"), run_hair, lambda ch: ch.hair is not None),
+    ("hair", ("bake",), ("hair",), check_hair, run_hair, lambda ch: ch.hair is not None),
     ("flesh", ("bake", "hair"), ("flesh",), check_not_dressed("flesh"), run_flesh, lambda ch: ch.flesh is not None),
     ("moves", ("bake", "hair", "flesh"), ("moves",), check_not_dressed("moves"), run_moves, lambda ch: True),
     ("garments", ("moves", "flesh"), ("outfit",), check_garments, run_garments, lambda ch: bool(ch.outfit)),

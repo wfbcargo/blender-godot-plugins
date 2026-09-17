@@ -171,6 +171,56 @@ group but drops the object properties: the strand-motion stage should run betwee
 - Evidence: `renders` in the branch's hand-off, Belle built from `belle.toml` with `preset = "bun"` through
   every stage; Godot frames from the pipeline's exported `belle.glb` with `LookdevMaterials.apply`.
 
+**Review fixes (round 2, same branch).**
+- *Changing `[hair]` stacked a second layer into the body.* The hair stage joins its hair into the body, so
+  it can only add; its precondition only asked "no garments bound". On a rebuild where only `[hair]` changed,
+  bake's hash is unchanged and bake is skipped, so the stage ran on an already-haired body: the old bun stayed
+  in the mesh (19989 -> 45450 vertices on the probe), and `humanform.hair`'s landmarks read the previous cap,
+  weighted 1.0 to the head bone, as scalp - the crown rose 7.8 mm, the head unit `h` grew 6.8% (0.1145 ->
+  0.1222) and the cap took 6128 body faces instead of ~1200. Every measurement the hairline is placed from
+  moved, with no warning. `stages.check_hair` now runs `stages.haired` (humanform's `views.hair_objects`,
+  which already existed) before the stage and refuses, naming the rebuild: `from_stage="body"`, the one stage
+  that clears the character out of the file. Every fixture started from an empty scene, so nothing caught it;
+  `hair_presets` now changes the preset from ponytail to bun and reruns the stage on the built body
+  (`rebuild_refused`: refused, `body_unchanged` true, 19845 vertices either way).
+- *`views._hair_material` matched `hair` as a substring.* Found by the check above: the fixture's character is
+  called HairWoman, so her `HairWoman_skin` material was read as hair and her first hair stage refused. The
+  name test (there only for the deprecated shell_bun material, `<name>_hair`) now matches `hair` as a whole
+  part of the name, not a substring; the lookdev-preset test is unchanged.
+- *`regress.py --plugins <checkout>` did not route lookdev.* `SCRIPT_VARS` and `_harness.PLUGINS` covered five
+  plugins, and the `plugins/<name>/scripts` mapping could not have reached lookdev anyway, whose Blender
+  package is `blender/`. So a run against another checkout exercised *this* tree's hair material while saying
+  otherwise, and `tests/golden/hair_presets.json` pinned lookdev's outputs - `gltf.texture_hash`,
+  `gltf.normal_hash`, `alphaCutoff`, the whole `extras.lookdev` block, and `cap.strand_turns` 14, which is
+  round(2*pi*0.09 / `tile_m`) and so depends on lookdev's `tile_m` = 0.04 - with no record of which lookdev
+  produced them. Both maps now carry `LD_SCRIPTS` with a `PACKAGE_DIR` (`lookdev` -> `blender`), the fixture
+  routes it through `H.use` rather than setting it itself, and the golden's `plugins` map records
+  `lookdev 0.1.0` beside the other five. No pinned number moved.
+- *`LookdevMaterials.tangents_per_face` tore down a mesh it could not retangent.* The per-surface guard
+  checked blend shapes and the primitive type, but the `clear_surfaces()` / `add_surface_from_arrays()`
+  rebuild and `mesh.set_meta("lookdev_tangents", "per_face")` ran unconditionally: a hair material on a mesh
+  with blend shapes round-tripped every surface through `surface_get_arrays` for nothing and was still marked
+  done, so a later correct pass was skipped - the opposite of what `references/hair.md` said. It now works out
+  what it can rebuild first and returns `false`, untouched and unmarked, when that is nothing; `apply` reports
+  only meshes it really retangented. Probe in a scratch Godot project (`tangent_probe.gd`, 4.7.2), before -> after:
+  a mesh with a blend shape, `lookdev_tangents` set -> not set; a `PRIMITIVE_LINES` surface, set -> not set;
+  `apply` on a scene holding both, the shaped mesh marked -> unmarked while its material still gets its
+  properties. The shipped path is unchanged: with no blend shapes the hair surface still de-indexes (9 shared
+  vertices -> 24 corners, index dropped, tangents written), and Belle's exported glb still reports
+  `tangents_per_face: ["after_BelleAfter_body"]` in Godot.
+- *Release bookkeeping is not on this branch.* A reviewer asked for the plugin version bumps, the
+  `marketplace.json` entries and the NEXT.md line that the last four feature merges on `main` each carried.
+  This run was told not to bump versions or touch `marketplace.json`, NEXT.md or `tests/README.md`, because
+  about seven agents are on branches at once and those three files are where they collide. So the merge owes:
+  humanform (new `hair` module and brief field), lookdev (first material-preset system, `presets/materials.json`,
+  a new Godot addon script) and character-pipeline (new `[hair]` spec field, the hair stage's new
+  precondition), each with its `marketplace.json` version and "Since x.y.z" clause, plus the NEXT.md line and
+  a `tests/README.md` mention of `LD_SCRIPTS`. humanform's layer table no longer claims a version it does not
+  have (it read "built (unreleased, branch `hair-layer`)"); the merge fills the number in.
+- Evidence: `godot_before_after.png` and `blender_before_after.png` in this branch's scratch - Belle from
+  `belle.toml` built to the hair stage with `preset = "bun"` against `shell_bun`, front / three-quarter / back
+  at 1 m and a close three-quarter, the Godot row through `LookdevMaterials.apply` on the pipeline's own glb.
+
 **Found / open.**
 - Bob and long_loose are still shells: better, but at 1 m they read as a heavy, smooth hairstyle more than
   as loose hair; a faint line can show where a fall leaves the cap below the widest part of the head.

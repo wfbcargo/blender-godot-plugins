@@ -91,7 +91,7 @@ that no plugin owns yet. Tuned numbers live with their owners, and a spec only n
 |---|---|---|
 | `body` | - | a `blend` source's object is in the open file |
 | `bake` | body | the rig and the humanform mesh exist |
-| `hair` | bake | baked; no garment bound. Runs humanform's `hair.add` and joins the hair (and a strand, after checking its follow-through contract) into the body |
+| `hair` | bake | baked; no garment bound; **no hair in the file already**. Runs humanform's `hair.add` and joins the hair (and a strand, after checking its follow-through contract) into the body |
 | `flesh` | bake, hair | baked; no garment bound - cut first, a garment carries no jiggle weights |
 | `moves` | bake, hair, flesh | baked; no garment bound - rig-anything measures arm hang against every mesh on the rig |
 | `garments` | moves, flesh | every role has a stored clip; jiggle bones present if the spec has flesh |
@@ -125,10 +125,19 @@ What the stages write that is the pipeline's own convention rather than a plugin
   to be rerun, rather than falling back to the mesh top.
 - **The manifest has no `upper_body`.** The clips' upper-body parameters are in the move reports
   stored on the actions; nothing in Godot read the copy.
-- **Hair is joined into the body**, because rig-anything exports one mesh. For ponytail and long_loose the
-  strand object's follow-through contract (humanform SKILL.md, *Hair*) is checked before the join and
-  reported as `strand_contract`; its `ft_strand` vertex group and fallback weights survive the join. The
-  material comes from lookdev (`LD_SCRIPTS`, else the installed `lookdev/blender`); in Godot call
+- **Hair goes on once.** It is joined into the body, because rig-anything exports one mesh, and a join
+  cannot be undone - so the stage refuses when the body already has hair (`stages.haired`, humanform's
+  `views.hair_objects`: a hair material on a slot, or a loose `humanform_hair` object). **To change
+  `[hair]`, rebuild from `body`**, the one stage that clears the character out of the file:
+  `runner.build(spec, from_stage="body")`. Rerunning hair alone used to stack a second layer on the
+  first - the old bun stayed in the mesh, and humanform's landmarks read the previous cap (weighted 1.0
+  to the head bone) as scalp, so the crown rose 7.8 mm and the head unit `h` grew 6.8%, moving the whole
+  hairline. On a rebuild where only `[hair]` changed, bake's hash is unchanged and bake is skipped, so
+  nothing else stood in the way.
+- **The strand contract survives the join.** For ponytail and long_loose the strand object's
+  follow-through contract (humanform SKILL.md, *Hair*) is checked before the join and reported as
+  `strand_contract`; its `ft_strand` vertex group and fallback weights survive it. The hair material
+  comes from lookdev (`LD_SCRIPTS`, else the installed `lookdev/blender`); in Godot call
   `LookdevMaterials.apply` on the instanced character (soft hairline, anisotropy, per-face hair tangents).
   **lookdev is optional**: `plugins.use()` imports it only if its folder is there (hair then gets a flat
   material), and its version is in the input hash of the hair stage only, and only for a preset spec

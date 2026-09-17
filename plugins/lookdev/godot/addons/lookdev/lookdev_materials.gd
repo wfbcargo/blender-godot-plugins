@@ -56,8 +56,8 @@ static func apply(root: Node) -> Dictionary:
 				mat.set_meta("lookdev_applied", spec.get("preset", ""))
 				done.append(mat.resource_name)
 		if not rebuild.is_empty() and mi.mesh is ArrayMesh and not mi.mesh.has_meta("lookdev_tangents"):
-			tangents_per_face(mi.mesh, rebuild)
-			retangented.append(mi.mesh.resource_name if mi.mesh.resource_name != "" else String(mi.name))
+			if tangents_per_face(mi.mesh, rebuild):
+				retangented.append(mi.mesh.resource_name if mi.mesh.resource_name != "" else String(mi.name))
 	return {"materials": done, "skipped": skipped, "tangents_per_face": retangented}
 
 
@@ -130,14 +130,29 @@ static func strand_tangents(arrays: Array) -> PackedFloat32Array:
 
 ## Rebuilds the listed surfaces of `mesh` with one vertex per triangle corner and `strand_tangents` on
 ## that, keeping every other surface, the blend shapes, skin weights and materials. In place, so every
-## instance sharing the mesh gets it.
-static func tangents_per_face(mesh: ArrayMesh, surfaces: Array) -> void:
+## instance sharing the mesh gets it. Returns whether it rebuilt anything.
+##
+## A mesh it cannot retangent it does not touch at all. Blend shapes are the case: the rebuild is a
+## de-index, and a blend shape's arrays are indexed against the surface it belongs to, so a surface with
+## shapes is left as it is. Before, the teardown ran anyway - every surface was round-tripped through
+## `surface_get_arrays` (which loses the LOD and shadow-mesh data the format flags do not carry), no
+## tangents were built, and the mesh was still stamped `lookdev_tangents`, so a later correct pass was
+## skipped. character-pipeline bakes shape keys away before export, but this is lookdev's public entry
+## point and any mesh can arrive at it.
+static func tangents_per_face(mesh: ArrayMesh, surfaces: Array) -> bool:
 	var count := mesh.get_surface_count()
+	var rebuild := []
+	if mesh.get_blend_shape_count() == 0:
+		for i in surfaces:
+			if i is int and i >= 0 and i < count and mesh.surface_get_primitive_type(i) == Mesh.PRIMITIVE_TRIANGLES:
+				rebuild.append(i)
+	if rebuild.is_empty():
+		return false
 	var saved := []
 	for i in count:
 		var arrays := mesh.surface_get_arrays(i)
 		var format := mesh.surface_get_format(i)
-		if i in surfaces and mesh.get_blend_shape_count() == 0 				and mesh.surface_get_primitive_type(i) == Mesh.PRIMITIVE_TRIANGLES:
+		if i in rebuild:
 			var st := SurfaceTool.new()
 			st.create_from_arrays(arrays, Mesh.PRIMITIVE_TRIANGLES)
 			st.deindex()
@@ -160,6 +175,7 @@ static func tangents_per_face(mesh: ArrayMesh, surfaces: Array) -> void:
 		mesh.surface_set_material(k, s["material"])
 		mesh.surface_set_name(k, s["name"])
 	mesh.set_meta("lookdev_tangents", "per_face")
+	return true
 
 
 static func preset_of(mat: Material) -> Dictionary:

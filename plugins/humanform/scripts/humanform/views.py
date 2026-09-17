@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 
 import bpy
 import numpy as np
@@ -263,8 +264,18 @@ HAIR_SHOTS = (("front", 0.0, 1.0, 0.0), ("three_quarter", 45.0, 1.0, 0.0), ("bac
 
 
 def _hair_material(mat):
-    lookdev = mat.get("lookdev") if mat is not None else None
-    return bool(lookdev) and lookdev.get("preset") == "hair" or (mat is not None and "hair" in mat.name.lower())
+    """A material that is hair: lookdev's `hair` preset, or `hair` as a whole part of its name.
+
+    A part, not a substring. A character called HairWoman has a `HairWoman_skin` material, and
+    `"hair" in name.lower()` called her skin hair - which made character-pipeline's new "is there hair
+    already" check refuse her first hair stage. The name test is only there for the deprecated shell_bun
+    material (`<name>_hair`), which carries no `lookdev` property."""
+    if mat is None:
+        return False
+    lookdev = mat.get("lookdev")
+    if bool(lookdev) and lookdev.get("preset") == "hair":
+        return True
+    return "hair" in re.split(r"[^a-z0-9]+", mat.name.lower())
 
 
 def hair_objects(body, extra=()):

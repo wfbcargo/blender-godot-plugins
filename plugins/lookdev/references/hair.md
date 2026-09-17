@@ -36,9 +36,16 @@ StandardMaterial3D under `root` that has them (colours from arrays, ints from nu
 the material does not have, marks the material applied, and returns the names it changed. Where a preset's
 `mesh.tangents` is `"per_face"` it rebuilds that surface of the ArrayMesh in place - one vertex per triangle
 corner, each from the triangle's U gradient made perpendicular to the corner's normal, sign +1 - keeping the
-other surfaces, skin weights and materials (a mesh with blend shapes is left alone). V takes no part: the
-strand texture's normal map and the anisotropy only use the across-strand axis. Materials and meshes are
-shared by the imported scene's instances, so once is enough.
+other surfaces, skin weights and materials. V takes no part: the strand texture's normal map and the
+anisotropy only use the across-strand axis. Materials and meshes are shared by the imported scene's
+instances, so once is enough.
+
+A mesh it cannot retangent it leaves untouched and unmarked, returning `false`: blend shapes are the case,
+since the rebuild de-indexes and a shape's arrays are indexed against its surface, and so is a surface that
+is not a triangle list. Nothing is torn down and `lookdev_tangents` is not stamped, so the mesh is not
+counted in `tangents_per_face` and a later correct pass still runs. (character-pipeline bakes shape keys
+away before export, so the shipped path never has them; lookdev is general-purpose and any mesh can arrive
+at `apply`.)
 
 A corner then takes the mean of the tangents of every face that meets at its position, each flipped onto
 this face's own first (mod 180 degrees, since a strand axis has no direction), and keeps its own where that

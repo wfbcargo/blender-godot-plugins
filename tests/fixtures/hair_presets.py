@@ -13,6 +13,8 @@ A curvy MPFB woman from a spec is built through character-pipeline's body and ba
   and a hash of the strand texture's pixels;
 - the spec's `[hair] preset = "ponytail"` runs the hair stage, which joins the hair and its strand into
   the body: the stage report, and the joined body's `ft_strand` group;
+- changing `[hair]` and rerunning the stage on the built body is refused rather than joining a second hair
+  layer on top of the first, and the body is left exactly as it was;
 - `spec.GAPS` no longer lists hair, the deprecated `kind = "shell_bun"` still parses, and a bad preset or
   colour in a spec or a brief is refused;
 - lookdev is optional to the pipeline: with `LD_SCRIPTS` pointing at nothing, `plugins.use()` still imports
@@ -28,12 +30,13 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _harness as H  # noqa: E402
 
-H.use("RA_SCRIPTS", "HF_SCRIPTS", "FT_SCRIPTS", "WD_SCRIPTS", "CP_SCRIPTS")
-for _var in ("RA_SCRIPTS", "HF_SCRIPTS", "FT_SCRIPTS", "WD_SCRIPTS", "CP_SCRIPTS"):
+# lookdev is routed with the rest. Its Blender package is `blender/`, not `scripts/` - the harness knows
+# that, so `--plugins <checkout>` reaches it, and `use` records its version in the report. This fixture's
+# glTF numbers are lookdev's own (the strand texture hashes, the material extras) and so is the cap's
+# `strand_turns`, the crown's circumference over lookdev's `tile_m`.
+H.use("RA_SCRIPTS", "HF_SCRIPTS", "FT_SCRIPTS", "WD_SCRIPTS", "CP_SCRIPTS", "LD_SCRIPTS")
+for _var in ("RA_SCRIPTS", "HF_SCRIPTS", "FT_SCRIPTS", "WD_SCRIPTS", "CP_SCRIPTS", "LD_SCRIPTS"):
     os.environ[_var] = H.scripts(_var)
-# lookdev's Blender package is its `blender` folder, not `scripts`; the pipeline reads LD_SCRIPTS
-os.environ.setdefault("LD_SCRIPTS", os.path.join(H.REPO, "plugins", "lookdev", "blender"))
-sys.path.insert(0, os.environ["LD_SCRIPTS"])
 
 SPEC = '''
 [character]
@@ -192,9 +195,10 @@ def build():
                       "materials": [m.name for m in body.data.materials if m],
                       "leftover_hair_objects": sorted(o.name for o in bpy.data.objects if o.name.startswith(ch.name + "_hair"))})
 
+    base = tomllib.loads(SPEC)
+    rebuild = _rebuild_refused(ch, spec, base)
     optional = _optional_lookdev(ch, spec)
 
-    base = tomllib.loads(SPEC)
     refusals = {}
     for label, table in (("bad_preset", {"preset": "mohawk"}), ("bad_colour", {"preset": "bun", "colour": [2, 0, 0]}),
                          ("unknown_field", {"preset": "bun", "front": 0.07}), ("no_preset", {"colour": [0.1, 0.1, 0.1]})):
@@ -213,8 +217,35 @@ def build():
                  "shell_bun_kind": old.hair.kind, "shell_bun_params": old.hair.params},
         "brief_refusal": [p for p in brief if "hair" in p],
         "stage_names": [s[0] for s in stages.STAGES],
+        "rebuild_refused": rebuild,
         "optional_lookdev": optional,
     }
+
+
+def _rebuild_refused(ch, spec, base):
+    """Changing `[hair]` on a body that already has hair must refuse, not stack a second layer on.
+
+    The hair stage joins its hair into the body. On a rebuild where only `[hair]` changed, bake's hash is
+    unchanged so bake is skipped and the stage ran on an already-haired body: the old bun stayed in the
+    mesh, and `humanform.hair`'s landmarks read the previous cap (weighted 1.0 to the head bone) as scalp,
+    so the crown rose 7.8 mm and the head unit `h` grew 6.8% - the whole hairline moved, silently. Here the
+    spec's preset is changed from ponytail to bun and the hair stage rerun from the built file, which is the
+    shape of that rebuild; `stages.check_hair` refuses it and the body is untouched."""
+    import bpy
+    from character_pipeline import runner, stages
+    body = bpy.data.objects[ch.mesh]
+    before = {"verts": len(body.data.vertices), "materials": [m.name for m in body.data.materials if m]}
+    other = spec.parse(dict(base, hair={"preset": "bun", "colour": [0.35, 0.22, 0.12]}))
+    out = {"found": stages.haired(ch), "refused": None}
+    try:
+        runner.build(other, from_stage="hair", to_stage="hair", save=False, log=lambda m: None)
+    except stages.StageRefused as exc:
+        out["refused"] = str(exc)
+    body = bpy.data.objects[ch.mesh]
+    after = {"verts": len(body.data.vertices), "materials": [m.name for m in body.data.materials if m]}
+    out["body_unchanged"] = after == before
+    out["verts"] = after["verts"]
+    return H.stable(out)
 
 
 def _optional_lookdev(ch, spec):

@@ -21,7 +21,7 @@ been **measured**. The research behind this plugin, and the full plan, are in
 | L2 | MPFB2 base driven to the landmarks, rig renamed | **built** (0.3.0) - `scaffold` |
 | L4 | face stage (ANSUR head measures), face design parts, eyes; library and pipeline | **built** (0.4.0) - `scaffold.fit_face`, `parts`, `eyes`, `library`, `pipeline` - see the `humanlib` skill |
 | L4 | hands-and-feet stage (ANSUR hand and foot sizes), hand and foot design parts | **built** (0.5.0) - `scaffold.fit_extremities`, `parts.design` / `screen` - see `humanlib` |
-| L6 | hair from a preset: feathered scalp cap, bun / tie / fall volumes, strand objects for follow-through | **built** (unreleased, branch `hair-layer`) - `hair`, see *Hair* |
+| L6 | hair from a preset: feathered scalp cap, bun / tie / fall volumes, strand objects for follow-through | **built** - `hair`, see *Hair* |
 | L3-L4 | muscle definition and stylized exaggeration (SDF forms) | next |
 | L5-L6 | reproject onto base topology, micro-detail, bake, skin | Phase 5 |
 | L7 | rig from landmarks, flesh regions, export | Phase 6 |
@@ -179,9 +179,13 @@ hair.add(body, sheet=s)             # the brief's hair = {"preset": ..., "colour
 hair.contract("Belle_hair_strand")  # the strand contract below, read back: {passed, problems, points, length_m}
 ```
 
-On a **baked** body (no Mask modifier). `character-pipeline`'s hair stage calls it from a spec's
-`[hair] preset = ...` and joins the result into the body; the brief field is `sheet.new(hair={"preset",
-"colour"})`, validated against `sheet.HAIR_PRESETS`, and `pipeline.make` does not build it.
+On a **baked** body (no Mask modifier), and on a **bare** one: the cap is cut from the body's own faces and
+the landmarks are measured off its surface, so hair already joined into the body is read as scalp - the crown
+comes out high, the head unit `h` grows and the whole hairline shifts. `views.hair_objects(body)` says whether
+there is hair there already; `character-pipeline`'s hair stage checks it and refuses, since to change a preset
+the character is rebuilt from its body stage. That stage calls `hair.add` from a spec's `[hair] preset = ...`
+and joins the result into the body; the brief field is `sheet.new(hair={"preset", "colour"})`, validated
+against `sheet.HAIR_PRESETS`, and `pipeline.make` does not build it.
 
 | preset | parts |
 |---|---|
