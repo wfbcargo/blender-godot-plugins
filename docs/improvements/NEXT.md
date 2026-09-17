@@ -11,7 +11,7 @@ change, 9 manifests and the wardrobe fixtures pass in Godot). Installed copies i
 the repo:
 - rig-anything 0.21.0
 - follow-through 0.4.0
-- wardrobe 0.2.1
+- wardrobe 0.2.2
 - humanform 0.6.3
 - character-pipeline 0.2.0
 - animate-anything 0.9.2
@@ -115,10 +115,12 @@ chain, not a cap) is wall-filtered; her regions do not move.
   - Checks: both self-tests pass (Belle's flesh 7.6/9.0% and 8.6/8.4% on the limit). `verify_wardrobe` passes all 7
     clips in the shorts, the top and both, 21 runs; the worst holes are 0.39% (shorts walk) and the worst poke 0.24%.
     The `cut=0.04` control fails at 6.5%.
-  - **Found: `verify_wardrobe.gd` passes a clip that does not exist.** `clip=Walk` on Belle (her clips are
-    `Belle_Walk` and so on) raises a script error at `player.get_animation(clip).loop_mode`, samples nothing and still
-    prints `WD_RESULT` with `"passed": true` and zero holes. It should fail with `unknown clip`, and so should a run
-    with no samples. Until it does, pass the full clip name and check `samples` in the result.
+  - **Fixed (wardrobe 0.2.2): `verify_wardrobe.gd` passed runs that measured nothing.** `clip=Walk` on Belle (her
+    clips are `Belle_Walk` and so on) raised a script error, sampled nothing and printed `"passed": true`. So did
+    every `still=true` run: with no clip playing the skeleton never updates, so the rest-pose check SKILL.md asks
+    for had never sampled a frame. An unknown clip (the problem lists the body's clips), a missing body or garment,
+    setup cut short, or `samples: 0` now fail; still mode samples from the frame loop (Belle's shorts at rest: 5
+    samples, 0 holes, 0 poke).
 - **Nora (`assets/wardrobe/build_person.py`) is still a script.** She has a sculpted body on mocap, and nothing in a
   spec covers that. Convert her only if a spec grows a source for it.
 - **Done: the real `.blend` files are rebuilt.** The rebuild saved `C:/Users/pauli/Code/Blender/human_*.blend` and
