@@ -28,7 +28,9 @@ extends SceneTree
 ##
 ## Limits: holes and poke each at most 0.5% of the vertices they are counted over, in the worst
 ## sampled frame; every hidden position matched; hem offsets finite and within their limits.
-## occluded and coincident are reported, not limited.
+## occluded and coincident are reported, not limited. A run that measured nothing fails: a body,
+## garment or clip= that does not exist, setup that did not finish (a script error in it leaves no
+## pose hooked up), or no frame sampled.
 ##
 ## Controls and evidence: cut=<m> removes a patch of the garment and must fail; shot=<frame>, run
 ## with a window, renders that frame's holes (see _plan_shots). trace=true prints every sample,
@@ -81,6 +83,10 @@ var shot_wait := 0
 var shot_results: Array = []
 var open_dir := {}                  # hole vertex -> the first view that sees into it, this sample
 var view_dirs: Array[Vector3] = []  # around +Z, the normal first
+var setup_problems := PackedStringArray()
+var setup_done := false             # set last in _setup: a script error part-way leaves it false
+var still := false                  # nothing plays, so the skeleton never updates: sample from _process
+var sampled_frame := -1
 
 
 func _initialize() -> void:
@@ -106,6 +112,9 @@ func _process(_delta: float) -> bool:
 		started = true
 		_setup()
 		return false
+	if not setup_done:
+		_finish()
+		return true
 	if shot_wait > 0:
 		shot_wait -= 1
 		if shot_wait == 0:
@@ -114,6 +123,8 @@ func _process(_delta: float) -> bool:
 			return true
 		return false
 	frame += 1
+	if still:
+		_on_pose()
 	if circle > 0.0:
 		angle += speed / circle * (1.0 / 60.0)
 		body_root.position = Vector3(cos(angle), 0, -sin(angle)) * circle
@@ -125,7 +136,16 @@ func _process(_delta: float) -> bool:
 
 
 func _setup() -> void:
-	var packed: PackedScene = load(args.get("body", "res://assets/wardrobe/nora.glb"))
+	var body_path: String = args.get("body", "res://assets/wardrobe/nora.glb")
+	var packed: PackedScene = load(body_path) if ResourceLoader.exists(body_path) else null
+	if packed == null:
+		setup_problems.append("body not found: %s" % body_path)
+		return
+	for path in args.get("garment", "res://assets/wardrobe/nora_tshirt.glb").split(","):
+		if not ResourceLoader.exists(path):
+			setup_problems.append("garment not found: %s" % path)
+	if not setup_problems.is_empty():
+		return
 	body_root = packed.instantiate()
 	root.add_child(body_root)
 	if args.get("jiggle", "true") == "true" and ResourceLoader.exists("res://addons/follow_through/follow_through.gd"):
@@ -152,15 +172,25 @@ func _setup() -> void:
 	hidden_idx = PackedInt32Array(hidden_set.keys())
 	if args.has("cut"):
 		_cut(float(args["cut"]))
-	var player: AnimationPlayer = body_root.find_children("*", "AnimationPlayer", true, false)[0]
-	var clip: String = args.get("clip", player.get_animation_list()[0])
+	var players := body_root.find_children("*", "AnimationPlayer", true, false)
+	if players.is_empty():
+		setup_problems.append("the body has no AnimationPlayer")
+		return
+	var player: AnimationPlayer = players[0]
+	var clips := player.get_animation_list()
+	var clip: String = args.get("clip", clips[0] if not clips.is_empty() else "")
+	if not player.has_animation(clip):
+		setup_problems.append("no clip %s; the body has %s" % [clip, ", ".join(clips)])
+		return
 	player.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
 	if args.get("still", "false") != "true":
 		player.play(clip)
 	else:
 		circle = 0.0
+		still = true
 	_rest_under()
 	skel.skeleton_updated.connect(_on_pose)
+	setup_done = true
 
 
 ## cut=<radius m>: a control that must fail. Removes every garment triangle with a corner within the
@@ -254,8 +284,9 @@ func _binds(mi: MeshInstance3D) -> PackedInt32Array:
 
 
 func _on_pose() -> void:
-	if frame % every != 0 or frame == 0 or shot_wait > 0:
+	if frame % every != 0 or frame == 0 or shot_wait > 0 or frame == sampled_frame:
 		return
+	sampled_frame = frame
 	var t0 := Time.get_ticks_msec()
 	for h in hems:
 		for b in h.bones:
@@ -624,7 +655,11 @@ static func _tri(o: Vector3, d: Vector3, a: Vector3, b: Vector3, c: Vector3) -> 
 
 
 func _finish() -> void:
-	var problems := PackedStringArray()
+	var problems := PackedStringArray(setup_problems)
+	if setup_problems.is_empty() and not setup_done:
+		problems.append("setup did not finish (a script error above); nothing was measured")
+	elif setup_done and samples == 0:
+		problems.append("no frame was sampled in %d frames (every=%d); nothing was measured" % [frame, every])
 	var equip := []
 	for rep in equip_reports:
 		var r := {}
@@ -648,7 +683,8 @@ func _finish() -> void:
 			if peak_by_bone.get(b["name"], 0.0) > float(b["max_offset"]) + 1e-4:
 				over += 1
 	var holes_frac := float(worst["holes"]) / maxf(hidden_idx.size(), 1)
-	var poke_frac := float(worst["poke"]) / maxf(float(body_arrays[Mesh.ARRAY_VERTEX].size() - hidden_idx.size()), 1.0)
+	var body_verts: int = body_arrays[Mesh.ARRAY_VERTEX].size() if not body_arrays.is_empty() else 0
+	var poke_frac := float(worst["poke"]) / maxf(float(body_verts - hidden_idx.size()), 1.0)
 	if holes_frac > LIMITS["holes_frac"]:
 		problems.append("holes: %d hidden verts uncovered (%.2f%%) at frame %d" % [worst["holes"], holes_frac * 100, worst["holes_frame"]])
 	if poke_frac > LIMITS["poke_frac"]:

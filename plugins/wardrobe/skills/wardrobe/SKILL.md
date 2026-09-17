@@ -206,8 +206,11 @@ normal: it is a hole only if some view reaches it and sees into the body.
 | `hide_unmatched` | 0 | the body in Godot is not the body the garment was fitted to |
 | hem finite, within `max_offset_m` | - | a spring blew up |
 
-`still=true jiggle=false` checks the rest pose: it must read 0 and 0. `clip=` picks the clip; check
-every clip a character has, because a crouch opens what a walk never does. `cut=0.04` removes a
+`still=true jiggle=false` checks the rest pose: it must read 0 and 0. `clip=` picks the clip by its
+full name (Belle's are `Belle_Walk` and so on); check every clip a character has, because a crouch
+opens what a walk never does. A run that measured nothing fails - an unknown clip (the problem lists
+the clips the body has), a missing body or garment, or `samples: 0` - so a pass always means frames
+were measured. Before wardrobe 0.2.2 an unknown clip and every `still=true` run passed with nothing sampled. `cut=0.04` removes a
 4 cm patch of the garment and must fail - the proof that the check still sees a real hole.
 `shot=<frame>` without `--headless` renders that frame's holes from outside (body back faces
 magenta, so magenta means you see in), and `trace=holes` prints each candidate's open views. Measured on Nora (30k
