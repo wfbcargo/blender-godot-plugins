@@ -30,7 +30,7 @@ PIN_GROUP = "ft_pin"
 
 FAMILIES = ("strand", "shell", "volume")
 CLOTH = ("hanging_sheet", "draped_sheet", "draped_tube", "loose_sheet", "strap", "tensioned")
-CLASSES = CLOTH + ("solid_sheet", "loose_volume", "mounted_volume", "flesh", "volume", "not_cloth")
+CLASSES = CLOTH + ("solid_sheet", "loose_volume", "mounted_volume", "flesh", "volume", "not_cloth", "strand")
 ROUTES = ("soft_body", "shape_matching", "jiggle_bones", "spring_bones", "none")
 ANCHORS = ("node", "bone", "none")
 PRESETS = ("silk", "cotton", "wool", "denim", "canvas", "leather", "rubber", "custom")
@@ -215,6 +215,27 @@ def validate(spec):
                 p.append(f"jiggle region {r.get('name')}: head and tail are [x, y, z]")
             if r.get("frequency_hz", 1) <= 0:
                 p.append(f"jiggle region {r.get('name')}: frequency_hz must be > 0")
+    if spec.get("route") == "spring_bones" and spec.get("class") == "strand":
+        need(spec, ("strands",), "spring_bones route")
+        blk = spec.get("strands", {})
+        if blk.get("space") != "gltf_armature":
+            p.append("strands.space must be gltf_armature")
+        if not blk.get("chains"):
+            p.append("strands.chains is empty")
+        for c in blk.get("chains", []):
+            if not c.get("bones"):
+                p.append(f"strand chain {c.get('name', '?')} has no bones")
+            for b in c.get("bones", []):
+                need(b, ("bone", "parent", "head", "tail", "frequency_hz", "damping_ratio", "max_angle_deg"),
+                     f"strand bone {b.get('bone', '?')}")
+                if len(b.get("head", [])) != 3 or len(b.get("tail", [])) != 3:
+                    p.append(f"strand bone {b.get('bone')}: head and tail are [x, y, z]")
+                if b.get("frequency_hz", 1) <= 0:
+                    p.append(f"strand bone {b.get('bone')}: frequency_hz must be > 0")
+        for c in blk.get("colliders", []):
+            need(c, ("name", "bone", "a", "b", "radius_m"), f"strand collider {c.get('name', '?')}")
+            if c.get("shape") == "ellipsoid":
+                need(c, ("axes", "radii_m"), f"strand collider {c.get('name', '?')}")
     pins = spec.get("pins")
     if pins is not None:
         need(pins, ("count", "space", "positions", "tolerance", "anchor"), "pins")

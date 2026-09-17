@@ -17,7 +17,7 @@ VERSION = "0.2.0"
 
 # dependency order: classify imports measure; spec imports classify; the
 # libraries import spec; export imports spec and the libraries.
-MODULES = ("measure", "views", "registry", "classify", "spec", "limits", "flesh", "marks", "cloth", "volume", "export", "samples")
+MODULES = ("measure", "views", "registry", "classify", "spec", "limits", "flesh", "marks", "cloth", "volume", "strand", "export", "samples")
 
 
 def reload_all():

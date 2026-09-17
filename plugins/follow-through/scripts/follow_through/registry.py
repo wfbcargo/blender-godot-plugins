@@ -41,6 +41,7 @@ SCHEMA = "follow-through-types/1"
 
 FAMILIES = ("strand", "shell", "volume")
 VOLUME_CLASSES = ("loose_volume", "mounted_volume", "flesh")
+STRAND_CLASSES = ("strand",)
 
 # how far apart two objects' features may be and still count as the same kind of thing
 NEAR = 0.35
@@ -124,6 +125,10 @@ def define(name, family, classes, material=None, names=(), description="", zone=
         bad = [c for c in classes if c not in VOLUME_CLASSES]
         if bad:
             raise ValueError(f"volume classes are {VOLUME_CLASSES}, not {bad}")
+    if family == "strand":
+        bad = [c for c in classes if c not in STRAND_CLASSES]
+        if bad:
+            raise ValueError(f"strand classes are {STRAND_CLASSES}, not {bad}")
     if "flesh" in classes and zone is None:
         raise ValueError("a flesh type needs a zone - teach it from a painted group instead")
     entry = {"family": family, "classes": list(classes), "names": [n.lower() for n in names],
@@ -142,15 +147,18 @@ def define(name, family, classes, material=None, names=(), description="", zone=
 
 
 def define_material(name, route, density_kg_m3, source, shape_matching=None, jiggle=None,
-                    sticky=False):
-    """Add or replace a material in the user registry. `source` says where the numbers came from."""
-    if route not in ("shape_matching", "jiggle_bones", "none"):
-        raise ValueError("route is shape_matching, jiggle_bones or none")
+                    sticky=False, strand=None):
+    """Add or replace a material in the user registry. `source` says where the numbers came from.
+    `strand` holds a spring_bones material's values (see `hair` in types/builtin.json)."""
+    if route not in ("shape_matching", "jiggle_bones", "spring_bones", "none"):
+        raise ValueError("route is shape_matching, jiggle_bones, spring_bones or none")
     entry = {"route": route, "density_kg_m3": density_kg_m3, "sticky": bool(sticky), "source": source}
     if shape_matching:
         entry["shape_matching"] = shape_matching
     if jiggle:
         entry["jiggle"] = jiggle
+    if strand:
+        entry["strand"] = strand
     user = _read(user_path())
     user["materials"][name] = entry
     return {"material": name, "saved_to": _save_user(user)}
@@ -333,7 +341,7 @@ def recognise(obj_name=None, measures=None, family=None, cls=None, features=None
             "nearest": near, "features": features}
 
 
-DEFAULT_TYPE = {"loose_volume": "jello", "mounted_volume": "jello", "flesh": "belly"}
+DEFAULT_TYPE = {"loose_volume": "jello", "mounted_volume": "jello", "flesh": "belly", "strand": "ponytail"}
 
 
 def _default_type(candidates, cls):

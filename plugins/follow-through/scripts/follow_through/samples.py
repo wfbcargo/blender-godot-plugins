@@ -676,3 +676,92 @@ def score_volumes(scene_name=VOLUME_SCENE):
         type_ok += t
         total += 1
     return {"scene": scene_name, "class": f"{cls_ok}/{total}", "type": f"{type_ok}/{total}", "rows": rows}
+
+
+# ------------------------------------------------------------------ strands
+
+def _catmull(points, per=8):
+    """A Catmull-Rom curve through `points`, `per` samples a span, ends included."""
+    P = [points[0]] + list(points) + [points[-1]]
+    out = []
+    for i in range(1, len(P) - 2):
+        p0, p1, p2, p3 = P[i - 1], P[i], P[i + 1], P[i + 2]
+        for k in range(per):
+            t = k / per
+            t2, t3 = t * t, t * t * t
+            out.append(0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2
+                              + (-p0 + 3 * p1 - 3 * p2 + p3) * t3))
+    out.append(points[-1])
+    return out
+
+
+def add_ponytail(body_name, rig_name, root_bone=None, name="Ponytail", length=0.38, radius=(0.028, 0.009),
+                 around=12, per=8, centreline_prop=True):
+    """A synthetic ponytail on a rigged body: a closed tube that leaves the back of the head, curls
+    out and falls behind the neck, tapering to its tip. Marked as humanform's hair layer marks one:
+    `ft_type = "strand"`, `ft_root_bone` and (with `centreline_prop`) `ft_centreline`, root to tip.
+
+    Placed from the body, so it fits any rig that faces -Y: the root 15% of the head's depth inside
+    its back and a third of the way up its skin; the fall held at least 1.5 cm plus the tube's radius
+    behind the body's back at every height. Returns the object."""
+    from . import strand
+    body = bpy.data.objects[body_name]
+    rig = bpy.data.objects[rig_name]
+    if root_bone is None:
+        root_bone = strand.collider_bones(rig)[0]
+    head_pts = strand._strongest(body, {root_bone}).get(root_bone, [])
+    if len(head_pts) < 8:
+        raise ValueError(f"{body_name} has no skin on {root_bone}")
+    lo = Vector([min(p[i] for p in head_pts) for i in range(3)])
+    hi = Vector([max(p[i] for p in head_pts) for i in range(3)])
+    c = (lo + hi) / 2
+    depth, height = hi.y - lo.y, hi.z - lo.z
+    root = Vector((c.x, hi.y - 0.15 * depth, c.z + height / 3))
+    ctrl = [root, root + Vector((0, 0.045, -0.01)), root + Vector((0, 0.065, -0.08))]
+    rest = length - (ctrl[1] - ctrl[0]).length - (ctrl[2] - ctrl[1]).length
+    for dz, dy in ((0.4, 0.005), (0.4, -0.005), (0.2, -0.005)):
+        ctrl.append(ctrl[-1] + Vector((0, dy, -rest * dz)))
+    mw = body.matrix_world
+    back = [mw @ v.co for v in body.data.vertices]
+    for i, p in enumerate(ctrl[2:], start=2):
+        near = [q.y for q in back if abs(q.z - p.z) < 0.02 and abs(q.x - p.x) < 0.08 and q.z < lo.z + 0.02]
+        need = (max(near) if near else -1e9) + radius[0] + 0.015
+        if p.y < need:
+            ctrl[i] = Vector((p.x, need, p.z))
+    line = _catmull(ctrl, per)
+    s = [0.0]
+    for a, b in zip(line, line[1:]):
+        s.append(s[-1] + (b - a).length)
+    total = s[-1]
+    bm = bmesh.new()
+    rings = []
+    normal = Vector((1, 0, 0))
+    for i, p in enumerate(line):
+        t = (line[min(i + 1, len(line) - 1)] - line[max(i - 1, 0)]).normalized()
+        normal = (normal - t * normal.dot(t)).normalized()          # parallel transport
+        binormal = t.cross(normal)
+        r = radius[0] + (radius[1] - radius[0]) * (s[i] / total) ** 1.5
+        rings.append([bm.verts.new(p + (normal * math.cos(a) + binormal * math.sin(a)) * r)
+                      for a in (2 * math.pi * k / around for k in range(around))])
+    for r0, r1 in zip(rings, rings[1:]):
+        for k in range(around):
+            j = (k + 1) % around
+            bm.faces.new((r0[k], r0[j], r1[j], r1[k]))
+    bm.faces.new(list(reversed(rings[0])))
+    tip = bm.verts.new(line[-1] + (line[-1] - line[-2]).normalized() * radius[1])
+    for k in range(around):
+        bm.faces.new((rings[-1][k], rings[-1][(k + 1) % around], tip))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    for p in me.polygons:
+        p.use_smooth = True
+    ob = bpy.data.objects.new(name, me)
+    for sc in body.users_scene:
+        sc.collection.objects.link(ob)
+    ob["ft_type"] = "strand"
+    ob["ft_root_bone"] = root_bone
+    if centreline_prop:
+        ob["ft_centreline"] = [[round(x, 5) for x in p] for p in line]
+    return ob

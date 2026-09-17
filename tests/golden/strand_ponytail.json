@@ -1,0 +1,519 @@
+{
+ "fixture": "strand_ponytail",
+ "plugins": {
+  "follow-through": "0.4.0",
+  "rig-anything": "0.21.0"
+ },
+ "report": {
+  "body_export": {
+   "durations_match": true,
+   "exported": true,
+   "note": null
+  },
+  "classify": {
+   "class": "strand",
+   "confidence": 0.95,
+   "family": "strand",
+   "guessed": [],
+   "route": "spring_bones",
+   "type": "ponytail",
+   "warnings": []
+  },
+  "degenerate_centreline": {
+   "every_chain_degenerate": {
+    "bones_kept": true,
+    "chains_reported": false,
+    "error": "PonytailBad: no usable centreline - chain 0: a centreline needs two points; chain 1: a centreline needs length, not 0.00e+00 m of one point",
+    "groups_kept": true,
+    "spec_kept": true,
+    "warnings": [
+     "chain 0: a centreline needs two points",
+     "chain 1: a centreline needs length, not 0.00e+00 m of one point"
+    ]
+   },
+   "good_line_rebuilds": {
+    "bones": [
+     5
+    ],
+    "error": null,
+    "same_bones": true
+   },
+   "one_point": {
+    "bones_kept": true,
+    "chains_reported": false,
+    "error": "PonytailBad: no usable centreline - chain 0: a centreline needs two points",
+    "groups_kept": true,
+    "spec_kept": true,
+    "warnings": [
+     "chain 0: a centreline needs two points"
+    ]
+   },
+   "zero_length": {
+    "bones_kept": true,
+    "chains_reported": false,
+    "error": "PonytailBad: no usable centreline - chain 0: a centreline needs length, not 0.00e+00 m of one point",
+    "groups_kept": true,
+    "spec_kept": true,
+    "warnings": [
+     "chain 0: a centreline needs length, not 0.00e+00 m of one point"
+    ]
+   }
+  },
+  "derived_centreline": {
+   "chains": 1,
+   "max_deviation_m": 0.0137,
+   "points": 25,
+   "report": {
+    "bands": 24,
+    "method": "surface distance from the root",
+    "seeds": 36,
+    "surface_length_m": 0.3611
+   },
+   "root_gap_m": 0.007,
+   "tip_gap_m": 0.0081
+  },
+  "hair_export": {
+   "meshes": [
+    "Ponytail"
+   ],
+   "missing_specs": [],
+   "passed": true,
+   "specs": [
+    {
+     "class": "strand",
+     "gltf_vertices": 493,
+     "node": "Ponytail",
+     "primitives": 1,
+     "problems": [],
+     "route": "spring_bones",
+     "strand_bones": 5,
+     "strand_chains": 1,
+     "strand_head_error_m": 1e-05
+    }
+   ],
+   "unexpected_meshes": [],
+   "written": {
+    "exported": [
+     "Ponytail",
+     "Figure_metarig"
+    ],
+    "morph_targets": false,
+    "options_dropped_by_this_blender": []
+   }
+  },
+  "influences_per_vertex": {
+   "1": 93,
+   "2": 400
+  },
+  "moves_json": {
+   "clips": {
+    "Idle": "Figure_Idle",
+    "Run": "Figure_Run"
+   },
+   "collider": {
+    "height": 1.7668,
+    "radius": 0.1753
+   },
+   "dropped_clips": [],
+   "fields": [
+    "clip_checks",
+    "clips",
+    "collider",
+    "contacts",
+    "creature",
+    "forced_clips",
+    "gaits",
+    "height_m",
+    "implied_speed_mps",
+    "known_failures",
+    "loops",
+    "name",
+    "rig",
+    "scene",
+    "verified"
+   ],
+   "gaits": {
+    "Run": {
+     "duty_factor": 0.338,
+     "froude": 3.0,
+     "gait": "run",
+     "hip_height_m": 0.8272,
+     "natural_speed_mps": 4.934,
+     "spine_flex_deg": 0.0,
+     "stride_frequency_hz": 1.865,
+     "stride_m": 2.6452,
+     "stroke_m": 0.8948
+    }
+   },
+   "height_m": {
+    "stand": 1.7668
+   },
+   "loops": [
+    "Figure_Idle",
+    "Figure_Run"
+   ],
+   "problems": []
+  },
+  "ownership": {
+   "every_object_owns_its_spec_bones": {
+    "Hair": true,
+    "Hair_0": true,
+    "Ponytail": true,
+    "Ponytail.001": true,
+    "Ponytail_001": true
+   },
+   "prepared": {
+    "Hair": {
+     "chains": [
+      "ft_strand_Hair_0",
+      "ft_strand_Hair_1"
+     ],
+     "renamed": []
+    },
+    "Hair_0": {
+     "chains": [
+      "ft_strand_Hair_0_v2"
+     ],
+     "renamed": [
+      "bone names ft_strand_Hair_0_* belong to another object's chains: named ft_strand_Hair_0_v2_* instead"
+     ]
+    },
+    "Ponytail": {
+     "chains": [
+      "ft_strand_Ponytail"
+     ],
+     "renamed": []
+    },
+    "Ponytail.001": {
+     "chains": [
+      "ft_strand_Ponytail_001"
+     ],
+     "renamed": []
+    },
+    "Ponytail_001": {
+     "chains": [
+      "ft_strand_Ponytail_001_v2"
+     ],
+     "renamed": [
+      "bone names ft_strand_Ponytail_001_* belong to another object's chains: named ft_strand_Ponytail_001_v2_* instead"
+     ]
+    }
+   },
+   "strand_bones": 30,
+   "unchanged_by_re_prepare": true
+  },
+  "ponytail": {
+   "centreline_points": 41,
+   "faces": {
+    "faces": 493,
+    "order": "8cb57ebc2556",
+    "set": "3bb7e6e097e1"
+   },
+   "vertices": 493
+  },
+  "prepare": {
+   "chains": [
+    {
+     "bones": 5,
+     "centreline": {
+      "method": "custom property ft_centreline"
+     },
+     "length_m": 0.3825,
+     "name": "ft_strand_Ponytail"
+    }
+   ],
+   "collider_source": "rig-anything body map",
+   "colliders": [
+    {
+     "bone": "spine.006",
+     "name": "head",
+     "radius_m": 0.1364,
+     "shape": "ellipsoid"
+    },
+    {
+     "bone": "spine.004",
+     "name": "neck_spine_004",
+     "radius_m": 0.1477,
+     "shape": "capsule"
+    },
+    {
+     "bone": "spine.005",
+     "name": "neck_spine_005",
+     "radius_m": 0.0701,
+     "shape": "capsule"
+    }
+   ],
+   "material": "hair",
+   "object": "Ponytail",
+   "rig": "Figure_metarig",
+   "root_bone": "spine.006",
+   "type": "ponytail",
+   "type_source": "name: ponytail -> ponytail",
+   "warnings": [],
+   "weights": {
+    "furthest_from_centreline_m": 0.0442,
+    "vertices": 493
+   }
+  },
+  "roles": {
+   "breast_anchor": "spine.003",
+   "butt_anchor": "spine",
+   "chest": "spine.003",
+   "controls": [
+    "heel.02.L",
+    "heel.02.R"
+   ],
+   "head": "spine.006",
+   "limbs": {
+    "foot.L": {
+     "digits": [
+      "toe.L"
+     ],
+     "end": "foot.L",
+     "girdle": null,
+     "lower": "shin.L",
+     "role": "leg",
+     "upper": "thigh.L"
+    },
+    "foot.R": {
+     "digits": [
+      "toe.R"
+     ],
+     "end": "foot.R",
+     "girdle": null,
+     "lower": "shin.R",
+     "role": "leg",
+     "upper": "thigh.R"
+    },
+    "hand.L": {
+     "digits": [],
+     "end": "hand.L",
+     "girdle": "shoulder.L",
+     "lower": "forearm.L",
+     "role": "arm",
+     "upper": "upper_arm.L"
+    },
+    "hand.R": {
+     "digits": [],
+     "end": "hand.R",
+     "girdle": "shoulder.R",
+     "lower": "forearm.R",
+     "role": "arm",
+     "upper": "upper_arm.R"
+    }
+   },
+   "neck": [
+    "spine.004",
+    "spine.005"
+   ],
+   "pelvis": "spine",
+   "profile": "rigify_basic_human",
+   "root": null,
+   "skinned": true,
+   "tail": [],
+   "unskinned": [
+    "hand.L",
+    "hand.R",
+    "heel.02.L",
+    "heel.02.R"
+   ],
+   "warnings": [
+    "limb bones with no skin: hand.L, hand.R"
+   ]
+  },
+  "run": {
+   "failures": [],
+   "implied_speed_playback_mps": 2.5394,
+   "passed": true,
+   "stride_m": 2.6452
+  },
+  "strands": {
+   "chains": [
+    {
+     "bones": [
+      {
+       "bone": "ft_strand_Ponytail_00",
+       "damping_ratio": 0.5,
+       "frequency_hz": 0.9871,
+       "hanging_m": 0.3825,
+       "head": [
+        0.0,
+        1.72137,
+        -0.06128
+       ],
+       "length_m": 0.06736,
+       "max_angle_deg": 60.0,
+       "parent": "spine.006",
+       "radius_m": 0.0274,
+       "tail": [
+        0.0,
+        1.68502,
+        -0.11799
+       ]
+      },
+      {
+       "bone": "ft_strand_Ponytail_01",
+       "damping_ratio": 0.5,
+       "frequency_hz": 1.1037,
+       "hanging_m": 0.306,
+       "head": [
+        0.0,
+        1.68502,
+        -0.11799
+       ],
+       "length_m": 0.07639,
+       "max_angle_deg": 40.0,
+       "parent": "ft_strand_Ponytail_00",
+       "radius_m": 0.0243,
+       "tail": [
+        0.0,
+        1.60949,
+        -0.12937
+       ]
+      },
+      {
+       "bone": "ft_strand_Ponytail_02",
+       "damping_ratio": 0.5,
+       "frequency_hz": 1.2744,
+       "hanging_m": 0.2295,
+       "head": [
+        0.0,
+        1.60949,
+        -0.12937
+       ],
+       "length_m": 0.07649,
+       "max_angle_deg": 40.0,
+       "parent": "ft_strand_Ponytail_01",
+       "radius_m": 0.0206,
+       "tail": [
+        0.0,
+        1.53303,
+        -0.13122
+       ]
+      },
+      {
+       "bone": "ft_strand_Ponytail_03",
+       "damping_ratio": 0.5,
+       "frequency_hz": 1.5608,
+       "hanging_m": 0.153,
+       "head": [
+        0.0,
+        1.53303,
+        -0.13122
+       ],
+       "length_m": 0.07649,
+       "max_angle_deg": 40.0,
+       "parent": "ft_strand_Ponytail_02",
+       "radius_m": 0.0163,
+       "tail": [
+        0.0,
+        1.45664,
+        -0.12732
+       ]
+      },
+      {
+       "bone": "ft_strand_Ponytail_04",
+       "damping_ratio": 0.5,
+       "frequency_hz": 2.2073,
+       "hanging_m": 0.0765,
+       "head": [
+        0.0,
+        1.45664,
+        -0.12732
+       ],
+       "length_m": 0.07639,
+       "max_angle_deg": 40.0,
+       "parent": "ft_strand_Ponytail_03",
+       "radius_m": 0.0105,
+       "tail": [
+        0.0,
+        1.38027,
+        -0.12918
+       ]
+      }
+     ],
+     "length_m": 0.3825,
+     "name": "ft_strand_Ponytail",
+     "root_bone": "spine.006"
+    }
+   ],
+   "colliders": [
+    {
+     "a": [
+      0.0,
+      1.63043,
+      0.01008
+     ],
+     "axes": [
+      [
+       1.0,
+       0.0,
+       -0.0
+      ],
+      [
+       0.0,
+       1.0,
+       -0.0
+      ],
+      [
+       0.0,
+       -0.0,
+       1.0
+      ]
+     ],
+     "b": [
+      0.0,
+      1.63043,
+      0.01008
+     ],
+     "bone": "spine.006",
+     "name": "head",
+     "radii_m": [
+      0.0878,
+      0.1364,
+      0.1019
+     ],
+     "radius_m": 0.1364,
+     "shape": "ellipsoid"
+    },
+    {
+     "a": [
+      -0.0,
+      1.383,
+      0.00884
+     ],
+     "b": [
+      -0.0,
+      1.383,
+      0.00884
+     ],
+     "bone": "spine.004",
+     "name": "neck_spine_004",
+     "radius_m": 0.1477,
+     "shape": "capsule"
+    },
+    {
+     "a": [
+      0.00057,
+      1.46799,
+      0.00958
+     ],
+     "b": [
+      0.00057,
+      1.46799,
+      0.00958
+     ],
+     "bone": "spine.005",
+     "name": "neck_spine_005",
+     "radius_m": 0.0701,
+     "shape": "capsule"
+    }
+   ],
+   "collision_friction": 0.1,
+   "collision_margin_m": 0.004,
+   "gravity_scale": 1.0,
+   "material": "hair",
+   "response": 1.0
+  }
+ }
+}
