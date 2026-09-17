@@ -18,6 +18,10 @@ Two things keep a hem out of the body, and both are measured here:
   to the body, less a few millimetres): the runtime clamps the spring there. That is a
   per-bone **backstop**, the thing Unreal, Unity and Jolt use to keep cloth off the body.
 
+A skirt or a dress hangs from a ring hinged at the hip joints, and everything below that hinge is
+the bones' outright (see `prepare`). It also carries **colliders**: capsules fitted to the thighs
+and the shins (`_leg_colliders`), which Godot's hem modifier swings the bones out of.
+
 Bones are named `wd_<garment>_<ring>_<nn>`. Re-running replaces them.
 """
 
@@ -53,6 +57,12 @@ def to_gltf(v):
 def _frequency(length, fabric):
     fp = math.sqrt(9.81 / max(length, 0.01)) / (2 * math.pi)
     return math.sqrt(fp * fp + fabric["stiff_hz"] ** 2)
+
+
+def _level_out(v, down):
+    """`v` without its component along `down`, normalised."""
+    x = v - down * v.dot(down)
+    return x.normalized() if x.length > 1e-6 else Vector((0, -1, 0))
 
 
 def _ortho(axis, hint):
@@ -98,9 +108,23 @@ class _edit:
 
 def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, hem_hinge=0.14,
             cuff_hinge=0.06, share=0.8, backstop_margin=0.004, max_angle_deg=35.0, leg_bones=6, leg_hinge=0.08,
-            under=()):
+            under=(), hinge_lift=0.05, skin_band=0.04, collider_margin=0.006):
     """`under`: garments that may be worn under this one; the backstop is measured to the nearest of
-    them or the body, so a hem does not swing into a waistband."""
+    them or the body, so a hem does not swing into a waistband.
+
+    A skirt or a dress (tailor.skirt / tailor.dress) is hung differently. Its hem bones hang from the
+    pelvis alone, hinged `hinge_lift` above the hip joints instead of `hem_hinge` above the edge, and
+    from the hip joints down (over `skin_band` metres) the cloth is theirs outright: it turns as one panel
+    and nothing of it follows a single thigh by weight. Weights that do split the tube round each leg, and
+    a stride read as shorts or culottes (the hem between the legs, the legs out through slits - fig224).
+    Above the hip joints the cloth keeps the skin's weights, so the hips carry it and cover can hide the
+    skin under it.
+
+    The block then carries `colliders`: capsules fitted to each thigh and shin (`_leg_colliders`,
+    `collider_margin` added for the cloth and for the chord between two bones), and each bone's slack
+    against them. In Godot the hem modifier folds the ring with the thighs and swings each bone out of
+    the capsules, so a lifted thigh carries the front of the skirt over it and the cloth between the
+    legs stays one panel."""
     g = rigmap._obj(garment)
     b = rigmap._obj(body)
     hm = rigmap.humanoid(b)
@@ -131,16 +155,21 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
         root = hm["heads"][hm["spine"][0]]
         parents = list(hm["torso"])
         phase = 0.0
+        hinge_z = None
+        ring_hip_z = None
         if kind in ("skirt", "dress"):
-            # a skirt's hem is held by the thighs as much as the hips: each bone hangs from whichever of
-            # the torso and the thighs holds the fabric at its hinge, so a lifted thigh carries the front
-            # of the hem instead of passing through it; offset half a bone, so none sits on the midline
-            # between the legs, split evenly between them
-            parents += [l["thigh"] for l in hm["legs"].values()]
+            # a skirt's hem hangs from the pelvis, hinged at the hip joints, and the thighs push it (colliders);
+            # offset half a bone, so none sits on the midline between the legs
+            parents = [hm["spine"][0]]
             phase = 0.5
+            cut = g.get("wardrobe_cut")
+            hip_z = float(cut["hip_z"]) if cut is not None and "hip_z" in cut else \
+                sum(hm["heads"][l["thigh"]].z for l in hm["legs"].values()) / max(1, len(hm["legs"]))
+            hinge_z = hip_z + hinge_lift
+            ring_hip_z = hip_z
         rings.append({"ring": "hem", "loop": tags["hem"], "dir": -up, "centre": Vector((root.x, root.y, 0)),
                       "count": hem_bones, "hinge": hem_hinge, "ref": fwd,
-                      "parents": parents, "phase": phase})
+                      "parents": parents, "phase": phase, "hinge_z": hinge_z, "hip_z": ring_hip_z})
     if kind == "pants":
         cut = g.get("wardrobe_cut")
         on_shin = float(cut.get("leg", 2.0)) > 1.0
@@ -188,7 +217,10 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
             th = 2 * math.pi * (k + r.get("phase", 0.0)) / n
             tail_v = min(loop, key=lambda t: min(abs(t[0] - th), 2 * math.pi - abs(t[0] - th)))[1]
             tail = tail_v.co.copy()
-            head = gbvh.find_nearest(tail - d * r["hinge"])[0]
+            if r.get("hinge_z") is not None:
+                head = gbvh.find_nearest(Vector((tail.x, tail.y, r["hinge_z"])))[0]
+            else:
+                head = gbvh.find_nearest(tail - d * r["hinge"])[0]
             # parent: the listed bone that holds the fabric at the hinge most
             near = [v for v in bm.verts if (v.co - head).length < 0.05]
             best, best_w = r["parents"][0], -1.0
@@ -206,7 +238,9 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
                                "inward_dir": inward.normalized() if gap > 1e-6 else -d})
 
         # weights: feather from the hinge to the edge, and across to the two nearest bones
-        band = fit.geodesic(bm, r["loop"], r["hinge"] * 1.6)
+        rigid = r.get("hinge_z") is not None
+        reach = max((rb["tail"] - rb["head"]).length for rb in ring_bones) if rigid else r["hinge"]
+        band = fit.geodesic(bm, r["loop"], reach * 1.6)
         for vi in band:
             v = bm.verts[vi]
             a = angle(v.co)
@@ -218,8 +252,17 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
             hp = (b0["head"] - c).dot(d) * (1 - t) + (b1["head"] - c).dot(d) * t
             tp = (b0["tail"] - c).dot(d) * (1 - t) + (b1["tail"] - c).dot(d) * t
             s = ((v.co - c).dot(d) - hp) / (tp - hp) if abs(tp - hp) > 1e-6 else 0.0
+            if rigid:
+                # the bones take the cloth from the hip joints down, over `skin_band` metres; above that it
+                # keeps the skin's weights, and cover hides that band (its weights agree with the skin's).
+                # By the gap to the skin instead - the cloth that hangs free is the bones' - the front of a
+                # knee skirt, close to the belly and the thighs at rest, went half with the skin and was left
+                # inside the thighs in a crouch (14 vertices); by the greater of the two, 10 there and 12
+                # inside a run's forward thigh. The hip crease, half one and half the other either way, is
+                # where a run pinches the cloth and the hip comes through it; ease answers that (0.022).
+                s = (r["hip_z"] - v.co.z) / skin_band
             s = min(max(s, 0.0), 1.0)
-            total = share * s * s * (3 - 2 * s)
+            total = (1.0 if rigid else share) * s * s * (3 - 2 * s)
             if total <= 1e-4:
                 continue
             extra[vi][b0["name"]] = extra[vi].get(b0["name"], 0.0) + total * (1 - t)
@@ -234,6 +277,9 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
                 "name": rb["name"], "ring": r["ring"], "parent": rb["parent"],
                 "head": to_gltf(to_rig @ rb["head"]), "tail": to_gltf(to_rig @ rb["tail"]),
                 "inward_dir": to_gltf(to_rig.to_3x3() @ rb["inward_dir"]),
+                # a skirt's: away from the body's axis, level - the way its colliders swing it
+                **({"outward_dir": to_gltf(to_rig.to_3x3() @ _level_out(rb["tail"] - c, d))}
+                   if r.get("hinge_z") is not None else {}),
                 "inward_m": round(max(0.0, rb["gap"] - backstop_margin), 4),
                 "max_offset_m": round(L * math.sin(math.radians(max_angle_deg)), 4),
                 "frequency_hz": round(_frequency(L, fab), 3), "damping_ratio": fab["damping_ratio"],
@@ -243,6 +289,19 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
                         "weighted_verts": sum(1 for vi in band if extra[vi]),
                         "gap_min_m": round(min(rb["gap"] for rb in ring_bones), 4),
                         "parents": sorted({rb["parent"] for rb in ring_bones})}
+    colliders = []
+    if any(r.get("hinge_z") is not None for r in rings):
+        hem_ring = next(r for r in rings if r.get("hinge_z") is not None)
+        colliders, slack = _leg_colliders(b, hm, rig, [rb for rb in new_bones if rb["name"].startswith(prefix + "hem_")],
+                                          collider_margin)
+        for bo in bones_out:
+            if bo["name"] in slack:
+                bo["collider_slack_m"] = slack[bo["name"]]
+        hem_ring["summary"]["colliders"] = [{"bone": c["bone"], "radii_m": c["radii_m"]} for c in colliders]
+        hem_ring["summary"]["collider_slack_max_m"] = max((x for row in slack.values() for x in row), default=0.0)
+        for c in colliders:
+            c["head"] = to_gltf(to_rig @ c.pop("_head"))
+            c["tail"] = to_gltf(to_rig @ c.pop("_tail"))
     bm.free()
 
     # the bones, in the rig, pointing from hinge to edge
@@ -284,7 +343,82 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
             "removed_bones": removed, "rings": [r["summary"] for r in rings], "reweighted_verts": changed,
             "worst_dropped_share": round(dropped_worst, 3),
             "block": {"space": SPACE, "fabric": fabric if isinstance(fabric, str) else "custom",
-                      "share": share, "bones": bones_out}}
+                      "share": share, "bones": bones_out, **({"colliders": colliders} if colliders else {})}}
+
+
+COLLIDE_AT = (0.125, 0.25, 0.5, 0.75, 1.0)      # hem_modifier.gd's COLLIDE_AT: where along a hem bone it is tested
+
+
+def _leg_colliders(body, hm, rig, hem_bones, margin, thigh_knots=(0.35, 0.55, 0.75, 1.0),
+                   shin_knots=(0.0, 0.5, 1.0), band=0.1, pct=0.75, clear=0.004):
+    """Capsules round the thighs and shins (body object space), fitted to the leg's skin: at each knot along a
+    bone (fractions of its length) the cross-section of the skin within `band` of it - the vertices skinned
+    mostly to that bone and to bones under it that are not the next bone of the leg (jiggle bones) - gives a
+    centre (the middle of its extent across the bone) and a radius (the `pct` percentile of the distance to
+    that centre, plus `margin`); a capsule joins each pair of neighbouring knots. The thigh starts a fifth of
+    the way down: above that its skin is the buttock and the groin, round the bone's line 14 cm out, and a
+    collider that big pushed the skirt off the hips in a stride.
+
+    And for each hem bone, each capsule's `slack`: how far inside that capsule (plus `clear`) the bone already
+    is at rest, at the worst of its test points. The runtime takes it off the radius for that bone alone, so
+    cloth resting against a thigh is not pushed standing still. Returns (colliders, {hem bone: [slack]})."""
+    names = {vg.index: vg.name for vg in body.vertex_groups}
+    out = []
+    for leg in hm["legs"].values():
+        chain = [leg.get("thigh"), leg.get("shin")]
+        for i, bone in enumerate(chain):
+            if not bone or rig.data.bones.get(bone) is None:
+                continue
+            nxt = chain[i + 1] if i + 1 < len(chain) else leg.get("foot")
+            own = {bone}
+            for c in rig.data.bones[bone].children_recursive:
+                if nxt and (c.name == nxt or nxt in {q.name for q in c.parent_recursive}):
+                    continue
+                own.add(c.name)
+            a, t = hm["heads"][bone], hm["tails"][bone]
+            ab = t - a
+            L2 = max(ab.length_squared, 1e-9)
+            axis = ab.normalized()
+            ex = _ortho(axis, hm["forward"])
+            ey = axis.cross(ex)
+            pts = []
+            for v in body.data.vertices:
+                if sum(x.weight for x in v.groups if names.get(x.group) in own) >= 0.5:
+                    pts.append(((v.co - a).dot(ab) / L2, v.co.copy()))
+            knots = []
+            for k in (thigh_knots if i == 0 else shin_knots):
+                sec = [co for sv, co in pts if abs(sv - k) <= band]
+                if len(sec) < 6:
+                    continue
+                on = a + ab * k
+                xs = [(co - on).dot(ex) for co in sec]
+                ys = [(co - on).dot(ey) for co in sec]
+                centre = on + ex * ((min(xs) + max(xs)) * 0.5) + ey * ((min(ys) + max(ys)) * 0.5)
+                d = sorted(((co - centre) - axis * (co - centre).dot(axis)).length for co in sec)
+                knots.append((centre, d[int(pct * (len(d) - 1))] + margin))
+            for (c0, r0), (c1, r1) in zip(knots, knots[1:]):
+                out.append({"bone": bone, "_head": c0, "_tail": c1, "radii_m": [round(r0, 4), round(r1, 4)]})
+    slack = {}
+    for hb in hem_bones:
+        row = []
+        for c in out:
+            a, ab = c["_head"], c["_tail"] - c["_head"]
+            L2 = max(ab.length_squared, 1e-9)
+            worst = 0.0
+            for f in COLLIDE_AT:
+                p = hb["head"] + (hb["tail"] - hb["head"]) * f
+                s = min(max((p - a).dot(ab) / L2, 0.0), 1.0)
+                worst = max(worst, radius_at(c["radii_m"], s) + clear - (p - (a + ab * s)).length)
+            row.append(round(worst, 4))
+        slack[hb["name"]] = row
+    return out, slack
+
+
+def radius_at(radii, s):
+    """A collider's radius at `s` (0 head, 1 tail): linear between its knots (as hem_modifier.gd)."""
+    x = min(max(s, 0.0), 1.0) * (len(radii) - 1)
+    k = min(int(x), len(radii) - 2)
+    return radii[k] + (radii[k + 1] - radii[k]) * (x - k)
 
 
 def summarize(rep):

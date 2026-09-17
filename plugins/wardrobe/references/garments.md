@@ -99,29 +99,48 @@ a T-shirt cut from it (6220 vertices).
 ## Skirts and dresses (improvements 05 5.4)
 
 Crowd women built by character-pipeline in scratch (Mei slim, Nadia curvy, Rosa BMI 33), Idle/Walk/Run/Crouch,
-each preset verified in Godot 4.7.2 for 240 frames every 8, with the new `thighs` check.
+each preset verified in Godot 4.7.2 for 240 frames every 2 (119 samples, whole cycles), with the `thighs` check.
 
 - **A skirt is built, not cut.** Rays toward a vertical hip axis, hanging from the widest point, a hem sized by
   flare against the widest hip girth (Nadia 1.21 m). Hands at the hips must be left out, fingers included: with
   the finger bones counted as body the "widest girth" was 3.48 m and the skirt a box between the hands.
-- **Weights: the skin's where the cloth lies on it, by distance where it hangs.** By distance alone
-  (pelvis/thighs 1/d^2, smoothed 24 times) the forward thigh went through the front in a run (86 of 1216
-  vertices inside); 1/d^4-6 with 4-8 smoothings brought it to 9-11. Over the front of the hip crease the
-  distance weights put 0.95 on the thigh where the skin under it has 0.8, the cloth turned further than the
-  skin in a crouch and was left inside (13); taking the skin's weights within 2.5 cm of it, 4. Thigh weight
-  above the hip joints swings cloth back into the belly in a crouch.
+- **No weight on one thigh; hem bones and colliders instead.** Weighting the tube to the thighs by distance
+  keeps the vertex counts low (1/d^6, smoothed: 4 of 1088 inside) and still reads wrong: the cloth follows
+  each leg, so a mid-stride front view splits round both legs with a V between them - shorts or culottes, the
+  fig224 failure. The presets now pass `thigh=0`; below the hip joints the cloth belongs to 24 hem bones hung
+  from the pelvis, hinged 5 cm above the hip joints, and Godot swings them out of capsules fitted to the
+  thighs and shins. Above the hip joints the cloth keeps the skin's weights: that band is where an abducted
+  thigh comes out into the skirt in a wide squat, and turned with the bones instead it was left inside
+  (10-17 vertices on Nadia's mini).
+- **The fold, and how it is measured.** Colliders alone cannot dress a deep crouch: the thigh folds up above
+  the hinge and no swing about the hinge clears it (the front stood up off the thighs, 120 degrees, or hung
+  behind them: 8-30 inside). So what the thighs share carries the ring: the fold turns each bone's head and
+  tail about the hip line, as skin on the thigh would. The angle is the arcsine of how far the thigh's tail
+  has moved toward that bone's outward direction, not an angle in the down-out plane - that ran to 132
+  degrees for a bone beside a thigh swung forward, and neighbouring bones then disagreed by a whole panel.
+  At the front the lesser of the two thighs' folds (a stride shares nothing), at the side the nearer thigh's
+  (a wide squat), lerped by how far to the side the bone faces.
 - **Length.** At 1.05 of the way to the knee the back hem was caught between calf and thigh in a run and a
   crouch (shin 9-14); at 0.85, 0-4. A mini at flare 1.2 put 6 of 704 inside in a crouch; at 1.4, 2.
-- **Hide almost nothing.** Hidden hip skin down to the crotch showed at the front crease; hidden front belly
-  showed above the waistband in every crouch (open to up to 12 of 48 views). Skirts now hide no skin below the
-  hip joints or facing forward: 0-18 triangles.
+- **Hide nothing.** Hidden hip skin down to the crotch showed at the front crease; hidden front belly showed
+  above the waistband in every crouch (open to up to 12 of 48 views); once the fold moved the hem bones' heads,
+  hidden skin at the hips opened too (7 of 24 hidden vertices on Mei's crouch). A skirt now hides no skin below
+  the hem bones' hinge or facing forward, which on the crowd leaves nothing at all - every covered vertex is
+  within the hem's 5 cm edge margin. `spec.validate` allows that: it only calls covering-without-hiding a
+  weights mistake when the margin does not explain it.
 - **The check.** A garment vertex is inside a leg when lines inward, outward and both ways sideways all leave
   skin from inside more than 5 mm off, and the inward one leaves through leg skin. Counting only leg triangles
   called cloth on the belly "inside" a thigh folded up behind the belly skin (20 per crouch frame). Skinned to the
   pelvis alone, the knee skirts crouch with 149-162 of ~1050 vertices inside.
-- **Results, worst of walk/run/crouch.** skirt_knee 4/1088 (Nadia), dress_sleeveless 8/2537, skirt_mini 3/640
-  (Rosa); no holes; poke at most 0.23% (dress armholes). On the sample Figure (a walk that crosses the feet over)
-  the knee skirt has 48/1152 inside and the dress 45/4894; the mini passes.
+- **Results, worst of walk/run/crouch, every other frame.** All 27 runs pass. Inside a thigh: skirt_knee 2/1024
+  (Rosa's crouch), skirt_mini 3/704 (Nadia's), dress_sleeveless 6/2420 (Mei's); walks and runs are mostly 0. No
+  holes. Poke at most 0.32%, and in a crouch it is the thighs coming out past the hem, not through it. On the
+  fixture Figure's walk, which crosses the feet over the midline and used to be the knee skirt's failure
+  (48/1152), 4 of 1152 - and with `colliders=false` 97, with `rigid=spine` 95.
+- **The hip crease.** A knee skirt in a run still pinches where the panel meets the band on the hip and lets a
+  patch of hip through (21 vertices at 15 mm ease, 11 at 22 mm, which is what the presets use now; the mini
+  stays at 15 mm because 22 put 4 of Nadia's inside a thigh in a squat). Swinging the panel about a point a
+  quarter down the bone instead of about its head creases it less but lets the thighs in (24-33 inside).
 - **Soft route.** Nadia's knee skirt as cotton cloth, 384 pins above the widest hip: verify_cloth passes at
   rest, `move=1.5,0,0` and `bend=spine,x,30` (stretch p95 1.03, max 1.07, pin error 0, settles 0.01-0.04 m/s);
   worn through `Wardrobe.equip` on the walk it builds, stays finite and pinned. No leg colliders.

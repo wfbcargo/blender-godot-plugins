@@ -128,10 +128,10 @@
     "skirt_knee": {
       "name": "Skirt",
       "cut": "skirt",
-      "tailor": {"waist": 0.16, "length": 0.85, "flare": 1.3},
+      "tailor": {"waist": 0.16, "length": 0.85, "flare": 1.3, "thigh": 0.0, "ease": 0.022},
       "paint": null,
       "ease": null,
-      "hem": {"hem_bones": 12, "hem_hinge": 0.16, "cuff_bones": 0, "fabric": "cotton_poplin"},
+      "hem": {"hem_bones": 24, "cuff_bones": 0, "fabric": "cotton_poplin"},
       "soft": {"fabric": "cotton"},
       "cover": {"max_gap": 0.1, "margin": 0.05, "agree": 0.5},
       "layer_cover": {"max_gap": 0.04, "margin": 0.015},
@@ -139,15 +139,15 @@
       "layer": 2,
       "colour": [0.30, 0.12, 0.16],
       "worn_over": ["briefs"],
-      "note": "Built round the body (tailor.skirt), not cut from it: waistband 0.16 torso lengths above the hips, 5 mm snug there, 15 mm ease from the widest hip level down, hem at 0.85 of the way to the knee with 1.3x the widest hip girth. 12 poplin hem bones hung from the thighs. Measured in Godot on Mei, Nadia and Rosa (character-pipeline crowd bodies), walk, run and crouch: at most 4 of 1024-1088 vertices inside a thigh (0.37%), no holes, poke under 0.12%; skinned to the pelvis alone (rigid=spine) the crouch put 149-162 inside. At length 1.05 the back hem was caught between calf and thigh in a run and crouch. Cover: no skin below the hip joints or facing forward is hidden (margin 5 cm), so it hides almost nothing (2-18 triangles); a hidden front belly showed above the waistband in a crouch. soft=True routes it to follow-through cotton cloth pinned at the hips."
+      "note": "Built round the body (tailor.skirt), not cut from it: waistband 0.16 torso lengths above the hips, 5 mm snug there, 15 mm ease from the widest hip level down, hem at 0.85 of the way to the knee with 1.3x the widest hip girth. thigh=0: no part of it follows one thigh by weight, because weights that do split the tube round each leg and a stride reads as culottes. Below the hip joints it is 24 poplin hem bones hung from the pelvis, which Godot folds with the thighs and swings out of their capsules. Measured in Godot on Mei, Nadia and Rosa (character-pipeline crowd bodies), walk, run and crouch every other frame: at most 2 of 1024 vertices inside a thigh (0.19%), walks and runs 0, no holes, poke under 0.30% (a crouch's thighs past the hem). On the fixture Figure's crossing walk, 4 of 1152 - and 97 with colliders=false, 95 skinned to the pelvis alone. Eased 22 mm, not 15: at 15 a run pinched the cloth on the hip crease and let a patch of hip through (21 poking vertices, 11 at 22 mm). At length 1.05 the back hem was caught between calf and thigh in a run and crouch. Cover: no skin below the hem hinge or facing forward is hidden (margin 5 cm), so it hides nothing at all. soft=True routes it to follow-through cotton cloth pinned at the hips."
     },
     "skirt_mini": {
       "name": "Skirt",
       "cut": "skirt",
-      "tailor": {"waist": 0.14, "length": 0.45, "flare": 1.4},
+      "tailor": {"waist": 0.14, "length": 0.45, "flare": 1.4, "thigh": 0.0},
       "paint": null,
       "ease": null,
-      "hem": {"hem_bones": 12, "hem_hinge": 0.08, "cuff_bones": 0, "fabric": "denim"},
+      "hem": {"hem_bones": 24, "cuff_bones": 0, "fabric": "denim"},
       "soft": {"fabric": "denim"},
       "cover": {"max_gap": 0.1, "margin": 0.05, "agree": 0.5},
       "layer_cover": {"max_gap": 0.04, "margin": 0.015},
@@ -155,15 +155,15 @@
       "layer": 2,
       "colour": [0.10, 0.14, 0.26],
       "worn_over": ["briefs"],
-      "note": "The skirt build as skirt_knee with a denim hem at 0.45 along the thigh, 1.4x the hip girth, 12 hem bones. At flare 1.2 a crouch put 6 of 704 vertices inside a thigh on Nadia (0.85%) and 4 of 640 on Rosa; at 1.4, 2 and 3, and none of walk, run or crouch on Mei, Nadia or Rosa fails. In a stride it follows each thigh closely and reads nearer shorts than a flared mini."
+      "note": "The skirt build as skirt_knee with a denim hem at 0.45 along the thigh, 1.4x the hip girth, 24 hem bones. At flare 1.2 a crouch put 6 of 704 vertices inside a thigh on Nadia (0.85%) and 4 of 640 on Rosa; at 1.4, 2 and 3. Every other frame of walk, run and crouch on Mei, Nadia and Rosa passes: at most 3 of 704 inside, walks and runs 0-1. Eased 15 mm, not the knee skirt's 22: at 22 a wide squat put 4 of Nadia's inside a thigh (0.57%). Its hem bones hinge 5 cm above the hip joints like the knee skirt's, which is most of its length - a short skirt is nearly all sprung panel."
     },
     "dress_sleeveless": {
       "name": "Dress",
       "cut": "dress",
-      "tailor": {"sleeve": -0.10, "neck": [-0.10, 0.08], "waist": 0.30, "length": 0.85, "flare": 1.3},
+      "tailor": {"sleeve": -0.10, "neck": [-0.10, 0.08], "waist": 0.30, "length": 0.85, "flare": 1.3, "thigh": 0.0, "ease": 0.022},
       "paint": null,
       "ease": null,
-      "hem": {"hem_bones": 12, "hem_hinge": 0.16, "cuff_bones": 0, "fabric": "cotton_poplin"},
+      "hem": {"hem_bones": 24, "cuff_bones": 0, "fabric": "cotton_poplin"},
       "soft": {"fabric": "cotton"},
       "cover": {"max_gap": 0.1, "margin": 0.05, "agree": 0.5},
       "layer_cover": {"max_gap": 0.04, "margin": 0.015},
@@ -171,7 +171,7 @@
       "layer": 3,
       "colour": [0.16, 0.30, 0.22],
       "worn_over": ["bra", "briefs"],
-      "note": "A sleeveless bodice cut from the body down to the natural waist (0.30 torso lengths above the hips, eased 8 mm and hung), zipped to a skirt built from its hem to 0.85 of the way to the knee at 1.3x the widest hip girth, 12 poplin hem bones. Cover hides the bodice's skin as a shirt's, and below the waist the skirt rule (no front-facing skin, nothing below the hip joints). Walk, run and crouch pass on Mei, Nadia and Rosa: at most 8 of 2420-2537 vertices inside a thigh (0.33%), no holes, poke at most 0.23% (upper arms at the armholes). At length 1.0 a run put 14-16 inside the shins."
+      "note": "A sleeveless bodice cut from the body down to the natural waist (0.30 torso lengths above the hips, eased 8 mm and hung), zipped to a skirt built from its hem to 0.85 of the way to the knee at 1.3x the widest hip girth, 24 poplin hem bones hung from the pelvis with thigh capsules, as skirt_knee. Cover hides the bodice's skin as a shirt's (about 1000 vertices) and nothing of the skirt. Walk, run and crouch every other frame pass on Mei, Nadia and Rosa: at most 6 of 2420 vertices inside a thigh (0.25%), no holes, poke at most 0.32% (upper arms at the armholes). At length 1.0 a run put 14-16 inside the shins."
     }
   },
 

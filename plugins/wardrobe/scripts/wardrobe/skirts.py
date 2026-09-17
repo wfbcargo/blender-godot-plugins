@@ -12,12 +12,14 @@ under the seat or the belly. Below the widest hip level the tube opens toward th
 the legs at rest than `clearance`. The rings are blurred round and down so no ridge is left, then
 pushed back out wherever blurring brought them inside what they must clear.
 
-Weights: cloth lying on the body (within 2.5 cm of it - the waistband, the hips, the fronts of the
-thighs) takes the weights of the skin under it, so it turns as that skin does; cloth hanging free
-(beyond 6 cm - between the legs, below the seat) is weighted by distance: the pelvis above the hip
-joints, the thighs below them, split between the two thighs by 1/d^6. Smoothed a little over the tube,
-so a lifted thigh carries the front of the skirt in a crouch and a stride shares the cloth between the
-legs. `weights` has the numbers that led there. Measurements are fractions of the body, as tailor's:
+Weights: cloth lying on the body (within 2.5 cm of it - the waistband, the hips) takes the weights of
+the skin under it, so it turns as that skin does; cloth hanging free (beyond 6 cm) is weighted by
+distance to the pelvis and, with `thigh` above 0, to the thighs (1/d^6 between them). The presets pass
+`thigh=0`: weights that follow a thigh split the tube round each leg, and a stride read as shorts or
+culottes (the hem between the legs, the legs out through slits - fig224). Below the hip joints the
+skirt is not weighted to the body at all but to hem bones hung from the pelvis (`hem.prepare`), which
+Godot's hem modifier folds with the thighs and swings out of their colliders. `weights` has the
+numbers that led there. Measurements are fractions of the body, as tailor's:
 
   waist    height of the waistband above the hip joints, in torso lengths
   length   along the leg: 0 at the hip joint, 1 at the knee, 2 at the ankle

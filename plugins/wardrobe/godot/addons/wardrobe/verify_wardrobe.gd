@@ -170,7 +170,7 @@ func _setup() -> void:
 			if rep.get("built", false):
 				rep["body"].response_scale = float(args.get("response", "2.5"))
 	# cloth is off: what is measured is the skinned garment; follow-through's verify_cloth.gd measures cloth
-	var opts := {"hem": args.get("hem", "true") == "true", "cloth": false}
+	var opts := {"hem": args.get("hem", "true") == "true", "cloth": false, "colliders": args.get("colliders", "true") == "true"}
 	for path in args.get("garment", "res://assets/wardrobe/nora_tshirt.glb").split(","):
 		for rep in Wardrobe.equip(body_root, load(path), opts):
 			equip_reports.append(rep)
@@ -575,8 +575,12 @@ func _on_pose() -> void:
 		thigh_where = thigh_at
 	if args.has("shot") and frame == int(args["shot"]) and shots.is_empty():
 		_plan_shots(hole_list, pos, nor)
-	if args.has("dump") and frame == int(args["dump"]):
+	if args.has("dump") and Array(args["dump"].split(",")).map(func(x): return int(x)).has(frame):
 		_dump(pos, skinned)
+		if args.get("trace", "") == "hem":
+			for h in hems:
+				for hb in h.bones:
+					print("WD_HEM frame %d %s fold %.0f swing %.0f deg offset %.3f m" % [frame, hb["name"], hb.get("fold_deg", 0.0), hb.get("swing_deg", 0.0), (hb["offset"] as Vector3).length()])
 	if args.get("trace", "false") == "true":
 		print("WD_TRACE frame %d holes %d occluded %d coincident %d poke %d thighs %d %s %s" % [frame, holes, occluded, coincident, pokes, thighs, hole_at, thigh_at])
 	if holes > worst["holes"]:
@@ -756,11 +760,20 @@ func _dominant_bone(i: int) -> String:
 	return body.skin.get_bind_name(bones[i * per + best])
 
 
-## dump=<frame> dump_dir=<folder>: the skinned body and garments of that sampled frame as OBJ files in
-## skeleton space (Y up, as Godot has them), for looking at a measured frame anywhere - headless too.
+## dump=<frame[,frame...]> dump_dir=<folder>: the skinned body and garments of those sampled frames as OBJ
+## files in skeleton space (Y up, as Godot has them), for looking at a measured frame anywhere - headless
+## too. The body is the one the game draws: without the triangles the garments hide. A garment with hem
+## colliders also writes them, as rings of spheres along each capsule.
 func _dump(pos: PackedVector3Array, skinned: Array) -> void:
 	var dir: String = args.get("dump_dir", OS.get_user_data_dir())
-	var meshes := [["body", pos, body_arrays[Mesh.ARRAY_INDEX]]]
+	# the body as the game draws it: the triangles the garments hide are not in it
+	var drawn := PackedInt32Array()
+	var bidx: PackedInt32Array = body_arrays[Mesh.ARRAY_INDEX]
+	for t in range(0, bidx.size(), 3):
+		if hidden_set.has(bidx[t]) and hidden_set.has(bidx[t + 1]) and hidden_set.has(bidx[t + 2]):
+			continue
+		drawn.append_array([bidx[t], bidx[t + 1], bidx[t + 2]])
+	var meshes := [["body", pos, drawn]]
 	for gi in garments.size():
 		meshes.append([String(garments[gi]["mesh"].name), skinned[gi][0], garments[gi]["arrays"][Mesh.ARRAY_INDEX]])
 	for m in meshes:
@@ -776,6 +789,34 @@ func _dump(pos: PackedVector3Array, skinned: Array) -> void:
 			f.store_line("f %d %d %d" % [idx[t] + 1, idx[t + 1] + 1, idx[t + 2] + 1])
 		f.close()
 		print("WD_DUMP " + path)
+	# the hem colliders, as rings of spheres along each capsule, in the same space
+	var cf: FileAccess = null
+	var base := 0
+	for h in hems:
+		for c in h.colliders:
+			if cf == null:
+				cf = FileAccess.open("%s/f%d_colliders.obj" % [dir, frame], FileAccess.WRITE)
+			var xf := skel.get_bone_global_pose(c["bone"])
+			var a: Vector3 = xf * (c["head_local"] as Vector3)
+			var ab: Vector3 = xf * (c["tail_local"] as Vector3) - a
+			for k in 9:
+				var s := k / 8.0
+				var r: float = h.radius_at(c["radii"], s)
+				var o := a + ab * s
+				for lat in 5:
+					for lon in 8:
+						var th := PI * (lat + 1) / 6.0
+						var ph := TAU * lon / 8.0
+						var q := o + Vector3(sin(th) * cos(ph), cos(th), sin(th) * sin(ph)) * r
+						cf.store_line("v %f %f %f" % [q.x, q.y, q.z])
+				for lat in 4:
+					for lon in 8:
+						var i0 := base + lat * 8 + lon + 1
+						var i1 := base + lat * 8 + (lon + 1) % 8 + 1
+						cf.store_line("f %d %d %d %d" % [i0, i1, i1 + 8, i0 + 8])
+				base += 40
+	if cf != null:
+		cf.close()
 
 
 ## Skinned positions and normals in skeleton space.
