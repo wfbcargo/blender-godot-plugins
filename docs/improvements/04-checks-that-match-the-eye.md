@@ -101,7 +101,8 @@ already known:
 - Garment *detail*: the curvature of cloth over a region against the curvature of the skin under
   it. A compression garment should smooth, not trace.
 - Flesh limits from self-test time-on-limit. Feed the Godot self-test's per-region
-  "on the limit %" back to follow-through as a suggested `max_offset_m`.
+  "on the limit %" back to follow-through as a suggested `max_offset_m`. **Done** (step 6, branch
+  `flesh-limit-suggest`).
 
 ## Steps
 
@@ -122,6 +123,50 @@ already known:
    `follow_through.flesh.suggest_limits(report)` that maps it to `max_offset_m`. Also fix the
    buttock peak measure: it read 3.7 cm on a clearly full seat. Measure it against the lean
    envelope from behind, not along the region normal.
+
+   **Done, flesh part (branch `flesh-limit-suggest`).** The buttock measure was already fixed in 05
+   5.9, and that fix was confirmed rather than redone. `butt` has `"lean": "profile"`: the silhouette
+   behind the hip joints, read from the side. Belle's seat reads 7.8 cm, not 3.7.
+
+   What shipped:
+   - **Godot measures.** `JiggleModifier.measure_limits()` / `limit_report()` /
+     `print_limit_report()` report, per region:
+     - the share of ticks within 1 mm of the limit (belle_demo's test);
+     - contacts and the longest contact;
+     - an unlimited shadow spring's peak and demand curve;
+     - a **ladder**: the same share measured on 33 shadow springs at 2^(k/8) times the limit.
+
+     The load comes from the skeleton, never the flesh, so a rung is exactly what that limit would
+     do. The region's own rung matched its share to the tick. `verify_flesh.gd` drives a body round
+     a fixed 13.6 s course and prints `FT_FLESH_LIMITS {json}`: walk, stop, turn, run, stop, two
+     0.55 m jumps, at belle_controller's `ACCEL` and jump speed.
+   - **Blender suggests.** `flesh.suggest_limits(report)` keeps a region inside 3-9% of ticks on the
+     limit. Outside the band, it takes the measured rung nearest 6%. `.L`/`.R` pairs get one limit.
+     A share that falls across the band between two neighbouring rungs takes the looser one
+     (`cliff`), and a band past the ladder's end takes the end and says to run again. A type's
+     `limit_max_share` caps a raise (breast 0.66) and is reported `capped`. `flesh.apply_limits`
+     writes the result into the spec. Old `FLESH` self-test lines get an estimate.
+   - **Band.** The 9% upper edge sits under the self-test's 10% failing line. At that line Belle's
+     5.8 cm buttocks (11-12%) were rejected, and her accepted regions sit at 7.5-9.0%, about 0.3
+     points apart between runs. The 3% lower edge comes from the course: below it, only the jumps
+     touch the limit (the sample bodies' shipped limits: 0.5-1.2%, 4-7 contacts of 1-3 ticks, every
+     one a jump). Belle's shipped limits read 4.4-4.9% on the course at her response of 1.5, inside
+     the band, and are kept.
+   - **Converged.** Suggestions were applied in Blender, exported and re-run with no override:
+     - Figure: every region inside in one step. Arm flab went from 88-91% (held for 3 s) to
+       5.6/4.8%, breasts from 1.1/1.2% to 5.4/3.4%.
+     - Bloater: two steps, because its love handles started at 21 cm, past the ladder. Every region
+       ended at 3.4-7.2%.
+     - At response 1.5 both settle in one step. The Figure's breast.L stays at 11.9%, `capped` at
+       0.66 x peak.
+
+     Numbers are in `follow-through/references/flesh.md` "Swing limits from Godot".
+   - **Golden:** `flesh_figure` gains `bodies.Figure.limit_suggestion`: a made-up ladder report for
+     the Figure's regions that takes every branch, suggested and applied after the export. Nothing
+     else moved.
+   - **Not done:** belle_demo.gd's self-test (grungist-creek) does not call `measure_limits` yet. The
+     registry's `limit_share` values are unchanged. `regress.py --godot` does not run
+     `verify_flesh.gd`.
 
 ## Done when
 

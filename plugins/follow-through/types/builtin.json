@@ -101,6 +101,7 @@
                       "zone": {"chain": "spine", "height": [0.5, 1.45], "facing_deg": [0, 65], "lateral": [0.03, 1.3]},
                       "anchor": "chest",
                       "limit_share": 0.66,
+                      "limit_max_share": 0.66,
                       "limit_note": "max_offset_m = limit_share x peak_m. Nothing but this limit keeps flesh from swinging into the body, and a breast swung in further than it stands out passes its skin into the chest: two thirds of its stand-out (Belle: 8.2 cm of 12.4 cm).",
                       "description": "a breast or pectoral fat pad: pivots from the chest wall, swings and bounces"},
     "belly":         {"family": "volume", "classes": ["flesh"], "material": "soft_fat",

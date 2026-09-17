@@ -1131,6 +1131,49 @@ def set_params(obj_name, region, **params):
     return spec.write(obj, s)
 
 
+def suggest_limits(report, band=None, target=None, caps=None):
+    """A suggested `max_offset_m` (and `limit_share`) per region from Godot's measured time on the limit.
+
+    `report` is what `verify_flesh.gd` (or a self-test calling `JiggleModifier.print_limit_report`)
+    printed: the `FT_FLESH_LIMITS {json}` lines, the log holding them, the `out=` JSON file, or the
+    parsed dicts. A region on its limit for less than `band[0]` or more than `band[1]` of the ticks
+    (default `limits.BAND`) gets a limit read off the unlimited swing's demand curve that puts
+    it at `target` (the middle). `caps` defaults to each registry type's `limit_max_share`.
+    See `limits.suggest` for the returned rows; `apply_limits` writes them into the spec."""
+    from . import limits, registry
+    if caps is None:
+        caps = {name: t["limit_max_share"] for name, t in registry.load()["types"].items()
+                if "limit_max_share" in t}
+    return limits.suggest(report, band=band or limits.BAND, target=target, caps=caps)
+
+
+def apply_limits(obj_name, suggestion, body=None):
+    """Write a `suggest_limits` result's `suggested_max_offset_m` into `obj_name`'s jiggle spec.
+
+    `body` names the body in the suggestion (default: `obj_name`, or the only one). Regions the
+    suggestion does not name are left alone. Returns {region: [old, new]} for what changed."""
+    from . import spec
+    bodies = suggestion["bodies"]
+    key = body or (obj_name if obj_name in bodies else (next(iter(bodies)) if len(bodies) == 1 else None))
+    if key not in bodies:
+        raise ValueError(f"no body {body or obj_name!r} in the suggestion; it has {sorted(bodies)}")
+    obj = bpy.data.objects[obj_name]
+    s = spec.read(obj)
+    if s is None or "jiggle" not in s:
+        raise ValueError(f"{obj_name} has no jiggle spec - run flesh.prepare first")
+    changed = {}
+    for r in s["jiggle"]["regions"]:
+        row = bodies[key].get(r["name"])
+        if row is None:
+            continue
+        new = float(row["suggested_max_offset_m"])
+        if abs(new - float(r["max_offset_m"])) >= 5e-5:
+            changed[r["name"]] = [r["max_offset_m"], new]
+            r["max_offset_m"] = new
+    spec.write(obj, s)
+    return changed
+
+
 def summarize(report):
     if "error" in report:
         return "ERROR " + report["error"]

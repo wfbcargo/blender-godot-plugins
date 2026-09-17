@@ -20,15 +20,33 @@ extends SkeletonModifier3D
 ## Every assumption is checked at build time and written to `report`: the bone exists, its
 ## rest head is where Blender said, and its tail lies along its local Y (so squash can be a
 ## pose scale).
+##
+## Swing limits are measured, not guessed: `measure_limits()` starts counting, per region, the
+## ticks spent on `max_offset_m`, and runs shadow springs fed the same load - one with no limit, and
+## one on each of a ladder of limits from a quarter to four times the region's. The load comes from
+## the skeleton, never from the flesh, so a shadow on a limit does exactly what the region would do
+## with that limit: one run gives time on the limit as a function of the limit, and a suggestion read
+## off it needs no second guess. `limit_report()` returns it as the JSON Blender's
+## `flesh.suggest_limits` reads; `print_limit_report()` prints it as one `FT_FLESH_LIMITS` line.
+## A game's self-test calls those two around its script; `verify_flesh.gd` does it on a course.
 
 var spec: Dictionary
 var report: Dictionary = {}
 var regions: Array[Dictionary] = []
 var paused := false                 # hold every bone at rest (for side-by-side comparisons)
 var response_scale := 1.0           # multiplies every region's response, live (a slider in a demo)
+var measuring := false              # measure_limits() turns it on
+var measure_label := ""             # ticks on the limit are also counted under this (a state, a phase)
 
 const TELEPORT_M := 1.0             # the anchor moved further than this in a frame: reset, do not fling
 const MAX_ACCEL := 400.0            # m/s^2; animation keys that snap would otherwise launch the flesh
+const ON_LIMIT_M := 0.001           # within this of max_offset_m counts as on the limit (belle_demo's measure)
+## Shares of the time at which the free swing's offset is reported: `demand` [share, offset] means
+## the unlimited swing was at least `offset` for that share of the ticks.
+const DEMAND_SHARES := [0.0, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10,
+	0.12, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50]
+## The ladder of limits measured beside the region's own, as factors of it: 2^(k/8), k = -16..16.
+const LADDER_STEPS := 16
 
 
 static func build(mesh: MeshInstance3D, s: Dictionary, options := {}):
@@ -83,6 +101,7 @@ func _setup(skel: Skeleton3D, options: Dictionary) -> void:
 			"translate": float(p.get("translate", 0.3)),
 			"response": float(p.get("response", 1.0)),
 			"max_offset": float(p.get("max_offset_m", 0.1)),
+			"peak_m": float(r.get("peak_m", 0.0)),
 			"e": Vector3.ZERO, "u": Vector3.ZERO,
 			"target": Vector3.ZERO, "target_v": Vector3.ZERO, "started": false,
 			"g_rest_local": Vector3.ZERO, "offset": Vector3.ZERO, "stretch": 1.0,
@@ -135,6 +154,12 @@ func _process_modification_with_delta(delta: float) -> void:
 			# gravity as the rest pose felt it, in the parent's frame
 			reg["g_rest_local"] = (skel_xf.basis * parent_pose.basis).inverse() * g
 			reg["started"] = true
+			if reg.has("m"):
+				reg["m"]["free_e"] = Vector3.ZERO
+				reg["m"]["free_u"] = Vector3.ZERO
+				for i in (reg["m"]["ladder_e"] as Array).size():
+					reg["m"]["ladder_e"][i] = Vector3.ZERO
+					reg["m"]["ladder_u"][i] = Vector3.ZERO
 		var vt: Vector3 = (target - reg["target"]) / delta
 		var at: Vector3 = (vt - reg["target_v"]) / delta
 		if at.length() > MAX_ACCEL:
@@ -149,17 +174,27 @@ func _process_modification_with_delta(delta: float) -> void:
 		var e: Vector3 = next[0]
 		var u: Vector3 = next[1]
 		var limit := float(reg["max_offset"])
-		if e.length() > limit:
-			var n := e.normalized()
-			e = n * limit
-			var out := u.dot(n)
-			if out > 0.0:
-				u -= n * out
+		var held := clamp_step(e, u, limit)
+		e = held[0]
+		u = held[1]
 		reg["e"] = e
 		reg["u"] = u
+		if measuring:
+			_measure(reg, w, delta, push, e.length(), limit)
 		if paused:
 			e = Vector3.ZERO
 		_pose(skel, reg, frame, e)
+
+
+## Hold an offset on its limit: past it, pull it back and take away the outward speed. Returns [x, x'].
+static func clamp_step(x: Vector3, v: Vector3, limit: float) -> Array:
+	if x.length() > limit:
+		var n := x.normalized()
+		x = n * limit
+		var out := v.dot(n)
+		if out > 0.0:
+			v -= n * out
+	return [x, v]
 
 
 ## One exact step of x'' = -w^2 x - 2 z w x' + push, over dt. Returns [x, x'].
@@ -226,6 +261,123 @@ func kick(velocity: Vector3, only_type := "") -> void:
 	for reg in regions:
 		if only_type == "" or reg["type"] == only_type:
 			reg["u"] = (reg["u"] as Vector3) - velocity
+			if reg.has("m"):
+				reg["m"]["free_u"] = (reg["m"]["free_u"] as Vector3) - velocity
+				for i in (reg["m"]["ladder_u"] as Array).size():
+					reg["m"]["ladder_u"][i] = (reg["m"]["ladder_u"][i] as Vector3) - velocity
+
+
+## Start (or restart) counting time on the limit and the unlimited swing, every region. It keeps one
+## float a tick per region (the unlimited swing, for its demand curve): meant for a test script, not a game session.
+func measure_limits() -> void:
+	measuring = true
+	for reg in regions:
+		var ladder := PackedFloat32Array()
+		var le := []
+		var lu := []
+		var lon := PackedInt32Array()
+		for k in range(-LADDER_STEPS, LADDER_STEPS + 1):
+			ladder.append(float(reg["max_offset"]) * pow(2.0, k / 8.0))
+			le.append(reg["e"])
+			lu.append(reg["u"])
+			lon.append(0)
+		reg["m"] = {"ticks": 0, "on": 0, "peak": 0.0, "free_e": reg["e"], "free_u": reg["u"],
+			"free": PackedFloat32Array(), "sq": 0.0, "free_sq": 0.0, "by_label": {}, "contacts": 0, "run": 0, "longest": 0,
+			"ladder": ladder, "ladder_e": le, "ladder_u": lu, "ladder_on": lon}
+
+
+## One tick of measuring: the shadow springs take the same load, with no limit and on the ladder.
+func _measure(reg: Dictionary, w: float, delta: float, push: Vector3, d: float, limit: float) -> void:
+	var m: Dictionary = reg["m"]
+	var z := float(reg["damping_ratio"])
+	var ladder: PackedFloat32Array = m["ladder"]
+	for i in ladder.size():
+		var st := spring_step(m["ladder_e"][i], m["ladder_u"][i], w, z, delta, push)
+		st = clamp_step(st[0], st[1], ladder[i])
+		m["ladder_e"][i] = st[0]
+		m["ladder_u"][i] = st[1]
+		if (st[0] as Vector3).length() >= ladder[i] - ON_LIMIT_M:
+			m["ladder_on"][i] += 1
+	var nf := spring_step(m["free_e"], m["free_u"], w, z, delta, push)
+	m["free_e"] = nf[0]
+	m["free_u"] = nf[1]
+	var fd: float = (nf[0] as Vector3).length()
+	m["ticks"] += 1
+	m["free"].append(fd)
+	m["sq"] += d * d
+	m["free_sq"] += fd * fd
+	m["peak"] = maxf(m["peak"], d)
+	if d >= limit - ON_LIMIT_M:
+		m["on"] += 1
+		if m["run"] == 0:
+			m["contacts"] += 1
+		m["run"] += 1
+		m["longest"] = maxi(m["longest"], m["run"])
+		if measure_label != "":
+			var by: Dictionary = m["by_label"]
+			by[measure_label] = int(by.get(measure_label, 0)) + 1
+	else:
+		m["run"] = 0
+
+
+## Per region, what measure_limits() has counted since it was called:
+##   max_offset_m, peak_m          the limit and how far the mass stands out (from the spec)
+##   ticks, on_limit_share         ticks measured, and the share of them within ON_LIMIT_M of the limit
+##   on_limit_by_label             ticks on the limit under each measure_label
+##   contacts, longest_contact_ticks   separate stays on the limit, and the longest: a landing touches
+##                                 for a few ticks, a mass held on its limit by a load for many
+##   peak_offset_m                 the largest offset reached (the limit, if it was ever hit)
+##   free_peak_m                   the largest offset the same spring reached with no limit
+##   free_over_limit_share         share of ticks the unlimited swing was at or past the limit
+##   demand                        [share, offset]: the unlimited swing was at least offset for share of ticks
+##   swing_kept                    RMS offset over the unlimited swing's RMS: 1 when the limit never bites
+##   ladder                        [limit_m, on_limit_share] for limits 2^(k/8) x max_offset_m, k = -16..16,
+##                                 each measured on a shadow spring given that limit
+func limit_report() -> Dictionary:
+	var out := {}
+	for reg in regions:
+		if not reg.has("m"):
+			continue
+		var m: Dictionary = reg["m"]
+		var n: int = m["ticks"]
+		var limit: float = reg["max_offset"]
+		var sorted: PackedFloat32Array = (m["free"] as PackedFloat32Array).duplicate()
+		sorted.sort()
+		var demand := []
+		var ladder := []
+		for i in (m["ladder"] as PackedFloat32Array).size():
+			ladder.append([snappedf(m["ladder"][i], 0.0001), snappedf(float(m["ladder_on"][i]) / maxf(n, 1), 0.0001)])
+		var over := 0
+		for fd in sorted:
+			if fd >= limit - ON_LIMIT_M:
+				over += 1
+		for q in DEMAND_SHARES:
+			if n == 0:
+				break
+			var k := clampi(n - 1 - int(floor(float(q) * n)), 0, n - 1)
+			demand.append([q, snappedf(sorted[k], 0.0001)])
+		out[reg["name"]] = {"name": reg["name"], "type": reg["type"],
+			"max_offset_m": snappedf(limit, 0.0001), "peak_m": reg["peak_m"],
+			"frequency_hz": reg["frequency_hz"], "damping_ratio": reg["damping_ratio"],
+			"response": float(reg["response"]) * response_scale,
+			"ticks": n, "on_limit_share": snappedf(float(m["on"]) / maxf(n, 1), 0.0001),
+			"on_limit_by_label": m["by_label"],
+			"contacts": m["contacts"], "longest_contact_ticks": m["longest"],
+			"peak_offset_m": snappedf(m["peak"], 0.0001),
+			"free_peak_m": snappedf(sorted[n - 1] if n > 0 else 0.0, 0.0001),
+			"free_over_limit_share": snappedf(float(over) / maxf(n, 1), 0.0001),
+			"demand": demand,
+			"ladder": ladder,
+			"swing_kept": snappedf(sqrt(m["sq"] / maxf(m["free_sq"], 1e-12)) if m["free_sq"] > 0.0 else 1.0, 0.001)}
+	return {"schema": "follow-through/flesh-limits/1", "on_limit_tolerance_m": ON_LIMIT_M, "regions": out}
+
+
+## Print limit_report() as one machine-readable line: `FT_FLESH_LIMITS {json}`. `label` names the
+## body (and run) in the line, for a log that holds several.
+func print_limit_report(label := "") -> void:
+	var r := limit_report()
+	r["body"] = label if label != "" else String(name).trim_suffix("_jiggle")
+	print("FT_FLESH_LIMITS " + JSON.stringify(r))
 
 
 func region_offsets() -> Dictionary:

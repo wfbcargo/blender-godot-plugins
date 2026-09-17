@@ -1,8 +1,8 @@
 {
  "fixture": "flesh_figure",
  "plugins": {
-  "follow-through": "0.3.0",
-  "rig-anything": "0.20.0"
+  "follow-through": "0.4.0",
+  "rig-anything": "0.21.0"
  },
  "report": {
   "bodies": {
@@ -435,7 +435,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf\\flesh\\regress_upd\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-33u3nl9v\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -783,6 +783,230 @@
      "failures": [],
      "loop_seam": 0.0,
      "passed": true
+    },
+    "limit_suggestion": {
+     "applied": {
+      "arm_flab.L": [
+       0.0264,
+       0.0373
+      ],
+      "arm_flab.R": [
+       0.0265,
+       0.0373
+      ],
+      "belly": [
+       0.0544,
+       0.0297
+      ],
+      "butt.L": [
+       0.075,
+       0.0187
+      ],
+      "butt.R": [
+       0.0746,
+       0.0187
+      ],
+      "thigh.L": [
+       0.0126,
+       0.0137
+      ],
+      "thigh.R": [
+       0.0127,
+       0.0137
+      ]
+     },
+     "capped": [
+      "Figure/breast.L",
+      "Figure/breast.R"
+     ],
+     "in_band": false,
+     "rows": {
+      "Figure": {
+       "arm_flab.L": {
+        "action": "raise",
+        "basis": "pair",
+        "expected_on_limit_share": 0.0562,
+        "in_band": false,
+        "max_offset_m": 0.0264,
+        "notes": [
+         "one limit for arm_flab.L and arm_flab.R"
+        ],
+        "on_limit_share": 0.9,
+        "suggested_limit_share": 1.695,
+        "suggested_max_offset_m": 0.0373
+       },
+       "arm_flab.R": {
+        "action": "raise",
+        "basis": "pair",
+        "expected_on_limit_share": 0.0532,
+        "in_band": false,
+        "max_offset_m": 0.0265,
+        "notes": [
+         "one limit for arm_flab.L and arm_flab.R"
+        ],
+        "on_limit_share": 0.8,
+        "suggested_limit_share": 1.688,
+        "suggested_max_offset_m": 0.0373
+       },
+       "belly": {
+        "action": "lower",
+        "basis": "ladder",
+        "expected_on_limit_share": 0.0617,
+        "in_band": false,
+        "max_offset_m": 0.0544,
+        "notes": [],
+        "on_limit_share": 0.01,
+        "suggested_limit_share": 0.656,
+        "suggested_max_offset_m": 0.0297
+       },
+       "breast.L": {
+        "action": "keep",
+        "basis": "pair",
+        "capped": true,
+        "expected_on_limit_share": 0.14,
+        "in_band": false,
+        "max_offset_m": 0.0515,
+        "notes": [
+         "one limit for breast.L and breast.R",
+         "needs 0.067 m but the type allows 0.66 x peak_m = 0.052 m: lower `response` or raise `damping_ratio` instead"
+        ],
+        "on_limit_share": 0.14,
+        "suggested_limit_share": 0.659,
+        "suggested_max_offset_m": 0.0515
+       },
+       "breast.R": {
+        "action": "keep",
+        "basis": "pair",
+        "capped": true,
+        "expected_on_limit_share": 0.1,
+        "in_band": false,
+        "max_offset_m": 0.0527,
+        "notes": [
+         "one limit for breast.L and breast.R",
+         "needs 0.067 m but the type allows 0.66 x peak_m = 0.053 m: lower `response` or raise `damping_ratio` instead"
+        ],
+        "on_limit_share": 0.1,
+        "suggested_limit_share": 0.66,
+        "suggested_max_offset_m": 0.0527
+       },
+       "butt.L": {
+        "action": "lower",
+        "basis": "ladder end",
+        "expected_on_limit_share": 0.0256,
+        "in_band": false,
+        "max_offset_m": 0.075,
+        "notes": [
+         "one limit for butt.L and butt.R",
+         "on the limit under 3% of the time even at 0.0187 m, the ladder's tightest: apply and run again"
+        ],
+        "on_limit_share": 0.0001,
+        "suggested_limit_share": 0.224,
+        "suggested_max_offset_m": 0.0187
+       },
+       "butt.R": {
+        "action": "lower",
+        "basis": "ladder end",
+        "expected_on_limit_share": 0.0201,
+        "in_band": false,
+        "max_offset_m": 0.0746,
+        "notes": [
+         "one limit for butt.L and butt.R",
+         "on the limit under 3% of the time even at 0.0187 m, the ladder's tightest: apply and run again"
+        ],
+        "on_limit_share": 0.0001,
+        "suggested_limit_share": 0.226,
+        "suggested_max_offset_m": 0.0187
+       },
+       "thigh.L": {
+        "action": "raise",
+        "basis": "cliff",
+        "expected_on_limit_share": 0.01,
+        "in_band": false,
+        "max_offset_m": 0.0126,
+        "notes": [
+         "one limit for thigh.L and thigh.R",
+         "no limit measured lands inside the band: 20.0% at 0.0127 m, 2.7% at 0.0137 m; the looser taken"
+        ],
+        "on_limit_share": 0.2,
+        "suggested_limit_share": 0.652,
+        "suggested_max_offset_m": 0.0137
+       },
+       "thigh.R": {
+        "action": "raise",
+        "basis": "cliff",
+        "expected_on_limit_share": 0.0273,
+        "in_band": false,
+        "max_offset_m": 0.0127,
+        "notes": [
+         "one limit for thigh.L and thigh.R",
+         "no limit measured lands inside the band: 20.0% at 0.0127 m, 2.7% at 0.0137 m; the looser taken"
+        ],
+        "on_limit_share": 0.2,
+        "suggested_limit_share": 0.646,
+        "suggested_max_offset_m": 0.0137
+       }
+      },
+      "self-test": {
+       "breast.L": {
+        "action": "keep",
+        "basis": "in band",
+        "expected_on_limit_share": 0.075,
+        "in_band": true,
+        "max_offset_m": 0.078,
+        "notes": [],
+        "on_limit_share": 0.075,
+        "suggested_limit_share": null,
+        "suggested_max_offset_m": 0.078
+       },
+       "butt.L": {
+        "action": "raise",
+        "basis": "estimate",
+        "expected_on_limit_share": null,
+        "in_band": false,
+        "max_offset_m": 0.058,
+        "notes": [
+         "no ladder in the report: an estimate, measure again after applying it"
+        ],
+        "on_limit_share": 0.115,
+        "suggested_limit_share": null,
+        "suggested_max_offset_m": 0.0843
+       }
+      }
+     },
+     "settled": false,
+     "spec_limits": {
+      "arm_flab.L": 0.0373,
+      "arm_flab.R": 0.0373,
+      "belly": 0.0297,
+      "breast.L": 0.0515,
+      "breast.R": 0.0527,
+      "butt.L": 0.0187,
+      "butt.R": 0.0187,
+      "thigh.L": 0.0137,
+      "thigh.R": 0.0137
+     },
+     "types": {
+      "arm_flab": {
+       "limit_share": 1.692,
+       "regions": 2
+      },
+      "belly": {
+       "limit_share": 0.656,
+       "regions": 1
+      },
+      "breast": {
+       "limit_share": 0.659,
+       "regions": 2
+      },
+      "butt": {
+       "limit_share": 0.225,
+       "regions": 2
+      },
+      "thigh": {
+       "limit_share": 0.649,
+       "regions": 2
+      }
+     }
     },
     "mesh": {
      "vertices": 17112
@@ -1145,7 +1369,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf\\flesh\\regress_upd\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-33u3nl9v\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",

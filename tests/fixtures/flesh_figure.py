@@ -10,6 +10,13 @@ Each body is given an Idle after its flesh and goes out through rig-anything's
 `export_character`, which writes the `.moves.json` `regress.py --godot` plays. The export is read
 back by `follow_through.export.verify`, which checks every jiggle bone is in the skin where the
 spec puts it.
+
+After the export, `limit_suggestion` feeds `flesh.suggest_limits` a Godot limit report made up for the
+Figure's real regions (names, limits and peaks from its spec; each region's time on the limit a fixed
+function of the limit, chosen to take every branch: in band, lower, raise, a capped breast pair, a
+cliff, the ladder's end, an old self-test line with no ladder, kept in band or estimated) and writes it back with
+`flesh.apply_limits`. The golden holds the suggested rows and the spec's limits afterwards. It runs
+after the export, so the glb is unchanged.
 """
 import os
 import sys
@@ -92,7 +99,52 @@ def _each(made, out, actions, ra_export, ft_export, flesh):
             "idle": H.stable({k: idle["Idle"].get(k) for k in ("passed", "failures", "loop_seam")}),
             "moves_json": H.moves_manifest(char),
         }
+        if name == "Figure":
+            bodies[name]["limit_suggestion"] = limit_suggestion(name, flesh)
     return bodies
+
+
+# time on the limit as a function of the limit L, per region, as factors of its exported limit L0
+LIMIT_SHARES = {
+    "belly": lambda f: min(1.0, 0.01 * f ** -3),                  # rarely touched: lowered to a rung
+    "butt.L": lambda f: min(1.0, 0.0001 * f ** -4),               # barely touched even at a quarter: the
+    "butt.R": lambda f: min(1.0, 0.00008 * f ** -4),              # ladder's end, as a pair
+    "breast.L": lambda f: min(1.0, 0.14 * f ** -3),               # pinned, but at the type's cap: capped
+    "breast.R": lambda f: min(1.0, 0.10 * f ** -3),
+    "arm_flab.L": lambda f: min(1.0, 0.9 * f ** -8),              # held on its limit: raised
+    "arm_flab.R": lambda f: min(1.0, 0.8 * f ** -8),
+    "thigh.L": lambda f: 0.2 if f < 1.05 else 0.01,               # one long stay a limit catches or not: cliff
+    "thigh.R": lambda f: 0.2 if f < 1.05 else 0.01,
+}
+
+
+def limit_suggestion(name, flesh):
+    """`flesh.suggest_limits` on a made-up Godot limit report for the body's regions, applied."""
+    import bpy
+    from follow_through import spec as ft_spec
+    regions = {}
+    for r in ft_spec.read(bpy.data.objects[name])["jiggle"]["regions"]:
+        share = LIMIT_SHARES.get(r["name"], lambda f: 0.0)
+        L0 = r["max_offset_m"]
+        ladder = [[round(L0 * 2 ** (k / 8), 4), round(share(2 ** (k / 8)), 4)] for k in range(-16, 17)]
+        regions[r["name"]] = {"name": r["name"], "type": r["type"], "max_offset_m": L0, "peak_m": r["peak_m"],
+                              "on_limit_share": round(share(1.0), 4), "peak_offset_m": L0, "ladder": ladder}
+    report = {"schema": "follow-through/flesh-limits/1", "body": name, "regions": regions}
+    legacy = ("FLESH breast.L         OK  max 0.078 (limit 0.078)  on the limit  7.5% of the time  steady walk 0.03\n"
+              "FLESH butt.L          BAD  max 0.058 (limit 0.058)  on the limit 11.5% of the time  steady walk 0.03")
+    suggestion = flesh.suggest_limits(["FT_FLESH_LIMITS " + __import__("json").dumps(report), legacy])
+    applied = flesh.apply_limits(name, suggestion)
+    keep = ("action", "basis", "on_limit_share", "in_band", "max_offset_m", "suggested_max_offset_m",
+            "suggested_limit_share", "expected_on_limit_share", "capped", "notes")
+    return H.stable({
+        "in_band": suggestion["in_band"], "settled": suggestion["settled"], "capped": suggestion["capped"],
+        "types": suggestion["types"],
+        "rows": {b: {n: {k: row[k] for k in keep if k in row} for n, row in rows.items()}
+                 for b, rows in suggestion["bodies"].items()},
+        "applied": applied,
+        "spec_limits": {r["name"]: r["max_offset_m"]
+                        for r in ft_spec.read(bpy.data.objects[name])["jiggle"]["regions"]},
+    })
 
 
 H.run("flesh_figure", build)
