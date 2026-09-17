@@ -77,6 +77,7 @@ def build():
                    "failing": H.stable((exported.get("clips") or {}).get("failing")),
                    "preflight": H.stable(exported.get("preflight"))},
         "moves_json": H.moves_manifest(char),
+        "review": H.review_sheet(char.get("review")),
     }
 
 

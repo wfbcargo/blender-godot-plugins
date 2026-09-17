@@ -1418,13 +1418,16 @@ def engine_manifest(rig_name, reports=None):
     return _clean(out)
 
 
-def export_creature(mesh_name, rig_name, reports, glb_path, creature, res_path=None):
+def export_creature(mesh_name, rig_name, reports, glb_path, creature, res_path=None, review=True,
+                    review_options=None):
     """Export through `export.export` - read back, durations checked - and write
     `<name>.moves.json` beside it with the `hop` block and the `gaits` /
     `contacts` entries the other creatures carry.
 
     `reports` may be None: the reports `move_set` stored on the rig's actions are
-    used, so a .blend saved after authoring exports in a fresh session."""
+    used, so a .blend saved after authoring exports in a fresh session. `review`
+    and `review_options` as `export.export`: the review sheet goes to
+    `<glb folder>/review/<glb name>/`."""
     import json
     import os
     from . import export
@@ -1436,7 +1439,8 @@ def export_creature(mesh_name, rig_name, reports, glb_path, creature, res_path=N
     clips = list(m["clips"].values())
     feet = sorted({l["end"] for l in H.P.legs if l["end"]})
     e = export.export(mesh_name, rig_name, glb_path, foot_bones=feet, actions=clips, loop_clips=m["loops"],
-                      forward=H.st["forward"], sidecar=False)
+                      forward=H.st["forward"], sidecar=False, review=review,
+                      review_options=dict({"title": creature}, **(review_options or {})))
     if not e.get("exported"):
         return {"error": "export refused at %s" % e.get("stage"), "export": e}
     loco = lm.engine_manifest(rig_name, {k: r for k, r in reports.items() if k in ("Walk", "Hop", "Bound")},
@@ -1463,7 +1467,7 @@ def export_creature(mesh_name, rig_name, reports, glb_path, creature, res_path=N
     with open(base + ".moves.json", "w", encoding="utf-8") as fh:
         json.dump(moves, fh, indent=2)
     return {"glb": glb_path, "moves": base + ".moves.json", "verified": e["verified"], "clips": clips,
-            "bones": e["preflight"]["bones"]}
+            "bones": e["preflight"]["bones"], "review": e.get("review")}
 
 
 def summarize(r):

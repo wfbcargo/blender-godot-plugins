@@ -33,6 +33,10 @@ that belong to a plugin.
     [[outfit]]                   # optional: wardrobe presets, innermost first
     preset = "sports_top"
 
+    [review]                     # optional: the review sheet written after export (default on)
+    enabled = true
+    frame_height_m = 2.1         # default: 2.1 m for an upright body, a size rung for a creature
+
     [export]
     dir = "assets/belle"         # under the project
     res_dir = "res://assets/belle"
@@ -120,6 +124,12 @@ class Export:
 
 
 @dataclass
+class Review:
+    enabled: bool = True
+    frame_height_m: float | None = None       # None: rig-anything's review.frame_height picks it
+
+
+@dataclass
 class Character:
     id: str
     name: str
@@ -129,6 +139,7 @@ class Character:
     hair: Hair | None = None
     flesh: Flesh | None = None
     outfit: list = field(default_factory=list)
+    review: Review = field(default_factory=Review)
     path: str | None = None                  # the spec file
     project: str | None = None               # the project it builds into
 
@@ -182,7 +193,7 @@ def _unknown(table, allowed, where):
 
 def parse(data, path=None):
     """A `Character` from parsed TOML, checked. Raises `SpecError` naming the field."""
-    _unknown(data, ("character", "body", "moves", "hair", "flesh", "outfit", "export"), "spec")
+    _unknown(data, ("character", "body", "moves", "hair", "flesh", "outfit", "export", "review"), "spec")
     c = _take(data, "character", dict, required=True)
     _unknown(c, ("id", "name"), "[character]")
     cid = _take(c, "id", str, required=True, where="character.")
@@ -256,13 +267,18 @@ def parse(data, path=None):
                     res_dir=_take(e, "res_dir", str, required=True, where="export."),
                     blend=_take(e, "blend", str), note=_take(e, "note", str, default=""))
 
+    r = _take(data, "review", dict, default={})
+    _unknown(r, ("enabled", "frame_height_m"), "[review]")
+    review = Review(enabled=_take(r, "enabled", bool, default=True, where="review."),
+                    frame_height_m=_take(r, "frame_height_m", float, where="review."))
+
     project = None
     if path:
         # characters/<id>.toml sits in the project it builds into
         here = os.path.dirname(os.path.abspath(path))
         project = os.path.dirname(here) if os.path.basename(here) == "characters" else here
     return Character(id=cid, name=name, body=body, moves=moves, export=export, hair=hair, flesh=flesh,
-                     outfit=outfit, path=os.path.abspath(path) if path else None, project=project)
+                     outfit=outfit, review=review, path=os.path.abspath(path) if path else None, project=project)
 
 
 def load(path):

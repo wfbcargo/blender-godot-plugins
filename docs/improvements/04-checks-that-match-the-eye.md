@@ -70,6 +70,37 @@ workbench-lit and the same scale for every character. It goes to
 
 Characters then line up, regressions can be diffed visually, and the critic below has a fixed input.
 
+**Done (rig-anything `review.py`, character-pipeline `review` stage), branch `review-strips`.**
+- `export.export` writes the sheet after the glb is verified unless `review=False`, so
+  `export_character`, `hop.export_creature` and `radial_moves.export_creature` all do. It goes to
+  `<glb folder>/review/<glb name>/`, not `review/` itself: `flesh_figure` exports two bodies into one
+  folder and their `contact.png` would collide. `review/` gets the `.gdignore`. A failed sheet is
+  `review.error` in the manifest (and a `problems` line), not a refused export.
+- The pipeline's export stage turns rig-anything's sheet off, and the `review` stage renders the
+  character dressed: every mesh bound to the rig, garments in their own colours, into
+  `<export dir>/review/<id>/`. Spec `[review] enabled / frame_height_m`, hashed on its own. It raises if
+  a cell shows no body.
+- One render per strip: the 8 frozen poses stand side by side along the ortho camera's right axis.
+  Seconds added per export, measured in the fixtures with two Blenders running at once: 4.2-4.7 s
+  for one clip (mostly the first render's start-up), 2.1 s (Bloater, 2 clips), 6.6 s (pipeline woman,
+  3 clips, dressed), 8.1 s (mpfb woman, 6), 9.0 s (cricket, 5), 9.6 s (dog, 5), 10.4 s (rabbit, 6),
+  15.6 s (Rigify figure, 10). A full `regress.py --twice --jobs 2` with the sheets took 17 minutes on the shared machine.
+- Scale: 2.1 m for an upright body (taller than twice its depth along `forward`); otherwise the smallest
+  rung of `0.05 ... 12 m` holding 1.15 x its size: cricket 0.05, starfish 0.35, rabbit 0.75, dog 1.5.
+  Cells are 320 px tall plus a label band (14%) and a ground band under the floor (4%), at least 0.6
+  as wide as tall. A flat body's three-quarter view is from above (`three_quarter_above`): the starfish and the cricket.
+- Goldens record, per fixture, the png names, that they match the reported count, the `.gdignore`,
+  `review.json`, scale, cell and contact sizes, the frames drawn, and per strip `cells_with_body` and
+  `distinct_cells` - not pixel hashes. All 8 of 8 in every strip of every fixture, stable under
+  `--twice`.
+- For 04 c, scratch strips of Walter's walk and Tomas' run: the committed glbs from grungist-creek
+  `5379d5e` (before the upper body moved into rig-anything) and `ed654b0` (now), and Walter and Tomas
+  re-authored on today's baked bodies with rig-anything `bc1ef67^` (pre-fix) and `bc1ef67` (the arm
+  fix) and `2e451d9`'s build options. The pre-fix rebuild reproduces the finding: today's
+  `verify.arm_pose` fails Tomas' run at hand_rise 0.72 (the commit's number) and Walter's walk
+  reaches forward with straight arms; the `bc1ef67` builds pass (0.47). The `5379d5e` glbs do not
+  show the reaching arms - that state was never committed as a glb.
+
 ### c. Motion critic
 
 Model it on humancheck's critic: `humanform/references/critic-checklist.md`, invoked from
@@ -110,7 +141,7 @@ already known:
    `COINCIDENT_MAX` (default 0.003 m), and report `coincident` separately.
 2. **Re-run Belle's verifier.** Crouch, crouch walk and jump should pass on holes if the
    screenshots are right. If not, the remaining holes are real: render them.
-3. **Review sheets in export.** Add a `review=True` flag to rig-anything `export.export` (or to the
+3. **Review sheets in export.** *Done - see b.* Add a `review=True` flag to rig-anything `export.export` (or to the
    01 pipeline's `review` stage). Use a shared `frame_height_m` default of 2.1 m for humans, or the
    body size for creatures.
 4. **Motion critic checklist** in animate-anything's `references/`, plus a SKILL.md section on how

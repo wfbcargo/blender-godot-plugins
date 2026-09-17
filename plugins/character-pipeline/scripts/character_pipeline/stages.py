@@ -7,6 +7,8 @@
     moves     rig-anything's move set - after flesh, before garments
     garments  wardrobe presets, cut from the fleshed skin (optional)
     export    the glb, .moves.json and garment glbs, and the .blend
+    review    the review sheet: every clip as 8-frame strips of the dressed character (on unless the spec
+              says `[review] enabled = false`)
 
 Each stage names the stages it needs and checks the file itself before it runs, so a stage run out of
 order refuses with the order rather than producing a wrong result. The orders below were each found
@@ -315,7 +317,7 @@ def run_export(ch, ctx):
     e = ra_export.export_character(ch.mesh, ch.rig, glb, name=ch.name, creature=ch.id, reports=reports,
                                    res_path=f"{ch.export.res_dir}/{ch.id}.glb", roles=list(ch.moves.roles),
                                    loops=list(ch.moves.loops), gaits=list(ch.moves.export_gaits),
-                                   force=bool(ch.moves.may_fail), extra=extra)
+                                   force=bool(ch.moves.may_fail), extra=extra, review=False)
     if "error" in e:
         raise RuntimeError(f"export refused: {e['error']}")
     forced = sorted(set(e["manifest"].get("forced_clips") or [])
@@ -334,6 +336,43 @@ def run_export(ch, ctx):
     return {k: e.get(k) for k in ("glb", "moves", "verified", "clips", "bones", "problems")}
 
 
+def review_dir(ch):
+    """Where the review sheet goes: `<export dir>/review/<id>/` (the `review/` folder carries a .gdignore)."""
+    return os.path.join(ch.out_dir(), "review", ch.id)
+
+
+def check_review(ch):
+    glb = os.path.join(ch.out_dir(), f"{ch.id}.glb")
+    if not os.path.isfile(glb):
+        return f"review needs export: no {glb} - run export first"
+    missing = [r for r in ch.moves.roles if r not in moves_stored(ch)]
+    if missing:
+        return f"review needs moves: no stored clips for {missing} - run moves first"
+    return None
+
+
+def run_review(ch, ctx):
+    """rig-anything's review sheet of the character as the game shows it: the body with its hair and every
+    garment bound to the rig, each clip the export shipped, at the shared scale (2.1 m for a person)."""
+    import json
+    from rig_analysis import review
+    with open(os.path.join(ch.out_dir(), f"{ch.id}.moves.json"), encoding="utf-8") as fh:
+        manifest = json.load(fh)
+    clips = [manifest["clips"][r] for r in ch.moves.roles if r in manifest["clips"]]
+    meshes = review.bound_meshes(ch.rig, first=ch.mesh)
+    r = review.sheet(meshes, ch.rig, clips, review_dir(ch), loops=manifest.get("loops", []),
+                     frame_height_m=ch.review.frame_height_m, title=ch.name)
+    if "error" in r:
+        raise RuntimeError(f"review: {r['error']}")
+    empty = sorted(f"{c} {v}" for c, vs in r["strips"].items() for v, s in vs.items()
+                   if s["cells_with_body"] < len(r["frames"][c]))
+    if empty:
+        raise RuntimeError(f"review: strips with cells showing no body: {empty}")
+    out = review.summary(r)
+    out["meshes"] = meshes
+    return out
+
+
 # (name, needs, spec sections its hash covers, precondition check, run, applies to this spec)
 STAGES = [
     ("body", (), ("character", "body"), lambda ch: None, run_body, lambda ch: True),
@@ -343,5 +382,6 @@ STAGES = [
     ("moves", ("bake", "hair", "flesh"), ("moves",), check_not_dressed("moves"), run_moves, lambda ch: True),
     ("garments", ("moves", "flesh"), ("outfit",), check_garments, run_garments, lambda ch: bool(ch.outfit)),
     ("export", ("moves", "garments"), ("export", "moves"), check_export, run_export, lambda ch: True),
+    ("review", ("export",), ("review",), check_review, run_review, lambda ch: ch.review.enabled),
 ]
 ORDER = [s[0] for s in STAGES]
