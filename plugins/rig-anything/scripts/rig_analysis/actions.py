@@ -29,39 +29,6 @@ def _support(body, legs):
     return min(coords), max(coords)
 
 
-def lean_angles(bm, lean, head_level):
-    """Total pitch per axial bone for a torso leaning `lean` degrees.
-
-    The pelvis takes half, the torso ramps to the full lean by its top, and the
-    neck and head hand `head_level` of it back so the creature keeps looking
-    where it was looking. Positive leans forward, negative back. Bones behind
-    the pelvis ride with it.
-    """
-    n = len(bm["axial"])
-    a = [0.0] * n
-    if lean == 0.0 or n == 0:
-        return a
-    p = bm["pelvis_index"]
-    torso_idx = [bm["axial"].index(x) for x in bm["torso"]]
-    neck_idx = [bm["axial"].index(x) for x in bm["neck"]]
-    head_idx = bm["axial"].index(bm["head"]) if bm["head"] else None
-    pelvis = 0.5 * lean
-    for i in range(n):
-        a[i] = pelvis
-    if torso_idx:
-        last = max(torso_idx)
-        for i in torso_idx:
-            f = (i - p) / max(last - p, 1)
-            a[i] = pelvis + (lean - pelvis) * f
-        for i in range(last + 1, n):
-            a[i] = lean
-    tail_end = sorted(neck_idx + ([head_idx] if head_idx is not None else []))
-    for k, i in enumerate(tail_end):
-        f = (k + 1) / float(len(tail_end))
-        a[i] = lean * (1.0 - head_level * f)
-    return a
-
-
 def _leg_drop_room(bm, leg, fold_limit):
     """How far the hip can drop straight down before this leg folds past
     `fold_limit` of its full length. Splayed legs lose less length per unit of
@@ -169,106 +136,48 @@ def slide(rig_name, frames=10, forward="-Y", up="Z", floor=0.0, action_name="Sli
         return bm
     rig = bpy.data.objects[rig_name]
     legs = [l for l in bm["limbs"] if l["role"] == "leg" and l["axial_index"] is not None]
-    arms = [l for l in bm["limbs"] if l["role"] == "arm" and l["axial_index"] is not None]
     if not bm["upright"]:
         return skid(rig_name, frames=frames, forward=forward, up=up, floor=floor,
                     action_name=action_name, fps=fps)
     if len(legs) != 2:
         return {"error": "an upright body with %d legs has no slide authored"
                          % len(legs), "bodymap": bodymap.summary(bm)}
-    lead_leg = next((l for l in legs if l["side"] == lead), None)
-    if lead_leg is None:
+    if not any(l["side"] == lead for l in legs):
         return {"error": "no leg on side %r" % lead}
-    trail_leg = next(l for l in legs if l is not lead_leg)
 
+    # Built from `keyposes.slide_key` through the Poser, the same key and the same
+    # blend the recoveries start from. Hand-written here, the slide solved its feet
+    # without the Poser's floor handling: the tucked trail foot followed its shin
+    # into the ground (toe.R 0.16 m and skin 0.11 m under the floor at frame 8 on a
+    # Rigify biped), and SlideRecover, which drapes that toe, started 0.18 m from
+    # where Slide ended. One path, and the seam is zero by construction.
+    from . import keyposes as kp
     body = motion.Body(rig, bm)
-    upv, fwd, lat = bm["up_vec"], bm["fwd"], bm["lat"]
-    mw = rig.matrix_world
-    upw = bodymap.axis_vector(up)
-    # Written by hand rather than through a Poser, so wings are folded here.
-    wing_poser = None
-    if bm.get("wings"):
-        from . import keyposes as kp, wings as wing_mod
-        wing_poser = kp.Poser(body)
-
-    def height(p_arm):
-        return (mw @ p_arm).dot(upw) - floor
-
-    leg_len = sum(l["a"] + l["b"] for l in legs) / 2.0
-    centre = sum((l["rest_root"] for l in legs), Vector()) / 2.0
-
-    def outward(l, rest_point):
-        return lat if (rest_point - centre).dot(lat) > 0.0 else -lat
-
-    hip_rest = sum(height(l["rest_root"]) for l in legs) / 2.0
-    ankle_rest = sum(height(l["rest_eff"]) for l in legs) / 2.0
-    drop = hip_rest - hip_height * leg_len
-    dz = ankle_rest - hip_height * leg_len          # ankle relative to hip, at the end
-    lead_reach = 0.96 * leg_len
-    lead_fwd = math.sqrt(max(lead_reach ** 2 - dz ** 2, 0.0))
-
-    arm_side = {l["side"]: l for l in arms}
-    back_arm = arm_side.get(trail_leg["side"])
-    front_arm = arm_side.get(lead_leg["side"])
-
-    poles_last = {}
+    P = kp.Poser(body)
+    key = kp.slide_key(P, lead=lead, hip_height=hip_height, lean_degrees=lean_degrees,
+                       head_level=head_level)
+    # rest looks where the slide's head looks, so only the lean moves the head
+    start = kp.rest_key().copy(head_level=head_level)
+    leg_len = P.leg_len
+    # the knees are posed against their natural bend: the trail knee turned out
+    poles_last = {l["name"]: key.limbs[l["name"]]["pole"] for l in legs}
 
     def pose(s):
-        infos = {}
-        axial = body.bend_axial(-upv * (drop * s), lean_angles(bm, lean_degrees * s,
-                                                               head_level))
-        posed = body.fk(axial)
-        overrides = dict(axial)
-        if wing_poser is not None:
-            overrides.update(wing_poser.wing_rig.pose(posed, wing_mod.blend_states(
-                wing_poser.wing_default, wing_poser.wing_default, 1.0)))
-            posed = body.fk(overrides)
-
         # The feet get going before the hips come down. Moving both on the same
         # curve left the lead foot behind a half-dropped pelvis and the middle
         # of the clip read as sitting on a chair.
-        s_feet = math.sqrt(s)
+        return P.blend(start, key, s, w_legs=math.sqrt(s))
 
-        def leg(l, offset, pole):
-            hip = posed[l["upper"]].translation
-            lateral = (l["rest_eff"] - l["rest_root"]).dot(lat)
-            goal = hip + offset + lat * lateral
-            target = l["rest_eff"].lerp(goal, s_feet)
-            ov, info = body.solve_limb(posed, l, target, pole=pole, pole_weight=s_feet)
-            overrides.update(ov)
-            infos[l["name"]] = info
-            poles_last[l["name"]] = pole
-
-        # Both feet aim along the FLOOR from wherever the hips are now, so the
-        # lead leg reaches out as the pelvis drops rather than kicking up.
-        hip_now = sum(height(posed[l["upper"]].translation) for l in legs) / 2.0
-        dz_now = ankle_rest - hip_now
-        fwd_now = math.sqrt(max(lead_reach ** 2 - dz_now ** 2, 0.0))
-        leg(lead_leg, fwd * fwd_now + upv * dz_now, (upv + fwd * 0.2).normalized())
-        out_t = outward(trail_leg, trail_leg["rest_root"])
-        leg(trail_leg, fwd * (0.32 * leg_len * s) + upv * dz_now,
-            (out_t + fwd * 0.35 - upv * 0.15).normalized())
-
-        for l, offset in ((back_arm, (-0.35, -0.75, 0.3)),
-                          (front_arm, (0.55, 0.15, 0.3))):
-            if l is None:
-                continue
-            shoulder = posed[l["upper"]].translation
-            reach = l["a"] + l["b"]
-            rest_eff = body.carried(posed, l["attach"], l["rest_eff"])
-            goal = shoulder + (fwd * offset[0] + upv * offset[1]
-                               + outward(l, l["rest_root"]) * offset[2]) * reach
-            ov, info = body.solve_limb(posed, l, rest_eff.lerp(goal, s))
-            overrides.update(ov)
-            infos[l["name"]] = info
-        return body.fk(overrides), infos
-
+    # Held to the floor-skid check like any clip. It used to opt out because "a
+    # slide drives its lead leg along the floor" - and it did: the lead heel
+    # dragged 0.32 m forward and the trail foot 0.18 m. Nothing
+    # in a slide needs that; both feet leave the floor for their new spots
+    # (`Poser._step`), and on a Rigify biped the worst skid is now 2 mm.
     keyed, infos_by_frame, action, report = _author(
         body, rig, action_name, frames, pose, fps,
         lambda keyed, ev, infos: _check_common(
             body, bm, keyed, ev, infos, planted=[], posed_limbs=legs,
-            pole_overrides=poles_last, rest_floor=floor,
-            skid=False))  # a slide drives its lead leg along the floor
+            pole_overrides=poles_last, rest_floor=floor))
     if "error" in report:
         return report
     report.update({
@@ -683,11 +592,14 @@ def skid(rig_name, frames=10, forward="-Y", up="Z", floor=0.0, action_name="Slid
     def pose(s):
         return P.blend(rest, key, s, w_legs=math.sqrt(s))
 
+    # Held to the floor-skid check, like the biped slide: it opted out because "a
+    # skid drags the body along the floor", but the check is on the legs, and a
+    # Rigify dog's feet stretched out along the floor dragged 11 mm (front) and
+    # 9 mm (rear) before they stepped (`Poser._step`); now 0.
     keyed, infos, action, report = _author(
         body, rig, action_name, frames, pose, fps,
         lambda keyed, ev, infos: _check_common(body, bm, keyed, ev, infos, planted=[],
-                                               posed_limbs=P.legs, rest_floor=floor,
-                                               skid=False))  # a skid drags the body along the floor
+                                               posed_limbs=P.legs, rest_floor=floor))
     if "error" in report:
         return report
     report.update({"rig": rig_name, "action": action.name, "frames": [1, len(keyed)],
@@ -926,8 +838,8 @@ def _check_common(body, bm, keyed, ev, infos_by_frame, planted, posed_limbs,
     to the direction its mid-joint was asked to point on the LAST frame, for
     limbs posed against their natural bend (a slide's knee turned out).
     `support` enables the balance check, which only a static pose can pass.
-    `skid` is False for a clip that drags a leg along the floor by design (a
-    slide), or a callable `(limb name, frame) -> in stance` for a gait played in
+    `skid` is False for a clip whose floor is not the ground its legs stand on
+    (a hop's air phase), or a callable `(limb name, frame) -> in stance` for a gait played in
     place: its stance feet travel back along the floor by design and are held to
     the gait's own skate test, and only its swing is checked here.
     """

@@ -156,9 +156,9 @@ nothing. One rule, no special case.
 
 `keyposes.py` makes a pose a value - `Key(drop, shift, sway, lean, head_level,
 limbs)` - and `Poser.blend(a, b, w, w_legs=, w_arms=, w_lean=)` the body between
-two. `crouch_key` and `slide_key` reproduce the last frames of the Crouch and
-Slide clips exactly (0.000000 m against Blender's playback), so anything built
-from them joins those clips without a seam.
+two. The Crouch and Slide clips are blends from rest to `crouch_key` and
+`slide_key`, so anything built from those keys joins them without a seam (0.0 m
+against Blender's playback).
 
 | Action | Built as | Checked |
 |---|---|---|
@@ -343,9 +343,36 @@ planted foot rolling over its toe keeps the old test - with the lift, a dog's to
 sank 3.4 mm at heel-off), and `locomotion` folds only as far as the contact
 stays clear. `_check_common` checks every clip: a limb that
 stands on the floor at rest may not move along it while on it (`floor_skid`,
-0.5% of body size). Slides opt out (`skid=False`); gaits played in place pass
-their stance (`skid=in_stance`) so only swing is checked - with the three bugs
-put back, the cricket walk fails it at 1.4 mm.
+0.5% of body size). Gaits played in place pass their stance
+(`skid=in_stance`) so only swing is checked - with the three bugs put back, the
+cricket walk fails it at 1.4 mm. Slides no longer opt out; see below.
+
+**A foot moving to a new spot on the floor steps there.** The three slides put a
+Rigify biped's feet through the floor and dragged them along it, and again the
+causes were shared. `actions.slide` hand-wrote its path instead of blending to
+`slide_key`, so it had none of the poser's floor handling: the tucked trail foot
+followed its shin down until its toe was 16 cm and its skin 11 cm under the
+floor, and SlideRecover, which starts on the draped `slide_key`, began 18 cm
+from where Slide ended. Slide is now `blend(rest, slide_key)` and the seam is 0
+by construction. Behind that, a foot in the air was only draped at its toes, from
+wherever the foot ended, so the trail foot's ball stayed 2.7 cm under; a foot in
+the air now turns up onto the floor about its ankle first (`Body.lay_on_floor`),
+by its real skin - the rod model toes and tails use hung the heel's 4.4 cm under
+the whole foot and flicked its toe up 12 cm in one frame. And `Poser.blend` drew a
+foot between two floor spots in a straight line along the floor: the recoveries
+dragged the lead heel 0.41 m and the trail foot 0.14 m into place as the body
+rose onto them, Slide the lead heel 0.32 m out, a Rigify dog's recovery its
+forefeet 0.29 m. Between two targets that both mean the floor (a leg at rest, or
+one marked `keyposes.on_floor` - `slide_key`'s, `along_floor`), the foot now
+lifts in the first 15% of the blend, travels, and comes straight down in the last
+15% (`Poser._step`, up to 10% of the leg high). Marked, not guessed from height:
+a jump's tuck, asked for under the floor while the hips are still low, read as on
+it and lifted an MPFB woman's feet 10.5 cm a frame early. All three slides now
+pass and export on the Rigify biped (worst skid 2 mm), and `slide` and `skid`
+are held to `floor_skid` like any clip. With the step removed, Slide fails it at
+0.32 m; with the foot not laid, all three fail at 1.3 cm under the floor. The
+lead foot now crosses up to 0.31 m in a frame of SlideRecover, and the knees fold
+to 30 degrees at the top of the step.
 
 **Limbs are named as limbs.** `bodymap.limb_name` drops the first segment from
 the upper bone: `hind_femur.L` is `hind.L`, `front_thigh.L` is `front.L`; a bone

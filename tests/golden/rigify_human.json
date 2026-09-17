@@ -48,6 +48,30 @@
      "loops": true,
      "passed": true
     },
+    "Figure_Slide": {
+     "engine_duration_s": 0.4167,
+     "failures": [],
+     "implied_speed_playback_mps": null,
+     "locomotion": false,
+     "loops": false,
+     "passed": true
+    },
+    "Figure_SlideRecover": {
+     "engine_duration_s": 0.75,
+     "failures": [],
+     "implied_speed_playback_mps": null,
+     "locomotion": false,
+     "loops": false,
+     "passed": true
+    },
+    "Figure_SlideToCrouch": {
+     "engine_duration_s": 0.5,
+     "failures": [],
+     "implied_speed_playback_mps": null,
+     "locomotion": false,
+     "loops": false,
+     "passed": true
+    },
     "Figure_Trot": {
      "engine_duration_s": 1.0417,
      "failures": [],
@@ -65,67 +89,9 @@
      "passed": true
     }
    },
-   "dropped_clips": {
-    "Figure_Slide": [
-     "foot reaches -0.0259 at frame 7, below the floor at 0.0000 by more than the 0.0088 tolerance",
-     "toe.R reaches -0.1616, below the floor, at frame 8",
-     "skin reaches -0.1143, through the floor, at frame 8",
-     "thigh.L drifts sideways while planted by 0.0169 - the foot would skate",
-     "thigh.L moves unevenly while planted by 0.0129 - the foot would skate",
-     "thigh.R drifts sideways while planted by 0.0824 - the foot would skate",
-     "thigh.R moves unevenly while planted by 0.0393 - the foot would skate",
-     "thigh.R is planted at a different speed from the other feet - it slides 0.3598 over its stance"
-    ],
-    "Figure_SlideRecover": [
-     "foot reaches -0.0252 at frame 4, below the floor at 0.0000 by more than the 0.0088 tolerance",
-     "foot.R reaches -0.0252, below the floor, at frame 4",
-     "thigh.L drifts sideways while planted by 0.0092 - the foot would skate",
-     "thigh.L moves unevenly while planted by 0.1508 - the foot would skate",
-     "thigh.R drifts sideways while planted by 0.0530 - the foot would skate",
-     "thigh.R moves unevenly while planted by 0.0072 - the foot would skate",
-     "thigh.R is planted at a different speed from the other feet - it slides 0.1001 over its stance"
-    ],
-    "Figure_SlideToCrouch": [
-     "foot reaches -0.0260 at frame 4, below the floor at 0.0000 by more than the 0.0088 tolerance",
-     "foot.R reaches -0.0260, below the floor, at frame 4",
-     "thigh.L drifts sideways while planted by 0.0164 - the foot would skate",
-     "thigh.L sinks or rises while planted by 0.0078 - the foot would skate",
-     "thigh.L moves unevenly while planted by 0.0513 - the foot would skate",
-     "thigh.R drifts sideways while planted by 0.0569 - the foot would skate",
-     "thigh.L is planted at a different speed from the other feet - it slides 0.0837 over its stance"
-    ]
-   },
+   "dropped_clips": {},
    "exported": true,
-   "failing": {
-    "Figure_Slide": [
-     "foot reaches -0.0259 at frame 7, below the floor at 0.0000 by more than the 0.0088 tolerance",
-     "toe.R reaches -0.1616, below the floor, at frame 8",
-     "skin reaches -0.1143, through the floor, at frame 8",
-     "thigh.L drifts sideways while planted by 0.0169 - the foot would skate",
-     "thigh.L moves unevenly while planted by 0.0129 - the foot would skate",
-     "thigh.R drifts sideways while planted by 0.0824 - the foot would skate",
-     "thigh.R moves unevenly while planted by 0.0393 - the foot would skate",
-     "thigh.R is planted at a different speed from the other feet - it slides 0.3598 over its stance"
-    ],
-    "Figure_SlideRecover": [
-     "foot reaches -0.0252 at frame 4, below the floor at 0.0000 by more than the 0.0088 tolerance",
-     "foot.R reaches -0.0252, below the floor, at frame 4",
-     "thigh.L drifts sideways while planted by 0.0092 - the foot would skate",
-     "thigh.L moves unevenly while planted by 0.1508 - the foot would skate",
-     "thigh.R drifts sideways while planted by 0.0530 - the foot would skate",
-     "thigh.R moves unevenly while planted by 0.0072 - the foot would skate",
-     "thigh.R is planted at a different speed from the other feet - it slides 0.1001 over its stance"
-    ],
-    "Figure_SlideToCrouch": [
-     "foot reaches -0.0260 at frame 4, below the floor at 0.0000 by more than the 0.0088 tolerance",
-     "foot.R reaches -0.0260, below the floor, at frame 4",
-     "thigh.L drifts sideways while planted by 0.0164 - the foot would skate",
-     "thigh.L sinks or rises while planted by 0.0078 - the foot would skate",
-     "thigh.L moves unevenly while planted by 0.0513 - the foot would skate",
-     "thigh.R drifts sideways while planted by 0.0569 - the foot would skate",
-     "thigh.L is planted at a different speed from the other feet - it slides 0.0837 over its stance"
-    ]
-   },
+   "failing": {},
    "note": null,
    "preflight": {
     "bones": 29,
@@ -272,16 +238,13 @@
    },
    "Slide": {
     "balance": null,
-    "failures": [
-     "toe.R reaches -0.1616, below the floor, at frame 8",
-     "skin reaches -0.1143, through the floor, at frame 8"
-    ],
-    "lowest_point": -0.1616,
-    "passed": false,
+    "failures": [],
+    "lowest_point": 0.0011,
+    "passed": true,
     "planted_drift": {},
-    "skin_lowest": -0.1143,
+    "skin_lowest": -0.0143,
     "tightest_joint_degrees": {
-     "thigh.L": 110.1,
+     "thigh.L": 99.0,
      "thigh.R": 50.4,
      "upper_arm.L": 75.4,
      "upper_arm.R": 109.6
@@ -289,41 +252,31 @@
    },
    "SlideRecover": {
     "balance": null,
-    "failures": [
-     "foot.R reaches -0.0252, below the floor, at frame 4",
-     "thigh.L skids 0.4076 along the floor (tolerance 0.0088)",
-     "thigh.R skids 0.2023 along the floor (tolerance 0.0088)",
-     "first frame is 0.1810 from the end of Figure_Slide (toe.R)"
-    ],
-    "lowest_point": -0.0252,
-    "passed": false,
+    "failures": [],
+    "lowest_point": 0.0011,
+    "passed": true,
     "planted_drift": {
      "thigh.L": 0.0,
      "thigh.R": 0.0
     },
-    "skin_lowest": -0.0255,
+    "skin_lowest": -0.0143,
     "tightest_joint_degrees": {
-     "thigh.L": 50.3,
-     "thigh.R": 43.1,
+     "thigh.L": 32.5,
+     "thigh.R": 29.6,
      "upper_arm.L": 74.1,
      "upper_arm.R": 99.8
     }
    },
    "SlideToCrouch": {
     "balance": null,
-    "failures": [
-     "foot.R reaches -0.0260, below the floor, at frame 4",
-     "thigh.L skids 0.3809 along the floor (tolerance 0.0088)",
-     "thigh.R skids 0.2023 along the floor (tolerance 0.0088)",
-     "first frame is 0.1810 from the end of Figure_Slide (toe.R)"
-    ],
-    "lowest_point": -0.026,
-    "passed": false,
+    "failures": [],
+    "lowest_point": 0.0011,
+    "passed": true,
     "planted_drift": {},
-    "skin_lowest": -0.0256,
+    "skin_lowest": -0.0143,
     "tightest_joint_degrees": {
-     "thigh.L": 62.0,
-     "thigh.R": 48.7,
+     "thigh.L": 42.9,
+     "thigh.R": 38.5,
      "upper_arm.L": 74.3,
      "upper_arm.R": 99.7
     }
@@ -773,11 +726,11 @@
     "action": "Figure_Slide",
     "balance": null,
     "end_height_m": 1.1619,
-    "failures": [
-     "toe.R reaches -0.1616, below the floor, at frame 8",
-     "skin reaches -0.1143, through the floor, at frame 8"
-    ],
-    "floor_skid": {},
+    "failures": [],
+    "floor_skid": {
+     "thigh.L": 0.00225,
+     "thigh.R": 0.0
+    },
     "fps": 24,
     "frames": [
      1,
@@ -786,17 +739,17 @@
     "hip_height_m": 0.2788,
     "lead": "L",
     "lean_degrees": -35.0,
-    "lowest_point": -0.1616,
-    "passed": false,
+    "lowest_point": 0.0011,
+    "passed": true,
     "planted_drift": {},
     "prediction_error": 1e-06,
     "rest_error": 0.0,
     "rig": "Figure_metarig",
-    "skin_lowest": -0.1143,
+    "skin_lowest": -0.0143,
     "slide_height_m": 1.1619,
     "standing_height_m": 1.7667,
     "tightest_joint_degrees": {
-     "thigh.L": 110.1,
+     "thigh.L": 99.0,
      "thigh.R": 50.4,
      "upper_arm.L": 75.4,
      "upper_arm.R": 109.6
@@ -815,23 +768,18 @@
      ]
     },
     "end_height_m": 1.7667,
-    "failures": [
-     "foot.R reaches -0.0252, below the floor, at frame 4",
-     "thigh.L skids 0.4076 along the floor (tolerance 0.0088)",
-     "thigh.R skids 0.2023 along the floor (tolerance 0.0088)",
-     "first frame is 0.1810 from the end of Figure_Slide (toe.R)"
-    ],
+    "failures": [],
     "floor_skid": {
-     "thigh.L": 0.4076,
-     "thigh.R": 0.20229
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
     },
     "fps": 24,
     "frames": [
      1,
      18
     ],
-    "lowest_point": -0.0252,
-    "passed": false,
+    "lowest_point": 0.0011,
+    "passed": true,
     "planted_drift": {
      "thigh.L": 0.0,
      "thigh.R": 0.0
@@ -840,15 +788,15 @@
     "rest_error": 0.83506,
     "rig": "Figure_metarig",
     "seams": {
-     "from Figure_Slide": 0.18097,
+     "from Figure_Slide": 0.0,
      "to rest": 0.0
     },
-    "skin_lowest": -0.0255,
+    "skin_lowest": -0.0143,
     "split_frame": 9,
     "standing_height_m": 1.7667,
     "tightest_joint_degrees": {
-     "thigh.L": 50.3,
-     "thigh.R": 43.1,
+     "thigh.L": 32.5,
+     "thigh.R": 29.6,
      "upper_arm.L": 74.1,
      "upper_arm.R": 99.8
     },
@@ -859,37 +807,32 @@
     "action": "Figure_SlideToCrouch",
     "balance": null,
     "end_height_m": 1.3418,
-    "failures": [
-     "foot.R reaches -0.0260, below the floor, at frame 4",
-     "thigh.L skids 0.3809 along the floor (tolerance 0.0088)",
-     "thigh.R skids 0.2023 along the floor (tolerance 0.0088)",
-     "first frame is 0.1810 from the end of Figure_Slide (toe.R)"
-    ],
+    "failures": [],
     "floor_skid": {
-     "thigh.L": 0.38093,
-     "thigh.R": 0.20229
+     "thigh.L": 0.00148,
+     "thigh.R": 0.00149
     },
     "fps": 24,
     "frames": [
      1,
      12
     ],
-    "lowest_point": -0.026,
-    "passed": false,
+    "lowest_point": 0.0011,
+    "passed": true,
     "planted_drift": {},
     "prediction_error": 1e-06,
     "rest_error": 0.83506,
     "rig": "Figure_metarig",
     "seams": {
-     "from Figure_Slide": 0.18097,
+     "from Figure_Slide": 0.0,
      "to Figure_Crouch": 0.0
     },
-    "skin_lowest": -0.0256,
+    "skin_lowest": -0.0143,
     "split_frame": null,
     "standing_height_m": 1.7667,
     "tightest_joint_degrees": {
-     "thigh.L": 62.0,
-     "thigh.R": 48.7,
+     "thigh.L": 42.9,
+     "thigh.R": 38.5,
      "upper_arm.L": 74.3,
      "upper_arm.R": 99.7
     },
@@ -1234,6 +1177,9 @@
     "Idle": "Figure_Idle",
     "Jump": "Figure_Jump",
     "Run": "Figure_Run",
+    "Slide": "Figure_Slide",
+    "SlideRecover": "Figure_SlideRecover",
+    "SlideToCrouch": "Figure_SlideToCrouch",
     "Trot": "Figure_Trot",
     "Walk": "Figure_Walk"
    },
@@ -1241,18 +1187,13 @@
     "height": 1.7668,
     "radius": 0.1753
    },
-   "dropped_clips": [
-    "Figure_Slide",
-    "Figure_SlideRecover",
-    "Figure_SlideToCrouch"
-   ],
+   "dropped_clips": [],
    "fields": [
     "clip_checks",
     "clips",
     "collider",
     "contacts",
     "creature",
-    "dropped_clips",
     "forced_clips",
     "gaits",
     "height_m",

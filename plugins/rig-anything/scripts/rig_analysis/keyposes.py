@@ -36,6 +36,24 @@ from mathutils import Matrix, Vector
 
 from . import motion
 
+# A foot stepping from one spot on the floor to another (`Poser._step`): the share
+# of the blend spent lifting it at the start and setting it down at the end, and
+# how high it goes, as a share of the leg.
+STEP_SHARE = 0.15
+STEP_LIFT = 0.1
+
+
+def on_floor(fn):
+    """Mark a leg target as a spot on the floor, so a blend to or from another
+    floor spot steps between them (`Poser._step`). Returns `fn`."""
+    fn.on_floor = True
+    return fn
+
+
+def _means_floor(fn):
+    # no target is the leg at rest, standing where it stood
+    return fn is None or getattr(fn, "on_floor", False)
+
 
 def lerp(a, b, w):
     return a + (b - a) * w
@@ -295,6 +313,39 @@ class Poser:
         rot = Matrix.Rotation(math.radians(degrees), 3, axis)
         return rot, rot @ v - v
 
+    def _step(self, limb, ta_fn, tb_fn, ta, tb, w, target):
+        """A foot moving between two spots on the floor steps there: it lifts,
+        crosses over the floor and comes straight down, rather than dragging.
+
+        Both keys of a slide recovery stand the foot on the floor - Slide's far out
+        along it, the squat's under the hips - and the straight blend between them
+        drew a Rigify biped's feet in along the ground as the body rose onto them:
+        the lead heel reached the floor 0.41 m short of its spot and skidded in, the
+        trail foot 0.14 m (`floor_skid`, tolerance 0.009), and a Rigify dog's
+        forefeet 0.29 m. Here the first and last `STEP_SHARE` of the blend lift and
+        lower the foot in place and the travel happens between, `STEP_LIFT` of the
+        leg high, or the distance if that is shorter.
+
+        Only between two keys that both mean the floor (`on_floor`): a leg at rest,
+        or a target marked as lying on it. Judged by the targets' heights instead, a
+        jump's tuck - asked for under the floor while the hips are still low - read
+        as on it, and an MPFB woman's feet were lifted 10.5 cm a frame before her
+        take-off. A foot standing on one spot in both keys (a crouch, a gait's
+        key blended with itself) never moves."""
+        if not (_means_floor(ta_fn) and _means_floor(tb_fn)):
+            return target
+        d = tb - ta
+        across = d - self.up * d.dot(self.up)
+        lift_max = STEP_LIFT * (limb["a"] + limb["b"])
+        amount = min(1.0, across.length / lift_max)
+        if amount <= 0.0:
+            return target
+        r = STEP_SHARE
+        over = motion.smoothstep((w - r) / (1.0 - 2.0 * r))
+        raised = min(motion.smoothstep(w / r), motion.smoothstep((1.0 - w) / r))
+        moved = ta + across * lerp(w, over, amount) + self.up * (d.dot(self.up) * w)
+        return moved + self.up * (raised * min(lift_max, across.length))
+
     def blend(self, a, b, w, w_legs=None, w_arms=None, w_lean=None, w_wings=None,
               w_maw=None):
         """The body `w` of the way from key `a` to key `b`.
@@ -363,6 +414,8 @@ class Poser:
             ta = ta_fn(self, limb, posed) if ta_fn else self.rest_target(limb, posed)
             tb = tb_fn(self, limb, posed) if tb_fn else self.rest_target(limb, posed)
             target = ta.lerp(tb, lw)
+            if limb["role"] == "leg" and 0.0 < lw < 1.0:
+                target = self._step(limb, ta_fn, tb_fn, ta, tb, lw, target)
 
             pole, pole_w = None, 1.0
             if pa is not None and pb is not None:
@@ -418,24 +471,27 @@ class Poser:
             overrides.update(ov)
             infos[limb["name"]] = info
         posed = body.fk(overrides)
-        # toes lie on the floor rather than pointing into it
         drapes = {}
         for limb in self.legs:
-            drapes.update(body.drape_digits(posed, limb, floor=self.bm["floor"],
-                                            clearance=0.004 * self.bm["height"]))
             # Only a foot in the air: a planted one is already held where its
             # contact is solved, and draping it slid a walking bird's toes 1-2 cm.
-            if not limb["digits"] and limb["end"] and plant_ws.get(limb["name"], 1.0) < 1.0:
-                # A foot with no toe bones is its own toe. Unplanted, it follows
-                # the shin, and a dragon pushing off or drawing its legs in from
-                # a skid put its toes 2.5 cm into the floor. Draping changes
-                # nothing for a foot that stays above it.
-                e = self.rig.data.bones[limb["end"]]
-                rot = posed[limb["end"]].to_3x3() @ body.rest[limb["end"]].to_3x3().inverted()
-                drapes.update(body.drape_chain(
-                    [(limb["end"], e.head_local.copy(), e.tail_local.copy())],
-                    posed[limb["end"]].translation.copy(), [rot],
-                    floor=self.bm["floor"], clearance=0.004 * self.bm["height"]))
+            if limb["end"] and plant_ws.get(limb["name"], 1.0) < 1.0:
+                # Unplanted, a foot follows the shin, and a shin pitched forward tips
+                # the sole into the floor: a dragon pushing off or drawing its legs in
+                # from a skid put its toes 2.5 cm into it. Toe bones did not save the
+                # foot above them - only the toes were laid down, from wherever the
+                # foot ended - so a Rigify biped's tucked trail foot in a slide stayed
+                # 2.7 cm under the floor at the ball (skin -2.7 cm) with its toe
+                # resting neatly on top. The foot turns up onto the floor first, by its
+                # own skin (`lay_on_floor`), then its toes lie down from there.
+                laid = body.lay_on_floor(posed, limb["end"], floor=self.bm["floor"],
+                                         clearance=0.004 * self.bm["height"])
+                if laid:
+                    overrides.update(laid)
+                    posed = body.fk(overrides)
+            # toes lie on the floor rather than pointing into it
+            drapes.update(body.drape_digits(posed, limb, floor=self.bm["floor"],
+                                            clearance=0.004 * self.bm["height"]))
         if drapes:
             overrides.update(drapes)
             posed = body.fk(overrides)
@@ -664,9 +720,9 @@ def slide_key(poser, lead="L", hip_height=0.36, lean_degrees=-35.0, head_level=0
 
     up, fwd = poser.up, poser.fwd
     limbs = {
-        lead_leg["name"]: {"target": lead_target, "planted": False,
+        lead_leg["name"]: {"target": on_floor(lead_target), "planted": False,
                            "pole": (up + fwd * 0.2).normalized()},
-        trail_leg["name"]: {"target": trail_target, "planted": False,
+        trail_leg["name"]: {"target": on_floor(trail_target), "planted": False,
                             "pole": (poser.outward(trail_leg) + fwd * 0.35
                                      - up * 0.15).normalized()},
     }
@@ -747,7 +803,7 @@ def along_floor(direction, reach=0.9):
         side = (l["rest_eff"] - l["rest_root"]).dot(p.lat) * (1.0 - abs(d.dot(p.lat)))
         h = math.sqrt(max(span * span - dz * dz - side * side, 0.0))
         return hip + d * h + p.up * dz + p.lat * side
-    return fn
+    return on_floor(fn)
 
 
 def _rise_room(poser, reach=0.95):
