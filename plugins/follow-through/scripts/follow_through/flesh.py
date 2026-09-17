@@ -20,6 +20,11 @@ skeleton together.
               refitted without the rings standing more than 8% above it. A ramp (a
               waist widening into hips) is a line and stays lean; a bump (a buttock on
               the back of the hips) is rejected, and is the excess.
+  profile     a mass where one chain ends and the next begins - a buttock, between the
+              spine and the thighs - has no rings on both sides of it, so rings cannot
+              see it. A type with `"lean": "profile"` is read from the side instead: per
+              slice across the body, the silhouette behind the hip joints from the small
+              of the back to the back of the thigh, with the same refitted line under it.
   zones       excess alone cannot tell hips from a pinched waist, so every flesh
               type in the registry names a zone of the body - which chain, a height
               between hip and shoulder, a facing, a side - and a region is excess
@@ -40,6 +45,16 @@ What was measured and dropped on the way, so nobody tries it again:
     every other region. Zones handle hips instead.
   - chains by nearest segment alone: a bloater's wide torso sides went to its A-posed
     upper arms, which pass closer to them than the spine. Chains come from skin weights.
+  - buttocks from rings (improvements 05 5.9). The spine's first ring is the crotch
+    (0.02 m from the chain at the figure's hip sides, against 0.15-0.17 m of hip), so the
+    refitted line started there and the sides of the hips stood 0.10-0.12 m proud: 60% of
+    the figure's buttock bone weight came from them (0.13 m off). Rings without the crotch
+    (only vertices whose normal is across the chain) lost the buttock instead - 20 seeds,
+    a bump at the end of a chain reads as a ramp - and moved every other region. On Belle
+    the pelvis chain had four rings, the line hugged the upper buttock and only the fold
+    under it stood out (bone head 0.794 m facing down, hips 0.873). Nor did moving the
+    butt zone's heights. Read from the side, both samples' buttocks land 0.02-0.04 m from
+    their centres and Belle's bone head 1 cm from her marked one read the same way.
 """
 
 from __future__ import annotations
@@ -360,7 +375,7 @@ def tissue(obj_name, rig_name=None, side=SIDE_BONES):
     return {"object": obj.name, "rig": rig.name, "P": P, "height": H, "chains": chs,
             "chain_of": chain_of, "arc": arc, "searched": searched, "lean": lean,
             "excess": excess, "relative": relative, "frame": frame, "rings": rings,
-            "roles": roles}
+            "roles": roles, "radius": dist_c[chain_of, cols]}
 
 
 def _chain_from_skin(obj, rig, chs):
@@ -430,6 +445,71 @@ def _lower_envelope(R, half):
         stack = np.stack([env[:, (s - 1) % ns], env[:, s], env[:, (s + 1) % ns]])
         out[:, s] = np.nanmean(stack, axis=0) if not np.all(np.isnan(stack)) else np.nan
     return np.where(np.isnan(env), np.nan, out)
+
+
+def _profile(t, facing_back=True):
+    """How far each vertex stands out of the body seen from the side, across chains.
+
+    Per slice across the body (a band wide) and per band of height, the silhouette is the
+    furthest skin behind the hip joints (or ahead of them, `facing_back=False`) among vertices
+    facing that way, arms left out. `_lower_envelope` runs down each slice as it runs along a
+    chain, so the lean line goes from the small of the back to the back of the thigh and a
+    buttock between them stands out of it. Excess is how far a vertex is behind that line; its
+    lean is its distance from its chain less that excess, so `relative` means what it does
+    for rings. Cached in `t`."""
+    key = "_profile_back" if facing_back else "_profile_front"
+    if key in t:
+        return t[key]
+    P = t["P"]
+    n = len(P)
+    f = t["frame"]
+    H = t["height"]
+    band = H / BANDS_PER_HEIGHT
+    halves = [max(2, int(round(hw * H / band))) for hw in ENVELOPE_HALF_WIDTHS]
+    out_dir = -f["forward"] if facing_back else f["forward"]
+    normals = _world_normals(bpy.data.objects[t["object"]])
+    mid_z = 0.5 * (f["hip"] + f["shoulder"])
+    arm = np.zeros(n, dtype=bool)
+    hips = []
+    for ci, ch in enumerate(t["chains"]):
+        if ch.get("role") == "spine":
+            continue
+        if ch["points"][0, 2] > mid_z:
+            arm |= t["chain_of"] == ci
+        elif abs(ch["points"][0, 2] - f["hip"]) < 0.02 * H:
+            hips.append(ch["points"][0])
+    ref = float(np.mean([h @ out_dir for h in hips])) if hips else float(np.median(P @ out_dir))
+    depth = P @ out_dir - ref
+    use = np.where(((normals @ out_dir) > 0.0) & ~arm & (depth > 0.0))[0]
+    excess, lean, searched = np.zeros(n), np.zeros(n), np.zeros(n, dtype=bool)
+    if len(use) >= SECTORS:
+        # a slice of empty columns each side, so the envelope's neighbour averaging, which wraps
+        # round like sectors do, never mixes the body's two sides
+        col = np.floor((P[use] @ f["lateral"] - f["mid_lateral"]) / band).astype(int)
+        col -= col.min() - 1
+        row = np.floor((P[use, 2] - f["bottom"]) / band).astype(int)
+        S = np.full((row.max() + 1, col.max() + 2), np.nan)
+        np.fmax.at(S, (row, col), depth[use])
+        env = np.nanmin(np.stack([_lower_envelope(S, h) for h in halves]), axis=0)
+        lv = env[row, col]
+        good = ~np.isnan(lv)
+        v = use[good]
+        excess[v] = depth[v] - lv[good]
+        lean[v] = np.maximum(t["radius"][v] - np.maximum(excess[v], 0.0), 0.01 * H)
+        searched[v] = True
+    relative = np.where(lean > 0, excess / np.maximum(lean, 1e-9), 0.0)
+    t[key] = {"excess": excess, "lean": lean, "relative": relative, "searched": searched}
+    return t[key]
+
+
+def measured(t, entry):
+    """The tissue measure a flesh type is read with: `t` itself (rings), or with a type's
+    `"lean": "profile"` its excess, lean, relative and searched from `_profile`, from behind when
+    the type's zone faces back (a mean facing over 90 degrees)."""
+    if (entry or {}).get("lean") != "profile":
+        return t
+    facing = (entry.get("zone") or {}).get("facing_deg", [0, 180])
+    return dict(t, **_profile(t, facing_back=0.5 * (facing[0] + facing[1]) > 90.0))
 
 
 
@@ -556,14 +636,15 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
     if types is not None:
         order = [x for x in order if x in types]
     claimed = np.zeros(n, dtype=bool)
-    seed_all = (t["excess"] > SEED_EXCESS * H) & (t["relative"] > SEED_RELATIVE) & t["searched"]
-    grow_all = (t["relative"] > GROW_RELATIVE) & t["searched"]
     name_toks = set(registry.name_tokens(obj.name))
     min_size = max(8, int(MIN_REGION_FRACTION * n))
     regions, declined = [], []
     for tname in order:
         entry = flesh_types[tname]
         zone = entry["zone"]
+        tt = measured(t, entry)       # rings, or the side profile for a type that asks for it
+        seed_all = (tt["excess"] > SEED_EXCESS * H) & (tt["relative"] > SEED_RELATIVE) & tt["searched"]
+        grow_all = (tt["relative"] > GROW_RELATIVE) & tt["searched"]
         seeds = seed_all & _in_zone(zone, c) & ~claimed
         if seeds.sum() < min_size:
             declined.append(f"{tname}: {int(seeds.sum())} bulging vertices in its zone")
@@ -591,7 +672,7 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
         else:
             groups.append((tname, np.array(members, dtype=int)))
         for rname, verts in groups:
-            reg = _region(obj, t, c, rname, tname, entry, verts, area, normals, body_volume, nbr)
+            reg = _region(obj, tt, c, rname, tname, entry, verts, area, normals, body_volume, nbr)
             when = entry.get("when", {})
             named = bool(name_toks & set(entry.get("names", [])))
             need = when.get("volume_fraction_min", 0.0)
