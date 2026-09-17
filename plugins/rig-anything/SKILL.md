@@ -323,6 +323,63 @@ Only `scene` differs (a path), plus the added `contacts` and the project's own f
 `mpfb_woman_curvy`, `rigify_human`, `quadruped` and `flesh_figure` fixtures export through it,
 so `regress.py --godot` plays them in `verify_moves.gd`.
 
+**Every export writes a review sheet** (improvements 04 b), because clips that pass every
+numeric check can still look wrong: Walter's arms reached forward with near-straight elbows and
+Tomas' run hand rose to his neck while floor, slide, balance and clearance all passed. `export.export`
+(so `export_character`, `hop.export_creature` and `radial_moves.export_creature` too) renders, after
+the glb is written and verified:
+
+```
+<glb folder>/review/.gdignore                  # Godot does not import the pngs
+<glb folder>/review/<glb name>/<clip>_<view>.png   # 8 evenly spaced frames side by side
+<glb folder>/review/<glb name>/contact.png     # every strip at half size: a row per clip, a column per view
+<glb folder>/review/<glb name>/review.json     # frames, scale, cell sizes, per-strip measures
+```
+
+- **Views** `front`, `right` (Blender's Right view: from +X, so a body facing -Y shows its left
+  side and faces left in the image) and `three_quarter`, turned to the export's `forward`. A flat
+  body (under 0.35 of its length tall: the sea star, the cricket) gets `three_quarter_above` instead, from 40
+  degrees up - level, it is a line. Workbench, flat grey body, the
+  floor as an orange line with a band below it (a foot through the floor shows), the clip and frame
+  numbers written above.
+- **One scale.** `frame_height_m` is 2.1 m for an upright body (taller than twice its depth), so every
+  person lines up at the feet and a child renders smaller than a man; anything else takes the smallest
+  of `review.CREATURE_FRAMES_M` holding 1.15 times its size (the dog fixture 1.5 m). Cells are 320 px
+  tall; loops leave out their repeated last frame.
+- **Fast.** One render per strip: the 8 frozen poses stand side by side along the camera's right
+  axis. Measured in the fixtures (two Blenders at once on a shared machine): about 4 s for a 1-clip
+  body (most of it the first render), 5-7 s for 2-3 clips, 8-10 s for 5-6 clips, 15.6 s for the
+  Rigify figure's 10 clips.
+- **Several meshes** (`review.sheet`, and the pipeline's dressed character): the first is grey,
+  every further one (garments, hair) blue, green, then purple.
+- **Measured.** Per strip, `cells_with_body` (cells where a body was drawn), `distinct_cells` (cells
+  showing different poses: one pose rendered 8 times is 1; compared on an undithered render with a
+  tolerance of 12 pixels differing by more than 10/255, so a sub-pixel breath can merge frames) and
+  `edge_cells` (cells whose body touches any edge of the strip - a side, so it spills into its
+  neighbour, or the bottom or top, so the frame cut it off).
+- **The frame holds every pose, up and down too.** The cell is the rest body's frame, and a pose
+  leaves it in every direction: the rabbit's and the cricket's `JumpAir` legs go through the floor, a
+  launch rises above the standing head. The bands above and below the cell are grown from the
+  evaluated poses (`bands_px` [label, above, below] in `review.json` and the manifest), in whole
+  pixels at the same metres-per-pixel, so the shared scale, the cell and the floor line stay put and
+  only the picture gets taller - rabbit 13 -> 46 px of ground (strips 378 -> 411 px tall), cricket
+  13 -> 58 (378 -> 423), and a sheet of the `review_sheet` fixture's `Dip` clip 13 -> 57 below and
+  0 -> 81 above. A band stops at 2 cell heights (`review.GROW_MAX`), so a clip whose root runs away
+  cannot render a picture thousands of pixels tall; past the cap the pose really is out of the
+  picture and `edge_cells` says so. With a fixed 4% ground band those legs were cut off at image row
+  0 while `edge_cells`, which then looked only at the side columns, reported 0: the sheet cropped the
+  evidence and called itself clean.
+- **Poses stay in their cells.** Every clip is evaluated before rendering. A strip whose poses would
+  reach out of the rest body's cell (the cricket's JumpLaunch stretches and rises out of it) is drawn
+  with each frame's extent centred in its cell - `centred` in the strip, `(each frame centred)` in its
+  heading - and the cells widen to the widest centred pose. How far a body travelled between frames is
+  then not shown; each pose is. `review_options={"centre_poses": False}` draws poses where they stand. The manifest's `review` holds these and the
+  folder; a sheet that failed is `review.error` (and a `problems` line from `export_character`), never
+  a refused export - the glb is already verified.
+- `review=False` turns it off; `review_options` go to `review.sheet` (`frame_height_m`, `views`,
+  `frames`, `cell_px`, `title`, `centre_poses`). `review.sheet(meshes, rig, actions, out_dir, ...)` renders any
+  meshes on a rig - several, e.g. a body with its garments - without exporting.
+
 **In Godot, drive it with `MovesController`.** Copy
 `${CLAUDE_PLUGIN_ROOT}/godot/addons/rig_anything` to `<project>/addons/` once. It is a
 `CharacterBody3D` (`class_name MovesController`) that reads any `.moves.json`: set

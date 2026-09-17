@@ -1,7 +1,8 @@
 # character-pipeline
 
 Build a whole character for Godot 4.7 from one TOML spec. The steps are a humanform body from a
-brief, then bake, hair, follow-through flesh, rig-anything's move set, wardrobe garments, and export.
+brief, then bake, hair, follow-through flesh, rig-anything's move set, wardrobe garments, export, and a review sheet
+of every clip at one scale.
 The stages check the .blend before they run, so they refuse to run out of order, and they record
 what they built from so a rebuild skips what has not changed.
 

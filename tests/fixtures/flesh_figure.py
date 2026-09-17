@@ -91,6 +91,7 @@ def _each(made, out, actions, ra_export, ft_export, flesh):
             "read_back": H.stable(verified) if verified else None,
             "idle": H.stable({k: idle["Idle"].get(k) for k in ("passed", "failures", "loop_seam")}),
             "moves_json": H.moves_manifest(char),
+            "review": H.review_sheet(char.get("review")),
         }
     return bodies
 

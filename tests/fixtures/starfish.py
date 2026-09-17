@@ -94,6 +94,7 @@ def build():
         "skin": H.stable(skinned),
         "moves": {role: H.stable(report) for role, report in moves.items()},
         "export": H.stable(exported),
+        "review": H.review_sheet(exported.get("review")),
         "manifest": H.stable(manifest),
     }
 

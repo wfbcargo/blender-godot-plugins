@@ -96,6 +96,23 @@ that no plugin owns yet. Tuned numbers live with their owners, and a spec only n
 | `moves` | bake, hair, flesh | baked; no garment bound - rig-anything measures arm hang against every mesh on the rig |
 | `garments` | moves, flesh | every role has a stored clip; jiggle bones present if the spec has flesh |
 | `export` | moves, garments | every role has a stored clip; an outfit is bound if the spec has one |
+| `review` | export | the glb and every role's clip exist |
+
+**`review`** writes rig-anything's review sheet of the character as the game shows it - the body with
+its hair and every garment bound to the rig, garments in their own colours - to `<export dir>/review/<id>/`: `<clip>_<view>.png`
+strips of 8 frames from the front, right and three-quarter views, `contact.png` and `review.json`, with
+a `.gdignore` in `review/`. A person is framed 2.1 m tall like everyone else. The export stage passes
+`review=False` to rig-anything, so the sheet is rendered once, dressed. It raises if a strip has a cell
+with no body, or a cell whose body reaches an edge of the picture (`edge_cells`): sideways the pose
+would sit in the next frame's cell, and at the bottom or the top the frame has cut it off, which is
+exactly what the sheet exists to show. It is on unless the spec says so, and its hash covers only
+`[review]`:
+
+```toml
+[review]                           # optional
+enabled = true                     # false: no review stage
+frame_height_m = 2.1               # default: 2.1 m upright, a size rung for a creature
+```
 
 Each stage that runs stores an input hash and its report in a Text datablock,
 `character_pipeline:<id>`. A text saves with the .blend and never reaches a glb. The hash covers the

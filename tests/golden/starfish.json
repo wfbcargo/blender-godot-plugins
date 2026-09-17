@@ -1,7 +1,7 @@
 {
  "fixture": "starfish",
  "plugins": {
-  "rig-anything": "0.20.0"
+  "rig-anything": "0.21.0"
  },
  "report": {
   "detection": {
@@ -79,8 +79,120 @@
     "StarTest_rig_Crawl",
     "StarTest_rig_Idle"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tgsn1soe\\a\\starfish\\starfish\\starfish.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tgsn1soe\\a\\starfish\\starfish\\starfish.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\starfish\\starfish\\starfish.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\starfish\\starfish\\starfish.moves.json",
+   "review": {
+    "bands_px": [
+     45,
+     0,
+     13
+    ],
+    "cell_px": [
+     295,
+     320
+    ],
+    "contact_px": [
+     3556,
+     390
+    ],
+    "count": 7,
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\starfish\\starfish\\review\\starfish",
+    "frame_height_m": 0.35,
+    "frames": {
+     "StarTest_rig_Crawl": [
+      1,
+      7,
+      13,
+      19,
+      25,
+      31,
+      37,
+      43
+     ],
+     "StarTest_rig_Idle": [
+      1,
+      13,
+      25,
+      37,
+      49,
+      61,
+      73,
+      85
+     ]
+    },
+    "seconds": 4.45,
+    "strips": {
+     "StarTest_rig_Crawl": {
+      "front": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 5,
+       "edge_cells": 0,
+       "size_px": [
+        2360,
+        378
+       ]
+      },
+      "right": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 5,
+       "edge_cells": 0,
+       "size_px": [
+        2360,
+        378
+       ]
+      },
+      "three_quarter_above": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 5,
+       "edge_cells": 0,
+       "size_px": [
+        2360,
+        378
+       ]
+      }
+     },
+     "StarTest_rig_Idle": {
+      "front": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        2360,
+        378
+       ]
+      },
+      "right": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        2360,
+        378
+       ]
+      },
+      "three_quarter_above": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        2360,
+        378
+       ]
+      }
+     }
+    },
+    "views": [
+     "front",
+     "right",
+     "three_quarter_above"
+    ]
+   },
    "verified": {
     "durations_match": true,
     "mismatches": []
@@ -370,6 +482,127 @@
     "tightest_joint_degrees": {},
     "tolerance": 0.00122
    }
+  },
+  "review": {
+   "bands_px": [
+    45,
+    0,
+    13
+   ],
+   "cell_px": [
+    295,
+    320
+   ],
+   "contact_px": [
+    3556,
+    390
+   ],
+   "frame_height_m": 0.35,
+   "frames": {
+    "StarTest_rig_Crawl": [
+     1,
+     7,
+     13,
+     19,
+     25,
+     31,
+     37,
+     43
+    ],
+    "StarTest_rig_Idle": [
+     1,
+     13,
+     25,
+     37,
+     49,
+     61,
+     73,
+     85
+    ]
+   },
+   "gdignore": true,
+   "on_disk_matches_count": true,
+   "pngs": [
+    "StarTest_rig_Crawl_front.png",
+    "StarTest_rig_Crawl_right.png",
+    "StarTest_rig_Crawl_three_quarter_above.png",
+    "StarTest_rig_Idle_front.png",
+    "StarTest_rig_Idle_right.png",
+    "StarTest_rig_Idle_three_quarter_above.png",
+    "contact.png"
+   ],
+   "review_json": true,
+   "strips": {
+    "StarTest_rig_Crawl": {
+     "front": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 5,
+      "edge_cells": 0,
+      "size_px": [
+       2360,
+       378
+      ]
+     },
+     "right": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 5,
+      "edge_cells": 0,
+      "size_px": [
+       2360,
+       378
+      ]
+     },
+     "three_quarter_above": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 5,
+      "edge_cells": 0,
+      "size_px": [
+       2360,
+       378
+      ]
+     }
+    },
+    "StarTest_rig_Idle": {
+     "front": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       2360,
+       378
+      ]
+     },
+     "right": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       2360,
+       378
+      ]
+     },
+     "three_quarter_above": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       2360,
+       378
+      ]
+     }
+    }
+   },
+   "views": [
+    "front",
+    "right",
+    "three_quarter_above"
+   ]
   },
   "rig": {
    "appendages": {

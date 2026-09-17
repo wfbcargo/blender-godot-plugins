@@ -854,11 +854,12 @@ def engine_manifest(reports=None, rig_name=None, mass_kg=None):
     return out
 
 
-def export_creature(mesh_name, rig_name, reports, glb_path, creature, res_path=None, mass_kg=None):
+def export_creature(mesh_name, rig_name, reports, glb_path, creature, res_path=None, mass_kg=None,
+                    review=True, review_options=None):
     """Export the glb through `export.export` - read back and duration-checked -
     and write `<name>.moves.json` beside it with the `radial` block, in the shape
     the other creatures' manifests have. `reports=None` exports what `move_set`
-    stored on the rig's actions."""
+    stored on the rig's actions. `review` and `review_options` as `export.export`."""
     import json
     import os
     from . import export
@@ -871,7 +872,8 @@ def export_creature(mesh_name, rig_name, reports, glb_path, creature, res_path=N
     # distance or the stroke `row` measured - and is carried in the manifest.
     forward = rad.read(bpy.data.objects[rig_name])["forward"]
     e = export.export(mesh_name, rig_name, glb_path, foot_bones=[], actions=clips,
-                      loop_clips=m["loops"], forward=forward, sidecar=False)
+                      loop_clips=m["loops"], forward=forward, sidecar=False, review=review,
+                      review_options=dict({"title": creature}, **(review_options or {})))
     if not e.get("exported"):
         return {"error": "export refused at %s" % e.get("stage"), "export": e}
     base = os.path.splitext(glb_path)[0]
@@ -890,7 +892,7 @@ def export_creature(mesh_name, rig_name, reports, glb_path, creature, res_path=N
     with open(base + ".moves.json", "w", encoding="utf-8") as fh:
         json.dump(moves, fh, indent=2)
     return {"glb": glb_path, "moves": base + ".moves.json", "verified": e["verified"],
-            "clips": clips, "bones": e["preflight"]["bones"]}
+            "clips": clips, "bones": e["preflight"]["bones"], "review": e.get("review")}
 
 
 def summarize(r):

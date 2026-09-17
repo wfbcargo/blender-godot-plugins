@@ -2,7 +2,7 @@
  "fixture": "mpfb_woman_curvy",
  "plugins": {
   "humanform": "0.6.3",
-  "rig-anything": "0.19.0"
+  "rig-anything": "0.21.0"
  },
  "report": {
   "bake": {
@@ -469,7 +469,7 @@
      "FixWoman_body",
      "FixWoman_rig"
     ],
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-_u1_0vri\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "morph_targets": false,
     "options_dropped_by_this_blender": [],
     "skipped": [],
@@ -493,7 +493,7 @@
      "FixWoman_Run": 1.041667,
      "FixWoman_Walk": 1.375
     },
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-_u1_0vri\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "generator": "Khronos glTF Blender I/O v5.2.40",
     "gltf_version": 2,
     "joints": 53,
@@ -544,7 +544,287 @@
      "51 bone names use '.' (e.g. spine.001, spine.002, spine.003). Bone names are not node names so this normally survives, but it is not the spelling Godot's humanoid retargeting profile expects - prefer _L/_R if you retarget."
     ]
    },
-   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-_u1_0vri\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
+   "review": {
+    "bands_px": [
+     45,
+     0,
+     13
+    ],
+    "cell_px": [
+     221,
+     320
+    ],
+    "contact_px": [
+     2668,
+     1162
+    ],
+    "count": 19,
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
+    "frame_height_m": 2.1,
+    "frames": {
+     "FixWoman_Crouch": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      9,
+      10,
+      12
+     ],
+     "FixWoman_CrouchWalk": [
+      1,
+      4,
+      7,
+      10,
+      13,
+      16,
+      19,
+      22
+     ],
+     "FixWoman_Idle": [
+      1,
+      7,
+      13,
+      19,
+      25,
+      31,
+      37,
+      43
+     ],
+     "FixWoman_Jump": [
+      1,
+      4,
+      7,
+      10,
+      13,
+      16,
+      19,
+      22
+     ],
+     "FixWoman_Run": [
+      1,
+      4,
+      7,
+      10,
+      13,
+      16,
+      19,
+      22
+     ],
+     "FixWoman_Walk": [
+      1,
+      5,
+      9,
+      13,
+      17,
+      21,
+      25,
+      29
+     ]
+    },
+    "seconds": 6.38,
+    "strips": {
+     "FixWoman_Crouch": {
+      "front": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      },
+      "right": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      },
+      "three_quarter": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      }
+     },
+     "FixWoman_CrouchWalk": {
+      "front": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      },
+      "right": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      },
+      "three_quarter": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      }
+     },
+     "FixWoman_Idle": {
+      "front": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      },
+      "right": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      },
+      "three_quarter": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      }
+     },
+     "FixWoman_Jump": {
+      "front": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      },
+      "right": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      },
+      "three_quarter": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      }
+     },
+     "FixWoman_Run": {
+      "front": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      },
+      "right": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      },
+      "three_quarter": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      }
+     },
+     "FixWoman_Walk": {
+      "front": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      },
+      "right": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      },
+      "three_quarter": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        1768,
+        378
+       ]
+      }
+     }
+    },
+    "views": [
+     "front",
+     "right",
+     "three_quarter"
+    ]
+   },
+   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
    "stage": "done",
    "verified": {
     "durations_match": true,
@@ -1210,6 +1490,307 @@
     "FixWoman_CrouchWalk"
    ],
    "problems": []
+  },
+  "review": {
+   "bands_px": [
+    45,
+    0,
+    13
+   ],
+   "cell_px": [
+    221,
+    320
+   ],
+   "contact_px": [
+    2668,
+    1162
+   ],
+   "frame_height_m": 2.1,
+   "frames": {
+    "FixWoman_Crouch": [
+     1,
+     3,
+     4,
+     6,
+     7,
+     9,
+     10,
+     12
+    ],
+    "FixWoman_CrouchWalk": [
+     1,
+     4,
+     7,
+     10,
+     13,
+     16,
+     19,
+     22
+    ],
+    "FixWoman_Idle": [
+     1,
+     7,
+     13,
+     19,
+     25,
+     31,
+     37,
+     43
+    ],
+    "FixWoman_Jump": [
+     1,
+     4,
+     7,
+     10,
+     13,
+     16,
+     19,
+     22
+    ],
+    "FixWoman_Run": [
+     1,
+     4,
+     7,
+     10,
+     13,
+     16,
+     19,
+     22
+    ],
+    "FixWoman_Walk": [
+     1,
+     5,
+     9,
+     13,
+     17,
+     21,
+     25,
+     29
+    ]
+   },
+   "gdignore": true,
+   "on_disk_matches_count": true,
+   "pngs": [
+    "FixWoman_CrouchWalk_front.png",
+    "FixWoman_CrouchWalk_right.png",
+    "FixWoman_CrouchWalk_three_quarter.png",
+    "FixWoman_Crouch_front.png",
+    "FixWoman_Crouch_right.png",
+    "FixWoman_Crouch_three_quarter.png",
+    "FixWoman_Idle_front.png",
+    "FixWoman_Idle_right.png",
+    "FixWoman_Idle_three_quarter.png",
+    "FixWoman_Jump_front.png",
+    "FixWoman_Jump_right.png",
+    "FixWoman_Jump_three_quarter.png",
+    "FixWoman_Run_front.png",
+    "FixWoman_Run_right.png",
+    "FixWoman_Run_three_quarter.png",
+    "FixWoman_Walk_front.png",
+    "FixWoman_Walk_right.png",
+    "FixWoman_Walk_three_quarter.png",
+    "contact.png"
+   ],
+   "review_json": true,
+   "strips": {
+    "FixWoman_Crouch": {
+     "front": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     },
+     "right": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     },
+     "three_quarter": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     }
+    },
+    "FixWoman_CrouchWalk": {
+     "front": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     },
+     "right": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     },
+     "three_quarter": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     }
+    },
+    "FixWoman_Idle": {
+     "front": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     },
+     "right": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     },
+     "three_quarter": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     }
+    },
+    "FixWoman_Jump": {
+     "front": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     },
+     "right": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     },
+     "three_quarter": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     }
+    },
+    "FixWoman_Run": {
+     "front": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     },
+     "right": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     },
+     "three_quarter": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     }
+    },
+    "FixWoman_Walk": {
+     "front": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     },
+     "right": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     },
+     "three_quarter": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       1768,
+       378
+      ]
+     }
+    }
+   },
+   "views": [
+    "front",
+    "right",
+    "three_quarter"
+   ]
   },
   "roles": {
    "breast_anchor": "spine.003",
