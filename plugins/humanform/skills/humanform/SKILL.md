@@ -22,7 +22,8 @@ been **measured**. The research behind this plugin, and the full plan, are in
 | L4 | face stage (ANSUR head measures), face design parts, eyes; library and pipeline | **built** (0.4.0) - `scaffold.fit_face`, `parts`, `eyes`, `library`, `pipeline` - see the `humanlib` skill |
 | L4 | hands-and-feet stage (ANSUR hand and foot sizes), hand and foot design parts | **built** (0.5.0) - `scaffold.fit_extremities`, `parts.design` / `screen` - see `humanlib` |
 | L6 | hair from a preset: feathered scalp cap, bun / tie / fall volumes, strand objects for follow-through | **built** - `hair`, see *Hair* |
-| L3-L4 | muscle definition and stylized exaggeration (SDF forms) | next |
+| L3-L4 | muscle definition: sculpted delta parts weighted by muscle and body fat, as geometry or a baked normal map | **built** - `muscle`, `delta`, `sdf` - see "Muscle definition" below and `humanlib` |
+| L3-L4 | stylized exaggeration (SDF forms) | next |
 | L5-L6 | reproject onto base topology, micro-detail, bake, skin | Phase 5 |
 | L7 | rig from landmarks, flesh regions, export | Phase 6 |
 
@@ -273,6 +274,77 @@ where a fall comes out past the cap below the widest part of the head. Hair does
 or the shoulders once animated - the strand is the part meant to move. In Godot the hair wants
 `LookdevMaterials.apply` (soft hairline, per-face tangents); without it the edge is alpha scissor and there
 is no anisotropy (see lookdev's `references/hair.md`).
+
+## Muscle definition
+
+MPFB's mesh is smooth: its muscle macro makes a body bigger, not defined, so Dante read average until the
+macro was forced to 1.0. Definition is a humanlib **delta part** (per-vertex heights along the normal, in
+groups) put on after the fit:
+
+```python
+from humanform import pipeline, muscle, delta
+res = pipeline.make(brief, ...)                          # muscle left to the build and the fit
+rep = muscle.define(human, brief)                        # shape key hfd:muscle at 1: geometry
+rep = muscle.define(human, brief, geometry=False)        # hfd:muscle at 0: bake it instead (below)
+rep["weights"], rep["body_fat_pct"], rep["applied"]["groups"]    # per group: weight, vertices, max mm
+rep["fitted_muscle"], rep["applied_bulk"]                # the macro the fit left, and hfd:muscle-bulk (always 1)
+```
+
+- **The set** (`muscle.seed`, stored as `muscle/definition-v2` on first use): authored on MPFB's default male.
+  Eight groups are SDF sculpts - deltoids, upper arms, pectorals, abdominals, obliques (with the serratus and
+  the inguinal line), quadriceps, calves, forearms: ellipsoid bellies anchored by rays from the joints,
+  trimmed to a plateau, smoothly unioned, minus grooves - polylines on the skin, sunk with a smooth section
+  and tapered at both ends: the sternum, the linea alba (ending above the navel), the tendinous intersections,
+  rectus femoris from vastus lateralis, the sartorius line to the knee, above the patella, between the calf
+  heads and where they meet the Achilles, biceps from triceps, the deltoid's borders, the forearm's. Pads are
+  mirrored with |x| rounded within 15 mm of the midline, so the sides meet in a valley, not a crease. Limb
+  groups are x1.2-1.5 taller than the trunk's (`GROUP_GAIN`): at the trunk's heights they did not read at
+  full-body scale.
+- **A form must be wider than an edge.** hm08 has about 15 mm between vertices, so anything narrower comes out
+  as one vertex standing off its neighbours - a bright facet stuck through the skin, which is how two wedges
+  appeared on Dante's outer thigh. Three limits keep every form resolvable: a groove is sunk at most
+  `GROOVE_SLOPE` (0.3) of its own radius; `despike` pulls back any vertex more than `SPIKE_LIMIT` (4 mm) off
+  its neighbours' mean as each group is authored; and `muscle.facet_guard`, a `delta.apply` `refine`, does it
+  again in `define` on the **sum** of the groups at the wearer's scale. `muscle.spikes(heights, faces)` is the
+  measure throughout. Raising a gain past this point does not make a muscle read, it makes a facet - widen the
+  pad instead.
+- **Per group is not what the mesh carries.** Both keys land on one surface and the groups overlap, so they
+  add: `relief` and the sculpted limb groups spike on the same vertices - v4579 on the front-outer thigh
+  (relief 3.4 mm + quadriceps 3.0), v4735 on the back of the calf (2.9 + 3.8) - and Dante carried a 7.62 mm
+  composite while no group was over 4. That is why the guard runs on the sum and why the fixture records the
+  composite at a real body's weights (`geometry.spike`: unguarded 7617 um and 6 vertices over 1.5x the limit,
+  applied 4521 um and none), not only `stored.spike_um` per group. `define` returns the same as
+  `rep["spike_um"]`; `muscle.applied_spikes(body)` reads it back off any body's `hfd:` keys.
+- **Derived groups.** `relief` is MPFB's own muscle sculpt high-passed (muscle 1.0 minus 0.5 along the normal,
+  less its 6-iteration Laplacian smooth; head, hands, feet, nails, genitals masked, and the front midline of
+  the trunk, where MPFB's own crease came out as a knife cut down the sternum into a navel notch): the back,
+  arms and neck. `bulk` is the same shape low-passed, on the limbs and shoulders only (the trunk inside the
+  shoulders and above the hips, whose girths the fit reached, is masked), weighted by the fit's shortfall:
+  `(brief muscle - fitted macro) / 0.5`. The fit spends the muscle macro on girths - Dante's brief says 0.9,
+  the fit lands on 0.66 - and without `bulk` his arms and shoulders came out thinner than the forced-macro
+  body's. It is mass, not definition: fat does not scale it, and it stays in the geometry on the game path.
+- **How much shows** (`muscle.weights`): muscle term `smoothstep(0.3, 1.0, muscle)` - the brief's muscle or
+  its build's, never the fitted macro - times a per-group leanness from estimated body fat (Deurenberg on BMI
+  less 10 BMI points per unit of muscle above 0.5, 6 points leaner per unit of firmness above 0.5): abdominals
+  and obliques full at 12% and gone at 22%, pectorals and quadriceps 13-25, deltoids and upper arms 14-28,
+  relief 13-27, calves and forearms 15-30; women +8 points and pectorals x0.35. Dante (BMI 27.5, firmness
+  0.9, build muscle 0.9): 15.8%, weights 0.64-0.94, definition total 7.42, bulk 0.48. The same muscle value
+  at BMI 30 and firmness 0.25: 22.7%, total 1.90 (0.26 of Dante's), abdominals 0. Freya: 24.9%, total 3.98.
+- **Geometry or a map.** `delta.high_copy(human, "hfd:muscle")` before `bake_for_game` gives the high
+  source (bulk included); lookdev's `detail.bake_normal_from_high(body, high, out_dir, material="<name>_skin")`
+  bakes it onto the game mesh - by the matched method, no rays, since the high copy is the body's own
+  topology - and wires the map into the skin material (glTF normalTexture). A re-bake re-points the same
+  material. At strength 1 the map shows the pectorals, abdominals and deltoids up close but reads faint at
+  full-body scale; strength 1.6 (the Normal Map node, `strength=`) reads at that distance. The card also
+  applies to a baked mesh (`mode="mesh"`): hm08's body is its first 13380 vertices at every stage.
+- **Proportions hold:** humancheck on Dante before and after is 32 pass, 0 warn, 0 fail (heights up to 23 mm,
+  bulk 7 mm); Freya 32/0/0 both; the soft body 29/1/0 (2 info) before, 30/1/0 (1 info) after. Dante after
+  against the forced-macro body (which humancheck gives 31/1/0): upper arm 44.7 vs 38.0 cm, calf 44.1 vs 40.2,
+  thigh 64.3 vs 64.1, bideltoid 60.5 vs 57.3; chest 116.9 vs 114.7, waist 95.1 vs 94.0.
+- **Resolution:** heights live on hm08's vertices (about 15 mm apart), so edges are soft; a normal map baked
+  from the same mesh carries no finer detail than the geometry.
+
+Verify: `python tools/regress.py --only muscle_definition` (repo), renders in its design doc (05 5.5).
 
 ## MPFB2 from a script
 

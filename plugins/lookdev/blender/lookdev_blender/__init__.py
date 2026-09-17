@@ -10,7 +10,7 @@ long-lived and these modules may be edited between calls, so reload first:
         sys.path.insert(0, P)
     import lookdev_blender
     lookdev_blender.reload_all()
-    from lookdev_blender import material_lint, bake, export, reference, hair
+    from lookdev_blender import material_lint, bake, export, reference, hair, detail
 """
 
 import importlib
@@ -18,8 +18,8 @@ import importlib
 
 def reload_all():
     """Re-import every submodule. Call after editing any of them."""
-    from . import pbr, material_lint, bake, export, reference, hair
-    mods = (pbr, material_lint, bake, export, reference, hair)
+    from . import pbr, material_lint, bake, export, reference, hair, detail
+    mods = (pbr, material_lint, bake, export, reference, hair, detail)
     for m in mods:
         importlib.reload(m)
     return [m.__name__ for m in mods]
