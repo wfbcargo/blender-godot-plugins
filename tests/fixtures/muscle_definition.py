@@ -3,6 +3,8 @@
 - The set is authored from nothing on MPFB's default male (`muscle.seed`: SDF pads, cuts and grooves for
   seven groups, plus the high-passed relief of MPFB's own muscle sculpt) and stored in the harness's
   library; `muscle.find` must read back the same heights.
+- `spike_um` per group: the worst height standing off its neighbours' mean. hm08's edges are about 15 mm,
+  so a form narrower than that is a facet, not a muscle; `muscle.despike` holds this at SPIKE_LIMIT.
 - `muscle.weights` for three briefs with the same muscle value: Dante's (lean, firm), a soft one (BMI 30,
   slack) and Freya's. The soft body must get much less definition.
 - Dante's brief without the forced muscle macro is fitted (`pipeline.make`), defined as geometry, and
@@ -67,6 +69,12 @@ def build():
 
     made = pipeline.make(sheet.new(name=NAME, **DANTE), use_library=False)
     human = bpy.data.objects[NAME]
+    # no vertex may stand further than muscle.SPIKE_LIMIT off its neighbours' mean: a form is many
+    # vertices wide, a lone vertex is a bright facet stuck through the skin (hm08's edges are ~15 mm)
+    faces = delta.body_faces(human)
+    stored["spike_um"] = {g: int(round(float(abs(muscle.spikes(delta.unpack(d), faces)).max()) * 1e6))
+                          for g, d in sorted(card["payload"]["groups"].items())}
+    stored["spike_limit_um"] = int(round(muscle.SPIKE_LIMIT * 1e6))
     defined = muscle.define(human, sheet.new(name=NAME, **DANTE), card=card, geometry=True)
     hc = measure.run(human.name, preset="realistic", sex="male", build="muscular")
     geometry = {"check_before": H.stable(made["check"]), "check_after": H.stable(hc["counts"]),

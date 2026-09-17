@@ -194,6 +194,12 @@ rep["fitted_muscle"], rep["applied_bulk"]                # the macro the fit lef
   mirrored with |x| rounded within 15 mm of the midline, so the sides meet in a valley, not a crease. Limb
   groups are x1.2-1.5 taller than the trunk's (`GROUP_GAIN`): at the trunk's heights they did not read at
   full-body scale.
+- **A form must be wider than an edge.** hm08 has about 15 mm between vertices, so anything narrower comes out
+  as one vertex standing off its neighbours - a bright facet stuck through the skin, which is how two wedges
+  appeared on Dante's outer thigh. Two limits keep every group resolvable: a groove is sunk at most
+  `GROOVE_SLOPE` (0.3) of its own radius, and `despike` pulls back any vertex more than `SPIKE_LIMIT` (4 mm)
+  off its neighbours' mean. `muscle.spikes(heights, faces)` is that measure; the fixture records it per group.
+  Raising a gain past this point does not make a muscle read, it makes a facet - widen the pad instead.
 - **Derived groups.** `relief` is MPFB's own muscle sculpt high-passed (muscle 1.0 minus 0.5 along the normal,
   less its 6-iteration Laplacian smooth; head, hands, feet, nails, genitals masked, and the front midline of
   the trunk, where MPFB's own crease came out as a knife cut down the sternum into a navel notch): the back,
@@ -216,12 +222,12 @@ rep["fitted_muscle"], rep["applied_bulk"]                # the macro the fit lef
   material. At strength 1 the map shows the pectorals, abdominals and deltoids up close but reads faint at
   full-body scale; strength 1.6 (the Normal Map node, `strength=`) reads at that distance. The card also
   applies to a baked mesh (`mode="mesh"`): hm08's body is its first 13380 vertices at every stage.
-- **Proportions hold:** humancheck on Dante before and after is 32 pass, 0 warn, 0 fail (heights up to 28 mm,
+- **Proportions hold:** humancheck on Dante before and after is 32 pass, 0 warn, 0 fail (heights up to 23 mm,
   bulk 7 mm); Freya 32/0/0 both; the soft body 29/1/0 (2 info) before, 30/1/0 (1 info) after. Dante after
-  against the forced-macro body: upper arm 44.6 vs 38.0 cm, calf 45.0 vs 40.2, thigh 65.1 vs 64.1,
-  bideltoid 60.5 vs 57.3; chest 116.9 vs 114.7, waist 95.1 vs 94.0.
-- **Resolution:** heights live on hm08's vertices (about 17 mm apart on the torso), so edges are soft; a
-  normal map baked from the same mesh carries no finer detail than the geometry.
+  against the forced-macro body (which humancheck gives 31/1/0): upper arm 44.7 vs 38.0 cm, calf 44.1 vs 40.2,
+  thigh 64.3 vs 64.1, bideltoid 60.5 vs 57.3; chest 116.9 vs 114.7, waist 95.1 vs 94.0.
+- **Resolution:** heights live on hm08's vertices (about 15 mm apart), so edges are soft; a normal map baked
+  from the same mesh carries no finer detail than the geometry.
 
 Verify: `python tools/regress.py --only muscle_definition` (repo), renders in its design doc (05 5.5).
 

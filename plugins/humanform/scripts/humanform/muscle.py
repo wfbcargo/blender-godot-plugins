@@ -23,6 +23,13 @@ deep it lies inside the group's field, masked to skin that faces the way its pad
 does not raise the inside of the arm beside it. Pads are mirrored with |x| rounded near the midline, so the
 two sides meet in a soft valley rather than a crease.
 
+hm08 has about 15 mm between vertices, so a form narrower than that cannot be carried: it comes out as a
+single vertex standing off its neighbours, which renders as a bright facet stuck through the skin (two of
+them sat on Dante's outer thigh). Two limits keep every form resolvable - a groove is never sunk deeper
+than `GROOVE_SLOPE` of its own radius, and `despike` pulls back any vertex left standing more than
+`SPIKE_LIMIT` off the mean of its neighbours. Forms are many vertices wide, so this takes off facets and
+not muscles.
+
 Two groups are derived, not sculpted, from MPFB's own muscle shape (muscle 1.0 against 0.5 along the normal):
 `relief` is it high-passed (the back, arms and neck the sculpted groups do not reach; off the front midline,
 where MPFB's crease read as a knife cut), `bulk` is it low-passed on the limbs and shoulders (off the trunk
@@ -234,7 +241,8 @@ def _author_group(sk, g):
         pads.append(_pad(p, n, u, a, b, h * HEIGHT_GAIN * GROUP_GAIN.get(g, 1.0)))
 
     def groove(points, r, depth, taper=0.25):
-        grooves.append((np.array([q[0] if isinstance(q, tuple) else q for q in points]), r, depth * HEIGHT_GAIN * GROUP_GAIN.get(g, 1.0), taper))
+        depth = min(depth * HEIGHT_GAIN * GROUP_GAIN.get(g, 1.0), GROOVE_SLOPE * r)
+        grooves.append((np.array([q[0] if isinstance(q, tuple) else q for q in points]), r, depth, taper))
 
     Z = np.array([0.0, 0.0, 1.0])
     X = np.array([1.0, 0.0, 0.0])
@@ -327,6 +335,10 @@ RELIEF_MIDLINE = (0.02, 0.05)   # |x| (m, reference scale): relief gone on the f
 RELIEF_SMOOTH = 6          # Laplacian iterations taken off MPFB's muscle shape: what is left is its relief
 RELIEF_EXCLUDE = ("genitals", "nipple", "nippleTip", "fingernails", "toenails", "ears", "lips", "scalp")
 ALIGN = (0.25, 0.6)        # skin normal . pad normal: no height below the first, full above the second
+ALIGN_OFFSET = 0.03        # metres added to a pad's distance where the skin faces away from it
+GROOVE_SLOPE = 0.3         # a groove sinks at most this share of its own radius: hm08's ~15 mm edges
+                           # cannot carry a narrower, deeper cut without one vertex dropping alone
+SPIKE_LIMIT = 0.004        # m a vertex may stand off its neighbours' mean before `despike` pulls it back
 PAD_BLEND = 0.008          # smooth union radius between a group's pads (m)
 MIDLINE_SOFT = 0.015       # a pad reaching the midline meets its mirror in a valley this wide, not a crease
 BULK_FEATHER = 0.35        # bulk fades in over this share of the shoulder joint's half-width off the trunk
@@ -462,7 +474,7 @@ def author(ob, groups=GROUPS, smooth_iterations=1):
     shape = _muscle_shape(ob, faces) if {"relief", "bulk"} & set(groups) else None
     for g in groups:
         if g in ("relief", "bulk"):
-            out[g] = (relief if g == "relief" else bulk)(ob, faces, shape)
+            out[g] = despike((relief if g == "relief" else bulk)(ob, faces, shape), faces)
             continue
         pads, grooves = _author_group(sk, g)
         d = np.full(len(pts), sdf.FAR)
@@ -476,15 +488,41 @@ def author(ob, groups=GROUPS, smooth_iterations=1):
             pn_m[:, 0] *= np.sign(pts[idx, 0] + 1e-9)          # the mirrored pad's normal on the right
             align = np.clip((np.einsum("ij,ij->i", nrm[idx], pn_m) - ALIGN[0]) / (ALIGN[1] - ALIGN[0]), 0, 1)
             # trimmed to the belly's height with a rounded shoulder
-            dp = sdf.smax(fn(pts[idx]), np.full(len(idx), -ph), 0.6 * ph) + (1.0 - align) * 0.03
+            dp = sdf.smax(fn(pts[idx]), np.full(len(idx), -ph), 0.6 * ph) + (1.0 - align) * ALIGN_OFFSET
             d[idx] = sdf.smin(d[idx], dp, PAD_BLEND)
         h = np.maximum(-d, 0.0)
         for line, r, depth, taper in grooves:
             h -= _groove_depth(pts, line, r, depth, taper)
         if smooth_iterations:
             h = delta.smooth(h, faces, iterations=smooth_iterations)
-        out[g] = h
+        out[g] = despike(h, faces)
     return out
+
+
+def spikes(h, faces, adjacency=None):
+    """How far each height stands off the mean of its neighbours: a form reads as a form, a single
+    vertex standing off its neighbours reads as a bright facet stuck through the skin."""
+    r, c = adjacency or delta.neighbours(faces)
+    deg = np.maximum(np.bincount(r, minlength=delta.BODY_VERTS).astype(np.float64), 1)
+    return np.asarray(h, np.float64) - np.bincount(r, weights=np.asarray(h, np.float64)[c],
+                                                   minlength=delta.BODY_VERTS) / deg
+
+
+def despike(h, faces, limit=None, passes=6):
+    """Pull back any vertex standing more than `limit` (SPIKE_LIMIT) off its neighbours' mean, leaving
+    the rest as sculpted. Forms are many vertices wide, so this takes off facets and not muscles. Each
+    pass moves the neighbours' means too, so it converges rather than lands: six passes leave about
+    1% over the limit."""
+    limit = SPIKE_LIMIT if limit is None else limit
+    h = np.asarray(h, np.float64).copy()
+    adjacency = delta.neighbours(faces)
+    for _ in range(passes):
+        d = spikes(h, faces, adjacency)
+        over = np.abs(d) > limit
+        if not over.any():
+            break
+        h[over] -= np.sign(d[over]) * (np.abs(d[over]) - limit)
+    return h
 
 
 def seed(store=True, name=NAME):

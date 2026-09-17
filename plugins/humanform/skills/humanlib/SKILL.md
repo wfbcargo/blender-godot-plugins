@@ -142,6 +142,10 @@ high = delta.high_copy(human, "hfd:muscle")                                # for
   folds the key in at its value.
 - The first set is `muscle/definition-v2` (see humanform's "Muscle definition"): `muscle.find()`, `muscle.seed()`.
   `apply(..., key_name=)` puts groups on separate keys: muscle definition keeps `bulk` on `hfd:muscle-bulk`.
+- **A delta can only hold what the mesh can carry.** hm08's vertices are about 15 mm apart, so a form
+  narrower than that lands on one vertex and renders as a facet, not a shape. Anything authored for this
+  topology wants the guard muscle's set uses (`muscle.spikes` / `muscle.despike`, 4 mm off the neighbours'
+  mean) before it is stored.
 
 ## Eyes
 

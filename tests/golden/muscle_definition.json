@@ -12,9 +12,9 @@
      "FixDante_skin"
     ],
     "method": "matched",
-    "over_1deg": 0.348,
-    "over_5deg": 0.179,
-    "p999_deg": 29.0,
+    "over_1deg": 0.346,
+    "over_5deg": 0.164,
+    "p999_deg": 27.0,
     "skipped": [],
     "steep_texels": 7,
     "warnings": []
@@ -34,7 +34,7 @@
   },
   "geometry": {
    "applied": {
-    "card": "muscle-definition-v2-b878901e",
+    "card": "muscle-definition-v2-e50397dc",
     "groups": {
      "abdominals": {
       "max_mm": 5.01,
@@ -47,18 +47,18 @@
       "weight": 0.0
      },
      "calves": {
-      "max_mm": 24.16,
-      "vertices": 230,
+      "max_mm": 17.49,
+      "vertices": 222,
       "weight": 0.937
      },
      "deltoids": {
-      "max_mm": 16.92,
+      "max_mm": 16.94,
       "vertices": 196,
       "weight": 0.901
      },
      "forearms": {
-      "max_mm": 21.43,
-      "vertices": 262,
+      "max_mm": 20.52,
+      "vertices": 260,
       "weight": 0.937
      },
      "obliques": {
@@ -68,27 +68,27 @@
      },
      "pectorals": {
       "max_mm": 12.45,
-      "vertices": 406,
+      "vertices": 408,
       "weight": 0.814
      },
      "quadriceps": {
-      "max_mm": 22.04,
+      "max_mm": 17.98,
       "vertices": 348,
       "weight": 0.814
      },
      "relief": {
-      "max_mm": 14.93,
+      "max_mm": 9.48,
       "vertices": 3390,
       "weight": 0.846
      },
      "upper_arms": {
       "max_mm": 22.05,
-      "vertices": 338,
+      "vertices": 332,
       "weight": 0.901
      }
     },
     "key": "hfd:muscle",
-    "max_mm": 28.39,
+    "max_mm": 22.88,
     "mode": "key",
     "scale": 1.1056,
     "stature_m": 1.9117
@@ -131,10 +131,10 @@
    "find_same": true,
    "groups": {
     "abdominals": {
-     "hash": "6fb9919bc759",
+     "hash": "73de39b1dcc4",
      "max_um": 7113,
-     "min_um": -4221,
-     "sum_um": 128885,
+     "min_um": -3808,
+     "sum_um": 144354,
      "vertices": 119
     },
     "bulk": {
@@ -145,76 +145,89 @@
      "vertices": 2902
     },
     "calves": {
-     "hash": "fecf5f3dd1b7",
-     "max_um": 23331,
-     "min_um": -11592,
-     "sum_um": 508250,
+     "hash": "171f79da08a4",
+     "max_um": 16889,
+     "min_um": -4426,
+     "sum_um": 614836,
      "vertices": 230
     },
     "deltoids": {
-     "hash": "4be32d00f638",
-     "max_um": 16984,
-     "min_um": -1733,
-     "sum_um": 1047712,
+     "hash": "4713452e2e9d",
+     "max_um": 17002,
+     "min_um": -362,
+     "sum_um": 1112148,
      "vertices": 198
     },
     "forearms": {
-     "hash": "cc522e77e995",
-     "max_um": 20695,
-     "min_um": -9423,
-     "sum_um": 1051428,
+     "hash": "0f2009bab184",
+     "max_um": 19818,
+     "min_um": -3365,
+     "sum_um": 1174960,
      "vertices": 268
     },
     "obliques": {
-     "hash": "07d748c84ea8",
+     "hash": "e3c287d7487b",
      "max_um": 7699,
-     "min_um": -1790,
-     "sum_um": 143018,
+     "min_um": -1342,
+     "sum_um": 146824,
      "vertices": 106
     },
     "pectorals": {
-     "hash": "87a17cb8b1c2",
+     "hash": "351093a573a0",
      "max_um": 13844,
      "min_um": -4507,
-     "sum_um": 3113129,
+     "sum_um": 3119795,
      "vertices": 428
     },
     "quadriceps": {
-     "hash": "9968d1f3ed4b",
-     "max_um": 24500,
-     "min_um": -10914,
-     "sum_um": 461308,
+     "hash": "b8796688f493",
+     "max_um": 19990,
+     "min_um": -3896,
+     "sum_um": 745124,
      "vertices": 358
     },
     "relief": {
-     "hash": "b3ddd9701695",
-     "max_um": 15970,
-     "min_um": -11327,
-     "sum_um": -64033,
+     "hash": "216b04e3c64d",
+     "max_um": 10141,
+     "min_um": -9766,
+     "sum_um": -53213,
      "vertices": 3470
     },
     "upper_arms": {
-     "hash": "9824733f2bca",
+     "hash": "7492300be9d5",
      "max_um": 22131,
-     "min_um": -8075,
-     "sum_um": 1364350,
+     "min_um": -3364,
+     "sum_um": 1480128,
      "vertices": 342
     }
    },
-   "id": "muscle-definition-v2-b878901e",
+   "id": "muscle-definition-v2-e50397dc",
    "index_regions": [
     "muscle"
    ],
    "reference": {
     "body": "mpfb2 default male",
     "stature_m": 1.7291
+   },
+   "spike_limit_um": 4000,
+   "spike_um": {
+    "abdominals": 3506,
+    "bulk": 2168,
+    "calves": 4013,
+    "deltoids": 3925,
+    "forearms": 4002,
+    "obliques": 2160,
+    "pectorals": 2530,
+    "quadriceps": 4054,
+    "relief": 4008,
+    "upper_arms": 4001
    }
   },
   "transfer": {
    "groups": {
     "abdominals": {
      "max_mm": 2.06,
-     "vertices": 110,
+     "vertices": 108,
      "weight": 0.314
     },
     "bulk": {
@@ -223,8 +236,8 @@
      "weight": 0.0
     },
     "calves": {
-     "max_mm": 12.47,
-     "vertices": 226,
+     "max_mm": 9.02,
+     "vertices": 220,
      "weight": 0.58
     },
     "deltoids": {
@@ -233,8 +246,8 @@
      "weight": 0.54
     },
     "forearms": {
-     "max_mm": 11.06,
-     "vertices": 260,
+     "max_mm": 10.59,
+     "vertices": 250,
      "weight": 0.58
     },
     "obliques": {
@@ -248,22 +261,22 @@
      "weight": 0.16
     },
     "quadriceps": {
-     "max_mm": 10.32,
-     "vertices": 348,
+     "max_mm": 8.42,
+     "vertices": 342,
      "weight": 0.457
     },
     "relief": {
-     "max_mm": 7.24,
+     "max_mm": 4.6,
      "vertices": 3357,
      "weight": 0.492
     },
     "upper_arms": {
      "max_mm": 11.01,
-     "vertices": 336,
+     "vertices": 328,
      "weight": 0.54
     }
    },
-   "max_mm": 14.52,
+   "max_mm": 11.41,
    "scale": 0.9209,
    "stature_m": 1.5923
   },
