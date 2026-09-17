@@ -7,8 +7,9 @@ extends SkeletonModifier3D
 ## parent - animated for the first bone, already sprung for the rest - puts it, so a swing at the
 ## root travels down the chain.
 ##
-## The simulation runs in fixed steps of 1/120 s, as many as fit in each frame, with the animated
-## parent and the colliders interpolated to each step's moment, so 30 fps and 240 fps swing the same. Per bone, per substep, in order:
+## The simulation runs in fixed steps of 1/120 s, as many as fit in each frame (at most MAX_STEPS, so
+## a stalled frame drops time rather than spiralling), with the animated parent and the colliders
+## interpolated to each step's moment, so 30 fps and 240 fps swing the same. Per bone, per substep, in order:
 ##   spring      the exact damped oscillator over the frame (as jiggle_modifier.gd and wardrobe's
 ##               hem), loaded by the target's acceleration and the change of gravity in the parent's
 ##               frame. Stable at any frame rate and frequency, so a frequency means Hz.
@@ -37,6 +38,8 @@ var collision_hits := 0
 var nonfinite := 0
 var usec_total := 0
 var frames := 0
+var peak_steps := 0
+var dropped_steps := 0
 var _caps_prev: Array = []
 var _left := 0.0                    # time since the last step, carried between frames
 
@@ -44,6 +47,7 @@ const TELEPORT_M := 1.0
 const MAX_ACCEL := 400.0
 const PASSES := 2                   # collision passes over every collider per bone
 const STEP := 1.0 / 120.0           # the simulation's fixed step; a frame takes as many as fit in it
+const MAX_STEPS := 16               # the most one frame may simulate: a stall drops time, never spirals
 const SAMPLES := [0.25, 0.5, 0.75, 1.0]   # points along each bone kept out of the colliders
 
 
@@ -183,6 +187,8 @@ func reset_stats() -> void:
 	nonfinite = 0
 	usec_total = 0
 	frames = 0
+	peak_steps = 0
+	dropped_steps = 0
 
 
 func _process_modification_with_delta(delta: float) -> void:
@@ -203,12 +209,26 @@ func _process_modification_with_delta(delta: float) -> void:
 	# projections take energy out per step, so the step must not follow the frame rate: one step a
 	# frame swung a ponytail a third as far at 30 fps as at 240 and let it pass a neck in one step,
 	# and substeps of at most 1/120 s still swung it 24% further at 240 fps (1/240 s steps) than at 60.
+	# A frame longer than MAX_STEPS * STEP (a load, a breakpoint, a window dragged) simulates only its
+	# last MAX_STEPS: the strand lands on the frame's own pose from 0.13 s of motion instead of the
+	# whole stall, so the cost of a hitch is bounded and a slow frame cannot make the next one slower.
+	# The time in front of that window is skipped, not replayed, so each bone's target is moved to the
+	# window's start first (`_seed`): without that the first step reads a whole stall's worth of the
+	# body's motion as one step of it and the spring gets an impulse that is not there - a 0.75 s frame
+	# threw the MPFB ponytail onto its 60 deg limit and 6 mm into the head.
 	var steps: Array = []
 	var clock := STEP - _left
 	while clock <= delta + 1e-9:
 		steps.append(clampf(clock / delta, 0.0, 1.0))
 		clock += STEP
 	_left = delta - (clock - STEP)
+	var seed_f := -1.0
+	if steps.size() > MAX_STEPS:
+		dropped_steps += steps.size() - MAX_STEPS
+		steps = steps.slice(steps.size() - MAX_STEPS)
+		_left = 0.0
+		seed_f = maxf(float(steps[0]) - STEP / delta, 0.0)
+	peak_steps = maxi(peak_steps, steps.size())
 	for ch in chains:
 		var bones: Array = ch["bones"]
 		if bones.is_empty():
@@ -218,6 +238,10 @@ func _process_modification_with_delta(delta: float) -> void:
 		var prev: Transform3D = ch.get("parent_prev", now)
 		if prev.origin.distance_to(now.origin) > TELEPORT_M:
 			prev = now
+		if seed_f >= 0.0:
+			var seed_xf := _blend(prev, now, seed_f)
+			for bd in bones:
+				seed_xf = _seed(seed_xf, bd)
 		for f in steps:
 			var parent_xf := _blend(prev, now, f)
 			var caps: Array = []
@@ -233,6 +257,18 @@ func _process_modification_with_delta(delta: float) -> void:
 	_caps_prev = caps_now
 	usec_total += Time.get_ticks_usec() - t0
 	frames += 1
+
+
+## Move a bone's target to where the parent puts it at the start of a shortened frame's window,
+## without integrating: the skipped time becomes a jump of the body the strand is not pushed by,
+## while its own offset and velocity (its swing) carry through. Returns this bone's world transform,
+## which is where it already points, so the next bone seeds from the same chain it will step on.
+func _seed(parent_xf: Transform3D, b: Dictionary) -> Transform3D:
+	var frame := parent_xf * (b["rest"] as Transform3D)
+	if b["started"]:
+		b["target"] = frame * (b["tail_local"] as Vector3)
+		b["target_v"] = Vector3.ZERO
+	return frame * Transform3D(Basis(b["q"] as Quaternion), Vector3.ZERO)
 
 
 static func _blend(a: Transform3D, b: Transform3D, f: float) -> Transform3D:
@@ -413,4 +449,5 @@ func kick(velocity: Vector3, only_chain := "") -> void:
 func stats() -> Dictionary:
 	return {"chains": chains.size(), "peak_angle_deg": snappedf(peak_angle_deg, 0.01), "limit_hits": limit_hits,
 		"collision_hits": collision_hits, "nonfinite": nonfinite,
-		"usec_per_frame": snappedf(float(usec_total) / maxf(frames, 1), 0.1), "frames": frames}
+		"usec_per_frame": snappedf(float(usec_total) / maxf(frames, 1), 0.1), "frames": frames,
+		"peak_steps": peak_steps, "dropped_steps": dropped_steps}

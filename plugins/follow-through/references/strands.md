@@ -75,8 +75,9 @@ for rep in FollowThrough.apply(body, {"routes": ["spring_bones"]}):
     var strands = rep["body"]          # a SkeletonModifier3D; strands.kick(Vector3(0, 2, 0))
 ```
 
-Per chain, root to tip, in fixed steps of 1/120 s (as many as fit in a frame, the remainder carried,
-the animated parent and colliders interpolated to each step's moment):
+Per chain, root to tip, in fixed steps of 1/120 s (as many as fit in a frame - at most 16, so a
+stalled frame drops the time it cannot afford instead of costing 90 steps and stalling the next one -
+the remainder carried, the animated parent and colliders interpolated to each step's moment):
 
 1. the tail's offset from where its parent (animated for the first bone, sprung for the rest) puts it
    is a damped spring solved exactly over the step, loaded by that target's acceleration and the
@@ -98,7 +99,8 @@ godot --headless --path <project> -s res://addons/follow_through/verify_strands.
 
 Time is stepped by hand (AnimationPlayer and Skeleton3D both in manual mode) at 30, 60, 120 and 240
 fps, each on a fresh body: 1 s at rest, a 1.5 m/s sideways knock, a 3 m/s knock that throws the
-strands at the head, and 4 s of the run clip. Head penetration is measured against the body's own
+strands at the head, 4 s of the run clip, and one stalled 0.75 s frame in the middle of the run
+followed by half a second at the rate again. Head penetration is measured against the body's own
 skin, not the colliders: strand vertices are skinned on the CPU and compared with the head skin's
 radius per direction (24 x 48 cells) in the head bone's frame, counting only depth beyond what the
 vertex had at rest.
@@ -107,8 +109,9 @@ vertex had at rest.
 |---|---|
 | `rest_drift_deg` | 0.5 |
 | kick: last 0.5 s of 4 s | under 10% of the peak (or 0.1 deg) and under 2 deg |
-| `fling_head_penetration_m`, `run_head_penetration_m` | 0.005 |
+| `fling_head_penetration_m`, `run_head_penetration_m`, `hitch_head_penetration_m` | 0.005 |
 | `swing_deg` (tip deflection in the root bone's frame, running) | at least 3 |
+| `hitch_steps` (the substeps a 0.75 s frame simulated) | at most `MAX_STEPS`, 16, with the rest dropped |
 | finite | no non-finite state or pose |
 | across rates | `swing_deg` max / min at most 1.25 |
 
@@ -117,13 +120,17 @@ fling and the run for rendering.
 
 Measured (follow-through strands, Godot 4.7.2):
 
-| body | rates | rest drift | kick settle (to 10%) | fling pen. | run pen. | swing peak / mean | spread |
-|---|---|---|---|---|---|---|---|
-| Figure (Rigify fit) | 30-240 | 0.02 deg | 1.47-1.50 s | 1.3 mm | 1.3 mm | 13.2-13.4 / 8.5-9.0 deg | 1.014 |
-| MPFB woman | 30-240 | 0.02 deg | 2.23-2.25 s | 1.7-1.9 mm | 3.6-3.7 mm | 35.0-36.7 / 18.8-20.0 deg | 1.050 |
+| body | rates | rest drift | kick settle (to 10%) | fling pen. | run pen. | hitch pen. / peak | swing peak / mean | spread |
+|---|---|---|---|---|---|---|---|---|
+| Figure (Rigify fit) | 30-240 | 0.02 deg | 1.47-1.50 s | 1.3 mm | 1.3 mm | 1.3 mm / 22 deg | 13.2-13.4 / 8.5-9.0 deg | 1.014 |
+| MPFB woman | 30-240 | 0.02 deg | 2.23-2.25 s | 1.7-1.9 mm | 3.6-3.7 mm | 3.8-3.9 mm / 32-33 deg | 35.0-36.7 / 18.8-20.0 deg | 1.050 |
+
+The 0.75 s hitch frame is 90 steps' worth of time; 16 are simulated and 74 dropped on both bodies, and
+no other number moves, because the cap only engages on a frame longer than 0.13 s.
 
 The checks fail when they should: with collisions off (`set=collision_margin_m:-1`) the fling puts a
-strand 15-16 cm into the head on both bodies; with `max_angle_deg:0` the knock moves nothing.
+strand 15-16 cm into the head on both bodies; with `max_angle_deg:0` the knock moves nothing; without
+the seed the hitch frame puts the MPFB strand 6.0-6.2 mm into the head (below).
 
 ## What the verifier found
 
@@ -139,6 +146,8 @@ strand 15-16 cm into the head on both bodies; with `max_angle_deg:0` the knock m
 | no contact friction | a ponytail resting on the neck gained swing every stride: tip 22, 30, 41, 49, 66, 74, 95 deg | friction 0.1 |
 | damping 0.3 | MPFB: still 4.9 deg four seconds after a knock, 94 deg of swing running | 0.5 |
 | a script error in the verifier | `FT_SUMMARY ... PASSED` with nothing measured | a rate without a measured run fails |
+| a 0.75 s frame, steps uncapped | 90 substeps in one frame: a stall pays for itself twice | at most `MAX_STEPS` (16), the rest dropped |
+| a 0.75 s frame, steps capped | the first kept step read the whole stall's motion of the body as one 1/120 s step: the MPFB strand hit its 60 deg root limit and went 6.0-6.2 mm into the head | the skipped time seeds each bone's target (`_seed`) instead of pushing it: 32-33 deg, 3.8-3.9 mm |
 
 ## Limits
 

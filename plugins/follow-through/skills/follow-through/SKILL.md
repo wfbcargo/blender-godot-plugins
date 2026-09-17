@@ -229,8 +229,8 @@ FollowThrough.attach(body, preload("res://assets/belle_ponytail.glb"))
 FollowThrough.apply(body, {"routes": ["spring_bones"]})
 ```
 
-and verify with `verify_strands.gd` (rest, knock, thrown at the head, run; 30-240 fps; penetration
-against the head's own skin). `samples.add_ponytail(body, rig)` makes a test ponytail on any rigged
+and verify with `verify_strands.gd` (rest, knock, thrown at the head, run, a stalled 0.75 s frame;
+30-240 fps; penetration against the head's own skin). `samples.add_ponytail(body, rig)` makes a test ponytail on any rigged
 body. Everything - the contract, the numbers, what the verifier caught - is in
 `${CLAUDE_PLUGIN_ROOT}/references/strands.md`.
 
@@ -251,6 +251,8 @@ had never seen. `export.export` deselects its scene, rig-anything's export passe
 - **strands** (improvements 05 5.2 step 3, unreleased): class `strand`, route `spring_bones`,
   `strand.py`, `strand_modifier.gd`, `FollowThrough.attach`, `verify_strands.gd`; types `ponytail` and
   `long_hair`, material `hair`. A ponytail on the sample figure and on an MPFB woman passes at 30, 60,
-  120 and 240 fps (swing spread 1.014 and 1.050, head penetration 1.3 and 3.7 mm).
+  120 and 240 fps (swing spread 1.014 and 1.050, head penetration 1.3 and 3.7 mm), and through a stalled
+  0.75 s frame, which simulates at most 16 substeps of the 90 it is worth and seeds the skipped time
+  rather than being pushed by it.
 - Next: strap and tail chains, volume-volume and two-way collision, wind, proxy meshes for dense
   cloth.

@@ -98,12 +98,16 @@ bones'. The body exports through rig-anything's `export_character`, the strand t
 (rig-anything's `export_glb`, read back: bones in the skin, heads within 1e-5 m); in Godot
 `FollowThrough.attach` puts it on the body's skeleton and `strand_modifier.gd` springs it in fixed
 1/120 s steps with exact damped integration, length and angle projection, collision and contact friction.
-`verify_strands.gd` (rest, knock, thrown at the head, run; 30/60/120/240 fps; penetration against the
-head's own skin) passes on the sample figure (fixture `strand_ponytail`: swing 13 deg, spread 1.014, head
-penetration 1.3 mm) and on an MPFB woman from `mpfb_woman_curvy`'s brief (swing 36 deg, spread 1.050,
-3.7 mm), and fails with collisions off (15-16 cm into the head). What the verifier caught on the way -
-frame-rate dependence 3.2x, a capsule head leaving the back of the skull uncovered, swing growing every
-stride without contact friction, damping 0.3 not settling - is in `follow-through/references/strands.md`.
+`verify_strands.gd` (rest, knock, thrown at the head, run, one stalled 0.75 s frame; 30/60/120/240 fps;
+penetration against the head's own skin) passes on the sample figure (fixture `strand_ponytail`: swing
+13 deg, spread 1.014, head penetration 1.3 mm) and on an MPFB woman from `mpfb_woman_curvy`'s brief
+(swing 36 deg, spread 1.050, 3.7 mm), and fails with collisions off (15-16 cm into the head). What the
+verifier caught on the way - frame-rate dependence 3.2x, a capsule head leaving the back of the skull
+uncovered, swing growing every stride without contact friction, damping 0.3 not settling - is in
+`follow-through/references/strands.md`. A stalled frame simulates at most 16 substeps (a 0.75 s frame is
+90 steps' worth) and the skipped time seeds each bone's target instead of pushing it: read as one step of
+the body's motion it threw the MPFB strand onto its 60 deg root limit and 6.0-6.2 mm into the head, and
+now leaves 3.8-3.9 mm with no other number moved.
 Chain bones record their owner (`ft_strand_owner`): re-preparing one object no longer deletes the
 chains of another whose name it prefixes (`Pigtail` / `Pigtail.001`), and colliding safe names
 (`Pigtail.001` / `Pigtail_001`, `Hair` chain 0 / `Hair_0`) get a `_v2` suffix; the fixture checks five such

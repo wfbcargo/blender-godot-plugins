@@ -18,6 +18,9 @@ extends SceneTree
 ##   run      the clip, looped, 4 s                       swing_deg >= 3 (tip deflection in the
 ##                                                        root bone's frame, after the first 0.5 s)
 ##                                                        head_penetration_m <= 0.005
+##   hitch    one 0.75 s frame mid-run, then 0.5 s        the frame simulates at most
+##            at the rate again                           StrandModifier.MAX_STEPS steps and drops the
+##                                                        rest; head_penetration_m <= 0.005
 ##   always   finite bone poses, no non-finite spring state
 ##
 ## Head penetration is measured against the body's skin, not the colliders: every strand vertex is
@@ -35,9 +38,11 @@ extends SceneTree
 ## Prints one `FT_STRAND {json}` line per rate, then `FT_SUMMARY ... PASSED|FAILED`.
 
 const FollowThrough = preload("res://addons/follow_through/follow_through.gd")
+const StrandModifier = preload("res://addons/follow_through/strand_modifier.gd")
 
 const LAT := 24
 const LON := 48
+const HITCH_S := 0.75               # the stalled frame the hitch phase feeds the modifier
 
 var args := {}
 var results: Array = []
@@ -217,6 +222,33 @@ func _run_rate(rate: int) -> Dictionary:
 			out["failures"].append("the run swings the strands only %.2f deg" % swing.max())
 		if state["pen"] > 0.005:
 			out["failures"].append("running, a strand went %.4f m into the head" % state["pen"])
+
+	# hitch: one frame of HITCH_S in the middle of the run - a level load, a breakpoint, a window
+	# dragged. The frame may simulate at most StrandModifier.MAX_STEPS steps (so a stall costs a
+	# bounded amount and cannot make the next frame worse), and the strand must come out of it finite,
+	# out of the head, and still swinging within its limits over the half second after.
+	state["pen"] = 0.0
+	state["pen_at"] = []
+	for m in mods:
+		m.reset_stats()
+	if ap != null and ap.is_playing():
+		ap.advance(HITCH_S)
+	skel.advance(HITCH_S)
+	await process_frame
+	var after: Array = await _steps(ap, skel, dt, 0.5, state)
+	var hitch: Dictionary = mod.stats()
+	out["hitch_s"] = HITCH_S
+	out["hitch_steps"] = hitch["peak_steps"]
+	out["hitch_dropped_steps"] = hitch["dropped_steps"]
+	out["hitch_head_penetration_m"] = snappedf(state["pen"], 0.0001)
+	out["hitch_peak_deg"] = snappedf(after.max() if not after.is_empty() else 0.0, 0.01)
+	if int(hitch["peak_steps"]) > StrandModifier.MAX_STEPS:
+		out["failures"].append("a %.2f s frame simulated %d steps (at most %d)"
+			% [HITCH_S, int(hitch["peak_steps"]), StrandModifier.MAX_STEPS])
+	if int(hitch["dropped_steps"]) <= 0:
+		out["failures"].append("a %.2f s frame dropped no steps: the cap did not engage" % HITCH_S)
+	if state["pen"] > 0.005:
+		out["failures"].append("after a %.2f s frame, a strand went %.4f m into the head" % [HITCH_S, state["pen"]])
 	var nonfinite := 0
 	for m in mods:
 		nonfinite += m.nonfinite
