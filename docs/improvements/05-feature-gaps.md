@@ -182,7 +182,9 @@ group but drops the object properties: the strand-motion stage should run betwee
   which already existed) before the stage and refuses, naming the rebuild: `from_stage="body"`, the one stage
   that clears the character out of the file. Every fixture started from an empty scene, so nothing caught it;
   `hair_presets` now changes the preset from ponytail to bun and reruns the stage on the built body
-  (`rebuild_refused`: refused, `body_unchanged` true, 19845 vertices either way).
+  (`rebuild_refused`: refused, `body_unchanged` true, 19845 vertices either way). `haired` looks only at this
+  character's meshes - the body, `<name>_*`, and whatever is bound to its rig - since a file can hold a whole
+  crowd and another character's hair is not this one's (`with_another_character` in the same report).
 - *`views._hair_material` matched `hair` as a substring.* Found by the check above: the fixture's character is
   called HairWoman, so her `HairWoman_skin` material was read as hair and her first hair stage refused. The
   name test (there only for the deprecated shell_bun material, `<name>_hair`) now matches `hair` as a whole

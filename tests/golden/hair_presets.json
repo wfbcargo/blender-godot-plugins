@@ -660,7 +660,10 @@
     "HairWoman_body"
    ],
    "refused": "[hairwoman] hair is already in this file (HairWoman_body) and the hair stage joins a layer on rather than replacing it - rebuild from body (from_stage=\"body\") to change [hair]",
-   "verts": 19845
+   "verts": 19845,
+   "with_another_character": [
+    "HairWoman_body"
+   ]
   },
   "spec": {
    "deprecated": [

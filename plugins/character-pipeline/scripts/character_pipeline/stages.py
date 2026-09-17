@@ -75,13 +75,21 @@ def haired(ch):
     humanform's `views.hair_objects` is the detector: a hair material on a mesh's slots (lookdev's `hair`
     preset, or `hair` as a whole part of the material's name, which is what the deprecated shell_bun path
     makes) or the `humanform_hair` property. The hair stage *joins* hair into the body, so it can only add a
-    second layer over the first; this is what stops it."""
+    second layer over the first; this is what stops it.
+
+    Only *this* character's meshes: the body, meshes named `<name>_*`, and meshes bound to its rig. A file
+    can hold a whole crowd (`_clear_for` clears one character out of it by name), and another character's
+    hair is not this one's."""
     ob = _obj(ch.mesh)
     if ob is None or ob.type != "MESH":
         return []
     from humanform import views
-    loose = [o for o in bpy.data.objects if o.type == "MESH" and o.name != ch.mesh]
-    return sorted(o.name for o in views.hair_objects(ob, loose))
+    rig = _obj(ch.rig)
+    mine = [o for o in bpy.data.objects
+            if o.type == "MESH" and o.name != ch.mesh
+            and (o.name.startswith(ch.name + "_")
+                 or (rig is not None and any(m.type == "ARMATURE" and m.object == rig for m in o.modifiers)))]
+    return sorted(o.name for o in views.hair_objects(ob, mine))
 
 
 def moves_stored(ch):

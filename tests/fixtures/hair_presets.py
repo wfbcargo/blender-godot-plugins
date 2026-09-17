@@ -14,7 +14,8 @@ A curvy MPFB woman from a spec is built through character-pipeline's body and ba
 - the spec's `[hair] preset = "ponytail"` runs the hair stage, which joins the hair and its strand into
   the body: the stage report, and the joined body's `ft_strand` group;
 - changing `[hair]` and rerunning the stage on the built body is refused rather than joining a second hair
-  layer on top of the first, and the body is left exactly as it was;
+  layer on top of the first, the body is left exactly as it was, and another character's hair object in the
+  same file is not counted as hers;
 - `spec.GAPS` no longer lists hair, the deprecated `kind = "shell_bun"` still parses, and a bad preset or
   colour in a spec or a brief is refused;
 - lookdev is optional to the pipeline: with `LD_SCRIPTS` pointing at nothing, `plugins.use()` still imports
@@ -245,6 +246,13 @@ def _rebuild_refused(ch, spec, base):
     after = {"verts": len(body.data.vertices), "materials": [m.name for m in body.data.materials if m]}
     out["body_unchanged"] = after == before
     out["verts"] = after["verts"]
+    # a file can hold a crowd: another character's hair, not named for this one and not on its rig, is
+    # not this one's, so it must not appear and must not refuse anybody's first hair stage
+    decoy = bpy.data.objects.new("Crowd_hair", bpy.data.meshes.new("Crowd_hair"))
+    decoy.data.materials.append(bpy.data.materials.new("Crowd_hair"))
+    bpy.context.scene.collection.objects.link(decoy)
+    out["with_another_character"] = stages.haired(ch)
+    bpy.data.objects.remove(decoy, do_unlink=True)
     return H.stable(out)
 
 
