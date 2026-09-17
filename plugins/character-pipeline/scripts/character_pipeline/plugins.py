@@ -1,8 +1,9 @@
-"""Where the four plugins a character is built from are found, and their versions.
+"""Where the plugins a character is built from are found, and their versions.
 
 Each comes from its environment variable (the names grungist-creek's build scripts and the regression
-fixtures use), else the installed copy under ~/.claude/skills. `use()` puts them on sys.path and
-reloads them, since a Blender session outlives edits to them.
+fixtures use), else the installed copy under ~/.claude/skills. lookdev (`LD_SCRIPTS`) is its `blender`
+folder, where humanform's hair takes its material from. `use()` puts them on sys.path and reloads them,
+since a Blender session outlives edits to them.
 """
 
 import importlib
@@ -11,12 +12,16 @@ import os
 import sys
 
 VARS = {"rig_analysis": ("RA_SCRIPTS", "rig-anything"), "humanform": ("HF_SCRIPTS", "humanform"),
-        "follow_through": ("FT_SCRIPTS", "follow-through"), "wardrobe": ("WD_SCRIPTS", "wardrobe")}
+        "follow_through": ("FT_SCRIPTS", "follow-through"), "wardrobe": ("WD_SCRIPTS", "wardrobe"),
+        "lookdev_blender": ("LD_SCRIPTS", "lookdev")}
+# the folder under the plugin its package lives in, where it is not `scripts`
+SUBDIR = {"lookdev_blender": "blender"}
 
 
 def scripts(package):
     var, plugin = VARS[package]
-    return os.environ.get(var) or os.path.join(os.path.expanduser("~"), ".claude", "skills", plugin, "scripts")
+    return os.environ.get(var) or os.path.join(os.path.expanduser("~"), ".claude", "skills", plugin,
+                                               SUBDIR.get(package, "scripts"))
 
 
 def use(*packages):

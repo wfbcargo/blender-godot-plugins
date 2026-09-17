@@ -71,6 +71,13 @@ ticks are the same landmarks measured. Every tile frames 2.0 m by 1.4 m, so shee
 versions or two bodies line up tile for tile; `views.json` records the frame and says
 `standard_frame: false` when a body too tall or wide forced a bigger one.
 
+**Hair.** When the body has hair - joined into it (a slot with lookdev's hair material, or a material named
+`*hair*`) or as humanform hair objects on its rig - the sheet also writes `hair.png`: the head **lit and in
+colour** (EEVEE, AgX, 50 mm lens, warm key front-left, cool rim behind), top row front, three-quarter and back
+at 1 m, bottom row close three-quarter, side and back. Clay cannot show a hairline: it reads as hair or as a
+cap edge only through the strand texture and its alpha. `views.hair_sheet(body, out_dir)` renders it alone.
+Give it to the critic with the hairline questions in the checklist.
+
 ## The critic
 
 For any judgement beyond the numbers - is it better, does it read as a person, is the brief met -

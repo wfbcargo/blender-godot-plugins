@@ -10,6 +10,8 @@ heights compare across views and across versions. Overlays on the clay and silho
   cyan ticks    - the same landmarks as measured (left edge of each tile)
 closeups.png - clay: face front, face left, left hand from its back, left foot from above and in front
 (hand and foot clipped to themselves).
+hair.png - when the body has hair (joined, or a hair object): the head lit and in colour, front, three-quarter
+and back at 1 m, then close three-quarter, side and back (`hair_sheet`).
 
 View names say which side of the body the camera sees: `left` is the body's left, +X.
 Rendered with Workbench in a private scene in the rig's rest pose; the user's scene is untouched.
@@ -248,7 +250,112 @@ def contact_sheet(ob, out_dir, preset="realistic", sex=None, include=(), report=
         bpy.data.objects.remove(cam, do_unlink=True)
         bpy.data.scenes.remove(sc)
         bpy.data.worlds.remove(world)
+    hair = hair_objects(b.ob, extra)
+    if hair:
+        files.append(hair_sheet(b.ob, out_dir, include=[o for o in extra if o not in hair] + hair)["sheet"])
     return {"sheets": files, "extra": [o.name for o in extra]}
+
+
+# ------------------------------------------------------------------------------------------ hair
+
+HAIR_SHOTS = (("front", 0.0, 1.0, 0.0), ("three_quarter", 45.0, 1.0, 0.0), ("back", 180.0, 1.0, 0.0),
+              ("close", 35.0, 0.42, 0.02), ("close_side", 95.0, 0.32, 0.0), ("close_back", 150.0, 0.42, 0.04))
+
+
+def _hair_material(mat):
+    lookdev = mat.get("lookdev") if mat is not None else None
+    return bool(lookdev) and lookdev.get("preset") == "hair" or (mat is not None and "hair" in mat.name.lower())
+
+
+def hair_objects(body, extra=()):
+    """Meshes that are hair: humanform's hair objects, or `body` itself when hair was joined into it (a hair
+    material on one of its slots)."""
+    out = [o for o in extra if o.get("humanform_hair") is not None or any(_hair_material(m) for m in o.data.materials)]
+    if any(_hair_material(m) for m in body.data.materials):
+        out.append(body)
+    return out
+
+
+def hair_sheet(ob, out_dir, include=(), size=520, engine=None):
+    """hair.png: the head lit, in colour, at the distances hair is judged from - front, three-quarter and back
+    at 1 m, and close three-quarter, side and back - with a 50 mm lens, a warm key from the front left and a
+    cool rim from behind. Material colour, not clay: a hairline reads as hair or as a cap edge only with its
+    strand texture and alpha. Rendered in a private scene in the rig's rest pose, with EEVEE unless `engine`."""
+    import math
+    b = _body.load(ob)
+    rig = b.rig
+    top = b.top
+    head_pts = b.co[b.co[:, 2] > top - 0.25]
+    cy = float((head_pts[:, 1].min() + head_pts[:, 1].max()) / 2) if len(head_pts) else 0.0
+    target0 = Vector((0.0, cy, top - 0.1))
+    tiles_dir = os.path.join(out_dir, "tiles")
+    os.makedirs(tiles_dir, exist_ok=True)
+    sc = bpy.data.scenes.new("HumanformHair")
+    world = bpy.data.worlds.new("HumanformHairWorld")
+    cam = bpy.data.objects.new("HumanformHairCam", bpy.data.cameras.new("HumanformHairCam"))
+    lights = []
+    prev_pose = rig.data.pose_position if rig else None
+    tiles = []
+    try:
+        for o in {id(x): x for x in [b.ob, *[_body.obj(i) for i in include]] + ([rig] if rig else [])}.values():
+            sc.collection.objects.link(o)
+        sc.collection.objects.link(cam)
+        sc.camera = cam
+        cam.data.lens = 50
+        for name, energy, rot, colour in (("Key", 3.5, (55, 0, -35), (1.0, 0.96, 0.9)),
+                                          ("Rim", 2.5, (-60, 0, 20), (0.9, 0.95, 1.0))):
+            data = bpy.data.lights.new(f"HumanformHair{name}", "SUN")
+            data.energy, data.color = energy, colour
+            lo = bpy.data.objects.new(data.name, data)
+            lo.rotation_euler = [math.radians(a) for a in rot]
+            sc.collection.objects.link(lo)
+            lights.append(lo)
+        world.use_nodes = True
+        bg = next(n for n in world.node_tree.nodes if n.type == "BACKGROUND")
+        bg.inputs["Color"].default_value = (0.32, 0.34, 0.37, 1.0)
+        bg.inputs["Strength"].default_value = 0.6
+        sc.world = world
+        for candidate in ([engine] if engine else ["BLENDER_EEVEE", "BLENDER_EEVEE_NEXT"]):
+            try:
+                sc.render.engine = candidate
+                break
+            except TypeError:
+                continue
+        sc.render.resolution_x = sc.render.resolution_y = size
+        sc.render.resolution_percentage = 100
+        try:
+            sc.view_settings.view_transform = "AgX"
+        except TypeError:
+            pass
+        if rig:
+            rig.data.pose_position = "REST"
+        for label, az, dist, dz in HAIR_SHOTS:
+            a = math.radians(az)
+            target = target0 + Vector((0.0, 0.0, dz))
+            cam.location = target + Vector((math.sin(a), -math.cos(a), 0.12)).normalized() * dist
+            cam.rotation_euler = (target - cam.location).to_track_quat("-Z", "Y").to_euler()
+            path = os.path.join(tiles_dir, f"hair_{label}.png")
+            sc.render.filepath = path
+            with bpy.context.temp_override(scene=sc):
+                bpy.ops.render.render(write_still=True, scene=sc.name)
+            img = bpy.data.images.load(path, check_existing=False)
+            px = np.empty(size * size * 4, np.float32)
+            img.pixels.foreach_get(px)
+            bpy.data.images.remove(img)
+            tiles.append(px.reshape(size, size, 4))
+        sheet = os.path.join(out_dir, "hair.png")
+        _save(_stitch([tiles[:3], tiles[3:]]), sheet)
+    finally:
+        if rig:
+            rig.data.pose_position = prev_pose
+        for lo in lights:
+            data = lo.data
+            bpy.data.objects.remove(lo, do_unlink=True)
+            bpy.data.lights.remove(data)
+        bpy.data.objects.remove(cam, do_unlink=True)
+        bpy.data.scenes.remove(sc)
+        bpy.data.worlds.remove(world)
+    return {"sheet": sheet, "shots": [s[0] for s in HAIR_SHOTS]}
 
 
 def region_frames(b, region, m=None):

@@ -1,0 +1,42 @@
+{
+  "_comment": "Material presets: what a Blender material is built from (lookdev_blender.hair) and what Godot must add back after glTF drops it (godot/addons/lookdev/lookdev_materials.gd). 'godot' values are StandardMaterial3D properties written into the material's glTF extras; colours given as a share of the base colour are resolved when the material is made. See references/hair.md.",
+  "materials": {
+    "hair": {
+      "description": "Strand hair on shells and cards: a strand texture with a root-to-tip gradient and alpha-thinned roots and tips (MASK, so it survives glTF), anisotropic highlight across the strands, backlight and a soft rim in Godot.",
+      "texture_px": [512, 1024],
+      "tile_m": 0.04,
+      "strands_per_tile": 96,
+      "clumps_per_tile": 16,
+      "root_zone": [0.004, 0.07],
+      "tip_zone": [0.9, 0.992],
+      "root_mult": 0.8,
+      "tip_mult": 1.25,
+      "gap_mult": 0.45,
+      "strand_jitter": 0.14,
+      "clump_jitter": 0.14,
+      "locks_per_tile": 4,
+      "lock_jitter": 0.3,
+      "wave_px": 1.6,
+      "normal_strength": 1.0,
+      "roughness": 0.55,
+      "anisotropic": 0.65,
+      "anisotropic_rotation": 0.25,
+      "alpha_cutoff": 0.5,
+      "godot": {
+        "anisotropy_enabled": true,
+        "anisotropy": 0.5,
+        "roughness": 0.65,
+        "backlight_enabled": true,
+        "backlight_share": 0.45,
+        "rim_enabled": true,
+        "rim": 0.25,
+        "rim_tint": 0.75,
+        "alpha_antialiasing_mode": 1,
+        "alpha_scissor_threshold": 0.5,
+        "specular_mode": 0,
+        "metallic_specular": 0.3
+      },
+      "specular": 0.35
+    }
+  }
+}

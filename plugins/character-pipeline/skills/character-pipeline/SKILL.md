@@ -56,9 +56,9 @@ clearance_check = ["Crouch", "CrouchWalk", "Jump"]
 max_drop = 0.07
 upper = { lean = 9.0, arm_swing = 25.0, elbow = 85.0 }
 
-[hair]                             # until there is a hair plugin (improvements 05 5.2)
-kind = "shell_bun"
-back = 0.185
+[hair]                             # humanform's hair layer: the brief's hair = {preset, colour}
+preset = "bun"                     # short_crop, bob, bun, ponytail, long_loose
+colour = [0.17, 0.10, 0.06]        # screen (sRGB)
 
 [flesh]                            # follow-through; limit shares come from the type registry
 types = ["breast", "butt"]
@@ -91,7 +91,7 @@ that no plugin owns yet. Tuned numbers live with their owners, and a spec only n
 |---|---|---|
 | `body` | - | a `blend` source's object is in the open file |
 | `bake` | body | the rig and the humanform mesh exist |
-| `hair` | bake | baked; no garment bound |
+| `hair` | bake | baked; no garment bound. Runs humanform's `hair.add` and joins the hair (and a strand, after checking its follow-through contract) into the body |
 | `flesh` | bake, hair | baked; no garment bound - cut first, a garment carries no jiggle weights |
 | `moves` | bake, hair, flesh | baked; no garment bound - rig-anything measures arm hang against every mesh on the rig |
 | `garments` | moves, flesh | every role has a stored clip; jiggle bones present if the spec has flesh |
@@ -125,6 +125,12 @@ What the stages write that is the pipeline's own convention rather than a plugin
   to be rerun, rather than falling back to the mesh top.
 - **The manifest has no `upper_body`.** The clips' upper-body parameters are in the move reports
   stored on the actions; nothing in Godot read the copy.
+- **Hair is joined into the body**, because rig-anything exports one mesh. For ponytail and long_loose the
+  strand object's follow-through contract (humanform SKILL.md, *Hair*) is checked before the join and
+  reported as `strand_contract`; its `ft_strand` vertex group and fallback weights survive the join. The
+  material comes from lookdev (`LD_SCRIPTS`, else the installed `lookdev/blender`); in Godot call
+  `LookdevMaterials.apply` on the instanced character. `kind = "shell_bun"` (the old scalp shell and sphere
+  bun, with its own numbers) still builds but is deprecated (`spec.DEPRECATED`) - replace it with a preset.
 - **The body stage reports `stature`** in metres, read from where humanform's `pipeline.make` has it:
   the fit's `stature` residual row, `fit.aged.stature` or `fit.stature` (aged and child bodies), or
   measured with `scaffold.stature` for a body reused from the library.

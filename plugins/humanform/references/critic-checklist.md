@@ -86,6 +86,17 @@ the same order. `closeups.png`: face front, face left, left hand from its back, 
 - Hand: four fingers and a thumb, separate, with knuckles; hand about the face's length?
 - Foot: heel, arch and toes; inner ankle bone higher than the outer?
 
+### L6 hair (hair.png)
+- Does the hairline read as hair, not a cap edge? (close three-quarter and side: strand tips of uneven
+  length with skin between them, no wall, step or straight cut where hair meets skin)
+- At 1 m (top row), does the hair read as hair on a head rather than a helmet or swim cap - strands and a
+  root-to-tip change of tone, not one smooth shiny shell?
+- Does the hairline follow a plausible path - rounded across the forehead, down at the temples, around
+  the ear and down to the nape - with no bald wedge a real hairline would not have?
+- Are the volumes (bun, tie, fall, tail) attached to the head, clear of the ears, neck and shoulders, and
+  shaped like what they are (a coiled bun, a gathered tail), not balls or tubes?
+- Is there no visible seam where a volume meets the cap?
+
 ### L5-L6 surface and look
 - Normals row: is the shading smooth across the body, with no faceting or seams?
 - After the asymmetry pass, is the face and body free of mirror-perfect symmetry?

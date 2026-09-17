@@ -85,6 +85,53 @@ read as hair, not a cap edge?".
 
 **Done when** Belle's hair passes a critic look at 1 m in Godot, and a ponytail preset swings on a run.
 
+**Shipped (branch `hair-layer`, steps 1, 2 and 4; step 3, strand motion, is another branch).**
+- **humanform `hair`**: `hair.add(body, preset, colour)` on a baked body, presets `short_crop`, `bob`, `bun`,
+  `ponytail`, `long_loose` in `data/hair_presets.json`; brief field `sheet.new(hair={"preset", "colour"})`.
+  Placed from the head measured on the mesh (head bone role, crown, eyeballs, ear extents). The cap is the
+  body's own faces inside a hairline curve (height in head units against azimuth, warped to the measured
+  ear, with an ellipse round each ear), subdivided, projected back to the skin and offset by 0.6 mm at its
+  boundary rising to full thickness over 22 mm - tapered geometry, no wall - with the boundary at texture
+  V ~ 0.003, inside the transparent root zone, so the visible hairline is strand tips with skin between.
+  Volumes: a coiled bun (a tube wound 1.6 turns), a hair-wrapped tie, a fall from the crown for bob and
+  long_loose that hangs straight from the widest part of the head.
+- **lookdev `hair` material preset** (`presets/materials.json`, `lookdev_blender.hair`): 512x1024 strand
+  texture with root-to-tip gradient and alpha-thinned ends (glTF MASK), strand normal map, anisotropy; a
+  `lookdev` custom property that glTF keeps as material extras and Godot as `extras` metadata, which
+  `godot/addons/lookdev/lookdev_materials.gd` (`LookdevMaterials.apply`) turns into anisotropy, backlight,
+  rim, alpha-to-coverage and specular.
+- **character-pipeline**: `[hair] preset = "bun"`, `colour = [...]`; the hair stage calls humanform and
+  joins the result into the body. `kind = "shell_bun"` still parses and builds, listed in `spec.DEPRECATED`;
+  `hair` is gone from `spec.GAPS`. Belle built from `belle.toml` with `preset = "bun"` in scratch ran every
+  stage (flesh, moves, garments, export) with no problems.
+- **humancheck**: `hair.png` (lit colour head, front / three-quarter / back at 1 m and three close-ups) joins
+  the contact sheet whenever the body has hair; the critic checklist has an L6 hair block starting with
+  "does the hairline read as hair, not a cap edge?".
+- **Fixture `hair_presets`**: all five presets on a spec-built woman (cap boundary 0.6 mm and V 0.003,
+  cap clearance 0.34 mm, strand clearance 5-8 mm, contracts pass), the glb read back (MASK, two textures,
+  extras, the strand node's `ft_*` extras), the pipeline stage joining a ponytail (434 `ft_strand`
+  vertices), spec and brief refusals.
+
+**Strand contract** (shared with follow-through's strand work). Ponytail and long_loose put the moving part
+on its own mesh object `<base>_hair_strand`:
+- `ft_type = "strand"`;
+- `ft_root_bone` = the rig's head bone name (bone role `head`, resolved; `spine.005` on humanform rigs);
+- `ft_centreline` = flat `[x, y, z, ...]`, 12 points, object-local, root first, evenly spaced by arc length;
+- `ft_length_m`, and `ft_radius_m` per centreline point (tube half width / curtain half thickness);
+- vertex group `ft_strand`: each vertex's share of the length, 0 at the root to 1 at the tip (survives a join);
+- `humanform_hair = {"preset", "part": "strand", "kind": "tube" | "curtain"}`.
+It is skinned as a rigid fallback (head at the root blending to neck and chest toward the tip) until
+follow-through builds the chain; `humanform.hair.contract(obj)` checks it. The pipeline currently joins the
+strand into the body after checking the contract (rig-anything exports one mesh), which keeps the vertex
+group but drops the object properties: the strand-motion stage should run between `hair.add` and that join.
+
+**Found / open.**
+- Godot-generated tangents: rig-anything's `export_glb` writes no tangents, and Godot's own make its
+  anisotropy draw thin bright lines along the cap's tangent seams close up; the same glb exported with
+  `export_tangents=True` has none. Needs rig-anything to export tangents (not changed here).
+- A fall (bob, long_loose) crosses the cap near the crown at a shallow angle; a faint seam shows close up.
+- EEVEE draws no anisotropy; the before/after evidence in Blender is rendered in Cycles.
+
 ---
 
 ## 5.3 Compression garments

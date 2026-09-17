@@ -113,6 +113,26 @@ Read `references/judging.md` before choosing between variants. The short form:
 - **Say what you see, in the image's terms:** "the shadow side of the grey ball
   is nearly as bright as the lit side", not "lighting could be improved".
 
+## Material presets: hair
+
+`presets/materials.json` holds material presets: what a Blender material is built from, and what Godot has
+to add back after glTF drops it. The first is **hair**, which humanform's hair layer uses.
+
+```python
+from lookdev_blender import hair
+mat, rep = hair.material("Belle_hair", colour=(0.17, 0.10, 0.06), uv_map="UVMap")   # sRGB colour
+```
+
+```gdscript
+var scene = load("res://assets/belle/belle.glb").instantiate()
+LookdevMaterials.apply(scene)    # godot/addons/lookdev/lookdev_materials.gd - copy the addon into the project
+```
+
+Strand texture with a root-to-tip gradient and alpha-thinned roots and tips (glTF MASK), a strand normal
+map, Principled anisotropy in Blender, and a `lookdev` custom property that glTF carries as material extras
+and `LookdevMaterials.apply` turns into StandardMaterial3D anisotropy, backlight, rim, alpha-to-coverage and
+specular. See `references/hair.md`.
+
 ## Godot facts that bite (all verified in 4.7.2)
 
 - **`ambient_light_energy` does nothing for sky ambient** while
@@ -128,7 +148,9 @@ Read `references/judging.md` before choosing between variants. The short form:
   it isn't.
 - **glTF import:** every material becomes StandardMaterial3D; ORM image in
   metallic (B) and roughness (G), AO from R. Clearcoat, sheen, transmission,
-  specular, IOR, volume, anisotropy are **dropped**.
+  specular, IOR, volume, anisotropy are **dropped**. Material custom properties
+  are kept, as the material's `extras` metadata - which is how material presets
+  put them back.
 - **Physical light units:** Godot's exposure lands about one stop darker than
   Sunny-16 arithmetic; the presets' physical values already account for it.
 

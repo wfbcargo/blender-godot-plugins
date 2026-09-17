@@ -2,7 +2,7 @@
 
     body      humanform body and rig from the brief (or an object already in the file)
     bake      one skinned mesh: shape keys and helpers baked, skin material, eyes joined
-    hair      a hair mesh skinned to the head role (optional)
+    hair      humanform's hair layer from a preset, joined into the body (optional)
     flesh     follow-through jiggle bones (optional)
     moves     rig-anything's move set - after flesh, before garments
     garments  wardrobe presets, cut from the fleshed skin (optional)
@@ -24,6 +24,8 @@ from __future__ import annotations
 import os
 
 import bpy
+
+from . import spec as spec_mod
 
 
 class StageRefused(RuntimeError):
@@ -172,10 +174,32 @@ def _rest(ch):
 
 
 def run_hair(ch, ctx):
-    from . import hair
-    if ch.hair.kind != "shell_bun":
-        raise RuntimeError(f"hair: no builder for kind {ch.hair.kind!r} (have: shell_bun)")
-    return hair.shell_bun(ch, **ch.hair.params)
+    """humanform's hair layer from the spec's preset and colour, joined into the body - rig-anything exports
+    one mesh. A strand part (ponytail, long_loose) is joined too: its follow-through contract is checked and
+    reported before the join, and its `ft_strand` vertex group and fallback weights survive it."""
+    if ch.hair.kind == "shell_bun":
+        from . import hair
+        out = hair.shell_bun(ch, **ch.hair.params)
+        out["deprecated"] = spec_mod.DEPRECATED["hair.kind"]
+        return out
+    from humanform import hair as hf_hair
+    _rest(ch)
+    rep = hf_hair.add(ch.mesh, preset=ch.hair.preset, colour=ch.hair.colour, name=ch.name)
+    ob = _obj(ch.mesh)
+    parts = [_obj(n) for n in rep["objects"].values()]
+    selected = [ob] + parts
+    with bpy.context.temp_override(active_object=ob, selected_editable_objects=selected, object=ob,
+                                   selected_objects=selected):
+        bpy.ops.object.join()
+    out = {"preset": rep["preset"], "colour": rep["colour"], "joined": sorted(rep["objects"].values()),
+           "head": rep["landmarks"]["head_bone"], "cap": rep["cap"], "hair": rep["hair"],
+           "parts": rep["parts"], "material": {k: rep["material"].get(k) for k in ("material", "source", "gltf")}}
+    if "contract" in rep:
+        out["strand_contract"] = rep["contract"]
+        if not rep["contract"]["passed"]:
+            raise RuntimeError(f"hair: the strand does not meet its follow-through contract: "
+                               f"{rep['contract']['problems']}")
+    return out
 
 
 def run_flesh(ch, ctx):
