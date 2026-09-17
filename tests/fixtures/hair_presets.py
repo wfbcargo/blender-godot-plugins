@@ -6,7 +6,8 @@ A curvy MPFB woman from a spec is built through character-pipeline's body and ba
   again, reporting what a person would check: the cap's feathered edge (the thickness and texture V at its
   geometric boundary - the edge lies on the skin in the transparent root zone, so there is no wall), the
   parts' sizes and their clearance from the skin, the follow-through strand contract where there is a
-  strand, and the face order of every object made;
+  strand, how faceted the across-strand direction is (the tangent Godot shades the anisotropy with), and
+  the face order of every object made;
 - the lookdev hair material is exported to a glb with the body (rig-anything's `export_glb`) and the glTF
   JSON read back: alpha MASK, a base colour and a normal texture, the `lookdev` extras Godot re-applies,
   and a hash of the strand texture's pixels;
@@ -90,6 +91,54 @@ def _stable_rep(rep):
     return H.stable(out)
 
 
+def _uv_tangent_turn(objs):
+    """How faceted the across-strand direction is on the hair's own meshes.
+
+    Per triangle, the direction of increasing U in its plane (what lookdev's `LookdevMaterials.apply`
+    gives a hair surface as its tangent, and all the anisotropic highlight uses), against the mean of its
+    edge neighbours', mod 180 degrees. Where this is large the per-face tangent is faceted and Godot draws
+    the facets as dark polygons in the sheen, which `strand_tangents` averages away (lookdev
+    `references/hair.md`); the count is what a change to the cap's U field would move.
+    """
+    import bmesh
+    import numpy as np
+    out = {}
+    for ob in objs:
+        bm = bmesh.new()
+        bm.from_mesh(ob.data)
+        bmesh.ops.triangulate(bm, faces=bm.faces[:])
+        uv = bm.loops.layers.uv.active
+        tan = {}
+        for f in bm.faces:
+            ls = f.loops
+            p0, p1, p2 = ls[0].vert.co, ls[1].vert.co, ls[2].vert.co
+            e1, e2 = p1 - p0, p2 - p0
+            fn = e1.cross(e2)
+            a2 = fn.length
+            if a2 < 1e-12:
+                continue
+            n = fn / a2
+            g = ((ls[1][uv].uv.x - ls[0][uv].uv.x) * n.cross(-e2)
+                 + (ls[2][uv].uv.x - ls[0][uv].uv.x) * n.cross(e1)) / a2
+            if g.length < 1e-9:
+                continue
+            tan[f.index] = np.array(g.normalized()[:], dtype=float)
+        turns = []
+        for f in bm.faces:
+            t = tan.get(f.index)
+            if t is None:
+                continue
+            angs = [float(np.degrees(np.arccos(min(1.0, abs(float(np.dot(t, tan[g.index])))))))
+                    for e in f.edges for g in e.link_faces if g.index != f.index and g.index in tan]
+            if angs:
+                turns.append(sum(angs) / len(angs))
+        bm.free()
+        arr = np.array(turns) if turns else np.zeros(1)
+        out[ob.name.split("_", 1)[-1]] = {"tris": len(turns), "over_35_deg": int((arr > 35).sum()),
+                                          "max_deg": round(float(arr.max()), 1)}
+    return out
+
+
 def build():
     import bpy
     import tomllib
@@ -113,6 +162,7 @@ def build():
         made = [bpy.data.objects[n] for n in rep["objects"].values()]
         entry = _stable_rep(rep)
         entry["face_order"] = {o.name: H.face_order(o) for o in made}
+        entry["uv_tangent_turn"] = _uv_tangent_turn(made)
         presets[preset] = entry
         if preset == "ponytail":
             from rig_analysis import export as ra_export

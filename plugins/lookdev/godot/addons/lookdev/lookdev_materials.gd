@@ -16,7 +16,9 @@ extends RefCounted
 ## The hair preset does: a glb written without tangents gets Godot's, generated per shared vertex, and
 ## where a hair shell's UV handedness changes (round an ear, where V runs away from the hairline on both
 ## sides) the corners disagree, their sum collapses, and the anisotropic highlight turns into bright
-## glint lines. Per face, each corner keeps its own tangent. Done once per mesh resource.
+## glint lines. Here each corner starts from its own triangle's tangent and averages the triangles meeting
+## at its position mod 180 degrees, which keeps that turn and still leaves the field smooth. Done once per
+## mesh resource.
 
 
 ## Every StandardMaterial3D under `root` (surface and override materials) whose extras carry
@@ -64,13 +66,24 @@ static func apply(root: Node) -> Dictionary:
 ## made perpendicular to each corner's normal, with a +1 sign. V takes no part: a hair shell's V runs
 ## away from the hairline, and where it turns (round an ear, over the crown) Mikktspace's tangents
 ## follow it into patches.
+##
+## A triangle's own tangent alone is faceted where the U field turns fast - round the axis the strands
+## run to (the bun), a face turns 60-80 degrees from the next, and each flat facet catches a different
+## part of the anisotropic highlight, which draws dark polygons in the sheen. So each corner averages
+## the tangents of every face meeting at its position, each flipped (mod 180 degrees) onto this face's
+## own first: a turn of the frame round a hole no longer cancels, while over the cap the field is
+## smooth again. Where that sum collapses (the axis itself, where every direction meets) the face's own
+## tangent stands.
 static func strand_tangents(arrays: Array) -> PackedFloat32Array:
 	var pos: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	var nrm: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
 	var uv: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
-	var out := PackedFloat32Array()
-	out.resize(pos.size() * 4)
-	for i in range(0, pos.size() - 2, 3):
+	var tris := pos.size() / 3
+	var face_t := PackedVector3Array()
+	face_t.resize(tris)
+	var at_pos := {}                                     # position (0.1 mm) -> faces meeting there
+	for f in tris:
+		var i := f * 3
 		var p0 := pos[i]
 		var e1 := pos[i + 1] - p0
 		var e2 := pos[i + 2] - p0
@@ -81,9 +94,30 @@ static func strand_tangents(arrays: Array) -> PackedFloat32Array:
 			fn /= area2
 			# gradient of U over the triangle: sum of U differences times the edge normals in its plane
 			grad = ((uv[i + 1].x - uv[i].x) * fn.cross(-e2) + (uv[i + 2].x - uv[i].x) * fn.cross(e1)) / area2
+		if grad.length_squared() < 1e-20:
+			var n0 := nrm[i]
+			grad = n0.cross(Vector3.UP if absf(n0.y) < 0.9 else Vector3.RIGHT)
+		face_t[f] = grad.normalized()
 		for c in 3:
+			var key := Vector3i((pos[i + c] * 10000.0).round())
+			if not at_pos.has(key):
+				at_pos[key] = []
+			at_pos[key].append(f)
+	var out := PackedFloat32Array()
+	out.resize(pos.size() * 4)
+	for f in tris:
+		var i := f * 3
+		var mine := face_t[f]
+		for c in 3:
+			var acc := Vector3.ZERO
+			var share: Array = at_pos[Vector3i((pos[i + c] * 10000.0).round())]
+			for g in share:
+				var tg := face_t[g]
+				acc += tg if tg.dot(mine) >= 0.0 else -tg
+			if acc.length_squared() < 0.25 * share.size() * share.size():
+				acc = mine                               # the faces meeting here point every way
 			var n := nrm[i + c]
-			var tv := grad - n * grad.dot(n)
+			var tv := acc - n * acc.dot(n)
 			if tv.length_squared() < 1e-20:
 				tv = n.cross(Vector3.UP if absf(n.y) < 0.9 else Vector3.RIGHT)
 			tv = tv.normalized()

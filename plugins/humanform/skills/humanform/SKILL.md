@@ -224,7 +224,9 @@ at all) and the height's gradient lay along U, so the UV frame flipped in patche
 glint streaks on the crown. `cap.uv_handedness` counts the faces more than 3 cm inside the line by their UV
 frame (Belle's bun: 602 same, 6 flipped, 0 flat; before, 144 flat faces on the hair, 68 of them on the
 crown). Round an ear and at the feather the frame still turns, since V runs away from the line on both sides
-of a hole; Godot's `LookdevMaterials.apply` gives hair per-face tangents from U alone for that.
+of a hole; Godot's `LookdevMaterials.apply` gives hair tangents from U alone for that - per face, then
+averaged mod 180 degrees over the faces meeting at each position, which is what keeps the strands running to
+the bun's axis from faceting into dark polygons.
 
 **Material:** `lookdev_blender.hair.material` (see lookdev's `references/hair.md`): strand texture with a
 root-to-tip gradient and alpha-thinned ends (MASK), a strand normal map, anisotropy, and `lookdev` extras

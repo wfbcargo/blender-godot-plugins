@@ -145,6 +145,15 @@ group but drops the object properties: the strand-motion stage should run betwee
   hair surfaces and gives each corner a tangent from the triangle's U gradient alone (material extras
   `lookdev.mesh.tangents = "per_face"`; Belle's hair surface: 5223 vertices become one per corner). No
   exporter change was needed - the done-when frames use the pipeline's own glb.
+- *Dark polygons in the sheen (Godot).* A tangent per face is faceted where the U field turns fast: 305 of
+  Belle's 9872 hair triangles sit more than 35 degrees from their neighbours', nearly all within 3 cm of
+  the bun's axis, and each facet catches a different part of the anisotropic lobe - half a dozen dark
+  polygons 1-2 cm across between crown and bun, at 1 m faint specks, close up marks. The tangent alone:
+  `normal_scale = 0` leaves them, `anisotropy_enabled = false` removes them. `strand_tangents` now
+  averages, for each corner, the tangents of every face meeting at its position, each flipped mod 180
+  degrees onto that face's own first (a strand axis has no direction), and keeps the face's own where the
+  mean collapses below half - the flip is what Godot's own per-vertex generator lacks round a hole. The
+  sheen is clean and the hairline and ear unchanged (`godot_tangents_fix.png`).
 - *Soft hairline in Godot.* The texture's alpha now fades toward the root (`root_fade` [0, 0.11], power
   0.25) instead of each strand stopping; Blender and glTF still cut it at 0.5 (MASK), and Godot draws the
   hair with `transparency = ALPHA_DEPTH_PRE_PASS` from the extras, so the fade blends: opaque hair keeps

@@ -209,6 +209,13 @@
        0.098
       ]
      }
+    },
+    "uv_tangent_turn": {
+     "hair": {
+      "max_deg": 79.4,
+      "over_35_deg": 230,
+      "tris": 12750
+     }
     }
    },
    "bun": {
@@ -288,6 +295,13 @@
       "coil_length_m": 0.1549,
       "faces": 730,
       "outer_radius_m": 0.042
+     }
+    },
+    "uv_tangent_turn": {
+     "hair": {
+      "max_deg": 86.7,
+      "over_35_deg": 336,
+      "tris": 11072
      }
     }
    },
@@ -413,6 +427,18 @@
        "spine.005"
       ]
      }
+    },
+    "uv_tangent_turn": {
+     "hair": {
+      "max_deg": 81.7,
+      "over_35_deg": 232,
+      "tris": 13390
+     },
+     "hair_strand": {
+      "max_deg": 58.0,
+      "over_35_deg": 8,
+      "tris": 700
+     }
     }
    },
    "ponytail": {
@@ -536,6 +562,18 @@
       ],
       "faces": 144
      }
+    },
+    "uv_tangent_turn": {
+     "hair": {
+      "max_deg": 80.2,
+      "over_35_deg": 120,
+      "tris": 9920
+     },
+     "hair_strand": {
+      "max_deg": 30.2,
+      "over_35_deg": 0,
+      "tris": 864
+     }
     }
    },
    "short_crop": {
@@ -605,7 +643,14 @@
     "objects": [
      "hair"
     ],
-    "parts": {}
+    "parts": {},
+    "uv_tangent_turn": {
+     "hair": {
+      "max_deg": 78.4,
+      "over_35_deg": 201,
+      "tris": 9408
+     }
+    }
    }
   },
   "spec": {
