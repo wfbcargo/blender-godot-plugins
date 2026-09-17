@@ -4,13 +4,16 @@ A handoff for a fresh conversation. Start with:
 
 > Read `docs/improvements/NEXT.md`, then the work item it points at, and plan it.
 
-State as of 2026-09-16. Everything below is on `main` here and on `master` in `grungist-creek`, both
-pushed, with no open branches or worktrees. Installed copies in `~/.claude/skills` match the repo:
-- rig-anything 0.20.0
-- follow-through 0.3.0
+State as of 2026-09-17. Everything below is on `main` here and on `master` in `grungist-creek`, with no
+open branches or worktrees; the merges of radial-counts, flesh-end-rings and pipeline-conventions are not
+pushed yet. `python tools/regress.py --twice --jobs 2 --godot` passed on `main` after them (11 fixtures, no
+change, 9 manifests and the wardrobe fixtures pass in Godot). Installed copies in `~/.claude/skills` match
+the repo:
+- rig-anything 0.21.0
+- follow-through 0.4.0
 - wardrobe 0.2.1
 - humanform 0.6.3
-- character-pipeline 0.1.0
+- character-pipeline 0.2.0
 - animate-anything 0.9.2
 - lookdev 0.1.0
 - godot-lsp 0.1.0
@@ -26,9 +29,9 @@ and the gotchas are there.
 |---|---|
 | [03 Regression harness and install](03-regression-harness-and-install.md) | **Done.** |
 | [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | **Done.** Belle's hand-marked flesh zones retired with 05 · 5.9. |
-| [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | **Done.** Belle and the 16 people build from `grungist-creek/characters/*.toml`. Two small conventions open (below). |
+| [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | **Done.** Belle and the 16 people build from `grungist-creek/characters/*.toml`. Its loose ends are settled (character-pipeline 0.2.0); the character rebuild that carries them into the committed assets is in progress (below). |
 | [04 Checks that match the eye](04-checks-that-match-the-eye.md) | **a done** (wardrobe 0.2.1). b-d not started. |
-| [05 Feature gaps](05-feature-gaps.md) | 5.1, 5.6, 5.7 done. Open: 5.2 hair, 5.3 compression garments, 5.4 skirts, 5.5 muscle, 5.8 (starfish bone counts, radial.skin coverage). 5.9 done. |
+| [05 Feature gaps](05-feature-gaps.md) | 5.1, 5.6, 5.7 done. Open: 5.2 hair, 5.3 compression garments, 5.4 skirts, 5.5 muscle. 5.8 done (rig-anything 0.21.0). 5.9 done, with its end-ring follow-up (follow-through 0.4.0). |
 | Old project notes | Not triaged (item 7 below). |
 
 What exists now, and is worth knowing before starting anything:
@@ -59,37 +62,48 @@ the unchanged 0.5%, and a cut patch still fails. What was found and what shipped
 checking a garment, pass `clip=` for every clip: the default is the first in the list, and the sports top's earlier
 "passes" was only its crouch.
 
-### 2. Small open findings (05 · 5.8), each with its numbers in the golden
-
-Take them one at a time; each is a short branch.
+### 2. Small open findings (05 · 5.8) - done (rig-anything 0.21.0)
 
 - **Done (rig-anything 0.19.0): the cricket exports.** The landing's slide was real and came from shared
   code, as did a toe drag in the walk that it hid; every clip is now checked for a foot moving along the floor.
   05 · 5.8 has the details.
 - **Done (rig-anything 0.20.0): the slides pass and export on a Rigify biped.** Three shared causes (a hand-written
   slide path, feet not laid on the floor, feet blended along the floor between spots); 05 · 5.8 has the details.
-- **Starfish arms get 3 and 4 bones** off a rounding edge in `radial.build`. Take one count per appendage kind.
-- **`radial.skin` reports coverage without measuring it.**
+- **Done (rig-anything 0.21.0): one bone count per radial appendage kind.** `radial.build` gives every appendage of a
+  role the median of its kind's length / (1.2 width) ratios; the starfish's five arms all have 4 bones (21 bones), and
+  the scratch anemone went from mixed 4/5 to 5 on all ten tentacles. Every outlier appendage now gets the kind's count
+  whatever its own length; a warning for a far outlier is not written yet.
+- **Done (rig-anything 0.21.0): `radial.skin` measures coverage** by reading the written weights back
+  (`coverage`, `vertices_unweighted`). `plugins/animate-anything/references/radial-bodies.md` (lines ~16 and ~96) still
+  describes the old per-appendage count and unmeasured coverage; update it with animate-anything's next change.
 
-### 3. 05 · 5.9 - done (follow-through 0.3.0), Belle's hand marks retired
+### 3. 05 · 5.9 - done (follow-through 0.3.0, end rings 0.4.0), Belle's hand marks retired
 
 Buttocks are read from the side across the spine and thigh chains; both sample bodies score their butts, and
 Belle's `[[flesh.zones]]` are gone from `grungist-creek/characters/belle.toml`. Rebuilt with every stage forced, her
 self-test passes (breasts 7.5/8.7%, buttocks 8.6/8.4% on the limit, under 10%) and the wardrobe verifier passes all 7
-clips in both garments. That meets 02's last "done when". Still open from it: the Figure's torso rings start at the
-crotch and skew its breasts, belly and false love handles (5.9 has the numbers); `render_heat` and the marks sheet
-still draw butts with the ring measure; and the crowd has not been rebuilt, so its butts still carry the old measure
-and 1.9 share until each person is rebuilt.
+clips in both garments. That meets 02's last "done when". Since follow-through 0.4.0 a chain's first ring (and its last built ring when the
+chain is searched to its end) fits its envelope from wall vertices only, so the Figure's crotch no longer skews its
+breasts and belly and its false love handles are gone; `render_heat` and the marks sheet draw a profile-read butt from
+its profile. Still open: the crowd has not been rebuilt (see 4), the Bloater's moobs score as misses (0.19 m), and
+Belle's two-segment root-spine chain counts as searched to its end, so its top ring at 0.961 m (a hand-off to the next
+chain, not a cap) is wall-filtered; her regions do not move.
 
-### 4. Loose ends from 01
+### 4. Loose ends from 01 - conventions settled (character-pipeline 0.2.0), character rebuild in progress
 
-- **Standing height has two conventions.** `export.height = "mesh"` (the crowd: mesh top) and `"idle"` (Belle: the
-  Idle clip's standing height, which a hair bun doesn't raise). Pick one, move the crowd or Belle, and remove the
-  spec field.
-- **`upper_body` in a manifest means different things.** For the crowd it is the move reports; in Belle's old
-  manifest it was her input table. No Godot code reads it. Decide what it is for, or drop it.
-- **The body stage reports `stature: null`.** `stages.run_body` reads `fit.stature`, and humanform's result has it
-  elsewhere. This is cosmetic.
+- **Done: one standing height.** `height_m.stand` is always the Idle clip's `standing_height_m`; export fails if no
+  Idle report is stored. `export.height` is gone from the spec and a spec naming it is a `SpecError`; Belle's
+  `height = "idle"` line is removed on grungist-creek `master`. `collider.height` (rig-anything, mesh top) still differs
+  from `stand` by under a millimetre on pipeline_woman; a hair bun would widen that. rig-anything's SKILL.md (~305) and
+  `export_character` docstring still say `stand` is the mesh top.
+- **Done: `upper_body` dropped** from the manifest. rig-anything's SKILL.md (~309) still shows it as an example extra.
+- **Done: body stature reported** (`stages._stature`): fit residual row, aged, child, or measured on a reused library
+  body. Only the fitted-adult path is covered by a fixture.
+- **In progress: rebuild the characters.** The committed grungist-creek manifests (`assets/belle`, `assets/humans/*`)
+  still carry `upper_body`, the crowd's `height_m.stand` is still its collider height, and the crowd's butts carry the
+  old ring measure and share. A later agent is rebuilding Belle and the 16 people through the pipeline with these
+  versions installed; mark this done when their assets are committed and `belle_demo.tscn` and `people_demo.tscn`
+  self-tests pass.
 - **Nora (`assets/wardrobe/build_person.py`) is still a script.** She has a sculpted body on mocap, and nothing in a
   spec covers that. Convert her only if a spec grows a source for it.
 - **The real `.blend` files were not rebuilt** (`C:/Users/pauli/Code/Blender/human_*.blend`, `belle_realistic.blend`).
