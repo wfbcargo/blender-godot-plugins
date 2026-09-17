@@ -1,7 +1,7 @@
 {
  "fixture": "quadruped",
  "plugins": {
-  "rig-anything": "0.17.0"
+  "rig-anything": "0.19.0"
  },
  "report": {
   "bind": {
@@ -224,15 +224,15 @@
     "max_drop_m": 0.1513,
     "passed": true,
     "planted_drift": {
-     "front_thigh.L": 0.0,
-     "front_thigh.R": 0.0,
+     "front.L": 0.0,
+     "front.R": 0.0,
      "thigh.L": 0.0,
      "thigh.R": 0.0
     },
     "skin_lowest": -0.0,
     "tightest_joint_degrees": {
-     "front_thigh.L": 90.3,
-     "front_thigh.R": 90.3,
+     "front.L": 90.3,
+     "front.R": 90.3,
      "thigh.L": 78.7,
      "thigh.R": 78.7
     }
@@ -244,15 +244,15 @@
     "lowest_point": -0.0,
     "passed": true,
     "planted_drift": {
-     "front_thigh.L": 0.0,
-     "front_thigh.R": 0.0,
+     "front.L": 0.0,
+     "front.R": 0.0,
      "thigh.L": 0.0,
      "thigh.R": 0.0
     },
     "skin_lowest": -0.0,
     "tightest_joint_degrees": {
-     "front_thigh.L": 157.0,
-     "front_thigh.R": 157.0,
+     "front.L": 157.0,
+     "front.R": 157.0,
      "thigh.L": 130.9,
      "thigh.R": 130.9
     }
@@ -268,8 +268,8 @@
     "skin_lowest": 0.0,
     "stride_m": 1.3599,
     "tightest_joint_degrees": {
-     "front_thigh.L": 58.7,
-     "front_thigh.R": 60.0,
+     "front.L": 58.7,
+     "front.R": 60.0,
      "thigh.L": 54.5,
      "thigh.R": 51.3
     }
@@ -285,8 +285,8 @@
     "skin_lowest": 0.0,
     "stride_m": 0.9781,
     "tightest_joint_degrees": {
-     "front_thigh.L": 75.9,
-     "front_thigh.R": 75.9,
+     "front.L": 75.9,
+     "front.R": 75.9,
      "thigh.L": 66.8,
      "thigh.R": 66.8
     }
@@ -302,8 +302,8 @@
     "skin_lowest": 0.0,
     "stride_m": 0.6035,
     "tightest_joint_degrees": {
-     "front_thigh.L": 92.0,
-     "front_thigh.R": 92.0,
+     "front.L": 92.0,
+     "front.R": 92.0,
      "thigh.L": 81.9,
      "thigh.R": 81.9
     }
@@ -381,6 +381,12 @@
     "drop_limited_by": "legs",
     "end_height_m": 0.6654,
     "failures": [],
+    "floor_skid": {
+     "front.L": 0.0,
+     "front.R": 0.0,
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "fps": 24,
     "frames": [
      1,
@@ -393,8 +399,8 @@
     "max_drop_m": 0.1513,
     "passed": true,
     "planted_drift": {
-     "front_thigh.L": 0.0,
-     "front_thigh.R": 0.0,
+     "front.L": 0.0,
+     "front.R": 0.0,
      "thigh.L": 0.0,
      "thigh.R": 0.0
     },
@@ -404,8 +410,8 @@
     "skin_lowest": -0.0,
     "standing_height_m": 0.7562,
     "tightest_joint_degrees": {
-     "front_thigh.L": 90.3,
-     "front_thigh.R": 90.3,
+     "front.L": 90.3,
+     "front.R": 90.3,
      "thigh.L": 78.7,
      "thigh.R": 78.7
     },
@@ -417,6 +423,12 @@
     "balance": null,
     "end_height_m": 0.7562,
     "failures": [],
+    "floor_skid": {
+     "front.L": 0.0,
+     "front.R": 0.0,
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "fps": 24,
     "frames": [
      1,
@@ -427,8 +439,8 @@
     "lowest_point": -0.0,
     "passed": true,
     "planted_drift": {
-     "front_thigh.L": 0.0,
-     "front_thigh.R": 0.0,
+     "front.L": 0.0,
+     "front.R": 0.0,
      "thigh.L": 0.0,
      "thigh.R": 0.0
     },
@@ -440,8 +452,8 @@
     "stance_width": null,
     "standing_height_m": 0.7562,
     "tightest_joint_degrees": {
-     "front_thigh.L": 157.0,
-     "front_thigh.R": 157.0,
+     "front.L": 157.0,
+     "front.R": 157.0,
      "thigh.L": 130.9,
      "thigh.R": 130.9
     },
@@ -455,13 +467,13 @@
     "balance": null,
     "bounce_scale": null,
     "contact_slip": {
-     "front_thigh.L": 0.00365,
-     "front_thigh.R": 0.00408,
+     "front.L": 0.00365,
+     "front.R": 0.00408,
      "thigh.L": 0.00406,
      "thigh.R": 0.00363
     },
     "contacts": {
-     "front_thigh.L": {
+     "front.L": {
       "bones": [
        "front_foot.L",
        "front_toe.L"
@@ -469,7 +481,7 @@
       "grounded": true,
       "source": "skin"
      },
-     "front_thigh.R": {
+     "front.R": {
       "bones": [
        "front_foot.R",
        "front_toe.R"
@@ -500,6 +512,12 @@
     "duty_factor": 0.338,
     "end_height_m": 0.6837,
     "failures": [],
+    "floor_skid": {
+     "front.L": 0.0,
+     "front.R": 0.0,
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "fps": 24,
     "frames": [
      1,
@@ -521,14 +539,14 @@
     "natural_speed_mps": 3.5377,
     "passed": true,
     "peak_reach": {
-     "front_thigh.L": 0.986,
-     "front_thigh.R": 0.986,
+     "front.L": 0.986,
+     "front.R": 0.986,
      "thigh.L": 0.97,
      "thigh.R": 0.97
     },
     "phase_offsets": {
-     "front_thigh.L": 0.6,
-     "front_thigh.R": 0.5,
+     "front.L": 0.6,
+     "front.R": 0.5,
      "thigh.L": 0.0,
      "thigh.R": 0.1
     },
@@ -540,8 +558,8 @@
     "skin_lowest": 0.0,
     "spine_flex_deg": 9.0,
     "stance_shift_m": {
-     "front_thigh.L": 0.0,
-     "front_thigh.R": 0.0,
+     "front.L": 0.0,
+     "front.R": 0.0,
      "thigh.L": 0.0,
      "thigh.R": 0.0
     },
@@ -560,8 +578,8 @@
     ],
     "sway_share": 0.0,
     "tightest_joint_degrees": {
-     "front_thigh.L": 58.7,
-     "front_thigh.R": 60.0,
+     "front.L": 58.7,
+     "front.R": 60.0,
      "thigh.L": 54.5,
      "thigh.R": 51.3
     },
@@ -575,13 +593,13 @@
     "balance": null,
     "bounce_scale": null,
     "contact_slip": {
-     "front_thigh.L": 0.0034,
-     "front_thigh.R": 0.0034,
+     "front.L": 0.0034,
+     "front.R": 0.0034,
      "thigh.L": 0.00338,
      "thigh.R": 0.00338
     },
     "contacts": {
-     "front_thigh.L": {
+     "front.L": {
       "bones": [
        "front_foot.L",
        "front_toe.L"
@@ -589,7 +607,7 @@
       "grounded": true,
       "source": "skin"
      },
-     "front_thigh.R": {
+     "front.R": {
       "bones": [
        "front_foot.R",
        "front_toe.R"
@@ -620,6 +638,12 @@
     "duty_factor": 0.45,
     "end_height_m": 0.7092,
     "failures": [],
+    "floor_skid": {
+     "front.L": 0.0,
+     "front.R": 0.0,
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "fps": 24,
     "frames": [
      1,
@@ -641,14 +665,14 @@
     "natural_speed_mps": 2.0425,
     "passed": true,
     "peak_reach": {
-     "front_thigh.L": 0.989,
-     "front_thigh.R": 0.989,
+     "front.L": 0.989,
+     "front.R": 0.989,
      "thigh.L": 0.97,
      "thigh.R": 0.97
     },
     "phase_offsets": {
-     "front_thigh.L": 0.0,
-     "front_thigh.R": 0.5,
+     "front.L": 0.0,
+     "front.R": 0.5,
      "thigh.L": 0.5,
      "thigh.R": 0.0
     },
@@ -660,8 +684,8 @@
     "skin_lowest": 0.0,
     "spine_flex_deg": 0.0,
     "stance_shift_m": {
-     "front_thigh.L": 0.0,
-     "front_thigh.R": 0.0,
+     "front.L": 0.0,
+     "front.R": 0.0,
      "thigh.L": 0.0,
      "thigh.R": 0.0
     },
@@ -680,8 +704,8 @@
     ],
     "sway_share": 0.0,
     "tightest_joint_degrees": {
-     "front_thigh.L": 75.9,
-     "front_thigh.R": 75.9,
+     "front.L": 75.9,
+     "front.R": 75.9,
      "thigh.L": 66.8,
      "thigh.R": 66.8
     },
@@ -695,13 +719,13 @@
     "balance": null,
     "bounce_scale": null,
     "contact_slip": {
-     "front_thigh.L": 0.00342,
-     "front_thigh.R": 0.00342,
+     "front.L": 0.00342,
+     "front.R": 0.00342,
      "thigh.L": 0.00342,
      "thigh.R": 0.00342
     },
     "contacts": {
-     "front_thigh.L": {
+     "front.L": {
       "bones": [
        "front_foot.L",
        "front_toe.L"
@@ -709,7 +733,7 @@
       "grounded": true,
       "source": "skin"
      },
-     "front_thigh.R": {
+     "front.R": {
       "bones": [
        "front_foot.R",
        "front_toe.R"
@@ -740,6 +764,12 @@
     "duty_factor": 0.651,
     "end_height_m": 0.707,
     "failures": [],
+    "floor_skid": {
+     "front.L": 0.0,
+     "front.R": 0.0,
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "fps": 24,
     "frames": [
      1,
@@ -761,14 +791,14 @@
     "natural_speed_mps": 0.9134,
     "passed": true,
     "peak_reach": {
-     "front_thigh.L": 0.986,
-     "front_thigh.R": 0.986,
+     "front.L": 0.986,
+     "front.R": 0.986,
      "thigh.L": 0.968,
      "thigh.R": 0.968
     },
     "phase_offsets": {
-     "front_thigh.L": 0.25,
-     "front_thigh.R": 0.75,
+     "front.L": 0.25,
+     "front.R": 0.75,
      "thigh.L": 0.0,
      "thigh.R": 0.5
     },
@@ -780,8 +810,8 @@
     "skin_lowest": 0.0,
     "spine_flex_deg": 0.0,
     "stance_shift_m": {
-     "front_thigh.L": 0.0,
-     "front_thigh.R": 0.0,
+     "front.L": 0.0,
+     "front.R": 0.0,
      "thigh.L": 0.0,
      "thigh.R": 0.0
     },
@@ -800,8 +830,8 @@
     ],
     "sway_share": 0.0,
     "tightest_joint_degrees": {
-     "front_thigh.L": 92.0,
-     "front_thigh.R": 92.0,
+     "front.L": 92.0,
+     "front.R": 92.0,
      "thigh.L": 81.9,
      "thigh.R": 81.9
     },

@@ -1,8 +1,8 @@
 {
  "fixture": "rigify_human",
  "plugins": {
-  "follow-through": "0.2.5",
-  "rig-anything": "0.17.0"
+  "follow-through": "0.2.6",
+  "rig-anything": "0.19.0"
  },
  "report": {
   "bind_coverage": 1.0,
@@ -291,6 +291,8 @@
     "balance": null,
     "failures": [
      "foot.R reaches -0.0252, below the floor, at frame 4",
+     "thigh.L skids 0.4076 along the floor (tolerance 0.0088)",
+     "thigh.R skids 0.2023 along the floor (tolerance 0.0088)",
      "first frame is 0.1810 from the end of Figure_Slide (toe.R)"
     ],
     "lowest_point": -0.0252,
@@ -311,6 +313,8 @@
     "balance": null,
     "failures": [
      "foot.R reaches -0.0260, below the floor, at frame 4",
+     "thigh.L skids 0.3809 along the floor (tolerance 0.0088)",
+     "thigh.R skids 0.2023 along the floor (tolerance 0.0088)",
      "first frame is 0.1810 from the end of Figure_Slide (toe.R)"
     ],
     "lowest_point": -0.026,
@@ -380,6 +384,10 @@
     "drop_limited_by": "legs",
     "end_height_m": 1.3418,
     "failures": [],
+    "floor_skid": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "fps": 24,
     "frames": [
      1,
@@ -418,6 +426,10 @@
     "depth_requested": 0.6,
     "end_height_m": 1.3326,
     "failures": [],
+    "floor_skid": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "fps": 24,
     "frames": [
      1,
@@ -490,6 +502,10 @@
     "balance": null,
     "end_height_m": 1.7573,
     "failures": [],
+    "floor_skid": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "fps": 24,
     "frames": [
      1,
@@ -558,6 +574,10 @@
     "balance": null,
     "end_height_m": 1.7667,
     "failures": [],
+    "floor_skid": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "fps": 24,
     "frames": [
      1,
@@ -649,6 +669,10 @@
     "duty_factor": 0.338,
     "end_height_m": 1.6501,
     "failures": [],
+    "floor_skid": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "fps": 24,
     "frames": [
      1,
@@ -753,6 +777,7 @@
      "toe.R reaches -0.1616, below the floor, at frame 8",
      "skin reaches -0.1143, through the floor, at frame 8"
     ],
+    "floor_skid": {},
     "fps": 24,
     "frames": [
      1,
@@ -792,8 +817,14 @@
     "end_height_m": 1.7667,
     "failures": [
      "foot.R reaches -0.0252, below the floor, at frame 4",
+     "thigh.L skids 0.4076 along the floor (tolerance 0.0088)",
+     "thigh.R skids 0.2023 along the floor (tolerance 0.0088)",
      "first frame is 0.1810 from the end of Figure_Slide (toe.R)"
     ],
+    "floor_skid": {
+     "thigh.L": 0.4076,
+     "thigh.R": 0.20229
+    },
     "fps": 24,
     "frames": [
      1,
@@ -830,8 +861,14 @@
     "end_height_m": 1.3418,
     "failures": [
      "foot.R reaches -0.0260, below the floor, at frame 4",
+     "thigh.L skids 0.3809 along the floor (tolerance 0.0088)",
+     "thigh.R skids 0.2023 along the floor (tolerance 0.0088)",
      "first frame is 0.1810 from the end of Figure_Slide (toe.R)"
     ],
+    "floor_skid": {
+     "thigh.L": 0.38093,
+     "thigh.R": 0.20229
+    },
     "fps": 24,
     "frames": [
      1,
@@ -924,6 +961,10 @@
     "duty_factor": 0.45,
     "end_height_m": 1.6637,
     "failures": [],
+    "floor_skid": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "fps": 24,
     "frames": [
      1,
@@ -1085,6 +1126,10 @@
     "duty_factor": 0.651,
     "end_height_m": 1.6401,
     "failures": [],
+    "floor_skid": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "fps": 24,
     "frames": [
      1,

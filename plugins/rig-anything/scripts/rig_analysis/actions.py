@@ -267,7 +267,8 @@ def slide(rig_name, frames=10, forward="-Y", up="Z", floor=0.0, action_name="Sli
         body, rig, action_name, frames, pose, fps,
         lambda keyed, ev, infos: _check_common(
             body, bm, keyed, ev, infos, planted=[], posed_limbs=legs,
-            pole_overrides=poles_last, rest_floor=floor))
+            pole_overrides=poles_last, rest_floor=floor,
+            skid=False))  # a slide drives its lead leg along the floor
     if "error" in report:
         return report
     report.update({
@@ -457,8 +458,13 @@ def gait_cycle(rig_name, depth=0.6, stride=0.40, lift=0.10, frames=24,
             H *= 0.9
 
     def check(keyed, ev, infos_by_frame):
+        def in_stance(name, f):
+            if name not in offsets:
+                return False
+            return foot(((f - 1) / float(frames) + offsets[name]) % 1.0, S, H)[2]
         r = _check_common(body, bm, keyed, ev, infos_by_frame, planted=[],
-                          posed_limbs=P.legs, rest_floor=floor, starts_at_rest=False)
+                          posed_limbs=P.legs, rest_floor=floor, starts_at_rest=False,
+                          skid=in_stance)  # stance is held to the skate test below
         evaluated = ev["evaluated"]
         seam, seam_bone = _pose_gap(rig, evaluated[1], evaluated[frames + 1])
         if seam > 1e-4:
@@ -680,7 +686,8 @@ def skid(rig_name, frames=10, forward="-Y", up="Z", floor=0.0, action_name="Slid
     keyed, infos, action, report = _author(
         body, rig, action_name, frames, pose, fps,
         lambda keyed, ev, infos: _check_common(body, bm, keyed, ev, infos, planted=[],
-                                               posed_limbs=P.legs, rest_floor=floor))
+                                               posed_limbs=P.legs, rest_floor=floor,
+                                               skid=False))  # a skid drags the body along the floor
     if "error" in report:
         return report
     report.update({"rig": rig_name, "action": action.name, "frames": [1, len(keyed)],
@@ -912,13 +919,17 @@ def _author_samples(body, rig, action_name, samples, fps, check):
 
 def _check_common(body, bm, keyed, ev, infos_by_frame, planted, posed_limbs,
                   support=None, pole_overrides=None, rest_floor=0.0,
-                  starts_at_rest=True):
+                  starts_at_rest=True, skid=True):
     """Checks every action shares, all measured on Blender's evaluated pose.
 
     `planted` limbs must not move their ends. `pole_overrides` maps a limb name
     to the direction its mid-joint was asked to point on the LAST frame, for
     limbs posed against their natural bend (a slide's knee turned out).
     `support` enables the balance check, which only a static pose can pass.
+    `skid` is False for a clip that drags a leg along the floor by design (a
+    slide), or a callable `(limb name, frame) -> in stance` for a gait played in
+    place: its stance feet travel back along the floor by design and are held to
+    the gait's own skate test, and only its swing is checked here.
     """
     pole_overrides = pole_overrides or {}
     rig = body.rig
@@ -1036,6 +1047,41 @@ def _check_common(body, bm, keyed, ev, infos_by_frame, planted, posed_limbs,
             failures.append("skin reaches %.4f, through the floor, at frame %d"
                             % (skin_low - rest_floor, at))
 
+    # 9. a foot on the floor does not move along it. Each clip measured its
+    # own drift from a touchdown frame it guessed, and a cricket's forefeet
+    # reached the floor a frame before their spot and skidded 0.5 mm into it.
+    # Here: every run of frames in which a limb's contact pivot is on the floor
+    # (no higher than at rest, within tolerance), measured from the run's first
+    # frame, across the floor. Only limbs that stand on the floor at rest: a
+    # hand hanging lower than it rests is not on the floor. A gait's planned
+    # stance frames are left out: a cricket's hind toe dragged through the end of
+    # every swing, and the gait's own test, which looks only at stance, passed it.
+    skids = {}
+    in_stance = skid if callable(skid) else None
+    if skid:
+        frames = sorted(f for f, _ in keyed)
+        for l in posed_limbs:
+            n = l["end"] or l["lower"]
+            pivot = rig.data.bones[n].tail_local.copy()
+            rest_h = (mw @ pivot).dot(upw)
+            if rest_h - rest_floor > 0.1 * bm["height"]:
+                continue
+            on_floor = rest_h + tol
+            start, worst = None, 0.0
+            for f in frames:
+                w = mw @ body.carried(evaluated[f], n, pivot)
+                if w.dot(upw) > on_floor or (in_stance and in_stance(l["name"], f)):
+                    start = None
+                    continue
+                if start is None:
+                    start = w
+                    continue
+                d = w - start
+                worst = max(worst, (d - upw * d.dot(upw)).length)
+            skids[l["name"]] = round(worst, 5)
+            if worst > tol:
+                failures.append("%s skids %.4f along the floor (tolerance %.4f)" % (l["name"], worst, tol))
+
     # 8. balance on the final pose, from Blender's evaluated skin. Only
     # meaningful for a pose meant to be held still.
     balance = None
@@ -1069,6 +1115,7 @@ def _check_common(body, bm, keyed, ev, infos_by_frame, planted, posed_limbs,
         "prediction_error": round(ev["prediction_error"], 7),
         "rest_error": round(rest_err, 6),
         "planted_drift": drift,
+        "floor_skid": skids,
         "tightest_joint_degrees": {k: round(v, 1) for k, v in tightest.items()},
         "lowest_point": round(lowest, 4),
         "skin_lowest": round(skin_low - rest_floor, 4) if skin_low is not None else None,
