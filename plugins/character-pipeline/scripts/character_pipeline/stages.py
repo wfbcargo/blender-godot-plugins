@@ -93,9 +93,30 @@ def run_body(ch, ctx):
     res = pipeline.make(sheet.new(**ch.body.brief), use_library=True, face_part=parts.get("face"),
                         hand_part=parts.get("hands"), foot_part=parts.get("feet"))
     out = {k: res.get(k) for k in ("ansur", "check", "notes", "macros")}
-    fit = res.get("fit") or {}
-    out["stature"] = (fit.get("aged") or {}).get("stature") or fit.get("stature")
+    out["stature"] = _stature(res)
     return out
+
+
+def _stature(res):
+    """The body's stature in metres, from where `humanform.pipeline.make` puts it for each kind of body:
+
+    - fitted to ANSUR (fresh or warm): the `stature` row of the fit's residuals, as the last pass measured it;
+    - aged: `fit.aged.stature.stature_m`, the height macro bisected back to the brief after ageing;
+    - child: `fit.stature.stature_m`, likewise;
+    - reused from the library: the fit is one measurement with no residual rows, so the body is measured
+      here with humanform's own `scaffold.stature`."""
+    fit = res.get("fit") or {}
+    for bisected in ((fit.get("aged") or {}).get("stature"), fit.get("stature")):
+        if isinstance(bisected, dict) and bisected.get("stature_m") is not None:
+            return bisected["stature_m"]
+    for row in fit.get("residuals") or []:
+        if row.get("measure") == "stature":
+            return row.get("value")
+    human = _obj(res.get("human") or "")
+    if human is None:
+        return None
+    from humanform import scaffold
+    return round(scaffold.stature(human), 4)
 
 
 def check_bake(ch):
@@ -272,13 +293,18 @@ def run_export(ch, ctx):
     os.makedirs(ch.out_dir(), exist_ok=True)
     glb = os.path.join(ch.out_dir(), f"{ch.id}.glb")
     reports = stored.load(ch.rig, roles=ch.moves.roles)
+    stand = (reports.get("Idle") or {}).get("standing_height_m")
+    if stand is None:
+        # Not reachable through the stages (a spec must list Idle, and export refuses without its stored
+        # report), so this is a stored Idle report that never measured it. Falling back to the mesh top
+        # would quietly bring back the second convention the field was removed to end.
+        raise RuntimeError("export: the stored Idle report has no standing_height_m, which height_m.stand is "
+                           "taken from - rerun moves (from_stage=\"moves\") so rig-anything measures it")
     garment_names = [g.name or presets.get(g.preset).get("name") or g.preset for g in ch.outfit]
     extra = {
         "style": ch.moves.style,
         "posture": ch.moves.posture,
         "stance_width": ch.moves.stance_width,
-        # the upper-body parameters each clip was authored with, arm hang as measured
-        "upper_body": {r: (reports.get(r) or {}).get("upper") for r in ch.moves.roles},
         "note": ch.export.note or f"{ch.name}: built by character-pipeline from {os.path.basename(ch.path or '')}",
     }
     if garment_names:
@@ -296,13 +322,15 @@ def run_export(ch, ctx):
                     - {f"{ch.name}_{r}" for r in ch.moves.may_fail} - set(ch.moves.may_fail))
     if forced:
         raise RuntimeError(f"export: clips shipped only by force that the spec does not allow: {forced}")
-    if ch.export.height == "idle" and (reports.get("Idle") or {}).get("standing_height_m") is not None:
-        import json
-        with open(e["moves"], encoding="utf-8") as fh:
-            manifest = json.load(fh)
-        manifest["height_m"]["stand"] = reports["Idle"]["standing_height_m"]
-        with open(e["moves"], "w", encoding="utf-8") as fh:
-            json.dump(manifest, fh, indent=2)
+    # One convention for standing height: the Idle clip's (the rig standing at rest, which a hair bun does
+    # not raise). rig-anything writes the collider's height there; replaced here, in the file and the result.
+    import json
+    with open(e["moves"], encoding="utf-8") as fh:
+        manifest = json.load(fh)
+    manifest["height_m"]["stand"] = stand
+    with open(e["moves"], "w", encoding="utf-8") as fh:
+        json.dump(manifest, fh, indent=2)
+    e["manifest"]["height_m"]["stand"] = stand
     return {k: e.get(k) for k in ("glb", "moves", "verified", "clips", "bones", "problems")}
 
 

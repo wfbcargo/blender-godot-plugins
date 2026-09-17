@@ -13,6 +13,21 @@ Categories: **2 cross-plugin ordering**, **4 re-derived decisions**. Biggest tim
 > - **A new character needs no new code** - met for anything the spec covers (see `spec.GAPS`: hair until a hair
 >   plugin exists, flesh zones while 05 · 5.9 is open).
 > - Specs are TOML, not YAML: Blender's Python has `tomllib` and no YAML parser.
+>
+> Loose ends settled afterwards (branch `pipeline-conventions`):
+> - **Standing height has one convention.** `height_m.stand` is the Idle clip's `standing_height_m` for every
+>   character, so a hair bun does not raise it. The `export.height` field (`"mesh"` for the crowd, `"idle"` for
+>   Belle) is gone. A spec that still names it is rejected, because silently ignoring `"mesh"` would build a
+>   different height than it asked for. A stored Idle report without the measurement makes export raise and asks
+>   for moves to be rerun: the stages cannot reach export without an Idle report, and falling back to the mesh
+>   top would bring the second convention back. In Godot, `collider.height` still sizes the capsule at load;
+>   `height_m.stand` is what Belle's and the creature controller's capsule return to after a crouch, and
+>   MovesController's fallback when a manifest has no collider.
+> - **`upper_body` is dropped from the manifest.** No Godot code read it; the parameters stay in the stored move
+>   reports.
+> - **The body stage reports `stature`.** It read `fit.stature`, which humanform only sets for a child; an adult's
+>   stature is the fit's `stature` residual row (or `fit.aged.stature` when aged, or measured with
+>   `scaffold.stature` when the body was reused as is).
 
 ## Problem
 
