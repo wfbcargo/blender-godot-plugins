@@ -47,7 +47,8 @@ vertex belongs to its chain (from its skin weights) at an arc length; per angula
 the lean radius along the chain is a robust lower envelope at two scales; excess is how
 far the surface stands out of it. Flesh types in the registry each name a **zone** - which
 chain, a height between hip (0) and shoulder (1) joints, a facing (0 front, 180 back), a
-distance from the midline - and a region is excess inside a zone, grown and feathered.
+distance from the midline - and a region is excess inside a zone, grown and feathered. A type
+with `"lean": "profile"` (`butt`) is measured from the side instead, across chains (Rules).
 
 **2. Mark zones in 2D when the measure is not enough.** Looking at a picture is how to
 decide what a mass is; the mapping back to vertices is exact:
@@ -104,8 +105,8 @@ own motion throws it (1 physical).
 
 **Swing limits come from the type.** Nothing but `max_offset_m` keeps flesh out of the body, so
 a type can own it: `max_offset_m = limit_share x peak_m`. `breast` has 0.66 (swung in further than
-it stands out, the skin passes into the chest) and `butt` 1.9 (set on Godot's self-test on Belle,
-because the measure reads the seat low - improvements 05 5.9); each type's `limit_note` says why.
+it stands out, the skin passes into the chest) and `butt` 0.9 (the 6.9 cm swing Godot's self-test
+settled on Belle, now that her seat reads 7.8 cm out, not 3.7); each type's `limit_note` says why.
 A type without one uses its material's `max_offset x 2 x peak_m`. Override per call with
 `overrides={"butt": {"limit_share": 1.6}}`, afterwards with `set_params(..., max_offset_m=...)`,
 or give a taught type one with `registry.define(..., limit_share=, limit_note=)`.
@@ -166,6 +167,22 @@ thigh turned gravity on them - on their limit half the self-test. The body's hip
 heights, which zones are measured between, come from the same roles (the legs' and arms' upper
 bones) when rig-anything is importable. Every bone `prepare` adds carries `ft_role = "jiggle"`, so
 rig-anything's body map leaves it out of the spine.
+
+**Buttocks are read from the side, not from rings.** A buttock sits where the spine chain ends
+and the thigh chains begin, so no chain has rings on both sides of it. On the sample figure the
+spine's first ring was the crotch (0.02 m from the chain where the hips are 0.15-0.17 m), the lean
+line started there, the sides of the hips stood 0.10-0.12 m proud and pulled the butt bones onto
+them: 0.13 m from the true centres, the bloater's 0.06 m. Without the crotch the rings lost the
+buttock instead (a bump at a chain's end reads as a ramp). On Belle the pelvis chain had four
+rings, the line hugged the upper buttock and only the fold stood out: bone head at 0.794 m facing
+down, hips at 0.873. Changing the zone's heights did neither any good. `butt` has
+`"lean": "profile"`: per slice across the body, the silhouette behind the hip joints from the small
+of the back to the back of the thigh, with the rings' refitted line under it. Both samples' butts
+now land 0.02-0.04 m from their centres, and Belle's bone head 1 cm from her marked one read the
+same way, facing straight back. It is at 0.858 m, level with the old marked head (0.862 m) but
+7 cm deeper: a bone head sits the mass's depth and half its peak under the skin, and her seat
+now stands 7.8 cm out, not 3.7. MPFB women and a heavy man whose butts rings never found get one.
+Marks on a `profile` type are read the same way. The heat renders still show rings.
 
 **Skin decides the chain, not distance.** A bloater's wide torso sides lie closer to its
 A-posed upper arms than to its spine; by nearest segment they were arm flesh. Bone heat

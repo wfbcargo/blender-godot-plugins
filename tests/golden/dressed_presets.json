@@ -1,9 +1,9 @@
 {
  "fixture": "dressed_presets",
  "plugins": {
-  "follow-through": "0.2.5",
-  "rig-anything": "0.17.0",
-  "wardrobe": "0.1.2"
+  "follow-through": "0.2.6",
+  "rig-anything": "0.19.0",
+  "wardrobe": "0.2.1"
  },
  "report": {
   "body": {
@@ -48,7 +48,7 @@
     "export": {
      "edge": 425,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-38r2fk09\\a\\dressed_presets\\dressed_presets\\shorts_mid_thigh.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\cc6d2482-76d1-4837-bc72-97a56ec44577\\scratchpad\\agent-butt\\regress2\\a\\dressed_presets\\dressed_presets\\shorts_mid_thigh.glb",
      "garment": "Shorts",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
@@ -56,7 +56,7 @@
      "joints": 40,
      "passed": true,
      "problems": [],
-     "size_bytes": 198864,
+     "size_bytes": 198996,
      "weight_sum_min": 1.0
     },
     "exported": true,
@@ -73,15 +73,15 @@
      "body": "Figure",
      "body_verts": 17112,
      "covered": 3247,
-     "disagree": 0,
-     "edge": 564,
+     "disagree": 4,
+     "edge": 584,
      "garment": "SportsTop",
-     "hidden": 2683,
+     "hidden": 2663,
      "hidden_gap_max_m": 0.0091,
      "hidden_gap_median_m": 0.0075,
      "margin": 0.03,
      "max_gap": 0.1,
-     "tris_hidden": 5141,
+     "tris_hidden": 5101,
      "tris_total": 34220
     },
     "cut": {
@@ -99,17 +99,17 @@
      "verts": 3501
     },
     "export": {
-     "edge": 564,
+     "edge": 584,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-38r2fk09\\a\\dressed_presets\\dressed_presets\\sports_top.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\cc6d2482-76d1-4837-bc72-97a56ec44577\\scratchpad\\agent-butt\\regress2\\a\\dressed_presets\\dressed_presets\\sports_top.glb",
      "garment": "SportsTop",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
-     "hidden": 2683,
+     "hidden": 2663,
      "joints": 40,
      "passed": true,
      "problems": [],
-     "size_bytes": 261408,
+     "size_bytes": 261544,
      "weight_sum_min": 1.0
     },
     "exported": true,

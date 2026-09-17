@@ -376,10 +376,13 @@ def regions(obj_name, zones, sheet):
                 continue
             # soften the mark's edge with the tissue measure: a vertex inside the mark that
             # stands out of the lean body counts fully, a lean one at half
-            geo_w = flesh._smoothstep((t["relative"][verts] - flesh.GROW_RELATIVE) / 0.2)
+            # - with the type's own measure, so a marked buttock's peak_m (and its swing limit) is how
+            # far it stands out seen from the side, as a found one's is
+            tt = flesh.measured(t, entry)
+            geo_w = flesh._smoothstep((tt["relative"][verts] - flesh.GROW_RELATIVE) / 0.2)
             weights = wv[verts] * (0.5 + 0.5 * geo_w)
             weights = _feather(verts, weights, nbr)
-            reg = flesh._region(obj, t, c, rname, tname, entry, verts, area, normals, body_volume, nbr,
+            reg = flesh._region(obj, tt, c, rname, tname, entry, verts, area, normals, body_volume, nbr,
                                 weights=weights / max(weights.max(), 1e-9))
             reg["evidence"] = [f"marked in 2D ({', '.join(sorted({z['view'] for z in zones if z['type'] == tname}))})"]
             reg["coords_range"] = {k: (float(c[k][verts].min()), float(c[k][verts].max()))

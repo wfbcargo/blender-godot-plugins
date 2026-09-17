@@ -1,9 +1,9 @@
 {
  "fixture": "dressed_figure",
  "plugins": {
-  "follow-through": "0.2.3",
-  "rig-anything": "0.16.0",
-  "wardrobe": "0.1.1"
+  "follow-through": "0.2.6",
+  "rig-anything": "0.19.0",
+  "wardrobe": "0.2.1"
  },
  "report": {
   "body": {
@@ -19,15 +19,15 @@
    "body": "Figure",
    "body_verts": 17112,
    "covered": 5865,
-   "disagree": 936,
-   "edge": 1861,
+   "disagree": 930,
+   "edge": 1824,
    "garment": "Shirt",
-   "hidden": 4004,
+   "hidden": 4041,
    "hidden_gap_max_m": 0.0257,
    "hidden_gap_median_m": 0.0055,
    "margin": 0.03,
    "max_gap": 0.1,
-   "tris_hidden": 7625,
+   "tris_hidden": 7695,
    "tris_total": 34220
   },
   "ease": {
@@ -38,17 +38,17 @@
    "verts": 6220
   },
   "export": {
-   "edge": 1861,
+   "edge": 1824,
    "exported": true,
-   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-49z00zb1\\a\\dressed_figure\\dressed_figure\\shirt.glb",
+   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\cc6d2482-76d1-4837-bc72-97a56ec44577\\scratchpad\\agent-butt\\regress2\\a\\dressed_figure\\dressed_figure\\shirt.glb",
    "garment": "Shirt",
    "hem_bones": 16,
    "hem_head_error_m": 1e-06,
-   "hidden": 4004,
+   "hidden": 4041,
    "joints": 56,
    "passed": true,
    "problems": [],
-   "size_bytes": 466076,
+   "size_bytes": 466256,
    "weight_sum_min": 1.0
   },
   "exported": true,

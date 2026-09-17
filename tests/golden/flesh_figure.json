@@ -1,8 +1,8 @@
 {
  "fixture": "flesh_figure",
  "plugins": {
-  "follow-through": "0.2.5",
-  "rig-anything": "0.17.0"
+  "follow-through": "0.2.6",
+  "rig-anything": "0.19.0"
  },
  "report": {
   "bodies": {
@@ -188,27 +188,27 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          0.06281,
-          0.92415,
-          0.01779
+          0.03513,
+          0.91997,
+          -0.04077
          ],
-         "mass_kg": 1.059,
+         "mass_kg": 1.322,
          "material": "soft_fat",
-         "max_offset_m": 0.235,
+         "max_offset_m": 0.0806,
          "name": "butt.L",
          "parent": "spine",
-         "peak_m": 0.1237,
+         "peak_m": 0.0896,
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          0.13467,
-          0.90089,
-          -0.12621
+          0.06044,
+          0.87562,
+          -0.15226
          ],
          "translate": 0.35,
          "type": "butt",
-         "vertices": 218,
-         "volume_m3": 0.001114
+         "vertices": 355,
+         "volume_m3": 0.001391
         },
         {
          "aim": 1.0,
@@ -217,27 +217,27 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          -0.06156,
-          0.92463,
-          0.01719
+          -0.03887,
+          0.91883,
+          -0.04182
          ],
-         "mass_kg": 1.046,
+         "mass_kg": 1.159,
          "material": "soft_fat",
-         "max_offset_m": 0.2352,
+         "max_offset_m": 0.0798,
          "name": "butt.R",
          "parent": "spine",
-         "peak_m": 0.1238,
+         "peak_m": 0.0887,
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          -0.13598,
-          0.9006,
-          -0.12589
+          -0.06613,
+          0.87757,
+          -0.15337
          ],
          "translate": 0.35,
          "type": "butt",
-         "vertices": 213,
-         "volume_m3": 0.001101
+         "vertices": 324,
+         "volume_m3": 0.00122
         },
         {
          "aim": 1.0,
@@ -435,7 +435,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-q_kku_rp\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\cc6d2482-76d1-4837-bc72-97a56ec44577\\scratchpad\\agent-butt\\regress2\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -569,49 +569,49 @@
      },
      {
       "head": [
-       0.062808,
-       -0.017792,
-       0.924145
+       0.035129,
+       0.04077,
+       0.91997
       ],
-      "mass_kg": 1.059,
+      "mass_kg": 1.322,
       "name": "butt.L",
       "normal": [
-       0.441943,
-       0.885572,
-       -0.143
+       0.206421,
+       0.90916,
+       -0.361689
       ],
-      "peak_m": 0.1237,
+      "peak_m": 0.0896,
       "tail": [
-       0.134673,
-       0.126213,
-       0.900892
+       0.060442,
+       0.152259,
+       0.875617
       ],
       "type": "butt",
-      "vertex_count": 218,
-      "volume_m3": 0.001114
+      "vertex_count": 355,
+      "volume_m3": 0.001391
      },
      {
       "head": [
-       -0.061559,
-       -0.017194,
-       0.924627
+       -0.038873,
+       0.041823,
+       0.918829
       ],
-      "mass_kg": 1.046,
+      "mass_kg": 1.159,
       "name": "butt.R",
       "normal": [
-       -0.456412,
-       0.877484,
-       -0.147343
+       -0.223375,
+       0.914189,
+       -0.338174
       ],
-      "peak_m": 0.1238,
+      "peak_m": 0.0887,
       "tail": [
-       -0.135982,
-       0.125889,
-       0.900601
+       -0.066128,
+       0.153369,
+       0.877566
       ],
       "type": "butt",
-      "vertex_count": 213,
-      "volume_m3": 0.001101
+      "vertex_count": 324,
+      "volume_m3": 0.00122
      },
      {
       "head": [
@@ -928,27 +928,27 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          0.05754,
-          0.91267,
-          0.03597
+          0.03055,
+          0.9112,
+          -0.01953
          ],
-         "mass_kg": 0.815,
+         "mass_kg": 1.717,
          "material": "soft_fat",
-         "max_offset_m": 0.1738,
+         "max_offset_m": 0.075,
          "name": "butt.L",
          "parent": "spine",
-         "peak_m": 0.0915,
+         "peak_m": 0.0833,
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          0.1394,
-          0.94996,
-          -0.051
+          0.06216,
+          0.89742,
+          -0.13035
          ],
          "translate": 0.35,
          "type": "butt",
-         "vertices": 315,
-         "volume_m3": 0.000858
+         "vertices": 653,
+         "volume_m3": 0.001808
         },
         {
          "aim": 1.0,
@@ -957,27 +957,27 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          -0.0568,
-          0.91251,
-          0.03515
+          -0.03116,
+          0.91065,
+          -0.02236
          ],
-         "mass_kg": 0.776,
+         "mass_kg": 1.531,
          "material": "soft_fat",
-         "max_offset_m": 0.1733,
+         "max_offset_m": 0.0746,
          "name": "butt.R",
          "parent": "spine",
-         "peak_m": 0.0912,
+         "peak_m": 0.0829,
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          -0.14038,
-          0.95,
-          -0.04949
+          -0.06597,
+          0.89851,
+          -0.13188
          ],
          "translate": 0.35,
          "type": "butt",
-         "vertices": 300,
-         "volume_m3": 0.000817
+         "vertices": 619,
+         "volume_m3": 0.001611
         },
         {
          "aim": 1.0,
@@ -986,27 +986,27 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          0.00011,
-          0.94119,
-          -0.09778
+          9e-05,
+          0.93975,
+          -0.10367
          ],
-         "mass_kg": 3.706,
+         "mass_kg": 4.083,
          "material": "soft_fat",
-         "max_offset_m": 0.1445,
+         "max_offset_m": 0.1444,
          "name": "belly",
          "parent": "spine.001",
-         "peak_m": 0.1204,
+         "peak_m": 0.1203,
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          0.00028,
-          0.94133,
-          0.06552
+          0.00031,
+          0.94326,
+          0.05996
          ],
          "translate": 0.35,
          "type": "belly",
-         "vertices": 523,
-         "volume_m3": 0.003901
+         "vertices": 607,
+         "volume_m3": 0.004298
         },
         {
          "aim": 1.0,
@@ -1015,27 +1015,27 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          0.05425,
-          1.01346,
-          0.00882
+          0.03916,
+          0.94085,
+          0.00508
          ],
-         "mass_kg": 0.215,
+         "mass_kg": 0.419,
          "material": "soft_fat",
-         "max_offset_m": 0.0737,
+         "max_offset_m": 0.1124,
          "name": "love_handle.L",
          "parent": "spine.001",
-         "peak_m": 0.0614,
+         "peak_m": 0.0937,
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          0.13609,
-          1.03608,
-          -0.00958
+          0.15458,
+          0.97446,
+          -0.02822
          ],
          "translate": 0.35,
          "type": "love_handle",
-         "vertices": 91,
-         "volume_m3": 0.000227
+         "vertices": 134,
+         "volume_m3": 0.000441
         },
         {
          "aim": 1.0,
@@ -1044,27 +1044,27 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          -0.05466,
-          1.0135,
-          0.00834
+          -0.04135,
+          0.94071,
+          0.00454
          ],
-         "mass_kg": 0.203,
+         "mass_kg": 0.419,
          "material": "soft_fat",
-         "max_offset_m": 0.073,
+         "max_offset_m": 0.1108,
          "name": "love_handle.R",
          "parent": "spine.001",
-         "peak_m": 0.0608,
+         "peak_m": 0.0923,
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          -0.13648,
-          1.03602,
-          -0.00822
+          -0.15453,
+          0.97388,
+          -0.02888
          ],
          "translate": 0.35,
          "type": "love_handle",
-         "vertices": 87,
-         "volume_m3": 0.000213
+         "vertices": 133,
+         "volume_m3": 0.000441
         },
         {
          "aim": 1.0,
@@ -1131,27 +1131,27 @@
          "frequency_hz": 6.0,
          "gravity_scale": 0.5,
          "head": [
-          0.10928,
-          0.51675,
-          -0.00215
+          0.10891,
+          0.51363,
+          -0.00414
          ],
-         "mass_kg": 1.141,
+         "mass_kg": 1.078,
          "material": "firm_flesh",
-         "max_offset_m": 0.0125,
+         "max_offset_m": 0.0126,
          "name": "thigh.L",
          "parent": "thigh.L",
-         "peak_m": 0.0208,
+         "peak_m": 0.021,
          "response": 1.0,
          "squash": 0.2,
          "tail": [
-          0.13592,
-          0.51249,
-          -0.00981
+          0.13657,
+          0.50896,
+          -0.00823
          ],
          "translate": 0.15,
          "type": "thigh",
-         "vertices": 986,
-         "volume_m3": 0.001086
+         "vertices": 912,
+         "volume_m3": 0.001026
         },
         {
          "aim": 1.0,
@@ -1160,27 +1160,27 @@
          "frequency_hz": 6.0,
          "gravity_scale": 0.5,
          "head": [
-          -0.11006,
-          0.51711,
-          -0.00223
+          -0.10992,
+          0.51432,
+          -0.00409
          ],
-         "mass_kg": 1.143,
+         "mass_kg": 1.084,
          "material": "firm_flesh",
-         "max_offset_m": 0.0126,
+         "max_offset_m": 0.0127,
          "name": "thigh.R",
          "parent": "thigh.R",
-         "peak_m": 0.021,
+         "peak_m": 0.0212,
          "response": 1.0,
          "squash": 0.2,
          "tail": [
-          -0.1375,
-          0.51313,
-          -0.00811
+          -0.13812,
+          0.51001,
+          -0.00673
          ],
          "translate": 0.15,
          "type": "thigh",
-         "vertices": 991,
-         "volume_m3": 0.001089
+         "vertices": 920,
+         "volume_m3": 0.001033
         }
        ],
        "space": "gltf_armature"
@@ -1204,7 +1204,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-q_kku_rp\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\cc6d2482-76d1-4837-bc72-97a56ec44577\\scratchpad\\agent-butt\\regress2\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",
@@ -1269,26 +1269,26 @@
      },
      {
       "head": [
-       0.000112,
-       0.097784,
-       0.941189
+       8.6e-05,
+       0.103675,
+       0.939747
       ],
-      "mass_kg": 3.706,
+      "mass_kg": 4.083,
       "name": "belly",
       "normal": [
-       0.001051,
-       -0.999999,
-       0.000865
+       0.001378,
+       -0.999769,
+       0.021451
       ],
-      "peak_m": 0.1204,
+      "peak_m": 0.1203,
       "tail": [
-       0.000284,
-       -0.06552,
-       0.94133
+       0.000312,
+       -0.05996,
+       0.943258
       ],
       "type": "belly",
-      "vertex_count": 523,
-      "volume_m3": 0.003901
+      "vertex_count": 607,
+      "volume_m3": 0.004298
      },
      {
       "head": [
@@ -1338,141 +1338,141 @@
      },
      {
       "head": [
-       0.057538,
-       -0.035966,
-       0.912672
+       0.030545,
+       0.019529,
+       0.911204
       ],
-      "mass_kg": 0.815,
+      "mass_kg": 1.717,
       "name": "butt.L",
       "normal": [
-       0.654234,
-       0.695085,
-       0.298052
+       0.272375,
+       0.954832,
+       -0.118778
       ],
-      "peak_m": 0.0915,
+      "peak_m": 0.0833,
       "tail": [
-       0.139397,
-       0.051004,
-       0.949965
+       0.062158,
+       0.130348,
+       0.897419
       ],
       "type": "butt",
-      "vertex_count": 315,
-      "volume_m3": 0.000858
+      "vertex_count": 653,
+      "volume_m3": 0.001808
      },
      {
       "head": [
-       -0.056802,
-       -0.035154,
-       0.91251
+       -0.031162,
+       0.022363,
+       0.910653
       ],
-      "mass_kg": 0.776,
+      "mass_kg": 1.531,
       "name": "butt.R",
       "normal": [
-       -0.670125,
-       0.67867,
-       0.300565
+       -0.301204,
+       0.947752,
+       -0.105086
       ],
-      "peak_m": 0.0912,
+      "peak_m": 0.0829,
       "tail": [
-       -0.140381,
-       0.049491,
-       0.949997
+       -0.065968,
+       0.131881,
+       0.898509
       ],
       "type": "butt",
-      "vertex_count": 300,
-      "volume_m3": 0.000817
+      "vertex_count": 619,
+      "volume_m3": 0.001611
      },
      {
       "head": [
-       0.054253,
-       -0.00882,
-       1.013455
+       0.039162,
+       -0.005083,
+       0.940853
       ],
-      "mass_kg": 0.215,
+      "mass_kg": 0.419,
       "name": "love_handle.L",
       "normal": [
-       0.941977,
-       0.211794,
-       0.260428
+       0.925289,
+       0.266949,
+       0.269403
       ],
-      "peak_m": 0.0614,
+      "peak_m": 0.0937,
       "tail": [
-       0.136089,
-       0.00958,
-       1.036081
+       0.154585,
+       0.028217,
+       0.974459
       ],
       "type": "love_handle",
-      "vertex_count": 91,
-      "volume_m3": 0.000227
+      "vertex_count": 134,
+      "volume_m3": 0.000441
      },
      {
       "head": [
-       -0.054656,
-       -0.008336,
-       1.013498
+       -0.041347,
+       -0.004543,
+       0.940707
       ],
-      "mass_kg": 0.203,
+      "mass_kg": 0.419,
       "name": "love_handle.R",
       "normal": [
-       -0.946323,
-       0.191424,
-       0.260441
+       -0.923292,
+       0.272628,
+       0.270567
       ],
-      "peak_m": 0.0608,
+      "peak_m": 0.0923,
       "tail": [
-       -0.136483,
-       0.008216,
-       1.036018
+       -0.154532,
+       0.028878,
+       0.973876
       ],
       "type": "love_handle",
-      "vertex_count": 87,
-      "volume_m3": 0.000213
+      "vertex_count": 133,
+      "volume_m3": 0.000441
      },
      {
       "head": [
-       0.109278,
-       0.002154,
-       0.51675
+       0.10891,
+       0.004139,
+       0.513633
       ],
-      "mass_kg": 1.141,
+      "mass_kg": 1.078,
       "name": "thigh.L",
       "normal": [
-       0.949933,
-       0.273018,
-       -0.151946
-      ],
-      "peak_m": 0.0208,
-      "tail": [
-       0.135922,
-       0.009812,
-       0.512488
-      ],
-      "type": "thigh",
-      "vertex_count": 986,
-      "volume_m3": 0.001086
-     },
-     {
-      "head": [
-       -0.110065,
-       0.002227,
-       0.517114
-      ],
-      "mass_kg": 1.143,
-      "name": "thigh.R",
-      "normal": [
-       -0.968043,
-       0.207731,
-       -0.140499
+       0.975684,
+       0.144392,
+       -0.164898
       ],
       "peak_m": 0.021,
       "tail": [
-       -0.137502,
-       0.008115,
-       0.513132
+       0.136575,
+       0.008234,
+       0.508958
       ],
       "type": "thigh",
-      "vertex_count": 991,
-      "volume_m3": 0.001089
+      "vertex_count": 912,
+      "volume_m3": 0.001026
+     },
+     {
+      "head": [
+       -0.109923,
+       0.004088,
+       0.514316
+      ],
+      "mass_kg": 1.084,
+      "name": "thigh.R",
+      "normal": [
+       -0.984303,
+       0.092409,
+       -0.150362
+      ],
+      "peak_m": 0.0212,
+      "tail": [
+       -0.138118,
+       0.006735,
+       0.510009
+      ],
+      "type": "thigh",
+      "vertex_count": 920,
+      "volume_m3": 0.001033
      }
     ],
     "roles": {

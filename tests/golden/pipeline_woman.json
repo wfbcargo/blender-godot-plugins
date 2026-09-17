@@ -2,16 +2,18 @@
  "fixture": "pipeline_woman",
  "plugins": {
   "character-pipeline": "0.1.0",
-  "follow-through": "0.2.5",
+  "follow-through": "0.2.6",
   "humanform": "0.6.3",
-  "rig-anything": "0.17.0",
-  "wardrobe": "0.1.2"
+  "rig-anything": "0.19.0",
+  "wardrobe": "0.2.1"
  },
  "report": {
   "flesh_limits_m": {},
   "flesh_regions": [
    "breast.L breast",
-   "breast.R breast"
+   "breast.R breast",
+   "butt.L butt",
+   "butt.R butt"
   ],
   "fresh_session": {
    "exit": 0,
@@ -29,7 +31,9 @@
    "Shorts": {
     "jiggle_groups": [
      "ft_jiggle_breast.L",
-     "ft_jiggle_breast.R"
+     "ft_jiggle_breast.R",
+     "ft_jiggle_butt.L",
+     "ft_jiggle_butt.R"
     ],
     "passed": true,
     "verts": 620
@@ -37,7 +41,9 @@
    "SportsTop": {
     "jiggle_groups": [
      "ft_jiggle_breast.L",
-     "ft_jiggle_breast.R"
+     "ft_jiggle_breast.R",
+     "ft_jiggle_butt.L",
+     "ft_jiggle_butt.R"
     ],
     "passed": true,
     "verts": 1182

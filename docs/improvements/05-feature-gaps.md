@@ -291,9 +291,70 @@ silent drift.
 
 ---
 
-## 5.9 flesh reads the buttocks low, on every body measured
+## 5.9 flesh reads the buttocks low, on every body measured - DONE
 
-Found in 02 step 2e (September 2026). **Open.**
+Found in 02 step 2e (September 2026). **Done** (follow-through, branch `butt-envelope`): buttocks are
+read from the side. What was found is under **Outcome** below; the original report follows it.
+
+**Outcome.**
+- **The suspected cause was wrong, and differed by body.** Nothing absorbed the upper buttock as wide
+  hips. A buttock sits where the spine chain ends and the thigh chains begin, and rings need the
+  body on both sides of a bump:
+  - **Figure:** the spine chain's first ring is the crotch. Its radius was 0.02 m where the hip
+    sides are 0.15-0.17 m, the refitted line started there, and the hip sides stood 0.10-0.12 m
+    proud against 0.03-0.05 m for the buttock. 60% of the butt bone's placement weight came from
+    facing 80-120 degrees (the hip sides), so the bone sat 0.13 m off, above and outside the mass.
+  - **Bloater:** the same, less so (47% from facing 120-140, the bone 0.06 m off).
+  - **Belle:** her MPFB rig split the trunk: `root` + `spine` became a chain from the floor to
+    0.961 m and `spine.001` started another (51 degrees between them). The pelvis chain held
+    four rings of skin, the line hugged the upper buttock (excess 0-0.005 m at 0.88-0.94 m), and
+    the thigh chains only saw below the hip joints - the fold.
+- **Ruled out, measured:** rings built only from wall vertices (normal across the chain) removed
+  the crotch but lost the buttock too (20 seed vertices on the Figure: a bump at a chain's end reads
+  as a ramp), and moved every other region, Belle's breasts 0.23 m.
+- **Fix:** `flesh._profile`, used by a type with `"lean": "profile"` (`butt`). Per slice across the
+  body (one band wide) and per band of height, it takes the silhouette behind the hip joints among
+  vertices facing back, arms left out. The same `_lower_envelope` runs down each slice, so the lean
+  line runs from the small of the back to the back of the thigh, across chains. Excess is the
+  distance behind that line; lean is the vertex's distance from its chain less that. `marks.regions`
+  reads a marked `profile` type the same way. Halving or doubling the slice width, or requiring
+  normals 0.3 toward the back, moves every result by under 1.5 cm.
+- **Results:**
+
+  | | before | after |
+  |---|---|---|
+  | Figure butt.L / .R, `score_flesh` | 0.129 / 0.131 (miss) | 0.036 / 0.033 |
+  | Bloater butt.L / .R | 0.058 / 0.059 | 0.027 / 0.021 |
+  | Belle butt head | (0.121, 0.004, 0.794), normal z -0.23, peak 3.6 cm | (0.072, -0.029, 0.858), normal (0.03, 1.00, -0.06), peak 7.8 cm |
+  | Belle, measured vs marked head | 8.7 / 7.8 cm | 1.0 / 0.9 cm (marks read the same way) |
+
+  Belle's new head is level with the old marked one (0.858 against 0.862 m) but 7.5 cm from it,
+  nearly all depth: a head sits the mass's depth plus half its peak under the skin. The crowd's
+  Hugo, Nadia and Mei, and `pipeline_woman`'s curvy woman, had no butt found by rings and now have
+  one, facing back, 0.05-0.11 hip-to-shoulder spans from the hip joints; Dante's moved 4.6 cm down.
+- **Every other region:** Bloater, Belle's breasts and every ring-measured region on all bodies are
+  identical as measured. What moved did so through claim order (a region takes vertices no earlier
+  type claimed):
+  - Figure love handles moved 7.4 cm down onto the hip sides the old butt had taken (peak 6.1 to
+    9.3 cm; the Figure has no true love handles, before or after).
+  - Figure belly gained 84 vertices (head 6 mm).
+  - Figure thighs lost 74 vertices each (head 4 mm); Belle's thighs gained 13 (head 9 mm).
+  - Garment covers on the Figure shifted by 20-40 vertices with the butt's weights.
+- **Swing limit:** `butt.limit_share` 1.9 to 0.9. Godot's self-test on Belle settled 6.9 cm when she
+  read 3.7 cm, and 1.9 x 7.8 cm would have been 14.8. Belle's measured butt now gets 7.0 cm. With her
+  marks kept, the marked peak is 8.6 cm, which gives 7.7 cm.
+- **Found, not fixed:** the crotch ring skews the Figure's whole spine envelope, not just the butt.
+  With end rings built from wall vertices only (`|n.axis| < 0.5` in each chain's first and last ring):
+  - the Figure's false love handles go
+  - its breasts score 0.057 / 0.061 (0.079 before) and its belly 0.076 (0.106; peak 12.0 to 4.5 cm,
+    against a 3.5 cm bump)
+  - the Bloater's arm flab moves 2 cm, and Belle is unchanged
+
+  It was left out because it moves regions the done-when keeps fixed.
+
+---
+
+The original report:
 
 **Problem.** `flesh.find_regions` places a buttock at the fold under it, not on the mass itself:
 - **Belle:** hip joints at 0.873 m. Her hand-marked buttocks put the bone head at about 0.862 m, facing slightly up. The measured regions put it at 0.794 m, facing down (normal z -0.23).
