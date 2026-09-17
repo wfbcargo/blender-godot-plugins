@@ -86,6 +86,8 @@ def _check_node(doc, binary, node):
                                "rebuilds a single surface - give the object one material")
     if s.get("route") == "jiggle_bones":
         _check_jiggle(doc, node, s, res)
+    if s.get("route") == "spring_bones" and "strands" in s:
+        _check_strands(doc, node, s, res)
     if pins and pins["count"]:
         tol = pins["tolerance"]
         flat = pins["positions"]
@@ -189,6 +191,42 @@ def _check_jiggle(doc, node, s, res):
         res["problems"].append(f"jiggle bone heads are {worst:.3f} m from where the spec puts them")
 
 
+def _check_strands(doc, node, s, res):
+    """Every strand bone and collider bone is a joint of this mesh's skin, and every strand bone's
+    head sits where the spec puts it (as `_check_jiggle`)."""
+    import numpy as np
+    blk = s["strands"]
+    bones = [b for c in blk["chains"] for b in c["bones"]]
+    res["strand_chains"] = len(blk["chains"])
+    res["strand_bones"] = len(bones)
+    if "skin" not in node:
+        res["problems"].append("a spring_bones spec on a mesh with no skin")
+        return
+    skin = doc["skins"][node["skin"]]
+    names = {doc["nodes"][j].get("name"): k for k, j in enumerate(skin["joints"])}
+    missing = [b["bone"] for b in bones if b["bone"] not in names]
+    missing += [c["bone"] for c in blk.get("colliders", []) if c["bone"] not in names]
+    if missing:
+        res["problems"].append(f"strand bones not in the skin: {missing} - export the rig with its new bones")
+        return
+    if "inverseBindMatrices" not in skin:
+        return
+    world = _node_matrices(doc)
+    arm = next((i for i, n in enumerate(doc["nodes"]) if n.get("name") == blk.get("armature")), None)
+    A = world[arm] if arm is not None else np.eye(4)
+    _doc, binary = res.pop("_binary")
+    ibm = accessor(doc, binary, skin["inverseBindMatrices"])
+    worst = 0.0
+    for b in bones:
+        M = np.array(ibm[names[b["bone"]]], dtype=float).reshape(4, 4).T
+        joint = np.linalg.inv(M)[:3, 3]
+        head = (A @ np.array(list(b["head"]) + [1.0]))[:3]
+        worst = max(worst, float(np.linalg.norm(joint - head)))
+    res["strand_head_error_m"] = round(worst, 5)
+    if worst > 0.01:
+        res["problems"].append(f"strand bone heads are {worst:.3f} m from where the spec puts them")
+
+
 def verify(path, expect_meshes=None):
     """Read an exported .glb back and check every follow-through spec in it - for files
     written by another exporter, such as rig-anything's export of a rigged, animated body."""
@@ -275,7 +313,9 @@ def summarize(m):
                f"({c['seam_split_pins']} split by seams)") if "pins" in c else ""
         jig = (f", {c['jiggle_regions']} jiggle bones in the skin, heads within {c['jiggle_head_error_m']} m"
                if "jiggle_head_error_m" in c else "")
-        lines.append(f"  {c['node']}: {c['class']}, {c.get('gltf_vertices')} vertices in file{pin}{jig}")
+        strand = (f", {c['strand_bones']} strand bones in {c['strand_chains']} chain(s), heads within "
+                  f"{c['strand_head_error_m']} m" if "strand_head_error_m" in c else "")
+        lines.append(f"  {c['node']}: {c['class']}, {c.get('gltf_vertices')} vertices in file{pin}{jig}{strand}")
         for p in c["problems"]:
             lines.append("    PROBLEM " + p)
     for n in m.get("missing_specs", []):

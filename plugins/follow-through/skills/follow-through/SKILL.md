@@ -75,7 +75,7 @@ different pins, a jello and a clay ball different materials.
 | `soft_body` | **`follow-through:cloth`** | sheets: flags, curtains, capes, skirts, tablecloths |
 | `shape_matching` | **`follow-through:volume`** | volumes: jello, pudding, slime, clay, water balloons |
 | `jiggle_bones` | **`follow-through:flesh`** | flesh on a skinned body: breasts, bellies, buttocks, bloaters |
-| `spring_bones` | strands (tails, hair, straps as bone chains) | not built - cloth can still simulate a strap |
+| `spring_bones` | strands: `strand.py` here (see below) | ponytails and long hair as sprung bone chains; a strap is still built as cloth |
 | `none` | - | nothing moves (a rock, a rigid prop) |
 
 Load the library skill and continue there. It writes the spec as part of its workflow.
@@ -109,7 +109,7 @@ bones and groups.
 
 | family | what moves | class | examples | held by | route |
 |---|---|---|---|---|---|
-| **strand** (1D) | a line | - | rope, tail, hair | its root | - |
+| **strand** (1D) | a line | `strand` | ponytail, lock of long hair | its root bone | spring_bones |
 | **shell** (2D) | a surface | `hanging_sheet` | flag, banner, curtain | an edge on a prop | soft_body |
 | | | `draped_sheet` | cape, cloak, tabard | its top edge, on a body | soft_body |
 | | | `draped_tube` | skirt, robe, sleeve | its upper ring | soft_body |
@@ -147,6 +147,7 @@ and kept across plugin updates.
 | love_handle (paired) | volume | flesh | soft_fat | waist, sides |
 | arm_flab (paired) | volume | flesh | soft_fat | upper arm, beyond the torso |
 | thigh (paired) | volume | flesh | firm_flesh | legs |
+| ponytail, long_hair | strand | strand | hair | |
 | flag, curtain, cape, skirt, tablecloth, scarf, sail | shell | their cloth class | a fabric | |
 
 `registry.recognise` weighs, per type: words in the object's name, and the nearest taught
@@ -202,8 +203,36 @@ confidence and asks for the renders.
 **Cloth with modelled thickness is declined, not simulated.** Simulate the single sheet and
 thicken it at render time.
 
-**A strap routes to strands.** Until that library exists, `cloth.prepare` builds it as a
-narrow soft body and says so.
+**A strap routes to spring_bones, but is built as cloth.** `cloth.prepare` builds it as a narrow soft
+body and says so; only class `strand` gets a bone chain.
+
+## Strands
+
+A mesh marked `ft_type = "strand"` with `ft_root_bone` (and optionally `ft_centreline`, root to tip)
+- what humanform's hair layer writes on a ponytail or a lock - classifies as family and class
+`strand`, route `spring_bones`, without measuring. Then:
+
+```python
+r = strand.prepare("Ponytail")          # bone chain along the centreline, weights, colliders, spec
+print(strand.summarize(r))
+# the body through rig-anything's export_character (its rig carries the strand bones), then:
+m = strand.export(r"C:/proj/assets/belle_ponytail.glb", ["Ponytail"], "Belle_rig")
+```
+
+With no centreline each loose part is a chain, its line derived from surface distance from the root.
+Bones are `ft_strand_<object>_NN` (3-8, about 7 cm each), weighted linearly between bone middles;
+springs are a compound pendulum of the hair below each bone (about 1 Hz at a ponytail's root), damping
+0.5; colliders are an ellipsoid round the head's skin and capsules round the neck bones'. In Godot:
+
+```gdscript
+FollowThrough.attach(body, preload("res://assets/belle_ponytail.glb"))
+FollowThrough.apply(body, {"routes": ["spring_bones"]})
+```
+
+and verify with `verify_strands.gd` (rest, knock, thrown at the head, run; 30-240 fps; penetration
+against the head's own skin). `samples.add_ponytail(body, rig)` makes a test ponytail on any rigged
+body. Everything - the contract, the numbers, what the verifier caught - is in
+`${CLAUDE_PLUGIN_ROOT}/references/strands.md`.
 
 **Selection is per scene.** An exporter run without `use_active_scene` takes objects
 selected in other scenes: a body exported after a volume export carried eleven meshes it
@@ -219,5 +248,9 @@ had never seen. `export.export` deselects its scene, rig-anything's export passe
   verified; cloth still 14/14.
 - **0.1.0** - recognition, the schema, the cloth library, export read-back, the cloth
   runtime and verifier.
-- Next: strands (spring bones for tails, hair, straps), volume-volume and two-way
-  collision, wind, proxy meshes for dense cloth.
+- **strands** (improvements 05 5.2 step 3, unreleased): class `strand`, route `spring_bones`,
+  `strand.py`, `strand_modifier.gd`, `FollowThrough.attach`, `verify_strands.gd`; types `ponytail` and
+  `long_hair`, material `hair`. A ponytail on the sample figure and on an MPFB woman passes at 30, 60,
+  120 and 240 fps (swing spread 1.014 and 1.050, head penetration 1.3 and 3.7 mm).
+- Next: strap and tail chains, volume-volume and two-way collision, wind, proxy meshes for dense
+  cloth.

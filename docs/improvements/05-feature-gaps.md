@@ -85,6 +85,28 @@ read as hair, not a cap edge?".
 
 **Done when** Belle's hair passes a critic look at 1 m in Godot, and a ponytail preset swings on a run.
 
+**Step 3, strand chains - built (branch `strand-chains`, follow-through unreleased).** The input contract
+with the hair layer: a separate mesh with `ft_type = "strand"`, `ft_root_bone` and optionally
+`ft_centreline` (root to tip, object-local; `ft_centreline_world`, `ft_centrelines` for several). Without
+a centreline each loose part is a chain, its line the centroids of 1.5 cm bands of surface distance from
+the root (1.4 cm from the given line on the test tube). `classify` routes the mark to class `strand`,
+route `spring_bones`, types `ponytail` / `long_hair`, material `hair`. `strand.prepare` hangs 3-8 bones
+(`ft_strand_*`, tagged `ft_role`) from the root bone, weights linearly between bone middles, writes the
+`strands` block: per-bone compound-pendulum frequency (a 38 cm ponytail 0.99 Hz at the root, 2.2 Hz at the
+tip), damping 0.5, 60/40 deg limits, an ellipsoid round the head's skin and capsules round the neck
+bones'. The body exports through rig-anything's `export_character`, the strand through `strand.export`
+(rig-anything's `export_glb`, read back: bones in the skin, heads within 1e-5 m); in Godot
+`FollowThrough.attach` puts it on the body's skeleton and `strand_modifier.gd` springs it in fixed
+1/120 s steps with exact damped integration, length and angle projection, collision and contact friction.
+`verify_strands.gd` (rest, knock, thrown at the head, run; 30/60/120/240 fps; penetration against the
+head's own skin) passes on the sample figure (fixture `strand_ponytail`: swing 13 deg, spread 1.014, head
+penetration 1.3 mm) and on an MPFB woman from `mpfb_woman_curvy`'s brief (swing 36 deg, spread 1.050,
+3.7 mm), and fails with collisions off (15-16 cm into the head). What the verifier caught on the way -
+frame-rate dependence 3.2x, a capsule head leaving the back of the skull uncovered, swing growing every
+stride without contact friction, damping 0.3 not settling - is in `follow-through/references/strands.md`.
+Open: `regress.py --godot` does not run `verify_strands.gd`; the sample figure's curled root reads as a
+kink when it lifts; the modifier is GDScript at roughly 0.2-0.8 ms a chain a frame.
+
 ---
 
 ## 5.3 Compression garments

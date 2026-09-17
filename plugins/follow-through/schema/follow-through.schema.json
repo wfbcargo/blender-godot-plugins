@@ -37,9 +37,10 @@
         "mounted_volume",
         "flesh",
         "volume",
-        "not_cloth"
+        "not_cloth",
+        "strand"
       ],
-      "description": "How it hangs and what holds it. hanging_sheet: held along an edge by a static or moving prop (flag, banner, curtain). draped_sheet: worn and held along its top edge (cape, cloak). draped_tube: worn, open at both ends, held by one ring (skirt, robe). loose_sheet: held by nothing, rests on things (tablecloth, towel). strap: a strip long enough to move as a strand (scarf, ribbon). tensioned: held at corners and pulled taut (sail, awning). solid_sheet: cloth modelled with thickness - not simulable as a surface. loose_volume: a body with an inside, held by nothing (a jello cube, a clay ball). mounted_volume: held at its base (a jello on its plate). flesh: the soft masses of a skinned body. volume (0.1 specs) / not_cloth: recognised and declined."
+      "description": "How it hangs and what holds it. hanging_sheet: held along an edge by a static or moving prop (flag, banner, curtain). draped_sheet: worn and held along its top edge (cape, cloak). draped_tube: worn, open at both ends, held by one ring (skirt, robe). loose_sheet: held by nothing, rests on things (tablecloth, towel). strap: a strip long enough to move as a strand (scarf, ribbon). tensioned: held at corners and pulled taut (sail, awning). solid_sheet: cloth modelled with thickness - not simulable as a surface. loose_volume: a body with an inside, held by nothing (a jello cube, a clay ball). mounted_volume: held at its base (a jello on its plate). flesh: the soft masses of a skinned body. volume (0.1 specs) / not_cloth: recognised and declined. strand: a line hanging from one bone - a ponytail, a lock of long hair - moved as a bone chain."
     },
     "route": {
       "enum": [
@@ -49,7 +50,7 @@
         "spring_bones",
         "none"
       ],
-      "description": "The Godot runtime that moves it. soft_body: SoftBody3D (cloth_body.gd). shape_matching: lattice shape matching (shape_match_body.gd). jiggle_bones: sprung bones on a Skeleton3D (jiggle_modifier.gd). spring_bones: SpringBoneSimulator3D on a bone chain (not built). none: nothing moves."
+      "description": "The Godot runtime that moves it. soft_body: SoftBody3D (cloth_body.gd). shape_matching: lattice shape matching (shape_match_body.gd). jiggle_bones: sprung bones on a Skeleton3D (jiggle_modifier.gd). spring_bones: sprung bone chains (strand_modifier.gd) for class strand; a strap is routed here but built as cloth. none: nothing moves."
     },
     "confidence": {
       "type": "number",
@@ -121,6 +122,9 @@
     },
     "jiggle": {
       "$ref": "#/$defs/jiggle"
+    },
+    "strands": {
+      "$ref": "#/$defs/strands"
     }
   },
   "allOf": [
@@ -166,6 +170,27 @@
       "then": {
         "required": [
           "jiggle"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "route": {
+            "const": "spring_bones"
+          },
+          "class": {
+            "const": "strand"
+          }
+        },
+        "required": [
+          "route",
+          "class"
+        ]
+      },
+      "then": {
+        "required": [
+          "strands"
         ]
       }
     }
@@ -523,6 +548,205 @@
               },
               "vertices": {
                 "type": "number"
+              }
+            }
+          }
+        }
+      }
+    },
+    "strands": {
+      "type": "object",
+      "required": [
+        "space",
+        "chains"
+      ],
+      "description": "Bone chains strand.prepare hung along a strand's centrelines, and what they collide with. Positions in the armature's space, glTF axes.",
+      "properties": {
+        "space": {
+          "const": "gltf_armature",
+          "description": "As jiggle.space: Blender (x, y, z) -> (x, z, -y), Godot's Skeleton3D space."
+        },
+        "armature": {
+          "type": "string"
+        },
+        "material": {
+          "type": "string",
+          "description": "The registry material the values came from (hair)."
+        },
+        "gravity_scale": {
+          "type": "number"
+        },
+        "response": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Scales the parent's acceleration: 1 physical."
+        },
+        "collision_margin_m": {
+          "type": "number",
+          "description": "Added to each bone's radius_m when kept out of a collider."
+        },
+        "collision_friction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Share of the sliding speed lost per 1/120 s step in contact."
+        },
+        "chains": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "bones"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "ft_strand_<object>[_<n>]."
+              },
+              "root_bone": {
+                "type": "string",
+                "description": "The bone the strand grows from."
+              },
+              "length_m": {
+                "type": "number"
+              },
+              "bones": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "bone",
+                    "parent",
+                    "head",
+                    "tail",
+                    "frequency_hz",
+                    "damping_ratio",
+                    "max_angle_deg"
+                  ],
+                  "properties": {
+                    "bone": {
+                      "type": "string"
+                    },
+                    "parent": {
+                      "type": "string",
+                      "description": "The root bone for the first, the previous strand bone after."
+                    },
+                    "head": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "tail": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "length_m": {
+                      "type": "number"
+                    },
+                    "hanging_m": {
+                      "type": "number",
+                      "description": "Strand length from this bone's head to the tip."
+                    },
+                    "radius_m": {
+                      "type": "number",
+                      "description": "The strand's median radius along this bone."
+                    },
+                    "frequency_hz": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "damping_ratio": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "max_angle_deg": {
+                      "type": "number",
+                      "minimum": 0,
+                      "description": "Furthest from where its parent points it."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "colliders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "bone",
+              "a",
+              "b",
+              "radius_m"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "head, neck_<bone>."
+              },
+              "bone": {
+                "type": "string",
+                "description": "The bone it rides."
+              },
+              "shape": {
+                "enum": [
+                  "capsule",
+                  "ellipsoid"
+                ],
+                "description": "capsule (default): segment a-b grown by radius_m. ellipsoid: centre a (= b) on axes with radii_m."
+              },
+              "a": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "b": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "radius_m": {
+                "type": "number",
+                "minimum": 0
+              },
+              "axes": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "radii_m": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3
               }
             }
           }

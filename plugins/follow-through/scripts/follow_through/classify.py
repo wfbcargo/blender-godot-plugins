@@ -15,7 +15,8 @@ and a **route**: the runtime that will move it in Godot.
   soft_body       SoftBody3D - a mass-spring surface (cloth)
   shape_matching  lattice shape matching - a volume with an inside (jello, clay, slime)
   jiggle_bones    sprung bones added to a rig - flesh on a skinned body
-  spring_bones    SpringBoneSimulator3D on a bone chain (strands; not built yet)
+  spring_bones    sprung bone chains (strands: ponytails, long hair - strand.py and
+                  strand_modifier.gd; a strap is routed here but still built as cloth)
   none            nothing should move
 
 Geometry constrains, renders decide. `classify` states what the measures
@@ -40,6 +41,7 @@ ROUTES = {
     "loose_sheet": "soft_body",
     "tensioned": "soft_body",
     "strap": "spring_bones",
+    "strand": "spring_bones",
     "solid_sheet": "none",
     "loose_volume": "shape_matching",
     "mounted_volume": "shape_matching",
@@ -139,6 +141,8 @@ def _pins_for(obj, m, cls):
 def classify(obj_name, cls=None, measures=None):
     """Recognise one object. `cls` overrides the class after looking at renders."""
     obj = bpy.data.objects.get(obj_name)
+    if obj is not None and str(obj.get("ft_type", "")).lower() == "strand" and cls in (None, "strand"):
+        return _strand(obj)
     m = measures or measure.analyze(obj_name)
     if "error" in m:
         return m
@@ -308,6 +312,31 @@ def classify(obj_name, cls=None, measures=None):
         result["warnings"].append(f"{m['components']} separate pieces: each simulates alone and "
                                   "pieces never stop each other passing through")
     return result
+
+
+def _strand(obj):
+    """A mesh marked `ft_type = "strand"` (humanform's hair layer marks its ponytails and locks):
+    a chain of spring bones from its `ft_root_bone`, built by strand.prepare. The mark is the
+    evidence; nothing is measured."""
+    from . import registry
+    kind = obj.get("ft_strand_type")
+    if kind:
+        type_evidence = [f"custom property ft_strand_type: {kind}"]
+        type_conf = 0.95
+        guessed = []
+    else:
+        rec = registry.recognise(features={}, name=obj.name, family="strand", cls="strand")
+        kind, type_evidence, type_conf = rec["type"], rec["evidence"], rec["confidence"]
+        guessed = ["type"] if rec["guessed"] else []
+    root = obj.get("ft_root_bone")
+    warnings = [] if root else ["no ft_root_bone: strand.prepare needs the bone it grows from"]
+    return {
+        "object": obj.name, "family": "strand", "class": "strand", "auto_class": "strand",
+        "route": "spring_bones", "type": str(kind), "type_confidence": type_conf,
+        "type_evidence": type_evidence, "confidence": 0.95,
+        "evidence": [f"custom property ft_type = strand, rooted on {root or '?'}"],
+        "guessed": guessed, "touching": [], "warnings": warnings,
+    }
 
 
 def _volume_pins(obj, m):
