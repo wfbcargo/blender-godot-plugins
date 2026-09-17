@@ -469,7 +469,7 @@
      "FixWoman_body",
      "FixWoman_rig"
     ],
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "morph_targets": false,
     "options_dropped_by_this_blender": [],
     "skipped": [],
@@ -493,7 +493,7 @@
      "FixWoman_Run": 1.041667,
      "FixWoman_Walk": 1.375
     },
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "generator": "Khronos glTF Blender I/O v5.2.40",
     "gltf_version": 2,
     "joints": 53,
@@ -545,6 +545,11 @@
     ]
    },
    "review": {
+    "bands_px": [
+     45,
+     0,
+     13
+    ],
     "cell_px": [
      221,
      320
@@ -554,7 +559,7 @@
      1162
     ],
     "count": 19,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
     "frame_height_m": 2.1,
     "frames": {
      "FixWoman_Crouch": [
@@ -618,7 +623,7 @@
       29
      ]
     },
-    "seconds": 7.21,
+    "seconds": 6.38,
     "strips": {
      "FixWoman_Crouch": {
       "front": {
@@ -819,7 +824,7 @@
      "three_quarter"
     ]
    },
-   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
+   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
    "stage": "done",
    "verified": {
     "durations_match": true,
@@ -1487,6 +1492,11 @@
    "problems": []
   },
   "review": {
+   "bands_px": [
+    45,
+    0,
+    13
+   ],
    "cell_px": [
     221,
     320

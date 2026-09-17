@@ -1,6 +1,6 @@
 """rig-anything's review sheet measures what it claims to (improvements 04 b).
 
-A box on a one-bone rig, three clips, built from nothing:
+A box on a one-bone rig, four clips, built from nothing:
 
 - `Static`: every key the same pose. Eight identical cells, so `distinct_cells` must be 1 in every
   view. Before the render was undithered and cells compared with a tolerance it was 8: dither noise
@@ -13,6 +13,13 @@ A box on a one-bone rig, three clips, built from nothing:
   cells, which `edge_cells` counts, and distinct_cells is 8 because each cell shows a different part of
   the box; centred (the default) no cell is crossed and it is one pose. Seen from the right it travels
   toward the camera, and must stay behind the floor line.
+- `Dip`: the box sinks 0.35 m through the floor and then rises 0.9 m above where it stands, so the
+  poses leave the rest body's frame downwards and upwards - a rabbit's JumpAir legs through the floor,
+  a launch above the standing head. It is rendered as its own sheet (`spill`), because the bands are one
+  height for the whole sheet: `bands_px` is [label, above, below] and must grow past the resting
+  [45, 0, 13] at both ends, while `edge_cells` stays 0. Before the bands were grown from the evaluated
+  poses the legs were simply cut off at row 0 and `edge_cells`, which looked only at the side columns,
+  said 0.
 
 The sheet is otherwise the export's: fixtures that export (cricket, rabbit, ...) record theirs.
 """
@@ -53,15 +60,20 @@ def _box_rig():
     pb = rig.pose.bones["root"]
     pb.rotation_mode = "XYZ"
     rig.animation_data_create()
-    for name in ("Static", "Tilt", "Travel"):
+    for name in ("Static", "Tilt", "Travel", "Dip"):
         act = bpy.data.actions.new(name)
         act.use_fake_user = True
         rig.animation_data.action = act
-        for f in (1, 29):
+        # Dip is keyed at the middle too: down through the floor, then up past the standing head
+        for f in (1, 15, 29) if name == "Dip" else (1, 29):
             end = f == 29
             pb.rotation_euler = (0.3 if name == "Tilt" and end else 0.0, 0.0,
                                  0.35 if name == "Tilt" and end else 0.0)
-            pb.location = (3.0 if name == "Travel" and end else 0.0, 0.0, 0.0)
+            z = 0.0
+            if name == "Dip":
+                z = {1: 0.0, 15: -0.35, 29: 0.9}[f]
+            # the bone points up, so its local Y is world up and its local X is world sideways
+            pb.location = (3.0 if name == "Travel" and end else 0.0, z, 0.0)
             pb.keyframe_insert("rotation_euler", frame=f)
             pb.keyframe_insert("location", frame=f)
     rig.animation_data.action = None
@@ -74,8 +86,11 @@ def build():
     out = os.path.join(H.out_dir(), "review_sheet")
     centred = review.sheet([body], rig, ["Static", "Tilt", "Travel"], os.path.join(out, "centred"), loops=[])
     in_place = review.sheet([body], rig, ["Travel"], os.path.join(out, "in_place"), loops=[], centre_poses=False)
+    # its own sheet: the bands are one height for the whole sheet, so `centred` keeps the resting bands
+    spill = review.sheet([body], rig, ["Dip"], os.path.join(out, "spill"), loops=[])
     return {"centred": H.review_sheet(review.summary(centred)),
-            "in_place": H.review_sheet(review.summary(in_place))}
+            "in_place": H.review_sheet(review.summary(in_place)),
+            "spill": H.review_sheet(review.summary(spill))}
 
 
 H.run("review_sheet", build)

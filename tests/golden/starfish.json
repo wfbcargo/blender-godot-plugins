@@ -79,9 +79,14 @@
     "StarTest_rig_Crawl",
     "StarTest_rig_Idle"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\starfish\\starfish\\starfish.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\starfish\\starfish\\starfish.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\starfish\\starfish\\starfish.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\starfish\\starfish\\starfish.moves.json",
    "review": {
+    "bands_px": [
+     45,
+     0,
+     13
+    ],
     "cell_px": [
      295,
      320
@@ -91,7 +96,7 @@
      390
     ],
     "count": 7,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\starfish\\starfish\\review\\starfish",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\starfish\\starfish\\review\\starfish",
     "frame_height_m": 0.35,
     "frames": {
      "StarTest_rig_Crawl": [
@@ -115,7 +120,7 @@
       85
      ]
     },
-    "seconds": 5.43,
+    "seconds": 4.45,
     "strips": {
      "StarTest_rig_Crawl": {
       "front": {
@@ -479,6 +484,11 @@
    }
   },
   "review": {
+   "bands_px": [
+    45,
+    0,
+    13
+   ],
    "cell_px": [
     295,
     320

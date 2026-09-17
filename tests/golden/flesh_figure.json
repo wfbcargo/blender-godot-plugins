@@ -435,7 +435,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -707,6 +707,11 @@
      }
     ],
     "review": {
+     "bands_px": [
+      45,
+      0,
+      13
+     ],
      "cell_px": [
       254,
       320
@@ -1261,7 +1266,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",
@@ -1487,6 +1492,11 @@
      }
     ],
     "review": {
+     "bands_px": [
+      45,
+      0,
+      13
+     ],
      "cell_px": [
       243,
       320

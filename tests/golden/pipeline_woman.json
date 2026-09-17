@@ -131,6 +131,11 @@
    "review": "unchanged"
   },
   "review": {
+   "bands_px": [
+    45,
+    0,
+    13
+   ],
    "cell_px": [
     221,
     320

@@ -123,19 +123,24 @@
     "CricketTest_rig_JumpAir",
     "CricketTest_rig_JumpLand"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\cricket\\cricket\\cricket.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\cricket\\cricket\\cricket.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\cricket\\cricket\\cricket.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\cricket\\cricket\\cricket.moves.json",
    "review": {
+    "bands_px": [
+     45,
+     0,
+     58
+    ],
     "cell_px": [
      294,
      320
     ],
     "contact_px": [
      3544,
-     969
+     1079
     ],
     "count": 16,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\regress_update\\a\\cricket\\cricket\\review\\cricket",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf2\\strips-fix\\round2\\upd\\a\\cricket\\cricket\\review\\cricket",
     "frame_height_m": 0.05,
     "frames": {
      "CricketTest_rig_Idle": [
@@ -189,7 +194,7 @@
       29
      ]
     },
-    "seconds": 7.92,
+    "seconds": 11.62,
     "strips": {
      "CricketTest_rig_Idle": {
       "front": {
@@ -199,7 +204,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       },
       "right": {
@@ -209,7 +214,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       },
       "three_quarter_above": {
@@ -219,7 +224,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       }
      },
@@ -231,7 +236,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       },
       "right": {
@@ -241,7 +246,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       },
       "three_quarter_above": {
@@ -251,7 +256,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       }
      },
@@ -263,7 +268,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       },
       "right": {
@@ -273,7 +278,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       },
       "three_quarter_above": {
@@ -283,7 +288,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       }
      },
@@ -295,7 +300,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       },
       "right": {
@@ -305,7 +310,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       },
       "three_quarter_above": {
@@ -315,7 +320,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       }
      },
@@ -327,7 +332,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       },
       "right": {
@@ -337,7 +342,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       },
       "three_quarter_above": {
@@ -347,7 +352,7 @@
        "edge_cells": 0,
        "size_px": [
         2352,
-        378
+        423
        ]
       }
      }
@@ -1296,13 +1301,18 @@
    }
   },
   "review": {
+   "bands_px": [
+    45,
+    0,
+    58
+   ],
    "cell_px": [
     294,
     320
    ],
    "contact_px": [
     3544,
-    969
+    1079
    ],
    "frame_height_m": 0.05,
    "frames": {
@@ -1387,7 +1397,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      },
      "right": {
@@ -1397,7 +1407,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      },
      "three_quarter_above": {
@@ -1407,7 +1417,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      }
     },
@@ -1419,7 +1429,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      },
      "right": {
@@ -1429,7 +1439,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      },
      "three_quarter_above": {
@@ -1439,7 +1449,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      }
     },
@@ -1451,7 +1461,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      },
      "right": {
@@ -1461,7 +1471,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      },
      "three_quarter_above": {
@@ -1471,7 +1481,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      }
     },
@@ -1483,7 +1493,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      },
      "right": {
@@ -1493,7 +1503,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      },
      "three_quarter_above": {
@@ -1503,7 +1513,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      }
     },
@@ -1515,7 +1525,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      },
      "right": {
@@ -1525,7 +1535,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      },
      "three_quarter_above": {
@@ -1535,7 +1545,7 @@
       "edge_cells": 0,
       "size_px": [
        2352,
-       378
+       423
       ]
      }
     }

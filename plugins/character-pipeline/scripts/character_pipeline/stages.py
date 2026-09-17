@@ -368,6 +368,11 @@ def run_review(ch, ctx):
                    if s["cells_with_body"] < len(r["frames"][c]))
     if empty:
         raise RuntimeError(f"review: strips with cells showing no body: {empty}")
+    # nothing may reach an edge: sideways it would land in the next frame's cell, and at the bottom or the
+    # top the frame has cut the pose off - which is what the sheet exists to show
+    cut = sorted(f"{c} {v}" for c, vs in r["strips"].items() for v, s in vs.items() if s["edge_cells"])
+    if cut:
+        raise RuntimeError(f"review: strips whose body reaches the edge of the picture: {cut}")
     out = review.summary(r)
     out["meshes"] = meshes
     return out

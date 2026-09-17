@@ -28,16 +28,24 @@ and eight evaluations of the rig.
 **What is measured** (from the pixels, per strip): `cells_with_body` - cells where anything but background,
 floor line or label was drawn, so a strip that lost its body says so - and `distinct_cells`, how many of the
 cells show different poses, so a clip rendering one frozen pose eight times (the stale-pose bug
-`views.render_clip` documents) reports 1 - and `edge_cells`, cells whose body touches their left or right
-edge, so a pose spilling into its neighbour's cell says so. Cells are compared with a tolerance
-(`PIXEL_DIFF`, `SAME_PIXELS`) on an undithered render: Blender's default dither alone made every cell of a
-frozen pose differ.
+`views.render_clip` documents) reports 1 - and `edge_cells`, cells whose body touches any edge of the strip,
+left, right, bottom or top, so a pose spilling into its neighbour's cell or cut off by the frame says so.
+Cells are compared with a tolerance (`PIXEL_DIFF`, `SAME_PIXELS`) on an undithered render: Blender's default
+dither alone made every cell of a frozen pose differ.
 
 **Travel.** Every clip is evaluated before anything renders. The cell width holds the widest pose drawn,
 and a strip whose poses would leave their cells - a cricket's launch stretches and rises out of its
 cell into the next - is drawn centred: each frame moved along the view's right axis so its own extent is
 centred in its cell, the cell widened to the widest pose, and `(each frame centred)` in the heading. Where
 a body stands relative to its neighbours is then not in the picture; each pose is, on its own.
+
+**Spill up and down.** The frame is the rest body's, and a pose leaves it in every direction, not only
+sideways: a rabbit's JumpAir legs go through the floor, a launch rises above the standing head. The bands
+above and below the cell are grown from the evaluated poses too (`bands_px` [label, above, below]), in whole
+pixels at the same metres-per-pixel, so the shared scale, the cell and the floor line do not move - the
+picture is simply taller, with the rest ground band left over as the margin. Before that, a fixed 4% ground
+band cut the rabbit's and the cricket's JumpAir legs off at row 0 while `edge_cells`, which looked only at
+the side columns, reported 0: the sheet cropped the evidence and called itself clean.
 """
 
 from __future__ import annotations
@@ -63,7 +71,11 @@ CREATURE_FRAMES_M = (0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1.0, 1.5, 2.1, 3.0, 4.5, 6
 CELL_PX = 320                 # a cell's height in pixels
 CELL_ASPECT = 0.6             # a cell's width over its height, unless the body needs more
 LABEL_BAND = 0.14             # of the frame height, above it: the title line and the frame numbers
-GROUND_BAND = 0.04            # of the frame height, below it: room to see a foot through the floor
+GROUND_BAND = 0.04            # of the frame height, below it: the margin, grown by what the poses need
+# a band grows to at most this many cell heights. A clip whose root runs away would otherwise render a
+# picture thousands of pixels tall; past the cap the pose really is out of the picture and `edge_cells`
+# says so, which is the honest answer and not one any fixture reaches (the largest grown band is 0.25).
+GROW_MAX = 2.0
 BACKGROUND = (0.20, 0.22, 0.25)
 BODY = (0.80, 0.80, 0.82)
 # every further mesh on the rig (garments, hair), in turn: told apart from skin, and none with the floor
@@ -198,9 +210,15 @@ def _measure_strip(rgb, cells, cell_w, band_px):
     Two cells are the same pose when fewer than `SAME_PIXELS` of their pixels differ by more than
     `PIXEL_DIFF` - not when their bytes hash alike: the render is not dithered (`sheet` turns dither off),
     but antialiasing can still move a value by a step or two. `distinct_cells` counts the cells unlike every
-    cell counted before them, so one pose drawn 8 times is 1. `edge_cells` counts cells whose body reaches
-    their left or right edge column: a pose that crosses into its neighbour's cell does, and then neither
-    frame reads on its own."""
+    cell counted before them, so one pose drawn 8 times is 1.
+
+    `edge_cells` counts cells whose body reaches ANY edge of the strip - the left or right column, the
+    bottom row or the top row under the label band. A pose crossing sideways lands in its neighbour's cell
+    and neither frame reads on its own; a pose leaving through the bottom is cut off, and that was the
+    silent one: the frame's height came from the rest pose alone, so a rabbit's JumpAir legs going through
+    the floor were cropped at row 0 while the strip reported `edge_cells` 0 - in the very clip whose job is
+    to show a foot through the floor. `sheet` now grows the bands from the evaluated poses so nothing
+    reaches an edge; this counts what is left, the same way in every direction."""
     import numpy as np
     h = rgb.shape[0]
     body = rgb[: h - band_px]                                   # the label band is on top
@@ -218,7 +236,7 @@ def _measure_strip(rgb, cells, cell_w, band_px):
         cell = mask[:, i * cell_w:(i + 1) * cell_w]
         if cell.sum() > 0:
             with_body += 1
-        if cell[:, 0].any() or cell[:, -1].any():
+        if cell[:, 0].any() or cell[:, -1].any() or cell[0, :].any() or cell[-1, :].any():
             edges += 1
         px = body[:, i * cell_w:(i + 1) * cell_w]
         if all(int((np.abs(px - k).max(axis=2) > PIXEL_DIFF).sum()) >= SAME_PIXELS for k in kept):
@@ -243,8 +261,9 @@ def sheet(meshes, rig_name, actions, out_dir, views=None, frames=8, frame_height
                     heading; False draws every pose where it stands, in cells as wide as the rest body needs
 
     Every png and review.json already in `out_dir` is replaced. Returns {dir, files, count, frame_height_m,
-    cell_m, cell_px, views, frames {clip: [..]}, strips {clip: {view: {file, size_px, cells_with_body,
-    distinct_cells, edge_cells, centred}}}, contact {file, size_px}, seconds}, or {error}."""
+    cell_m, cell_px, bands_px [label, above, below], views, frames {clip: [..]}, strips {clip: {view: {file,
+    size_px, cells_with_body, distinct_cells, edge_cells, centred}}}, contact {file, size_px}, seconds}, or
+    {error}."""
     import numpy as np
     from . import verify
 
@@ -287,21 +306,22 @@ def sheet(meshes, rig_name, actions, out_dir, views=None, frames=8, frame_height
         return {"error": "unknown view(s) %s (have %s)" % (bad_views, sorted(VIEW_DIRS))}
     dirs = {v: _view_dir(v, forward) for v in views}
     rights = {v: dirs[v].cross(Vector((0.0, 0.0, 1.0))).normalized() * -1.0 for v in views}
+    # screen up: perpendicular to the view direction and to `right`, so a view from above measures height
+    # up the picture rather than up the world. For a level view it is world Z.
+    ups = {v: dirs[v].cross(rights[v]).normalized() for v in views}
     # the widest the rest body is across any view, with room for a stride or a reach
     across = max(max(p.dot(rights[v]) for p in rest) - min(p.dot(rights[v]) for p in rest) for v in views)
     rest_cell_m = max(scale * CELL_ASPECT, across * 1.3)
     px_m = scale / cell_px
     band_px = int(round(cell_px * LABEL_BAND))
-    ground_px = int(round(cell_px * GROUND_BAND))
-    height_m = scale * (cell_px + band_px + ground_px) / cell_px
-    height_px = cell_px + band_px + ground_px
-    # the camera's target: the frame's centre raised by half the label band, lowered by half the ground band
-    target = centre + Vector((0.0, 0.0, scale * (band_px - ground_px) / cell_px / 2.0))
-    looks = {}
-    for view in views:
-        # a level camera frames from the floor up; one from above looks at the body's middle
-        looks[view] = target if abs(dirs[view].z) < 1e-6 else \
-            Vector(((lo.x + hi.x) / 2.0, (lo.y + hi.y) / 2.0, (lo.z + hi.z) / 2.0)) + target - centre
+    ground_base_px = int(round(cell_px * GROUND_BAND))
+    # What a cell covers is `scale` metres about the view's anchor, along that view's `up`: a level camera
+    # frames from the floor up (the rest frame's centre), one from above looks at the body's middle. The
+    # anchor does not move when the bands grow, so a pose's reach past the cell is measured against it.
+    box_centre = Vector(((lo.x + hi.x) / 2.0, (lo.y + hi.y) / 2.0, (lo.z + hi.z) / 2.0))
+    anchors = {v: (centre if abs(dirs[v].z) < 1e-6 else box_centre) for v in views}
+    # the bands, the picture's height and the camera targets follow the poses: they are set below, once
+    # every clip has been evaluated
 
     main = bpy.context.scene
     prev_frame = main.frame_current
@@ -324,6 +344,9 @@ def sheet(meshes, rig_name, actions, out_dir, views=None, frames=8, frame_height
         shapes_of, shifts, centred = {}, {}, {}
         need_m = 0.0                                            # the widest half-pose drawn, about its cell's centre
         near_m = 0.0                                            # the nearest any pose comes to a camera
+        # how far any pose reaches below and above its cell, up the picture: a jump rises out of the top,
+        # a foot through the floor sinks out of the bottom, and both are what the sheet exists to show
+        under_m, over_m = 0.0, 0.0
         for action, act in zip(actions, acts):
             binding = verify.bind_action(rig, act)
             if not binding["bound"]:
@@ -347,10 +370,14 @@ def sheet(meshes, rig_name, actions, out_dir, views=None, frames=8, frame_height
                 span = {}
                 for view in views:
                     r = np.array(tuple(rights[view]))
-                    along = pts @ r - float(looks[view].dot(rights[view]))
+                    along = pts @ r - float(anchors[view].dot(rights[view]))
                     span[view] = (float(along.min()), float(along.max()))
-                    toward_cam = pts @ np.array(tuple(dirs[view])) - float(looks[view].dot(dirs[view]))
+                    toward_cam = pts @ np.array(tuple(dirs[view])) - float(anchors[view].dot(dirs[view]))
                     near_m = max(near_m, float(toward_cam.max()))
+                    # the cell is `scale` metres about the anchor along `up`, whatever the bands do
+                    rise = pts @ np.array(tuple(ups[view])) - float(anchors[view].dot(ups[view]))
+                    under_m = max(under_m, -scale / 2.0 - float(rise.min()))
+                    over_m = max(over_m, float(rise.max()) - scale / 2.0)
                 shapes.append(cell)
                 spans.append(span)
             shapes_of[action] = shapes
@@ -372,6 +399,21 @@ def sheet(meshes, rig_name, actions, out_dir, views=None, frames=8, frame_height
             cell_w_px = int(math.ceil(2.0 * need_m / px_m)) + 4
         cell_w_m = cell_w_px * px_m
         width_px = cell_w_px * frames
+        # The bands, in whole pixels, from the poses rather than from the rest shape. The frame is the rest
+        # body's (`_frame`), and a pose is free to leave it: a rabbit's JumpAir legs go through the floor,
+        # a launch rises above the head. Growing the band adds pixels at the same `px_m`, so the shared
+        # scale, the cell and where the floor line sits are untouched - only the picture is taller. The
+        # rest ground band is kept as the margin, so nothing drawn ends within it of an edge.
+        grow_max_px = int(round(GROW_MAX * cell_px))
+        ground_px = min(grow_max_px, ground_base_px + int(math.ceil(under_m / px_m)))
+        top_px = min(grow_max_px, ground_base_px + int(math.ceil(over_m / px_m))) if over_m > 1e-9 else 0
+        height_px = cell_px + band_px + top_px + ground_px
+        height_m = height_px * px_m
+        # the camera's target: the cell's centre, moved up the picture by half the bands above it and down
+        # by half the band below, so the cell itself stays put whatever they grow to
+        rise_m = px_m * (band_px + top_px - ground_px) / 2.0
+        looks = {v: anchors[v] + ups[v] * rise_m for v in views}
+        target = centre + Vector((0.0, 0.0, rise_m))
 
         scene.collection.objects.link(cam)
         scene.camera = cam
@@ -487,8 +529,8 @@ def sheet(meshes, rig_name, actions, out_dir, views=None, frames=8, frame_height
 
     out = {"dir": out_dir, "files": files, "count": len(files), "frame_height_m": round(frame_height_m, 4),
            "ortho_scale_m": round(scale, 4), "cell_m": [round(cell_w_m, 4), round(scale, 4)],
-           "cell_px": [cell_w_px, cell_px], "views": list(views), "frames": frame_lists,
-           "strips": strips}
+           "cell_px": [cell_w_px, cell_px], "bands_px": [band_px, top_px, ground_px],
+           "views": list(views), "frames": frame_lists, "strips": strips}
     if contact and files:
         # half size: rows are clips, columns are views, 4 px of background between them
         gap = 4
@@ -549,7 +591,7 @@ def summary(r):
     if "error" in r:
         return {"error": r["error"]}
     return {"dir": r["dir"], "count": r["count"], "frame_height_m": r["frame_height_m"],
-            "cell_px": r["cell_px"], "views": r["views"], "frames": r["frames"],
+            "cell_px": r["cell_px"], "bands_px": r["bands_px"], "views": r["views"], "frames": r["frames"],
             "strips": {c: {v: {k: s[k] for k in ("size_px", "cells_with_body", "distinct_cells", "edge_cells",
                                                                 "centred")}
                            for v, s in vs.items()} for c, vs in r["strips"].items()},

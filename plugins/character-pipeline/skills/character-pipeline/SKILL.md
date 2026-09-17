@@ -103,7 +103,10 @@ its hair and every garment bound to the rig, garments in their own colours - to 
 strips of 8 frames from the front, right and three-quarter views, `contact.png` and `review.json`, with
 a `.gdignore` in `review/`. A person is framed 2.1 m tall like everyone else. The export stage passes
 `review=False` to rig-anything, so the sheet is rendered once, dressed. It raises if a strip has a cell
-with no body. It is on unless the spec says so, and its hash covers only `[review]`:
+with no body, or a cell whose body reaches an edge of the picture (`edge_cells`): sideways the pose
+would sit in the next frame's cell, and at the bottom or the top the frame has cut it off, which is
+exactly what the sheet exists to show. It is on unless the spec says so, and its hash covers only
+`[review]`:
 
 ```toml
 [review]                           # optional

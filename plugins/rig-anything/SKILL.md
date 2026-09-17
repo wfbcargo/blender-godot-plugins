@@ -355,7 +355,20 @@ the glb is written and verified:
 - **Measured.** Per strip, `cells_with_body` (cells where a body was drawn), `distinct_cells` (cells
   showing different poses: one pose rendered 8 times is 1; compared on an undithered render with a
   tolerance of 12 pixels differing by more than 10/255, so a sub-pixel breath can merge frames) and
-  `edge_cells` (cells whose body touches their left or right edge: a pose spilling into its neighbour).
+  `edge_cells` (cells whose body touches any edge of the strip - a side, so it spills into its
+  neighbour, or the bottom or top, so the frame cut it off).
+- **The frame holds every pose, up and down too.** The cell is the rest body's frame, and a pose
+  leaves it in every direction: the rabbit's and the cricket's `JumpAir` legs go through the floor, a
+  launch rises above the standing head. The bands above and below the cell are grown from the
+  evaluated poses (`bands_px` [label, above, below] in `review.json` and the manifest), in whole
+  pixels at the same metres-per-pixel, so the shared scale, the cell and the floor line stay put and
+  only the picture gets taller - rabbit 13 -> 46 px of ground (strips 378 -> 411 px tall), cricket
+  13 -> 58 (378 -> 423), and a sheet of the `review_sheet` fixture's `Dip` clip 13 -> 57 below and
+  0 -> 81 above. A band stops at 2 cell heights (`review.GROW_MAX`), so a clip whose root runs away
+  cannot render a picture thousands of pixels tall; past the cap the pose really is out of the
+  picture and `edge_cells` says so. With a fixed 4% ground band those legs were cut off at image row
+  0 while `edge_cells`, which then looked only at the side columns, reported 0: the sheet cropped the
+  evidence and called itself clean.
 - **Poses stay in their cells.** Every clip is evaluated before rendering. A strip whose poses would
   reach out of the rest body's cell (the cricket's JumpLaunch stretches and rises out of it) is drawn
   with each frame's extent centred in its cell - `centred` in the strip, `(each frame centred)` in its

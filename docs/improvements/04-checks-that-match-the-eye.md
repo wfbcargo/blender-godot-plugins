@@ -87,10 +87,11 @@ Characters then line up, regressions can be diffed visually, and the critic belo
   15.6 s (Rigify figure, 10). A full `regress.py --twice --jobs 2` with the sheets took 17 minutes on the shared machine.
 - Scale: 2.1 m for an upright body (taller than twice its depth along `forward`); otherwise the smallest
   rung of `0.05 ... 12 m` holding 1.15 x its size: cricket 0.05, starfish 0.35, rabbit 0.75, dog 1.5.
-  Cells are 320 px tall plus a label band (14%) and a ground band under the floor (4%), at least 0.6
-  as wide as tall. A flat body's three-quarter view is from above (`three_quarter_above`): the starfish and the cricket.
+  Cells are 320 px tall plus a label band (14%) and a ground band under the floor (4% at rest, grown
+  by what the poses need), at least 0.6 as wide as tall. A flat body's three-quarter view is from
+  above (`three_quarter_above`): the starfish and the cricket.
 - Goldens record, per fixture, the png names, that they match the reported count, the `.gdignore`,
-  `review.json`, scale, cell and contact sizes, the frames drawn, and per strip `cells_with_body`,
+  `review.json`, scale, cell, band and contact sizes, the frames drawn, and per strip `cells_with_body`,
   `distinct_cells`, `edge_cells` and `centred` - not pixel hashes.
 - **Review fixes.** `distinct_cells` first hashed each cell's bytes, and Blender's default render dither
   (1.0) changed ~43k pixels per cell by up to 2/255, so a clip of 8 identical poses reported 8/8: the
@@ -109,6 +110,30 @@ Characters then line up, regressions can be diffed visually, and the critic belo
   Cricket cells 265 -> 294 px wide; no other fixture's cell moved. Labels and floor now sit in front of
   the nearest pose, so a clip travelling toward the camera cannot cover them. Sheet seconds did not rise
   (cricket 10.4 -> 7.9, Rigify 18.1 -> 12.9 on a shared machine).
+- **Review fixes, second round.** The same bug as the horizontal one, downwards, and it had been
+  measured as clean. The frame's height came from the rest pose alone plus a fixed 4% ground band
+  (13 px of a 320 px cell), and `edge_cells` looked only at each cell's left and right columns. So the
+  rabbit's `JumpAir` (front, right, three-quarter) and the cricket's (front, right) drew 28-51 body
+  pixels on image row 0 - the legs that go through the floor, clipped by the frame edge, in the very
+  clips whose purpose is to show a foot through the floor - and the goldens recorded `edge_cells` 0.
+  Now every view carries a screen-up axis (world Z when level, tilted for `three_quarter_above`), each
+  evaluated pose's reach past the cell is measured along it, and the bands above and below the cell
+  grow in whole pixels at the same metres-per-pixel: the shared scale, the cell and the floor line do
+  not move, the picture is taller, and the rest ground band is left over as the margin. `bands_px`
+  [label, above, below] is in `review.json`, the manifest and the goldens: rabbit [45, 0, 46] (strips
+  378 -> 411 px tall, contact 1162 -> 1258), cricket [45, 0, 58] (378 -> 423, contact 969 -> 1079),
+  every human and the dog unchanged at [45, 0, 13]. A band grows to at most 2 cell heights
+  (`GROW_MAX`), so a runaway root cannot render a picture thousands of pixels tall; past that the pose
+  really is outside and `edge_cells` says so. `edge_cells` now counts a body touching any edge of the
+  strip, bottom and top included, and is 0 in every strip of every fixture; the pipeline's `review`
+  stage raises on it, as it already did on a cell with no body. Re-measured from the pixels over both
+  passes of the whole run, 0 strips touch an edge, against 8 before (rabbit `JumpAir` front/right/
+  three-quarter in each of its two sheets, cricket `JumpAir` front/right) carrying 28-51 body pixels
+  on row 0. The `review_sheet` fixture gains a `Dip` clip - the box sinks 0.35 m through the floor,
+  then rises 0.9 m above where it stands - rendered as its own `spill` sheet, because the bands are
+  one height for a whole sheet: `bands_px` [45, 81, 57] against the resting [45, 0, 13], strips 503 px
+  tall, `edge_cells` 0. The fixture's `centred` sheet goes to [45, 0, 23] (388 px): `Tilt` leans a
+  bottom corner 0.059 m below the floor, which the rest frame's 0.042 m did not hold.
 - For 04 c, scratch strips of Walter's walk and Tomas' run: the committed glbs from grungist-creek
   `5379d5e` (before the upper body moved into rig-anything) and `ed654b0` (now), and Walter and Tomas
   re-authored on today's baked bodies with rig-anything `bc1ef67^` (pre-fix) and `bc1ef67` (the arm
