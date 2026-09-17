@@ -1,14 +1,14 @@
 {
  "fixture": "dressed_presets",
  "plugins": {
-  "follow-through": "0.2.6",
-  "rig-anything": "0.19.0",
+  "follow-through": "0.3.0",
+  "rig-anything": "0.20.0",
   "wardrobe": "0.2.1"
  },
  "report": {
   "body": {
-   "flesh_regions": 11,
-   "jiggle_bones": 11,
+   "flesh_regions": 9,
+   "jiggle_bones": 9,
    "vertices": 17112
   },
   "body_export": {
@@ -48,22 +48,22 @@
     "export": {
      "edge": 425,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\cc6d2482-76d1-4837-bc72-97a56ec44577\\scratchpad\\agent-butt\\regress2\\a\\dressed_presets\\dressed_presets\\shorts_mid_thigh.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf\\flesh\\regress_upd\\a\\dressed_presets\\dressed_presets\\shorts_mid_thigh.glb",
      "garment": "Shorts",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
      "hidden": 1971,
-     "joints": 40,
+     "joints": 38,
      "passed": true,
      "problems": [],
-     "size_bytes": 198996,
+     "size_bytes": 198240,
      "weight_sum_min": 1.0
     },
     "exported": true,
     "garment": "Shorts",
-    "groups": 40,
+    "groups": 38,
     "hem_rings": null,
-    "jiggle_groups": 11,
+    "jiggle_groups": 9,
     "passed": true,
     "problems": [],
     "vertices": 2615
@@ -72,54 +72,54 @@
     "cover": {
      "body": "Figure",
      "body_verts": 17112,
-     "covered": 3247,
+     "covered": 3291,
      "disagree": 4,
-     "edge": 584,
+     "edge": 580,
      "garment": "SportsTop",
-     "hidden": 2663,
+     "hidden": 2711,
      "hidden_gap_max_m": 0.0091,
      "hidden_gap_median_m": 0.0075,
      "margin": 0.03,
      "max_gap": 0.1,
-     "tris_hidden": 5101,
+     "tris_hidden": 5198,
      "tris_total": 34220
     },
     "cut": {
      "hem": 8079,
-     "neck": 2525,
+     "neck": 2480,
      "pieces_dropped": 0,
-     "sleeve.L": 1685,
-     "sleeve.R": 1684
+     "sleeve.L": 1684,
+     "sleeve.R": 1682
     },
     "ease": {
-     "gap_max_m": 0.0095,
+     "gap_max_m": 0.0097,
      "gap_median_m": 0.008,
      "gap_min_m": 0.0059,
      "gap_p95_m": 0.0084,
-     "verts": 3501
+     "verts": 3546
     },
     "export": {
-     "edge": 584,
+     "edge": 580,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\cc6d2482-76d1-4837-bc72-97a56ec44577\\scratchpad\\agent-butt\\regress2\\a\\dressed_presets\\dressed_presets\\sports_top.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf\\flesh\\regress_upd\\a\\dressed_presets\\dressed_presets\\sports_top.glb",
      "garment": "SportsTop",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
-     "hidden": 2663,
-     "joints": 40,
+     "hidden": 2711,
+     "joints": 38,
      "passed": true,
      "problems": [],
-     "size_bytes": 261544,
+     "size_bytes": 264020,
      "weight_sum_min": 1.0
     },
     "exported": true,
     "garment": "SportsTop",
-    "groups": 40,
+    "groups": 38,
     "hem_rings": null,
-    "jiggle_groups": 11,
+    "jiggle_groups": 9,
     "passed": true,
     "problems": [],
-    "vertices": 3501
+    "vertices": 3546
    }
   }
  }

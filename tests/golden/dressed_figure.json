@@ -1,14 +1,14 @@
 {
  "fixture": "dressed_figure",
  "plugins": {
-  "follow-through": "0.2.6",
-  "rig-anything": "0.19.0",
+  "follow-through": "0.3.0",
+  "rig-anything": "0.20.0",
   "wardrobe": "0.2.1"
  },
  "report": {
   "body": {
-   "flesh_regions": 11,
-   "jiggle_bones": 11,
+   "flesh_regions": 9,
+   "jiggle_bones": 9,
    "vertices": 17112
   },
   "body_export": {
@@ -18,43 +18,43 @@
   "cover": {
    "body": "Figure",
    "body_verts": 17112,
-   "covered": 5865,
-   "disagree": 930,
-   "edge": 1824,
+   "covered": 5906,
+   "disagree": 882,
+   "edge": 1655,
    "garment": "Shirt",
-   "hidden": 4041,
+   "hidden": 4251,
    "hidden_gap_max_m": 0.0257,
    "hidden_gap_median_m": 0.0055,
    "margin": 0.03,
    "max_gap": 0.1,
-   "tris_hidden": 7695,
+   "tris_hidden": 8140,
    "tris_total": 34220
   },
   "ease": {
    "gap_max_m": 0.0684,
    "gap_median_m": 0.0068,
    "gap_min_m": 0.0058,
-   "gap_p95_m": 0.0399,
-   "verts": 6220
+   "gap_p95_m": 0.0397,
+   "verts": 6265
   },
   "export": {
-   "edge": 1824,
+   "edge": 1655,
    "exported": true,
-   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\cc6d2482-76d1-4837-bc72-97a56ec44577\\scratchpad\\agent-butt\\regress2\\a\\dressed_figure\\dressed_figure\\shirt.glb",
+   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf\\flesh\\regress_upd\\a\\dressed_figure\\dressed_figure\\shirt.glb",
    "garment": "Shirt",
    "hem_bones": 16,
    "hem_head_error_m": 1e-06,
-   "hidden": 4041,
-   "joints": 56,
+   "hidden": 4251,
+   "joints": 54,
    "passed": true,
    "problems": [],
-   "size_bytes": 466256,
+   "size_bytes": 468676,
    "weight_sum_min": 1.0
   },
   "exported": true,
   "garment": {
-   "groups": 57,
-   "vertices": 6220
+   "groups": 55,
+   "vertices": 6265
   },
   "hem_rings": [
    {
@@ -64,8 +64,7 @@
     "hinge_m": 0.135,
     "parents": [
      "spine",
-     "spine.001",
-     "spine.002"
+     "spine.001"
     ],
     "ring": "hem",
     "weighted_verts": 1345

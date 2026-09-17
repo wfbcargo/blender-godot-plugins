@@ -19,7 +19,10 @@ skeleton together.
   envelope    per angular sector, the lean radius along the chain is a local line
               refitted without the rings standing more than 8% above it. A ramp (a
               waist widening into hips) is a line and stays lean; a bump (a buttock on
-              the back of the hips) is rejected, and is the excess.
+              the back of the hips) is rejected, and is the excess. A chain's first ring,
+              and its last ring built when it is searched to its end, take their radius
+              from their wall only (normal across the chain): the spine's first ring is the crotch, and a line starting there read the
+              figure's belly 12 cm proud and gave it love handles (05 5.9).
   profile     a mass where one chain ends and the next begins - a buttock, between the
               spine and the thighs - has no rings on both sides of it, so rings cannot
               see it. A type with `"lean": "profile"` is read from the side instead: per
@@ -71,6 +74,7 @@ COLLINEAR_DEG = 35.0      # a branch continues the chain through a child within 
 SECTORS = 24
 BANDS_PER_HEIGHT = 40     # ring thickness = body height / this
 OUTLIER = 1.08            # rings this far above the local envelope line are dropped and it is refitted
+END_RING_WALL = 0.5       # a chain's first and last ring take radius only from vertices with |normal . axis| under this
 ENVELOPE_HALF_WIDTHS = (0.15, 0.30)   # of body height, each side of a ring. Two scales, the larger excess
                                      # kept: 0.18 alone read most of a bloater's 50 cm belly as lean, 0.30
                                      # alone lost a figure's breasts at the top of the spine chain
@@ -315,16 +319,25 @@ def tissue(obj_name, rig_name=None, side=SIDE_BONES):
         if ci == spine_ci:
             # well above the shoulder joints: a fitted rig can put them 12 cm under the top
             # of the shoulders, and a cut just above them excluded a bloater's chest
-            searched &= ~(on & (P[:, 2] > frame["shoulder"] + 0.10 * H))
+            cut = on & ~cap & (P[:, 2] > frame["shoulder"] + 0.10 * H)
+            searched &= ~cut
             ch["role"] = "spine"
+            # its end is searched only when the shoulder cut takes nothing of it (a spine
+            # stopping below the shoulders); otherwise its top ring is a slice at the cut
+            ch["to_end"] = not bool(cut.any())
         else:
             seg_len = np.linalg.norm(np.diff(ch["points"], axis=0), axis=1)
             limit = seg_len[:2].sum() if len(seg_len) > 2 else ch["length"]
             searched &= ~(on & (arc > limit))
             ch["role"] = "limb"
+            # searched to its end only when the limit is its length (two segments or fewer). A
+            # longer limb's last searched ring is the wrist or ankle, a slice through it - even
+            # when no hand vertex happens to be skinned to the chain
+            ch["to_end"] = len(seg_len) <= 2
 
     band = H / BANDS_PER_HEIGHT
     halves = [max(2, int(round(hw * H / band))) for hw in ENVELOPE_HALF_WIDTHS]
+    normals = _world_normals(obj)
     lean = np.zeros(n)
     excess = np.zeros(n)
     rings = 0
@@ -339,6 +352,12 @@ def tissue(obj_name, rig_name=None, side=SIDE_BONES):
         R = np.full((nb, SECTORS), np.nan)      # median radius per ring and sector
         r_of = np.zeros(len(idx))
         k_of = np.minimum((arc[idx] / band).astype(int), nb - 1)
+        # the last ring built: arc stops at the chain's length (past it is cap), so the last ring
+        # holding vertices is int(length / band) - ring nb - 1 only when the length is a whole
+        # number of bands - or the one before it when that sliver is too thin to build
+        counts = np.bincount(k_of, minlength=nb)
+        built = np.where(counts >= SECTORS // 2)[0]
+        last = int(built.max()) if ch["to_end"] and len(built) else -1
         s_of = np.zeros(len(idx), dtype=int)
         for k in range(nb):
             mk = k_of == k
@@ -361,8 +380,17 @@ def tissue(obj_name, rig_name=None, side=SIDE_BONES):
             sec = ((th + math.pi) / (2 * math.pi) * SECTORS).astype(int) % SECTORS
             r_of[mk] = r
             s_of[mk] = sec
+            # A chain's end ring is a cap across it as well as a wall round it: the spine's first
+            # ring is the crotch, 0.02 m from the chain where the hip sides are 0.15 m, and a
+            # line starting there skews the whole torso (05 5.9). An end ring's radius comes
+            # from its wall - vertices whose normal is across the chain - and every vertex in it
+            # is still measured against that. The last ring counts only on a chain searched to
+            # its end; a ring at a search cut is a slice through the body, not a cap.
+            wall = np.ones(len(sel), dtype=bool)
+            if k == 0 or k == last:
+                wall = np.abs(normals[sel] @ ax) < END_RING_WALL
             for s in range(SECTORS):
-                hit = r[sec == s]
+                hit = r[(sec == s) & wall]
                 if len(hit):
                     R[k, s] = np.median(hit)
             rings += 1
@@ -512,8 +540,24 @@ def measured(t, entry):
     return dict(t, **_profile(t, facing_back=0.5 * (facing[0] + facing[1]) > 90.0))
 
 
+def shown(t, c=None):
+    """Excess and relative per vertex as a heat map should draw them: rings, except inside the
+    (grown) zone of a type read by `"lean": "profile"`, where each vertex the profile searched
+    shows the profile. A heat drawn from rings alone put a buttock's heat on the hip sides and
+    the fold under it, where `find_regions` no longer looks (05 5.9)."""
+    from . import registry
+    c = c if c is not None else coordinates(t)
+    excess, relative = t["excess"].copy(), t["relative"].copy()
+    for entry in registry.types_for(cls="flesh").values():
+        if entry.get("lean") != "profile":
+            continue
+        tt = measured(t, entry)
+        m = tt["searched"] & _in_zone(_grown_zone(entry.get("zone") or {}), c)
+        excess[m] = tt["excess"][m]
+        relative[m] = tt["relative"][m]
+    return excess, relative
 
-# ------------------------------------------------------------------ body coordinates
+
 
 def coordinates(t):
     """Where each vertex is on the body, in the terms zones are written in.
@@ -651,12 +695,7 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
             continue
         # grow from the seeds through vertices that still bulge a little, within a
         # slightly larger zone, so the weights can feather to nothing at the edge
-        loose = dict(zone)
-        if "height" in loose:
-            loose["height"] = [zone["height"][0] - 0.1, zone["height"][1] + 0.1]
-        if "facing_deg" in loose:
-            loose["facing_deg"] = [max(0, zone["facing_deg"][0] - 20), min(180, zone["facing_deg"][1] + 20)]
-        allowed = (grow_all & _in_zone(loose, c) & ~claimed) | seeds
+        allowed = (grow_all & _in_zone(_grown_zone(zone), c) & ~claimed) | seeds
         comps = [cmp for cmp in _components(np.where(seeds)[0], allowed, nbr) if len(cmp) >= min_size]
         if not comps:
             declined.append(f"{tname}: bulges in its zone were each under {min_size} vertices")
@@ -690,6 +729,16 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
             claimed[verts] = True
     return {"object": obj.name, "rig": t["rig"], "regions": regions, "declined": declined,
             "tissue": t, "coords": c, "body_volume_m3": round(body_volume, 5)}
+
+
+def _grown_zone(zone):
+    """A zone a little larger than `zone`, which a region grows into from its seeds."""
+    loose = dict(zone)
+    if "height" in loose:
+        loose["height"] = [zone["height"][0] - 0.1, zone["height"][1] + 0.1]
+    if "facing_deg" in loose:
+        loose["facing_deg"] = [max(0, zone["facing_deg"][0] - 20), min(180, zone["facing_deg"][1] + 20)]
+    return loose
 
 
 def _components(seeds, allowed, nbr):
@@ -1118,7 +1167,8 @@ def render_heat(obj_name, out_dir, regions=None, views=("front", "right", "iso")
         return t
     H = t["height"]
     n = len(t["P"])
-    k = np.clip(t["excess"] / (0.04 * H), 0.0, 1.0) * (t["relative"] > GROW_RELATIVE)
+    excess, relative = shown(t)
+    k = np.clip(excess / (0.04 * H), 0.0, 1.0) * (relative > GROW_RELATIVE)
     cols = np.ones((n, 4))
     cols[:, 1] = 1.0 - 0.8 * k
     cols[:, 2] = 1.0 - 0.8 * k

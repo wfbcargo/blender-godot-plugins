@@ -182,7 +182,23 @@ now land 0.02-0.04 m from their centres, and Belle's bone head 1 cm from her mar
 same way, facing straight back. It is at 0.858 m, level with the old marked head (0.862 m) but
 7 cm deeper: a bone head sits the mass's depth and half its peak under the skin, and her seat
 now stands 7.8 cm out, not 3.7. MPFB women and a heavy man whose butts rings never found get one.
-Marks on a `profile` type are read the same way. The heat renders still show rings.
+Marks on a `profile` type are read the same way, and `render_heat` and the marks sheet draw it
+(`flesh.shown`): inside a profile type's zone the heat is the profile, so a butt's red sits on the
+mass, not on the hip sides and the fold under it.
+
+**A chain's end ring takes its radius from its wall.** The same crotch ring skewed the rest of the
+figure's torso: a refitted line starting at 0.02 m read its belly as standing 12 cm out (the bump is
+3.5 cm), its breasts 8 cm low and gave it love handles it does not have. The first ring of every
+chain, and the last ring built on a chain searched to its end, now measure radius only from vertices
+whose normal is across the chain (`|n . axis| < 0.5`); every vertex in them is still measured against
+that. The figure's breasts
+land 0.057 / 0.061 m from their centres (0.079), its belly 0.076 m (0.108, peak 4.5 cm) and the false
+love handles are gone; the bloater's arm flab moves 2 cm and no other bone of its more than 6 mm;
+Belle's breasts move 1 mm and her butts not at all. A chain is searched to its end when it is a limb of
+two segments or fewer, or a spine the shoulder cut takes nothing from; a longer limb ends at the wrist or
+ankle and the spine at the cut, slices through the body rather than caps. Of the bodies measured only Belle has
+one: her `root`-`spine` chain (two segments, to 0.961 m, where her spine chain starts), whose top ring
+moves 72 hip vertices' excess by up to 1.3 cm and none of her regions.
 
 **Skin decides the chain, not distance.** A bloater's wide torso sides lie closer to its
 A-posed upper arms than to its spine; by nearest segment they were arm flesh. Bone heat

@@ -104,7 +104,8 @@ def render(obj_name, out_dir, views=("front", "right", "back", "left"), size=768
     if heat and found and "error" not in found:
         t = found["tissue"]
         H = t["height"]
-        k = np.clip(t["excess"] / (0.04 * H), 0.0, 1.0) * (t["relative"] > flesh.GROW_RELATIVE)
+        excess, relative = flesh.shown(t, found.get("coords"))    # butts from the side, as they are found
+        k = np.clip(excess / (0.04 * H), 0.0, 1.0) * (relative > flesh.GROW_RELATIVE)
         cols = np.ones((len(me.vertices), 4))
         cols[:, :3] = 0.82
         cols[:, 1] -= 0.55 * k
