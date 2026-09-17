@@ -722,11 +722,24 @@ def build(mesh_name, detection=None, rig_name=None, kind=None, forward="-Y", rib
             ribs.append({"name": "rib%02d" % (j + 1), "theta": th, "bones": names,
                          "radii": [f * Rw for f in fracs]})
 
+    # One bone count per appendage kind: the median arm's length over 1.2 widths. Counted per arm,
+    # a symmetric sea star whose metaball arms differ ~10% in width got 3 bones on one arm (3.49)
+    # and 4 on the rest (3.63-3.89).
+    ratios = {}
+    for ap in d["appendages"]:
+        ratios.setdefault(ap["role"], []).append(ap["length"] / (1.2 * max(ap["width"], 1e-6)))
+    seg_count = {}
+    for role, rs in ratios.items():
+        rs = sorted(rs)
+        mid = len(rs) // 2
+        med = rs[mid] if len(rs) % 2 else 0.5 * (rs[mid - 1] + rs[mid])
+        cap = {"tentacle": 12, "oral_arm": 6, "arm": 8}[role]
+        seg_count[role] = int(max(3, min(cap, round(med))))
+
     apps = []
     for ap in d["appendages"]:
         L, W = ap["length"], max(ap["width"], 1e-6)
-        cap = {"tentacle": 12, "oral_arm": 6, "arm": 8}[ap["role"]]
-        segs = int(max(3, min(cap, round(L / (1.2 * W)))))
+        segs = seg_count[ap["role"]]
         joints = _resample(ap["poly"], segs)
         if ap["role"] == "oral_arm" or not ribs:
             parent = "hub"
@@ -904,10 +917,19 @@ def skin(rig_name):
     mod = next((m for m in obj.modifiers if m.type == "ARMATURE"), None) or obj.modifiers.new("Armature", "ARMATURE")
     mod.object = rig
     mod.use_vertex_groups = True
-    used = {nm for w in weights for nm in w}
-    return {"mesh": obj.name, "rig": rig_name, "coverage": 1.0, "vertices": len(cos),
+    # Coverage is read back from the mesh, not assumed: a vertex counts when a deform bone of this
+    # rig holds some of its weight, and a bone counts when it holds some vertex.
+    by_index = {g.index: nm for nm, g in groups.items()}
+    used, uncovered = set(), 0
+    for v in obj.data.vertices:
+        held = {by_index[g.group] for g in v.groups if g.group in by_index and g.weight > 0.0}
+        used |= held
+        uncovered += not held
+    covered = 1.0 - uncovered / float(max(1, len(obj.data.vertices)))
+    return {"mesh": obj.name, "rig": rig_name, "coverage": round(covered, 4), "vertices": len(cos),
+            "vertices_unweighted": uncovered,
             "bones_weighted": len(used), "bones_without_skin": sorted(ours - used),
-            "passed": not (ours - used) - {"hub"},
+            "passed": uncovered == 0 and not (ours - used) - {"hub"},
             "note": "weights written from the body's own parts; bone heat is not used"}
 
 

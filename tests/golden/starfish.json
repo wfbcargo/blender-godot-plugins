@@ -1,7 +1,7 @@
 {
  "fixture": "starfish",
  "plugins": {
-  "rig-anything": "0.16.0"
+  "rig-anything": "0.20.0"
  },
  "report": {
   "detection": {
@@ -74,13 +74,13 @@
    "warnings": []
   },
   "export": {
-   "bones": 20,
+   "bones": 21,
    "clips": [
     "StarTest_rig_Crawl",
     "StarTest_rig_Idle"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-hl4rc0yc\\a\\starfish\\starfish\\starfish.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-hl4rc0yc\\a\\starfish\\starfish\\starfish.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tgsn1soe\\a\\starfish\\starfish\\starfish.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tgsn1soe\\a\\starfish\\starfish\\starfish.moves.json",
    "verified": {
     "durations_match": true,
     "mismatches": []
@@ -178,14 +178,16 @@
      },
      {
       "bone_lengths_m": [
-       0.02556,
-       0.02597,
-       0.02518
+       0.01964,
+       0.01738,
+       0.01988,
+       0.0185
       ],
       "bones": [
        "arm02_1",
        "arm02_2",
-       "arm02_3"
+       "arm02_3",
+       "arm02_4"
       ],
       "direction_model": [
        1.0,
@@ -280,7 +282,7 @@
   },
   "mesh": {
    "dimensions": [
-    0.23608,
+    0.23611,
     0.24803,
     0.03139
    ],
@@ -300,6 +302,7 @@
     "end_height_m": 0.0335,
     "failures": [],
     "flipped_faces": 0,
+    "floor_skid": {},
     "fps": 24,
     "frames": [
      1,
@@ -336,7 +339,7 @@
     "role": "Crawl",
     "skin_lowest": 0.0,
     "standing_height_m": 0.0335,
-    "stretch_max": 1.254,
+    "stretch_max": 1.249,
     "tightest_joint_degrees": {},
     "tolerance": 0.00122
    },
@@ -346,6 +349,7 @@
     "end_height_m": 0.0335,
     "failures": [],
     "flipped_faces": 0,
+    "floor_skid": {},
     "fps": 24,
     "frames": [
      1,
@@ -362,7 +366,7 @@
     "role": "Idle",
     "skin_lowest": 0.0,
     "standing_height_m": 0.0335,
-    "stretch_max": 1.024,
+    "stretch_max": 1.022,
     "tightest_joint_degrees": {},
     "tolerance": 0.00122
    }
@@ -370,26 +374,26 @@
   "rig": {
    "appendages": {
     "arm01": 4,
-    "arm02": 3,
+    "arm02": 4,
     "arm03": 4,
     "arm04": 4,
     "arm05": 4
    },
-   "bones": 20,
+   "bones": 21,
    "kind": "asteroid",
    "ribs": 0,
    "rig": "StarTest_rig"
   },
   "skin": {
-   "bones_weighted": 20,
+   "bones_weighted": 21,
    "bones_without_skin": [],
    "coverage": 1.0,
-   "measured_coverage": 1.0,
    "mesh": "StarTest",
    "note": "weights written from the body's own parts; bone heat is not used",
    "passed": true,
    "rig": "StarTest_rig",
-   "vertices": 2508
+   "vertices": 2508,
+   "vertices_unweighted": 0
   }
  }
 }

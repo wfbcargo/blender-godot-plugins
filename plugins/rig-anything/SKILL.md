@@ -419,7 +419,8 @@ print(measure.rotational_symmetry(obj))   # order: 4 a jellyfish, 5 a star, cont
 d = radial.detect("MyJelly")              # kind= medusa | polyp | asteroid | ophiuroid, from the renders
 print(radial.summary(d))                  # hub, every appendage with its angle, root and direction
 radial.build("MyJelly", detection=d)      # hub, bell ribs, a chain per tentacle / oral arm / arm
-print(radial.skin("MyJelly_rig"))         # weights from the parts, no bone heat - coverage 1.0
+                                          #   bones per kind: median length / 1.2 widths, every arm alike
+print(radial.skin("MyJelly_rig"))         # weights from the parts, no bone heat - coverage read back
 res = rm.move_set("MyJelly_rig")          # Pulse Drift Turn | Crawl Idle | Row RowBack Idle | Sway Retract Extend
 rm.export_creature("MyJelly", "MyJelly_rig", res, path_glb, "jellyfish")   # glb + .moves.json `radial` block
 ```
@@ -604,7 +605,14 @@ even order only, and a five-armed star scored no symmetry at all about its box.
 **Bone heat is the wrong tool for a bell and a loose tentacle.** A bell is a
 thin shell and a modelled tentacle a separate tube; bone heat fails on the one
 and skips the other. `radial.skin` writes each vertex's weights from the part it
-belongs to and where along it, so coverage is 1.0 by construction.
+belongs to and where along it, then reads the weights back off the mesh: `coverage`
+and `vertices_unweighted` are measured, and `passed` needs every vertex held.
+
+**Count bones per kind, not per arm.** Each arm's length over 1.2 widths, rounded,
+gave a symmetric test star 3 bones on one arm (3.49) and 4 on the others (3.63-3.89):
+metaball widths vary about 10%, and the count sat on a rounding edge. `radial.build`
+takes the median ratio of each kind (arm, tentacle, oral arm) and gives every
+appendage of that kind the same count.
 
 **A tentacle hangs.** Parented to a rib and carried rigidly, a closing bell swung
 all eight test tentacles in until they crossed under it - with every number

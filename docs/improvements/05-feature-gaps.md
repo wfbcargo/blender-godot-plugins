@@ -299,13 +299,24 @@ silent drift.
   of the step - the recovery's timing (`feet_lead`, 18 frames) is worth a look; and the dog's
   SlideRecover still ends 3.0 mm from rest at `front_toe.L` (it did before), which looks like the
   toe drape's rod model lifting a sloped toe at rest.
-- **A symmetric starfish gets arms with different bone counts.** `radial.build` uses
-  `round(L / (1.2 * W))`. Metaball arm widths vary about ±10%, so one arm lands at 3.49 (3 bones)
-  and another at 3.66 (4). This is deterministic, but it sits on a rounding edge that any change to
-  the mesher can flip. Take one count per appendage *kind* (the median), not one per arm.
-- **`radial.skin` reports `coverage: 1.0` without measuring it.** The starfish fixture counts the
-  weighted vertices itself (`skin.measured_coverage`). Measure it in `radial.skin` the way
-  `hoppers.skin` does.
+- **Done (branch `radial-counts`): a symmetric starfish got arms with different bone counts.**
+  `radial.build` used `round(L / (1.2 * W))` per arm. Metaball arm widths vary about ±10%, so arm02
+  landed at 3.49 (3 bones) and the other four at 3.63-3.89 (4), on a rounding edge any change to the
+  mesher could flip. `radial.build` now takes the median ratio of each appendage kind (role: arm,
+  tentacle, oral arm) and gives every appendage of that kind the same count, capped as before. The
+  starfish's median is arm01's 3.66, so arm02 gets 4 bones like the rest: 21 bones, not 20; arm02's
+  bones are 17.4-19.9 mm, not 25.2-26.0 mm, in line with the other arms' 17.7-20.5 mm; Crawl's
+  `stretch_max` 1.254 -> 1.249, Idle's 1.024 -> 1.022. Both clips still pass and export.
+  Outside the fixtures, the test anemone had the same split (ratios 4.07-4.77: three tentacles of 4
+  bones, seven of 5) and now has 5 on all ten, 51 bones not 48, with Sway, Retract and Extend passing
+  at the same stretch; the jellyfish (145) and brittle star (41) were already uniform and are unchanged.
+- **Done (branch `radial-counts`): `radial.skin` reported `coverage: 1.0` without measuring it.**
+  It now reads the written weights back off the mesh: `coverage` is the share of vertices some deform
+  bone of the rig holds, `vertices_unweighted` their complement, `bones_weighted` and
+  `bones_without_skin` count bones that hold a vertex, and `passed` needs every vertex held (as
+  `hoppers.skin` does). The starfish fixture no longer adds its own `skin.measured_coverage`: it
+  reports what `radial.skin` returns (coverage 1.0, 0 of 2508 vertices unweighted) and fails if its
+  own independent count of unweighted vertices disagrees.
 
 ---
 
