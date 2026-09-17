@@ -4,10 +4,10 @@ follow-through's `Figure` (a lofted body with no helper geometry and no ground r
 with rig-anything's `fit_basic_human` and bound by `samples.build_bodies`, then `actions.move_set`
 authors its whole default set - Idle, Walk, Trot, Run, Crouch, CrouchWalk, Jump, Slide, SlideRecover
 and SlideToCrouch - and `export.export` re-checks every clip on playback and reads the written
-durations back. The export runs with `skip_bad_clips=True`: the slides fail their floor checks on
-this body (rig-anything 0.14.2 - a toe 0.16 m through the floor at the bottom of the Slide), and a
-refused export would leave nothing verified. What was dropped and why is in the golden, so a fix
-shows as those clips coming back.
+durations back. The export runs with `skip_bad_clips=True`: the slides failed their floor checks on
+this body before improvements 5.8 (a toe 0.16 m through the floor at the bottom of the Slide), and
+a refused export would leave nothing verified. What is dropped and why is in the golden - nothing,
+now - so a regression shows as clips going missing.
 
 This is the Rigify counterpart of `mpfb_woman_curvy`: the same move code on a rig whose root is an
 ordinary pelvis, so a change aimed at one kind of rig shows here if it moves the other. It also runs

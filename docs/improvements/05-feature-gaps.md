@@ -276,11 +276,29 @@ silent drift.
   now named by `bodymap.limb_name` (`fore.L`, not `fore_femur.L`; `front.L`, not
   `front_thigh.L`). The same check puts the slide recoveries on a Rigify biped at 0.2-0.4 m of leg
   dragged along the floor - evidence for the next finding.
-- **The three slides put feet through the floor on a Rigify biped.** On follow-through's `Figure`
-  with `fit_basic_human`, `actions.slide` has a toe 0.16 m and skin 0.11 m below the floor at frame
-  8; `slide_recover(to="stand")` and `(to="crouch")` a foot 0.025 m under at frame 4, starting
-  0.18 m from where Slide ends. No fixture exercised the slides before. `rigify_human` exports with
-  `skip_bad_clips=True` and the golden lists them under `export.dropped_clips`.
+- **Done: the three slides put feet through the floor on a Rigify biped.** On follow-through's
+  `Figure` with `fit_basic_human`, `actions.slide` had a toe 0.16 m and skin 0.11 m below the floor
+  at frame 8; `slide_recover(to="stand")` and `(to="crouch")` a foot 0.025 m under at frame 4,
+  starting 0.18 m from where Slide ends, and dragging the legs 0.2-0.4 m along the floor. Three
+  shared causes, none of them the Figure. `actions.slide` hand-wrote its path rather than blending
+  to `keyposes.slide_key`, so it had none of the poser's floor handling: the tucked trail foot
+  followed its shin into the ground, and the recoveries, which start on the draped key, began 0.18
+  m away. Slide is now `blend(rest, slide_key)`, seam 0 by construction. The poser draped only the
+  toes of a foot in the air, from wherever the foot ended, so the trail foot's ball stayed 2.7 cm
+  under: `motion.Body.lay_on_floor` now turns an unplanted foot up about its ankle by its real skin
+  first (the rod model toes and tails use flicked the toe up 12 cm in a frame). And `Poser.blend`
+  drew a foot between two floor spots in a straight line along the floor - the recoveries' lead
+  heel reached the floor 0.41 m short and skidded in, the trail foot 0.14 m, Slide's lead heel 0.32
+  m out, a Rigify dog's recovery forefeet 0.29 m: between two targets that both mean the floor (at
+  rest, or marked `keyposes.on_floor`), `Poser._step` lifts the foot, crosses and sets it straight
+  down. Marked rather than judged by height, because a jump's tuck asked for under the floor read as
+  on it and lifted an MPFB woman's feet a frame early. All three slides now pass and export (worst
+  skid 2 mm), and `slide` and `skid` no longer opt out of `floor_skid`; with the step put back Slide
+  fails it at 0.32 m, with the foot not laid all three fail at 1.3 cm under the floor. Open: the lead
+  foot crosses up to 0.31 m in one frame of SlideRecover and the knees fold to 30 degrees at the top
+  of the step - the recovery's timing (`feet_lead`, 18 frames) is worth a look; and the dog's
+  SlideRecover still ends 3.0 mm from rest at `front_toe.L` (it did before), which looks like the
+  toe drape's rod model lifting a sloped toe at rest.
 - **A symmetric starfish gets arms with different bone counts.** `radial.build` uses
   `round(L / (1.2 * W))`. Metaball arm widths vary about ±10%, so one arm lands at 3.49 (3 bones)
   and another at 3.66 (4). This is deterministic, but it sits on a rounding edge that any change to

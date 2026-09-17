@@ -281,6 +281,110 @@ class Body:
         base = posed[limb["end"]] @ Vector((0.0, bones[limb["end"]].length, 0.0))
         return self.drape_chain(chain, base, rots, floor=floor, clearance=clearance)
 
+    def lay_on_floor(self, posed, bone_name, floor=0.0, clearance=0.0):
+        """Overrides turning one bone about its head - the least angle, either way
+        - until the skin it dominates lies on the floor rather than through it.
+        {} when that skin is already clear. What the bone carries turns with it.
+
+        For a foot in the air. `drape_chain` models a bone's skin as a rod hanging
+        a fixed `underside` below the bone line, measured at rest, which suits a
+        tail or a toe lying along the floor. A foot bone slopes from the ankle down
+        to the ball with the heel pad under its top end: its rest underside is the
+        heel's 4.4 cm on a Rigify biped, and a rod that deep lifted the ball 4.5 cm
+        clear the moment a slide's foot left the floor - its toe tip jumped 12 cm
+        in one frame. Here the skin is the skin: each vertex is skinned exactly
+        with the turned bone, as the ball comes up the heel goes down, and the turn
+        stops where the lowest of them rests. A bone no skin is weighted to lays
+        its own head and tail instead. The allowance is the rest pose's own lowest
+        skin, as everywhere, so a foot authored on the ground is not lifted off it.
+        """
+        import numpy as np
+        rig_bones = self.rig.data.bones
+        cache = self.__dict__.setdefault("_lay_skin", {})
+        if bone_name not in cache:
+            self.skin_lowest(self.fk(), self._world_up())      # builds the vertex cache
+            carried, stack = set(), [rig_bones[bone_name]]
+            while stack:
+                b = stack.pop()
+                carried.add(b.name)
+                stack.extend(b.children)
+            verts = [(co, ws) for co, ws in (self._skin or [])
+                     if max(ws, key=lambda nw: nw[1])[0] == bone_name]
+            if not verts:
+                b = rig_bones[bone_name]
+                verts = [(b.head_local.copy(), [(bone_name, 1.0)]),
+                         (b.tail_local.copy(), [(bone_name, 1.0)])]
+            cache[bone_name] = (carried, verts)
+        carried, verts = cache[bone_name]
+        mw = self.rig.matrix_world
+        upw = self._world_up()
+        g = mw.to_3x3().transposed() @ upw          # height = p . g + h0, armature space
+        h0 = mw.translation.dot(upw) - floor
+        rest_low = min(co.dot(g) for co, _ in verts) + h0
+        allowed = min(clearance, rest_low)
+
+        names = {n for _, ws in verts for n, _ in ws}
+        deform = {n: posed[n] @ self.rest[n].inverted() for n in names}
+        head = posed[bone_name].translation.copy()
+        tip = posed[bone_name] @ Vector((0.0, rig_bones[bone_name].length, 0.0))
+        axis = (tip - head).cross(self.bm["up_vec"])
+        if axis.length < 1e-9:
+            axis = self.bm["lat"].copy()
+        axis.normalize()
+        # A vertex's height as the bone turns by t about `axis` through its head:
+        # a cos t + b sin t + c (Rodrigues, the turned share of its weight only).
+        kg = axis.dot(g)
+        a, b, c = [], [], []
+        for co, ws in verts:
+            moved, fixed, share = Vector(), Vector(), 0.0
+            for n, w in ws:
+                p = (deform[n] @ co) * w
+                if n in carried:
+                    moved += p
+                    share += w
+                else:
+                    fixed += p
+            u = moved - head * share
+            ku = axis.dot(u)
+            a.append(u.dot(g) - ku * kg)
+            b.append(axis.cross(u).dot(g))
+            c.append((fixed + head * share).dot(g) + h0 + ku * kg)
+        a, b, c = np.array(a), np.array(b), np.array(c)
+
+        def low(t):
+            return float(np.min(a * math.cos(t) + b * math.sin(t) + c))
+
+        if low(0.0) >= allowed - 1e-7:
+            return {}
+        step = math.radians(1.0)
+        found, best = None, (low(0.0), 0.0)
+        for i in range(1, 91):
+            for t in (i * step, -i * step):
+                h = low(t)
+                if h >= allowed:
+                    found = t
+                    break
+                if h > best[0]:
+                    best = (h, t)
+            if found is not None:
+                break
+        if found is None:
+            t = best[1]                                   # as near as turning gets it
+        else:
+            lo, hi = found - math.copysign(step, found), found      # lo through, hi clear
+            for _ in range(20):
+                mid = 0.5 * (lo + hi)
+                if low(mid) >= allowed:
+                    hi = mid
+                else:
+                    lo = mid
+            t = hi
+        if t == 0.0:
+            return {}
+        turn = (Matrix.Translation(head) @ Matrix.Rotation(t, 4, axis)
+                @ Matrix.Translation(-head))
+        return {bone_name: turn @ posed[bone_name]}
+
     def limb_skin_lowest(self, posed, bone_names):
         """(lowest posed height, lowest rest height) of the skin a set of bones
         dominates - to hold a planted limb's own skin above the floor."""

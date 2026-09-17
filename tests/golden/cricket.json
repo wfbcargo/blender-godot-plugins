@@ -123,8 +123,8 @@
     "CricketTest_rig_JumpAir",
     "CricketTest_rig_JumpLand"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-_u1_0vri\\a\\cricket\\cricket\\cricket.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-_u1_0vri\\a\\cricket\\cricket\\cricket.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-mca57t6t\\a\\cricket\\cricket\\cricket.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-mca57t6t\\a\\cricket\\cricket\\cricket.moves.json",
    "verified": {
     "durations_match": true,
     "mismatches": []
@@ -720,7 +720,7 @@
     "seams": {
      "air -> land": [
       0.0,
-      "head"
+      "hind_tibia.R"
      ],
      "launch -> air": [
       1e-05,
@@ -787,7 +787,7 @@
     "seams": {
      "air -> land": [
       0.0,
-      "head"
+      "hind_tibia.R"
      ],
      "launch -> air": [
       1e-05,
@@ -872,7 +872,7 @@
     "seams": {
      "air -> land": [
       0.0,
-      "head"
+      "hind_tibia.R"
      ],
      "launch -> air": [
       1e-05,
