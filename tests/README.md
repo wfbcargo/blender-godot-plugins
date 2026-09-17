@@ -22,9 +22,10 @@ on every fixture rather than on one character, and that accepting it is a review
 ## Fixtures
 
 Each is a script Blender runs in its own process, building from nothing — no `.blend`, no stored
-asset — and writing a report of what it got. About ten minutes for all eight one after another,
-or six with `--jobs 2`; the rabbit and the cricket are most of it (over two minutes each alone),
-because a voxel remesh is slow.
+asset — and writing a report of what it got. There are sixteen of them, and a `--twice --jobs 2` run
+takes about half an hour; the rabbit and the cricket are the biggest single builds (over two minutes
+each alone), because a voxel remesh is slow, and since rig-anything 0.22.0 every export renders a
+review sheet as well (4-12 s a character).
 
 | Fixture | Builds | Exercises |
 |---|---|---|
@@ -39,6 +40,11 @@ because a voxel remesh is slow.
 | `rigify_human` | follow-through's `Figure`, unfleshed, given every biped move, exported | `fit_basic_human` with Rigify off, `move_set`'s ten default roles on a rig with no ground root, the export re-check. The three slides fail their floor checks and are dropped from the export with the reasons in the golden |
 | `quadruped` | `quadruped_samples.dog`, fitted, bound, given Idle/Walk/Trot/Run/Crouch, exported | four ground contacts, `fit_basic_quadruped` scored against the sample's known joints, `skin.bind`, `move_set` on four legs, the export re-check |
 | `mixamo_names` | the Rigify `Figure`, fitted and bound, then every bone renamed to `mixamorig:` | `bodymap` roles come from structure: the same root, pelvis, chest, head, hands, feet and controls under Mixamo names (`same`) |
+| `review_sheet` | a box on a one-bone rig with four clips (`Static`, `Tilt`, `Travel`, `Dip`), rendered as review sheets | rig-anything's `review`: `distinct_cells` on identical and on moving poses, `edge_cells` counting a body against any edge, and `bands_px` growing above and below the cell from the evaluated poses — `Dip` sinks 0.35 m through the floor and rises 0.9 m above it and is still wholly in frame |
+| `traced_detail` | the sample `Figure` embossed with a 12 mm bump on each breast and buttock, dressed six ways | wardrobe's `fit.relief` / `fit.detail`: a `detail_limit` that passes for a reason, one that **fails**, one that goes unmeasured and therefore fails, and `cover.drawn_over_cloth` + `fit.lift_over` lifting cloth back over skin pressed through it |
+| `hair_presets` | a spec-built MPFB woman given each of `short_crop`, `bob`, `bun`, `ponytail`, `long_loose` | humanform's `hair`: the cap's feathered boundary (thickness and texture V), part sizes and skin clearance, the follow-through strand contract, lookdev's hair material read back out of the glb (MASK, textures, extras), the pipeline's hair stage — and its refusal to join a second hair layer onto a body that already has one |
+| `strand_ponytail` | a tapering tube grown from the back of the `Figure`'s head, chained, exported beside the walking body | follow-through's `strand`: `classify` routing to `spring_bones`, the chain's per-bone frequencies and colliders, a centreline derived from the mesh against the given one, the glb read back — and a degenerate centreline returning an error that leaves the object's bones, spec and vertex groups alone |
+| `muscle_definition` | the definition delta authored from nothing on MPFB's default male, weighted onto Dante, a soft body and Freya, as geometry and as a baked map | humanform's `sdf` / `delta` / `muscle`: per-group and composite `spike_um` (the guard runs on the sum the mesh carries), `muscle.weights` falling away with body fat, humancheck before and after, and lookdev's `detail.bake_normal_from_high` on the baked mesh with the eyes joined in |
 
 ## In the engine: `--godot <project>`
 
@@ -53,7 +59,10 @@ and runs the project's copies of the verifiers:
   shirt put on the body it was cut from, walked for 240 frames, and counted for holes and skin
   through the cloth. The limits are 0.5% each. A fixture's `controls` run again with extra
   arguments and must fail: `dressed_figure` with `cut=0.04`, a 4 cm patch removed from the shirt, so
-  a hole check that stops seeing real holes fails the harness.
+  a hole check that stops seeing real holes fails the harness. `dressed_presets`, `pipeline_woman`
+  and `traced_detail` are walked the same way; `traced_detail` is the compression pair on the
+  embossed body, where the cloth is eased inside 12 mm of relief and lifted back over the skin that
+  stood through it, and must still leave no hole and no skin showing.
 
 `_regress/` is removed afterwards whatever happens (and grungist-creek ignores it). Before
 anything runs, the project's `addons/{rig_anything,wardrobe,follow_through}` are compared with this
@@ -104,9 +113,12 @@ Rules that keep a golden meaningful:
 - **Report what would look wrong.** Region centroids, joint errors, hip drop, cover counts —
   the numbers a person would have gone looking for after a change.
 
-Which plugin checkout a fixture imports comes from `RA_SCRIPTS`, `HF_SCRIPTS`, `FT_SCRIPTS` and
-`WD_SCRIPTS` — the names `grungist-creek`'s build scripts already use — so `--plugins <checkout>`
-needs no edit to the fixture. A checkout that predates a plugin moving into this repo keeps that
+Which plugin checkout a fixture imports comes from `RA_SCRIPTS`, `HF_SCRIPTS`, `FT_SCRIPTS`,
+`WD_SCRIPTS`, `CP_SCRIPTS` and `LD_SCRIPTS` — the names `grungist-creek`'s build scripts already use —
+so `--plugins <checkout>` needs no edit to the fixture. Each points at the folder holding that
+plugin's importable packages: `plugins/<name>/scripts`, except lookdev, whose Blender package lives in
+`plugins/lookdev/blender` (`PACKAGE_DIR`, and it must say the same in `tools/regress.py` and
+`tests/fixtures/_harness.py`). A checkout that predates a plugin moving into this repo keeps that
 plugin on this checkout's copy.
 
 ## Comparison
