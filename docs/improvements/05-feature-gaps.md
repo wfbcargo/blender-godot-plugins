@@ -361,14 +361,55 @@ read from the side. What was found is under **Outcome** below; the original repo
 - **Swing limit:** `butt.limit_share` 1.9 to 0.9. Godot's self-test on Belle settled 6.9 cm when she
   read 3.7 cm, and 1.9 x 7.8 cm would have been 14.8. Belle's measured butt now gets 7.0 cm. With her
   marks kept, the marked peak is 8.6 cm, which gives 7.7 cm.
-- **Found, not fixed:** the crotch ring skews the Figure's whole spine envelope, not just the butt.
-  With end rings built from wall vertices only (`|n.axis| < 0.5` in each chain's first and last ring):
-  - the Figure's false love handles go
-  - its breasts score 0.057 / 0.061 (0.079 before) and its belly 0.076 (0.106; peak 12.0 to 4.5 cm,
-    against a 3.5 cm bump)
-  - the Bloater's arm flab moves 2 cm, and Belle is unchanged
+- **Found, then fixed (branch `flesh-end-rings`, after 02 was done):** the crotch ring skewed the
+  Figure's whole spine envelope, not just the butt. It was held back because it moves regions the
+  done-when kept fixed.
 
-  It was left out because it moves regions the done-when keeps fixed.
+**Follow-up: end rings and heat.**
+- **End rings from the wall.** `flesh.tissue` builds each chain's first and last ring (ring 0 and
+  ring `nb - 1` by arc length) from wall vertices only: radius per sector from vertices with
+  `|n . axis| < 0.5` (`END_RING_WALL`); every vertex in the ring is still measured against it.
+  Buttocks are unaffected (they read the profile). The last ring was never built on any body
+  measured - the spine's search stops above the shoulders, limbs after two segments - so on them only
+  first rings changed. On the Figure ring 0 of the spine held 223 vertices, 19 of them wall.
+- **Results** (`samples.score_flesh`, `find_regions` at rest; tail distance to the known centre):
+
+  | | before | after |
+  |---|---|---|
+  | Figure breast.L / .R | 0.079 / 0.079, 826 / 791 verts, peak 8.8 cm | 0.057 / 0.061, 687 / 651 verts, peak 7.8 / 8.0 cm; heads 7 cm up |
+  | Figure belly | 0.108, 607 verts, peak 12.0 cm | 0.076, 241 verts, peak 4.5 cm (the bump is 3.5 cm) |
+  | Figure love_handle.L / .R | found, peak 9.4 / 9.2 cm (it has none) | declined: 35 bulging vertices in the zone |
+  | Figure bloater_belly (declined) | 16.5% of volume, 6.3% of height | 3.8%, 2.7% |
+  | Figure butts, thighs, arm flab | | identical (thigh mass +1 g) |
+  | Bloater arm_flab.L / .R | 584 / 619 verts, peak 4.6 / 5.1 cm | 520 / 580 verts, peak 4.2 / 4.5 cm; bones 2.0 / 2.1 cm |
+  | Bloater love_handle.L | 2.51 kg | 2.65 kg, tail 6 mm |
+  | Bloater thighs | 1149 / 1146 verts | 1164 / 1164, bones unmoved |
+  | Bloater belly, breasts, butts, love_handle.R | | within 0.3 mm |
+  | Belle breast.L / .R (built to `hair` in scratch) | 267 verts, peak 11.78 cm | 271 verts, peak 11.84 cm, head 0.9 mm |
+  | Belle butt.L / .R, thighs | | identical |
+
+  5.9 predicted Belle "unchanged"; her breasts move 0.9 mm because her spine chain starts at
+  `spine.001` (0.961 m) and its first ring loses 10 of 76 vertices. 5.9 gave the Figure's belly as
+  0.106 before; it is 0.108 at `main`, probably measured before the butt change added 84 vertices
+  to it. Every other number is the prediction. Choosing the first and last ring *that was built* instead (so the spine's partial
+  ring at the shoulder cut, 15 vertices, counts as an end) put the Figure's breasts 0.036 / 0.032
+  from their centres but kept love handles (peak 4.3 cm) and moved the Bloater's belly 1.4 cm and
+  moob bones 4 cm - not taken; the shoulder cut is a lead for the breasts, not a chain end.
+- **Goldens:** `flesh_figure` as above (the Figure's collider radius +0.1 mm with its weights).
+  `dressed_figure` and `dressed_presets` have two jiggle bones fewer (the love handles), so garments
+  carry 2 fewer groups and joints, and the covers moved with the body's weights: the shirt hides 4251
+  vertices (4041), its hem bones hang from `spine` and `spine.001` (no longer `spine.002`: each takes the torso bone
+  weighted most at its hinge, and the love handles' weight there went back to the spine); the sports top
+  hides 2711 (2663). Every garment still passes.
+- **Heat.** `render_heat` and `marks.render` drew butts with rings. `flesh.shown(t)` gives the
+  excess and relative a heat map draws: rings, but inside a `"lean": "profile"` type's grown zone,
+  the profile for every vertex the profile searched. On the Figure's back sheet the red now covers
+  both buttocks with candidates 3 and 4 on it, where before it covered the hip sides and the fold
+  (with false love-handle candidates 6 and 7); Belle's side sheet shows her seat, where before only
+  the fold under it. The heat stops at the zone's grown top edge, a visible line on the Figure's back.
+- **Still open:** the crowd has not been rebuilt. The spine's partial top ring at the shoulder cut
+  is a lead for the Figure's breasts (above). The Bloater's moobs still score as misses (0.19 m),
+  as before.
 
 ---
 
