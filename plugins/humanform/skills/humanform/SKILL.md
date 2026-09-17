@@ -186,25 +186,45 @@ On a **baked** body (no Mask modifier). `character-pipeline`'s hair stage calls 
 | preset | parts |
 |---|---|
 | `short_crop` | the feathered cap alone, 3.5 mm, a little fuller at the crown |
-| `bob` | cap and a fall from the crown over the ears and nape to below the jaw, hanging straight from the widest part of the head, turned under at the ends |
+| `bob` | cap and a fall from the crown over the ears and nape to below the jaw: it lies on the cap at the crown with no edge, hangs from the widest part of the head in locks, and turns under at uneven ends |
 | `bun` | a snug cap whose strands run to a coiled bun (a tube wound 1.6 turns) high at the back |
 | `ponytail` | cap, a hair-wrapped tie at the back, and a tapered tube tail - the **strand** |
-| `long_loose` | cap, a fall to the neck, and a curtain 17 cm wide down the back - the **strand** |
+| `long_loose` | cap, a fall to the neck, and a curtain 16 cm wide down the back from inside the fall - the **strand** |
 
 Numbers live in `data/hair_presets.json`: the hairline curve (height in head units against azimuth, warped so
 the measured ear sits at 90 degrees), feather widths, thicknesses and each part's placement.
+
+**The hairline's path.** Rounded across the forehead (0.55 h above the eye centre), down at the temples
+(0.33 h at 47 degrees), then a sideburn in front of the ear down to 0.36 h *below* the eye, round the ear
+(an ellipse the measured ear's half extent scaled by `ear_scale` [0.55, 0.95] plus 2 mm), and down to the
+nape at -0.78 h. The distance across it is measured perpendicular to the curve, not straight up, so the
+feather keeps its width down the near-vertical front edge of a sideburn. A curve that stops above the ear
+(a diagonal from the forehead to behind the ear, bare temples) outlines a skullcap however soft its edge.
 
 **Placed from the head, measured on the mesh:** the head bone (`eyes.head_bone`, the rig profile's `head`),
 its vertices, the crown top, the eyeballs, the head's front-back centre above the brows, and each ear (what
 stands out sideways past the skull). Heights are in head units h = crown - eye centre (Belle: 0.100 m).
 
 **The hairline is not an edge.** The cap is the body's own faces inside the curve (and outside an ellipse
-round each ear), subdivided and projected back to the skin, offset by a thickness that rises from 0.6 mm at
-the boundary to full over `feather_in_m` (22 mm). Its UV V is ~0.003 at the boundary and 0.045 on the
+round each ear), smooth-subdivided (a new vertex that falls inside the skin goes back onto it), offset by a
+thickness that rises from 0.6 mm at the boundary to full over `feather_in_m` (40 mm), and its full-thickness
+part relaxed four times and kept half its thickness off the skin: an offset surface turns the skin's concave
+crease at the base of the skull into a ridge that a rim light draws as a line across the nape, and the body's
+coarse quads into a faceted outline. Its UV V is ~0.003 at the boundary and 0.045 on the
 curve, so the boundary sits in the lookdev hair texture's transparent root zone and what shows is strand tips
 of uneven length with skin between them. The report says so in numbers: `cap.boundary_offset_mm_max` (0.6)
 and `cap.boundary_v_max` (0.003). U runs round an axis toward the bun, the tie or the crown, a whole number of
 texture tiles per turn, so there is no seam.
+
+**V never goes flat and runs toward the pole.** Near the line V is the distance across the curve; from about
+3 cm in it becomes the distance along the axis's meridian from where that meridian crosses the hairline
+(found by casting rays at the skin along it), easing on to `cap_v_max`. V used to be the height over the
+curve clamped at 0.6: over the top of the head the clamp left runs of faces with no V change (no tangent
+at all) and the height's gradient lay along U, so the UV frame flipped in patches - Godot drew both as bright
+glint streaks on the crown. `cap.uv_handedness` counts the faces more than 3 cm inside the line by their UV
+frame (Belle's bun: 602 same, 6 flipped, 0 flat; before, 144 flat faces on the hair, 68 of them on the
+crown). Round an ear and at the feather the frame still turns, since V runs away from the line on both sides
+of a hole; Godot's `LookdevMaterials.apply` gives hair per-face tangents from U alone for that.
 
 **Material:** `lookdev_blender.hair.material` (see lookdev's `references/hair.md`): strand texture with a
 root-to-tip gradient and alpha-thinned ends (MASK), a strand normal map, anisotropy, and `lookdev` extras
@@ -232,15 +252,21 @@ including that the `ft_strand` weights run from the first centreline point to th
 strand into the body (rig-anything exports one mesh), after checking the contract; the `ft_strand` group and
 weights survive the join, the object properties do not.
 
-**Measured on Belle (bun):** cap from 410 body faces, 1737 vertices after subdivision, 0.6 mm at its
-boundary rising to 14 mm at the crown; coil bun 16.4 cm of tube, 730 faces; 0.9 s. On the
-`hair_presets` fixture woman every strand keeps 5-8 mm off the skin below 15% of its length.
+The bun's coil starts almost on its axis, a quarter of its tube's width, and sinks below the first turn, so
+the middle of the coil shows no tube end (an open end there read as a dark hole with a glint in it).
 
-**Limits.** A fall (bob, long_loose) crosses the cap at the crown at a shallow angle and a faint seam can show
-there close up. Hair does not collide with garments or the shoulders once animated - the strand is the part
-meant to move. Godot generates tangents for a glb written without them, and on these shells its anisotropy
-then draws thin bright lines along tangent seams; a glb exported with tangents does not (see lookdev's
-`references/hair.md`).
+**Measured on Belle (bun):** cap from 1054 body faces (the sideburns, the ring round each ear and the lower
+nape added 640), 4383 vertices after subdivision, 0.6 mm at its boundary rising to 14 mm at the crown,
+0.27 mm closest to the skin; coil bun 15.5 cm of tube, 730 faces; 5105 hair vertices; 0.9 s. On the
+`hair_presets` fixture woman the ponytail keeps 8.5 mm and the long_loose curtain 1.9 mm off the skin below
+15% of their length.
+
+**Limits.** Bob and long_loose are still shells: at 1 m they read as a smooth, heavy hairstyle more than as
+loose hair (locks are a 4-5 mm wave, the ends ragged by up to 1-2 cm), and a faint line can show close up
+where a fall comes out past the cap below the widest part of the head. Hair does not collide with garments
+or the shoulders once animated - the strand is the part meant to move. In Godot the hair wants
+`LookdevMaterials.apply` (soft hairline, per-face tangents); without it the edge is alpha scissor and there
+is no anisotropy (see lookdev's `references/hair.md`).
 
 ## MPFB2 from a script
 

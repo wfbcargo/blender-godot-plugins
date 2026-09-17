@@ -21,29 +21,43 @@ humanform's hair: the cap's boundary at V ~ 0.003 and its hairline curve at V = 
 | Look | Blender | glTF | Godot 4.7 |
 |---|---|---|---|
 | strands, root-to-tip gradient | image on Base Color (`<name>_strands`, packed, sRGB) | baseColorTexture | albedo texture |
-| thinned roots and tips | image alpha -> Math Round -> Alpha | alphaMode MASK, cutoff 0.5 | alpha scissor; the extras add alpha-to-coverage |
+| thinned roots and tips | image alpha -> Math Round -> Alpha | alphaMode MASK, cutoff 0.5 | the extras set `transparency` 4 (depth pre-pass): the texture's unrounded alpha blends, so the hairline fades |
 | strand relief | tangent-space normal map (`<name>_strands_normal`, Non-Color) | normalTexture | normal map |
-| anisotropic highlight | Principled Anisotropic 0.65, rotation 0.25, UV tangent | KHR_materials_anisotropy (ignored by Godot) | `anisotropy_enabled`, `anisotropy` from extras |
+| anisotropic highlight | Principled Anisotropic 0.65, rotation 0.25, UV tangent | KHR_materials_anisotropy (ignored by Godot) | `anisotropy_enabled`, `anisotropy` from extras; tangents rebuilt per face from U (`mesh.tangents = "per_face"`) |
 | light through thin hair | - | - | `backlight_enabled`, `backlight` (base colour x `backlight_share`) from extras |
 | soft edge light | - | - | `rim_enabled`, `rim`, `rim_tint` from extras |
 | lower specular | Specular IOR Level 0.35 | KHR_materials_specular (ignored) | `metallic_specular` from extras |
 
-The extras are the material's `lookdev` custom property, `{"preset": "hair", "godot": {property: value}}`.
+The extras are the material's `lookdev` custom property, `{"preset": "hair", "godot": {property: value},
+"mesh": {"tangents": "per_face"}}`.
 Godot's glTF importer keeps material extras as `material.get_meta("extras")` (verified on 4.7.2), so they
 survive a reimport with nothing extracted. `LookdevMaterials.apply(root)` sets every listed property on every
 StandardMaterial3D under `root` that has them (colours from arrays, ints from numbers), warns on a property
-the material does not have, marks the material applied, and returns the names it changed. Materials are
+the material does not have, marks the material applied, and returns the names it changed. Where a preset's
+`mesh.tangents` is `"per_face"` it rebuilds that surface of the ArrayMesh in place - one vertex per triangle
+corner, each with the triangle's U gradient made perpendicular to the corner's normal, sign +1 - keeping the
+other surfaces, skin weights and materials (a mesh with blend shapes is left alone). V takes no part: the
+strand texture's normal map and the anisotropy only use the across-strand axis. Materials and meshes are
 shared by the imported scene's instances, so once is enough.
+
+**The alpha.** Along V the strands' coverage is multiplied by `smoothstep(root_fade) ^ root_fade_power`
+([0, 0.11], 0.25): 0.39 at V 0.01, 0.78 at the hairline (0.045), 1 by 0.11. Blender's Round (and glTF's
+MASK at 0.5) turns that into strands that start a little later and thinner; Godot's depth pre-pass blends
+it, so what was an alpha-scissor comb with a crisp boundary is a fade of strand tips.
 
 ## Found on the way
 
 - **Godot-generated tangents break anisotropy on shells.** A glb written without tangents (rig-anything's
-  `export_glb` does not ask for them) makes Godot generate its own, and with `anisotropy_enabled` thin
-  bright lines appear along the cap's tangent seams - the same glb exported with `export_tangents=True`
-  showed none, and with anisotropy off there are none either. Until the exporter writes tangents for
-  meshes whose material needs them, expect those lines close up, or set `anisotropy_enabled` false in the
-  extras for that character.
+  `export_glb` does not ask for them) gets Godot's, generated per shared vertex. Where the mesh's UV frame
+  has no V change or turns over (a clamped V, V running away from a hairline on both sides of an ear) the
+  corners disagree and their sum collapses: with `anisotropy_enabled`, bright glint streaks and wormy
+  highlight patches; with anisotropy off, none. Blender-exported tangents fixed the streaks but left dark
+  triangular patches. The fix is two-sided: humanform's cap never has flat or crown-flipped V, and
+  `apply` rebuilds hair tangents per face from U.
 - **EEVEE draws no anisotropy**; Cycles does. Judge the highlight in Cycles or in Godot.
 - **Roughness 0.42 read as latex** in both engines at 1 m; the preset uses 0.55 in Blender and 0.65 in
   Godot (where the anisotropic lobe is narrower) with specular lowered.
 - **Root darkening reads as a dark band** behind a pulled-back hairline; `root_mult` is 0.8, not 0.62.
+- **Alpha scissor makes the hairline a comb.** Hard-edged dark strand ends over skin read as a cap edge with a
+  fringe at 1 m in Godot, however well they read in Blender (whose dithered alpha averages over samples).
+  Alpha hash was noisy without TAA; the depth pre-pass blend is what reads as a fade.

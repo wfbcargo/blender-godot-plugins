@@ -161,6 +161,9 @@ class Character:
     def section(self, name):
         """The part of the spec a stage reads, as plain data - what its input hash covers."""
         value = getattr(self, name) if name not in ("character",) else {"id": self.id, "name": self.name}
+        if name == "hair" and value is not None and value.kind == "shell_bun":
+            # the shape this section had before presets, so a shell_bun build's stored records stay valid
+            return {"kind": value.kind, "params": dict(value.params)}
         if isinstance(value, list):
             return [asdict(v) if hasattr(v, "__dataclass_fields__") else v for v in value]
         return asdict(value) if hasattr(value, "__dataclass_fields__") else value

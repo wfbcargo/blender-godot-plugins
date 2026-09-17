@@ -128,10 +128,12 @@ var scene = load("res://assets/belle/belle.glb").instantiate()
 LookdevMaterials.apply(scene)    # godot/addons/lookdev/lookdev_materials.gd - copy the addon into the project
 ```
 
-Strand texture with a root-to-tip gradient and alpha-thinned roots and tips (glTF MASK), a strand normal
-map, Principled anisotropy in Blender, and a `lookdev` custom property that glTF carries as material extras
-and `LookdevMaterials.apply` turns into StandardMaterial3D anisotropy, backlight, rim, alpha-to-coverage and
-specular. See `references/hair.md`.
+Strand texture with a root-to-tip gradient and alpha that fades toward the roots and thins at the tips
+(glTF MASK), a strand normal map, Principled anisotropy in Blender, and a `lookdev` custom property that glTF
+carries as material extras and `LookdevMaterials.apply` turns into StandardMaterial3D anisotropy, backlight,
+rim, specular and a depth pre-pass blend (so the hairline fades instead of cutting), and per-face tangents
+from U on the hair's surfaces (so the anisotropic highlight does not glint where a shell's UV frame turns,
+with no need for the exporter to write tangents). See `references/hair.md`.
 
 ## Godot facts that bite (all verified in 4.7.2)
 

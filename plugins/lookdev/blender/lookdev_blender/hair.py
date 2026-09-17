@@ -126,6 +126,10 @@ def strand_texture(colour_linear, p, seed=0):
 
     body = _smooth(r1 - 0.01, r1 + 0.005, v) * (1 - _smooth(t0 - 0.005, t0 + 0.01, v))   # opaque middle
     alpha = np.maximum(body[:, None], cover)
+    # toward the root, coverage fades rather than stopping: Blender and glTF's MASK cut it at 0.5, so strands
+    # thin out toward the hairline; Godot's depth pre-pass blends the rest, so the hairline is a soft fade
+    f0, f1 = p.get("root_fade", [r0, r0])
+    alpha = alpha * np.power(_smooth(f0, f1, v), p.get("root_fade_power", 0.5))[:, None]
     alpha[(v < r0 * 0.5) | (v > 0.5 * (t1 + 1))] = 0.0
     lin = base[None, None, :] * (tone[:, None] * shade * lock)[:, :, None]
     out = np.empty((H, W, 4))
@@ -227,8 +231,10 @@ def material(name, colour, preset_name="hair", seed=0, uv_map=None, **overrides)
     if share is not None:
         g["backlight"] = [round(c * share, 4) for c in lin] + [1.0]
     mat["lookdev"] = {"preset": preset_name, "godot": g}
+    if p.get("mesh"):
+        mat["lookdev"]["mesh"] = dict(p["mesh"])
     report = {"material": mat.name, "image": img.name, "texture_px": [W, H], "tile_m": p["tile_m"],
               "colour_linear": [round(c, 4) for c in lin], "gltf": {"alphaMode": "MASK", "alphaCutoff": 0.5,
               "baseColorTexture": img.name,
-              "normalTexture": nimg.name}, "godot_extras": g}
+              "normalTexture": nimg.name}, "godot_extras": g, "mesh_extras": p.get("mesh")}
     return mat, report

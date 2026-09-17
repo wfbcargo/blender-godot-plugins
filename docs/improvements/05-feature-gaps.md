@@ -90,8 +90,8 @@ read as hair, not a cap edge?".
   `ponytail`, `long_loose` in `data/hair_presets.json`; brief field `sheet.new(hair={"preset", "colour"})`.
   Placed from the head measured on the mesh (head bone role, crown, eyeballs, ear extents). The cap is the
   body's own faces inside a hairline curve (height in head units against azimuth, warped to the measured
-  ear, with an ellipse round each ear), subdivided, projected back to the skin and offset by 0.6 mm at its
-  boundary rising to full thickness over 22 mm - tapered geometry, no wall - with the boundary at texture
+  ear, with an ellipse round each ear), smooth-subdivided and offset by 0.6 mm at its boundary rising to
+  full thickness over 40 mm, the full-thickness part relaxed - tapered geometry, no wall - with the boundary at texture
   V ~ 0.003, inside the transparent root zone, so the visible hairline is strand tips with skin between.
   Volumes: a coiled bun (a tube wound 1.6 turns), a hair-wrapped tie, a fall from the crown for bob and
   long_loose that hangs straight from the widest part of the head.
@@ -99,7 +99,7 @@ read as hair, not a cap edge?".
   texture with root-to-tip gradient and alpha-thinned ends (glTF MASK), strand normal map, anisotropy; a
   `lookdev` custom property that glTF keeps as material extras and Godot as `extras` metadata, which
   `godot/addons/lookdev/lookdev_materials.gd` (`LookdevMaterials.apply`) turns into anisotropy, backlight,
-  rim, alpha-to-coverage and specular.
+  rim, specular and a depth pre-pass blend, and per-face strand tangents on the hair surfaces.
 - **character-pipeline**: `[hair] preset = "bun"`, `colour = [...]`; the hair stage calls humanform and
   joins the result into the body. `kind = "shell_bun"` still parses and builds, listed in `spec.DEPRECATED`;
   `hair` is gone from `spec.GAPS`. Belle built from `belle.toml` with `preset = "bun"` in scratch ran every
@@ -125,12 +125,45 @@ follow-through builds the chain; `humanform.hair.contract(obj)` checks it. The p
 strand into the body after checking the contract (rig-anything exports one mesh), which keeps the vertex
 group but drops the object properties: the strand-motion stage should run between `hair.add` and that join.
 
+**Review fixes (same branch).**
+- *lookdev optional to the pipeline.* `plugins.use()` imports the four plugins every build needs and lookdev
+  only where its folder is there; lookdev's version goes only into the hair stage's hash, and only for a
+  preset spec (`plugins.stage_versions`). A shell_bun spec's hair section hashes as `{kind, params}` as
+  before, so Belle's and the crowd's stored records stay valid (`pipeline_woman` golden unchanged; the
+  fixture checks `plugins.use()` with `LD_SCRIPTS` pointing at nothing).
+- *Hairline path.* The curve now comes down at the temples (0.33 h at 47 degrees against 0.26 h at 55),
+  makes a sideburn in front of the ear to 0.36 h below the eye, wraps the ear (an ellipse from the measured
+  ear, `ear_scale` [0.55, 0.95] + 2 mm) and reaches the nape at -0.78 h. Distance across the curve is taken
+  perpendicular to it, so the feather keeps its width down a sideburn. Belle's cap grew from 410 to 1054
+  body faces.
+- *Crown glints in Godot.* Two causes, both in the UVs: V was the height over the curve clamped at 0.6, so
+  the crown had runs of faces with no V change (144 flat faces on Belle's hair, 68 on the crown), and over
+  the top of the head the height's gradient lay along U and the UV frame flipped in patches. With anisotropy
+  off, or Blender's tangents, they went. V is now never clamped and further than 3 cm in it runs along the
+  strand axis's meridians (0 flat faces; `cap.uv_handedness` 602 same / 6 flipped faces more than 3 cm
+  inside the line). Round an ear the frame must still turn, so `LookdevMaterials.apply` de-indexes the
+  hair surfaces and gives each corner a tangent from the triangle's U gradient alone (material extras
+  `lookdev.mesh.tangents = "per_face"`; Belle's hair surface: 5223 vertices become one per corner). No
+  exporter change was needed - the done-when frames use the pipeline's own glb.
+- *Soft hairline in Godot.* The texture's alpha now fades toward the root (`root_fade` [0, 0.11], power
+  0.25) instead of each strand stopping; Blender and glTF still cut it at 0.5 (MASK), and Godot draws the
+  hair with `transparency = ALPHA_DEPTH_PRE_PASS` from the extras, so the fade blends: opaque hair keeps
+  depth and sorting, the edge is a fade of strand tips.
+- *Nape ridge, faceted back of the skull, bun centre.* Smooth subdivision, the relaxed offset surface
+  (4 passes, kept half its thickness off the skin; closest 0.27 mm) and a 40 mm thickness ramp; the coil's
+  inner end tapers and sinks under the first turn.
+- *Bob and long_loose.* A fall's top row lies on the cap with no thickness (its old thick top edge was the
+  shelf), its face edges thin out on the cap, its sides wave in locks (4-5 mm) and its ends are ragged
+  (12-20 mm); long_loose's fall reaches -1.8 h and the curtain starts inside it at -0.9 h, 16 cm wide, and
+  takes the body's surface from the nearest column where a ray passes beside the neck (its corners had
+  folded forward into wings).
+- Evidence: `renders` in the branch's hand-off, Belle built from `belle.toml` with `preset = "bun"` through
+  every stage; Godot frames from the pipeline's exported `belle.glb` with `LookdevMaterials.apply`.
+
 **Found / open.**
-- Godot-generated tangents: rig-anything's `export_glb` writes no tangents, and Godot's own make its
-  anisotropy draw thin bright lines along the cap's tangent seams close up; the same glb exported with
-  `export_tangents=True` has none. Needs rig-anything to export tangents (not changed here).
-- A fall (bob, long_loose) crosses the cap near the crown at a shallow angle; a faint seam shows close up.
-- EEVEE draws no anisotropy; the before/after evidence in Blender is rendered in Cycles.
+- Bob and long_loose are still shells: better, but at 1 m they read as a heavy, smooth hairstyle more than
+  as loose hair; a faint line can show where a fall leaves the cap below the widest part of the head.
+- EEVEE draws no anisotropy.
 
 ---
 

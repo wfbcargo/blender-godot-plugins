@@ -129,7 +129,11 @@ What the stages write that is the pipeline's own convention rather than a plugin
   strand object's follow-through contract (humanform SKILL.md, *Hair*) is checked before the join and
   reported as `strand_contract`; its `ft_strand` vertex group and fallback weights survive the join. The
   material comes from lookdev (`LD_SCRIPTS`, else the installed `lookdev/blender`); in Godot call
-  `LookdevMaterials.apply` on the instanced character. `kind = "shell_bun"` (the old scalp shell and sphere
+  `LookdevMaterials.apply` on the instanced character (soft hairline, anisotropy, per-face hair tangents).
+  **lookdev is optional**: `plugins.use()` imports it only if its folder is there (hair then gets a flat
+  material), and its version is in the input hash of the hair stage only, and only for a preset spec
+  (`plugins.stage_versions`) - a lookdev release never invalidates a body, bake, flesh, moves, garments or
+  export record, nor a shell_bun build's hair. `kind = "shell_bun"` (the old scalp shell and sphere
   bun, with its own numbers) still builds but is deprecated (`spec.DEPRECATED`) - replace it with a preset.
 - **The body stage reports `stature`** in metres, read from where humanform's `pipeline.make` has it:
   the fit's `stature` residual row, `fit.aged.stature` or `fit.stature` (aged and child bodies), or

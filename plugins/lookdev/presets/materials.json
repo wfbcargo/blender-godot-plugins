@@ -22,6 +22,11 @@
       "anisotropic": 0.65,
       "anisotropic_rotation": 0.25,
       "alpha_cutoff": 0.5,
+      "root_fade": [0.0, 0.11],
+      "root_fade_power": 0.25,
+      "mesh": {
+        "tangents": "per_face"
+      },
       "godot": {
         "anisotropy_enabled": true,
         "anisotropy": 0.5,
@@ -31,8 +36,7 @@
         "rim_enabled": true,
         "rim": 0.25,
         "rim_tint": 0.75,
-        "alpha_antialiasing_mode": 1,
-        "alpha_scissor_threshold": 0.5,
+        "transparency": 4,
         "specular_mode": 0,
         "metallic_specular": 0.3
       },

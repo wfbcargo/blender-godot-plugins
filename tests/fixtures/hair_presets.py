@@ -13,7 +13,10 @@ A curvy MPFB woman from a spec is built through character-pipeline's body and ba
 - the spec's `[hair] preset = "ponytail"` runs the hair stage, which joins the hair and its strand into
   the body: the stage report, and the joined body's `ft_strand` group;
 - `spec.GAPS` no longer lists hair, the deprecated `kind = "shell_bun"` still parses, and a bad preset or
-  colour in a spec or a brief is refused.
+  colour in a spec or a brief is refused;
+- lookdev is optional to the pipeline: with `LD_SCRIPTS` pointing at nothing, `plugins.use()` still imports
+  the four it needs, lookdev's version is in the hash of the hair stage only (and not for a shell_bun spec),
+  and a shell_bun spec's hair section hashes as it did before hair presets existed.
 """
 import hashlib
 import json
@@ -139,6 +142,8 @@ def build():
                       "materials": [m.name for m in body.data.materials if m],
                       "leftover_hair_objects": sorted(o.name for o in bpy.data.objects if o.name.startswith(ch.name + "_hair"))})
 
+    optional = _optional_lookdev(ch, spec)
+
     base = tomllib.loads(SPEC)
     refusals = {}
     for label, table in (("bad_preset", {"preset": "mohawk"}), ("bad_colour", {"preset": "bun", "colour": [2, 0, 0]}),
@@ -158,7 +163,31 @@ def build():
                  "shell_bun_kind": old.hair.kind, "shell_bun_params": old.hair.params},
         "brief_refusal": [p for p in brief if "hair" in p],
         "stage_names": [s[0] for s in stages.STAGES],
+        "optional_lookdev": optional,
     }
+
+
+def _optional_lookdev(ch, spec):
+    import hashlib as _h
+    from character_pipeline import plugins
+    out = {"stage_version_keys": {name: sorted(plugins.stage_versions(ch, name))
+                                  for name in ("body", "bake", "hair", "flesh", "moves", "garments", "export")}}
+    old = spec.parse(dict(__import__("tomllib").loads(SPEC), hair={"kind": "shell_bun", "back": 0.185}))
+    out["shell_bun_hair_keys"] = sorted(plugins.stage_versions(old, "hair"))
+    # the section a shell_bun spec's hair hash covers, as it was before presets: {kind, params}
+    section = old.section("hair")
+    out["shell_bun_section"] = section
+    out["shell_bun_digest_matches_pre_preset"] = old.digest("hair") == _h.sha1(json.dumps(
+        {"hair": {"kind": "shell_bun", "params": {"back": 0.185}}}, sort_keys=True, default=str).encode()).hexdigest()[:16]
+    saved = os.environ.get("LD_SCRIPTS")
+    try:
+        os.environ["LD_SCRIPTS"] = os.path.join(H.out_dir(), "hair_presets", "no_lookdev_here")
+        mods = plugins.use()
+        out["without_lookdev"] = {"imported": [m.__name__ for m in mods], "available": plugins.available("lookdev_blender"),
+                                  "hair_versions": plugins.stage_versions(ch, "hair").get("lookdev")}
+    finally:
+        os.environ["LD_SCRIPTS"] = saved
+    return out
 
 
 H.run("hair_presets", build)
