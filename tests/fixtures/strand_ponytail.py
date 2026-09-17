@@ -12,6 +12,12 @@ golden holds how far that lands from the given one. The body goes out through ri
 `export_character` (its rig carrying the strand bones) and the ponytail through `strand.export`, which
 reads the file back: every strand bone in the skin with its head where the spec puts it.
 
+A malformed centreline - the failure mode of the input contract humanform's hair layer writes - must
+come back as an error, not a traceback, and must leave the chains the object already has where they
+are: `_degenerate` re-prepares a prepared copy with a one-point line, a zero-length line and an
+`ft_centrelines` whose every line is degenerate, and the golden holds the error, the warnings, and
+that the bones, the spec and the vertex groups all survived. A good line afterwards rebuilds it.
+
 In Godot, `verify_strands.gd` attaches the ponytail to the body and checks it settles at rest, swings
 on the run, stays out of the head and is finite at 30, 60, 120 and 240 fps (not run by the harness;
 see follow-through's strands reference).
@@ -65,6 +71,52 @@ def _ownership(pony, rig):
             "every_object_owns_its_spec_bones": intact}
 
 
+def _degenerate(pony, rig):
+    """A copy prepared once, then re-prepared with centrelines that carry no chain. Each must return
+    an error dict - `min()` over no chain used to raise - and leave the copy's bones, spec and vertex
+    groups exactly as the good run left them, since `_add_bones` deletes before it builds."""
+    import bpy
+    from follow_through import strand
+    o = pony.copy()
+    o.data = pony.data.copy()
+    o.name = "PonytailBad"
+    for sc in pony.users_scene:
+        sc.collection.objects.link(o)
+    good = strand.prepare(o.name)
+    if "error" in good:
+        raise RuntimeError("PonytailBad: " + good["error"])
+    bones = sorted(b.name for b in rig.data.bones if b.get(strand.OWNER_PROP) == o.name)
+    spec = strand.ft_spec.read(o)["strands"]
+    groups = sorted(g.name for g in o.vertex_groups)
+    line = [list(p) for p in o["ft_centreline"]]
+
+    def put(prop, value):
+        for p in (strand.LINE_PROP, strand.LINE_WORLD_PROP, strand.LINES_PROP):
+            if p in o:
+                del o[p]
+        o[prop] = value
+
+    cases = {}
+    for label, prop, value in (("one_point", strand.LINE_PROP, [line[0]]),
+                               ("zero_length", strand.LINE_PROP, [line[0], line[0]]),
+                               ("every_chain_degenerate", strand.LINES_PROP, [[line[0]], [line[0], line[0]]])):
+        put(prop, value)
+        r = strand.prepare(o.name)
+        cases[label] = {
+            "error": r.get("error"), "warnings": r["warnings"], "chains_reported": "chains" in r,
+            "bones_kept": sorted(b.name for b in rig.data.bones if b.get(strand.OWNER_PROP) == o.name) == bones,
+            "spec_kept": strand.ft_spec.read(o)["strands"] == spec,
+            "groups_kept": sorted(g.name for g in o.vertex_groups) == groups,
+        }
+    put(strand.LINE_PROP, line)
+    again = strand.prepare(o.name)
+    cases["good_line_rebuilds"] = {
+        "error": again.get("error"),
+        "bones": [c["bones"] for c in again.get("chains", [])],
+        "same_bones": sorted(b.name for b in rig.data.bones if b.get(strand.OWNER_PROP) == o.name) == bones}
+    return cases
+
+
 def build():
     import bpy
     from mathutils import Vector
@@ -109,6 +161,7 @@ def build():
         exported = char.get("export", {})
         hair = strand.export(os.path.join(out, "figure_ponytail.glb"), [pony.name], rig)
         ownership = _ownership(pony, bpy.data.objects[rig])
+        degenerate = _degenerate(pony, bpy.data.objects[rig])
     finally:
         window.scene = previous
 
@@ -137,6 +190,7 @@ def build():
         "moves_json": H.moves_manifest(char),
         "hair_export": H.stable({k: v for k, v in hair.items() if k not in ("path",)}),
         "ownership": ownership,
+        "degenerate_centreline": H.stable(degenerate),
     }
 
 

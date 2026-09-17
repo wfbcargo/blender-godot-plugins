@@ -19,6 +19,46 @@
    "type": "ponytail",
    "warnings": []
   },
+  "degenerate_centreline": {
+   "every_chain_degenerate": {
+    "bones_kept": true,
+    "chains_reported": false,
+    "error": "PonytailBad: no usable centreline - chain 0: a centreline needs two points; chain 1: a centreline needs length, not 0.00e+00 m of one point",
+    "groups_kept": true,
+    "spec_kept": true,
+    "warnings": [
+     "chain 0: a centreline needs two points",
+     "chain 1: a centreline needs length, not 0.00e+00 m of one point"
+    ]
+   },
+   "good_line_rebuilds": {
+    "bones": [
+     5
+    ],
+    "error": null,
+    "same_bones": true
+   },
+   "one_point": {
+    "bones_kept": true,
+    "chains_reported": false,
+    "error": "PonytailBad: no usable centreline - chain 0: a centreline needs two points",
+    "groups_kept": true,
+    "spec_kept": true,
+    "warnings": [
+     "chain 0: a centreline needs two points"
+    ]
+   },
+   "zero_length": {
+    "bones_kept": true,
+    "chains_reported": false,
+    "error": "PonytailBad: no usable centreline - chain 0: a centreline needs length, not 0.00e+00 m of one point",
+    "groups_kept": true,
+    "spec_kept": true,
+    "warnings": [
+     "chain 0: a centreline needs length, not 0.00e+00 m of one point"
+    ]
+   }
+  },
   "derived_centreline": {
    "chains": 1,
    "max_deviation_m": 0.0137,

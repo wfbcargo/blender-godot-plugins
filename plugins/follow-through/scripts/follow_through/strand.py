@@ -392,10 +392,20 @@ def prepare(obj_name, rig_name=None, root_bone=None, kind=None, overrides=None, 
             report["warnings"].append(f"chain {ci}: a centreline needs two points")
             continue
         length = _arc(pts)[-1]
+        if length <= 1e-6:
+            report["warnings"].append(f"chain {ci}: a centreline needs length, not {length:.2e} m of one point")
+            continue
         n = int(max(params["min_bones"], min(params["max_bones"], round(length / params["segment_m"]))))
         joints = resample(pts, n)
         chains.append({"index": ci, "points": pts,
                        "joints": joints, "length_m": length, "vertices": comp, "centreline": line_rep})
+
+    if not chains:
+        # Every line was degenerate. Return before _add_bones, so the chains this object already has
+        # stay on the rig and its spec stays true, instead of being stripped for a rebuild that
+        # cannot happen - and so a malformed ft_centreline is the {"error": ...} every other
+        # prepare() failure returns, not a traceback out of _weight.
+        return dict(report, error=f"{obj_name}: no usable centreline - " + "; ".join(report["warnings"]))
 
     base = _add_bones(rig, root_bone, chains, obj, len(lines) > 1)
     if base != STRAND_PREFIX + _safe(obj_name):

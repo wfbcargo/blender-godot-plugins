@@ -222,7 +222,10 @@ m = strand.export(r"C:/proj/assets/belle_ponytail.glb", ["Ponytail"], "Belle_rig
 With no centreline each loose part is a chain, its line derived from surface distance from the root.
 Bones are `ft_strand_<object>_NN` (3-8, about 7 cm each), weighted linearly between bone middles;
 springs are a compound pendulum of the hair below each bone (about 1 Hz at a ponytail's root), damping
-0.5; colliders are an ellipsoid round the head's skin and capsules round the neck bones'. In Godot:
+0.5; colliders are an ellipsoid round the head's skin and capsules round the neck bones'. A centreline
+too short to carry a chain is skipped with a warning, and if that leaves none `prepare` returns
+`{"error": ...}` before touching the rig, so a malformed `ft_centreline` never strips the chains the
+object already has. In Godot:
 
 ```gdscript
 FollowThrough.attach(body, preload("res://assets/belle_ponytail.glb"))

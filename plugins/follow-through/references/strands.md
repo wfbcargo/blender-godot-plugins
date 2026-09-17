@@ -25,6 +25,13 @@ of that distance. A principal axis cuts across the curl where a ponytail leaves 
 follow it. On the fixture's tube the derived line lands within 1.4 cm of the given one (tip 8 mm, root
 7 mm).
 
+A line that carries no chain - fewer than two points, or a whole line shorter than a micron - is
+warned about and skipped. If that leaves no chain at all, `prepare` returns `{"error": "<obj>: no
+usable centreline - ..."}` carrying those warnings, **before** it touches the rig: the chains the
+object already has, its spec and its vertex groups stay exactly as the last good run left them, and a
+good line afterwards rebuilds the same bones. A malformed `ft_centreline` is a failed call like every
+other `prepare` failure, never a stripped rig and never a traceback.
+
 ## Blender
 
 ```python

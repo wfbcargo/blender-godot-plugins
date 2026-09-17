@@ -112,6 +112,13 @@ Chain bones record their owner (`ft_strand_owner`): re-preparing one object no l
 chains of another whose name it prefixes (`Pigtail` / `Pigtail.001`), and colliding safe names
 (`Pigtail.001` / `Pigtail_001`, `Hair` chain 0 / `Hair_0`) get a `_v2` suffix; the fixture checks five such
 objects keep all 30 bones across a re-prepare.
+A centreline that carries no chain - fewer than two points, or a whole line shorter than a micron - is
+warned about and skipped, and if that leaves no chain at all `prepare` returns `{"error": "<obj>: no
+usable centreline - ..."}` before it touches the rig, so a malformed `ft_centreline` from the hair layer
+no longer strips the object's bones on its way to `ValueError: min() iterable argument is empty` out of
+`_weight`. The fixture re-prepares a prepared copy with a one-point line, a zero-length line and an
+`ft_centrelines` whose every line is degenerate: each returns the error with its warnings and keeps the
+copy's 5 bones, its spec and its vertex groups, and a good line afterwards rebuilds the same 5.
 Open: `regress.py --godot` does not run `verify_strands.gd`; the sample figure's curled root reads as a
 kink when it lifts; the modifier is GDScript at roughly 0.2-0.8 ms a chain a frame.
 
