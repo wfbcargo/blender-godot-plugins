@@ -99,7 +99,8 @@ read as hair, not a cap edge?".
   texture with root-to-tip gradient and alpha-thinned ends (glTF MASK), strand normal map, anisotropy; a
   `lookdev` custom property that glTF keeps as material extras and Godot as `extras` metadata, which
   `godot/addons/lookdev/lookdev_materials.gd` (`LookdevMaterials.apply`) turns into anisotropy, backlight,
-  rim, specular and a depth pre-pass blend, and per-face strand tangents on the hair surfaces.
+  rim, specular and a depth pre-pass blend, and strand tangents on the hair surfaces (per face, then
+  averaged mod 180 degrees where faces meet).
 - **character-pipeline**: `[hair] preset = "bun"`, `colour = [...]`; the hair stage calls humanform and
   joins the result into the body. `kind = "shell_bun"` still parses and builds, listed in `spec.DEPRECATED`;
   `hair` is gone from `spec.GAPS`. Belle built from `belle.toml` with `preset = "bun"` in scratch ran every
@@ -109,8 +110,9 @@ read as hair, not a cap edge?".
   "does the hairline read as hair, not a cap edge?".
 - **Fixture `hair_presets`**: all five presets on a spec-built woman (cap boundary 0.6 mm and V 0.003,
   cap clearance 0.34 mm, strand clearance 5-8 mm, contracts pass), the glb read back (MASK, two textures,
-  extras, the strand node's `ft_*` extras), the pipeline stage joining a ponytail (434 `ft_strand`
-  vertices), spec and brief refusals.
+  extras, the strand node's `ft_*` extras), how faceted each hair object's across-strand direction is
+  (`uv_tangent_turn`: the triangles more than 35 degrees from their neighbours', and the largest turn),
+  the pipeline stage joining a ponytail (434 `ft_strand` vertices), spec and brief refusals.
 
 **Strand contract** (shared with follow-through's strand work). Ponytail and long_loose put the moving part
 on its own mesh object `<base>_hair_strand`:
@@ -172,7 +174,11 @@ group but drops the object properties: the strand-motion stage should run betwee
 **Found / open.**
 - Bob and long_loose are still shells: better, but at 1 m they read as a heavy, smooth hairstyle more than
   as loose hair; a faint line can show where a fall leaves the cap below the widest part of the head.
+- The ring the hairline leaves round each ear reads as a bare oval in humancheck's flat clay light, where
+  the ear has no relief to fill it; under Godot's key and rim it reads as hair parting round the ear.
 - EEVEE draws no anisotropy.
+- `lookdev_materials.gd` runs only in Godot, so `regress.py` holds it only through the geometry it reacts
+  to (`uv_tangent_turn`, `cap.uv_handedness`). What the shader draws needs `--godot` or an eye on a frame.
 
 ---
 
