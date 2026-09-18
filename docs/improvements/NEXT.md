@@ -29,9 +29,9 @@ Installed copies in `~/.claude/skills` match the repo. **This is the one list of
 here and nowhere else:
 - rig-anything 0.26.0
 - animate-anything 0.10.1
-- follow-through 0.6.3
+- follow-through 0.7.0
 - humanform 0.12.0
-- character-pipeline 0.12.0
+- character-pipeline 0.13.0
 - wardrobe 0.5.1
 - lookdev 0.7.0
 - godot-lsp 0.1.0
@@ -152,6 +152,18 @@ breasts did not move at all); Marco's belly region was his whole front torso, 0.
 game (`72effe5`: hand-marked `[[flesh.zones]]`, Marco's belly off). The plugin changes, ranked, with checks and
 controls, are items A-G there: bone placement and a zone check first, then graded weights from the attachment, the
 pivot at the upper attachment, an asymmetric spring, mass-scaled response, and spec material overrides.
+**A and G: done** (branch `flesh-zone-placement`, follow-through 0.7.0, character-pipeline 0.13.0, merged to main
+2026-09-18, not installed or shipped). Face vertices never seed a region, a breast keeps the patch nearest its zone
+centre a side, and `flesh.check_placement` fails a bone or weight centre above the chin or outside its zone, or face
+weight over 2 %; the pipeline's flesh stage fails on it (`MISPLACED`). Built without hand-marked zones in scratch, Mei
+and Ruth's breast bones sit on the breasts (weight at the bust point 1.00 / 0.99, was 0.00). pipeline_woman's golden
+had the same chin bug; it now carries the `FT_FLESH_LEGACY_PLACEMENT=1` control. The breast zone top stays 1.45
+(1.0 broke the sample Figure's sports top and changed nothing on the cast). Independent critic: pass. Open: tail
+5.7-8 cm from the bust point (item C); a rig with no head bone found passes the face tests silently; no escape for a
+deliberate mark outside a zone; "above the fold" unchecked. Next: install, drop the game's hand-marked zones and
+rebuild the cast (ship), then B+C, D+E, F. Notebook:
+[notebooks/flesh-cast/flesh-zone-placement.md](notebooks/flesh-cast/flesh-zone-placement.md).
+
 Also seen: garments are cut from the skin, so Ruth's long-sleeve top shows her nipples through it (a smoothing pass
 on the cut surface).
 
