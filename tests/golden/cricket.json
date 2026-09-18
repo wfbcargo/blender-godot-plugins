@@ -1,7 +1,7 @@
 {
  "fixture": "cricket",
  "plugins": {
-  "rig-anything": "0.22.0"
+  "rig-anything": "0.23.0"
  },
  "report": {
   "detection": {
