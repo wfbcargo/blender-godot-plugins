@@ -73,6 +73,10 @@ func _initialize() -> void:
 		change("added DirectionalLight3D 'Sun'")
 	for c in rep["changes"]:
 		change(c)
+	var want_q: int = int(Presets.all().get(name, {}).get("sun", {}).get("soft_shadow_filter_quality", -1))
+	var have_q: int = int(ProjectSettings.get_setting("rendering/lights_and_shadows/directional_shadow/soft_shadow_filter_quality", 2))
+	if want_q >= 0 and have_q < want_q:
+		Common.emit("warning", {"message": "a scene cannot carry the soft shadow filter quality: set project setting rendering/lights_and_shadows/directional_shadow/soft_shadow_filter_quality to %d (it is %d), or call LookdevPresets.apply at runtime - below it a 0.5 deg sun stipples shadowed skin" % [want_q, have_q]})
 	if rep["physical"]:
 		for cam in Common.find_all(scene_root, "Camera3D"):
 			if (cam as Camera3D).attributes != null:

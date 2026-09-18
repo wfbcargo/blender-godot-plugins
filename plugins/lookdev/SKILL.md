@@ -1,6 +1,6 @@
 ---
 name: lookdev
-description: Light and shade Godot 4.7 scenes so they look real, with Blender assets that survive the trip. Renders a scene off-screen and measures it (exposure, clipping, key-to-fill ratio on an 18% grey probe, albedo range, colour cast), lints scenes and Blender materials for the mistakes that make 3D look like CG, applies calibrated lighting presets (clear midday, golden hour, overcast, interior daylight, night) offline or at runtime, renders a labelled close-up sheet of a character in Godot (face, eyes, hands, feet, bust, full body, cameras aimed from its posed bones), probes a glb's albedo tone, and bakes procedural Blender materials into textures glTF can carry. Use when lighting a scene, choosing sun/sky/exposure/GI/fog settings, judging whether a render or a character looks realistic, looking at a character up close in Godot, fixing flat, washed-out, dark or "plasticky" results, comparing lighting variants, preparing Blender materials for export to Godot, or when an imported asset looks different in Godot than in Blender.
+description: Light and shade Godot 4.7 scenes so they look real, with Blender assets that survive the trip. Renders a scene off-screen and measures it (exposure, clipping, key-to-fill ratio on an 18% grey probe, albedo range, colour cast), lints scenes and Blender materials for the mistakes that make 3D look like CG, applies calibrated lighting presets (clear midday, golden hour, overcast, interior daylight, night) offline or at runtime, renders a labelled close-up sheet of a character in Godot (face, three-quarter, eyes, side and back of the head, hands, feet, bust, full body, cameras aimed from its posed bones), beside its Blender close-up of the same view, probes a glb's albedo tone, and bakes procedural Blender materials into textures glTF can carry. Use when lighting a scene, choosing sun/sky/exposure/GI/fog settings, judging whether a render or a character looks realistic, looking at a character up close in Godot, fixing flat, washed-out, dark or "plasticky" results, comparing lighting variants, preparing Blender materials for export to Godot, or when an imported asset looks different in Godot than in Blender.
 ---
 
 # lookdev
@@ -25,6 +25,7 @@ node <skill>/bin/lookdev.mjs compare --project . --a <capture dir> --b <capture 
 node <skill>/bin/lookdev.mjs close-shot --project . --glb res://assets/x/x.glb --distance 1 --presets clear_midday,overcast
 node <skill>/bin/lookdev.mjs tone    --project . --glb res://assets/x/x.glb [--material skin] [--expect 0.86,0.68,0.57]
 node <skill>/bin/lookdev.mjs selftest --project .
+node <skill>/bin/lookdev.mjs stipple <tile.png> --region x,y,w,h      # no Godot, < 2 s
 ```
 
 | Command | What it gives you |
@@ -33,9 +34,10 @@ node <skill>/bin/lookdev.mjs selftest --project .
 | `capture` | Off-screen render → `<shot>_<view>.png`, `sheet.png` (all views in one image), `stats.json`, findings. ~5 s. |
 | `preset` | Writes sun, sky, environment and exposure for a recipe into a **copy** of the scene (temp dir) unless `--out`/`--in-place`. Refuses a recipe whose `needs` the stage does not meet (interior_daylight on an open stage); `--stage`, `--force`. |
 | `compare` | `<name>_ab.png` and `_ba.png` side by side, plus stat deltas. |
-| `close-shot` | **Judge a character in Godot with one command.** A labelled sheet of close-ups of one glb, rows = presets, columns = views, ~10 s. Details below. |
+| `close-shot` | **Judge a character in Godot with one command.** A labelled sheet of close-ups of one glb, one row per view, one column per preset, optionally beside its Blender close set (`--pair-blender`), ~10-15 s. Details below. |
 | `tone` | Mean albedo per material over the texels its UVs cover (padding ignored), linear and sRGB; `ok` is 0.01-0.9 linear luminance, so a black albedo fails. Headless, < 1 s. |
-| `selftest` | Runs the controls: every check above fails on a case built to fail (0-material lint and capture, unwritable `--out`, black albedo, no skeleton, a missing bone, interior_daylight on an open stage) and passes its positive twin. Run it after changing any tool. |
+| `stipple` | **A dithered lattice in shadowed skin**, the stipple Godot's default soft-low shadow filter drew on necks and fingers under a sun. Give it a close-shot tile and a region on the skin (pixels, or fractions when every number is at most 1). It keeps shadowed, smooth, warm pixels at least 3 px from anything else, high-passes luma, and in 96 px windows looks for a detail that repeats along two directions (correlation at a lag less that at half the lag, the weaker of the best lag and the best one 30 deg away from it); `lattice` >= 0.25 at >= 1.2% contrast is a stipple, exit 1. Hair, lashes and aliased silhouettes also repeat, so aim the region at skin. |
+| `selftest` | Runs the controls: every check above fails on a case built to fail (0-material lint and capture, unwritable `--out`, black albedo, no skeleton, a missing bone, interior_daylight on an open stage, the Step 0 neck and fingers for `stipple`) and passes its positive twin; close-shot's tile checks each fail on a camera moved off its subject (EMPTY_TILE, OFF_TARGET), `--min-subject` (SUBJECT_SMALL) and `--label inside` (LABEL_OVER_HEAD), and `--pair-blender` on a small fake set pairs and names the unpaired views. About 50 s. Run it after changing any tool; `regress.py --godot` runs it. |
 
 Exit codes: `lint` exits 1 on any error finding - including `NO_MATERIALS`, a scene with nothing to check
 (lint does not run scripts, so a stage built in `_ready` is invisible to it; use `capture` or `close-shot`,
@@ -46,7 +48,9 @@ write. `close-shot` exits 1 on any failed tile; `tone` exits 1 when a material i
 
 ```bash
 node <skill>/bin/lookdev.mjs close-shot --project . --glb res://assets/figure_study/study_woman/study_woman.glb \
-    --distance 1 --presets clear_midday,overcast            # default views: face,eyes,hands,feet,bust,full
+    --presets clear_midday,overcast --views head,hands,full \
+    --pair-blender assets/figure_study/study_woman/review/study_woman/close
+# default views: face,face_3q,eyes,head_side,head_back,hands,feet,bust,full at --distance 1 (full at 4)
 ```
 
 - Loads the glb (the project's import for a `res://` path, else `GLTFDocument`), runs `LookdevMaterials.apply`,
@@ -56,20 +60,39 @@ node <skill>/bin/lookdev.mjs close-shot --project . --glb res://assets/figure_st
 - Renders on an open stage like figure_study's: an 18% grey floor and a curved backdrop, lit by the
   addon's runtime applier. interior_daylight is refused there.
 - **Cameras are aimed from the posed frame's bones, never height fractions.** Views: `face`, `eyes` (from
-  the eyeballs: the sclera surface carried through the head bone's skin bind), `hand_palm.L/.R`,
-  `hand_back.L/.R` (palm centre and palm normal from the hand and finger bones; `hands` = all four),
-  `feet`, `bust`, `crotch`, `full`, and `bone:<name>`. `view@metres` overrides a distance; `full` takes
-  `--full-distance` (4 m).
+  the eyeballs: the sclera surface carried through the head bone's skin bind), `face_3q` (from the head's
+  front-left), `head_side` (the whole head from its left: ear, hairline, nape) and `head_back` (from behind:
+  the nape, a tail or bun) - `head` = these five, aimed with rig-anything `closeups._aim`'s formulas so they
+  line up with the Blender set - `hand_palm.L/.R`, `hand_back.L/.R` (palm centre and palm normal from the
+  hand and finger bones; `hands` = all four), `feet`, `bust`, `crotch`, `full`, and `bone:<name>`.
+  `view@metres` overrides a distance; `full` takes `--full-distance` (4 m).
 - **Distance sets the perspective, the lens sets the framing:** each tile's field of view is chosen so the
   subject fills it at the stated distance. Palm cameras sit toward the front and clip whatever is nearer
   than the hand (the thigh the palm faces).
-- Each tile carries its label in its pixels: view, distance, preset, fov, clip @ time.
-- Every tile is checked: `figure_coverage` (the figure's share of the tile, from two flat-colour unshaded
-  renders), `subject_coverage` (only geometry within a slab round the target's depth, so the thigh behind a
-  hand does not count as the hand) and whether the target pixel is on the figure. EMPTY_TILE (< 3%),
-  SUBJECT_SMALL (< 8%) and OFF_TARGET fail the run. A missing bone, no skeleton or an unknown clip fail
-  before anything renders. Masks are written beside each tile (`*_mask.png`, `*_subject.png`).
-- Writes `<out>/sheet.png`, one PNG per tile and `close.json` (eye, target, anchors, fov, coverages).
+- Each tile carries its label in a band **above** the picture (as the Blender set's), so it never covers the
+  figure: "Godot", view, distance, preset, fov, clip @ time. `--label inside` puts it back over the top of the
+  picture - the old layout, kept only as the control for LABEL_OVER_HEAD.
+- **The sheet:** one row per view, one column per preset, a header over each column and a Blender/Godot tag
+  in each cell. **`--pair-blender <close dir>`** (a Blender close set: `<export dir>/review/<id>/close/`, with
+  its `close.json`) adds the Blender tile of each view in a first column. A paired view with no `@distance`
+  (and no `--distance`) is shot at the Blender tile's distance, so the two share a perspective and, with the
+  same framing formulas, a frame width. The run prints which views are paired, which have no Blender twin
+  (`full`, `bone:<name>`: an empty cell says so) and which Blender tiles have no Godot view (knees,
+  foot_inner.L/outer.L, under_bust); `close.json` `pair_blender` has the same.
+- Every tile is checked from its own pixels and the posed bones, with the free values in `close.json`:
+  `figure_coverage` (the figure's share of the tile, from two flat-colour unshaded renders) - EMPTY_TILE
+  under `--min-coverage` (0.03); `subject_coverage` (only geometry within a slab round the target's depth,
+  so the thigh behind a hand does not count as the hand) - SUBJECT_SMALL under `--min-subject` (0.08, body
+  views); `subject_uv`/`subject_off` (where the view's own subject points land - the head, both eyes,
+  wrist/knuckle/tip - and how far their centroid is from the centre, 0.5 = the edge) - OFF_TARGET past 0.3,
+  behind the camera, or (body views) not on the figure; for `full`, SUBJECT_CUT when the crown or a foot is
+  outside the picture and LABEL_OVER_HEAD when the head's projected box (`head_box_px`) meets the band
+  (`band_px`). The checks are centroid-only: a camera that cuts the fingertips with the centroid inside
+  passes. `--aim-offset view=x,y,z[;...]` moves a camera and not its subject (the controls). A missing bone,
+  no skeleton or an unknown clip fail before anything renders. Masks are written beside each tile
+  (`*_mask.png`, `*_subject.png`).
+- Writes `<out>/sheet.png`, one PNG per tile and `close.json` (eye, target, anchors, subject points, fov,
+  coverages, the pairing).
   Uses the project's copy of the addon (a `class_name` script cannot load twice) and warns when it differs
   from the plugin's.
 
@@ -215,10 +238,19 @@ LookdevMaterials.apply(scene)    # godot/addons/lookdev/lookdev_materials.gd - c
 Strand texture with a root-to-tip gradient and alpha that fades toward the roots and thins at the tips
 (glTF MASK), a strand normal map, Principled anisotropy in Blender, and a `lookdev` custom property that glTF
 carries as material extras and `LookdevMaterials.apply` turns into StandardMaterial3D anisotropy, backlight,
-rim, specular and a depth pre-pass blend (so the hairline fades instead of cutting), and tangents from U on
+rim, specular and a depth pre-pass blend (so the hairline fades instead of cutting), its alpha extras (the
+albedo's mipmaps rebuilt so every level keeps level 0's coverage over 0.5, and alpha ramped over 0.5 +- 0.25:
+strands at the hairline, not a smeared film), and tangents from U on
 the hair's surfaces - per face, then averaged mod 180 degrees where faces meet, so the anisotropic highlight
 neither glints where a shell's UV frame turns nor facets into dark polygons where it turns fast, with no need
-for the exporter to write tangents. See `references/hair.md`.
+for the exporter to write tangents. `strand_texture` has a `card` mode (strands with gaps all the way along,
+no opaque middle) and `hair.material(pixels=(colour, normal))` takes a caller's own hairs (humanform's brow and
+lash cards), so nobody overwrites the images it made. See `references/hair.md`.
+
+**Lighting presets set the directional soft-shadow filter to high** (`sun.soft_shadow_filter_quality`, applied
+project-wide through RenderingServer by `LookdevPresets.apply`; `preset` warns that a scene cannot carry it). At
+Godot's default, soft low, a 0.5 deg sun drew a regular lattice of lit dots over shadowed skin (a neck under the
+chin, the sides of fingers); the transmittance, pores, subsurface and the hair's shadow were each ruled out.
 
 **Skin** (humanform's `look.skin`, realistic by default) reaches Godot the same way: the procedural skin is
 baked by `bake.bake_material(obj, material, out_dir, size)` - one material rebuilt in place from albedo, ORM

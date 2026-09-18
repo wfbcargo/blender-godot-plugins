@@ -62,6 +62,10 @@ static func apply(root: Node) -> Dictionary:
 				if typeof(detail) == TYPE_DICTIONARY and not detail.is_empty():
 					var has_uv2: bool = mi.mesh.surface_get_format(i) & Mesh.ARRAY_FORMAT_TEX_UV2 != 0
 					set_detail(mat, detail, has_uv2)
+				var alpha_spec = spec.get("alpha", {})
+				if typeof(alpha_spec) == TYPE_DICTIONARY and alpha_spec.has("coverage_mips") and mat.albedo_texture != null:
+					mat.albedo_texture = coverage_mips(mat.albedo_texture, float(alpha_spec["coverage_mips"]),
+						float(alpha_spec.get("edge", 0.5)))
 				mat.set_meta("lookdev_applied", spec.get("preset", ""))
 				done.append(mat.resource_name)
 		if not rebuild.is_empty() and mi.mesh is ArrayMesh and not mi.mesh.has_meta("lookdev_tangents"):
@@ -269,3 +273,97 @@ static func set_detail(mat: BaseMaterial3D, d: Dictionary, has_uv2 := true) -> v
 		# about the same pore size on a body: UV1 spans roughly 1.5 m, so s tiles per 1.5 m of surface
 		mat.uv2_triplanar = true
 		mat.uv2_scale = Vector3.ONE * (s / 1.5)
+
+
+static var _coverage_cache := {}
+
+
+## The albedo texture again, with mipmaps whose alpha keeps the share of texels at or over `cutoff` that
+## the full-size image has (Castano, "Computing Alpha Mipmaps"). Box-filtered mips average a strand one
+## texel wide into a grey film: past a mip or two its alpha falls under the cutoff, so a scissor material
+## loses the strand (the brow thins to a few hard blocks, the hairline to a comb) and a blended one draws
+## a translucent smear. Here each level's alpha is scaled so that as many texels pass the cutoff as at
+## level 0 - the strands stay the same density at every distance, only wider and softer.
+##
+## The pixels come from the source PNG when it is on disk (the imported texture is VRAM-compressed,
+## BC3's alpha steps on a hair a texel wide), else from the imported texture, decompressed. The result is
+## an uncompressed ImageTexture, cached per texture and cutoff. `LookdevMaterials.last_coverage` has each
+## level's measured coverage before and after, for the record.
+static var last_coverage := {}
+
+
+static func coverage_mips(tex: Texture2D, cutoff: float, edge := 0.5) -> Texture2D:
+	var key := "%s|%s|%.3f|%.3f" % [tex.resource_path, tex.get_instance_id() if tex.resource_path == "" else 0, cutoff, edge]
+	if _coverage_cache.has(key):
+		return _coverage_cache[key]
+	var img: Image = null
+	var source := "imported"
+	if tex.resource_path.get_extension().to_lower() == "png" and FileAccess.file_exists(tex.resource_path):
+		img = Image.load_from_file(ProjectSettings.globalize_path(tex.resource_path))
+		source = "png"
+	if img == null:
+		img = tex.get_image()
+		if img == null:
+			return tex
+		if img.is_compressed():
+			img.decompress()
+	img.clear_mipmaps()
+	img.convert(Image.FORMAT_RGBA8)
+	var cut := clampi(int(round(cutoff * 255.0)), 1, 255)
+	var data := img.get_data()
+	var target := _share_at_or_over(data, 0, data.size(), cut)
+	img.generate_mipmaps()
+	data = img.get_data()
+	var levels := []
+	for level in range(1, img.get_mipmap_count() + 1):
+		var start := img.get_mipmap_offset(level)
+		var end := img.get_mipmap_offset(level + 1) if level < img.get_mipmap_count() else data.size()
+		var hist := PackedInt32Array()
+		hist.resize(256)
+		for i in range(start + 3, end, 4):
+			hist[data[i]] += 1
+		var n := (end - start) / 4
+		var before := 0.0
+		for a in range(cut, 256):
+			before += hist[a]
+		before /= maxf(n, 1)
+		# the lowest alpha a such that the share of texels at or over it is still at least the target
+		var want := int(ceil(target * n))
+		var acc := 0
+		var t := 255
+		while t > 0 and acc + hist[t] < want:
+			acc += hist[t]
+			t -= 1
+		var scale := float(cut) / float(maxi(t, 1)) if want > 0 else 1.0
+		if scale > 1.0:
+			for i in range(start + 3, end, 4):
+				data[i] = mini(255, int(data[i] * scale + 0.5))
+		var after := _share_at_or_over(data, start, end, cut)
+		levels.append({"level": level, "before": snappedf(before, 0.0001), "after": snappedf(after, 0.0001),
+			"scale": snappedf(maxf(scale, 1.0), 0.001)})
+	if edge < 0.5:
+		# a blended card: alpha ramps from 0 to 1 over cutoff +- edge instead of 0..1, at every level, so a hair
+		# is dark in its core and soft only at its sides (what supersampled alpha-tested hair looks like)
+		var lut := PackedByteArray()
+		lut.resize(256)
+		for a in 256:
+			lut[a] = int(round(255.0 * clampf((a / 255.0 - cutoff) / maxf(2.0 * edge, 0.001) + 0.5, 0.0, 1.0)))
+		for i in range(3, data.size(), 4):
+			data[i] = lut[data[i]]
+	var out := Image.create_from_data(img.get_width(), img.get_height(), true, Image.FORMAT_RGBA8, data)
+	var result := ImageTexture.create_from_image(out)
+	result.resource_name = tex.resource_name
+	last_coverage[tex.resource_path if tex.resource_path != "" else key] = {"source": source, "cutoff": cutoff, "edge": edge,
+		"level0": snappedf(target, 0.0001), "levels": levels}
+	_coverage_cache[key] = result
+	return result
+
+
+static func _share_at_or_over(data: PackedByteArray, start: int, end: int, cut: int) -> float:
+	var n := 0
+	var over := 0
+	for i in range(start + 3, end, 4):
+		n += 1
+		if data[i] >= cut:
+			over += 1
+	return float(over) / maxf(n, 1)

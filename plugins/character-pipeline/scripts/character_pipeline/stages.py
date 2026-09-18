@@ -510,12 +510,120 @@ def judge_flesh(ch, r, asked=None):
     return out
 
 
+def undress(ch):
+    """Take this character's garments off, so flesh can run again on a dressed body instead of the build restarting
+    from body: every garment bound to the rig (`garments_bound`) with its mesh and the materials only it used, the
+    hem bones wardrobe hung on the rig (`wd_role`), and the groups wardrobe's cover wrote on the body
+    (`wd_hide_*`, `wd_edge_*`). The garments stage cuts them again from the new flesh. Returns what went, and
+    `left`: anything of wardrobe's still in the file (then the caller restarts from body instead)."""
+    rig = _obj(ch.rig)
+    body = _obj(ch.mesh)
+    worn = garments_bound(ch)
+    meshes, mats = [], set()
+    for name in worn:
+        o = _obj(name)
+        meshes.append(o.data)
+        mats |= {m for m in o.data.materials if m is not None}
+        bpy.data.objects.remove(o, do_unlink=True)
+    for me in meshes:
+        if me.users == 0:
+            bpy.data.meshes.remove(me)
+    for m in mats:
+        if m.users == 0:
+            bpy.data.materials.remove(m)
+    hem = [b.name for b in rig.data.bones if b.get("wd_role") is not None]
+    if hem:
+        prev = bpy.context.view_layer.objects.active
+        bpy.context.view_layer.objects.active = rig
+        bpy.ops.object.mode_set(mode="EDIT")
+        try:
+            for n in hem:
+                eb = rig.data.edit_bones.get(n)
+                if eb is not None:
+                    rig.data.edit_bones.remove(eb)
+        finally:
+            bpy.ops.object.mode_set(mode="OBJECT")
+            if prev is not None and prev.name in bpy.context.view_layer.objects:
+                bpy.context.view_layer.objects.active = prev
+    groups = [g.name for g in body.vertex_groups if g.name.startswith(("wd_hide_", "wd_edge_"))]
+    for n in groups:
+        body.vertex_groups.remove(body.vertex_groups[n])
+    left = garments_bound(ch) + [b.name for b in rig.data.bones if b.get("wd_role") is not None] + \
+        [g.name for g in body.vertex_groups if g.name.startswith("wd_")]
+    return {"garments": worn, "hem_bones": len(hem), "body_groups": groups, "left": left}
+
+
+def preflesh_name(ch):
+    """The mesh datablock that keeps the body as it was before its first jiggle bones (`_preflesh`)."""
+    return f"{ch.mesh}:preflesh"
+
+
+def _geometry_digest(me):
+    import hashlib
+    import numpy as np
+    co = np.empty(len(me.vertices) * 3, dtype=np.float64)
+    me.vertices.foreach_get("co", co)
+    loops = np.empty(len(me.loops), dtype=np.int64)
+    me.loops.foreach_get("vertex_index", loops)
+    return hashlib.sha1(np.round(co, 6).tobytes() + loops.tobytes()).hexdigest()[:16]
+
+
+def _preflesh(ch):
+    """Put the body back exactly as it was before the flesh stage first ran on it, or keep a copy of it as it is.
+
+    follow-through takes each jiggle weight out of a vertex's other weights and then keeps the four strongest
+    influences (`limit_influences`), so a second `flesh.prepare` can give back only what was not dropped: a rerun
+    weighted study_man within 0.020 of a fresh build, and the moves stage, which reads the weights, had to rerun
+    after every [flesh] edit. So the first flesh run keeps the unfleshed mesh (a copy of its data with a fake
+    user, linked to no object, so no exporter sees it), and a rerun swaps it back in - geometry, materials and
+    every weight exactly as bake and hair left them - before `prepare`. Only when it still fits: the same
+    vertices and faces, and the object's vertex groups starting with the ones the copy was taken with (jiggle
+    groups come after them); otherwise follow-through's own give-back is used, as before.
+    Returns "kept", "restored" or why neither."""
+    ob = _obj(ch.mesh)
+    name = preflesh_name(ch)
+    snap = bpy.data.meshes.get(name)
+    jiggle = [g.name for g in ob.vertex_groups if g.name.startswith("ft_jiggle_")]
+    if not jiggle:
+        if snap is not None:
+            bpy.data.meshes.remove(snap)
+        snap = ob.data.copy()
+        snap.name = name
+        snap.use_fake_user = True
+        snap["cp_groups"] = [g.name for g in ob.vertex_groups]
+        snap["cp_geometry"] = _geometry_digest(ob.data)
+        return "kept"
+    if snap is None:
+        return "no copy of the unfleshed body in this file (built before character-pipeline 0.10.0)"
+    groups = list(snap.get("cp_groups") or [])
+    names = [g.name for g in ob.vertex_groups]
+    if names[:len(groups)] != groups or any(not n.startswith("ft_jiggle_") for n in names[len(groups):]):
+        return "the body's vertex groups are not the copy's plus jiggle groups"
+    if len(snap.vertices) != len(ob.data.vertices) or snap.get("cp_geometry") != _geometry_digest(ob.data):
+        return "the body's geometry is not the copy's"
+    old = ob.data
+    keep = old.name
+    fresh = snap.copy()
+    fresh.use_fake_user = False
+    for k in ("cp_groups", "cp_geometry"):
+        if k in fresh:
+            del fresh[k]
+    ob.data = fresh
+    bpy.data.meshes.remove(old)
+    fresh.name = keep
+    for g in [g for g in ob.vertex_groups if g.name.startswith("ft_jiggle_")]:
+        ob.vertex_groups.remove(g)
+    return "restored"
+
+
 def run_flesh(ch, ctx):
     from follow_through import flesh as ft_flesh
     from follow_through import marks
     _rest(ch)
     regions = None
-    out = {}
+    out = {"unfleshed": _preflesh(ch)}
+    if ctx.get("undressed"):
+        out["undressed"] = ctx.pop("undressed")
     if ch.flesh.zones:
         sheet_dir = os.path.join(ctx["scratch"], "flesh_sheet")
         sheet = marks.render(ch.mesh, sheet_dir, views=("front", "right", "back"), focus="torso")
@@ -888,7 +996,26 @@ def run_review(ch, ctx):
         t0 = time.time()
         out["close"] = run_close(ch, ctx, meshes)
         out["close"]["stage_seconds"] = round(time.time() - t0, 2)
+    else:
+        removed = clear_close(ch)
+        if removed:
+            out["close_removed"] = removed
     return out
+
+
+def clear_close(ch):
+    """`[review] close = false`: take away a close-up set an earlier build wrote, so nothing reads a stale
+    one as this build's. Only what `closeups.look_set` writes (pngs, close.json, .gdignore) is removed, then the
+    folder if that left it empty. Returns the folder removed, or None when there was none."""
+    d = close_dir(ch)
+    if not os.path.isdir(d):
+        return None
+    for f in os.listdir(d):
+        if f.endswith(".png") or f in ("close.json", ".gdignore"):
+            os.remove(os.path.join(d, f))
+    if not os.listdir(d):
+        os.rmdir(d)
+    return d
 
 
 # (name, needs, spec sections its hash covers, precondition check, run, applies to this spec)
@@ -921,7 +1048,8 @@ RESTARTS_FROM_BODY = {"hair": CARRIED["hair"],
                       "bake": CARRIED["hair"],
                       # flesh and moves on a dressed body: the garments were cut from (and weighted by) the body
                       # before, and flesh/moves refuse while they are bound - a resumed build of a dressed spec
-                      # whose [flesh] or [moves] (or flesh's code or registry) changed starts over from body, as
-                      # the build did before builds resumed from the saved blend
+                      # whose [moves] changed starts over from body, as the build did before builds resumed from
+                      # the saved blend; flesh's garments are taken off first (runner.UNDRESS_FOR_FLESH,
+                      # `undress`), so flesh restarts from body only when that is turned off or leaves something
                       "flesh": lambda ch: bool(garments_bound(ch)),
                       "moves": lambda ch: bool(garments_bound(ch))}

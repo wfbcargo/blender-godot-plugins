@@ -8,8 +8,9 @@ takes it through body, bake, flesh, moves, garments and export, and saves the .b
 - a spec that still names the removed `export.height` is rejected;
 - a second Blender opens the saved .blend and runs the export stage alone (`from_stage="export"`,
   forced): the manifest it writes must equal the first one - the fresh-session resume 01 asks for;
-- last, a `[flesh]` edit on the dressed file restarts the whole build from body (flesh refuses while
-  garments are bound), and with flesh taken out of `RESTARTS_FROM_BODY` (the control) it refuses.
+- last, a `[flesh]` edit on the dressed file takes the garments off and reruns flesh alone, and moves is skipped
+  because what it reads of flesh came out the same; without the undress (the control) it restarts from body, and
+  without the undress and with flesh taken out of `RESTARTS_FROM_BODY` it refuses.
 
 The golden holds the stage statuses, what each stage reports that a person would check (the body's
 stature, moves passed, flesh regions, garments passed and what they hide), the flesh stage's found
@@ -260,9 +261,14 @@ def _close(ch, review):
     """The review stage's close-up look set (rig-anything `closeups`, 06 rank 1): at final every view and, since
     she wears a sports top, the 0.42 m under-bust view, each tile on disk and passing its checks (coverage and
     how far the view's own bones sit from the tile's centre are kept to 2 places: the pose is exact, the pixels
-    are EEVEE's). Then the controls, which must fail: a palm camera aimed from the other hand's bone
-    (`off_centre`), and a set of a speck under the floor instead of the body (`empty` on every tile). Last the
-    draft set, face and the left hand. The set on disk is rewritten by these, so it is read first."""
+    are EEVEE's; `subject_margin` is how far the worst of the view's points - each knuckle and fingertip, both
+    eyes, each foot's heel, ankle and toe - sits inside the tile's edge). Then the controls, which must fail: a
+    palm camera aimed from the other hand's bone (`off_centre`), a set of a speck under the floor instead of the
+    body (`empty` on every tile), and the palm camera moved up the arm - 6 cm (the Step 0 critic's case, which
+    passed with the fingertips cut off while only the centroid was checked) and 3 cm, where the centroid is
+    still central and only the every-point check can see the fingertips at the edge (`cut`). Then the draft
+    set, face and the left hand, and last `[review] close = false`, which must take the set away (`_close_off`).
+    The set on disk is rewritten by these, so it is read first."""
     import bpy
     from rig_analysis import closeups
     from character_pipeline import quality, stages
@@ -275,6 +281,7 @@ def _close(ch, review):
            "wears_top": stages.wears_top(ch),
            "tiles": {v: {"ok": t["ok"], "coverage": round(t["coverage"], 2),
                          "subject_off": None if t["subject_off"] is None else round(t["subject_off"], 2),
+                         "subject_margin": None if t.get("subject_margin") is None else round(t["subject_margin"], 2),
                          "on_body": t["on_body"], "distance_m": t["distance_m"]}
                      for v, t in (c.get("tiles") or {}).items()}}
     meshes = review["meshes"]
@@ -296,22 +303,64 @@ def _close(ch, review):
     finally:
         bpy.data.objects.remove(speck, do_unlink=True)
         bpy.data.meshes.remove(me)
+    for cm in (6, 3):
+        r = closeups.look_set(meshes, ch.rig, os.path.join(os.path.dirname(d), "close_control"),
+                              views=("hand_palm.L",), action=stages.close_pose(ch),
+                              aim_override={"hand_palm.L": (0.0, 0.0, cm / 100.0)})
+        t = r["tiles"]["hand_palm.L"]
+        out[f"control_palm_up_{cm}cm"] = {"fail": [f.split(" ")[0] for f in t["fail"]],
+                                          "subject_off": round(t["subject_off"], 2),
+                                          "subject_margin": round(t["subject_margin"], 2)}
     draft = stages.run_close(ch, {"quality": "draft"}, meshes)
     out["draft"] = {"views": draft["views"], "failed": draft["failed"],
                     "table": {q: quality.settings(q, "close") for q in quality.QUALITIES}}
+    out["close_off"] = _close_off(ch)
     return out
 
 
+def _close_off(ch):
+    """`[review] close = false` on a file whose close/ folder an earlier review wrote: the review stage must
+    remove it (and report the folder it removed) and render no set. Control: with `stages.clear_close` made a
+    no-op, the same review leaves the stale folder, and the check must see it."""
+    import dataclasses
+    from character_pipeline import stages
+    off = dataclasses.replace(ch, review=dataclasses.replace(ch.review, close=False))
+    d = stages.close_dir(ch)
+    out = {"had_folder": os.path.isdir(d)}
+    real = stages.clear_close
+    stages.clear_close = lambda _ch: None
+    try:
+        r = stages.run_review(off, {"quality": "final"})
+    finally:
+        stages.clear_close = real
+    out["control_no_clear"] = {"folder_left": os.path.isdir(d), "close_in_report": "close" in r}
+    r = stages.run_review(off, {"quality": "final"})
+    out["folder_left"] = os.path.isdir(d)
+    out["close_in_report"] = "close" in r
+    out["reported_removed"] = bool(r.get("close_removed"))
+    out["ok"] = (not out["folder_left"]) and out["reported_removed"] and not out["close_in_report"]
+    out["control_seen"] = out["control_no_clear"]["folder_left"]
+    return out
+
+
+class _Stop(Exception):
+    pass
+
+
 def _dressed_flesh_edit(ch):
-    """A whole build whose [flesh] changed on a file with the garments bound restarts from body (flesh refuses
-    while garments are bound). Control first, while the file is still dressed: without flesh in
-    `RESTARTS_FROM_BODY` the same build must refuse. to_stage=flesh and save=False, so nothing this fixture
-    exported or saved is rewritten."""
+    """A whole build whose [flesh] changed on a file with the garments bound takes the garments off
+    (`stages.undress`) and reruns flesh on the body, not the whole build from body; flesh is restored from the
+    unfleshed copy, so what moves reads of it comes out the same and moves is skipped. Controls first, while the
+    file is still dressed: without the undress (`runner.UNDRESS_FOR_FLESH = False`) the build restarts from body
+    (stopped at the restart, before it rebuilds anything), and without the undress and without flesh in
+    `RESTARTS_FROM_BODY` it refuses. to_stage=moves and save=False, so nothing this fixture exported or saved is
+    rewritten."""
     import dataclasses
     from character_pipeline import runner, stages
     edited = dataclasses.replace(ch, flesh=dataclasses.replace(ch.flesh, limit_share={"butt": 0.85}))
     out = {"bound_before": stages.garments_bound(edited)}
     kept = stages.RESTARTS_FROM_BODY.pop("flesh")
+    runner.UNDRESS_FOR_FLESH = False
     try:
         runner.build(edited, to_stage="flesh", save=False, log=lambda m: None)
         out["control"] = "built (it must refuse)"
@@ -320,10 +369,25 @@ def _dressed_flesh_edit(ch):
                                                                            "fresh=1" in str(exc))
     finally:
         stages.RESTARTS_FROM_BODY["flesh"] = kept
+
+    def stop_at_restart(message):
+        if "rebuilding from body" in message:
+            raise _Stop(message.split("] ", 1)[-1])
     try:
-        r = runner.build(edited, to_stage="flesh", save=False, log=lambda m: None)
+        runner.build(edited, to_stage="flesh", save=False, log=stop_at_restart)
+        out["control_restart"] = "no restart (without the undress it must restart from body)"
+    except _Stop as exc:
+        out["control_restart"] = str(exc)
+    finally:
+        runner.UNDRESS_FOR_FLESH = True
+    try:
+        r = runner.build(edited, to_stage="moves", save=False, log=lambda m: None)
         out["statuses"] = _statuses(r)
         out["restarted"] = r["build"].get("restarted")
+        flesh = (r.get("flesh") or {}).get("report") or {}
+        out["undressed"] = flesh.get("undressed")
+        out["unfleshed"] = flesh.get("unfleshed")
+        out["moves_why"] = (r.get("moves") or {}).get("why")
     except stages.StageRefused as exc:
         out["refused"] = str(exc)
     out["bound_after"] = stages.garments_bound(edited)

@@ -1,8 +1,9 @@
 {
-  "_comment": "Material presets: what a Blender material is built from (lookdev_blender.hair) and what Godot must add back after glTF drops it (godot/addons/lookdev/lookdev_materials.gd). 'godot' values are StandardMaterial3D properties written into the material's glTF extras; colours given as a share of the base colour are resolved when the material is made. See references/hair.md.",
+  "_comment": "Material presets: what a Blender material is built from (lookdev_blender.hair) and what Godot must add back after glTF drops it (godot/addons/lookdev/lookdev_materials.gd). 'godot' values are StandardMaterial3D properties written into the material's glTF extras; colours given as a share of the base colour are resolved when the material is made. 'alpha' asks Godot to rebuild the albedo's mipmaps so every level keeps level 0's share of texels over coverage_mips (strands do not erode into a film at distance) and to ramp alpha over coverage_mips +- edge (a hair dark in its core, soft at its sides). 'mode' is shell (an opaque middle between thinned roots and tips) or card (strands with gaps all the way along). See references/hair.md.",
   "materials": {
     "hair": {
       "description": "Strand hair on shells and cards: a strand texture with a root-to-tip gradient and alpha-thinned roots and tips (MASK, so it survives glTF), anisotropic highlight across the strands, backlight and a soft rim in Godot.",
+      "mode": "shell",
       "texture_px": [512, 1024],
       "tile_m": 0.04,
       "strands_per_tile": 96,
@@ -24,8 +25,23 @@
       "alpha_cutoff": 0.5,
       "root_fade": [0.0, 0.11],
       "root_fade_power": 0.25,
+      "root_ragged": 0.0,
+      "root_power": 1.0,
+      "root_width": 0.35,
+      "fine_per_tile": 0,
+      "edge_hairs": 0,
+      "edge_depth": 0.05,
+      "edge_power": 2.0,
+      "edge_lean": 6.0,
+      "edge_len": [0.01, 0.03],
+      "edge_tone": 0.0,
+      "edge_width": [0.3, 0.55],
       "mesh": {
         "tangents": "per_face"
+      },
+      "alpha": {
+        "coverage_mips": 0.5,
+        "edge": 0.25
       },
       "godot": {
         "anisotropy_enabled": true,

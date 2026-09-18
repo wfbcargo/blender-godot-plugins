@@ -1,0 +1,133 @@
+# lookdev-closeshot-views - lab notebook
+
+Branch `lookdev-closeshot-views` (plugins, from main 9007067; game worktree
+`grungist-creek/.worktrees/lookdev-closeshot-views` from master 8e25538, used only as the Godot project for
+close-shot and `regress --godot`, nothing committed there). NEXT.md Step 0.5 "close-shot views the look critic
+missed" plus Step 0's open close-shot items. Second attempt: the first stalled and left no branch. Seam:
+this branch owns `godot/close_shot.gd` and the `close-shot` command in `lookdev.mjs`; hair-godot-transfer
+owns lookdev's materials and adds a `stipple` command (lookdev.mjs command lists resolve as unions).
+Scratch: `C:/Users/pauli/AppData/Local/Temp/rw/lcv/`.
+
+## 13:01 start | kind=setup
+Read NEXT.md, CLAUDE.md, close_shot.gd, lookdev.mjs (close-shot, selftest), regress.py's --godot part and
+rig-anything `closeups.py` (the Blender look set whose view math close_shot.gd mirrors). Game worktree
+`--headless --import` took 10 s. Copied study_woman's Blender close set (git-ignored in the game) to
+scratch `blender_close/study_woman/`.
+
+Baseline (main): `close-shot --views face,eyes,hands,full --presets clear_midday,overcast` on study_woman,
+9.9 s, 14 tiles all pass. In `clear_midday_full.png` the two-line label band covers the top of the head and
+the hair (the defect the task names). The sheet is presets as rows, views as columns wrapped at 5.
+
+Blender's tiles are 512x546: its label band sits *above* the picture (34 px), so it never covers anything.
+face_3q/head_side come from the head's left (`hl = hu x hf`, +X in both Blender and glTF for a figure
+facing -Y / +Z), head_back from -hf; frames are ipd*4.8 and (top-bottom)*1.25 as in `closeups._aim`.
+Blender distances per view: face/face_3q 0.6, eyes 0.4, head_side/back 1.0, hands 0.5, bust/crotch 0.8,
+feet 1.0; Godot takes one `--distance` for all (1 m).
+
+Plan:
+- views face_3q, head_side, head_back ported from `closeups._aim` (same formulas, so a pair lines up);
+- the label band above the picture, as Blender's (tile = band + render); the head's projected box is
+  still checked against the band, and `--label inside` (the old overlay) is kept as the control that fails;
+- per-view subject points (Blender's `subject`): OFF_TARGET from the subject centroid's offset (>0.3,
+  Blender's CENTRAL) and whether the figure covers it; the free values `subject_uv`/`subject_off` reported;
+- `--aim-offset view=x,y,z` moves a camera and not its subject (the control: empty and off-target must fail),
+  `--min-subject` passed through;
+- sheet: one row per view, one column per preset, composed in a SubViewport with column headers;
+- `--pair-blender <close dir>`: a Blender column; a paired view without @ or --distance takes the Blender
+  tile's distance; unpaired views are named;
+- regress --godot: close-shot on pipeline_woman's fixwoman.glb (paired with its own Blender close set) and
+  `lookdev.mjs selftest`, with a control.
+
+## 13:05-13:10 views, band, subjects, sheet | kind=win (after one fix)
+Ported face_3q/head_side/head_back; label band above the picture drawn in its own SubViewport (64 px at a
+640 px tile); sheet composed in a SubViewport (column headers, a Blender/Godot tag per cell). First run
+11 s for 7 views x 2 presets, all pass. The head's subject point: the glb has no head-bone tail (study_woman's
+head is `spine.005`, no connected child), so `(head bone + crown)/2` put it 0.26 off centre in the face tile
+(Blender's is 0.169). Set it to eyes + 0.4 ipd up: face now 0.17, matching Blender.
+
+## 13:10 --pair-blender on study_woman | kind=win (first time)
+`--views face,eyes,face_3q,head_side,head_back,hands,full --presets clear_midday,overcast --pair-blender
+<scratch copy of review/study_woman/close>`: 15 s, exit 0, 9 of 10 views paired at Blender's distances (face
+0.6, eyes 0.4, head 1.0, hands 0.5); `full` named as having no Blender twin; Blender-only bust, crotch,
+knees, feet, foot_inner.L, foot_outer.L listed. Sheet 1160x4286: the Blender and Godot tiles line up view
+for view (same frame widths: face 0.280 m, face_3q 0.306, head 0.471, hands 0.236). The hair and brow loss
+of NEXT.md's baseline is visible at once in the pair (Blender's hairline strands vs Godot's shell).
+
+## 13:11 controls | kind=fail then fix
+- `--aim-offset hand_palm.L=0.12,0,0` first reported "knuckle, tip behind the camera": `is_position_behind`
+  tests the near plane, which hand views pull up to the hand. Now: behind the eye (camera-space z). Then the
+  same x offset passed (off 0.208): the palm camera looks mostly along x, so an x offset moves it along the
+  view. The control uses `0,0.12,0` (across the view): OFF_TARGET at 0.52, while the forearm fills 48% of the
+  tile - so neither EMPTY_TILE nor SUBJECT_SMALL could have caught it. Known limit, same as the Blender
+  set's: the check is centroid-only; a camera that cuts the fingertips with the centroid inside passes.
+- face `0,3,0`: EMPTY_TILE (0.0%), plus SUBJECT_SMALL and OFF_TARGET (off 11.28, the free value).
+- `--min-subject 0.95`: SUBJECT_SMALL (40.8%); `--min-subject 0.3` passes.
+- `--label inside`: LABEL_OVER_HEAD, head px [291,19,349,114] under band [0,0,407,61]; default band
+  [0,-64,640,0] is clear.
+Selftest now 18 controls (was 11), 49.5 s on study_woman, PASSED.
+
+## 13:16 docs, bump | kind=setup
+SKILL.md: close-shot section rewritten (views, band, sheet layout, --pair-blender, every check with its
+free value and flag, the centroid-only limit), command table and selftest row, description line.
+critic-look.md: G:<view> row gains the head views and --pair-blender; LOOK-H3 and LOOK-H5 now name
+G:head_side/G:head_back (G+B); the two "not answerable" lines about missing Godot head views and pairing
+are gone (the stipple detector line stays: hair-godot-transfer's). lookdev 0.4.1 -> 0.5.0 (tools/bump.py).
+
+**For the merge step - NEXT.md's close-shot example** ("Where the figures are", the paragraph starting "In
+Godot, `node ~/.claude/skills/lookdev/bin/lookdev.mjs close-shot`") should read:
+
+    node ~/.claude/skills/lookdev/bin/lookdev.mjs close-shot --project . \
+      --glb res://assets/figure_study/study_woman/study_woman.glb --views head,hands,full \
+      --presets clear_midday,overcast --pair-blender assets/figure_study/study_woman/review/study_woman/close \
+      --out <scratch>
+
+"writes a sheet with one row per view (face, face_3q, eyes, head_side, head_back, the four hand views, full),
+the Blender close-set tile first and one column per preset, in about 15 s." And under Step 0.5, the
+close-shot item: done except the stipple detector (hair-godot-transfer); the Step 0 open items "no control
+for close-shot's post-render tile checks and no `--min-subject` flag" and "close-shot and the selftest are
+not in `regress --godot`" are done.
+
+## 13:15-13:20 regress --godot | kind=win (first time), then the break control
+`GODOT_LOOKDEV` in regress.py: pipeline_woman's fixwoman.glb gets `close-shot --views
+face,eyes,face_3q,head_side,head_back,hand_palm.L,hand_back.L,full --presets clear_midday` paired with the
+fixture's own Blender close set (`review/<id>/close/`, not `close_control/`), must pass; a control
+`--views face --aim-offset face=0,-0.12,0` must fail; then `lookdev.mjs selftest --glb <that glb>`.
+First control choice `face=0,0.12,0` would have *passed*: the head's subject sits 0.17 above the face tile's
+centre, so moving the camera up brings it to -0.26. Down instead: OFF_TARGET at 0.60.
+`regress --only pipeline_woman --godot <game worktree>` (13:15, ~5 min): `close-shot pipeline_woman: exit 0,
+8 tiles, 0 failed, Blender pair 3 view(s)` (the fixture's close folder ends with its draft set: face,
+hand_palm.L, and one more), control failed as it must (OFF_TARGET 0.60), `lookdev selftest PASSED (18/18)`,
+`REGRESS DONE exit=0, 1 fixtures ok`.
+
+**Break control** (13:18): face target typo `ipd * 0.35` -> `ipd * 3.5` in close_shot.gd, same command:
+`FAILED close-shot pipeline_woman: exit 1, 8 tiles, 1 failed`, `FAILED lookdev selftest (15/18)` (the
+positive twin, the pairing check and the min-subject check each saw the extra OFF_TARGET), `REGRESS DONE
+exit=1`. Reverted with `git checkout -- close_shot.gd`. Log: scratch `rg_break.log`.
+
+## 13:20-13:47 final checks | kind=win
+- Default views on study_woman, `--presets clear_midday,overcast --pair-blender <scratch copy>`: 14 s, exit
+  0, 24 tiles; 11 views paired at Blender's distances, `full` unpaired, Blender-only crotch, knees,
+  foot_inner.L, foot_outer.L (crotch is not a default Godot view). Subject off (clear_midday): face 0.167,
+  face_3q 0.125, eyes 0.0, head_side 0.204, head_back 0.113, hands 0.02-0.06, feet 0.003, bust 0.208, full
+  0.25; full's head box px [291,19,349,114] clear of the band [0,-64,640,0]. Log: scratch `final_woman.log`.
+- `regress.py --quick --jobs 2 --godot <game worktree>` (regress.py changed, so all 22 fixtures): 26.5 min,
+  `REGRESS DONE exit=0, 22 fixtures ok`, no change; Godot stage: close-shot pipeline_woman ok, its control
+  failed as it must, lookdev selftest PASSED 18/18. Full log: scratch `final_quick.log`.
+
+Open: the tile checks are centroid-only (a camera cutting the fingertips passes; the look-set framing branch
+owns the every-point version); `full` has no Blender twin; pipeline_woman's fixture close folder holds only
+its draft set, so regress pairs 3 views; a sheet taller than 16384 px is cut, not split; `lookdev.mjs`'s
+`--columns` option (wrap) is gone with the one-row-per-view layout.
+
+## 13:55-14:10 merge step | kind=merge
+Main (ra-closeup-framing, cp-cascade-stop, tools-scratch-project) merged into the branch without conflicts;
+the game worktree fast-forwarded to master 81a9342 and was `--headless --import`ed.
+`regress.py --quick --jobs 4 --godot <game worktree>`: `REGRESS DONE exit=0, 23 fixtures ok`, no change
+(log scratch `rw/mlcv/merge_quick.log`). close-shot pipeline_woman ok (8 tiles, 0 failed), the must-fail
+control ok, lookdev selftest PASSED 18/18.
+**Coverage lost by the merge:** the close-shot row now reads "no Blender close set to pair". ra-closeup-framing
+added pipeline_woman's `close_off` case (`[review] close = false` last), which removes the fixture's
+`review/fixwoman/close/`, so `_run_lookdev` finds only `close_control/` and runs unpaired. `--pair-blender`
+itself stays covered by the selftest's fake-set control (`close_pair`). Not fixed here (a code change sends
+the merge back to a critic); open item: have regress pair against a close set the fixture keeps (e.g. copy
+close/ before `_close_off`) and fail when the pair is expected but missing.

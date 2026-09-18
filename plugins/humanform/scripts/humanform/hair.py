@@ -479,6 +479,18 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
     far = max(float(g.max()), d1 + 1e-3)
     slope2 = max((v_max - v1) / (far - d1), 0.0)
     v_of = np.where(g <= d1, v_h + g / span, v1 + (g - d1) * slope2)
+    wobble = p.get("edge_wobble_m", 0.0)
+    if wobble:
+        # the hairline wanders: V near the line moves by up to `edge_wobble_m` (as distance) with a sum of sines
+        # round the head whose shortest wavelength is about a texture tile, so the texture's own ragged edge,
+        # which repeats every tile, does not show as a repeat
+        wrng = np.random.RandomState(p.get("edge_seed", 3))
+        az = np.radians(_azimuth(pts, lm["cy"]))
+        wav = np.zeros(len(pts))
+        for k in range(3, 15):
+            wav += wrng.normal() / k * np.sin(k * az + wrng.uniform(0, 2 * math.pi))
+        wav /= max(float(np.abs(wav).max()), 1e-9)
+        v_of = v_of + wobble * wav * (1 - _smooth(0.01, 0.035, d)) / span
     v_of = np.maximum(v_of, 0.001)
     v_of = np.where(boundary, np.minimum(v_of, 0.003), v_of)
     uv = bm.loops.layers.uv.new(uv_name)
@@ -487,10 +499,52 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
         q = Vector(pt) - centre
         return math.atan2(q.dot(r1), q.dot(r0))
 
+    angles = np.array([ang(q) for q in pts])
+    line_u = p.get("line_u_m", 0.0)
+    line_rep = None
+    if line_u:
+        # U carried straight off the hairline (off at the defaults): within `line_u_m` of the line, U is the
+        # strand axis's angle at the point of the line the vertex lies across from (a Newton step down the
+        # gradient of `d` over the skin), so U runs along the line and V straight across it. Around the axis alone,
+        # U and V meet at a slant where the line runs steeply (the temples, a sideburn) and the texture's
+        # thinning root zone shears into long diagonal spikes. Past `line_u_m` it eases back to the axis's U.
+        sel = np.nonzero(d < line_u)[0]
+        bm.verts.ensure_lookup_table()
+        bm.normal_update()
+        if len(sel):
+            nrm = np.array([tuple(bm.verts[i].normal) for i in sel])
+            eps = 0.001
+            grad = np.zeros((len(sel), 3))
+            for k in range(3):
+                e = np.zeros(3)
+                e[k] = eps
+                grad[:, k] = (signed_distance(pts[sel] + e, lm, hp) - signed_distance(pts[sel] - e, lm, hp)) / (2 * eps)
+            grad -= nrm * np.sum(grad * nrm, axis=1)[:, None]          # along the skin
+            g2 = np.maximum(np.sum(grad * grad, axis=1), 0.25)          # |grad d| is ~1; never a long jump
+            foot = pts[sel] - (d[sel] / g2)[:, None] * grad
+            a_foot = np.array([ang(q) for q in foot])
+            diff = (angles[sel] - a_foot + math.pi) % (2 * math.pi) - math.pi
+            w = _smooth(0.3 * line_u, line_u, d[sel])
+            # the turn, relaxed over the mesh: `d`'s gradient jumps where the ear's distance takes over, and a
+            # foot that jumps between neighbours folds the UVs into facets
+            turn = np.zeros(len(pts))
+            turn[sel] = -(1 - w) * diff
+            inside = np.zeros(len(pts), bool)
+            inside[sel] = True
+            nbrs = [[e.other_vert(bm.verts[i]).index for e in bm.verts[i].link_edges] for i in sel]
+            # held at the line itself (where U must run along it), free from 0.3 `line_u_m` in
+            hold = 0.5 * _smooth(0.0, 0.3 * line_u, d[sel])
+            for _ in range(int(p.get("line_u_relax", 16))):
+                avg = np.array([turn[nb].mean() if nb else turn[i] for i, nb in zip(sel, nbrs)])
+                turn[sel] = (1 - hold) * turn[sel] + hold * avg
+            angles[sel] = angles[sel] + turn[sel]
+            line_rep = {"verts": int(len(sel)), "line_u_m": line_u,
+                        "turned_deg_max": round(float(np.degrees(np.abs(turn[sel])).max()), 2)}
+
     for f in bm.faces:
         base = None
         for loop in f.loops:
-            t = ang(pts[loop.vert.index])
+            t = float(angles[loop.vert.index])
             if base is None:
                 base = t
             while t - base > math.pi:
@@ -505,7 +559,7 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
            if boundary.any() else None,
            "boundary_v_max": round(float(v_of[boundary].max()), 4) if boundary.any() else None,
            "thick_mm": [round(float(thick.min()) * 1000, 2), round(float(thick.max()) * 1000, 2)],
-           "strand_turns": turns, "uv_handedness": _handedness(bm, uv, d, 0.03),
+           "strand_turns": turns, "uv_handedness": _handedness(bm, uv, d, 0.03), "line_u": line_rep,
            "ear_covered_verts": ear_coverage(bm, lm, ob)}
     return bm, rep, (pts, d, v_of, boundary)
 
@@ -973,13 +1027,15 @@ def _object(name, bm, body, rig, weights):
     return ob
 
 
-def _material(name, colour, uv_name):
+def _material(name, colour, uv_name, look=None):
+    """lookdev's hair material; `look` is the preset's overrides of lookdev's `hair` strand settings (short_crop's
+    feathered hairline)."""
     try:
         from lookdev_blender import hair as ld_hair
     except ImportError:
         ld_hair = None
     if ld_hair is not None:
-        mat, rep = ld_hair.material(name, colour, uv_map=uv_name)
+        mat, rep = ld_hair.material(name, colour, uv_map=uv_name, **(look or {}))
         return mat, dict(rep, source="lookdev"), rep["tile_m"]
     mat = look.material(name, srgb=colour, roughness=0.45)
     return mat, {"material": mat.name, "source": "flat (lookdev_blender not importable)"}, TILE_M
@@ -1001,15 +1057,17 @@ def _clearance(bvh, verts, samples=400):
 
 
 def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lashes=False, body_hair=False, sex=None,
-        **overrides):
+        brow_shape=None, **overrides):
     """Hair on a baked body. `preset` and `colour` (a screen sRGB colour) default to `sheet["hair"]`, then
     `bun`-less `short_crop` and the preset's colour. Returns a report with the objects made.
 
     `brows`, `lashes` and `body_hair` add `humanform.brows`' layers in the hair colour darkened (off by default,
     so a build that does not ask is unchanged); `sex` ("male" / "female", else the sheet's) picks the body hair
-    regions."""
+    regions. `brow_shape` (else the brief's `hair.brow_shape`, else "natural": the brow card as MPFB fits it) is
+    one of `brows.BROW_SHAPES`."""
     ob = _body.obj(body)
     brief = (sheet or {}).get("hair") or {}
+    brow_shape = brow_shape or brief.get("brow_shape")
     preset = preset or brief.get("preset") or "short_crop"
     p = params(preset, **overrides)
     colour = tuple(colour if colour is not None else brief.get("colour") or p["colour"])
@@ -1021,7 +1079,7 @@ def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lash
     rig = _body.rig_of(ob)
     bvh = _bvh(lm["_co"], ob, lm["_eye_vertices"])
     uv_name = ob.data.uv_layers.active.name if ob.data.uv_layers.active else "UVMap"
-    mat, mat_rep, tile = _material(f"{base}_hair", colour, uv_name)
+    mat, mat_rep, tile = _material(f"{base}_hair", colour, uv_name, p.get("look"))
 
     centre = Vector(lm["centre"])
     targets = {}
@@ -1069,7 +1127,7 @@ def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lash
     objects = {"hair": hair_ob.name}
     if brows or lashes or body_hair:
         face = _brows.add(ob, lm, colour, base, rig=rig, uv_name=uv_name, brows=brows, lashes=lashes,
-                          body_hair=body_hair, sex=sex or (sheet or {}).get("sex"))
+                          body_hair=body_hair, sex=sex or (sheet or {}).get("sex"), brow_shape=brow_shape)
         objects.update(face["objects"])
         report["face"] = {"parts": face["parts"], "skipped": face["skipped"]}
     # the cap's clearance: a fall's inner sheet and the underside of a bun or tie are tucked under the cap and

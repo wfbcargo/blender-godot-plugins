@@ -45,6 +45,7 @@ that belong to a plugin.
     brows = true                 # optional, default false: humanform.brows' brow cards, lash cards
     lashes = true                #   and a light body hair shell, in the hair colour darkened
     body_hair = false
+    brow_shape = "arched"        # optional: natural (default, MPFB's brow as fitted), straight, arched, soft
     [flesh]                      # optional: follow-through
     types = ["breast", "butt"]
     may_miss = []                # types the stage may come back without; any other type in `types`
@@ -61,7 +62,14 @@ that belong to a plugin.
     [export]
     dir = "assets/belle"         # under the project
     res_dir = "res://assets/belle"
-    blend = "C:/Users/pauli/Code/Blender/belle_realistic.blend"
+    blend = "belle_realistic.blend"   # relative: under $BLEND_DIR when set, else under the project
+                                      # (absolute is still accepted) - see `resolve_blend`
+
+A relative `[export] blend` is what makes a spec safe to copy (06 rank 2): the same file, unedited, builds
+into whichever project it sits in, and saves its .blend there - `runner.build` refuses to save anywhere but
+under the project or `$BLEND_DIR` unless told to (`save_outside=True`). The string is hashed as written (the
+export stage's section), so a byte-for-byte copy of a spec in a scratch project hashes the same, and a copy of
+its saved .blend resumes there with every stage unchanged.
 
 `load(path)` reads and checks it and returns a `Character`. Every field maps to a plugin
 argument; `GAPS` lists what the plugins cannot take yet, so a spec that needs one says so
@@ -92,6 +100,7 @@ DEPRECATED = {
                  "still builds; use preset = \"<humanform hair preset>\" and colour (improvements 05 5.2)",
 }
 HAIR_PRESETS = ("short_crop", "bob", "bun", "ponytail", "long_loose")   # humanform.sheet.HAIR_PRESETS
+BROW_SHAPES = ("natural", "straight", "arched", "soft")                   # humanform.sheet.BROW_SHAPES
 MUSCLE_GROUPS = ("deltoids", "upper_arms", "pectorals", "abdominals", "obliques", "quadriceps", "calves",
                  "forearms", "relief", "bulk")                           # humanform.muscle.GROUPS
 MUSCLE_OUTPUTS = ("geometry", "normal")
@@ -134,12 +143,17 @@ class Hair:
     brows: bool = False                         # humanform.brows layers, joined with the hair
     lashes: bool = False
     body_hair: bool = False
+    brow_shape: str | None = None               # humanform.brows BROW_SHAPES; None: "natural"
 
     FACE = ("brows", "lashes", "body_hair")
 
     def face(self):
-        """The humanform.brows switches that are on, as hair.add keywords."""
-        return {k: True for k in self.FACE if getattr(self, k)}
+        """The humanform.brows switches that are on, and a brow shape other than the default, as hair.add
+        keywords."""
+        out = {k: True for k in self.FACE if getattr(self, k)}
+        if self.brow_shape and self.brow_shape != "natural":
+            out["brow_shape"] = self.brow_shape
+        return out
 
 
 @dataclass
@@ -219,6 +233,14 @@ class Character:
         d = self.export.dir
         return d if os.path.isabs(d) else os.path.join(self.project or os.getcwd(), d)
 
+    def blend_path(self):
+        """The .blend a build opens and saves: `[export] blend` resolved (`resolve_blend`), or None."""
+        return resolve_blend(self.export.blend, self.project)
+
+    def save_roots(self):
+        """The folders a build may save its .blend under without `save_outside` (`save_roots`)."""
+        return save_roots(self.project)
+
     def section(self, name):
         """The part of the spec a stage reads, as plain data - what its input hash covers."""
         value = getattr(self, name) if name not in ("character",) else {"id": self.id, "name": self.name}
@@ -231,6 +253,8 @@ class Character:
             for k in Hair.FACE:
                 if not out.get(k):
                     out.pop(k, None)
+            if out.get("brow_shape") in (None, "natural"):
+                out.pop("brow_shape", None)         # the default hashes as before the field existed
             return out
         if isinstance(value, list):
             return [asdict(v) if hasattr(v, "__dataclass_fields__") else v for v in value]
@@ -239,6 +263,47 @@ class Character:
     def digest(self, *sections):
         text = json.dumps({s: self.section(s) for s in sections}, sort_keys=True, default=str)
         return hashlib.sha1(text.encode()).hexdigest()[:16]
+
+
+def blend_dir(override=None):
+    """$BLEND_DIR (or `override`, when given) as an absolute path, or None when neither is set."""
+    d = override or os.environ.get("BLEND_DIR")
+    return os.path.normpath(os.path.abspath(os.path.expanduser(d))) if d else None
+
+
+def resolve_blend(blend, project, blend_dir_override=None):
+    """Where `[export] blend` points. Absolute: as written. Relative: under $BLEND_DIR when it is set (or
+    `blend_dir_override`, for a tool resolving another project's specs), else under `project` (the folder
+    holding `characters/`), else $PROJECT, else the working directory. None when the spec names no blend."""
+    if not blend:
+        return None
+    blend = os.path.expanduser(blend)
+    if os.path.isabs(blend):
+        return os.path.normpath(blend)
+    base = blend_dir(blend_dir_override) or project or os.environ.get("PROJECT") or os.getcwd()
+    return os.path.normpath(os.path.join(os.path.abspath(base), blend))
+
+
+def save_roots(project):
+    """The folders a build saves under without being told otherwise: the project and $BLEND_DIR (if set)."""
+    roots = [os.path.normpath(os.path.abspath(project))] if project else []
+    d = blend_dir()
+    if d and d not in roots:
+        roots.append(d)
+    return roots
+
+
+def inside(path, roots):
+    """Whether `path` is at or under one of `roots` (case-insensitive where the file system is)."""
+    p = os.path.normcase(os.path.normpath(os.path.abspath(path)))
+    for r in roots:
+        r = os.path.normcase(os.path.normpath(os.path.abspath(r)))
+        try:
+            if os.path.commonpath([p, r]) == r:
+                return True
+        except ValueError:                      # different drives
+            continue
+    return False
 
 
 def _take(table, key, kind, default=None, required=False, where=""):
@@ -311,7 +376,7 @@ def parse(data, path=None):
     if "hair" in data:
         h = dict(_take(data, "hair", dict))
         if "preset" in h:
-            _unknown(h, ("preset", "colour") + Hair.FACE, "[hair]")
+            _unknown(h, ("preset", "colour", "brow_shape") + Hair.FACE, "[hair]")
             preset = _take(h, "preset", str, where="hair.")
             if preset not in HAIR_PRESETS:
                 raise SpecError(f"hair.preset {preset!r} is not one of {HAIR_PRESETS}")
@@ -324,8 +389,11 @@ def parse(data, path=None):
                 v = _take(h, k, bool, where="hair.")
                 if v is not None:
                     switches[k] = v
+            brow_shape = _take(h, "brow_shape", str, where="hair.")
+            if brow_shape is not None and brow_shape not in BROW_SHAPES:
+                raise SpecError(f"hair.brow_shape {brow_shape!r} is not one of {BROW_SHAPES}")
             hair = Hair(kind="preset", preset=preset, colour=[float(c) for c in colour] if colour else None,
-                        **switches)
+                        brow_shape=brow_shape, **switches)
         else:
             kind = h.pop("kind", None)
             if kind != "shell_bun":
