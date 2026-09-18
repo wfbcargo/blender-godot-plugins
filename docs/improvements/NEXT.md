@@ -2,7 +2,8 @@
 
 A handoff for a fresh conversation. Start with:
 
-> Read `docs/improvements/NEXT.md`, then plan the first step of "The realism work" below.
+> Read `docs/improvements/NEXT.md`, then plan the next step of "The realism work" below and run it with
+> the `plugin-round` workflow (see "Running the next session").
 
 State as of 2026-09-18, after realism Step 0 shipped. Committed locally and **not pushed**: this repo's
 `main` and `grungist-creek`'s `master` (the rebuilt figures and Belle). The parked branch
@@ -61,6 +62,22 @@ defect in the table below, plus a vertical specular band on both foreheads under
 | Flesh bounded on every course | Lashes read sparse (cards seen edge-on, alpha mip erosion) |
 | | **No genital anatomy:** both crotches are smooth; the branch that adds it is parked (below) |
 | | golden_hour overexposes the pale woman and stripes the floor; interior_daylight was dropped from the demo |
+
+**Baseline after Step 0** (independent look critic, Godot close-shot sheets at 1 m and 4 m, clear_midday and
+overcast; notebook `notebooks/realism-step0/ship.md`). Ranked, what most separates the figures from real people:
+1. **Hair** reads as a helmet: a smooth, hard-edged shell, the hairline a smeared radial gradient, no flyaways,
+   a hard dark band in front of each ear. **The Blender close set shows fine strands at the hairline, so
+   the look is lost between Blender and Godot**: start Step 1 there, not in the hair layer.
+2. **Brows and lashes**: brows are hard, pixelated black cut-outs (darker and heavier than in Blender), lashes
+   a few black blocks with one clump spiking over the pupil; pupils flat black discs.
+3. **Skin**: one uniform colour at 1 m and 4 m, no regional tone, pore grain only in highlights.
+4. **Specular under overcast**: hard, mirror-like patches (a vertical band on the forehead, nose, lips) -
+   lacquered plastic. Clear midday's sheen is acceptable.
+5. **Dithered shadow stipple under clear_midday** on the front of the neck *and on shadowed fingers*,
+   visible at 4 m; absent under overcast.
+6. **Coloured edges on the fingers**: orange-red at finger edges and the thumb web (clear_midday), pale lines
+   at the fingertips (overcast).
+7. **Overcast exposure**: study_man goes dark and muddy (reads as a different skin tone); study_woman grey.
 
 ---
 
@@ -142,8 +159,37 @@ centroid-only framing check and side-on hand_back, and neither close set being i
 The round's lab notebooks: [notebooks/realism-step0/](notebooks/realism-step0/) (`repo-regress-quick`,
 `lookdev-godot-tools`, `cp-resume-hashes`, `cp-close-look-set`, `ship`).
 
+### Step 0.5 - tooling and plugin items to build first (branches of about 30 min, run in parallel with Step 1)
+
+Suggested after the Step 0 round; each saves agent minutes on every later round.
+- **`tools/scratch_project.py <dir> [--who study_man,...]`:** make the scratch game copy (characters,
+  build scripts, save_guard, addons), set specs' blends into it, write an env file (`PROJECT`, `*_SCRIPTS` at
+  a given checkout, `HUMANFORM_LIBRARY` at a copy) and run `--headless --import`. Every builder and critic did
+  this by hand (1-6 min each, and it is where paths went wrong). Pairs with **06 rank 2** (specs safe to copy:
+  `[export] blend` relative to `PROJECT`/`BLEND_DIR`, refusing to save outside it).
+- **close-shot views the look critic missed** (lookdev): eyes, face_3q, head_side and head_back in the Godot
+  set, like the Blender set; presets side by side per view rather than stacked; the label band never over the
+  head in `full`; `--pair-blender <close dir>` putting the Blender tile next to the Godot tile of the same
+  view (it would have shown the hair and brow loss at once); and a stipple/dither detector (a
+  high-frequency periodic pattern in shadowed skin) with a control. Plus the open items listed under Step 0
+  (tile-check control, `--min-subject`, close-shot in `regress --godot`).
+- **The look set's framing:** every subject point (wrist, knuckles, tips; both eyes; both feet) inside the
+  tile with a margin, with a shifted-camera control; hand_back from the front and above the knuckles.
+- **Rebuilds that skip what did not change downstream:** after a flesh edit, moves/export/review rerun
+  (17 s) although moves never read flesh; hash stage *outputs* where the next stage reads them, so an
+  unchanged output stops the cascade (target: the 12 s of 06). On a dressed spec, unbind and rebind
+  garments instead of restarting from body.
+- **Critic checklists shipped with the plugins:** `references/critic-*.md` per plugin (look, motion, fit,
+  flesh), each question naming the tile or verifier that answers it, so a round's done-when questions are
+  picked, not written from scratch.
+- **Controls still missing from Step 0:** follow-through's limit_influences weight-total fix; three
+  `pipeline_hashes` flips (skin size, spec `[flesh]`, wardrobe version).
+
 ### Step 1 - hair
 
+- **Blender to Godot first.** The critic found fine strands at the hairline in Blender and a smeared shell in
+  Godot, and brows darker and harder in Godot than in Blender. Find where it is lost (strand texture
+  resolution or mips, alpha mode, lookdev's hair material, card export) before touching the hair layer.
 - **The man's hairline.** Replace the hard cut and spiky fringe with a feathered hairline that reads as
   hair at 1 m. The hair layer already has feathering; `short_crop` is its weakest preset.
 - **The neck stipple (06 rank 14).** Hair shells should cast a scissor shadow, not a dithered
@@ -159,7 +205,11 @@ The round's lab notebooks: [notebooks/realism-step0/](notebooks/realism-step0/) 
 - **Detail that survives distance.** Pores exist as a Godot detail normal on UV2 but vanish past about
   1 m. Add mid-frequency variation: tone and redness by region (knees, elbows, knuckles, face, the
   soles), and a roughness map by region so the forehead and lips stop reading as gloss.
-- **Small defects:** thin orange lines at the finger-web creases under clear_midday.
+- **Specular under overcast:** hard, mirror-like forehead band and nose and lip patches (the baseline's
+  item 4); check the roughness range the bake writes and lookdev's skin preset under a soft sky.
+- **Overcast exposure:** study_man drops to a muddy brown under overcast, study_woman goes grey.
+- **Small defects:** thin orange lines at the finger-web creases and thumb web under clear_midday, pale
+  lines at the fingertips under overcast.
 - **Lighting presets on an open stage:** golden_hour overexposure and floor stripes. (interior_daylight is
   marked interior-only since lookdev 0.4.0.)
 
@@ -214,14 +264,38 @@ checklist. This round:
 
 ## Running the next session
 
-What the last three rounds taught about running this work (06 section 6 has the detail):
+**Use the `plugin-round` workflow** (`.claude/workflows/plugin-round.js`; run from this repo by name, or from
+another by `scriptPath`). Give it the step and its branches as args:
 
+```
+{ "step": "Step 1 - hair",
+  "branches": [ { "key": "...", "title": "...", "task": "...", "done": "1. ...?\n2. ...?", "after": "<key, optional>" } ],
+  "ship": { "rebuild": ["study_man", "study_woman"], "belle": false },
+  "look": "1. ...?\n2. ...?" }
+```
+
+It builds each branch in its own worktrees, has an independent critic answer the branch's `done` questions,
+fixes at most twice, merges one branch at a time, then installs, rebuilds the real figures, runs the round's
+one full regress and has an independent look critic judge them in Godot. What it encodes, from the Step 0
+round (4 branches, 14 agents, 3 h 14 min, 2.4 M subagent tokens):
+
+- **One full regress per round, not three per branch.** In Step 0 the builder, the critic and the merge step
+  each ran a full `--twice`: a critic spent 23 of its 27 min on one. Now builders and merges run `--quick`
+  (about 3.5 min), critics read the builder's regress log and run only the targeted checks and controls, and
+  the ship step runs the one `--twice --jobs 4 --godot` (about 14 min).
+- **Branches of about 30 min.** cp-resume-hashes (two ranks plus game changes) took 65 min against 25 for the
+  others and set the critical path. Split large items; a branch that is "two things" is two branches.
+- **Agree the seam, don't queue on the merge.** cp-close-look-set waited about 110 min for cp-resume-hashes to
+  merge because both touched `stages.py`/`quality.py`. Write the shared interface (here, the review stage's
+  quality keys) into both tasks and build in parallel; `after` is the fallback.
+- **The merge gate is pass AND mergeable.** Step 0's gate was "pass or mergeable", so a branch the critic
+  held (Belle's dressed flesh edit refused) went to the merge step, which fixed it itself - correctly, but
+  unreviewed. Now a merge step that changes code stops, a second critic reviews the fix, then it merges.
+- **Effort by kind:** builders, fixers and critics high; merge and ship medium.
 - **Merge one branch at a time, as each finishes.** No wave waits for its slowest member. After each
   merge, branches still in flight merge `main` in before their review starts.
-- **Regress is the critical path** (11-23 min per merge, about 7 hours in the last round against about
-  25 min of character building). Use `--quick`-style runs per merge where possible and one full
-  `--twice --godot` at the end. The repo-tooling list in 06 section 5 (`regress.py` scheduling and
-  output, `tools/bump.py`, addon sync, `.gitattributes`) is worth doing early for that reason.
+- **Regress was the critical path** before `--quick` (11-23 min per merge, about 7 hours in the round before
+  Step 0 against about 25 min of character building).
 - **A feature is done only when a real spec uses it through the pipeline and it is looked at in Godot.**
   Last round, fixtures passed while Belle's top, the man's belly, the crowd's runs and the ponytail's
   frame rate all failed on real characters.
@@ -241,7 +315,7 @@ What the last three rounds taught about running this work (06 section 6 has the 
 
 ## Other open work (not realism)
 
-- **The rest of 06's ranked list:** specs safe to copy (rank 2), stage numbers never lost (4), stored body
+- **The rest of 06's ranked list:** stage numbers never lost (4), stored body
   fits (6), a draft setting for moves (7), verifiers that exit non-zero (11).
 - **The crowd rebuild** waits on the `U.running` fix (step 5). A spec workaround for 7 Run clips exists as
   a patch but was not applied and should not be.
