@@ -52,7 +52,7 @@ tests/README.md: rows for limit_influences, and the two that were missing (pipel
 Not added to regress.py DURATIONS (a tools/ edit makes --quick run everything); an unknown fixture starts
 first, and this one takes 2 s.
 
-## 12:10-12:26 the five critic checklists | kind=win
+## 12:10-12:18 the five critic checklists | kind=win
 Written from the code and the shipped outputs, not from memory: rig-anything `closeups.VIEWS`, lookdev
 `CLOSE_VIEWS` (face, eyes, hand_palm/back.L/R, feet, bust, crotch, full, bone:<name> - no face_3q/head_side/
 head_back in Godot yet), verify_flesh/verify_wardrobe/verify_moves/verify_strands headers and output keys,
@@ -100,3 +100,10 @@ done-when": "Pick done-when and look questions from the shipped banks, by id: lo
 question the banks lack is added to the bank in the same round." And under Step 0: "Controls still missing
 from Step 0: done (critic-checklists-controls): `limit_influences` fixture with the stale-write control;
 pipeline_hashes drop-controls for wardrobe version, final skin size, spec [flesh] and final close-up views."
+
+## 12:18-12:24 final regress --quick | kind=win
+`python tools/regress.py --quick --jobs 2` (17 fixtures selected: every plugin touched counts, docs included),
+full output `C:/Users/pauli/AppData/Local/Temp/rw/critic-checklists-controls/regress_quick.log`:
+`REGRESS DONE exit=0, 17 fixtures ok`, no change. About 6 min wall. Branch time in all: 12:02-12:25.
+Open: limit_influences not in regress.py DURATIONS (a tools/ edit); `--quick` runs every fixture of a plugin
+whose only change is a .md file - a docs-only plugin change could select nothing (a regress.py item).
