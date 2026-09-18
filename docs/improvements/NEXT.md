@@ -23,7 +23,7 @@ Installed copies in `~/.claude/skills` match the repo. **This is the one list of
 here and nowhere else:
 - rig-anything 0.26.0
 - animate-anything 0.10.1
-- follow-through 0.6.2
+- follow-through 0.6.3
 - humanform 0.12.0
 - character-pipeline 0.12.0
 - wardrobe 0.5.1
@@ -277,6 +277,21 @@ Suggested after the Step 0 round; each saves agent minutes on every later round.
   `line_u_m`; humanform SKILL.md's brow/lash colour factors are stale; the game's glbs are not rebuilt (the ship
   step must rebuild study_man, study_woman and Belle). Notebook:
   [notebooks/realism-step1/hair-hairline-lashes.md](notebooks/realism-step1/hair-hairline-lashes.md).
+- **Motion: frame-rate independent strands: done** (branch `strand-rate-independence`, follow-through 0.6.3,
+  merged 2026-09-18). strand_modifier.gd simulates each strand against the body's motion low-passed at 10 Hz,
+  with `SMOOTH_GAIN` 1.1 (property `smooth_gain`; 1 is off) restoring the run's swing: study_woman's ponytail
+  swings 44.5-46.3 deg at 30/60/120/240 fps, spread 1.037 start / 1.041 settled (limit 1.25 unchanged;
+  1.053/1.040 at 25/33/47/75/165). verify_strands checks a starting and a settled window and reports
+  `peak_tip_deg`; `regress --godot` runs it on pipeline_ponytail with two controls that must print their FAIL
+  lines (`legacy_integration=true`, 1.31/1.39; `mod=smooth_hz:0`, 1.28 on the start only). figure_study's
+  selftest reads the free tip swing (51.4 deg) with a strands-off control. Critic: pass, after two fix rounds.
+  Open: SMOOTH_GAIN sits on a steep curve (1.15 -> 56 deg, 1.2 -> 70-82 deg on the bone limits) and
+  verify_strands has no swing ceiling, so a hotter preset could whirl unnoticed (retune the ponytail preset's
+  response instead); the smooth_hz:0 control's margin is thin and the legacy control's is about zero at odd
+  rates; jiggle_modifier.gd likely has the same rate dependence; under 30 fps is not covered; kick_peak_deg
+  sits on the 60 deg bone limit; `long_loose` is still not built. The ship step installs follow-through 0.6.3
+  (the game carries the addon). Notebook:
+  [notebooks/realism-step1/strand-rate-independence.md](notebooks/realism-step1/strand-rate-independence.md).
 - **Blender to Godot first.** The critic found fine strands at the hairline in Blender and a smeared shell in
   Godot, and brows darker and harder in Godot than in Blender. Find where it is lost (strand texture
   resolution or mips, alpha mode, lookdev's hair material, card export) before touching the hair layer.
