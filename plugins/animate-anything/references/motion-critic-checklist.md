@@ -14,6 +14,9 @@ Vision judgements from agents agree with humans far less often than humans agree
 numbers already in the manifest, and a pairwise comparison with the previous version - not on an
 open-ended "does this look good".
 
+A round's done-when picks from `critic-motion.md`, which gives these questions ids, names the one source
+that answers each, and adds the questions only the engine answers.
+
 ## Protocol
 
 1. **Questions before looking.** From the brief, the clip list and `review.json`, write the yes/no

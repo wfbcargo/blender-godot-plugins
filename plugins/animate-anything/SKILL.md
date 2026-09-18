@@ -140,6 +140,9 @@ Previous version (for pairwise comparison, or 'none'): <prev_dir>/review/<name>/
 Write your questions before opening any image. Return only the JSON the checklist specifies.""")
 ```
 
+For a round's done-when, pick the questions from `references/critic-motion.md`: each has an id and names the
+strip, manifest key or verifier (`verify_moves`, `verify_strands`, the game's selftest) that answers it.
+
 Three things make it worth more than looking yourself:
 
 - **Questions first.** The critic writes its yes/no questions from the brief and `review.json`

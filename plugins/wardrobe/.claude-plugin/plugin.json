@@ -1,6 +1,6 @@
 {
   "name": "wardrobe",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Layered clothing for rigged Blender characters headed to Godot 4.7: a garment that fits, stays over the body without skin showing through, and swings where it hangs free. Cuts a garment from the body it will be worn on (planes applied only to the body part each is for), eases it off the skin with a relax-and-push loop that bridges hollows and a radius field that lets it hang straight from the widest point above instead of tucking under a buttock, keeps the body's own skin weights (jiggle bones included, so a shirt follows follow-through's breasts and belly), hangs a ring of sprung bones around the hem and each cuff with a per-bone inward backstop measured from the rest gap, and lists the skin it covers - but only where the cloth is skinned like the skin under it, because a thigh under a hem hung from the torso swings out from under it. In Godot one call adds the garment's bones to the body's skeleton, moves the garment onto it (skins bind by bone name), matches the covered skin by position and rebuilds the body without those triangles, and springs the hem in a SkeletonModifier3D with an exact damped oscillator. Two levels of detail - skinned only, and skinned with hem bones - and a headless verifier that skins every vertex from the final pose and counts skin through the cloth and holes - hidden skin a viewer could see into, looked at from 48 directions - over any clip.",
   "author": {
     "name": "Paul Lovy",

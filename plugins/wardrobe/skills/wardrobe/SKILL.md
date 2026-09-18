@@ -337,6 +337,9 @@ toggles for six garments (shorts or trousers, T-shirt or long sleeve), H hiding,
 
 ## Verify - always
 
+A round's done-when or a critic picks its fit questions from `${CLAUDE_PLUGIN_ROOT}/references/critic-fit.md`:
+each names the `verify_wardrobe` number, control, `dress` report key or close-up tile that answers it.
+
 ```bash
 godot --headless --fixed-fps 60 --path <project> -s res://addons/wardrobe/verify_wardrobe.gd -- \
     body=res://assets/flesh/figure.glb garment=res://assets/wardrobe/shirt.glb frames=480 every=8

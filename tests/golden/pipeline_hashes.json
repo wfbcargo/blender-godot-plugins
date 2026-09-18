@@ -33,8 +33,10 @@
     "spec": "full"
    },
    "final close-up views": {
+    "control_unseen": true,
     "expect": "review",
     "first": "review",
+    "label": "quality:close",
     "moved": [
      "review"
     ],
@@ -42,8 +44,10 @@
     "spec": "full"
    },
    "final skin map size 2048 -> 1024": {
+    "control_unseen": true,
     "expect": "bake",
     "first": "bake",
+    "label": "quality:skin",
     "moved": [
      "bake",
      "hair",
@@ -330,8 +334,10 @@
     "spec": "full"
    },
    "spec [flesh] edit": {
+    "control_unseen": true,
     "expect": "flesh",
     "first": "flesh",
+    "label": "spec:flesh",
     "moved": [
      "flesh",
      "moves",
@@ -385,8 +391,10 @@
     "spec": "full"
    },
    "wardrobe version": {
+    "control_unseen": true,
     "expect": "body",
     "first": "body",
+    "label": "version:wardrobe",
     "moved": [
      "body",
      "muscle",

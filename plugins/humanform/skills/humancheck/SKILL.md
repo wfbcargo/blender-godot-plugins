@@ -81,6 +81,9 @@ Give it to the critic with the hairline questions in the checklist.
 
 ## The critic
 
+A round's done-when picks its body questions from `${CLAUDE_PLUGIN_ROOT}/references/critic-body.md`: each
+names the `humancheck.json` finding, `body.png` row and column, or close-up tile that answers it.
+
 For any judgement beyond the numbers - is it better, does it read as a person, is the brief met -
 spawn a critic that did not build the body:
 
