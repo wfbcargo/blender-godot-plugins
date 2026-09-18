@@ -165,6 +165,34 @@ bipeds are untouched unless asked.
 `idle(style=...)`, `move_set(options={"Walk": {"style": "child"}})`; a style
 has "walk", "run" and "idle" sections, and any explicit argument beats it.
 
+**A clip lasts one natural stride** (since 0.24.0): `cycle` keys `round(period x fps)` frames,
+between 16 (12 running) and the old fixed 32 (24), so played at its own rate it moves at its
+natural speed. The fixed 32 frames had every adult walk 0.7 of its natural speed (StudyMan 0.82
+against 1.15 m/s). **An upright biped's walk vaults** (`cycle(vault=None)`): each frame the hips
+drop only as far as the stance legs need to reach their contacts, eased so they rise and fall
+smoothly - highest as a foot passes under them, lowest in double support - where the plan
+used to drop them by one amount for the whole cycle and every stance knee stayed bent about
+30 degrees. The toe's stance line for such a walk is centred at least `BIPED_WALK_CENTRE` (0.6)
+of the way back from the standing toe towards under the hip, because a person lands on the heel
+ahead and leaves on the toe behind. Each report gives `stance_knee_flex_deg` per leg (half-way
+through stance; a walk 5-15, a run 35-50) and `vault`, and both reach `.moves.json` `gaits`.
+
+**Hands hang relaxed in every clip** of an upright body (`keyposes.hand_digits`): the fingers
+curl 10-22 degrees a joint towards the palm and the thumb turns in, from the skeleton's shape -
+the arm's end bone is the hand, its paths to leaves the digits, the one pointing furthest from
+the rest the thumb, the palm side where the thumb and the fingers' own rest bend lie. It is the
+body's ground rest (like folded wings), so "frame one is rest" still holds. A gait's fingers
+trail the arm swing a little (`upper.HAND_LAG`, `HAND_SWING`); `Key.hands` scales the curl per arm.
+An idle's chest lifts 1.5 degrees with each breath (`actions.BREATH_CHEST_DEG`).
+
+**Turning on the spot** (`actions.turn`, roles `TurnL` / `TurnR`, asked for by name in
+`move_set(roles=...)`): 90 degrees about the inside foot's ball while the outside foot is lifted
+and carried round, the turn only while it is off the floor. The floor-skid check follows both
+contacts through every frame. A turn takes the Idle's stance, posture and style unless given its
+own. It is not a loop and ends turned: the report's `turn` = `{yaw_deg, pivot_leg, pivot_m,
+end_offset_m}` goes into `.moves.json` `turns`, for the engine to apply to the character when
+the clip ends. MovesController does not play turns yet.
+
 See `animate-anything`'s `references/contact-locomotion.md`.
 
 It refuses a creature with no legs rather than inventing a walk for a worm.
@@ -308,7 +336,8 @@ r = export.export_character("MyMesh", rig, r"C:/proj/assets/humans/ann/ann.glb",
   `elbow_flex_deg`, `upper_arm_deg`, `arm_carry_deg`, `arm_swing_deg` - shipped so the motion
   critic's keep-or-revert rule can compare a rebuild against the previous version after the build
   log is gone), `forced_clips`, `known_failures` (each role's authoring failures),
-  `collider`, and `dropped_clips` if any. `extra` is merged in last, so a project's own fields
+  `collider`, `turns` when a turn was exported (`{role: {yaw_deg, pivot_leg, pivot_m,
+  end_offset_m}}`), and `dropped_clips` if any. `extra` is merged in last, so a project's own fields
   (`style`, `posture`, `stance_width`, `upper_body`, `note`) go there and can replace any of
   these.
 - **Defaults, all from the reports and the rig, never from bone names.**

@@ -1050,6 +1050,11 @@ def export_character(mesh_name, rig_name, glb_path, name=None, reports=None, res
         # the capsule MovesController builds: trunk and hips, arms left out
         "collider": loco["collider"],
     }
+    # a turn on the spot ends turned: the yaw and where the rig's origin went, which the engine
+    # applies to the character when the clip ends (`actions.turn`)
+    turns = {r: reports[r]["turn"] for r in kept if reports[r].get("turn")}
+    if turns:
+        moves["turns"] = turns
     if e.get("dropped_clips"):
         moves["dropped_clips"] = e["dropped_clips"]
     moves.update(extra or {})

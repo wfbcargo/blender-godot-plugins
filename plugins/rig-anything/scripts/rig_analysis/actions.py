@@ -609,6 +609,10 @@ def skid(rig_name, frames=10, forward="-Y", up="Z", floor=0.0, action_name="Slid
     return report
 
 
+# degrees an upright idle's chest tips back at the top of each breath (`idle`)
+BREATH_CHEST_DEG = 1.5
+
+
 def idle(rig_name, frames=48, forward="-Y", up="Z", floor=0.0, action_name="Idle",
          breath=0.006, sway_degrees=1.5, fps=None, stance_width=None, posture=None,
          upper=None, style=None):
@@ -657,7 +661,11 @@ def idle(rig_name, frames=48, forward="-Y", up="Z", floor=0.0, action_name="Idle
         key_limbs = dict(limbs)
         if U is not None:
             key_limbs.update(U.idle_key(t))
-        return kp.Key(
+        # an upright chest lifts with the breath, the head held level over it
+        chest = (upper_mod.trunk(P, 0.0, 0.0, 0.0, 0.0,
+                                 -BREATH_CHEST_DEG * 0.5 * (1.0 - math.cos(2.0 * math.pi * t)), 1.0)
+                 if bm["upright"] and bm["axial"] else None)
+        return kp.Key(trunk=chest, 
             drop=balance["drop"] + breath * L * 0.5 * (1.0 - math.cos(2.0 * math.pi * t)),
             shift=balance["shift"] if shift is None else shift,
             lean=lean_amp * math.sin(2.0 * math.pi * t), head_level=0.5,
@@ -1072,12 +1080,141 @@ def summarize(r):
     return "\n".join(lines)
 
 
+def turn(rig_name, direction="L", degrees=90.0, frames=24, forward="-Y", up="Z", floor=0.0,
+         action_name="Turn", fps=None, stance_width=None, posture=None, upper=None, style=None,
+         lift=0.08, shift=0.5):
+    """Turn on the spot: pivot on the inside foot's ball and step the other foot round.
+
+    A two-legged body standing as its idle stands (`stance_width`, `posture`,
+    `style` as `idle`) turns `degrees` towards `direction` ("L" or "R", the
+    body's own sides). The whole body turns about the inside foot's contact
+    pivot (the toe end of its end bone), so that point never moves while the
+    heel sweeps round it. The outside foot lifts first, is carried round in the
+    air - the turn happens only while it is off the floor - and comes down
+    where the idle stance puts it after the turn. The hips lean `shift` of the
+    hip gap over the pivot foot while the other is up. The arms hang as the
+    idle's.
+
+    The clip is not a loop and does not end where it began: it ends turned.
+    Its report carries `turn` = {yaw_deg, pivot_leg, pivot_m, end_offset_m}:
+    the yaw (positive to the body's left) and where the rig's origin went, in
+    the rig's space. That is what an engine applies to the character when the
+    clip ends, before it plays Idle. Checked like every clip (floor, skin,
+    reach, joint fold); the floor-skid check follows both contacts through
+    every frame they are on the floor, so the pivot may not move and the
+    stepping foot must lift before it travels."""
+    from . import keyposes as kp, upper as upper_mod
+    from .locomotion import style_args
+    given = {k: v for k, v in dict(stance_width=stance_width, posture=posture,
+                                   upper=upper).items() if v is not None}
+    try:
+        st = style_args(style, "idle", given)
+    except ValueError as e:
+        return {"error": str(e)}
+    stance_width, posture, upper = st.get("stance_width"), st.get("posture"), st.get("upper")
+    ctx, err = _setup(rig_name, forward, up, floor)
+    if err:
+        return err
+    bm, rig, body, P = ctx
+    if len(P.legs) != 2:
+        return {"error": "%s has %d legs - a turn steps one foot round the other"
+                % (rig_name, len(P.legs))}
+    direction = str(direction).upper()[:1]
+    if direction not in ("L", "R"):
+        return {"error": "direction is L or R, not %r" % direction}
+    frames = max(12, int(frames))
+    up_v, fwd = P.up, P.fwd
+    side_of = {l["name"]: (l["rest_root"] - P.centre).dot(P.lat) for l in P.legs}
+    named = [l for l in P.legs if l.get("side") == direction]
+    inside = named[0] if named else max(
+        P.legs, key=lambda l: side_of[l["name"]] * (1.0 if direction == "L" else -1.0))
+    outside = [l for l in P.legs if l is not inside][0]
+    toward = inside["rest_root"] - P.centre
+    toward = (toward - up_v * toward.dot(up_v)).normalized()
+    # turning towards the inside leg's side: forward swings onto `toward`
+    axis = up_v if up_v.cross(fwd).dot(toward) > 0.0 else -up_v
+    yaw_sign = 1.0 if direction == "L" else -1.0
+
+    shifts = {l["name"]: (kp.stance_shift(P, l, stance_width) if stance_width is not None
+                          else Vector((0.0, 0.0, 0.0))) for l in P.legs}
+    pivot = rig.data.bones[inside["end"] or inside["lower"]].tail_local + shifts[inside["name"]]
+    total = math.radians(degrees)
+
+    def about_pivot(theta):
+        return (Matrix.Translation(pivot) @ Matrix.Rotation(theta, 4, axis)
+                @ Matrix.Translation(-pivot))
+
+    # the stepping foot is in the air over [A, B] of the clip; the turn runs inside that
+    A, B = 0.12, 0.88
+
+    def step_u(t):
+        return max(0.0, min(1.0, (t - A) / (B - A)))
+
+    def travel(u):
+        return motion.smoothstep(max(0.0, min(1.0, (u - 0.12) / 0.76)))
+
+    L_leg = P.leg_len
+    start = outside["rest_eff"] + shifts[outside["name"]]
+    end = about_pivot(total) @ start
+    hip_half = 0.5 * abs(side_of[inside["name"]] - side_of[outside["name"]])
+    lean_side = 1.0 if side_of[inside["name"]] > 0.0 else -1.0
+
+    params = upper_mod.resolve(P, upper, upper_mod.idle_defaults())
+    stance = {l["name"]: {"target": (lambda p, limb, posed, s=shifts[l["name"]]: limb["rest_eff"] + s)}
+              for l in P.legs}
+    U = upper_mod.Upper(P, params, posture=posture, stance=stance) if params and P.arms else None
+
+    def key_at(t):
+        u = step_u(t)
+        theta = total * travel(u)
+        inv = about_pivot(theta).inverted()
+        # the foot's path over the floor, carried into the turning body's frame
+        world = start.lerp(end, travel(u)) + up_v * (lift * L_leg * math.sin(math.pi * u))
+        limbs = dict(stance)
+        limbs[outside["name"]] = {"target": (lambda p, limb, posed, g=inv @ world: g),
+                                  "planted": 1.0}
+        if U is not None:
+            limbs.update(U.idle_key(0.0))
+        lean = math.sin(math.pi * min(1.0, max(0.0, (t - 0.02) / 0.96)))
+        return kp.Key(limbs=limbs, sway=shift * 2.0 * hip_half * lean * lean_side,
+                      drop=0.01 * L_leg * lean, posture=posture, head_level=0.5), theta
+
+    def sample(t):
+        key, theta = key_at(t)
+        posed, infos = P.pose(key)
+        M = about_pivot(theta)
+        return {n: M @ m for n, m in posed.items()}, infos
+
+    def check(keyed, ev, infos_by_frame):
+        return _check_common(body, bm, keyed, ev, infos_by_frame, planted=[],
+                             posed_limbs=P.legs, rest_floor=floor, starts_at_rest=False,
+                             skid=True)
+
+    keyed, infos, action, report = upper_mod.author_clear(
+        U, rig_name, bm, lambda smp: _author_samples(body, rig, action_name, smp, fps, check),
+        lambda: [sample((f - 1) / float(frames)) for f in range(1, frames + 2)])
+    if "error" in report:
+        return report
+    origin_end = about_pivot(total) @ Vector((0.0, 0.0, 0.0))
+    scale = sum(rig.matrix_world.to_scale()) / 3.0
+    report.update({"rig": rig_name, "action": action.name, "frames": [1, frames + 1],
+                   "fps": bpy.context.scene.render.fps, "stance_width": stance_width,
+                   "posture": dict(posture) if posture else None,
+                   "upper": U.report() if U is not None else None,
+                   "turn": {"yaw_deg": round(yaw_sign * degrees, 3),
+                            "pivot_leg": inside["name"],
+                            "pivot_m": [round(x * scale, 4) for x in pivot],
+                            "end_offset_m": [round(x * scale, 4) for x in origin_end]}})
+    return report
+
+
 RUN_GAIT = {2: "walk", 4: "trot", 6: "tripod"}
 
 
 def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
              roles=("Idle", "Walk", "Trot", "Run", "Crouch", "CrouchWalk", "Jump",
                     "Slide", "SlideRecover", "SlideToCrouch"),
+             # also known, not made unless asked: "TurnL", "TurnR" (`turn`)
              walk_froude="walk", trot_froude="trot", run_froude="sprint",
              legacy_gaits=False, options=None):
     """Author a playable move set for one creature. Returns {role: report}.
@@ -1135,6 +1272,8 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
         "CrouchWalk": (gait_cycle, dict(depth=0.6, tail_swing=6.0,
                                         action_name=name("CrouchWalk"))),
         "Jump": (jump, dict(action_name=name("Jump"))),
+        "TurnL": (turn, dict(direction="L", action_name=name("TurnL"))),
+        "TurnR": (turn, dict(direction="R", action_name=name("TurnR"))),
         "Slide": (slide, dict(action_name=name("Slide"))),
         "SlideRecover": (slide_recover, dict(to="stand", action_name=name("SlideRecover"),
                                              slide_clip=name("Slide"),
@@ -1150,7 +1289,14 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
         makers["Trot"] = (locomotion.cycle, dict(froude=trot_froude, action_name=name("Trot")))
     else:
         roles = [r for r in roles if r != "Trot"]
-    options = options or {}
+    options = dict(options or {})
+    # A turn starts and ends standing as the idle stands, so it takes the
+    # idle's stance, posture and style unless given its own.
+    for t in ("TurnL", "TurnR"):
+        held = {k: v for k, v in options.get("Idle", {}).items()
+                if k in ("stance_width", "posture", "style")}
+        if held:
+            options[t] = dict(held, **options.get(t, {}))
     unknown = set(options) - set(makers)
     if unknown:
         return {"error": "options for unknown roles: " + ", ".join(sorted(unknown))}
