@@ -208,7 +208,7 @@ pins, precision 6) passed at rest, `move=1.5,0,0` and `bend=spine,x,30`: stretch
 ## Limits
 
 - Godot cloth cannot bend-resist: leather and canvas differ from cotton in mass and
-  damping only. For stiff cloth that must hold a shape, use bones (strands, not built).
+  damping only. For stiff cloth that must hold a shape, use bones (strand chains build ponytails and hair - `references/strands.md`; not yet straps).
 - No self-collision and no cloth-on-cloth under Jolt: layered garments pass through.
 - The render mesh is the sim mesh. Keep cloth under a few thousand vertices; there is
   no proxy yet.

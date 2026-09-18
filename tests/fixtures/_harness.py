@@ -7,9 +7,10 @@ It builds something from nothing - no .blend, no stored asset - and writes
 runs them and compares against `tests/golden/`.
 
 Which plugin checkout is exercised comes from the environment (RA_SCRIPTS, HF_SCRIPTS,
-FT_SCRIPTS, WD_SCRIPTS - the names `grungist-creek`'s build scripts already use), so the
-same fixture can be run against a worktree without editing it. Unset, they point at this
-repo's own plugins/.
+FT_SCRIPTS, WD_SCRIPTS, CP_SCRIPTS, LD_SCRIPTS - the names `grungist-creek`'s build scripts
+already use), so the same fixture can be run against a worktree without editing it. Unset,
+they point at this repo's own plugins/. Every plugin a fixture passes to `use` has its
+version recorded in the report, so a golden says which checkouts produced its numbers.
 
 A fixture must be deterministic: seed every generator, never read the user's humanform
 library (the harness points HUMANFORM_LIBRARY at a scratch folder), and report no
@@ -23,12 +24,17 @@ import traceback
 
 REPO = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 PLUGINS = {"RA_SCRIPTS": "rig-anything", "HF_SCRIPTS": "humanform",
-           "FT_SCRIPTS": "follow-through", "WD_SCRIPTS": "wardrobe", "CP_SCRIPTS": "character-pipeline"}
+           "FT_SCRIPTS": "follow-through", "WD_SCRIPTS": "wardrobe", "CP_SCRIPTS": "character-pipeline",
+           "LD_SCRIPTS": "lookdev"}
+# The folder under a plugin that holds its importable packages: `scripts` for all but lookdev, whose
+# Blender package is `blender/`. Must agree with tools/regress.py's PACKAGE_DIR, which routes --plugins.
+PACKAGE_DIR = {"lookdev": "blender"}
 
 
 def scripts(var):
     """The scripts folder for one plugin: the environment's, or this repo's."""
-    return os.environ.get(var) or os.path.join(REPO, "plugins", PLUGINS[var], "scripts")
+    plugin = PLUGINS[var]
+    return os.environ.get(var) or os.path.join(REPO, "plugins", plugin, PACKAGE_DIR.get(plugin, "scripts"))
 
 
 USED = {}
@@ -103,6 +109,29 @@ def moves_manifest(result):
     return stable({"fields": sorted(m), "clips": m["clips"], "loops": m["loops"],
                    "height_m": m["height_m"], "gaits": m["gaits"], "collider": m["collider"],
                    "dropped_clips": sorted(m.get("dropped_clips", {})), "problems": result["problems"]})
+
+
+def review_sheet(review):
+    """What an export's review sheet (rig-anything `review.summary`) put on disk, as a golden holds it: the
+    png names in its folder, whether they match the count it reported, the `.gdignore` in `review/`, the
+    scale, cell and image sizes, the bands above and below the cell (grown from the evaluated poses, so a
+    clip that goes through the floor records the room it needed), the frames drawn, and per strip how many
+    cells show a body, how many show different poses, how many touch an edge of the strip, and whether its
+    frames were centred. Pixels are not hashed: the sheet is for eyes, and a driver update is not a
+    regression."""
+    if not review:
+        return {"missing": True}
+    if "error" in review:
+        return {"error": review["error"]}
+    d = review["dir"]
+    pngs = sorted(f for f in os.listdir(d) if f.endswith(".png")) if os.path.isdir(d) else []
+    return stable({"pngs": pngs, "on_disk_matches_count": len(pngs) == review["count"],
+                   "gdignore": os.path.isfile(os.path.join(os.path.dirname(d), ".gdignore")),
+                   "review_json": os.path.isfile(os.path.join(d, "review.json")),
+                   "frame_height_m": review["frame_height_m"], "cell_px": review["cell_px"],
+                   "bands_px": review["bands_px"],
+                   "contact_px": review.get("contact_px"), "views": review["views"],
+                   "frames": review["frames"], "strips": review["strips"]}, max_list=40)
 
 
 def face_order(obj):

@@ -13,12 +13,18 @@ extends RefCounted
 ##   soft_body       cloth_body.gd        a SoftBody3D sheet pinned to what holds it
 ##   shape_matching  shape_match_body.gd  a volume on a lattice: jello, slime, clay, a balloon
 ##   jiggle_bones    jiggle_modifier.gd   sprung bones on a skeleton: breasts, bellies, buttocks
-## `spring_bones` and `none` are reported and skipped.
+##   spring_bones    strand_modifier.gd   sprung bone chains: ponytails, locks of long hair
+## `none`, and a `spring_bones` strap (no `strands` block), are reported and skipped.
+##
+## Strands usually come in their own glb, exported from the body's rig; put them on the body first:
+##   FollowThrough.attach(body_root, preload("res://assets/figure_hair.glb"))
+##   FollowThrough.apply(body_root, {"routes": ["spring_bones"]})
 
 const SCHEMA := "follow-through/1"
 const ClothBody := preload("res://addons/follow_through/cloth_body.gd")
 const ShapeMatchBody := preload("res://addons/follow_through/shape_match_body.gd")
 const JiggleModifier := preload("res://addons/follow_through/jiggle_modifier.gd")
+const StrandModifier := preload("res://addons/follow_through/strand_modifier.gd")
 
 
 ## The spec on a node, or an empty Dictionary.
@@ -62,6 +68,18 @@ static func validate(spec: Dictionary) -> PackedStringArray:
 				for k in ["name", "bone", "parent", "head", "tail", "frequency_hz", "damping_ratio"]:
 					if not r.has(k):
 						p.append("jiggle region %s missing %s" % [r.get("name", "?"), k])
+		"spring_bones":
+			if spec.get("class", "") == "strand":
+				var blk: Dictionary = spec.get("strands", {})
+				if blk.get("space", "") != "gltf_armature":
+					p.append("strands.space must be gltf_armature")
+				if blk.get("chains", []).is_empty():
+					p.append("strands.chains is empty")
+				for c in blk.get("chains", []):
+					for b in c.get("bones", []):
+						for k in ["bone", "parent", "head", "tail", "frequency_hz", "damping_ratio", "max_angle_deg"]:
+							if not b.has(k):
+								p.append("strand bone %s missing %s" % [b.get("bone", "?"), k])
 	if spec.has("pins"):
 		var pins: Dictionary = spec["pins"]
 		if pins.get("space", "") != "gltf_mesh":
@@ -120,6 +138,9 @@ static func apply(root: Node, options := {}) -> Array[Dictionary]:
 					body = ShapeMatchBody.build(node, spec, options)
 				"jiggle_bones":
 					body = JiggleModifier.build(node, spec, options)
+				"spring_bones":
+					if spec.has("strands"):
+						body = StrandModifier.build(node, spec, options)
 			if body == null:
 				rep["built"] = false
 				rep["problems"] = PackedStringArray(["route %s is not built by this runtime" % route])
@@ -128,4 +149,79 @@ static func apply(root: Node, options := {}) -> Array[Dictionary]:
 				rep["built"] = rep.get("built", true)
 				rep["body"] = body
 		reports.append(rep)
+	return reports
+
+## Put the strand meshes of `strands` (a PackedScene or an instance: a glb exported by
+## follow-through's strand.export from the body's rig) onto the body's skeleton under `body_root`.
+## Bones the body lacks are added from the strand file's skeleton, parents first; each mesh moves
+## under the body's Skeleton3D and binds to it by bone name. Then `apply(body_root)` springs them.
+## Returns one report per strand mesh: {mesh, bones_added, problems}.
+static func attach(body_root: Node, strands) -> Array[Dictionary]:
+	var reports: Array[Dictionary] = []
+	var inst: Node = strands.instantiate() if strands is PackedScene else strands
+	var meshes: Array = []
+	for n in inst.find_children("*", "MeshInstance3D", true, false):
+		var s := spec_of(n)
+		if not s.is_empty() and String(s.get("route", "")) == "spring_bones":
+			meshes.append(n)
+	if meshes.is_empty():
+		reports.append({"built": false, "problems": PackedStringArray(["no strand mesh in " + String(inst.name)])})
+	for gm in meshes:
+		var s := spec_of(gm)
+		var problems := PackedStringArray()
+		var root_bone := ""
+		for c in s.get("strands", {}).get("chains", []):
+			root_bone = String(c.get("root_bone", ""))
+		var skel: Skeleton3D = null
+		var body_mesh: MeshInstance3D = null
+		for sk in body_root.find_children("*", "Skeleton3D", true, false):
+			if root_bone == "" or sk.find_bone(root_bone) >= 0 or sk.find_bone(root_bone.replace(".", "_")) >= 0:
+				skel = sk
+				break
+		var gskel := gm.get_node_or_null(gm.skeleton) as Skeleton3D
+		if skel == null or gskel == null:
+			problems.append("no skeleton with %s under %s" % [root_bone, body_root.name] if skel == null
+				else "the strand mesh has no skeleton")
+			reports.append({"mesh": gm, "built": false, "problems": problems})
+			continue
+		for c in skel.get_children():
+			if c is MeshInstance3D and c.skin != null and spec_of(c).get("route", "") != "spring_bones":
+				body_mesh = c
+				break
+		var added := 0
+		var pending := range(gskel.get_bone_count())
+		var guard := 0
+		while not pending.is_empty() and guard < 64:
+			guard += 1
+			var still := []
+			for i in pending:
+				var bname := gskel.get_bone_name(i)
+				if skel.find_bone(bname) >= 0:
+					continue
+				var gp := gskel.get_bone_parent(i)
+				var bp := skel.find_bone(gskel.get_bone_name(gp)) if gp >= 0 else -1
+				if gp >= 0 and bp < 0:
+					still.append(i)
+					continue
+				var idx := skel.add_bone(bname)
+				skel.set_bone_parent(idx, bp)
+				skel.set_bone_rest(idx, gskel.get_bone_rest(i))
+				skel.reset_bone_pose(idx)
+				added += 1
+			pending = still
+		gm.get_parent().remove_child(gm)
+		gm.owner = null
+		skel.add_child(gm)
+		gm.transform = body_mesh.transform if body_mesh != null else Transform3D.IDENTITY
+		gm.skeleton = gm.get_path_to(skel)
+		var missing := 0
+		for b in gm.skin.get_bind_count():
+			if skel.find_bone(gm.skin.get_bind_name(b)) < 0:
+				missing += 1
+		if missing > 0:
+			problems.append("%d skin binds name bones the body does not have" % missing)
+		reports.append({"mesh": gm, "built": problems.is_empty(), "bones_added": added, "problems": problems})
+	if inst.get_parent() != null:
+		inst.get_parent().remove_child(inst)
+	inst.queue_free()
 	return reports

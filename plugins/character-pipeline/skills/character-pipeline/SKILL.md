@@ -56,9 +56,9 @@ clearance_check = ["Crouch", "CrouchWalk", "Jump"]
 max_drop = 0.07
 upper = { lean = 9.0, arm_swing = 25.0, elbow = 85.0 }
 
-[hair]                             # until there is a hair plugin (improvements 05 5.2)
-kind = "shell_bun"
-back = 0.185
+[hair]                             # humanform's hair layer: the brief's hair = {preset, colour}
+preset = "bun"                     # short_crop, bob, bun, ponytail, long_loose
+colour = [0.17, 0.10, 0.06]        # screen (sRGB)
 
 [flesh]                            # follow-through; limit shares come from the type registry
 types = ["breast", "butt"]
@@ -91,11 +91,28 @@ that no plugin owns yet. Tuned numbers live with their owners, and a spec only n
 |---|---|---|
 | `body` | - | a `blend` source's object is in the open file |
 | `bake` | body | the rig and the humanform mesh exist |
-| `hair` | bake | baked; no garment bound |
+| `hair` | bake | baked; no garment bound; **no hair in the file already**. Runs humanform's `hair.add` and joins the hair (and a strand, after checking its follow-through contract) into the body |
 | `flesh` | bake, hair | baked; no garment bound - cut first, a garment carries no jiggle weights |
 | `moves` | bake, hair, flesh | baked; no garment bound - rig-anything measures arm hang against every mesh on the rig |
 | `garments` | moves, flesh | every role has a stored clip; jiggle bones present if the spec has flesh |
 | `export` | moves, garments | every role has a stored clip; an outfit is bound if the spec has one |
+| `review` | export | the glb and every role's clip exist |
+
+**`review`** writes rig-anything's review sheet of the character as the game shows it - the body with
+its hair and every garment bound to the rig, garments in their own colours - to `<export dir>/review/<id>/`: `<clip>_<view>.png`
+strips of 8 frames from the front, right and three-quarter views, `contact.png` and `review.json`, with
+a `.gdignore` in `review/`. A person is framed 2.1 m tall like everyone else. The export stage passes
+`review=False` to rig-anything, so the sheet is rendered once, dressed. It raises if a strip has a cell
+with no body, or a cell whose body reaches an edge of the picture (`edge_cells`): sideways the pose
+would sit in the next frame's cell, and at the bottom or the top the frame has cut it off, which is
+exactly what the sheet exists to show. It is on unless the spec says so, and its hash covers only
+`[review]`:
+
+```toml
+[review]                           # optional
+enabled = true                     # false: no review stage
+frame_height_m = 2.1               # default: 2.1 m upright, a size rung for a creature
+```
 
 Each stage that runs stores an input hash and its report in a Text datablock,
 `character_pipeline:<id>`. A text saves with the .blend and never reaches a glb. The hash covers the
@@ -125,6 +142,25 @@ What the stages write that is the pipeline's own convention rather than a plugin
   to be rerun, rather than falling back to the mesh top.
 - **The manifest has no `upper_body`.** The clips' upper-body parameters are in the move reports
   stored on the actions; nothing in Godot read the copy.
+- **Hair goes on once.** It is joined into the body, because rig-anything exports one mesh, and a join
+  cannot be undone - so the stage refuses when the body already has hair (`stages.haired`, humanform's
+  `views.hair_objects`: a hair material on a slot, or a loose `humanform_hair` object). **To change
+  `[hair]`, rebuild from `body`**, the one stage that clears the character out of the file:
+  `runner.build(spec, from_stage="body")`. Rerunning hair alone used to stack a second layer on the
+  first - the old bun stayed in the mesh, and humanform's landmarks read the previous cap (weighted 1.0
+  to the head bone) as scalp, so the crown rose 7.8 mm and the head unit `h` grew 6.8%, moving the whole
+  hairline. On a rebuild where only `[hair]` changed, bake's hash is unchanged and bake is skipped, so
+  nothing else stood in the way.
+- **The strand contract survives the join.** For ponytail and long_loose the strand object's
+  follow-through contract (humanform SKILL.md, *Hair*) is checked before the join and reported as
+  `strand_contract`; its `ft_strand` vertex group and fallback weights survive it. The hair material
+  comes from lookdev (`LD_SCRIPTS`, else the installed `lookdev/blender`); in Godot call
+  `LookdevMaterials.apply` on the instanced character (soft hairline, anisotropy, per-face hair tangents).
+  **lookdev is optional**: `plugins.use()` imports it only if its folder is there (hair then gets a flat
+  material), and its version is in the input hash of the hair stage only, and only for a preset spec
+  (`plugins.stage_versions`) - a lookdev release never invalidates a body, bake, flesh, moves, garments or
+  export record, nor a shell_bun build's hair. `kind = "shell_bun"` (the old scalp shell and sphere
+  bun, with its own numbers) still builds but is deprecated (`spec.DEPRECATED`) - replace it with a preset.
 - **The body stage reports `stature`** in metres, read from where humanform's `pipeline.make` has it:
   the fit's `stature` residual row, `fit.aged.stature` or `fit.stature` (aged and child bodies), or
   measured with `scaffold.stature` for a body reused from the library.

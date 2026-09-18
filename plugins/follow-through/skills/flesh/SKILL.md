@@ -109,7 +109,8 @@ it stands out, the skin passes into the chest) and `butt` 0.9 (the 6.9 cm swing 
 settled on Belle, now that her seat reads 7.8 cm out, not 3.7); each type's `limit_note` says why.
 A type without one uses its material's `max_offset x 2 x peak_m`. Override per call with
 `overrides={"butt": {"limit_share": 1.6}}`, afterwards with `set_params(..., max_offset_m=...)`,
-or give a taught type one with `registry.define(..., limit_share=, limit_note=)`.
+or give a taught type one with `registry.define(..., limit_share=, limit_note=)`. Then measure them
+in Godot and let `flesh.suggest_limits` set them (under Godot, below).
 
 **5. Export with the animation - through rig-anything**, which carries extras since this
 release, then read it back:
@@ -154,6 +155,51 @@ godot --headless --path <project> -s res://addons/follow_through/verify_volume.g
 | `frequency_ok` | 20% of the damped frequency (damping < 0.5) | the spring is not what the material asks |
 | `settled` | under 10% of the kick within 5 time constants | too little damping, or feedback |
 | `within_limit` | max_offset_m while the clip plays | the swing is clamped - raise it or damping |
+
+**Set the swing limits from Godot, not by guessing.** Drive the body round a fixed course and
+measure each region's time on its limit:
+
+```bash
+godot --headless --fixed-fps 60 --path <project> -s res://addons/follow_through/verify_flesh.gd -- \
+    scene=res://assets/bloater.glb response=1.5 out=C:/scratch/bloater_limits.json
+```
+
+The course walks, stops, turns, runs and jumps. The verifier prints one `FT_FLESH_LIMITS {json}` line
+per body and fails a region on its limit 10% of the time or more. Then, in Blender:
+
+```python
+s = flesh.suggest_limits(r"C:/scratch/bloater_limits.json")   # or the log text, or the parsed dicts
+print(limits.summarize(s))                                     # from follow_through import limits
+flesh.apply_limits("Bloater", s)                               # writes max_offset_m into the spec; export again
+```
+
+How it works:
+- Each region carries a **ladder**: its time on the limit measured on shadow springs given 33 other
+  limits, from a quarter to four times its own. The flesh never feeds its load, so a rung is what the
+  region will do with that limit. The rungs are one grid for every region (1 cm x 2^(k/8)), so a
+  left and right side are measured on the same limits.
+- A region outside the **band, 3-9% of ticks on the limit**, gets the measured rung nearest 6%. It lands
+  there when applied: the Figure settled in one run and the Bloater in two (its love handles started
+  at 21 cm, past the ladder), every region a limit could fix. The rest are `capped`, below.
+- `.L`/`.R` pairs share a limit, chosen only on rungs measured on both sides. A report made before
+  the grid gets `interpolated` pair rows: apply them and run again.
+- **No limit is ever raised past what the mass stands out of the body** - the bone's tip moves by the
+  whole offset, so a larger one puts the skin inside. Every flesh type has a `limit_max_share`
+  (`breast` 0.66, `butt` 0.9, the rest 1.0), and a type without one is capped at 1.0. Over the cap,
+  the limit is tightened onto the loosest measured rung inside it when that still keeps the region
+  out of the band's top; when nothing can do both, the row is `capped`, the limit is left alone, and
+  it names what to change instead - `response`, `gravity_scale`, `frequency_hz`, `damping_ratio`. A
+  region smaller than g/(2 pi f)^2 (3.4 cm at `soft_fat`'s 2.7 Hz) hangs off its limit whatever the
+  body does, and the row says so.
+- `verify_flesh.gd` also fails a region whose peak offset passed its own stand-out (`within_body`).
+- The band is Belle's: her self-test fails at 10%, and her eye-approved regions sit at 7.5-9% there and
+  4.4-4.9% on this course (`references/flesh.md` "Swing limits from Godot").
+- Tune at the `response` the game plays at.
+- A game's own self-test can report the same thing: call `jiggle.measure_limits()` when its script
+  starts and `jiggle.print_limit_report("Belle")` when it ends. **Both, or neither.** Without
+  `measure_limits()` the report has no regions, and the line says so: `problems`,
+  `regions_measured: 0`, and `suggest_limits` comes back with `in_band` and `settled` false and
+  refuses to apply. A run that measured nothing is not a run that passed.
 
 ## Rules
 

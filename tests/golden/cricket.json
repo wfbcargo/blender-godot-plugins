@@ -1,7 +1,7 @@
 {
  "fixture": "cricket",
  "plugins": {
-  "rig-anything": "0.19.0"
+  "rig-anything": "0.22.0"
  },
  "report": {
   "detection": {
@@ -123,8 +123,246 @@
     "CricketTest_rig_JumpAir",
     "CricketTest_rig_JumpLand"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-mca57t6t\\a\\cricket\\cricket\\cricket.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-mca57t6t\\a\\cricket\\cricket\\cricket.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\cricket\\cricket\\cricket.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\cricket\\cricket\\cricket.moves.json",
+   "review": {
+    "bands_px": [
+     45,
+     0,
+     58
+    ],
+    "cell_px": [
+     294,
+     320
+    ],
+    "contact_px": [
+     3544,
+     1079
+    ],
+    "count": 16,
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\cricket\\cricket\\review\\cricket",
+    "frame_height_m": 0.05,
+    "frames": {
+     "CricketTest_rig_Idle": [
+      1,
+      7,
+      13,
+      19,
+      25,
+      31,
+      37,
+      43
+     ],
+     "CricketTest_rig_JumpAir": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+     ],
+     "CricketTest_rig_JumpLand": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+     ],
+     "CricketTest_rig_JumpLaunch": [
+      1,
+      2,
+      4,
+      5,
+      6,
+      7,
+      9,
+      10
+     ],
+     "CricketTest_rig_Walk": [
+      1,
+      5,
+      9,
+      13,
+      17,
+      21,
+      25,
+      29
+     ]
+    },
+    "seconds": 7.22,
+    "strips": {
+     "CricketTest_rig_Idle": {
+      "front": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 5,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      },
+      "right": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      },
+      "three_quarter_above": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      }
+     },
+     "CricketTest_rig_JumpAir": {
+      "front": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      },
+      "right": {
+       "cells_with_body": 8,
+       "centred": true,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      },
+      "three_quarter_above": {
+       "cells_with_body": 8,
+       "centred": true,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      }
+     },
+     "CricketTest_rig_JumpLand": {
+      "front": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      },
+      "right": {
+       "cells_with_body": 8,
+       "centred": true,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      },
+      "three_quarter_above": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      }
+     },
+     "CricketTest_rig_JumpLaunch": {
+      "front": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 5,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      },
+      "right": {
+       "cells_with_body": 8,
+       "centred": true,
+       "distinct_cells": 5,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      },
+      "three_quarter_above": {
+       "cells_with_body": 8,
+       "centred": true,
+       "distinct_cells": 5,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      }
+     },
+     "CricketTest_rig_Walk": {
+      "front": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      },
+      "right": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      },
+      "three_quarter_above": {
+       "cells_with_body": 8,
+       "centred": false,
+       "distinct_cells": 8,
+       "edge_cells": 0,
+       "size_px": [
+        2352,
+        423
+       ]
+      }
+     }
+    },
+    "views": [
+     "front",
+     "right",
+     "three_quarter_above"
+    ]
+   },
    "verified": {
     "durations_match": true,
     "mismatches": []
@@ -1061,6 +1299,262 @@
     "tolerance": 0.00014,
     "upper": null
    }
+  },
+  "review": {
+   "bands_px": [
+    45,
+    0,
+    58
+   ],
+   "cell_px": [
+    294,
+    320
+   ],
+   "contact_px": [
+    3544,
+    1079
+   ],
+   "frame_height_m": 0.05,
+   "frames": {
+    "CricketTest_rig_Idle": [
+     1,
+     7,
+     13,
+     19,
+     25,
+     31,
+     37,
+     43
+    ],
+    "CricketTest_rig_JumpAir": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "CricketTest_rig_JumpLand": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "CricketTest_rig_JumpLaunch": [
+     1,
+     2,
+     4,
+     5,
+     6,
+     7,
+     9,
+     10
+    ],
+    "CricketTest_rig_Walk": [
+     1,
+     5,
+     9,
+     13,
+     17,
+     21,
+     25,
+     29
+    ]
+   },
+   "gdignore": true,
+   "on_disk_matches_count": true,
+   "pngs": [
+    "CricketTest_rig_Idle_front.png",
+    "CricketTest_rig_Idle_right.png",
+    "CricketTest_rig_Idle_three_quarter_above.png",
+    "CricketTest_rig_JumpAir_front.png",
+    "CricketTest_rig_JumpAir_right.png",
+    "CricketTest_rig_JumpAir_three_quarter_above.png",
+    "CricketTest_rig_JumpLand_front.png",
+    "CricketTest_rig_JumpLand_right.png",
+    "CricketTest_rig_JumpLand_three_quarter_above.png",
+    "CricketTest_rig_JumpLaunch_front.png",
+    "CricketTest_rig_JumpLaunch_right.png",
+    "CricketTest_rig_JumpLaunch_three_quarter_above.png",
+    "CricketTest_rig_Walk_front.png",
+    "CricketTest_rig_Walk_right.png",
+    "CricketTest_rig_Walk_three_quarter_above.png",
+    "contact.png"
+   ],
+   "review_json": true,
+   "strips": {
+    "CricketTest_rig_Idle": {
+     "front": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 5,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     },
+     "right": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     },
+     "three_quarter_above": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     }
+    },
+    "CricketTest_rig_JumpAir": {
+     "front": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     },
+     "right": {
+      "cells_with_body": 8,
+      "centred": true,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     },
+     "three_quarter_above": {
+      "cells_with_body": 8,
+      "centred": true,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     }
+    },
+    "CricketTest_rig_JumpLand": {
+     "front": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     },
+     "right": {
+      "cells_with_body": 8,
+      "centred": true,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     },
+     "three_quarter_above": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     }
+    },
+    "CricketTest_rig_JumpLaunch": {
+     "front": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 5,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     },
+     "right": {
+      "cells_with_body": 8,
+      "centred": true,
+      "distinct_cells": 5,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     },
+     "three_quarter_above": {
+      "cells_with_body": 8,
+      "centred": true,
+      "distinct_cells": 5,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     }
+    },
+    "CricketTest_rig_Walk": {
+     "front": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     },
+     "right": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     },
+     "three_quarter_above": {
+      "cells_with_body": 8,
+      "centred": false,
+      "distinct_cells": 8,
+      "edge_cells": 0,
+      "size_px": [
+       2352,
+       423
+      ]
+     }
+    }
+   },
+   "views": [
+    "front",
+    "right",
+    "three_quarter_above"
+   ]
   },
   "rig": {
    "bones": 27

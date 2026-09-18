@@ -46,11 +46,38 @@ import sys
 P = r"<skill>/blender"
 if P not in sys.path: sys.path.insert(0, P)
 import lookdev_blender; lookdev_blender.reload_all()
-from lookdev_blender import material_lint, bake, export, reference
+from lookdev_blender import material_lint, bake, export, reference, detail
 print(material_lint.summarize(material_lint.lint()))          # selected meshes, or all
 print(bake.summarize(bake.bake_object("Crate", r"C:/proj/assets/crate_tex", size=2048)))
 print(export.summarize(export.export_gltf(r"C:/proj/assets/crate.glb", ["Crate_baked"])))
+# detail that is geometry on a high copy (humanform muscle definition) -> normal map on the game mesh
+print(detail.summarize(detail.bake_normal_from_high("Dante_body", "Dante_high", r"C:/proj/assets/dante_tex",
+                                                    size=2048, material="Dante_skin")))
 ```
+
+`detail.bake_normal_from_high` keeps the low mesh's materials and adds a tangent Normal Map in front of the
+named material's Principled Normal (so glTF writes normalTexture); `material=` bakes only that material's
+faces (joined eyes overlap the skin's UVs). A re-bake takes over the earlier image (its users are remapped)
+and re-points the nodes, and the scene's engine and Cycles device, samples and denoising are restored.
+
+- `method="auto"` picks **matched** when the high mesh is the low mesh's own topology (humanform's
+  `delta.high_copy`): no rays - each corner gets the high vertex normal in the low corner's MikkTSpace frame,
+  and an EMIT bake fills the map. Otherwise **rays** (selected-to-active), where `clean=True` also bakes the low
+  mesh against a copy of itself and flattens texels that bend there (nails, eyelids, ears: 166 degrees without
+  it). On Dante the ray bake still left hot spots at the armpit and hip UV borders and hard-edged flattened
+  patches that rendered as dark streaks on the arms and flanks; the matched bake has neither.
+- **Judged over the faces being baked, i.e. `material`'s.** A finished character's game mesh is the body with
+  its eyes joined in (character-pipeline's bake stage) while the high copy is the body alone, so whole-mesh
+  counts differ - 14402 faces against 13378 - and `auto` used to drop to rays on the exact case the matched
+  bake was written for, with nothing but the returned `method` to say so. `detail.matched(low, high,
+  material)` and `detail.reason(...)` compare that material's faces instead; on Dante's joined mesh the
+  matched map then comes out identical to the body-only one, while the ray bake of the same mesh has to
+  flatten 8373 texels against 24. A fallback now puts its reason in `warnings`, and `method="matched"`
+  returns an error naming what does not line up rather than baking something else.
+- `max_deg=60`: texels bent more are flattened (7 of 262k on the fixture's 512 px map).
+- Earlier bakes' normal maps are unlinked from the materials during the bake: the high copy shares the low
+  mesh's material, and a wired map was being baked in again (a re-bake came out flat).
+- `stats` says how much of the map bends (>1 and >5 degrees), so a bake that found nothing shows.
 
 ## Workflow: fixed stages, each with a gate
 
@@ -113,6 +140,29 @@ Read `references/judging.md` before choosing between variants. The short form:
 - **Say what you see, in the image's terms:** "the shadow side of the grey ball
   is nearly as bright as the lit side", not "lighting could be improved".
 
+## Material presets: hair
+
+`presets/materials.json` holds material presets: what a Blender material is built from, and what Godot has
+to add back after glTF drops it. The first is **hair**, which humanform's hair layer uses.
+
+```python
+from lookdev_blender import hair
+mat, rep = hair.material("Belle_hair", colour=(0.17, 0.10, 0.06), uv_map="UVMap")   # sRGB colour
+```
+
+```gdscript
+var scene = load("res://assets/belle/belle.glb").instantiate()
+LookdevMaterials.apply(scene)    # godot/addons/lookdev/lookdev_materials.gd - copy the addon into the project
+```
+
+Strand texture with a root-to-tip gradient and alpha that fades toward the roots and thins at the tips
+(glTF MASK), a strand normal map, Principled anisotropy in Blender, and a `lookdev` custom property that glTF
+carries as material extras and `LookdevMaterials.apply` turns into StandardMaterial3D anisotropy, backlight,
+rim, specular and a depth pre-pass blend (so the hairline fades instead of cutting), and tangents from U on
+the hair's surfaces - per face, then averaged mod 180 degrees where faces meet, so the anisotropic highlight
+neither glints where a shell's UV frame turns nor facets into dark polygons where it turns fast, with no need
+for the exporter to write tangents. See `references/hair.md`.
+
 ## Godot facts that bite (all verified in 4.7.2)
 
 - **`ambient_light_energy` does nothing for sky ambient** while
@@ -128,7 +178,9 @@ Read `references/judging.md` before choosing between variants. The short form:
   it isn't.
 - **glTF import:** every material becomes StandardMaterial3D; ORM image in
   metallic (B) and roughness (G), AO from R. Clearcoat, sheen, transmission,
-  specular, IOR, volume, anisotropy are **dropped**.
+  specular, IOR, volume, anisotropy are **dropped**. Material custom properties
+  are kept, as the material's `extras` metadata - which is how material presets
+  put them back.
 - **Physical light units:** Godot's exposure lands about one stop darker than
   Sunny-16 arithmetic; the presets' physical values already account for it.
 

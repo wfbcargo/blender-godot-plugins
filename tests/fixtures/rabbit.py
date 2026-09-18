@@ -106,6 +106,7 @@ def build():
         "skin": H.stable(skinned),
         "moves": {role: H.stable(report) for role, report in moves.items()},
         "export": H.stable(exported),
+        "review": H.review_sheet(exported.get("review")),
         "manifest": H.stable(manifest),
         "fresh_session": (fresh_session(ob.name, rig, out, manifest_path) if os.path.isfile(manifest_path)
                           else {"manifest_equal": False, "error": "the first export wrote no manifest"}),

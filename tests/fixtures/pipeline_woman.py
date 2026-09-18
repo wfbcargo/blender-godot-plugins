@@ -151,6 +151,8 @@ def build():
                             "jiggle_groups": g.get("jiggle_groups")} for name, g in garments.items()},
         "manifest": H.moves_manifest({"manifest": manifest, "problems": first["export"]["report"].get("problems")}),
         "fresh_session": fresh,
+        "review": H.review_sheet(first["review"]["report"]),
+        "review_meshes": first["review"]["report"]["meshes"],
     }
 
 

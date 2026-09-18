@@ -25,13 +25,18 @@ that belong to a plugin.
     [moves.per_gait.Walk]        # anything move_set takes per role, over the style
     max_drop = 0.035
 
-    [hair]                       # optional
-    kind = "shell_bun"
+    [hair]                       # optional: humanform's hair layer (the brief's `hair`)
+    preset = "bun"               # short_crop, bob, bun, ponytail, long_loose
+    colour = [0.17, 0.10, 0.06]  # a screen (sRGB) colour
     [flesh]                      # optional: follow-through
     types = ["breast", "butt"]
     [[flesh.zones]]              # optional: marked on the flesh sheet when the measure is wrong
     [[outfit]]                   # optional: wardrobe presets, innermost first
     preset = "sports_top"
+
+    [review]                     # optional: the review sheet written after export (default on)
+    enabled = true
+    frame_height_m = 2.1         # default: 2.1 m for an upright body, a size rung for a creature
 
     [export]
     dir = "assets/belle"         # under the project
@@ -55,12 +60,18 @@ SCHEMA = "character-pipeline/1"
 
 # Fields a spec may carry that no plugin owns yet, and where they live until one does.
 GAPS = {
-    "hair": "no hair plugin (improvements 05 5.2): the pipeline's own shell_bun builder takes the params",
     "flesh.zones": "only needed while flesh reads some masses wrong (05 5.9): marked on the flesh sheet",
     "moves.clearance_check": "a report-only limb clearance pass on chosen roles; not a move_set option",
 }
 
 BRIEF_SOURCES = ("brief", "blend")
+
+# Fields still read, but only for specs written before the plugin that replaced them.
+DEPRECATED = {
+    "hair.kind": "kind = \"shell_bun\" is the pipeline's old scalp shell and sphere bun, kept only so an old spec "
+                 "still builds; use preset = \"<humanform hair preset>\" and colour (improvements 05 5.2)",
+}
+HAIR_PRESETS = ("short_crop", "bob", "bun", "ponytail", "long_loose")   # humanform.sheet.HAIR_PRESETS
 
 
 class SpecError(ValueError):
@@ -92,8 +103,10 @@ class Moves:
 
 @dataclass
 class Hair:
-    kind: str = "shell_bun"
-    params: dict = field(default_factory=dict)
+    kind: str = "preset"                        # "preset": humanform's hair layer; "shell_bun": deprecated
+    preset: str | None = None                   # a humanform hair preset
+    colour: list | None = None                  # screen (sRGB); None takes the preset's
+    params: dict = field(default_factory=dict)  # shell_bun only
 
 
 @dataclass
@@ -120,6 +133,12 @@ class Export:
 
 
 @dataclass
+class Review:
+    enabled: bool = True
+    frame_height_m: float | None = None       # None: rig-anything's review.frame_height picks it
+
+
+@dataclass
 class Character:
     id: str
     name: str
@@ -129,6 +148,7 @@ class Character:
     hair: Hair | None = None
     flesh: Flesh | None = None
     outfit: list = field(default_factory=list)
+    review: Review = field(default_factory=Review)
     path: str | None = None                  # the spec file
     project: str | None = None               # the project it builds into
 
@@ -152,6 +172,9 @@ class Character:
     def section(self, name):
         """The part of the spec a stage reads, as plain data - what its input hash covers."""
         value = getattr(self, name) if name not in ("character",) else {"id": self.id, "name": self.name}
+        if name == "hair" and value is not None and value.kind == "shell_bun":
+            # the shape this section had before presets, so a shell_bun build's stored records stay valid
+            return {"kind": value.kind, "params": dict(value.params)}
         if isinstance(value, list):
             return [asdict(v) if hasattr(v, "__dataclass_fields__") else v for v in value]
         return asdict(value) if hasattr(value, "__dataclass_fields__") else value
@@ -182,7 +205,7 @@ def _unknown(table, allowed, where):
 
 def parse(data, path=None):
     """A `Character` from parsed TOML, checked. Raises `SpecError` naming the field."""
-    _unknown(data, ("character", "body", "moves", "hair", "flesh", "outfit", "export"), "spec")
+    _unknown(data, ("character", "body", "moves", "hair", "flesh", "outfit", "export", "review"), "spec")
     c = _take(data, "character", dict, required=True)
     _unknown(c, ("id", "name"), "[character]")
     cid = _take(c, "id", str, required=True, where="character.")
@@ -228,8 +251,23 @@ def parse(data, path=None):
 
     hair = None
     if "hair" in data:
-        h = dict(data["hair"])
-        hair = Hair(kind=h.pop("kind", "shell_bun"), params=h)
+        h = dict(_take(data, "hair", dict))
+        if "preset" in h:
+            _unknown(h, ("preset", "colour"), "[hair]")
+            preset = _take(h, "preset", str, where="hair.")
+            if preset not in HAIR_PRESETS:
+                raise SpecError(f"hair.preset {preset!r} is not one of {HAIR_PRESETS}")
+            colour = _take(h, "colour", list, where="hair.")
+            if colour is not None and (len(colour) != 3 or not all(isinstance(c, (int, float)) and 0 <= c <= 1
+                                                                   for c in colour)):
+                raise SpecError("hair.colour must be [r, g, b], screen (sRGB) channels 0..1")
+            hair = Hair(kind="preset", preset=preset, colour=[float(c) for c in colour] if colour else None)
+        else:
+            kind = h.pop("kind", None)
+            if kind != "shell_bun":
+                raise SpecError("[hair] needs preset = one of %s (or the deprecated kind = \"shell_bun\")"
+                                % (HAIR_PRESETS,))
+            hair = Hair(kind="shell_bun", params=h)
     flesh = None
     if "flesh" in data:
         f = data["flesh"]
@@ -256,13 +294,18 @@ def parse(data, path=None):
                     res_dir=_take(e, "res_dir", str, required=True, where="export."),
                     blend=_take(e, "blend", str), note=_take(e, "note", str, default=""))
 
+    r = _take(data, "review", dict, default={})
+    _unknown(r, ("enabled", "frame_height_m"), "[review]")
+    review = Review(enabled=_take(r, "enabled", bool, default=True, where="review."),
+                    frame_height_m=_take(r, "frame_height_m", float, where="review."))
+
     project = None
     if path:
         # characters/<id>.toml sits in the project it builds into
         here = os.path.dirname(os.path.abspath(path))
         project = os.path.dirname(here) if os.path.basename(here) == "characters" else here
     return Character(id=cid, name=name, body=body, moves=moves, export=export, hair=hair, flesh=flesh,
-                     outfit=outfit, path=os.path.abspath(path) if path else None, project=project)
+                     outfit=outfit, review=review, path=os.path.abspath(path) if path else None, project=project)
 
 
 def load(path):

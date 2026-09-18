@@ -84,6 +84,7 @@ def build():
                  "report": H.stable(baked)},
         "moves": {role: H.stable(moves[role]) for role in roles},
         "export": H.stable(exported),
+        "review": H.review_sheet(exported.get("review")),
         "engine": {"collider": H.stable(loco.get("collider")), "gaits": H.stable(loco.get("gaits")),
                    "problems": loco.get("problems")},
         "moves_json": H.moves_manifest(char),

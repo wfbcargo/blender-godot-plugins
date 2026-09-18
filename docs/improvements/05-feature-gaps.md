@@ -85,9 +85,252 @@ read as hair, not a cap edge?".
 
 **Done when** Belle's hair passes a critic look at 1 m in Godot, and a ponytail preset swings on a run.
 
+**Shipped (branch `hair-layer`, steps 1, 2 and 4; step 3, strand motion, is another branch).**
+- **humanform `hair`**: `hair.add(body, preset, colour)` on a baked body, presets `short_crop`, `bob`, `bun`,
+  `ponytail`, `long_loose` in `data/hair_presets.json`; brief field `sheet.new(hair={"preset", "colour"})`.
+  Placed from the head measured on the mesh (head bone role, crown, eyeballs, ear extents). The cap is the
+  body's own faces inside a hairline curve (height in head units against azimuth, warped to the measured
+  ear, with an ellipse round each ear), smooth-subdivided and offset by 0.6 mm at its boundary rising to
+  full thickness over 40 mm, the full-thickness part relaxed - tapered geometry, no wall - with the boundary at texture
+  V ~ 0.003, inside the transparent root zone, so the visible hairline is strand tips with skin between.
+  Volumes: a coiled bun (a tube wound 1.6 turns), a hair-wrapped tie, a fall from the crown for bob and
+  long_loose that hangs straight from the widest part of the head.
+- **lookdev `hair` material preset** (`presets/materials.json`, `lookdev_blender.hair`): 512x1024 strand
+  texture with root-to-tip gradient and alpha-thinned ends (glTF MASK), strand normal map, anisotropy; a
+  `lookdev` custom property that glTF keeps as material extras and Godot as `extras` metadata, which
+  `godot/addons/lookdev/lookdev_materials.gd` (`LookdevMaterials.apply`) turns into anisotropy, backlight,
+  rim, specular and a depth pre-pass blend, and strand tangents on the hair surfaces (per face, then
+  averaged mod 180 degrees where faces meet).
+- **character-pipeline**: `[hair] preset = "bun"`, `colour = [...]`; the hair stage calls humanform and
+  joins the result into the body. `kind = "shell_bun"` still parses and builds, listed in `spec.DEPRECATED`;
+  `hair` is gone from `spec.GAPS`. Belle built from `belle.toml` with `preset = "bun"` in scratch ran every
+  stage (flesh, moves, garments, export) with no problems.
+- **humancheck**: `hair.png` (lit colour head, front / three-quarter / back at 1 m and three close-ups) joins
+  the contact sheet whenever the body has hair; the critic checklist has an L6 hair block starting with
+  "does the hairline read as hair, not a cap edge?".
+- **Fixture `hair_presets`**: all five presets on a spec-built woman (cap boundary 0.6 mm and V 0.003,
+  cap clearance 0.34 mm, strand clearance 5-8 mm, contracts pass), the glb read back (MASK, two textures,
+  extras, the strand node's `ft_*` extras), how faceted each hair object's across-strand direction is
+  (`uv_tangent_turn`: the triangles more than 35 degrees from their neighbours', and the largest turn),
+  the pipeline stage joining a ponytail (434 `ft_strand` vertices), spec and brief refusals.
+
+**Strand contract** (shared with follow-through's strand work). Ponytail and long_loose put the moving part
+on its own mesh object `<base>_hair_strand`:
+- `ft_type = "strand"`;
+- `ft_root_bone` = the rig's head bone name (bone role `head`, resolved; `spine.005` on humanform rigs);
+- `ft_centreline` = flat `[x, y, z, ...]`, 12 points, object-local, root first, evenly spaced by arc length;
+- `ft_length_m`, and `ft_radius_m` per centreline point (tube half width / curtain half thickness);
+- vertex group `ft_strand`: each vertex's share of the length, 0 at the root to 1 at the tip (survives a join);
+- `humanform_hair = {"preset", "part": "strand", "kind": "tube" | "curtain"}`.
+It is skinned as a rigid fallback (head at the root blending to neck and chest toward the tip) until
+follow-through builds the chain; `humanform.hair.contract(obj)` checks it. The pipeline currently joins the
+strand into the body after checking the contract (rig-anything exports one mesh), which keeps the vertex
+group but drops the object properties: the strand-motion stage should run between `hair.add` and that join.
+
+**Review fixes (same branch).**
+- *lookdev optional to the pipeline.* `plugins.use()` imports the four plugins every build needs and lookdev
+  only where its folder is there; lookdev's version goes only into the hair stage's hash, and only for a
+  preset spec (`plugins.stage_versions`). A shell_bun spec's hair section hashes as `{kind, params}` as
+  before, so Belle's and the crowd's stored records stay valid (`pipeline_woman` golden unchanged; the
+  fixture checks `plugins.use()` with `LD_SCRIPTS` pointing at nothing).
+- *Hairline path.* The curve now comes down at the temples (0.33 h at 47 degrees against 0.26 h at 55),
+  makes a sideburn in front of the ear to 0.36 h below the eye, wraps the ear (an ellipse from the measured
+  ear, `ear_scale` [0.55, 0.95] + 2 mm) and reaches the nape at -0.78 h. Distance across the curve is taken
+  perpendicular to it, so the feather keeps its width down a sideburn. Belle's cap grew from 410 to 1054
+  body faces.
+- *Crown glints in Godot.* Two causes, both in the UVs: V was the height over the curve clamped at 0.6, so
+  the crown had runs of faces with no V change (144 flat faces on Belle's hair, 68 on the crown), and over
+  the top of the head the height's gradient lay along U and the UV frame flipped in patches. With anisotropy
+  off, or Blender's tangents, they went. V is now never clamped and further than 3 cm in it runs along the
+  strand axis's meridians (0 flat faces; `cap.uv_handedness` 602 same / 6 flipped faces more than 3 cm
+  inside the line). Round an ear the frame must still turn, so `LookdevMaterials.apply` de-indexes the
+  hair surfaces and gives each corner a tangent from the triangle's U gradient alone (material extras
+  `lookdev.mesh.tangents = "per_face"`; Belle's hair surface: 5223 vertices become one per corner). No
+  exporter change was needed - the done-when frames use the pipeline's own glb.
+- *Dark polygons in the sheen (Godot).* A tangent per face is faceted where the U field turns fast: 305 of
+  Belle's 9872 hair triangles sit more than 35 degrees from their neighbours', nearly all within 3 cm of
+  the bun's axis, and each facet catches a different part of the anisotropic lobe - half a dozen dark
+  polygons 1-2 cm across between crown and bun, at 1 m faint specks, close up marks. The tangent alone:
+  `normal_scale = 0` leaves them, `anisotropy_enabled = false` removes them. `strand_tangents` now
+  averages, for each corner, the tangents of every face meeting at its position, each flipped mod 180
+  degrees onto that face's own first (a strand axis has no direction), and keeps the face's own where the
+  mean collapses below half - the flip is what Godot's own per-vertex generator lacks round a hole. The
+  sheen is clean and the hairline and ear unchanged (`godot_tangents_fix.png`).
+- *Soft hairline in Godot.* The texture's alpha now fades toward the root (`root_fade` [0, 0.11], power
+  0.25) instead of each strand stopping; Blender and glTF still cut it at 0.5 (MASK), and Godot draws the
+  hair with `transparency = ALPHA_DEPTH_PRE_PASS` from the extras, so the fade blends: opaque hair keeps
+  depth and sorting, the edge is a fade of strand tips.
+- *Nape ridge, faceted back of the skull, bun centre.* Smooth subdivision, the relaxed offset surface
+  (4 passes, kept half its thickness off the skin; closest 0.27 mm) and a 40 mm thickness ramp; the coil's
+  inner end tapers and sinks under the first turn.
+- *Bob and long_loose.* A fall's top row lies on the cap with no thickness (its old thick top edge was the
+  shelf), its face edges thin out on the cap, its sides wave in locks (4-5 mm) and its ends are ragged
+  (12-20 mm); long_loose's fall reaches -1.8 h and the curtain starts inside it at -0.9 h, 16 cm wide, and
+  takes the body's surface from the nearest column where a ray passes beside the neck (its corners had
+  folded forward into wings).
+- Evidence: `renders` in the branch's hand-off, Belle built from `belle.toml` with `preset = "bun"` through
+  every stage; Godot frames from the pipeline's exported `belle.glb` with `LookdevMaterials.apply`.
+
+**Review fixes (round 2, same branch).**
+- *Changing `[hair]` stacked a second layer into the body.* The hair stage joins its hair into the body, so
+  it can only add; its precondition only asked "no garments bound". On a rebuild where only `[hair]` changed,
+  bake's hash is unchanged and bake is skipped, so the stage ran on an already-haired body: the old bun stayed
+  in the mesh (19989 -> 45450 vertices on the probe), and `humanform.hair`'s landmarks read the previous cap,
+  weighted 1.0 to the head bone, as scalp - the crown rose 7.8 mm, the head unit `h` grew 6.8% (0.1145 ->
+  0.1222) and the cap took 6128 body faces instead of ~1200. Every measurement the hairline is placed from
+  moved, with no warning. `stages.check_hair` now runs `stages.haired` (humanform's `views.hair_objects`,
+  which already existed) before the stage and refuses, naming the rebuild: `from_stage="body"`, the one stage
+  that clears the character out of the file. Every fixture started from an empty scene, so nothing caught it;
+  `hair_presets` now changes the preset from ponytail to bun and reruns the stage on the built body
+  (`rebuild_refused`: refused, `body_unchanged` true, 19845 vertices either way). `haired` looks only at this
+  character's meshes - the body, `<name>_*`, and whatever is bound to its rig - since a file can hold a whole
+  crowd and another character's hair is not this one's (`with_another_character` in the same report).
+- *`views._hair_material` matched `hair` as a substring.* Found by the check above: the fixture's character is
+  called HairWoman, so her `HairWoman_skin` material was read as hair and her first hair stage refused. The
+  name test (there only for the deprecated shell_bun material, `<name>_hair`) now matches `hair` as a whole
+  part of the name, not a substring; the lookdev-preset test is unchanged.
+- *`regress.py --plugins <checkout>` did not route lookdev.* `SCRIPT_VARS` and `_harness.PLUGINS` covered five
+  plugins, and the `plugins/<name>/scripts` mapping could not have reached lookdev anyway, whose Blender
+  package is `blender/`. So a run against another checkout exercised *this* tree's hair material while saying
+  otherwise, and `tests/golden/hair_presets.json` pinned lookdev's outputs - `gltf.texture_hash`,
+  `gltf.normal_hash`, `alphaCutoff`, the whole `extras.lookdev` block, and `cap.strand_turns` 14, which is
+  round(2*pi*0.09 / `tile_m`) and so depends on lookdev's `tile_m` = 0.04 - with no record of which lookdev
+  produced them. Both maps now carry `LD_SCRIPTS` with a `PACKAGE_DIR` (`lookdev` -> `blender`), the fixture
+  routes it through `H.use` rather than setting it itself, and the golden's `plugins` map records
+  `lookdev 0.1.0` beside the other five. No pinned number moved.
+- *`LookdevMaterials.tangents_per_face` tore down a mesh it could not retangent.* The per-surface guard
+  checked blend shapes and the primitive type, but the `clear_surfaces()` / `add_surface_from_arrays()`
+  rebuild and `mesh.set_meta("lookdev_tangents", "per_face")` ran unconditionally: a hair material on a mesh
+  with blend shapes round-tripped every surface through `surface_get_arrays` for nothing and was still marked
+  done, so a later correct pass was skipped - the opposite of what `references/hair.md` said. It now works out
+  what it can rebuild first and returns `false`, untouched and unmarked, when that is nothing; `apply` reports
+  only meshes it really retangented. Probe in a scratch Godot project (`tangent_probe.gd`, 4.7.2), before -> after:
+  a mesh with a blend shape, `lookdev_tangents` set -> not set; a `PRIMITIVE_LINES` surface, set -> not set;
+  `apply` on a scene holding both, the shaped mesh marked -> unmarked while its material still gets its
+  properties. The shipped path is unchanged: with no blend shapes the hair surface still de-indexes (9 shared
+  vertices -> 24 corners, index dropped, tangents written), and Belle's exported glb still reports
+  `tangents_per_face: ["after_BelleAfter_body"]` in Godot.
+- *Release bookkeeping is not on this branch.* A reviewer asked for the plugin version bumps, the
+  `marketplace.json` entries and the NEXT.md line that the last four feature merges on `main` each carried.
+  This run was told not to bump versions or touch `marketplace.json`, NEXT.md or `tests/README.md`, because
+  about seven agents are on branches at once and those three files are where they collide. So the merge owes:
+  humanform (new `hair` module and brief field), lookdev (first material-preset system, `presets/materials.json`,
+  a new Godot addon script) and character-pipeline (new `[hair]` spec field, the hair stage's new
+  precondition), each with its `marketplace.json` version and "Since x.y.z" clause, plus the NEXT.md line and
+  a `tests/README.md` mention of `LD_SCRIPTS`. humanform's layer table no longer claims a version it does not
+  have (it read "built (unreleased, branch `hair-layer`)"); the merge fills the number in.
+- Evidence: `godot_before_after.png` and `blender_before_after.png` in this branch's scratch - Belle from
+  `belle.toml` built to the hair stage with `preset = "bun"` against `shell_bun`, front / three-quarter / back
+  at 1 m and a close three-quarter, the Godot row through `LookdevMaterials.apply` on the pipeline's own glb.
+
+**Found / open.**
+- Bob and long_loose are still shells: better, but at 1 m they read as a heavy, smooth hairstyle more than
+  as loose hair; a faint line can show where a fall leaves the cap below the widest part of the head.
+- The ring the hairline leaves round each ear reads as a bare oval in humancheck's flat clay light, where
+  the ear has no relief to fill it; under Godot's key and rim it reads as hair parting round the ear.
+- EEVEE draws no anisotropy.
+- `lookdev_materials.gd` runs only in Godot, so `regress.py` holds it only through the geometry it reacts
+  to (`uv_tangent_turn`, `cap.uv_handedness`). What the shader draws needs `--godot` or an eye on a frame.
+
+**Step 3, strand chains - built (branch `strand-chains`, follow-through unreleased).** The input contract
+with the hair layer: a separate mesh with `ft_type = "strand"`, `ft_root_bone` and optionally
+`ft_centreline` (root to tip, object-local; `ft_centreline_world`, `ft_centrelines` for several). Without
+a centreline each loose part is a chain, its line the centroids of 1.5 cm bands of surface distance from
+the root (1.4 cm from the given line on the test tube). `classify` routes the mark to class `strand`,
+route `spring_bones`, types `ponytail` / `long_hair`, material `hair`. `strand.prepare` hangs 3-8 bones
+(`ft_strand_*`, tagged `ft_role`) from the root bone, weights linearly between bone middles, writes the
+`strands` block: per-bone compound-pendulum frequency (a 38 cm ponytail 0.99 Hz at the root, 2.2 Hz at the
+tip), damping 0.5, 60/40 deg limits, an ellipsoid round the head's skin and capsules round the neck
+bones'. The body exports through rig-anything's `export_character`, the strand through `strand.export`
+(rig-anything's `export_glb`, read back: bones in the skin, heads within 1e-5 m); in Godot
+`FollowThrough.attach` puts it on the body's skeleton and `strand_modifier.gd` springs it in fixed
+1/120 s steps with exact damped integration, length and angle projection, collision and contact friction.
+`verify_strands.gd` (rest, knock, thrown at the head, run, one stalled 0.75 s frame; 30/60/120/240 fps;
+penetration against the head's own skin) passes on the sample figure (fixture `strand_ponytail`: swing
+13 deg, spread 1.014, head penetration 1.3 mm) and on an MPFB woman from `mpfb_woman_curvy`'s brief
+(swing 36 deg, spread 1.050, 3.7 mm), and fails with collisions off (15-16 cm into the head). What the
+verifier caught on the way - frame-rate dependence 3.2x, a capsule head leaving the back of the skull
+uncovered, swing growing every stride without contact friction, damping 0.3 not settling - is in
+`follow-through/references/strands.md`. A stalled frame simulates at most 16 substeps (a 0.75 s frame is
+90 steps' worth) and the skipped time seeds each bone's target instead of pushing it: read as one step of
+the body's motion it threw the MPFB strand onto its 60 deg root limit and 6.0-6.2 mm into the head, and
+now leaves 3.8-3.9 mm with no other number moved.
+Chain bones record their owner (`ft_strand_owner`): re-preparing one object no longer deletes the
+chains of another whose name it prefixes (`Pigtail` / `Pigtail.001`), and colliding safe names
+(`Pigtail.001` / `Pigtail_001`, `Hair` chain 0 / `Hair_0`) get a `_v2` suffix; the fixture checks five such
+objects keep all 30 bones across a re-prepare.
+A centreline that carries no chain - fewer than two points, or a whole line shorter than a micron - is
+warned about and skipped, and if that leaves no chain at all `prepare` returns `{"error": "<obj>: no
+usable centreline - ..."}` before it touches the rig, so a malformed `ft_centreline` from the hair layer
+no longer strips the object's bones on its way to `ValueError: min() iterable argument is empty` out of
+`_weight`. The fixture re-prepares a prepared copy with a one-point line, a zero-length line and an
+`ft_centrelines` whose every line is degenerate: each returns the error with its warnings and keeps the
+copy's 5 bones, its spec and its vertex groups, and a good line afterwards rebuilds the same 5.
+Open: `regress.py --godot` does not run `verify_strands.gd`; the sample figure's curled root reads as a
+kink when it lifts; the modifier is GDScript at roughly 0.2-0.8 ms a chain a frame.
+
 ---
 
-## 5.3 Compression garments
+## 5.3 Compression garments - DONE (Belle's own top not rebuilt)
+
+> **Shipped** (September 2026, wardrobe, branch `compression-garments`).
+>
+> - `fit.ease(..., smooth=0..1, flatten={region: share}, detail_limit={region: mm})`. `fit.compress`
+>   builds the compressed body over the skin the garment lies on: each `flatten` region (follow-through
+>   type or name, rig-anything role, or vertex group, weights normalised) moves `share` of the way to
+>   the harmonic membrane over its edge (solved directly); then (smooth x 0.2 m / mean edge)^2 Taubin
+>   passes (129 on the curvy MPFB torso's 1.76 cm edges, 383 on the sample figure's 1.02 cm); each
+>   skin vertex takes the nearest point of that surface; all of it fades to the skin over 5 cm from
+>   the garment's edges, where the cloth also keeps its ease off the skin itself. The cloth starts on
+>   the compressed surface - eased from the skin, push-out never pulled the nipples in.
+> - Presets: `sports_top` (8 mm, smooth 1, limit `all` 0.06 mm), new `compression_shorts`
+>   (hips to mid-thigh) and `leggings` (to the ankle), both 5 mm, smooth 1, flatten butt 0.1, limits
+>   `all` 0.06 mm and butt 0.1 mm; all three `cover.behind` 3 cm. `sports_top` does **not** flatten
+>   the bust, because on a body built through character-pipeline there is no bust region to flatten
+>   (see the follow-through note below): a preset that asked for it would do nothing and say nothing
+>   there. `smooth` needs no region and is what takes the nipples off. Pass `flatten={"breast": ...}`
+>   by hand on a body whose breast region is right, as the evidence woman below does.
+> - Cover: `cover.compute(behind=)` follows the line under the skin and, in a cleft where both lines
+>   miss, takes the nearest cloth over its face. A drawn body triangle is drawn whole, so `dress` lifts
+>   the cloth over the covered corners of drawn triangles that lie over it (`cover.drawn_over_cloth`,
+>   `fit.lift_over`): the curvy woman's compression shorts showed skin in the crotch and at the
+>   waistband until lifted (38 triangles, one pass).
+> - Detail check (04 step 5): `fit.detail`, in every `ease` report - the millimetres of the skin's
+>   own relief the cloth carries, per region, as a regression of the cloth's relief on the skin's.
+>   See 04 for why the mean-curvature *ratio* this step first asked for was dropped.
+> - Fixture `traced_detail`: the sample figure embossed with a 12 mm bump on each breast and buttock,
+>   dressed six ways. It is where the enforcement is exercised - the limit passing for a real reason,
+>   failing on the uncompressed cut (both `all` and the region), failing `unmeasured` when it names a
+>   region the garment does not cover, and the `cover.drawn_over_cloth` / `fit.lift_over` path (the
+>   top pressed with flatten 0.5 lifts 30 then 14 triangles, and then no skin stands through).
+>
+> Curvy MPFB woman (humanform, seed 11, 1.68 m, realistic; breasts marked by hand - see below),
+> sports top before/after: the cloth carries 0.087 mm of the breasts' relief (of 0.331 mm there,
+> `traced` 0.26) -> 0.008 mm (`traced` 0.025); over the whole top 0.189 mm -> 0.000 mm. Renders at a
+> fixed camera, front and three-quarter, close, show the nipples gone and the bust smooth. Compression
+> shorts: whole garment 0.190 -> 0.033 mm, seat 0.092 -> 0.009 mm, crotch crease softened; 38 drawn
+> triangles stood over the cloth at the crotch and waistband and one lift pass cleared them.
+> Wardrobe verifier (240 frames, jiggle, hem) on that woman, sports top + compression shorts, every clip,
+> holes / poke: Idle 0 / 0.085%, Walk 0 / 0.162%, Run 0.066 / 0.169%, Crouch 0.197 / 0.092%, CrouchWalk
+> 0 / 0.085%, Jump 0.328 / 0.169% - all pass; uncompressed the same pair was 0 / 0.107, 0 / 0.161,
+> 0.069 / 0.145, 0.138 / 0.046, 0 / 0.046, 0.275 / 0.107. With leggings instead: worst Jump 0.216 /
+> 0.180%. On the fixture's sample figure (Walk): top + shorts_mid_thigh 0.062 / 0.008%, top +
+> compression shorts 0 / 0, top + leggings 0 / 0. On the embossed `traced_detail` figure (Walk), where
+> the cloth is eased inside 12 mm of relief: the compressed pair 0 / 0, the top pressed with flatten 0.5
+> (30 then 14 triangles lifted) 0 / 0, the uncompressed pair 0.020 / 0. The `pipeline_woman` export
+> (compressed top, no breast flatten - see below) with `shorts_mid_thigh`: Idle, Walk, Run 0 holes,
+> poke 0.145-0.153%. `cut=0.04` still fails (0.88-2.23%). `traced_detail`'s compressed pair is now in
+> `GODOT_WARDROBE`, so `--godot` covers it.
+>
+> Found on the way, not fixed here (follow-through): on an MPFB woman built through character-pipeline
+> (the `pipeline_woman` spec, and seed 11) `flesh.prepare` put both breast regions on the face - the
+> breast bones' heads at 1.50 m, weight 1.0 around the mouth, 0.013 at the nipples. So `flatten=
+> {"breast": ...}` moves nothing under that woman's top, and a breast `detail_limit` there measures
+> nothing at all - which now **fails** rather than passing quietly, so the preset no longer asks for
+> either. The evidence woman had her breasts marked by hand (`region_from_group`). The zone is the
+> reason: `breast` reaches to 1.45 of shoulder height, and on this body the chin bulges out of the
+> lean envelope inside that zone before the bust does. Belle's own top in grungist-creek was not
+> rebuilt (out of scope for this branch).
 
 **Problem.** wardrobe fits garments by easing the cloth off the skin (`fit.ease(base=0.006,
 loose=0.025, ...)`), so a skin-tight top traces every surface detail of the body under it, including
@@ -218,6 +461,157 @@ a precedent) and critic review. (3) Fat-aware scaling. (4) Normal-map bake via l
 
 **Done when** Dante reads as muscular in a front render without forcing the muscle macro, and a soft
 body with the same muscle value shows much less definition.
+
+> **Built on branch `muscle-definition`** (September 2026, humanform + lookdev; versions not bumped, not merged).
+>
+> - **Delta payload** (`humanform/delta.py`): a library part with `payload.type = "delta"` - per-vertex
+>   heights along the normal, per group, integer micrometres over hm08's 13380 body vertices. `apply` scales by
+>   the wearer's stature over the reference's and pushes along the wearer's own normals, as shape key
+>   `hfd:<region>` (baked in by `bake_for_game`, never captured as an `hf:` target) or into a baked mesh's
+>   vertices; `library.apply` dispatches to it. Transfer is by index: the card applies to a fitted body, an
+>   unfitted woman (stature 1.59 m, scale 0.92) and a `bake_for_game` mesh alike.
+> - **The set** (`humanform/muscle.py`, `sdf.py`; stored as `muscle/definition-v2`): authored on MPFB's
+>   default male (1.729 m) in ~2 s. Eight SDF groups (vertices, crown/deepest groove on the reference):
+>   deltoids 198 (+17.0/-0.4 mm), upper arms 342 (+22.1/-3.4), pectorals 428 (+13.8/-4.5), abdominals 119
+>   (+7.1/-3.8), obliques 106 (+7.7/-1.3), quadriceps 358 (+20.0/-3.9), calves 230 (+16.9/-4.4), forearms 268
+>   (+19.8/-3.4): ellipsoid bellies anchored by ray casts from the joints, trimmed to a plateau, masked to skin
+>   facing the belly's way, smooth-unioned, minus grooves - polylines of skin points with a smooth section,
+>   tapered over 15-30% of their length at both ends. Heights x1.6 (`HEIGHT_GAIN`), limbs a further x1.2-1.5
+>   (`GROUP_GAIN`), then held to what hm08's ~15 mm edges can carry (third pass below).
+>   Two derived groups from MPFB's muscle sculpt (muscle 1.0 vs 0.5 along the normal): `relief`, high-passed
+>   (minus its 6-iteration Laplacian smooth, x1.5; 3470 vertices, +10.1/-9.8 mm), and `bulk`, low-passed on the
+>   limbs and shoulders (2902 vertices, +9/-14 mm).
+> - **Fat-aware weights** (`muscle.weights`): smoothstep(0.3, 1.0, muscle) - the brief's or its build's muscle,
+>   not the fitted macro - times per-group leanness from body fat (Deurenberg on BMI less 10 per unit of muscle
+>   over 0.5, 6 points leaner per unit of firmness over 0.5; abdominals/obliques visible 12->22%, pectorals and
+>   quadriceps 13->25, relief 13->27, deltoids and upper arms 14->28, calves/forearms 15->30; women +8,
+>   pectorals x0.35). Dante 15.8%, definition total 7.42; a soft body with the same muscle value (0.9, BMI 30,
+>   firmness 0.25) 22.7%, total 1.90 = 0.26 of Dante's, abdominals 0; Freya 24.9%, total 3.98. `bulk` is not
+>   fat-scaled: (brief muscle - fitted macro) / 0.5 on its own key `hfd:muscle-bulk` - Dante 0.48 (fit 0.66),
+>   the soft body 0.37, Freya 0.34.
+> - **Normal map** (`lookdev/detail.py` `bake_normal_from_high`): onto the game mesh, only the skin material's
+>   faces, wired into its Principled Normal. When the high copy is the low mesh's own topology (`method="auto"`
+>   -> matched), no rays: the high vertex normal in each low corner's MikkTSpace frame, EMIT-baked. 2048 px in
+>   ~3 s; Dante 34.6% of texels bent >1 degree, p99.9 27 degrees. Other meshes use the ray bake with its clean
+>   pass. Texels bent over 60 degrees are flattened. A re-bake remaps the earlier image and re-points the nodes.
+> - **Checks:** humancheck on Dante is 32 pass / 0 warn / 0 fail before and after (heights up to 23 mm); Freya
+>   32/0/0 both; the soft body 29/1/0 (2 info) before, 30/1/0 (1 info) after. Dante after against the
+>   forced-macro body (muscle 0.95, which humancheck gives 31/1/0): upper arm 44.7 vs 38.0 cm, calf 44.1 vs
+>   40.2, thigh 64.3 vs 64.1, bideltoid 60.5 vs 57.3, chest 116.9 vs 114.7, waist 95.1 vs 94.0.
+> - **Fixture** `muscle_definition`: authors and stores the set (group hashes and `spike_um`), reads it back,
+>   weights for the three briefs, Dante fitted and defined with humancheck before/after, the fitted macro and
+>   bulk weight, the game path (bake_for_game, 512 px matched bake stats) and a re-bake (skin texture still
+>   wired, same stats, Cycles settings kept), and the transfer to an unfitted woman (scale 0.92, max 11.4 mm).
+>
+> **Review fixes** (second pass, after a critic judged the first renders):
+>
+> - Dante's arms and shoulders were thinner than the forced-macro body's: the fit had spent the macro on
+>   girths. `bulk` gives the brief's muscle back on the limbs; the sheets show arms, deltoids and calves at
+>   least as full as before, with the girths above.
+> - Quadriceps, calves and forearms did not read: the pads only swelled the limb. Added the grooves that make
+>   edges (rectus femoris/vastus lateralis, sartorius, above the patella, between the calf heads and the lower
+>   border of the gastrocnemius, the forearm's, biceps/triceps) and `GROUP_GAIN`.
+> - A knife-cut linea alba into a navel notch: from MPFB's own midline crease in `relief` (shown by rendering
+>   each group alone) and from mirrored pads meeting at |x| = 0 with a slope break, plus hard SDF cuts. Relief
+>   is masked off the front midline, |x| is rounded within 15 mm, the cuts became tapered grooves ending above
+>   the navel.
+> - The ray bake's armpit and hip hot spots and dark streaks: rays from one body part hitting another, and
+>   the clean pass's flattened patches with hard edges. Replaced by the matched bake for this case.
+> - Re-bake: `_bake_once` removed the image the material used (texture emptied); it also baked with the earlier
+>   map still wired into the high copy's shared material, which flattened the whole second map. Both fixed;
+>   Cycles device, samples and denoising are restored.
+> - **Renders** (scratch `wf2/muscle-fix/renders`, EEVEE, fixed orthographic frames; rows before / after, the
+>   textured sheets add after at normal strength 1.6): `Dante_clay*.png` (before = the spec with muscle forced),
+>   `Soft_clay*`, `Freya_clay*`, `*_tex*` (game mesh with bulk + map), `same_muscle_dante_vs_soft*`, full
+>   body, torso, legs and arm frames; humancheck JSON and contact sheets in `build/humancheck/<body>_<stage>`;
+>   the maps in `build/tex`.
+>
+> **Forms the mesh can carry** (third pass, from the second pass's own renders):
+>
+> - Two bright wedge-shaped facets stood out of Dante's outer thigh in every clay frame (`renders/Dante_clay_legs`,
+>   and on their own in a quadriceps-only render). They were single vertices: measuring each group's heights
+>   against the mean of its neighbours gave quadriceps 9.8 mm, calves 9.4, relief 8.3, forearms 5.3, upper arms
+>   4.8 on a body whose edges are about 15 mm long. hm08 cannot carry a form narrower than an edge, so the
+>   second pass's gains (x1.6, limbs x1.2-1.5) had pushed pads and grooves past what the mesh can show, and the
+>   surplus came out as facets rather than muscle.
+> - Two limits now hold every form resolvable, both in `muscle.py`: `GROOVE_SLOPE` 0.3 - a groove is sunk at most
+>   0.3 of its own radius, so its section stays gentle (the quadriceps grooves were 16.8 mm deep at a 20 mm
+>   radius, now 6.0) - and `despike`, which pulls back any vertex left standing more than `SPIKE_LIMIT` 4 mm off
+>   its neighbours' mean (6 passes; it converges to about 4.05). Every group is despiked, derived ones included.
+> - What moved: the worst deviation per group is now 2.2-4.1 mm (fixture `stored.spike_um`). Crowns barely move
+>   (deltoids 17.0, upper arms 22.1, pectorals 13.8, abdominals 7.1, obliques 7.7 mm - unchanged), the groove
+>   floors rise (quadriceps -10.9 -> -3.9 mm, calves -11.6 -> -4.4, forearms -9.4 -> -3.4) and with them the
+>   crowns that sat on a groove's edge (quadriceps 24.5 -> 20.0, calves 23.3 -> 16.9); `relief` loses the most
+>   (16.0 -> 10.1 mm), since a high-pass of MPFB's own sculpt is where single-vertex noise lives. On Dante the
+>   applied heights go quadriceps 22.0 -> 18.0 mm, calves 24.2 -> 17.5, relief 14.9 -> 9.5, total 28.4 -> 22.9.
+>   The map gets smoother with them: over 5 degrees 17.9% -> 16.4% of texels, p99.9 29 -> 27 degrees.
+> - The forms still read (third-pass renders below): the thigh keeps its vastus lateralis and the line above the
+>   patella, the calf its gastrocnemius belly and lower border, the arm its biceps and forearm mass. A facet is
+>   what left.
+> - **Renders** (scratch `wf2/muscle/run3/renders3`, same frames; `renders/` there is the same build before this
+>   pass, for comparison): `Dante_clay.png`, `Dante_clay_torso/legs/arm.png`, `Dante_tex*` (rows before / after /
+>   after at strength 1.6), the same for `Freya_*` and `Soft_*`, and `same_muscle_dante_vs_soft[_torso].png`
+>   (Dante left, the soft body right, same brief muscle 0.9). Tight thigh, calf, arm and torso pairs are in
+>   `run3/itA`; `run3/zoom` holds the facets as they were. The bodies are built from
+>   `grungist-creek/characters/dante.toml` and `freya.toml` (`run3/build_base.py`), with Dante's forced
+>   `muscle = 1.0` kept for the "before" body and dropped for the defined one.
+>
+> **What the mesh carries, not what was sculpted** (fourth pass, from review). Two of the guards above were
+> measuring the wrong thing, and the goldens with them.
+>
+> - `despike` ran per group and the fixture recorded `stored.spike_um` per group, but a body carries the
+>   weighted **sum** of every group on one surface - two shape keys' worth, `hfd:muscle` and
+>   `hfd:muscle-bulk`, in the same geometry - and the groups overlap. `relief` and the sculpted limb groups
+>   spike on the same vertices and add: v4579/v11197 on the front-outer thigh (relief 3.4 mm + quadriceps
+>   3.0), v4735/v11353 on the back of the calf (2.9 + 3.8), v4520/v11138 on the thigh again. At Dante's own
+>   weights and stature that summed to **7.62 mm**, 1.7x the 4 mm limit, with 64 vertices over the limit and
+>   6 over half again - the outer thigh and the calf, exactly where the third pass's facets were, and much
+>   nearer the 9.8 mm that produced them than the limit. A change that raised composite spikes while leaving
+>   every group under 4 mm moved no recorded number.
+> - `muscle.facet_guard` now despikes the composite where it is applied (`delta.apply(..., refine=)`, new),
+>   at the wearer's scale - the limit follows the wearer's edges, `SPIKE_LIMIT x stature scale`, 4.42 mm on
+>   Dante - with the bulk key's own heights (`delta.key_heights`, new) as background, so the two keys are
+>   guarded together and the whole correction goes into the definition key. On Dante the worst composite goes
+>   **7.62 -> 4.52 mm** and vertices over 1.5x the limit **6 -> 0**, while the total height on the body moves
+>   16.102 -> 15.999 m (-0.6%) and the largest single height not at all (23.57 mm): it takes off facets, not
+>   muscle. The map follows, over 5 degrees 0.164 -> 0.163 of texels. humancheck is unchanged (Dante 32 pass
+>   / 0 fail, Freya 32/0, Soft 30 pass with the two non-pass items its own before run had).
+> - The fixture records the composite at a real body's weights, both ways (`geometry.spike`): unguarded
+>   7617 um / 64 over the limit / 6 over 1.5x, applied 4521 um / 51 / 0, limit 4422 um. `despike` converges
+>   rather than lands, so the count just over the limit says little and the count half again over it says
+>   what the guard is for. The unguarded number moves whenever a change pushes a group back up, guard or no
+>   guard. `define` returns it as `spike_um`; `muscle.applied_spikes(body)` reads it off any body's keys.
+> - `detail.matched` compared whole meshes, so it said no as soon as vertex counts differed - and
+>   character-pipeline's bake stage joins the eyes into the game mesh after `bake_for_game` while
+>   `delta.high_copy` is the body alone (14402 faces against 13378). Every character built through the
+>   pipeline this feature is for would have taken `method="auto"`'s ray path, the one with the armpit and hip
+>   hot spots and the hard-edged dark streaks, with nothing but the returned `method` to say so; the fixture
+>   missed it by baking before the eyes were joined. `matched(low, high, material)` and the new
+>   `detail.reason(...)` compare the material's faces instead, `_tangent_normals` leaves joined corners flat,
+>   a fallback puts its reason in `warnings`, and `method="matched"` errors with what does not line up. On
+>   Dante's joined mesh (14344 vertices) the matched map comes out identical to the body-only one, while the
+>   ray bake of the same mesh has to flatten **8373 texels against 24**. The fixture joins the eyes and bakes
+>   again (`game.with_eyes_joined`).
+> - **Renders** (scratch `wf2/muscle-fix/run4`): `guard/{full,thigh,calf,arm,torso}.png` and
+>   `zoom/{thigh_v4579,thigh_v11197,thigh_v4520,calf_v4735,calf_v11353}.png` are the guard off (left) and on
+>   (right) on the same body at the same camera; `eyesbake/{torso,arm}.png` is the joined mesh baked matched
+>   (top) and with rays (bottom) at normal strength 1.6; `renders4/` is the third pass's whole set re-rendered
+>   with the guard on, and `build/humancheck/` the contact sheets.
+>
+> **Open:** this branch ships new modules in two plugins and has bumped neither, because seven agents share
+> the repo and the run that made it was told not to touch `plugin.json`, `marketplace.json` or `NEXT.md`.
+> Whoever merges it owes humanform a minor bump (0.6.3 -> 0.7.0: `scripts/humanform/{sdf,delta,muscle}.py`,
+> `muscle.define`, `delta.apply(refine=)`, `delta.key_heights`, two SKILL.md rewrites) and lookdev one
+> (0.1.0 -> 0.2.0: `blender/lookdev_blender/detail.py`, `detail.bake_normal_from_high`, `matched`, `reason`),
+> in each `.claude-plugin/plugin.json` and in `.claude-plugin/marketplace.json` with a "Since x.y.z" sentence,
+> since that is what other machines read.
+> The character-pipeline spec has no field for it yet (a `[body] definition = "geometry"|"normal"`
+> stage belongs to that plugin), and `grungist-creek/characters/dante.toml` still forces `muscle = 1.0`.
+> Definition is at hm08 vertex resolution (~15 mm edges), so edges are soft, the map is no sharper than the
+> geometry, and sharper forms than that need a subdivided high copy the card cannot be authored on.
+> At normal strength 1 the map is faint at full-body distance (1.6 reads); the character pipeline
+> should pick the strength. Thresholds and gains are judged on three bodies, not measured. Deltas move along the
+> normal only, and a posed body's normal map relies on MikkTSpace matching in Godot (not checked in the engine).
 
 ---
 

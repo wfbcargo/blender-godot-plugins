@@ -1,8 +1,8 @@
 {
  "fixture": "flesh_figure",
  "plugins": {
-  "follow-through": "0.3.0",
-  "rig-anything": "0.20.0"
+  "follow-through": "0.5.0",
+  "rig-anything": "0.22.0"
  },
  "report": {
   "bodies": {
@@ -435,7 +435,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf\\flesh\\regress_upd\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -706,6 +706,127 @@
       "volume_m3": 0.001549
      }
     ],
+    "review": {
+     "bands_px": [
+      45,
+      0,
+      13
+     ],
+     "cell_px": [
+      254,
+      320
+     ],
+     "contact_px": [
+      3064,
+      390
+     ],
+     "frame_height_m": 2.1,
+     "frames": {
+      "BloaterWalk": [
+       1,
+       5,
+       9,
+       13,
+       17,
+       21,
+       25,
+       29
+      ],
+      "Bloater_Idle": [
+       1,
+       7,
+       13,
+       19,
+       25,
+       31,
+       37,
+       43
+      ]
+     },
+     "gdignore": true,
+     "on_disk_matches_count": true,
+     "pngs": [
+      "BloaterWalk_front.png",
+      "BloaterWalk_right.png",
+      "BloaterWalk_three_quarter.png",
+      "Bloater_Idle_front.png",
+      "Bloater_Idle_right.png",
+      "Bloater_Idle_three_quarter.png",
+      "contact.png"
+     ],
+     "review_json": true,
+     "strips": {
+      "BloaterWalk": {
+       "front": {
+        "cells_with_body": 8,
+        "centred": false,
+        "distinct_cells": 8,
+        "edge_cells": 0,
+        "size_px": [
+         2032,
+         378
+        ]
+       },
+       "right": {
+        "cells_with_body": 8,
+        "centred": false,
+        "distinct_cells": 8,
+        "edge_cells": 0,
+        "size_px": [
+         2032,
+         378
+        ]
+       },
+       "three_quarter": {
+        "cells_with_body": 8,
+        "centred": false,
+        "distinct_cells": 8,
+        "edge_cells": 0,
+        "size_px": [
+         2032,
+         378
+        ]
+       }
+      },
+      "Bloater_Idle": {
+       "front": {
+        "cells_with_body": 8,
+        "centred": false,
+        "distinct_cells": 8,
+        "edge_cells": 0,
+        "size_px": [
+         2032,
+         378
+        ]
+       },
+       "right": {
+        "cells_with_body": 8,
+        "centred": false,
+        "distinct_cells": 8,
+        "edge_cells": 0,
+        "size_px": [
+         2032,
+         378
+        ]
+       },
+       "three_quarter": {
+        "cells_with_body": 8,
+        "centred": false,
+        "distinct_cells": 8,
+        "edge_cells": 0,
+        "size_px": [
+         2032,
+         378
+        ]
+       }
+      }
+     },
+     "views": [
+      "front",
+      "right",
+      "three_quarter"
+     ]
+    },
     "roles": {
      "breast_anchor": "spine.003",
      "butt_anchor": "spine",
@@ -784,6 +905,303 @@
      "loop_seam": 0.0,
      "passed": true
     },
+    "limit_suggestion": {
+     "applied": {
+      "belly": [
+       0.0544,
+       0.0308
+      ],
+      "butt.L": [
+       0.075,
+       0.0183
+      ],
+      "butt.R": [
+       0.0746,
+       0.0183
+      ],
+      "thigh.L": [
+       0.0126,
+       0.0141
+      ],
+      "thigh.R": [
+       0.0127,
+       0.0141
+      ]
+     },
+     "capped": [
+      "Figure/arm_flab.L",
+      "Figure/arm_flab.R",
+      "Figure/breast.L",
+      "Figure/breast.R"
+     ],
+     "expected_is_true": {
+      "arm_flab.L": true,
+      "arm_flab.R": true,
+      "belly": true,
+      "breast.L": true,
+      "breast.R": true,
+      "butt.L": true,
+      "butt.R": true,
+      "thigh.L": true,
+      "thigh.R": true
+     },
+     "in_band": false,
+     "rows": {
+      "Figure": {
+       "arm_flab.L": {
+        "action": "keep",
+        "basis": "pair",
+        "capped": true,
+        "expected_on_limit_share": 0.9,
+        "in_band": false,
+        "max_offset_m": 0.0264,
+        "max_share": 1.0,
+        "notes": [
+         "one limit for arm_flab.L and arm_flab.R",
+         "needs 0.037 m, but the type allows 1.00 x peak_m = 0.022 m, where it would sit on the limit 100.0% of the time: the limit cannot fix this one - lower `response` or `gravity_scale`, or raise `frequency_hz` or `damping_ratio`"
+        ],
+        "on_limit_share": 0.9,
+        "suggested_limit_share": 1.2,
+        "suggested_max_offset_m": 0.0264
+       },
+       "arm_flab.R": {
+        "action": "keep",
+        "basis": "pair",
+        "capped": true,
+        "expected_on_limit_share": 0.8,
+        "in_band": false,
+        "max_offset_m": 0.0265,
+        "max_share": 1.0,
+        "notes": [
+         "one limit for arm_flab.L and arm_flab.R",
+         "needs 0.037 m, but the type allows 1.00 x peak_m = 0.022 m, where it would sit on the limit 100.0% of the time: the limit cannot fix this one - lower `response` or `gravity_scale`, or raise `frequency_hz` or `damping_ratio`"
+        ],
+        "on_limit_share": 0.8,
+        "suggested_limit_share": 1.199,
+        "suggested_max_offset_m": 0.0265
+       },
+       "belly": {
+        "action": "lower",
+        "basis": "ladder",
+        "expected_on_limit_share": 0.0551,
+        "in_band": false,
+        "max_offset_m": 0.0544,
+        "max_share": 1.0,
+        "notes": [],
+        "on_limit_share": 0.01,
+        "suggested_limit_share": 0.68,
+        "suggested_max_offset_m": 0.0308
+       },
+       "breast.L": {
+        "action": "keep",
+        "basis": "pair",
+        "capped": true,
+        "expected_on_limit_share": 0.14,
+        "in_band": false,
+        "max_offset_m": 0.0515,
+        "max_share": 0.66,
+        "notes": [
+         "one limit for breast.L and breast.R",
+         "needs 0.067 m, but the type allows 0.66 x peak_m = 0.052 m, where it would sit on the limit 17.7% of the time: the limit cannot fix this one - lower `response` or `gravity_scale`, or raise `frequency_hz` or `damping_ratio`"
+        ],
+        "on_limit_share": 0.14,
+        "suggested_limit_share": 0.659,
+        "suggested_max_offset_m": 0.0515
+       },
+       "breast.R": {
+        "action": "keep",
+        "basis": "pair",
+        "capped": true,
+        "expected_on_limit_share": 0.1,
+        "in_band": false,
+        "max_offset_m": 0.0527,
+        "max_share": 0.66,
+        "notes": [
+         "one limit for breast.L and breast.R",
+         "needs 0.067 m, but the type allows 0.66 x peak_m = 0.053 m, where it would sit on the limit 10.5% of the time: the limit cannot fix this one - lower `response` or `gravity_scale`, or raise `frequency_hz` or `damping_ratio`"
+        ],
+        "on_limit_share": 0.1,
+        "suggested_limit_share": 0.66,
+        "suggested_max_offset_m": 0.0527
+       },
+       "butt.L": {
+        "action": "lower",
+        "basis": "ladder end",
+        "expected_on_limit_share": 0.0282,
+        "in_band": false,
+        "max_offset_m": 0.075,
+        "max_share": 0.9,
+        "notes": [
+         "one limit for butt.L and butt.R",
+         "on the limit under 3% of the time even at 0.0183 m, the ladder's tightest: apply and run again"
+        ],
+        "on_limit_share": 0.0001,
+        "suggested_limit_share": 0.22,
+        "suggested_max_offset_m": 0.0183
+       },
+       "butt.R": {
+        "action": "lower",
+        "basis": "ladder end",
+        "expected_on_limit_share": 0.0221,
+        "in_band": false,
+        "max_offset_m": 0.0746,
+        "max_share": 0.9,
+        "notes": [
+         "one limit for butt.L and butt.R",
+         "on the limit under 3% of the time even at 0.0183 m, the ladder's tightest: apply and run again"
+        ],
+        "on_limit_share": 0.0001,
+        "suggested_limit_share": 0.221,
+        "suggested_max_offset_m": 0.0183
+       },
+       "thigh.L": {
+        "action": "raise",
+        "basis": "cliff",
+        "expected_on_limit_share": 0.01,
+        "in_band": false,
+        "max_offset_m": 0.0126,
+        "max_share": 1.0,
+        "notes": [
+         "one limit for thigh.L and thigh.R",
+         "no limit measured lands inside the band: 20.0% at 0.0130 m, 1.0% at 0.0141 m; the looser taken"
+        ],
+        "on_limit_share": 0.2,
+        "suggested_limit_share": 0.671,
+        "suggested_max_offset_m": 0.0141
+       },
+       "thigh.R": {
+        "action": "raise",
+        "basis": "cliff",
+        "expected_on_limit_share": 0.01,
+        "in_band": false,
+        "max_offset_m": 0.0127,
+        "max_share": 1.0,
+        "notes": [
+         "one limit for thigh.L and thigh.R",
+         "no limit measured lands inside the band: 20.0% at 0.0130 m, 1.0% at 0.0141 m; the looser taken"
+        ],
+        "on_limit_share": 0.2,
+        "suggested_limit_share": 0.665,
+        "suggested_max_offset_m": 0.0141
+       }
+      },
+      "Figure (own-limit ladders)": {
+       "thigh.L": {
+        "action": "raise",
+        "basis": "interpolated",
+        "expected_on_limit_share": 0.01,
+        "in_band": false,
+        "max_offset_m": 0.0126,
+        "max_share": 1.0,
+        "notes": [
+         "one limit for thigh.L and thigh.R",
+         "the two ladders share too few rungs (built before the shared grid): chosen on shares read between rungs, apply and run again; no limit measured lands inside the band: 20.0% at 0.0126 m, 1.0% at 0.0138 m; the looser taken"
+        ],
+        "on_limit_share": 0.2,
+        "suggested_limit_share": 0.657,
+        "suggested_max_offset_m": 0.0138
+       },
+       "thigh.R": {
+        "action": "raise",
+        "basis": "interpolated",
+        "expected_on_limit_share": 0.01,
+        "in_band": false,
+        "max_offset_m": 0.0127,
+        "max_share": 1.0,
+        "notes": [
+         "one limit for thigh.L and thigh.R",
+         "the two ladders share too few rungs (built before the shared grid): chosen on shares read between rungs, apply and run again; no limit measured lands inside the band: 20.0% at 0.0126 m, 1.0% at 0.0138 m; the looser taken"
+        ],
+        "on_limit_share": 0.2,
+        "suggested_limit_share": 0.651,
+        "suggested_max_offset_m": 0.0138
+       }
+      },
+      "Figure (shipped loose)": {
+       "love_handle.L": {
+        "action": "lower",
+        "basis": "in band",
+        "expected_on_limit_share": 0.0477,
+        "in_band": true,
+        "max_offset_m": 0.06,
+        "max_share": 1.0,
+        "notes": [
+         "sits at 1.20 x peak_m: tightened to 0.048 m, the loosest measured limit inside the 1.00 x peak_m = 0.050 m the type allows"
+        ],
+        "on_limit_share": 0.03,
+        "suggested_limit_share": 0.952,
+        "suggested_max_offset_m": 0.0476
+       }
+      },
+      "self-test": {
+       "breast.L": {
+        "action": "keep",
+        "basis": "in band",
+        "expected_on_limit_share": 0.075,
+        "in_band": true,
+        "max_offset_m": 0.078,
+        "max_share": 1.0,
+        "notes": [],
+        "on_limit_share": 0.075,
+        "suggested_limit_share": null,
+        "suggested_max_offset_m": 0.078
+       },
+       "butt.L": {
+        "action": "raise",
+        "basis": "estimate",
+        "expected_on_limit_share": null,
+        "in_band": false,
+        "max_offset_m": 0.058,
+        "max_share": 1.0,
+        "notes": [
+         "no ladder in the report: an estimate, measure again after applying it",
+         "no peak_m in the report: nothing bounds this raise, so measure the body and suggest again before shipping it"
+        ],
+        "on_limit_share": 0.115,
+        "suggested_limit_share": null,
+        "suggested_max_offset_m": 0.0843
+       }
+      }
+     },
+     "settled": false,
+     "spec_limits": {
+      "arm_flab.L": 0.0264,
+      "arm_flab.R": 0.0265,
+      "belly": 0.0308,
+      "breast.L": 0.0515,
+      "breast.R": 0.0527,
+      "butt.L": 0.0183,
+      "butt.R": 0.0183,
+      "thigh.L": 0.0141,
+      "thigh.R": 0.0141
+     },
+     "types": {
+      "arm_flab": {
+       "limit_share": 1.2,
+       "regions": 2
+      },
+      "belly": {
+       "limit_share": 0.68,
+       "regions": 1
+      },
+      "breast": {
+       "limit_share": 0.659,
+       "regions": 2
+      },
+      "butt": {
+       "limit_share": 0.221,
+       "regions": 2
+      },
+      "love_handle": {
+       "limit_share": 0.952,
+       "regions": 1
+      },
+      "thigh": {
+       "limit_share": 0.661,
+       "regions": 4
+      }
+     }
+    },
     "mesh": {
      "vertices": 17112
     },
@@ -835,6 +1253,30 @@
       "FigureWalk"
      ],
      "problems": []
+    },
+    "no_measurement": {
+     "apply_refused": "this suggestion came from a report that measured nothing: Belle: no region was measured (6 in the spec): call measure_limits() before print_limit_report(), and while the body animates; Belle: the report measured no regions - call measure_limits() before print_limit_report()",
+     "empty": {
+      "bodies": {
+       "Belle": {}
+      },
+      "in_band": false,
+      "measured": false,
+      "problems": [
+       "Belle: no region was measured (6 in the spec): call measure_limits() before print_limit_report(), and while the body animates",
+       "Belle: the report measured no regions - call measure_limits() before print_limit_report()"
+      ],
+      "settled": false
+     },
+     "no_ticks": {
+      "in_band": false,
+      "measured": true,
+      "problems": [
+       "Belle: breast.L: 0 ticks measured",
+       "Belle/breast.L: 0 ticks measured"
+      ],
+      "settled": false
+     }
     },
     "prepare": {
      "bones": [
@@ -1145,7 +1587,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\claude\\C--Users-pauli-Code-GoDot-grungist-creek\\f5848e01-da92-4712-b5d3-18ebd8d8c166\\scratchpad\\wf\\flesh\\regress_upd\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",
@@ -1370,6 +1812,127 @@
       "volume_m3": 0.001034
      }
     ],
+    "review": {
+     "bands_px": [
+      45,
+      0,
+      13
+     ],
+     "cell_px": [
+      243,
+      320
+     ],
+     "contact_px": [
+      2932,
+      390
+     ],
+     "frame_height_m": 2.1,
+     "frames": {
+      "FigureWalk": [
+       1,
+       5,
+       9,
+       13,
+       17,
+       21,
+       25,
+       29
+      ],
+      "Figure_Idle": [
+       1,
+       7,
+       13,
+       19,
+       25,
+       31,
+       37,
+       43
+      ]
+     },
+     "gdignore": true,
+     "on_disk_matches_count": true,
+     "pngs": [
+      "FigureWalk_front.png",
+      "FigureWalk_right.png",
+      "FigureWalk_three_quarter.png",
+      "Figure_Idle_front.png",
+      "Figure_Idle_right.png",
+      "Figure_Idle_three_quarter.png",
+      "contact.png"
+     ],
+     "review_json": true,
+     "strips": {
+      "FigureWalk": {
+       "front": {
+        "cells_with_body": 8,
+        "centred": false,
+        "distinct_cells": 8,
+        "edge_cells": 0,
+        "size_px": [
+         1944,
+         378
+        ]
+       },
+       "right": {
+        "cells_with_body": 8,
+        "centred": false,
+        "distinct_cells": 8,
+        "edge_cells": 0,
+        "size_px": [
+         1944,
+         378
+        ]
+       },
+       "three_quarter": {
+        "cells_with_body": 8,
+        "centred": false,
+        "distinct_cells": 8,
+        "edge_cells": 0,
+        "size_px": [
+         1944,
+         378
+        ]
+       }
+      },
+      "Figure_Idle": {
+       "front": {
+        "cells_with_body": 8,
+        "centred": false,
+        "distinct_cells": 8,
+        "edge_cells": 0,
+        "size_px": [
+         1944,
+         378
+        ]
+       },
+       "right": {
+        "cells_with_body": 8,
+        "centred": false,
+        "distinct_cells": 8,
+        "edge_cells": 0,
+        "size_px": [
+         1944,
+         378
+        ]
+       },
+       "three_quarter": {
+        "cells_with_body": 8,
+        "centred": false,
+        "distinct_cells": 8,
+        "edge_cells": 0,
+        "size_px": [
+         1944,
+         378
+        ]
+       }
+      }
+     },
+     "views": [
+      "front",
+      "right",
+      "three_quarter"
+     ]
+    },
     "roles": {
      "breast_anchor": "spine.003",
      "butt_anchor": "spine",

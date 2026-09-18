@@ -41,6 +41,7 @@ SCHEMA = "follow-through-types/1"
 
 FAMILIES = ("strand", "shell", "volume")
 VOLUME_CLASSES = ("loose_volume", "mounted_volume", "flesh")
+STRAND_CLASSES = ("strand",)
 
 # how far apart two objects' features may be and still count as the same kind of thing
 NEAR = 0.35
@@ -100,14 +101,17 @@ def material(name):
 
 def define(name, family, classes, material=None, names=(), description="", zone=None,
            paired=False, fabric=None, variant_of=None, when=None, anchor=None, limit_share=None,
-           limit_note=None, lean=None):
+           limit_note=None, lean=None, limit_max_share=None):
     """Add or replace a type in the user registry.
 
     `anchor` names the bone role a flesh type's jiggle bone hangs from - a rig-anything role such as
     `pelvis`, `chest` or `head` - instead of the core bone nearest the region. `limit_share` sets a
     flesh type's swing limit, `max_offset_m = limit_share x peak_m`, in place of the material's;
-    `limit_note` says where the number came from. `lean="profile"` reads a flesh type's excess from
-    the side, across chains, instead of from rings round one (`flesh.measured`): for a mass where
+    `limit_note` says where the number came from; `limit_max_share` is the most
+    `flesh.suggest_limits` may raise it to, as a share of peak_m (a breast swung in further than two
+    thirds of its stand-out passes into the chest). A type with none is capped at
+    `limits.DEFAULT_MAX_SHARE`, 1.0 - its own stand-out - so no type is left unguarded. `lean="profile"` reads a flesh type's excess from the side,
+    across chains, instead of from rings round one (`flesh.measured`): for a mass where
     one chain ends and the next begins, as a buttock sits between the spine and the thighs."""
     if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
         raise ValueError("type names are lower_snake_case")
@@ -121,13 +125,18 @@ def define(name, family, classes, material=None, names=(), description="", zone=
         bad = [c for c in classes if c not in VOLUME_CLASSES]
         if bad:
             raise ValueError(f"volume classes are {VOLUME_CLASSES}, not {bad}")
+    if family == "strand":
+        bad = [c for c in classes if c not in STRAND_CLASSES]
+        if bad:
+            raise ValueError(f"strand classes are {STRAND_CLASSES}, not {bad}")
     if "flesh" in classes and zone is None:
         raise ValueError("a flesh type needs a zone - teach it from a painted group instead")
     entry = {"family": family, "classes": list(classes), "names": [n.lower() for n in names],
              "description": description, "defined": _now()}
     for k, v in (("material", material), ("zone", zone), ("fabric", fabric),
                  ("variant_of", variant_of), ("when", when), ("anchor", anchor),
-                 ("limit_share", limit_share), ("limit_note", limit_note), ("lean", lean)):
+                 ("limit_share", limit_share), ("limit_note", limit_note), ("lean", lean),
+                 ("limit_max_share", limit_max_share)):
         if v is not None:
             entry[k] = v
     if paired:
@@ -138,15 +147,18 @@ def define(name, family, classes, material=None, names=(), description="", zone=
 
 
 def define_material(name, route, density_kg_m3, source, shape_matching=None, jiggle=None,
-                    sticky=False):
-    """Add or replace a material in the user registry. `source` says where the numbers came from."""
-    if route not in ("shape_matching", "jiggle_bones", "none"):
-        raise ValueError("route is shape_matching, jiggle_bones or none")
+                    sticky=False, strand=None):
+    """Add or replace a material in the user registry. `source` says where the numbers came from.
+    `strand` holds a spring_bones material's values (see `hair` in types/builtin.json)."""
+    if route not in ("shape_matching", "jiggle_bones", "spring_bones", "none"):
+        raise ValueError("route is shape_matching, jiggle_bones, spring_bones or none")
     entry = {"route": route, "density_kg_m3": density_kg_m3, "sticky": bool(sticky), "source": source}
     if shape_matching:
         entry["shape_matching"] = shape_matching
     if jiggle:
         entry["jiggle"] = jiggle
+    if strand:
+        entry["strand"] = strand
     user = _read(user_path())
     user["materials"][name] = entry
     return {"material": name, "saved_to": _save_user(user)}
@@ -329,7 +341,7 @@ def recognise(obj_name=None, measures=None, family=None, cls=None, features=None
             "nearest": near, "features": features}
 
 
-DEFAULT_TYPE = {"loose_volume": "jello", "mounted_volume": "jello", "flesh": "belly"}
+DEFAULT_TYPE = {"loose_volume": "jello", "mounted_volume": "jello", "flesh": "belly", "strand": "ponytail"}
 
 
 def _default_type(candidates, cls):

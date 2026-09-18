@@ -47,15 +47,25 @@ def _weights(obj):
             for v in obj.data.vertices]
 
 
-def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True, floor_z=None, max_front=None):
+def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True, floor_z=None, max_front=None,
+            behind=0.0):
     """`agree`: the least share of skinning the skin and the cloth over it must have in common
     for that skin to be hidden. Skin on a thigh under a hem hung from the torso, or on an arm
     under a cuff hung from cuff bones, moves out from under the cloth: it stays drawn.
+
     `floor_z` (body object space): no skin below it counts as covered. None takes the cut's
-    `cover_floor_z` - a skirt's crotch: the thighs swing out from under a skirt, so only the band
-    it always covers is hidden. `max_front`: skin facing forward more than this (its normal on the body's
-    forward axis) is not covered, below the cut's `cover_front_top_z` when it has one; None takes the cut's
-    `cover_max_front` - the belly comes away from a skirt's waistband when the body folds in a crouch."""
+    `cover_floor_z` - a skirt's hem hinge: below it the cloth is the hem bones' and they move it, so
+    nothing under it is hidden. `max_front`: skin facing forward more than this (its normal on the
+    body's forward axis) is not covered, below the cut's `cover_front_top_z` when it has one; None
+    takes the cut's `cover_max_front` - the belly comes away from a skirt's waistband when the body
+    folds in a crouch.
+
+    `behind`: how far under the skin cloth may lie and still cover it - a compression garment
+    (`fit.ease(..., flatten=...)`) is pressed into the flesh it squeezes. The line is then also
+    followed inward that far, skin neither line reaches is covered by the nearest cloth within
+    that distance when it lies over that cloth's face, and the report adds `inside` (covered skin with the cloth under it)
+    and `drawn_over_cloth` (corners of triangles still drawn that lie over the cloth: skin showing
+    through it - see `drawn_over_cloth`, which `wardrobe.dress` lifts the cloth over)."""
     g = rigmap._obj(garment)
     b = rigmap._obj(body)
     if floor_z is None:
@@ -86,14 +96,30 @@ def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True, flo
             continue
         n = v.normal
         hit = bvh.ray_cast(v.co + n * 0.0005, n, max_gap)
-        if hit[0] is None:
-            continue
+        depth = hit[3] if hit[0] is not None else None
         # the cloth over this skin faces the way the skin does; cloth on the other leg, reached
         # across the gap from an inner thigh, faces back at it - hidden, that skin was a hole
-        if hit[1].dot(n) < 0.3:
+        if hit[0] is not None and hit[1].dot(n) < 0.3:
+            hit = (None,)
+        if hit[0] is None and behind > 0:
+            hit = bvh.ray_cast(v.co + n * 0.0005, -n, behind + 0.0005)
+            # under the skin it only has to face out: compressed across a crease (a crotch, the
+            # fold under a buttock) the cloth turns away from the skin it passes under
+            if hit[0] is not None and hit[1].dot(n) < 0.0:
+                hit = (None,)
+            depth = -(hit[3] - 0.0005) if hit[0] is not None else None
+        if hit[0] is None and behind > 0:
+            # in a cleft (a crotch) the skin's normal runs along the compressed cloth and both
+            # lines miss it: the nearest cloth, over its face and not turned against the skin
+            near = bvh.find_nearest(v.co, behind)
+            if near[0] is not None and near[3] > 1e-9:
+                side = (v.co - near[0]).dot(near[1])
+                if abs(side) > 0.7 * near[3] and near[1].dot(n) > -0.2:
+                    hit, depth = near, -side
+        if hit[0] is None:
             continue
         covered[v.index] = True
-        gap[v.index] = hit[3]
+        gap[v.index] = depth
         t = gtris[hit[2]]
         u, vv, w = _bary(hit[0], gv[t[0]], gv[t[1]], gv[t[2]])
         cloth = {}
@@ -131,6 +157,7 @@ def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True, flo
                 heapq.heappush(heap, (nd, j))
     hidden = [covered[i] and agrees[i] and dist[i] > margin for i in range(len(covered))]
     edge = [covered[i] and not hidden[i] for i in range(len(covered))]
+    disagree = [i for i in range(len(covered)) if covered[i] and not agrees[i]]
 
     if groups and b.type == "MESH" and "wardrobe_cut" not in b.keys():
         for name, flags in (("wd_hide_" + g.name, hidden), ("wd_edge_" + g.name, edge)):
@@ -151,7 +178,53 @@ def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True, flo
             "hidden_gap_max_m": round(gaps[-1], 4) if gaps else None,
             "max_gap": max_gap, "margin": margin, **({"floor_z": floor_z} if floor_z is not None else {}),
             **({"max_front": max_front} if max_front is not None else {}),
-            "_hidden": [i for i, f in enumerate(hidden) if f], "_edge": [i for i, f in enumerate(edge) if f]}
+            **({"behind": behind, "inside": sum(1 for i in range(len(gap)) if covered[i] and gap[i] < 0),
+                "drawn_over_cloth": len(drawn_over_cloth(g, b, {"_hidden": [i for i, f in enumerate(hidden) if f],
+                                                                  "_edge": [i for i, f in enumerate(edge) if f],
+                                                                  "_disagree": disagree},
+                                                         reach=behind))}
+               if behind > 0 else {}),
+            "_hidden": [i for i, f in enumerate(hidden) if f], "_edge": [i for i, f in enumerate(edge) if f],
+            "_disagree": disagree}
+
+
+def drawn_over_cloth(garment, body, rep, reach=0.03, tol=0.0005):
+    """Body triangles the engine still draws (not every corner hidden) with a covered or hidden
+    corner lying over the garment's face within `reach` - skin that shows through it. `rep`: this
+    garment's `compute` report. A compression garment is eased inside the skin it squeezes, and a
+    triangle between a hidden and a drawn vertex is drawn whole: at the edge of the hidden skin, and
+    in a crotch where it stays drawn, the hidden corner stood through the cloth. Skin the garment
+    does not cover - an arm beside a top - lies over the cloth by right and is not counted."""
+    g = rigmap._obj(garment)
+    b = rigmap._obj(body)
+    hid = set(rep["_hidden"])
+    # skinned unlike the cloth over it is skin beside the garment, not under it: an inner arm
+    # against a top lay over its face by right, and lifting the top over it ran away
+    under = hid | (set(rep["_edge"]) - set(rep.get("_disagree", ())))
+    bvh = garment_bvh(g)
+    bme = b.data
+    bme.calc_loop_triangles()
+    over = {}
+    out = []
+    for t in bme.loop_triangles:
+        vs = tuple(t.vertices)
+        if all(i in hid for i in vs):
+            continue
+        bad = False
+        for i in vs:
+            if i not in under:
+                continue
+            if i not in over:
+                co = bme.vertices[i].co
+                h = bvh.find_nearest(co, reach)
+                over[i] = False
+                if h[0] is not None and h[3] > 1e-9:
+                    side = (co - h[0]).dot(h[1])
+                    over[i] = side > tol and side > 0.7 * h[3]
+            bad = bad or over[i]
+        if bad:
+            out.append(vs)
+    return sorted(out)
 
 
 def _bary(p, a, b, c):

@@ -794,7 +794,7 @@ def godot_constants(report, suffix="_CLIP_IMPLIED_SPEED"):
 def export(mesh_name, rig_name, filepath, foot_bones, actions=None,
            loop_clips=None, floor=0.0, up="Z", forward="-Y", force=False,
            skip_bad_clips=False, sidecar=True, gaits=None, recheck=True,
-           clearance=False):
+           clearance=False, review=True, review_options=None):
     """Preflight, export, then read the file back and check it against the plan.
 
     Returns a manifest the engine side can be driven from. `verified` is the
@@ -807,6 +807,14 @@ def export(mesh_name, rig_name, filepath, foot_bones, actions=None,
     is re-checked on playback (`recheck=True`), and a clip failing any check
     blocks the export: `skip_bad_clips=True` drops it and says so, `force=True`
     ships it anyway with its failures in the manifest.
+
+    `review` (on by default) then writes the review sheet beside the glb, in
+    `<glb folder>/review/<glb name>/`: every exported clip as 8-frame strips
+    from the front, right and three-quarter views at one shared scale, and a
+    `contact.png` (see `review.py`). `review_options` go to `review.sheet`
+    (`frame_height_m`, `views`, `frames`, `cell_px`, `title`). The manifest's
+    `review` says what was written, or its `error`: a sheet that could not be
+    rendered does not undo a verified export, but it is never silent.
     """
     pre = preflight(mesh_name, rig_name, actions=actions)
     if "error" in pre:
@@ -898,7 +906,25 @@ def export(mesh_name, rig_name, filepath, foot_bones, actions=None,
                       fh, indent=2)
         manifest["sidecar"] = side
 
+    if review:
+        manifest["review"] = review_sheet(mesh_name, rig_name, written["file"], clips["clips"],
+                                          forward=forward, floor=floor, options=review_options)
     return manifest
+
+
+def review_sheet(mesh_name, rig_name, glb_path, clips, forward="-Y", floor=0.0, options=None):
+    """`review.for_glb` for an export's clips ({name: clip check}, whose `loops` it reads), reduced to
+    `review.summary`; an exception becomes {error}."""
+    from . import review as rv
+    try:
+        r = rv.for_glb([mesh_name], rig_name, glb_path, sorted(clips),
+                       loops=[n for n, c in clips.items() if c.get("loops")], forward=forward,
+                       floor=floor, **dict(options or {}))
+    except Exception as exc:                        # reported, not raised: the glb is already verified
+        import traceback
+        traceback.print_exc()
+        return {"error": "review sheet failed: %s: %s" % (type(exc).__name__, exc)}
+    return rv.summary(r)
 
 
 def _res_path(glb_path):
@@ -918,7 +944,7 @@ def _res_path(glb_path):
 def export_character(mesh_name, rig_name, glb_path, name=None, reports=None, res_path=None,
                      roles=None, loops=None, gaits=None, foot_bones=None, forward="-Y", up="Z",
                      floor=0.0, force=False, skip_bad_clips=False, sidecar=True, creature=None,
-                     extra=None):
+                     extra=None, review=True, review_options=None):
     """Export a biped or quadruped through `export` and write `<glb base>.moves.json` beside it:
     the manifest `MovesController` reads, as `hop.export_creature` and
     `radial_moves.export_creature` write for their bodies.
@@ -935,7 +961,9 @@ def export_character(mesh_name, rig_name, glb_path, name=None, reports=None, res
     name        the display name; `creature` the id, default the glb's base name.
     res_path    the glb's `res://` path (`scene`). Default: its path inside the Godot project that
                 holds it (the folder with project.godot), else `res://<file name>`.
-    force, skip_bad_clips, sidecar   as `export`. A dropped clip leaves the manifest too.
+    force, skip_bad_clips, sidecar, review, review_options   as `export`. A dropped clip leaves the
+                manifest too. The review sheet's title is the display name; a sheet that failed is
+                listed in `problems`.
     extra       fields merged into the manifest last - a project's own (`style`, `note`, ...),
                 replacing any written here.
 
@@ -972,7 +1000,9 @@ def export_character(mesh_name, rig_name, glb_path, name=None, reports=None, res
     e = export(mesh_name, rig_name, glb_path, foot_bones=foot_bones, actions=list(clip.values()),
                loop_clips=[clip[r] for r in roles if r in loops], floor=floor, up=up, forward=forward,
                force=force, skip_bad_clips=skip_bad_clips, sidecar=sidecar,
-               gaits=[clip[r] for r in roles if r in gaits])
+               gaits=[clip[r] for r in roles if r in gaits], review=review,
+               review_options=dict({"title": name or creature or os.path.basename(os.path.splitext(glb_path)[0])},
+                                   **(review_options or {})))
     if not e.get("exported"):
         return {"error": "export refused at %s: %s" % (e.get("stage"), e.get("note") or e.get("error")),
                 "export": e}
@@ -1024,7 +1054,9 @@ def export_character(mesh_name, rig_name, glb_path, name=None, reports=None, res
         json.dump(moves, fh, indent=2)
     return {"glb": glb_path, "moves": path, "manifest": moves, "verified": e["verified"],
             "clips": [clip[r] for r in kept], "bones": e["preflight"]["bones"],
-            "problems": loco["problems"], "export": e}
+            "problems": loco["problems"] + (["review: " + e["review"]["error"]]
+                                            if "error" in (e.get("review") or {}) else []),
+            "review": e.get("review"), "export": e}
 
 
 def summarize(manifest):

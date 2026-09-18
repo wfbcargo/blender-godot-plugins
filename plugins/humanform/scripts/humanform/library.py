@@ -233,6 +233,11 @@ def apply(human, card, weight=1.0):
     _, TargetService, HOP, _ = scaffold.services()
     card = load(card["id"]) if "payload" not in card else card
     payload = card["payload"]
+    if payload.get("type") == "delta":
+        # a sculpted part: per-vertex heights, not targets (humanform.delta)
+        from . import delta
+        delta.apply(human, card, value=weight)
+        return card
     if card["kind"] == "body":
         for n, v in payload["macros"].items():
             HOP.set_value(n, float(v), entity_reference=human)

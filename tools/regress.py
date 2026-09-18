@@ -49,7 +49,12 @@ REPO = Path(__file__).resolve().parent.parent
 FIXTURES = REPO / "tests" / "fixtures"
 GOLDEN = REPO / "tests" / "golden"
 SCRIPT_VARS = {"RA_SCRIPTS": "rig-anything", "HF_SCRIPTS": "humanform",
-               "FT_SCRIPTS": "follow-through", "WD_SCRIPTS": "wardrobe", "CP_SCRIPTS": "character-pipeline"}
+               "FT_SCRIPTS": "follow-through", "WD_SCRIPTS": "wardrobe", "CP_SCRIPTS": "character-pipeline",
+               "LD_SCRIPTS": "lookdev"}
+# The folder under a plugin that holds its importable packages. `scripts` for all but lookdev, whose
+# Blender package lives in `blender/` - so `--plugins <checkout>` reached every plugin but that one, and
+# a run said it was exercising another checkout while its hair material came from this one.
+PACKAGE_DIR = {"lookdev": "blender"}
 
 # Keys whose value is a path, a duration or a date: real output, never the same twice. Matched as
 # whole words of the key (split on `_`), never as substrings: `*file*` once skipped `profile`, `*dir*`
@@ -169,6 +174,10 @@ GODOT_WARDROBE = {
                        "controls": [["rigid=spine"], ["colliders=false"]]},
     "pipeline_woman": {"body": "fixwoman.glb", "garment": "fixwoman_sportstop.glb,fixwoman_shorts.glb",
                        "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
+    # the compression pair on the embossed body: cloth eased inside 12 mm of relief, and lifted back
+    # over the skin that stood through it, must still leave no hole and no skin showing
+    "traced_detail": {"body": "figure.glb", "garment": "top_compressed.glb,shorts_compressed.glb",
+                      "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
 }
 # The Godot addons the verifiers load from the project, and where this repo keeps each one.
 GODOT_ADDONS = {"rig_anything": "rig-anything", "wardrobe": "wardrobe", "follow_through": "follow-through"}
@@ -349,7 +358,7 @@ def main(argv=None):
         for var, plugin in SCRIPT_VARS.items():
             # A checkout from before a plugin moved in here does not have it; that plugin then
             # stays on this repo's copy rather than failing to import.
-            scripts = root / "plugins" / plugin / "scripts"
+            scripts = root / "plugins" / plugin / PACKAGE_DIR.get(plugin, "scripts")
             if scripts.is_dir():
                 env[var] = str(scripts)
         have = sorted(p for var, p in SCRIPT_VARS.items() if env.get(var, "").startswith(str(root)))

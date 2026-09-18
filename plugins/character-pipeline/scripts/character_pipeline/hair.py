@@ -1,9 +1,10 @@
-"""Hair until there is a hair plugin (improvements 05 5.2): a shell cut from the scalp and pushed out,
-and a bun, joined into the body and skinned whole to the head role.
+"""DEPRECATED: the pipeline's old hair, kept only so a spec with `kind = "shell_bun"` still builds. New specs
+name a humanform hair preset (`[hair] preset = "bun"`), which has a feathered hairline, strand material and
+strand objects; see humanform's SKILL.md, Hair (improvements 05 5.2).
 
-Moved from grungist-creek's build_belle.py, where it was Belle's `hair()`. The numbers are the
-character's, so they come from the spec's [hair] table; heights are measured down from the top of the
-head.
+A shell cut from the scalp and pushed out, and a bun, joined into the body and skinned whole to the head
+role. Moved from grungist-creek's build_belle.py, where it was Belle's `hair()`. Heights are measured down
+from the top of the head.
 """
 
 from __future__ import annotations

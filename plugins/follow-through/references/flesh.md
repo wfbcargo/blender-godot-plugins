@@ -120,6 +120,161 @@ Detection runs in 0.2-0.5 s on 17-23k vertices.
 - Before capping influences at four, Blender's exporter warned "more than 4 joint vertex
   influences" and renormalised on its own.
 
+## Swing limits from Godot
+
+`max_offset_m` is the only thing keeping a mass out of the body. A region pinned on it looks wrong,
+because the clamp stops the swing dead. The limit used to be tuned by rerunning Belle's self-test
+and guessing. Godot now measures it, and Blender reads what Godot measured.
+
+**Measuring.** `JiggleModifier.measure_limits()` counts three things per region:
+- the ticks within 1 mm of the limit (the test belle_demo uses);
+- the separate contacts with the limit;
+- the longest contact.
+
+Beside each region it also runs shadow springs that get the same load:
+- one spring with no limit, which gives `free_peak_m` and a `demand` curve;
+- 33 springs on a ladder of limits 9% apart, a quarter to four times the region's own.
+
+The rungs are one grid for every region: 1 cm x 2^(k/8), snapped to 0.1 mm, for the 33 k around the
+rung nearest the region's limit (`JiggleModifier.ladder_limits`, mirrored by
+`limits.ladder_limits`). They are not 2^(k/8) times the region's own limit, because paired sides
+export limits 0.1-0.4 mm apart. On ladders of their own no limit would be measured on both sides, and
+a pair's limit would be chosen on shares read between rungs. Across a cliff that reading is made up:
+a made-up pair with its step between two rungs was given 0.0137 m with 2.7% expected on one side,
+where the side really sat at 20%. On one grid the Figure's and Bloater's pairs share 32 or 33 of their
+33 rungs.
+
+The load is the anchor's acceleration plus the change of gravity. It comes from the skeleton and
+never from the flesh, so each rung does exactly what the region would do with that limit.
+
+`limit_report()` returns the report, and `print_limit_report()` prints it as
+`FT_FLESH_LIMITS {json}`. `verify_flesh.gd` drives a body round a fixed 13.6 s course (below) and
+prints one line per body. A game's self-test can call the same two functions around its own script.
+
+**Suggesting.** `flesh.suggest_limits(report)` works through each region in this order:
+1. A region inside the band is kept.
+2. Otherwise it takes the measured rung inside the band that is nearest the target.
+3. `.L`/`.R` pairs get one limit, chosen only on rungs measured on both sides (`pair`). The course
+   turns one way, so the two sides measure differently. When no rung puts both inside the band, the
+   tightest with neither side over it is taken.
+4. Sometimes the share falls across the whole band between two neighbouring rungs. That is one long
+   stay on the limit, which a limit either catches or misses. The looser rung is taken and the row
+   is marked `cliff`. The rungs are fixed, so a rerun measures the same ones and the answer
+   settles.
+5. If the band lies past the ladder's end, the end is taken and the row says to run again.
+6. A report whose pair ladders share under half their rungs was made before the grid. The pair is
+   then chosen on shares read between rungs. The row is `interpolated` and says to run again. A step
+   between two rungs larger than the band's width is never read across: that limit is not a
+   candidate.
+
+Every `expected_on_limit_share` outside `interpolated` and `estimate` rows is a measured rung. A
+limit moved by a cap or by the 5 mm floor also goes to a rung: the loosest rung under the cap, or
+the tightest over the floor.
+
+Old `FLESH ... on the limit x%` lines have no ladder, so they get an estimate: share ~ limit^-1.74,
+from Belle's buttocks at 5.8 and 6.9 cm. The row says to measure again; with no `peak_m` in the line
+nothing bounds it, and it says that too.
+
+`flesh.apply_limits(obj, suggestion)` writes the suggested limits into the spec. It refuses a
+suggestion that measured nothing.
+
+**No limit carries a mass out of its own body.** The jiggle bone's tip moves by the whole offset
+(`_pose` aims the tail at `tail + e`), so an offset larger than the region's stand-out puts its skin
+inside the surface it sits on. Every flesh type therefore has a `limit_max_share`, and a type without
+one is capped at `limits.DEFAULT_MAX_SHARE` = 1.0 - its own stand-out:
+
+| type | limit_max_share | why |
+|---|---|---|
+| `breast` | 0.66 | swung in further than two thirds of its stand-out, the skin passes into the chest (Belle: 8.2 cm of 12.4) |
+| `butt` | 0.9 | the depth of a full buttock's fat pad (Belle: 7.0 cm of 7.8) |
+| `belly`, `bloater_belly`, `love_handle`, `thigh`, `arm_flab` | 1.0 | behind them is the abdominal wall, the iliac crest, the femur, the humerus: the stand-out is all the travel there is |
+
+A suggested limit over the cap is tightened onto the loosest **measured** rung inside it - but only
+when that rung still keeps the region out of the band's top. When no limit can do both, the region
+keeps the one it has, the row is `capped`, and it says which of `response`, `gravity_scale`,
+`frequency_hz` and `damping_ratio` to change instead. A limit is never tightened onto a rung that
+pins the flesh, and never raised past the cap. A `.L`/`.R` pair is chosen among the rungs inside the
+tighter of the two caps whenever one of those puts both sides in the band.
+
+Without that cap the suggester compounded: the Figure's `arm_flab` stands 2.2 cm out and was raised
+to 5.66 cm at response 1.0 and 6.73 cm at 1.5 - 2.6 and 3.1 times its own depth, every run, with no
+check comparing the limit to the geometry. `verify_flesh.gd` now has one: `within_body` fails a
+region whose peak offset passed `body_share` (default 1.0) x `peak_m`.
+
+A region capped with nothing left to give is usually not a limit problem at all. A spring at f Hz
+whose rest point turns with its anchor settles up to g/(2 pi f)^2 away from it, so `soft_fat` at
+2.7 Hz hangs 3.4 cm off - more than the Figure's 2.2 cm flab stands out, whatever the body does. The
+row says so when the sag is larger than the cap allows.
+
+**A run that measured nothing fails.** `limit_report()` skips a region `measure_limits()` never
+touched, so a self-test that prints the report without starting it emits `FT_FLESH_LIMITS` with no
+regions at all. That used to come back `in_band: true, settled: true` and print "every region
+inside". Now the report carries `measuring`, `regions_total`, `regions_measured` and `problems`;
+`verify_flesh.gd` fails the body on a problem before it looks at any check; and `limits.suggest`
+turns a body with no regions, a region with 0 ticks, or a `problems` list from Godot into its own
+`problems`, with `in_band` and `settled` false. The report keeps `problems` (never measured) apart
+from `failures` (measured and wrong), because only the first makes a suggestion untrustworthy.
+
+**The band is 3-9% of ticks on the limit, with a target of 6%.**
+
+*Upper edge, 9%.* The numbers behind it:
+- Belle's self-test fails a region at 10%.
+- Her buttocks at 5.8 cm sat on the limit 11-12% of the time, and the eye rejected them as pinned.
+  At 6.9 cm they sat at 8-9% and were kept.
+- Her shipped regions read 7.5-9.0% on the self-test. Her breasts read 7.5/8.7 on one run and
+  7.6/9.0 on another, so runs differ by about 0.3 points.
+
+A 9% edge keeps that accepted look inside the band, with a margin for ticks and run-to-run spread
+under the failing line.
+
+*Lower edge, 3%.* The limit protects the mesh and the garments, so it should be as tight as the eye
+allows. On the course, with the sample bodies' shipped limits:
+- Breasts, buttocks and bellies sat on the limit 0.5-1.2% of the time.
+- Every contact was a jump takeoff or landing: 4-7 contacts of 1-3 ticks.
+- Everything else swung freely up to 12 cm. The Bloater's belly swung 25 cm, inside a 26.5 cm limit.
+
+From 3% up, the limit also catches the stops and the turn (13-17 contacts). Below 3%, it bounds only
+the hardest moment of the script, and the limit is a guess rather than a measurement.
+
+*Target, 6%.* The middle of the band leaves 3 points either way for a script that differs from the
+one measured. Belle's shipped limits sit inside the band on both her tests, so the suggestion keeps
+them:
+- 4.4-4.9% on `verify_flesh`'s course at her demo's response of 1.5, and 2.4-3.4% at 1.0;
+- 7.5-9% on her harder self-test, which has rolls and sprint jumps.
+
+**The course** runs in `verify_flesh.gd` at 60 Hz and measures 816 ticks:
+- settle for 1 s, not measured;
+- walk 3 s at 1.2 m/s, then stop for 1.5 s;
+- walk through a 90-degree turn for 2 s;
+- run 2.5 s at 2.6 m/s, then stop for 1.2 s;
+- two standing jumps at 3.28 m/s (belle_controller's 0.55 m jump), 1.2 s each, then stand for 1 s.
+
+Speed changes at 7 m/s^2, belle_controller's `ACCEL`. Takeoff and landing each take one tick, as a
+CharacterBody3D's do. The walk clip plays at speed / 1.2.
+
+**Converged** on follow-through's sample bodies, built and exported the way `flesh_figure` builds
+them. Each suggested limit was fed back through `verify_flesh.gd`'s `limits=` and the course was run
+again; run 2 and run 3 are identical, so the loop is a fixed point, not a walk.
+
+| body, response | run 0 (shipped limits) | after one suggestion | settled at |
+|---|---|---|---|
+| Figure, 1.0 | breasts 1.1/1.2%, butts 0.7/0.7, belly 1.0, thighs 7.1/8.7, arm flab 90.7/88.3 (held 176-184 ticks) | breasts 5.15/5.27 -> 3.67 cm, butts 7.50/7.46 -> 3.67, belly 5.44 -> 3.67 | run 1: breasts 5.4/3.2%, butts 3.3/3.7, belly 4.9, thighs kept 7.1/8.7 - 7 of 9 inside. Arm flab `capped`: it needs 3.7 cm and has 2.2 |
+| Bloater, 1.0 | belly 0.0%, breasts 0.5/0.5, butts 1.0/0.7, love handles 0.0/0.0, thighs 5.1/5.0, arm flab 13.9/9.6 | belly 26.5 -> 8.00 cm, breasts 10.0/9.7 -> 3.67, butts -> 3.67, love handles 21.0 -> 5.19 (the ladder's end) | run 2, after the love handles came down again to 3.67: 9 of 11 at 3.4-5.5%. Arm flab `capped` |
+| Figure, 0.3 with `gravity_scale` 0.3 - the capped rows' own advice | every region under 1.5%, arm flab still over its stand-out | limits 5.15-7.50 cm -> 1.30-1.83 cm, arm flab 2.64/2.65 -> 1.83 | run 2: every region 4.2-6.5%, `settled`, `in_band`, and `FT_SUMMARY PASSED` - `within_body` included |
+
+The arm flab is the case the cap was built for. Before it, both bodies' flab was "fixed" by raising
+its limit to 2.6-3.1 x its stand-out, and the run reported PASSED; renders of the Figure's arm at
+2.2, 2.64, 5.66 and 6.73 cm show the skin lifting clear of the arm from 5.66 cm on. Now the row is
+capped, the reason is named, and following it (response 0.3, gravity_scale 0.3) converges the whole
+body in two runs.
+
+The suggested limits are much tighter than the shipped ones: the Figure's breasts come out at
+0.47 x peak instead of 0.66. On this course at response 1, the shipped limits bound only the jumps.
+
+`limit_share` in the registry is left as it was. A type's share should be judged on more bodies than
+two samples, and on Belle's self-test. `suggestion["types"]` gives the median suggested share per
+type for that purpose.
+
 ## Tissue data
 
 | quantity | value | source |
