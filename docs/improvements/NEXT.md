@@ -43,12 +43,14 @@ frame) and both its controls fail as they must (`rigid=spine`: 46 skirt vertices
 
 **Then `compression-on-belle` was merged on its own** (wardrobe 0.5.0): `sports_top` now spans the hollows under and between the breasts (`fit._span`, ease `span` 0.8 within `span_radius` 0.1, never moving cloth inward), settles over 14 cm, keeps creased skin drawn (cover `crease`) and lifts smoothly; `dress` reports `sharp_edges` and counts folds against neighbours; `*.py` is pinned to LF in `.gitattributes`. On Belle, built in scratch from `belle.toml` with `belle_spec_ready.patch`, the top carries 0.000 mm against the 0.060 mm limit (breast 0.012), with no lift, no fold, no cloth edge bent over 35 degrees and 0 drawn triangles over the cloth; `verify_wardrobe` passes 21 of 21 (worst holes 0.39%, poke 0.30%). Close renders show the cloth running from bust to band and across the cleavage; a faint facet remains at the outer-lower corner of each breast. The sample figure's top sits looser in the cleavage and under the bust (gap p95 13 -> 34 mm), and the embossed figure's spanned top needs one 4-triangle lift with 6 sharp edges. Conflicts with main in `cover.py` (kept `floor_z`/`max_front` beside `crease`) and `garments.json`. `python tools/regress.py --twice --jobs 4 --godot C:/Users/pauli/Code/GoDot/grungist-creek` on the merged `main`: 19 fixtures, both builds agreeing, no change against the goldens, every Godot verifier passing and every control failing as it must (18 minutes). No Godot addon changed, so nothing was synced into `grungist-creek`. The worktree and branch are removed. Belle is not rebuilt in `grungist-creek` yet (item 9); the garments-stage hash ignores preset contents, so her rebuild needs `force=1`. Not pushed.
 
+**Then `fig-flesh-reporting-and-godot-proof` was merged on its own** (follow-through 0.6.0, character-pipeline 0.6.0): flesh returns a `missed` list with reasons and numbers and no longer warns on all-NaN columns, a spec's `[flesh] may_miss` lets a named type go missing (otherwise the flesh stage fails), `.moves.json` gains a `flesh` block, and `verify_flesh.gd` takes `course=walk|run|jump` and `require=` (on main, a refused argument now quits cleanly); `regress --godot` springs `pipeline_woman`'s flesh on the full, walk and run courses with a 2 x peak_m control that fails. `regress.py --twice --jobs 4 --godot` on the merged `main`: 19 fixtures agreeing, no change, every verifier passing and every control failing (13.4 min); `verify_flesh.gd` synced into `grungist-creek` (`e108495`). Open: study_woman needs `may_miss = ["belly"]` (her breast regions take the belly zone), study_man needs `[flesh] limit_share = { belly = 1.0 }` until the registry gives belly a limit_share (item 8), on_limit on the jump course is 10.6-17% and only advisory, the control run does not check why it fails, `_miss` wording should say "of the unclaimed vertices". Not pushed.
+
 Installed copies in `~/.claude/skills` match the repo:
 - rig-anything 0.23.0
 - animate-anything 0.10.0
-- follow-through 0.5.2
+- follow-through 0.6.0
 - humanform 0.8.0
-- character-pipeline 0.5.0
+- character-pipeline 0.6.0
 - wardrobe 0.5.0
 - lookdev 0.2.0
 - godot-lsp 0.1.0
