@@ -68,6 +68,9 @@ quality = "final"                  # "draft" | "preview" | "final"; runner.build
 [hair]                             # humanform's hair layer: the brief's hair = {preset, colour}
 preset = "bun"                     # short_crop, bob, bun, ponytail, long_loose
 colour = [0.17, 0.10, 0.06]        # screen (sRGB)
+brows = true                       # optional, default false: humanform.brows' brow and lash cards and
+lashes = true                      #   light body hair, in the hair colour darkened, joined with the hair
+body_hair = false                  #   (a switch left false hashes as before, so no build restarts)
 
 [flesh]                            # follow-through; limit shares come from the type registry
 types = ["breast", "butt"]

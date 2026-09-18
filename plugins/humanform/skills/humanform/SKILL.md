@@ -233,6 +233,51 @@ of a hole; Godot's `LookdevMaterials.apply` gives hair tangents from U alone for
 averaged mod 180 degrees over the faces meeting at each position, which is what keeps the strands running to
 the bun's axis from faceting into dark polygons.
 
+**The ears are cut round, not covered.** On an MPFB body (`brows.is_mpfb`: at least 13380 vertices, which a
+baked body keeps in base-mesh order) the hairline also knows the ears themselves: `data/face_regions.json`
+lists the vertices MPFB's ear flap, wing and lobe targets bend (259 a side), the cap drops every face that
+touches one, and the signed distance is at most the distance to the nearest ear vertex minus `ear_clear_m`
+(-3 mm), so the feather runs out round the ear instead of across it. Before, the ellipse alone left the
+whole ear inside the cap - 568 of a curvy woman's 1204 cap faces were ear, and the strand texture ran over
+the helix and the back of both ears. `cap.ear_covered_verts` counts the ear vertices facing out of the head
+whose normal meets the cap within 2 cm: 0 on every preset (430 with `ear_cut=False`, the old cap, as a
+control in the `hair_presets` fixture).
+
+### Brows, lashes and body hair (`humanform.brows`)
+
+```python
+rep = hair.add("Mara_body", preset="short_crop", colour=c, brows=True, lashes=True)   # off by default
+rep["objects"]     # {"hair": ..., "brows": "Mara_brows", "lashes": "Mara_lashes"}
+rep["face"]        # {"parts": {"brows": {faces, verts, weights, material, colour}, ...}, "skipped": None}
+hair.add(..., body_hair=True, sex="male")    # + "Mara_body_hair": forearms, shins, pubic; chest, belly, thighs on a man
+```
+
+A spec turns them on with `[hair] brows = true`, `lashes = true`, `body_hair = true` (character-pipeline);
+the hair stage joins them into the body with the rest of the hair.
+- **Lashes** are MPFB's own eyelash cards (`helper-{l,r}-eyelashes-{1,2}`, upper and lower lid, 92 quads a
+  side), which the bake deletes with the other helpers. `scripts/derive_face_regions.py` stores each card
+  vertex as a proxy fit (a triangle of body vertices, barycentric weights, an offset along its normal in
+  units of its size, refit error 0.8 um), so the cards follow the lids through every target and fit. The
+  lower card is drawn in to 45% of its length (MPFB's is as long as the upper one and read as eyeliner). V
+  runs from the lid to the tips per lid; two-sided.
+- **Brows** are a generated 16 x 4 card on each ridge, laid on the neutral face from the eye (MPFB has brow
+  shape targets but no brow geometry) and stored the same way: 10.5 mm tall at the head, 2 mm at the tail,
+  6 cm long. Its strands lean along it - V across from the lower edge (roots) to the upper (tips), U
+  sheared from upright at the head to 14 degrees by the tail.
+- **Body hair** (off unless asked) is a shell 0.3 mm off the skin cut by bone weight (and facing, on the
+  torso), with the hair texture thinned to 22% of its strand bands, each staggered, repeating every 14 mm
+  along the limb so it reads as short hairs.
+- **Colour and material:** the `[hair]` colour's sRGB times 0.6 for brows, 0.35 for lashes, 0.8 for body hair;
+  lookdev's hair material with per-part strand settings (`brows.LOOK`), so glTF carries MASK, the strand and
+  normal textures and the `lookdev` extras. They ask Godot for **alpha scissor** (`transparency` 2) instead of
+  the scalp's depth pre-pass: a card this fine, this close to the skin, blends its sub-cutoff strand fringes
+  into a grey haze (eyeshadow round the lashes, a smudge under the brow).
+- Weights are interpolated from the triangle each vertex rides (the head bone on the draft study figures).
+
+`scripts/derive_face_regions.py` regenerates the data from MPFB's `base.obj`
+(`blender -b --factory-startup --python-exit-code 1 --python derive_face_regions.py`, 4 s). A body that is not
+MPFB's gets no brows, lashes, body hair or ear cut, and `rep["face"]["skipped"]` says why.
+
 **Material:** `lookdev_blender.hair.material` (see lookdev's `references/hair.md`): strand texture with a
 root-to-tip gradient and alpha-thinned ends (MASK), a strand normal map, anisotropy, and `lookdev` extras
 that `LookdevMaterials.apply` turns into anisotropy, backlight and rim in Godot. Without lookdev importable

@@ -47,7 +47,7 @@
     "FixDante_hair_strands",
     "FixDante_hair_strands_normal"
    ],
-   "verts": 16323
+   "verts": 15805
   },
   "draft_hash_part_moves": null,
   "final_hash_part": {
@@ -80,7 +80,7 @@
     "moves": "ran",
     "muscle": "ran"
    },
-   "verts": 15581,
+   "verts": 15065,
    "verts_equal_fresh_build": true
   },
   "muscle": {
@@ -147,7 +147,7 @@
     "hair": "ran",
     "moves": "ran"
    },
-   "verts": 15581
+   "verts": 15065
   },
   "muscle_normal": {
    "bake": {
@@ -185,7 +185,7 @@
     "moves": "ran",
     "muscle": "ran"
    },
-   "verts": 15581
+   "verts": 15065
   },
   "quality": {
    "draft": {

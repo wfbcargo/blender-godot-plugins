@@ -17,6 +17,12 @@ A curvy MPFB woman from a spec is built through character-pipeline's body and ba
 - changing `[hair]` and rerunning the stage on the built body is refused rather than joining a second hair
   layer on top of the first, the body is left exactly as it was, and another character's hair object in the
   same file is not counted as hers;
+- every preset's cap stays off the ears: `cap.ear_covered_verts` (ear vertices the cap lies over) is 0, and a
+  control with the ear cut off (`ear_cut=False`, the cap as it was before) shows what it catches;
+- `brows=True, lashes=True, body_hair=True` on the same body (humanform.brows): the brow and lash cards'
+  counts and weights, the body hair's regions, their face order, and in the exported glTF their materials -
+  alpha MASK, textures, the lookdev extras (scissor in Godot), lashes double-sided; `[hair] brows / lashes /
+  body_hair` parse, a bad value is refused, and a spec without them hashes its hair section as before;
 - `spec.GAPS` no longer lists hair, the deprecated `kind = "shell_bun"` still parses, and a bad preset or
   colour in a spec or a brief is refused;
 - lookdev is optional to the pipeline: with `LD_SCRIPTS` pointing at nothing, `plugins.use()` still imports
@@ -88,7 +94,7 @@ def _pixels_hash(name):
 def _stable_rep(rep):
     lm = rep["landmarks"]
     out = {"landmarks": {k: lm[k] for k in ("head_bone", "top", "eye", "h", "cy", "ear_L", "ear_half_m", "chin",
-                                            "eye_source")},
+                                            "eye_source", "ear_vertices")},
            "cap": rep["cap"], "parts": rep["parts"], "hair": rep["hair"], "objects": sorted(rep["objects"]),
            "material_source": rep["material"].get("source")}
     if "contract" in rep:
@@ -187,6 +193,7 @@ def build():
         for o in made:
             bpy.data.objects.remove(o, do_unlink=True)
 
+    face = _face(ch, root)
     staged = runner.build(ch, from_stage="hair", to_stage="hair", save=False, log=lambda m: None)
     hr = staged["hair"]["report"]
     body = bpy.data.objects[ch.mesh]
@@ -223,8 +230,89 @@ def build():
         "brief_refusal": [p for p in brief if "hair" in p],
         "stage_names": [s[0] for s in stages.STAGES],
         "rebuild_refused": rebuild,
+        "face": face,
+        "face_spec": _face_spec(spec, base),
         "optional_lookdev": optional,
     }
+
+
+def _face(ch, root):
+    """Brows, lashes and body hair (humanform.brows) on the built body, and the ears every cap stays off."""
+    import bpy
+    from humanform import hair
+    out = {}
+    # the control: the short crop's cap as it was before it knew where the ears are
+    rep = hair.add(ch.mesh, preset="short_crop", colour=(0.35, 0.22, 0.12), name=ch.name, ear_cut=False)
+    out["ear_covered_verts_without_ear_cut"] = rep["cap"]["ear_covered_verts"]
+    for n in rep["objects"].values():
+        bpy.data.objects.remove(bpy.data.objects[n], do_unlink=True)
+    rep = hair.add(ch.mesh, preset="short_crop", colour=(0.35, 0.22, 0.12), name=ch.name, brows=True, lashes=True,
+                   body_hair=True, sex="female")
+    made = [bpy.data.objects[n] for n in rep["objects"].values()]
+    out["objects"] = sorted(rep["objects"])
+    out["ear_covered_verts"] = rep["cap"]["ear_covered_verts"]
+    parts = {}
+    for name, part in rep["face"]["parts"].items():
+        parts[name] = {k: part[k] for k in ("faces", "verts", "weights", "regions", "colour", "lid_cards") if k in part}
+        tex = (part.get("material") or {}).get("texture")
+        if tex:
+            # the card texture: share of texels a hair covers (skin between the hairs, no opaque band)
+            parts[name]["texture"] = tex
+        mat = bpy.data.materials.get(f"{ch.name}_{name}")
+        if mat is not None and name in ("brows", "lashes"):
+            parts[name]["transparent_shadow"] = bool(getattr(mat, "use_transparent_shadow", False))
+    out["parts"] = H.stable(parts)
+    out["skipped"] = rep["face"]["skipped"]
+    out["face_order"] = {o.name: H.face_order(o) for o in made if o.name != f"{ch.name}_hair"}
+    # the lash roots sit on the lids and the brows on the ridge: every card vertex's distance to the skin
+    from mathutils.bvhtree import BVHTree
+    from humanform import hair as _h
+    lm = _h.landmarks(ch.mesh)
+    bvh = _h._bvh(lm["_co"], bpy.data.objects[ch.mesh], lm["_eye_vertices"])
+    lift = {}
+    for o in made:
+        if o.name.endswith(("_brows", "_lashes")):
+            d = [bvh.find_nearest(o.matrix_world @ v.co)[3] for v in o.data.vertices]
+            lift[o.name.rsplit("_", 1)[-1]] = [round(min(d) * 1000, 2), round(max(d) * 1000, 2)]
+    out["skin_distance_mm"] = lift
+    from rig_analysis import export as ra_export
+    path = os.path.join(root, "face_cards.glb")
+    w = ra_export.export_glb(path, [ch.mesh, ch.rig] + [o.name for o in made], actions=[], rig_name=ch.rig)
+    j = _glb_json(w["file"])
+    mats = {}
+    for m in j["materials"]:
+        part = m["name"][len(ch.name) + 1:]
+        if part in ("brows", "lashes", "body_hair"):
+            mats[part] = {"alphaMode": m.get("alphaMode"), "doubleSided": m.get("doubleSided", False),
+                          "base_colour_texture": "baseColorTexture" in m.get("pbrMetallicRoughness", {}),
+                          "normal_texture": "normalTexture" in m,
+                          "godot_transparency": ((m.get("extras") or {}).get("lookdev") or {}).get("godot", {}).get("transparency"),
+                          "lookdev_preset": ((m.get("extras") or {}).get("lookdev") or {}).get("preset")}
+            g = ((m.get("extras") or {}).get("lookdev") or {}).get("godot", {})
+            mats[part]["godot_sheen"] = {k: g.get(k) for k in ("rim_enabled", "backlight_enabled", "anisotropy_enabled")}
+            mats[part]["texture_hash"] = _pixels_hash(f"{ch.name}_{part}_strands")
+    out["gltf"] = H.stable(mats)
+    for o in made:
+        bpy.data.objects.remove(o, do_unlink=True)
+    return out
+
+
+def _face_spec(spec, base):
+    out = {}
+    ok = spec.parse(dict(base, hair={"preset": "bun", "brows": True, "lashes": True}))
+    out["parsed"] = {"brows": ok.hair.brows, "lashes": ok.hair.lashes, "body_hair": ok.hair.body_hair,
+                     "face": ok.hair.face()}
+    try:
+        spec.parse(dict(base, hair={"preset": "bun", "brows": "yes"}))
+        out["bad_value"] = None
+    except spec.SpecError as exc:
+        out["bad_value"] = str(exc)
+    plain = spec.parse(dict(base, hair={"preset": "bun", "colour": [0.1, 0.1, 0.1]}))
+    # the section a spec without the switches hashes: exactly the fields it had before they existed
+    out["plain_section"] = plain.section("hair")
+    out["switch_off_same_digest"] = spec.parse(dict(base, hair={"preset": "bun", "colour": [0.1, 0.1, 0.1],
+                                                               "brows": False})).digest("hair") == plain.digest("hair")
+    return out
 
 
 def _rebuild_refused(ch, spec, base):

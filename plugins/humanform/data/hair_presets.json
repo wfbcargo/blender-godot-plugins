@@ -21,7 +21,9 @@
     "ear_ellipse_m": [0.03, 0.036],
     "_ear": "the ear is measured (half its extent, front-back and up-down) plus ear_margin_m; ear_ellipse_m is used only without a measured ear",
     "ear_margin_m": 0.002,
-    "ear_scale": [0.55, 0.95]
+    "ear_scale": [0.55, 0.95],
+    "_ear_clear": "on an MPFB body the ear's own vertices (humanform.brows) also cut the hairline: signed distance is at most the distance to the nearest ear vertex minus ear_clear_m (negative: the hairline runs that far inside the ring of scalp the ear set includes)",
+    "ear_clear_m": -0.003
   },
   "defaults": {
     "feather_m": 0.012,
