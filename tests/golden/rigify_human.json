@@ -101,9 +101,9 @@
      "passed": true
     },
     "Figure_Run": {
-     "engine_duration_s": 1.0417,
+     "engine_duration_s": 0.5833,
      "failures": [],
-     "implied_speed_playback_mps": 2.5394,
+     "implied_speed_playback_mps": 4.5347,
      "locomotion": true,
      "loops": true,
      "passed": true
@@ -133,17 +133,17 @@
      "passed": true
     },
     "Figure_Trot": {
-     "engine_duration_s": 1.0417,
+     "engine_duration_s": 0.7083,
      "failures": [],
-     "implied_speed_playback_mps": 1.8264,
+     "implied_speed_playback_mps": 2.6859,
      "locomotion": true,
      "loops": true,
      "passed": true
     },
     "Figure_Walk": {
-     "engine_duration_s": 1.375,
+     "engine_duration_s": 0.9583,
      "failures": [],
-     "implied_speed_playback_mps": 0.8538,
+     "implied_speed_playback_mps": 1.225,
      "locomotion": true,
      "loops": true,
      "passed": true
@@ -282,7 +282,7 @@
    "Run": {
     "balance": null,
     "failures": [],
-    "implied_speed_playback_mps": 2.5394,
+    "implied_speed_playback_mps": 4.5347,
     "loop_seam": 0.0,
     "lowest_point": 0.0011,
     "passed": true,
@@ -290,8 +290,8 @@
     "skin_lowest": -0.0021,
     "stride_m": 2.6452,
     "tightest_joint_degrees": {
-     "thigh.L": 67.2,
-     "thigh.R": 67.2,
+     "thigh.L": 67.3,
+     "thigh.R": 69.3,
      "upper_arm.L": 95.0,
      "upper_arm.R": 95.0
     }
@@ -344,7 +344,7 @@
    "Trot": {
     "balance": null,
     "failures": [],
-    "implied_speed_playback_mps": 1.8264,
+    "implied_speed_playback_mps": 2.6859,
     "loop_seam": 0.0,
     "lowest_point": 0.0011,
     "passed": true,
@@ -352,8 +352,8 @@
     "skin_lowest": -0.0021,
     "stride_m": 1.9025,
     "tightest_joint_degrees": {
-     "thigh.L": 81.4,
-     "thigh.R": 81.4,
+     "thigh.L": 80.5,
+     "thigh.R": 80.5,
      "upper_arm.L": 102.8,
      "upper_arm.R": 102.8
     }
@@ -361,16 +361,16 @@
    "Walk": {
     "balance": null,
     "failures": [],
-    "implied_speed_playback_mps": 0.8538,
+    "implied_speed_playback_mps": 1.225,
     "loop_seam": 0.0,
     "lowest_point": 0.0011,
     "passed": true,
     "planted_drift": {},
-    "skin_lowest": 0.0012,
+    "skin_lowest": -0.0021,
     "stride_m": 1.1739,
     "tightest_joint_degrees": {
-     "thigh.L": 91.5,
-     "thigh.R": 91.4,
+     "thigh.L": 119.1,
+     "thigh.R": 119.1,
      "upper_arm.L": 157.0,
      "upper_arm.R": 157.0
     }
@@ -481,7 +481,7 @@
    },
    "Idle": {
     "action": "Figure_Idle",
-    "arm_clearance_m": 0.0172,
+    "arm_clearance_m": 0.0171,
     "arm_pose": {
      "upper_arm.L": {
       "arm_carry_deg": [
@@ -494,8 +494,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.363,
-       -0.348
+       -0.364,
+       -0.349
       ],
       "upper_arm_deg": [
        3.0,
@@ -513,8 +513,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.381,
-       -0.366
+       -0.382,
+       -0.367
       ],
       "upper_arm_deg": [
        3.0,
@@ -544,7 +544,7 @@
     },
     "posture": null,
     "prediction_error": 1e-06,
-    "rest_error": 0.434815,
+    "rest_error": 0.435271,
     "rig": "Figure_metarig",
     "skin_lowest": 0.0012,
     "stance_width": null,
@@ -560,7 +560,7 @@
      "arm_forward": 4.0,
      "arm_out": {
       "upper_arm.L": 5.3,
-      "upper_arm.R": 5.3
+      "upper_arm.R": 5.2
      },
      "arm_out_measured": {
       "upper_arm.L": 4.2,
@@ -568,15 +568,15 @@
      },
      "arm_swing": 0.0,
      "breath": 1.0,
-     "clearance_m": 0.0172,
+     "clearance_m": 0.0171,
      "clearance_tries": [
       [
-       0.0107,
+       0.0111,
        4.2
       ],
       [
-       0.0172,
-       5.3
+       0.0171,
+       5.2
       ]
      ],
      "elbow": 12.0,
@@ -635,38 +635,38 @@
      "upper_arm.L": {
       "arm_carry_deg": [
        -3.9,
-       49.4
+       48.7
       ],
-      "arm_swing_deg": 53.3,
+      "arm_swing_deg": 52.6,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       -0.023,
-       0.333
+       -0.02,
+       0.324
       ],
       "upper_arm_deg": [
        -40.0,
-       13.7
+       13.1
       ]
      },
      "upper_arm.R": {
       "arm_carry_deg": [
-       -5.0,
+       -4.5,
        48.3
       ],
-      "arm_swing_deg": 53.3,
+      "arm_swing_deg": 52.7,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       -0.04,
+       -0.039,
        0.307
       ],
       "upper_arm_deg": [
-       -40.0,
+       -39.4,
        13.7
       ]
      }
@@ -709,14 +709,14 @@
     "fps": 24,
     "frames": [
      1,
-     25
+     14
     ],
     "froude": 3.0,
     "froude_requested": 3.0,
     "gait": "run",
     "hip_height_m": 0.8272,
-    "implied_speed_cycle_mps": 2.6452,
-    "implied_speed_playback_mps": 2.5394,
+    "implied_speed_cycle_mps": 4.8835,
+    "implied_speed_playback_mps": 4.5347,
     "lift_m": 0.1961,
     "lift_scale": null,
     "limited_by": [],
@@ -736,11 +736,15 @@
     },
     "planted_drift": {},
     "posture": null,
-    "prediction_error": 1e-06,
+    "prediction_error": 0.0,
     "rest_error": 0.494258,
     "rig": "Figure_metarig",
     "skin_lowest": -0.0021,
     "spine_flex_deg": 0.0,
+    "stance_knee_flex_deg": {
+     "thigh.L": 70.4,
+     "thigh.R": 67.1
+    },
     "stance_shift_m": {
      "thigh.L": 0.0,
      "thigh.R": 0.0
@@ -760,8 +764,8 @@
     ],
     "sway_share": 0.0,
     "tightest_joint_degrees": {
-     "thigh.L": 67.2,
-     "thigh.R": 67.2,
+     "thigh.L": 67.3,
+     "thigh.R": 69.3,
      "upper_arm.L": 95.0,
      "upper_arm.R": 95.0
     },
@@ -800,7 +804,9 @@
      "pelvis_turn": 9.0,
      "side_bend": 1.5,
      "thorax_turn": 7.1
-    }
+    },
+    "vault": false,
+    "vault_drop_m": null
    },
    "Slide": {
     "action": "Figure_Slide",
@@ -922,44 +928,44 @@
    "Trot": {
     "action": "Figure_Trot",
     "adjustments": [],
-    "arm_clearance_m": 0.0163,
+    "arm_clearance_m": 0.0173,
     "arm_pose": {
      "upper_arm.L": {
       "arm_carry_deg": [
-       -5.5,
-       48.5
+       -5.4,
+       48.3
       ],
-      "arm_swing_deg": 54.0,
+      "arm_swing_deg": 53.7,
       "elbow_flex_deg": [
        75.2,
        77.2
       ],
       "hand_rise": [
-       -0.099,
-       0.282
+       -0.098,
+       0.279
       ],
       "upper_arm_deg": [
-       -37.7,
-       15.7
+       -37.5,
+       15.5
       ]
      },
      "upper_arm.R": {
       "arm_carry_deg": [
-       -6.5,
-       47.5
+       -6.4,
+       47.3
       ],
-      "arm_swing_deg": 54.0,
+      "arm_swing_deg": 53.7,
       "elbow_flex_deg": [
        75.2,
        77.2
       ],
       "hand_rise": [
-       -0.116,
-       0.257
+       -0.117,
+       0.254
       ],
       "upper_arm_deg": [
-       -37.7,
-       15.7
+       -37.5,
+       15.5
       ]
      }
     },
@@ -1001,14 +1007,14 @@
     "fps": 24,
     "frames": [
      1,
-     25
+     17
     ],
     "froude": 1.0,
     "froude_requested": 1.0,
     "gait": "run",
     "hip_height_m": 0.8272,
-    "implied_speed_cycle_mps": 1.9025,
-    "implied_speed_playback_mps": 1.8264,
+    "implied_speed_cycle_mps": 2.8538,
+    "implied_speed_playback_mps": 2.6859,
     "lift_m": 0.1394,
     "lift_scale": null,
     "limited_by": [],
@@ -1028,11 +1034,15 @@
     },
     "planted_drift": {},
     "posture": null,
-    "prediction_error": 1e-06,
-    "rest_error": 0.500171,
+    "prediction_error": 0.0,
+    "rest_error": 0.502104,
     "rig": "Figure_metarig",
     "skin_lowest": -0.0021,
     "spine_flex_deg": 0.0,
+    "stance_knee_flex_deg": {
+     "thigh.L": 63.0,
+     "thigh.R": 63.1
+    },
     "stance_shift_m": {
      "thigh.L": 0.0,
      "thigh.R": 0.0
@@ -1052,8 +1062,8 @@
     ],
     "sway_share": 0.0,
     "tightest_joint_degrees": {
-     "thigh.L": 81.4,
-     "thigh.R": 81.4,
+     "thigh.L": 80.5,
+     "thigh.R": 80.5,
      "upper_arm.L": 102.8,
      "upper_arm.R": 102.8
     },
@@ -1061,8 +1071,8 @@
     "upper": {
      "arm_forward": -12.855,
      "arm_out": {
-      "upper_arm.L": 5.8,
-      "upper_arm.R": 5.3
+      "upper_arm.L": 5.3,
+      "upper_arm.R": 4.9
      },
      "arm_out_measured": {
       "upper_arm.L": 3.9,
@@ -1070,15 +1080,15 @@
      },
      "arm_swing": 25.0,
      "breath": 0.0,
-     "clearance_m": 0.0163,
+     "clearance_m": 0.0173,
      "clearance_tries": [
       [
-       0.0054,
+       0.0085,
        3.7
       ],
       [
-       0.0163,
-       5.5
+       0.0173,
+       5.1
       ]
      ],
      "elbow": 76.166,
@@ -1092,30 +1102,32 @@
      "pelvis_turn": 7.0,
      "side_bend": 1.5,
      "thorax_turn": 5.5
-    }
+    },
+    "vault": false,
+    "vault_drop_m": null
    },
    "Walk": {
     "action": "Figure_Walk",
     "adjustments": [],
-    "arm_clearance_m": 0.0165,
+    "arm_clearance_m": 0.0175,
     "arm_pose": {
      "upper_arm.L": {
       "arm_carry_deg": [
        -10.7,
        30.2
       ],
-      "arm_swing_deg": 40.9,
+      "arm_swing_deg": 40.8,
       "elbow_flex_deg": [
        7.0,
        23.0
       ],
       "hand_rise": [
-       -0.386,
-       -0.165
+       -0.387,
+       -0.166
       ],
       "upper_arm_deg": [
        -13.8,
-       20.2
+       20.1
       ]
      },
      "upper_arm.R": {
@@ -1130,11 +1142,11 @@
       ],
       "hand_rise": [
        -0.405,
-       -0.183
+       -0.184
       ],
       "upper_arm_deg": [
        -13.8,
-       20.2
+       20.1
       ]
      }
     },
@@ -1163,11 +1175,11 @@
       "source": "skin"
      }
     },
-    "drop_m": 0.1123,
-    "drop_share": 0.1358,
+    "drop_m": 0.0842,
+    "drop_share": 0.1018,
     "duty_asked": 0.650619,
     "duty_factor": 0.651,
-    "end_height_m": 1.6401,
+    "end_height_m": 1.6833,
     "failures": [],
     "floor_skid": {
      "thigh.L": 0.0,
@@ -1176,14 +1188,14 @@
     "fps": 24,
     "frames": [
      1,
-     33
+     23
     ],
     "froude": 0.2,
     "froude_requested": 0.2,
     "gait": "walk",
     "hip_height_m": 0.8272,
-    "implied_speed_cycle_mps": 0.8804,
-    "implied_speed_playback_mps": 0.8538,
+    "implied_speed_cycle_mps": 1.2806,
+    "implied_speed_playback_mps": 1.225,
     "lift_m": 0.0966,
     "lift_scale": null,
     "limited_by": [],
@@ -1194,8 +1206,8 @@
     "natural_speed_mps": 1.2739,
     "passed": true,
     "peak_reach": {
-     "thigh.L": 0.959,
-     "thigh.R": 0.959
+     "thigh.L": 0.995,
+     "thigh.R": 0.995
     },
     "phase_offsets": {
      "thigh.L": 0.0,
@@ -1204,10 +1216,14 @@
     "planted_drift": {},
     "posture": null,
     "prediction_error": 0.0,
-    "rest_error": 0.509853,
+    "rest_error": 0.493221,
     "rig": "Figure_metarig",
-    "skin_lowest": 0.0012,
+    "skin_lowest": -0.0021,
     "spine_flex_deg": 0.0,
+    "stance_knee_flex_deg": {
+     "thigh.L": 11.5,
+     "thigh.R": 11.5
+    },
     "stance_shift_m": {
      "thigh.L": 0.0,
      "thigh.R": 0.0
@@ -1227,8 +1243,8 @@
     ],
     "sway_share": 0.01,
     "tightest_joint_degrees": {
-     "thigh.L": 91.5,
-     "thigh.R": 91.4,
+     "thigh.L": 119.1,
+     "thigh.R": 119.1,
      "upper_arm.L": 157.0,
      "upper_arm.R": 157.0
     },
@@ -1236,8 +1252,8 @@
     "upper": {
      "arm_forward": 2.0,
      "arm_out": {
-      "upper_arm.L": 5.8,
-      "upper_arm.R": 5.5
+      "upper_arm.L": 5.1,
+      "upper_arm.R": 4.8
      },
      "arm_out_measured": {
       "upper_arm.L": 4.2,
@@ -1245,15 +1261,15 @@
      },
      "arm_swing": 15.839,
      "breath": 0.0,
-     "clearance_m": 0.0165,
+     "clearance_m": 0.0175,
      "clearance_tries": [
       [
-       0.0073,
+       0.0121,
        4.0
       ],
       [
-       0.0165,
-       5.6
+       0.0175,
+       5.0
       ]
      ],
      "elbow": 15.0,
@@ -1267,7 +1283,12 @@
      "pelvis_turn": 4.236,
      "side_bend": 1.5,
      "thorax_turn": 3.289
-    }
+    },
+    "vault": true,
+    "vault_drop_m": [
+     0.0,
+     0.076
+    ]
    }
   },
   "moves_json": {
@@ -1284,8 +1305,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.363,
-       -0.348
+       -0.364,
+       -0.349
       ],
       "upper_arm_deg": [
        3.0,
@@ -1303,8 +1324,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.381,
-       -0.366
+       -0.382,
+       -0.367
       ],
       "upper_arm_deg": [
        3.0,
@@ -1316,38 +1337,38 @@
      "upper_arm.L": {
       "arm_carry_deg": [
        -3.9,
-       49.4
+       48.7
       ],
-      "arm_swing_deg": 53.3,
+      "arm_swing_deg": 52.6,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       -0.023,
-       0.333
+       -0.02,
+       0.324
       ],
       "upper_arm_deg": [
        -40.0,
-       13.7
+       13.1
       ]
      },
      "upper_arm.R": {
       "arm_carry_deg": [
-       -5.0,
+       -4.5,
        48.3
       ],
-      "arm_swing_deg": 53.3,
+      "arm_swing_deg": 52.7,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       -0.04,
+       -0.039,
        0.307
       ],
       "upper_arm_deg": [
-       -40.0,
+       -39.4,
        13.7
       ]
      }
@@ -1355,40 +1376,40 @@
     "Figure_Trot": {
      "upper_arm.L": {
       "arm_carry_deg": [
-       -5.5,
-       48.5
+       -5.4,
+       48.3
       ],
-      "arm_swing_deg": 54.0,
+      "arm_swing_deg": 53.7,
       "elbow_flex_deg": [
        75.2,
        77.2
       ],
       "hand_rise": [
-       -0.099,
-       0.282
+       -0.098,
+       0.279
       ],
       "upper_arm_deg": [
-       -37.7,
-       15.7
+       -37.5,
+       15.5
       ]
      },
      "upper_arm.R": {
       "arm_carry_deg": [
-       -6.5,
-       47.5
+       -6.4,
+       47.3
       ],
-      "arm_swing_deg": 54.0,
+      "arm_swing_deg": 53.7,
       "elbow_flex_deg": [
        75.2,
        77.2
       ],
       "hand_rise": [
-       -0.116,
-       0.257
+       -0.117,
+       0.254
       ],
       "upper_arm_deg": [
-       -37.7,
-       15.7
+       -37.5,
+       15.5
       ]
      }
     },
@@ -1398,18 +1419,18 @@
        -10.7,
        30.2
       ],
-      "arm_swing_deg": 40.9,
+      "arm_swing_deg": 40.8,
       "elbow_flex_deg": [
        7.0,
        23.0
       ],
       "hand_rise": [
-       -0.386,
-       -0.165
+       -0.387,
+       -0.166
       ],
       "upper_arm_deg": [
        -13.8,
-       20.2
+       20.1
       ]
      },
      "upper_arm.R": {
@@ -1424,11 +1445,11 @@
       ],
       "hand_rise": [
        -0.405,
-       -0.183
+       -0.184
       ],
       "upper_arm_deg": [
        -13.8,
-       20.2
+       20.1
       ]
      }
     }
@@ -1476,9 +1497,14 @@
      "hip_height_m": 0.8272,
      "natural_speed_mps": 4.934,
      "spine_flex_deg": 0.0,
+     "stance_knee_flex_deg": {
+      "thigh.L": 70.4,
+      "thigh.R": 67.1
+     },
      "stride_frequency_hz": 1.865,
      "stride_m": 2.6452,
-     "stroke_m": 0.8948
+     "stroke_m": 0.8948,
+     "vault": false
     },
     "Trot": {
      "duty_factor": 0.45,
@@ -1487,9 +1513,14 @@
      "hip_height_m": 0.8272,
      "natural_speed_mps": 2.8486,
      "spine_flex_deg": 0.0,
+     "stance_knee_flex_deg": {
+      "thigh.L": 63.0,
+      "thigh.R": 63.1
+     },
      "stride_frequency_hz": 1.497,
      "stride_m": 1.9025,
-     "stroke_m": 0.8561
+     "stroke_m": 0.8561,
+     "vault": false
     },
     "Walk": {
      "duty_factor": 0.651,
@@ -1498,9 +1529,14 @@
      "hip_height_m": 0.8272,
      "natural_speed_mps": 1.2739,
      "spine_flex_deg": 0.0,
+     "stance_knee_flex_deg": {
+      "thigh.L": 11.5,
+      "thigh.R": 11.5
+     },
      "stride_frequency_hz": 1.085,
      "stride_m": 1.1739,
-     "stroke_m": 0.7638
+     "stroke_m": 0.7638,
+     "vault": true
     }
    },
    "height_m": {
@@ -1575,13 +1611,13 @@
     ],
     "Figure_Run": [
      1,
+     3,
      4,
-     7,
-     10,
-     13,
-     16,
-     19,
-     22
+     6,
+     8,
+     9,
+     11,
+     12
     ],
     "Figure_Slide": [
      1,
@@ -1615,23 +1651,23 @@
     ],
     "Figure_Trot": [
      1,
-     4,
+     3,
+     5,
      7,
-     10,
+     9,
+     11,
      13,
-     16,
-     19,
-     22
+     15
     ],
     "Figure_Walk": [
      1,
-     5,
+     4,
+     6,
      9,
-     13,
-     17,
-     21,
-     25,
-     29
+     12,
+     15,
+     18,
+     20
     ]
    },
    "gdignore": true,
@@ -2066,6 +2102,50 @@
    "warnings": [
     "limb bones with no skin: hand.L, hand.R"
    ]
+  },
+  "styled_walks": {
+   "child": {
+    "drop_m": 0.029,
+    "duty_factor": 0.55,
+    "failures": [],
+    "passed": true,
+    "stance_knee_flex_deg": {
+     "thigh.L": 11.5,
+     "thigh.R": 11.5
+    },
+    "stride_m": 0.9142,
+    "vault": true,
+    "vault_drop_m": [
+     0.0,
+     0.029
+    ]
+   },
+   "elderly_shuffle": {
+    "drop_m": 0.0495,
+    "duty_factor": 0.696,
+    "failures": [],
+    "passed": true,
+    "stance_knee_flex_deg": {
+     "thigh.L": 41.0,
+     "thigh.R": 41.0
+    },
+    "stride_m": 0.9369,
+    "vault": false,
+    "vault_drop_m": null
+   },
+   "heavy": {
+    "drop_m": 0.0372,
+    "duty_factor": 0.55,
+    "failures": [],
+    "passed": true,
+    "stance_knee_flex_deg": {
+     "thigh.L": 33.3,
+     "thigh.R": 33.3
+    },
+    "stride_m": 1.0396,
+    "vault": false,
+    "vault_drop_m": null
+   }
   }
  }
 }

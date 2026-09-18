@@ -122,8 +122,10 @@ GAIT_STYLES = {
     # step length -10-20%, double support 25-35% vs ~20%)
     "elderly_shuffle": {
         "posture": {"pelvis": 2.0, "flex": 12.0, "neck": -8.0},
+        # no vault: a shuffle does not ride over a straight leg, its knees stay soft all
+        # through stance (25-27 degrees at mid-stance on StudyMan, 11.5 when it vaulted)
         "walk": {"duty": 0.74, "stride_scale": 0.8, "lift_scale": 0.8, "bounce_scale": 0.5,
-                 "sway": 0.012, "extension": 0.94, "max_drop": 0.06,
+                 "sway": 0.012, "extension": 0.94, "max_drop": 0.06, "vault": False,
                  "upper": {"arm_swing": 5.0, "arm_forward": -8.0, "elbow": 20.0, "elbow_swing": 3.0,
                            "hand_in": 3.0, "pelvis_turn": 1.5, "thorax_turn": 2.0, "side_bend": 2.0,
                            "lean": 0.0, "lean_bob": 0.5, "head_hold": 0.9}},
@@ -134,8 +136,10 @@ GAIT_STYLES = {
     # body rocking over each stance leg, arms held out from the hips
     "heavy": {
         "stance_width": 1.4,
+        # no vault: the body sinks into each stance leg rather than riding over it
+        # straight (35 degrees of knee at mid-stance on StudyMan, 12 when it vaulted)
         "walk": {"stride_scale": 1.08, "lift_scale": 0.8, "bounce_scale": 0.6, "sway": 0.03,
-                 "max_drop": 0.045,
+                 "max_drop": 0.045, "vault": False,
                  "upper": {"arm_swing": 12.0, "side_bend": 4.0, "pelvis_list": 2.5, "lean": 1.0,
                            "hand_clearance": 0.04}},
         "run": {"stride_scale": 1.05, "lift_scale": 0.85, "bounce_scale": 0.8, "max_drop": 0.07,
@@ -168,7 +172,8 @@ GAIT_STYLES = {
 }
 
 STYLE_KEYS = ("duty", "stride_scale", "lift_scale", "bounce_scale", "sway", "min_knee",
-              "extension", "max_drop", "centre_weight", "stance_width", "posture", "upper")
+              "extension", "max_drop", "centre_weight", "stance_width", "posture", "upper",
+              "vault")
 
 
 def style_args(style, section, explicit):
@@ -504,6 +509,13 @@ def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
     # the centre of the reach disc and so the longest stroke available.
     w = (motion.smoothstep((froude - 0.15) / 0.85) if centre_weight is None
          else centre_weight)
+    if centre_weight is None and bm["upright"] and len(legs) == 2 and froude < 0.5:
+        # A person rolls heel to toe: the foot lands ahead of the hip on its
+        # heel and leaves well behind it on its toe, so the toe's stance line
+        # sits behind where the toe stands. Centred on the standing toe, a
+        # front stroke the leg could not reach cut StudyMan's walk to duty 0.55
+        # and 86% of its stride (Fr 0.147 asked 0.2).
+        w = max(w, BIPED_WALK_CENTRE)
     # Sideways, a stance width moves the whole line - the foot, not its roll
     # over the toe, so the reach below is measured from where it now stands.
     centres, shifts = {}, {}
@@ -623,6 +635,12 @@ def _swing_y(u, lift):
 
 
 SWING_HOLD = 0.7
+BIPED_WALK_CENTRE = 0.6              # `plan` centre_weight floor for an upright two-legged walk
+FRAMES_MIN = {True: 16, False: 12}   # walking (duty >= 0.5), running
+# How sharply a vaulting walk's hips may turn from rising to falling: the
+# largest downward curvature of the hip height over the cycle, in leg lengths
+# per cycle squared (a real walk's +-2.5 cm at two bumps a stride is ~4.5).
+VAULT_CURVE = 6.0
 SWING_CLEARANCE = 0.02   # of body height: twice the band `verify` counts a contact planted in
 
 
@@ -677,7 +695,7 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
           extension=None, tail_lift=None, tail_swing=None, attempts=6, paw_fold=1.0,
           swing_hold=SWING_HOLD, max_drop=None, centre_weight=None, stance_width=None,
           posture=None, upper=None, duty=None, stride_scale=None, lift_scale=None,
-          bounce_scale=None, sway=None, min_knee=None, style=None):
+          bounce_scale=None, sway=None, min_knee=None, style=None, vault=None):
     """Author a looping gait from `plan`, verified on Blender's playback.
 
     froude         a number, or a name from `GAITS` ("walk", "trot", "sprint"...)
@@ -705,6 +723,12 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
                    the speed alone gives
     sway           side-to-side hip sway, amplitude as a share of leg length;
                    None is 0.01 on an upright walk, 0 otherwise
+    vault          (a style key too) an upright biped's walk rides over a near-straight stance
+                   leg: the hips are as high as the stance legs reach at every
+                   moment, lowest in double support and back at standing
+                   height as a foot passes under them. None does it on a
+                   two-legged upright walk; False drops the hips by the plan's
+                   one amount for the whole cycle (the knees stay bent).
     style          a `GAIT_STYLES` name ("elderly_shuffle", "heavy", "child",
                    "brisk", "relaxed") or a dict of the same shape: defaults
                    for all of the above, and `upper` and `posture` and
@@ -721,7 +745,7 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         duty=duty, stride_scale=stride_scale, lift_scale=lift_scale, bounce_scale=bounce_scale,
         sway=sway, min_knee=min_knee, extension=extension, max_drop=max_drop,
         centre_weight=centre_weight, stance_width=stance_width, posture=posture,
-        upper=upper).items() if v is not None}
+        upper=upper, vault=vault).items() if v is not None}
     asked = GAITS[froude] if isinstance(froude, str) else froude
     running_asked = (speed > 2.0) if speed is not None else (asked is not None and asked >= 0.5)
     try:
@@ -733,6 +757,7 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
     extension = a.get("extension", 0.97)
     max_drop, centre_weight = a.get("max_drop"), a.get("centre_weight")
     stance_width, posture, upper = a.get("stance_width"), a.get("posture"), a.get("upper")
+    vault = a.get("vault")
 
     bm = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
     if "error" in bm:
@@ -753,7 +778,17 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         [{"name": l["name"], "side": l["side"], "forward": l["forward_pos"]} for l in legs],
         gait=pl["gait"])
     duty = pl["duty"]
-    frames = int(frames or (32 if duty >= 0.5 else 24))
+    # The clip lasts one natural stride period, so played at its own rate it
+    # moves at the gait's natural speed. A fixed 32 frames made every adult
+    # walk 1.33 s a stride against a real 0.97 s, and the clip's implied speed
+    # 0.7 of its natural one (StudyMan 0.82 against 1.15 m/s, Belle 0.80
+    # against 1.18). Never more frames than the old fixed count (a big body's
+    # slow stride stays as it was), never fewer than FRAMES_MIN (a rat's 0.25 s
+    # stride would have 6).
+    fps_plan = fps or bpy.context.scene.render.fps
+    frames_max = 32 if duty >= 0.5 else 24
+    frames = int(frames or max(FRAMES_MIN[duty >= 0.5],
+                               min(frames_max, int(round(pl["period_s"] * fps_plan)))))
     fwd, normal = pl["fwd"], pl["normal"]
     fr = pl["froude"]
     running = duty < 0.5
@@ -807,6 +842,63 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
     first_leg = legs[0]
     fold_amp = (0.25 + 0.35 * min(1.0, fr / 2.0)) * paw_fold
 
+    vaulting = (bool(bm["upright"]) and len(legs) == 2) if vault is None else bool(vault)
+    vaulting = vaulting and not running
+    vault_cache = {}
+
+    def vault_drop(p0):
+        """The hip drop at phase p0 of a vaulting walk: the least that lets
+        every stance leg reach its contact, over the cycle, then eased
+        (a parabola of VAULT_CURVE under each need) so the hips rise and fall
+        smoothly instead of snapping as a foot lands."""
+        S = state["stroke"]
+        prof = vault_cache.get(S)
+        n = 96
+        if prof is None:
+            cap = drop_limit
+            need = []
+            for i in range(n):
+                q = i / float(n)
+                worst = 0.0
+                for l in legs:
+                    ph = (q - offsets[l["name"]]) % 1.0
+                    if ph >= duty:
+                        continue
+                    c = pl["centres"][l["name"]] + fwd * (0.5 * S - S * ph / duty)
+                    r, root = pl["reach"][l["name"]], pl["roots"][l["name"]]
+
+                    def ok(d, r=r, root=root, c=c):
+                        return r.tilt(root - normal * d, c, step=5.0)[1]
+                    if ok(0.0):
+                        continue
+                    lo, hi = 0.0, cap
+                    if ok(hi):
+                        for _ in range(14):
+                            mid = 0.5 * (lo + hi)
+                            if ok(mid):
+                                hi = mid
+                            else:
+                                lo = mid
+                    worst = max(worst, hi)
+                need.append(worst)
+            k = VAULT_CURVE * P.leg_len
+            prof = [max(need[j] - k * (min(abs(i - j), n - abs(i - j)) / float(n)) ** 2
+                        for j in range(n)) for i in range(n)]
+            # bounce_scale scales the rise and fall. Under 1 the hips stay near
+            # the lowest they must go (softer knees through stance), over 1 they
+            # sink further between the high points; never higher than a leg
+            # reaches, never lower than the drop limit.
+            bs = 1.0 if bounce_scale is None else float(bounce_scale)
+            if abs(bs - 1.0) > 1e-9:
+                lo_p, hi_p = min(prof), max(prof)
+                anchor = hi_p if bs < 1.0 else lo_p
+                prof = [min(cap, anchor + bs * (v - anchor)) for v in prof]
+            vault_cache[S] = prof
+            state["vault_range"] = (min(prof), max(prof))
+        t = (p0 % 1.0) * n
+        i = int(t)
+        return prof[i % n] * (1.0 - (t - i)) + prof[(i + 1) % n] * (t - i)
+
     def key_at(p0):
         S, H = state["stroke"], state["lift"]
         over = 0.1 * S * min(math.sqrt(fr), 2.0) / 2.0 * state["over"]
@@ -846,11 +938,16 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         if U is not None:
             trunk, arm_limbs, list_drop = U.cycle_key(p0, offsets, duty, legs)
             limbs.update(arm_limbs)
-        return kp.Key(drop=state["drop"] + bounce + list_drop, limbs=limbs, flex=flex,
+        drop = state["drop"]
+        if vaulting:
+            # the vault is the walk's rise and fall; a retry's extra drop still adds
+            drop, bounce = vault_drop(p0) + (state["drop"] - pl["drop"]), 0.0
+        return kp.Key(drop=drop + bounce + list_drop, limbs=limbs, flex=flex,
                       sway=sway_amp * math.sin(2.0 * math.pi * p0) * side,
                       tail_lift=tail_lift + 0.8 * flex,
                       tail_sway=-tail_swing * math.sin(2.0 * math.pi * p0),
-                      posture=posture, trunk=trunk)
+                      posture=posture, trunk=trunk,
+                      hands=getattr(U, "hands", None) if U is not None else None)
 
     skin_rest = body.skin_lowest(body.fk(), P._upw)
     skin_allowed = (min(0.0, skin_rest - floor) - 0.012 * bm["height"]
@@ -967,6 +1064,18 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         return {"error": "%s: no leg has any stroke to walk with (%s)" % (rig_name, "; ".join(pl["limited_by"]))}
     ratio = S / pl["stroke"]
     stance_s = duty * frames / fps_now
+    # How bent each stance knee is as its foot passes under the body (half-way
+    # through stance): a walk vaults over a near-straight leg (5-15 degrees),
+    # a run loads it (35-45). Measured on the solved legs of the keyed frames.
+    knee_mid = {}
+    for l in legs:
+        best = None
+        for f, fi in infos.items():
+            ph = ((f - 1) / float(frames) - offsets[l["name"]]) % 1.0
+            if l["name"] in fi and (best is None or abs(ph - 0.5 * duty) < best[0]):
+                best = (abs(ph - 0.5 * duty), 180.0 - fi[l["name"]]["knee_angle"])
+        if best is not None:
+            knee_mid[l["name"]] = round(best[1], 1)
     natural = pl["speed_mps"] * ratio
     h = pl["hip_height_m"]
     report.update({
@@ -997,6 +1106,10 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         "implied_speed_cycle_mps": round(S * pl["scale"] / stance_s, 4),
         "implied_speed_playback_mps": round(S * pl["scale"] / stance_s
                                             * frames / (frames + 1.0), 4),
+        "stance_knee_flex_deg": knee_mid,
+        "vault": vaulting,
+        "vault_drop_m": ([round(v * pl["scale"], 4) for v in state["vault_range"]]
+                         if vaulting and "vault_range" in state else None),
         "phase_offsets": {k: round(v, 3) for k, v in offsets.items()},
         "contacts": {k: {"bones": c["bones"], "grounded": c["grounded"],
                          "source": c["source"]} for k, c in pl["contacts"].items()},
@@ -1150,6 +1263,9 @@ def summarize(r):
 
 GAIT_KEYS = ("gait", "froude", "duty_factor", "natural_speed_mps", "stride_m",
              "stroke_m", "stride_frequency_hz", "hip_height_m", "spine_flex_deg")
+# how bent each stance knee is as its foot passes under the body, and whether the
+# walk vaulted over it (`cycle`)
+GAIT_KEYS_SINCE_0_24 = ("stance_knee_flex_deg", "vault")
 
 
 def engine_manifest(rig_name, reports=None, forward="-Y", up="Z", floor=0.0, mesh_name=None):
@@ -1179,6 +1295,10 @@ def engine_manifest(rig_name, reports=None, forward="-Y", up="Z", floor=0.0, mes
         if not r.get("passed"):
             problems.append("%s did not pass its checks: %s" % (role, "; ".join(r.get("failures", []))))
         gaits[role] = {k: r[k] for k in GAIT_KEYS}
+        # newer fields, absent from reports stored by older versions
+        for k in GAIT_KEYS_SINCE_0_24:
+            if r.get(k) is not None:
+                gaits[role][k] = r[k]
         d = detect(rig_name, r["action"], forward=forward, up=up, floor=floor)
         if "error" in d:
             problems.append("%s: %s" % (role, d["error"]))

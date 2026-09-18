@@ -36,6 +36,11 @@ HEADLINE = ("passed", "failures", "hip_drop_m", "max_drop_m", "drop_limited_by",
             "stride_m", "implied_speed_playback_mps", "planted_drift", "stance_slip", "loop_seam",
             "lowest_point", "skin_lowest", "tightest_joint_degrees")
 
+# Walks in a style, and what each style must keep of its own (`locomotion.GAIT_STYLES`).
+STYLED_WALKS = ("child", "elderly_shuffle", "heavy")
+STYLED_HEADLINE = ("passed", "failures", "stance_knee_flex_deg", "vault", "vault_drop_m", "drop_m",
+                   "duty_factor", "stride_m")
+
 # `verify.arm_swing` decides whether a clip's arms swing through hanging or are carried out in
 # front (04 d). Its branches cannot all be reached by a body that is built right, so they are
 # driven here from carry angles measured on real clips, the way `flesh_figure` drives the limit
@@ -80,6 +85,15 @@ def build():
                                        reports=moves, roles=ROLES, loops=LOOPS, gaits=GAITS,
                                        forward="-Y", skip_bad_clips=True)
         exported = char.get("export", {})
+        # A styled walk on the same body, after the export so its clips stay out of the glb: the
+        # vault must keep each style's character - a child's hips rise and fall bounce_scale
+        # times its own need, an elderly shuffle and a heavy walk do not vault and keep soft
+        # knees at mid-stance (rig-anything 0.24.x lost all three to the vault).
+        from rig_analysis import locomotion
+        styled = {}
+        for style in STYLED_WALKS:
+            r = locomotion.cycle(rig, froude=0.2, style=style, action_name=BODY + "_Style_" + style)
+            styled[style] = H.stable({k: r.get(k) for k in STYLED_HEADLINE} if "error" not in r else r)
     finally:
         window.scene = previous
 
@@ -91,6 +105,7 @@ def build():
         "headline": {role: H.stable({k: moves[role].get(k) for k in HEADLINE if k in moves[role]})
                      for role in ROLES},
         "moves": {role: H.stable(moves[role]) for role in ROLES},
+        "styled_walks": styled,
         "export": {"exported": exported.get("exported"), "stage": exported.get("stage"),
                    "note": exported.get("note"), "dropped_clips": H.stable(exported.get("dropped_clips")),
                    "verified": H.stable(exported.get("verified")),

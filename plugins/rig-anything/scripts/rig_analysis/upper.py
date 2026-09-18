@@ -51,6 +51,12 @@ PARAMS = ("arm_swing", "arm_forward", "arm_out", "elbow", "elbow_swing", "hand_i
           "head_hold", "hand_clearance", "breath")
 
 
+# The relaxed finger curl rides the arm swing (`Upper.cycle_key`): its share
+# goes 1 -+ HAND_SWING, HAND_LAG of a cycle behind the arm.
+HAND_LAG = 0.08
+HAND_SWING = 0.25
+
+
 def _smooth(x):
     x = max(0.0, min(1.0, x))
     return x * x * (3.0 - 2.0 * x)
@@ -456,7 +462,7 @@ class Upper:
         tr = trunk(P, pelvis_yaw, pelvis_roll, thorax_yaw, thorax_roll, pitch,
                    prm["head_hold"])
         drop = self.hip_half * math.sin(math.radians(abs(prm["pelvis_list"] * lst)))
-        limbs = {}
+        limbs, hands = {}, {}
         for arm in P.arms:
             same = [l for l in self.side_legs.get(_side(P, arm), []) if l["name"] in fwd_sig]
             if not same:
@@ -464,6 +470,11 @@ class Upper:
             # the leg on that side nearest the arm along the body
             leg = min(same, key=lambda l: abs(l["forward_pos"] - arm["forward_pos"]))
             limbs[arm["name"]] = self.arm_terms(arm, -fwd_sig[leg["name"]])
+            # the fingers trail the swing: HAND_LAG of a cycle behind the arm,
+            # opening a little as it comes back and closing as it goes forward
+            lagged = -leg_forward((p0 - HAND_LAG - offsets[leg["name"]]) % 1.0, duty)
+            hands[arm["name"]] = 1.0 + HAND_SWING * lagged
+        self.hands = hands
         return tr, limbs, drop
 
     def idle_key(self, t):

@@ -112,7 +112,7 @@
     "PonyWoman_Idle": {
      "upper_arm.L": {
       "arm_carry_deg": [
-       9.1,
+       9.2,
        11.2
       ],
       "arm_swing_deg": 2.0,
@@ -121,8 +121,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.117,
-       -0.106
+       -0.107,
+       -0.094
       ],
       "upper_arm_deg": [
        3.0,
@@ -131,7 +131,7 @@
      },
      "upper_arm.R": {
       "arm_carry_deg": [
-       9.1,
+       9.2,
        11.2
       ],
       "arm_swing_deg": 2.0,
@@ -140,8 +140,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.117,
-       -0.106
+       -0.107,
+       -0.094
       ],
       "upper_arm_deg": [
        3.0,
@@ -152,17 +152,17 @@
     "PonyWoman_Run": {
      "upper_arm.L": {
       "arm_carry_deg": [
-       1.2,
+       2.0,
        53.6
       ],
-      "arm_swing_deg": 52.4,
+      "arm_swing_deg": 51.6,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.154,
-       0.488
+       0.172,
+       0.489
       ],
       "upper_arm_deg": [
        -40.0,
@@ -171,17 +171,17 @@
      },
      "upper_arm.R": {
       "arm_carry_deg": [
-       1.2,
+       2.0,
        53.6
       ],
-      "arm_swing_deg": 52.4,
+      "arm_swing_deg": 51.6,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.154,
-       0.488
+       0.172,
+       0.489
       ],
       "upper_arm_deg": [
        -40.0,
@@ -199,11 +199,31 @@
     "radius": 0.2183
    },
    "dropped_clips": [],
-   "fields": {
-    "first": "arm_pose",
-    "last": "verified",
-    "len": 23
-   },
+   "fields": [
+    "arm_pose",
+    "brief",
+    "build",
+    "clip_checks",
+    "clips",
+    "collider",
+    "contacts",
+    "creature",
+    "forced_clips",
+    "gaits",
+    "height_m",
+    "implied_speed_mps",
+    "known_failures",
+    "loops",
+    "name",
+    "note",
+    "posture",
+    "rig",
+    "scene",
+    "stance_width",
+    "strands",
+    "style",
+    "verified"
+   ],
    "gaits": {
     "Run": {
      "duty_factor": 0.342,
@@ -212,9 +232,14 @@
      "hip_height_m": 0.8487,
      "natural_speed_mps": 4.0807,
      "spine_flex_deg": 0.0,
+     "stance_knee_flex_deg": {
+      "thigh.L": 50.1,
+      "thigh.R": 50.1
+     },
      "stride_frequency_hz": 1.698,
      "stride_m": 2.4033,
-     "stroke_m": 0.8227
+     "stroke_m": 0.8227,
+     "vault": false
     }
    },
    "height_m": {

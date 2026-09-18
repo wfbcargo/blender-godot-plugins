@@ -23,40 +23,40 @@
       "BloaterWalk": {
        "upper_arm.L": {
         "arm_carry_deg": [
-         -10.5,
-         30.7
+         -10.4,
+         30.8
         ],
         "arm_swing_deg": 41.2,
         "elbow_flex_deg": [
-         7.0,
+         7.1,
          23.0
         ],
         "hand_rise": [
-         -0.358,
-         -0.141
+         -0.364,
+         -0.147
         ],
         "upper_arm_deg": [
-         -13.8,
+         -13.7,
          20.2
         ]
        },
        "upper_arm.R": {
         "arm_carry_deg": [
-         -10.6,
-         30.5
+         -10.7,
+         30.4
         ],
-        "arm_swing_deg": 41.1,
+        "arm_swing_deg": 41.0,
         "elbow_flex_deg": [
          7.0,
-         23.0
+         22.9
         ],
         "hand_rise": [
-         -0.374,
-         -0.156
+         -0.379,
+         -0.16
         ],
         "upper_arm_deg": [
          -13.8,
-         20.2
+         20.1
         ]
        }
       },
@@ -64,7 +64,7 @@
        "upper_arm.L": {
         "arm_carry_deg": [
          8.5,
-         10.6
+         10.5
         ],
         "arm_swing_deg": 2.0,
         "elbow_flex_deg": [
@@ -72,8 +72,8 @@
          12.0
         ],
         "hand_rise": [
-         -0.357,
-         -0.334
+         -0.362,
+         -0.338
         ],
         "upper_arm_deg": [
          3.0,
@@ -91,8 +91,8 @@
          12.0
         ],
         "hand_rise": [
-         -0.368,
-         -0.346
+         -0.373,
+         -0.35
         ],
         "upper_arm_deg": [
          3.0,
@@ -136,9 +136,14 @@
        "hip_height_m": 0.7724,
        "natural_speed_mps": 1.2311,
        "spine_flex_deg": 0.0,
+       "stance_knee_flex_deg": {
+        "thigh.L": 17.5,
+        "thigh.R": 17.6
+       },
        "stride_frequency_hz": 1.123,
        "stride_m": 1.0962,
-       "stroke_m": 0.7132
+       "stroke_m": 0.7132,
+       "vault": true
       }
      },
      "height_m": {
@@ -540,7 +545,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-1zflmuyv\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -829,13 +834,13 @@
      "frames": {
       "BloaterWalk": [
        1,
-       5,
+       4,
+       6,
        9,
-       13,
+       12,
+       14,
        17,
-       21,
-       25,
-       29
+       19
       ],
       "Bloater_Idle": [
        1,
@@ -997,7 +1002,7 @@
      "action": "BloaterWalk",
      "frames": [
       1,
-      33
+      22
      ]
     }
    },
@@ -1318,18 +1323,18 @@
          -10.7,
          30.2
         ],
-        "arm_swing_deg": 40.9,
+        "arm_swing_deg": 40.8,
         "elbow_flex_deg": [
          7.0,
          23.0
         ],
         "hand_rise": [
-         -0.386,
-         -0.165
+         -0.387,
+         -0.166
         ],
         "upper_arm_deg": [
          -13.8,
-         20.2
+         20.1
         ]
        },
        "upper_arm.R": {
@@ -1344,11 +1349,11 @@
         ],
         "hand_rise": [
          -0.405,
-         -0.183
+         -0.184
         ],
         "upper_arm_deg": [
          -13.8,
-         20.2
+         20.1
         ]
        }
       },
@@ -1364,8 +1369,8 @@
          12.0
         ],
         "hand_rise": [
-         -0.363,
-         -0.348
+         -0.364,
+         -0.349
         ],
         "upper_arm_deg": [
          3.0,
@@ -1383,8 +1388,8 @@
          12.0
         ],
         "hand_rise": [
-         -0.381,
-         -0.366
+         -0.382,
+         -0.367
         ],
         "upper_arm_deg": [
          3.0,
@@ -1428,9 +1433,14 @@
        "hip_height_m": 0.8272,
        "natural_speed_mps": 1.2739,
        "spine_flex_deg": 0.0,
+       "stance_knee_flex_deg": {
+        "thigh.L": 11.5,
+        "thigh.R": 11.5
+       },
        "stride_frequency_hz": 1.085,
        "stride_m": 1.1739,
-       "stroke_m": 0.7638
+       "stroke_m": 0.7638,
+       "vault": true
       }
      },
      "height_m": {
@@ -1820,7 +1830,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-1zflmuyv\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",
@@ -2063,13 +2073,13 @@
      "frames": {
       "FigureWalk": [
        1,
-       5,
+       4,
+       6,
        9,
-       13,
-       17,
-       21,
-       25,
-       29
+       12,
+       15,
+       18,
+       20
       ],
       "Figure_Idle": [
        1,
@@ -2236,7 +2246,7 @@
      "action": "FigureWalk",
      "frames": [
       1,
-      33
+      23
      ]
     }
    }
