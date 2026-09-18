@@ -21,9 +21,9 @@ Installed copies in `~/.claude/skills` match the repo. **This is the one list of
 here and nowhere else:
 - rig-anything 0.24.0
 - animate-anything 0.10.0
-- follow-through 0.6.0
+- follow-through 0.6.1
 - humanform 0.10.0
-- character-pipeline 0.7.1
+- character-pipeline 0.8.0
 - wardrobe 0.5.0
 - lookdev 0.4.0
 - godot-lsp 0.1.0
@@ -49,7 +49,7 @@ jump courses). Open the scene and look before planning; the scratch screenshots 
 | The ponytail swings 45 deg on the run | Skin reads smooth at viewing distance: the pore detail is in the material but does not show past about 1 m |
 | Flesh bounded on every course | Lashes read sparse (cards seen edge-on, alpha mip erosion) |
 | | **No genital anatomy:** both crotches are smooth; the branch that adds it is parked (below) |
-| | Final quality still bakes skin at 1024 px |
+| | The game's real assets still carry 1024 px skin: final bakes at 2048 since character-pipeline 0.8.0, but they have not been rebuilt |
 | | golden_hour overexposes the pale woman and stripes the floor; interior_daylight was dropped from the demo |
 
 ---
@@ -84,9 +84,21 @@ and a close-up that would have shown a defect was missing twice. Fix the loop be
   `regress --godot`; bone aliases cover Rigify/rig-anything and Mixamo only; tone writes its default
   output under the shared `%TEMP%/lookdev/`. Defects the close-ups show (fingertip and neck stipple,
   orange palms on study_man, stair-step sun shadows at 1 m, clumped lashes) belong to steps 1 and 2.
-- **06 rank 3 - rebuilds that match what changed:** the thin callers open the saved blend, and every stage
-  hash names the code and data it reads. A `[flesh]` edit today reruns the whole build from body.
-- **06 rank 12 - bake at final size:** pass `[build] quality` to `look.skin` (2048 px at final).
+- **06 rank 3 - rebuilds that match what changed: done** (branch `cp-resume-hashes`, character-pipeline
+  0.8.0, follow-through 0.6.1, merged 2026-09-18). `runner.build(resume=True)` (build.py, run.sh, the game's
+  build_human.py/build_belle.py) opens the spec's saved blend; `fresh=1` builds from nothing. bake, hair,
+  flesh and garments hash the code and data they read (`inputs.py`) and a rerun names what changed;
+  `runner.plan()` gives the hashes. A `[flesh]` edit on study_man reruns flesh..review in 18 s against 31 s
+  (06 estimated 12 vs 25); on a dressed spec it restarts from body (fixed at merge: it refused). The
+  `pipeline_hashes` fixture flips 19 inputs, each with a drop-control. follow-through 0.6.1: a second
+  flesh.prepare gives the jiggle weight back; limit_influences keeps weight totals. Open: a resumed flesh
+  rerun is within 0.074 of a fresh build's weights; moves/export/review (17 s) still rerun after a flesh
+  edit; body, moves, strand, export and review name no code files (rig-anything's covered only by its
+  version); from=bake on a haired body refuses; a dressed spec's flesh edit rebuilds everything; no
+  dedicated control for the limit_influences fix; three pipeline_hashes flips lack drop-controls.
+- **06 rank 12 - bake at final size: done** (same branch). Final bakes skin at 2048 px, preview and draft
+  at 1024; the size is in the bake hash, and the manifest has a `skin` block (map_px, tone_ok, region
+  tones). It adds about 7 s to a final bake. Open: the game's real assets have not been rebuilt.
 - **06 section 5 - repo tooling: done** (branch `repo-regress-quick`, merged 2026-09-18). `regress.py`
   runs longest first, prints results as they finish, ends with `REGRESS DONE exit=N, K fixtures ok`,
   always writes a diff file, and has `--quick` (fixtures selected from the git diff; `--dry-run` shows why).
