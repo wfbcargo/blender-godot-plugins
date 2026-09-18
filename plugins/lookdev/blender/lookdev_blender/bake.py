@@ -362,3 +362,139 @@ def summarize(res: dict) -> str:
     for w in res["warnings"]:
         lines.append("  WARN " + w)
     return "\n".join(lines)
+
+
+def bake_material(obj, material, out_dir, size=1024, maps=("base_color", "roughness", "normal"), samples_data=1,
+                  margin=None, device="CPU", pack=True, adjust=None) -> dict:
+    """Bake one material of `obj` into images and rebuild THAT material from them, in place: its name, its
+    custom properties (glTF extras) and the Principled inputs no map replaces (subsurface, specular, IOR,
+    coat, sheen) are kept. The object keeps its other materials; only faces using `material` are baked, and
+    every other material is left out of the bake by giving it no target image.
+
+    `adjust(key, pixels)`, when given, may change a map's float RGBA pixels (a flat numpy array) before it is
+    saved - humanform uses it to hold the skin's mean tone to the brief. A `coverage` array (1 where a face
+    covers the texel, 0 in the margin) is passed along as `adjust.coverage` when `adjust` has that attribute.
+    `pack` stores the PNGs in the .blend, so the glTF exporter embeds them wherever the .blend goes.
+
+        res = bake.bake_material(body, "Nora_skin", "C:/tmp/nora_tex", size=1024)
+        res["files"]   # {'base_color': ..., 'orm': ..., 'normal': ...}
+    """
+    if np is None:
+        raise RuntimeError("numpy unavailable in this Blender")
+    obj = bpy.data.objects[obj] if isinstance(obj, str) else obj
+    mat = bpy.data.materials[material] if isinstance(material, str) else material
+    if obj.type != "MESH" or not obj.data.uv_layers:
+        return {"error": f"'{obj.name}' is not a mesh with a UV map"}
+    bsdf, _ = _principled(mat)
+    if bsdf is None:
+        return {"error": f"material '{mat.name}' is not driven by a Principled BSDF"}
+    slots = [i for i, s in enumerate(obj.material_slots) if s.material == mat]
+    if not slots:
+        return {"error": f"'{obj.name}' does not use material '{mat.name}'"}
+    keep = {}
+    for sock in bsdf.inputs:
+        if sock.is_linked or not hasattr(sock, "default_value") or sock.name in (
+                "Base Color", "Roughness", "Metallic", "Normal", "Emission Color", "Emission Strength"):
+            continue
+        v = sock.default_value
+        keep[sock.identifier] = tuple(v) if hasattr(v, "__len__") else v
+    keep_attrs = {a: getattr(bsdf, a) for a in ("subsurface_method", "distribution") if hasattr(bsdf, a)}
+    props = {k: mat[k] for k in mat.keys()}
+
+    os.makedirs(out_dir, exist_ok=True)
+    margin = margin if margin is not None else max(4, size // 128)
+    base = bpy.path.clean_name(mat.name)
+    scene = bpy.context.scene
+    state = _State(scene)
+    images, files, timings = {}, {}, {}
+    try:
+        scene.render.engine = "CYCLES"
+        scene.cycles.device = device
+        scene.cycles.use_denoising = False
+        for o in scene.objects:
+            o.select_set(False)
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        coverage = None
+        if adjust is not None:
+            # which texels a face of this material covers: white emission, no margin
+            t0 = time.time()
+            img = _new_image(f"{base}_coverage", size, True)
+            targets = _target_nodes([mat], img)
+            tree = mat.node_tree
+            out = next(n for n in tree.nodes if n.type == "OUTPUT_MATERIAL" and n.is_active_output)
+            prev = out.inputs["Surface"].links[0].from_socket
+            em = tree.nodes.new("ShaderNodeEmission")
+            em.inputs["Color"].default_value = (1, 1, 1, 1)
+            tree.links.new(em.outputs["Emission"], out.inputs["Surface"])
+            try:
+                scene.cycles.samples = 1
+                _bake("EMIT", 0)
+            finally:
+                tree.nodes.remove(em)
+                tree.links.new(prev, out.inputs["Surface"])
+                for t, node in targets:
+                    t.nodes.remove(node)
+            px = np.empty(size * size * 4, dtype=np.float32)
+            img.pixels.foreach_get(px)
+            coverage = px[0::4] > 0.5
+            bpy.data.images.remove(img)
+            timings["coverage"] = round(time.time() - t0, 2)
+            adjust.coverage = coverage
+        for key in maps:
+            t0 = time.time()
+            img = _new_image(f"{base}_{key}", size, key in DATA_MAPS)
+            targets = _target_nodes([mat], img)
+            try:
+                if key in SOCKET_FOR:
+                    scene.cycles.samples = samples_data
+                    undo = _route_to_emission([mat], SOCKET_FOR[key])
+                    try:
+                        _bake("EMIT", margin)
+                    finally:
+                        _undo_route(undo)
+                elif key == "normal":
+                    scene.cycles.samples = max(samples_data, 4)
+                    _bake("NORMAL", margin, normal_space="TANGENT", normal_r="POS_X", normal_g="POS_Y", normal_b="POS_Z")
+            finally:
+                for tree, node in targets:
+                    tree.nodes.remove(node)
+            if adjust is not None:
+                px = np.empty(size * size * 4, dtype=np.float32)
+                img.pixels.foreach_get(px)
+                new = adjust(key, px)
+                if new is not None:
+                    img.pixels.foreach_set(np.asarray(new, dtype=np.float32))
+                    img.update()
+            images[key] = img
+            if key not in ("roughness", "metallic"):
+                files[key] = _save(img, os.path.join(out_dir, f"{base}_{key}.png"))
+            timings[key] = round(time.time() - t0, 2)
+    finally:
+        state.restore()
+    if any(k in images for k in ("roughness", "metallic")):
+        orm, files["orm"] = _pack_orm(images, size, f"{base}_orm", os.path.join(out_dir, f"{base}_orm.png"))
+        for k in ("roughness", "metallic"):
+            if k in images:
+                bpy.data.images.remove(images.pop(k))
+        images["orm"] = orm
+        images["_has_ao"] = False
+    _build_material(mat.name, images, 1.0)
+    bsdf, _ = _principled(mat)
+    for ident, v in keep.items():
+        sock = next((s for s in bsdf.inputs if s.identifier == ident), None)
+        if sock is not None:
+            try:
+                sock.default_value = v
+            except (TypeError, ValueError):
+                pass
+    for a, v in keep_attrs.items():
+        setattr(bsdf, a, v)
+    for k, v in props.items():
+        mat[k] = v
+    if pack:
+        for k, img in images.items():
+            if k != "_has_ao" and not img.packed_file:
+                img.pack()
+    return {"material": mat.name, "object": obj.name, "size": size, "maps": list(maps), "files": files,
+            "images": {k: v.name for k, v in images.items() if k != "_has_ao"}, "timings_s": timings}

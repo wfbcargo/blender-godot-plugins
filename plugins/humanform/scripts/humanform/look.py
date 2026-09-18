@@ -10,8 +10,12 @@ converted once, here, with the exact IEC 61966-2-1 curve (a linear toe below 0.0
 above). `c ** 2.2` is close at mid-grey (2% off at 0.5) but not in the darks: at 0.05 it gives a
 third of the true value, and dark irises and deep skin tones live there.
 
-These are flat colours for a readable body in a game or a render - no subsurface, no texture.
-lookdev replaces them when a character needs real skin.
+`material` makes flat colours. `skin` makes real skin (`humanform.skin`): on an MPFB human it marks the
+regions (lips, areolae, palms, soles, knees, elbows, genital skin, flushed cheeks, an oily T-zone) and gives it a
+FLAT Principled skin with subsurface (the brief's tone as Base Color, so a body exported without a bake still
+arrives in its colour); on a game mesh (rig-anything's `bake_for_game`, which keeps the marks) it bakes the
+procedural skin into albedo, roughness and normal maps glTF carries, with the brief's colour as the albedo's
+mean. If the bake cannot run (no lookdev) the material stays flat. `skin(..., realistic=False)` is the old flat material.
 """
 
 from __future__ import annotations
@@ -59,15 +63,45 @@ def material(name, srgb=None, roughness=0.5, linear=None):
     return mat
 
 
-def skin(ob, srgb, roughness=SKIN_ROUGHNESS, name=None):
+SKIN_MAP_PX = 1024     # the skin maps' size when a caller does not say (draft budget; a final build wants 2048)
+
+
+def _is_mpfb_human(ob):
+    """An unbaked MPFB human still has MPFB's joint groups; `bake_for_game` removes them."""
+    return any(g.name.startswith("joint-") for g in ob.vertex_groups)
+
+
+def skin(ob, srgb, roughness=SKIN_ROUGHNESS, name=None, realistic=True, size=None):
     """Give a body mesh one skin material (`<object name>_skin` unless named): every other material slot
-    is removed and every face uses it. Returns the material."""
+    is removed and every face uses it. Returns the material.
+
+    `realistic` (the default) makes it `humanform.skin`'s: on an MPFB human the regions are marked and the
+    material is flat (tone, subsurface) until a bake; on any other mesh (a baked game mesh carries the marks) it is baked to maps of
+    `size` px (`SKIN_MAP_PX`), packed in the .blend. The bake's report is on the material as
+    `humanform_skin`. `realistic=False` is a flat colour at `roughness`."""
     ob = bpy.data.objects[ob] if isinstance(ob, str) else ob
-    mat = material(name or f"{ob.name}_skin", srgb=srgb, roughness=roughness)
+    name = name or f"{ob.name}_skin"
+    if realistic:
+        from . import skin as _skin
+        mat = _skin.material(name, srgb)
+    else:
+        mat = material(name, srgb=srgb, roughness=roughness)
     me = ob.data
     me.materials.clear()
     me.materials.append(mat)
     if len(me.polygons):
         me.polygons.foreach_set("material_index", [0] * len(me.polygons))
     me.update()
+    if realistic:
+        if _is_mpfb_human(ob):
+            rep = _skin.mark(ob)
+            mat["humanform_skin"] = dict(mat["humanform_skin"], stage="flat", marked=rep["regions"],
+                                         notes=rep["notes"])
+        else:
+            if _skin.TINT not in me.attributes:
+                _skin.unmarked(ob)
+            rep = _skin.bake(ob, mat, size=size or SKIN_MAP_PX)
+            info = {k: rep[k] for k in ("size", "tone_target", "baked", "tone_error", "tone_ok", "regions") if k in rep}
+            mat["humanform_skin"] = dict(mat["humanform_skin"], stage="baked" if "error" not in rep else "flat",
+                                         error=rep.get("error", ""), **info)
     return mat

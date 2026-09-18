@@ -88,7 +88,29 @@ def build():
         "engine": {"collider": H.stable(loco.get("collider")), "gaits": H.stable(loco.get("gaits")),
                    "problems": loco.get("problems")},
         "moves_json": H.moves_manifest(char),
+        "skin_export": _skin_export(os.path.join(out, NAME.lower() + ".glb")),
     }
+
+
+def _skin_export(glb):
+    """The skin as the glb carries it. This body is exported without a bake, so its skin must still be the
+    brief's tone as baseColorFactor, and no helper attribute may ride along as a vertex colour: a procedural
+    material and a colour attribute once exported as a factorless material and COLOR_0/1, white in Godot."""
+    import json as _json
+    import struct
+    if not os.path.exists(glb):
+        return {"missing": True}
+    with open(glb, "rb") as fh:
+        b = fh.read()
+    g = _json.loads(b[20:20 + struct.unpack_from("<I", b, 12)[0]])
+    m = next((x for x in g.get("materials", []) if x["name"] == NAME + "_skin"), None)
+    if m is None:
+        return {"material": None}
+    pbr = m.get("pbrMetallicRoughness", {})
+    return {"baseColorFactor": [round(v, 4) for v in pbr.get("baseColorFactor", [1, 1, 1, 1])],
+            "baseColorTexture": "baseColorTexture" in pbr,
+            "colour_sets": sorted({k for me in g["meshes"] for p in me["primitives"] for k in p["attributes"]
+                                   if k.startswith("COLOR_")})}
 
 
 H.run("mpfb_woman_curvy", build)

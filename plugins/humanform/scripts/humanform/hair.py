@@ -1140,6 +1140,15 @@ def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lash
                                      "min_clearance_m": _clearance(bvh, strand_verts),     # below 15% of its length
                                      "weights": sorted(weights)}
         report["contract"] = contract(strand_ob)
+    # the hair carries only its own UV map: a body UV layer that reached a part (the skin's `hf_detail`)
+    # would otherwise become its active map and the strand texture would sample the body's UVs
+    for _n in objects.values():
+        _me = bpy.data.objects[_n].data
+        for _layer in [u.name for u in _me.uv_layers if u.name != uv_name]:
+            _me.uv_layers.remove(_me.uv_layers[_layer])
+        if uv_name in _me.uv_layers:
+            _me.uv_layers.active = _me.uv_layers[uv_name]
+            _me.uv_layers[uv_name].active_render = True
     report["objects"] = objects
     return report
 

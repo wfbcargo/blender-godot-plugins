@@ -19,6 +19,11 @@ extends RefCounted
 ## glint lines. Here each corner starts from its own triangle's tangent and averages the triangles meeting
 ## at its position mod 180 degrees, which keeps that turn and still leaves the field smooth. Done once per
 ## mesh resource.
+##
+## A preset can also carry a tiling detail normal (`lookdev.detail`): humanform's skin asks for pores this way,
+## because pores (0.05-0.2 mm) are finer than any texel a body-sized map can spend. The texture is made here from
+## a seeded cellular noise (so every run draws the same pores) and tiles on UV2, which humanform writes as a copy
+## of the body's UV map (`hf_detail`); a mesh without UV2 gets it triplanar instead.
 
 
 ## Every StandardMaterial3D under `root` (surface and override materials) whose extras carry
@@ -53,6 +58,10 @@ static func apply(root: Node) -> Dictionary:
 					skipped += 1
 					continue
 				set_properties(mat, spec.get("godot", {}))
+				var detail = spec.get("detail", {})
+				if typeof(detail) == TYPE_DICTIONARY and not detail.is_empty():
+					var has_uv2: bool = mi.mesh.surface_get_format(i) & Mesh.ARRAY_FORMAT_TEX_UV2 != 0
+					set_detail(mat, detail, has_uv2)
 				mat.set_meta("lookdev_applied", spec.get("preset", ""))
 				done.append(mat.resource_name)
 		if not rebuild.is_empty() and mi.mesh is ArrayMesh and not mi.mesh.has_meta("lookdev_tangents"):
@@ -210,3 +219,53 @@ static func set_properties(mat: Material, props: Dictionary) -> void:
 			TYPE_BOOL:
 				value = bool(value)
 		mat.set(key, value)
+
+
+static var _detail_cache := {}
+
+
+## A seamless pore normal map: cellular noise (distance to the nearest cell centre, so every cell centre is a
+## pit) turned into a tangent-space normal map. Cached per spec, so every skin material with the same detail
+## shares one texture.
+static func detail_normal(d: Dictionary) -> Texture2D:
+	var key := JSON.stringify(d)
+	if _detail_cache.has(key):
+		return _detail_cache[key]
+	var px := int(d.get("tile_px", 256))
+	var noise := FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_CELLULAR
+	noise.seed = int(d.get("seed", 0))
+	noise.frequency = float(d.get("cells", 48)) / float(px)
+	noise.fractal_type = FastNoiseLite.FRACTAL_NONE
+	noise.cellular_return_type = FastNoiseLite.RETURN_DISTANCE
+	var img := noise.get_seamless_image(px, px, false, false, 0.1, true)
+	img.convert(Image.FORMAT_RGBA8)
+	img.bump_map_to_normal_map(float(d.get("bump", 3.0)))
+	img.generate_mipmaps()
+	var tex := ImageTexture.create_from_image(img)
+	_detail_cache[key] = tex
+	return tex
+
+
+## The detail layer on `mat`: the pore normal, mixed into the material's own normal map at `strength` (Godot
+## mixes detail normals by the detail albedo's alpha, so a white detail albedo with that alpha, multiplied in,
+## leaves the colour alone), tiled `uv2_scale` times across UV2.
+static func set_detail(mat: BaseMaterial3D, d: Dictionary, has_uv2 := true) -> void:
+	if str(d.get("normal", "")) != "pores":
+		push_warning("lookdev: %s asks for detail '%s', which this addon does not make" % [mat.resource_name, d.get("normal")])
+		return
+	var a := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	a.fill(Color(1, 1, 1, clampf(float(d.get("strength", 0.35)), 0.0, 1.0)))
+	mat.detail_enabled = true
+	mat.detail_blend_mode = BaseMaterial3D.BLEND_MODE_MUL
+	mat.detail_uv_layer = BaseMaterial3D.DETAIL_UV_2
+	mat.detail_albedo = ImageTexture.create_from_image(a)
+	mat.detail_normal = detail_normal(d)
+	mat.normal_enabled = true
+	var s := float(d.get("uv2_scale", 80.0))
+	if has_uv2:
+		mat.uv2_scale = Vector3(s, s, 1.0)
+	else:
+		# about the same pore size on a body: UV1 spans roughly 1.5 m, so s tiles per 1.5 m of surface
+		mat.uv2_triplanar = true
+		mat.uv2_scale = Vector3.ONE * (s / 1.5)

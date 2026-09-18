@@ -1,0 +1,163 @@
+{
+ "fixture": "skin_detail",
+ "plugins": {
+  "humanform": "0.8.0",
+  "lookdev": "0.2.0",
+  "rig-anything": "0.23.0"
+ },
+ "report": {
+  "baked": {
+   "baseColorFactor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "colour_sets": [],
+   "detail": "pores",
+   "genital_darker": true,
+   "glb_map_is_baked_map": true,
+   "godot_sss": true,
+   "godot_transmittance_depth": 0.01,
+   "lips_redder_darker": true,
+   "lookdev_preset": "skin",
+   "nipple_darker": true,
+   "palm_paler": true,
+   "region_tones": {
+    "elbow": [
+     0.43,
+     0.29,
+     0.21
+    ],
+    "flush": [
+     0.45,
+     0.29,
+     0.22
+    ],
+    "genital": [
+     0.39,
+     0.25,
+     0.18
+    ],
+    "knee": [
+     0.43,
+     0.29,
+     0.21
+    ],
+    "knuckle": [
+     0.43,
+     0.28,
+     0.21
+    ],
+    "lips": [
+     0.43,
+     0.25,
+     0.19
+    ],
+    "nail": [
+     0.47,
+     0.3,
+     0.23
+    ],
+    "nipple": [
+     0.39,
+     0.23,
+     0.16
+    ],
+    "palm": [
+     0.48,
+     0.32,
+     0.23
+    ],
+    "skin": [
+     0.45,
+     0.31,
+     0.23
+    ],
+    "sole": [
+     0.48,
+     0.32,
+     0.22
+    ]
+   },
+   "size": 512,
+   "sole_paler": true,
+   "stage": "baked",
+   "textures": {
+    "base_color": true,
+    "normal": true,
+    "roughness": true
+   },
+   "tone_baked": [
+    0.45,
+    0.31,
+    0.23
+   ],
+   "tone_ok": true,
+   "tone_target": [
+    0.45,
+    0.31,
+    0.23
+   ],
+   "uv_sets": [
+    "TEXCOORD_0",
+    "TEXCOORD_1"
+   ]
+  },
+  "marked": {
+   "attributes": {
+    "hf_skin_oil": [
+     "FLOAT",
+     "POINT"
+    ],
+    "hf_skin_region": [
+     "INT",
+     "POINT"
+    ],
+    "hf_skin_tint": [
+     "FLOAT_VECTOR",
+     "POINT"
+    ]
+   },
+   "base_color": [
+    0.1706,
+    0.0783,
+    0.0432
+   ],
+   "base_color_linked": false,
+   "colour_attributes": [],
+   "regions": {
+    "elbow": 66.0,
+    "flush": 708.0,
+    "genital": 53.0,
+    "knee": 40.0,
+    "knuckle": 694.0,
+    "lips": 328.0,
+    "nail": 438.0,
+    "nipple": 96.0,
+    "palm": 2092.0,
+    "sole": 522.0
+   },
+   "stage": "flat",
+   "subsurface_weight": 1.0
+  },
+  "no_lookdev": {
+   "base_color_is_tone": true,
+   "base_color_linked": false,
+   "error": true,
+   "marks_kept": true,
+   "stage": "flat"
+  },
+  "unbaked_export": {
+   "baseColorFactor": [
+    0.1706,
+    0.0783,
+    0.0432
+   ],
+   "baseColorTexture": false,
+   "colour_sets": [],
+   "factor_is_tone": true,
+   "godot_sss": true,
+   "lookdev_preset": "skin"
+  }
+ }
+}

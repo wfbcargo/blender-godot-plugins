@@ -163,6 +163,16 @@ the hair's surfaces - per face, then averaged mod 180 degrees where faces meet, 
 neither glints where a shell's UV frame turns nor facets into dark polygons where it turns fast, with no need
 for the exporter to write tangents. See `references/hair.md`.
 
+**Skin** (humanform's `look.skin`, realistic by default) reaches Godot the same way: the procedural skin is
+baked by `bake.bake_material(obj, material, out_dir, size)` - one material rebuilt in place from albedo, ORM
+and normal maps, keeping its name, custom properties and subsurface inputs, with an `adjust` hook that sees the
+covered texels (humanform holds the albedo's mean to the brief's tone with it). Its `lookdev` extras have preset
+`skin`: `LookdevMaterials.apply` sets `subsurf_scatter` (skin mode, transmittance with a 1 cm depth - at 8 cm a
+whole palm glowed orange under a sun behind it; judge transmittance with a key light behind thin parts, overcast
+hides it) and a tiling pore detail
+normal (`lookdev.detail`, seeded cellular noise on UV2 = humanform's `hf_detail`). `lint` warns
+`SKIN_PLASTIC` on a skin with a flat albedo, one roughness, no normal/pore detail or no subsurface.
+
 ## Godot facts that bite (all verified in 4.7.2)
 
 - **`ambient_light_energy` does nothing for sky ambient** while
