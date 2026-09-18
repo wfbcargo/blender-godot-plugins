@@ -11,7 +11,7 @@ subdivides:
     review   strip frames per clip (review.sheet)   8         6          4
              views                                  3         2          1 (front)
              cell height, px                        320       240        160
-             close-up look set (closeups.look_set)  all 15    face, eyes face and
+             close-up look set (closeups.look_set)  all 17    face, eyes face and
                                                     + under   and both   the left
                                                     bust*     hands (6)  hand (3)
     muscle   normal map size (output = "normal")    2048      1024       512
@@ -55,6 +55,9 @@ LEVELS = {
 
 # which stages read which part of a level, for the input hash
 STAGE_PARTS = {"body": ("body",), "review": ("review", "close"), "bake": ("muscle", "skin"), "hair": ("hair",)}
+# a part a spec can turn off: {part: whether this spec reads it}. `[review] close = false` renders no close-up
+# set, so review's hash leaves the close part out (a final spec's review hashes as it did before the set existed)
+PART_ON = {"close": lambda ch: ch.review.close}
 # parts hashed at every quality, "final" too (see above)
 HASHED_ALWAYS = ("skin", "close")
 
@@ -71,13 +74,20 @@ def settings(quality, part):
     return dict(LEVELS[check(quality)][part])
 
 
-def for_hash(quality, stage):
+def stage_parts(stage, ch=None):
+    """The parts of a level `stage` reads, for this spec `ch` (None: every part it can read)."""
+    return tuple(p for p in STAGE_PARTS.get(stage, ()) if ch is None or p not in PART_ON or PART_ON[p](ch))
+
+
+def for_hash(quality, stage, ch=None):
     """What a stage's input hash covers of the quality: for "final" only the parts in `HASHED_ALWAYS` (the
     skin map size, for bake; every other final hash is what it always was), else the settings the stage reads
-    and the quality name, so a draft is never taken for a final."""
+    and the quality name, so a draft is never taken for a final. With the spec `ch`, a part it turns off
+    (`PART_ON`) is left out."""
     if stage not in STAGE_PARTS:
         return None
+    parts = stage_parts(stage, ch)
     if check(quality) == "final":
-        always = {p: settings(quality, p) for p in STAGE_PARTS[stage] if p in HASHED_ALWAYS}
+        always = {p: settings(quality, p) for p in parts if p in HASHED_ALWAYS}
         return always or None
-    return {"quality": quality, **{p: settings(quality, p) for p in STAGE_PARTS[stage]}}
+    return {"quality": quality, **{p: settings(quality, p) for p in parts}}
