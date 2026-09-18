@@ -5,10 +5,11 @@ A handoff for a fresh conversation. Start with:
 > Read `docs/improvements/NEXT.md`, then plan the next step of "The realism work" below and run it with
 > the `plugin-round` workflow (see "Running the next session").
 
-State as of 2026-09-18, after realism Step 0 shipped. Committed locally and **not pushed**: this repo's
-`main` and `grungist-creek`'s `master` (the rebuilt figures and Belle). The parked branch
+State as of 2026-09-18, after realism Step 0.5 and Step 1 (hair) shipped. Committed locally and **not
+pushed**: this repo's `main` and `grungist-creek`'s `master` (the rebuilt figures and Belle). The parked branch
 `fig-genital-anatomy` (`94ac682`) is pushed and still has its worktree at `.worktrees/fig-genital-anatomy`.
-There are no other worktrees or open branches. Step 1 (hair) is next.
+There are no other worktrees or open branches. Step 2 (skin) is next; Step 1's leftovers (the short cap's
+volume and colour, `long_loose`) are listed under it.
 
 Read these first, in this order:
 1. The repo's `CLAUDE.md`: worktrees, scratch folders, the regression harness, install and version rules, gotchas.
@@ -36,8 +37,9 @@ here and nowhere else:
 
 `grungist-creek/characters/study_man.toml` and `study_woman.toml` build through character-pipeline at
 `quality = "final"` in about 32 s each from nothing (a resumed rebuild skips unchanged stages), into
-`assets/figure_study/`, with skin baked at 2048 px. They and Belle were rebuilt on 2026-09-18 by the Step 0
-ship step on rig-anything 0.25.0 / character-pipeline 0.9.0 / lookdev 0.4.0. `figure_study.tscn` shows both on
+`assets/figure_study/`, with skin baked at 2048 px. They and Belle were rebuilt on 2026-09-18 by the Step 1
+ship step on every version listed above (study_man 37.6 s, study_woman 34.3 s, Belle 36.5 s, every stage rerun);
+Belle now has brows and lashes. `figure_study.tscn` shows both on
 turntables: keys 1-7 clips (Idle, Walk, Run, Crouch, Jump, TurnL, TurnR), F/S/B/Q/C views (C is a 1 m
 close-up, Tab picks the figure), L lighting presets, T turntables, J flesh, H hair strands. Its
 `--selftest` passes, as do `belle_demo`, `people_demo`, `verify_moves` and `verify_flesh` (full, walk, run and
@@ -50,19 +52,23 @@ In Godot,
     node ~/.claude/skills/lookdev/bin/lookdev.mjs close-shot --project .       --glb res://assets/figure_study/study_woman/study_woman.glb --views head,hands,full       --presets clear_midday,overcast --pair-blender assets/figure_study/study_woman/review/study_woman/close       --out <scratch>
 
 writes a sheet with one row per view (face, face_3q, eyes, head_side, head_back, the four hand views, full),
-the Blender close-set tile first and one column per preset, in about 15 s. The ship step's sheets are in
-`%TEMP%/rw/ship/look/<id>/sheet.png` (a scratch folder; regenerate rather than rely on it). They show every
-defect in the table below, plus a vertical specular band on both foreheads under overcast.
+the Blender close-set tile first and one column per preset, in about 20 s (Belle needs `--garments
+res://assets/belle/belle_sportstop.glb,res://assets/belle/belle_shorts.glb`). Run it on a copy of the project
+(`tools/scratch_project.py`, or a tar copy), not the game itself. The Step 1 ship step's sheets (study_man,
+study_woman, belle; 1 m, clear_midday and overcast) are in `%TEMP%/rw/ship/look/<id>/sheet.png` (a scratch
+folder; regenerate rather than rely on it). They show the table below: the neck stipple is gone, the man's
+hairline has fine edge hairs, and brows and lashes read as hair at 1 m; the vertical specular band on the
+foreheads under overcast is still there.
 
 **Judged honestly: clean, well-proportioned CG figures that move properly, not yet realistic.**
 
 | Works | Wrong |
 |---|---|
-| Proportions (humancheck 0 fail on both) | The man's `short_crop` reads as a helmet, with a hard, spiky fringe at the hairline |
-| The woman's skin tone and subsurface in Godot; her brows and eyes at 1 m | His forehead and lips are glossy, in Blender and in Godot |
-| Natural-speed gaits with heel strike and toe off; a run with a flight phase; turns | A dithered, stippled shadow from the hair shell on both necks under the ear (lookdev hair preset, transparency 4) |
-| The ponytail swings 45 deg on the run | Skin reads smooth at viewing distance: the pore detail is in the material but does not show past about 1 m |
-| Flesh bounded on every course | Lashes read sparse (cards seen edge-on, alpha mip erosion) |
+| Proportions (humancheck 0 fail on both) | The man's `short_crop` is still a smooth, dark, slicked shell at 1 m with a hard front line behind the edge hairs (needs volume and colour variation) |
+| The woman's skin tone and subsurface in Godot; brows, lashes and eyes at 1 m on all three | His forehead and lips are glossy, in Blender and in Godot; both foreheads carry a vertical specular band under overcast |
+| Natural-speed gaits with heel strike and toe off; a run with a flight phase; turns | An orange fleck at the man's thumb web under clear_midday |
+| The ponytail swings 44-46 deg on the run at any frame rate | Skin reads smooth at viewing distance: the pore detail is in the material but does not show past about 1 m |
+| Flesh bounded on every course; no neck stipple (sun soft-shadow filter) | study_man goes dark and muddy under overcast |
 | | **No genital anatomy:** both crotches are smooth; the branch that adds it is parked (below) |
 | | golden_hour overexposes the pale woman and stripes the floor; interior_daylight was dropped from the demo |
 
@@ -304,6 +310,17 @@ Suggested after the Step 0 round; each saves agent minutes on every later round.
 - **Motion.** `verify_strands` fails its cross-rate spread on the ponytail (1.26 against 1.25; the limit
   was not widened): make the strand spring frame-rate independent and add it to `regress --godot`
   (06 rank 13). `long_loose` is still rigid: it needs a sheet of chains or a route to cloth.
+
+**Step 0.5 and Step 1 status: done and shipped (2026-09-18).** All eight branches merged; `~/.claude/skills`
+and the game's addons match `main`. The ship step rebuilt study_man, study_woman and Belle in the game at final
+quality, and they pass `--import`, the figure_study, belle_demo and people_demo selftests, verify_moves (3
+manifests) and verify_flesh (full, walk, run, jump on both figures). `regress.py --twice --jobs 4 --godot` on
+`main`, run against a full scratch copy of the game (the permission classifier refuses it on the real project,
+which it stages files into): `REGRESS DONE exit=0, 23 fixtures ok`, no change, 21 min. Godot close-shot sheets at
+1 m (clear_midday, overcast) of all three are listed under "Where the figures are". No independent look critic
+was run by the ship step. Still open from Step 1: the short cap's volume and colour variation, `long_loose`,
+and each branch's open items above; a demo selftest rewrites `assets/wardrobe/nora.walk.json` with tabs
+(whitespace only; restored). Notebook: [notebooks/realism-step1/ship.md](notebooks/realism-step1/ship.md).
 
 ### Step 2 - skin
 
