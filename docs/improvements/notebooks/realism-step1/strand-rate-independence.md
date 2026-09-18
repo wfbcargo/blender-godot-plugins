@@ -194,3 +194,15 @@ Open: regress.py conflicts with main (GODOT_LOOKDEV/_run_lookdev vs GODOT_STRAND
 both); SMOOTH_GAIN's steep curve (1.15 already 56 deg, 1.2 onto the limits) - a preset retune plus a
 rebuild is the lasting fix; jiggle_modifier.gd not examined; below 30 fps not covered; kick_peak on
 its 60 deg limit; long_loose not built.
+
+## Merge step (2026-09-18 15:37-15:55 CDT)
+
+Merged main (hair-hairline-lashes, lookdev-closeshot-views and earlier) into the branch and master into
+the game worktree. One conflict, tools/regress.py: kept both GODOT_STRANDS/_run_strands and
+GODOT_LOOKDEV/_run_lookdev in every hunk (docstring, the per-run lists, the "nothing to check" test and
+the run loop). Addon parity between the repo and the game worktree was clean for follow_through, lookdev,
+wardrobe and rig_anything. After `--headless --import`, `regress.py --quick --jobs 4 --godot <game
+worktree>` passed: REGRESS DONE exit=0, 23 fixtures ok, "no change"; verify_strands pipeline_ponytail
+1.035/1.095 PASSED, the legacy control 1.308/1.385 FAILED on both lines, the smooth_hz:0 control
+1.209/1.277 FAILED on the starting line, and main's close-shot rows, its control and the lookdev
+selftest all ok. Log: C:/Users/pauli/AppData/Local/Temp/rw/merge-strand/quick.log.
