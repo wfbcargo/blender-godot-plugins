@@ -118,3 +118,16 @@ Open: the tile checks are centroid-only (a camera cutting the fingertips passes;
 owns the every-point version); `full` has no Blender twin; pipeline_woman's fixture close folder holds only
 its draft set, so regress pairs 3 views; a sheet taller than 16384 px is cut, not split; `lookdev.mjs`'s
 `--columns` option (wrap) is gone with the one-row-per-view layout.
+
+## 13:55-14:10 merge step | kind=merge
+Main (ra-closeup-framing, cp-cascade-stop, tools-scratch-project) merged into the branch without conflicts;
+the game worktree fast-forwarded to master 81a9342 and was `--headless --import`ed.
+`regress.py --quick --jobs 4 --godot <game worktree>`: `REGRESS DONE exit=0, 23 fixtures ok`, no change
+(log scratch `rw/mlcv/merge_quick.log`). close-shot pipeline_woman ok (8 tiles, 0 failed), the must-fail
+control ok, lookdev selftest PASSED 18/18.
+**Coverage lost by the merge:** the close-shot row now reads "no Blender close set to pair". ra-closeup-framing
+added pipeline_woman's `close_off` case (`[review] close = false` last), which removes the fixture's
+`review/fixwoman/close/`, so `_run_lookdev` finds only `close_control/` and runs unpaired. `--pair-blender`
+itself stays covered by the selftest's fake-set control (`close_pair`). Not fixed here (a code change sends
+the merge back to a critic); open item: have regress pair against a close set the fixture keeps (e.g. copy
+close/ before `_close_off`) and fail when the pair is expected but missing.
