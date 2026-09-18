@@ -37,6 +37,11 @@
      "alphaMode": "MASK",
      "base_colour_texture": true,
      "doubleSided": false,
+     "godot_sheen": {
+      "anisotropy_enabled": true,
+      "backlight_enabled": true,
+      "rim_enabled": true
+     },
      "godot_transparency": 2,
      "lookdev_preset": "hair",
      "normal_texture": true,
@@ -46,19 +51,29 @@
      "alphaMode": "MASK",
      "base_colour_texture": true,
      "doubleSided": false,
+     "godot_sheen": {
+      "anisotropy_enabled": false,
+      "backlight_enabled": false,
+      "rim_enabled": false
+     },
      "godot_transparency": 2,
      "lookdev_preset": "hair",
      "normal_texture": true,
-     "texture_hash": "d1318efeb48a"
+     "texture_hash": "8a3165cc464b"
     },
     "lashes": {
      "alphaMode": "MASK",
      "base_colour_texture": true,
      "doubleSided": true,
+     "godot_sheen": {
+      "anisotropy_enabled": false,
+      "backlight_enabled": false,
+      "rim_enabled": false
+     },
      "godot_transparency": 2,
      "lookdev_preset": "hair",
      "normal_texture": true,
-     "texture_hash": "3833b779c6b3"
+     "texture_hash": "fce9ae7828c1"
     }
    },
    "objects": [
@@ -79,11 +94,20 @@
     },
     "brows": {
      "colour": [
-      0.21,
-      0.132,
-      0.072
+      0.28,
+      0.176,
+      0.096
      ],
      "faces": 90,
+     "texture": {
+      "coverage": 0.3879,
+      "seed": 5,
+      "texture_px": [
+       1024,
+       256
+      ]
+     },
+     "transparent_shadow": true,
      "verts": 128,
      "weights": [
       "spine.005"
@@ -91,11 +115,24 @@
     },
     "lashes": {
      "colour": [
-      0.1225,
-      0.077,
-      0.042
+      0.14,
+      0.088,
+      0.048
      ],
      "faces": 184,
+     "lid_cards": {
+      "lower": 2,
+      "upper": 2
+     },
+     "texture": {
+      "coverage": 0.1236,
+      "seed": 5,
+      "texture_px": [
+       1024,
+       256
+      ]
+     },
+     "transparent_shadow": true,
      "verts": 250,
      "weights": [
       "spine.005"

@@ -253,7 +253,14 @@ def _face(ch, root):
     out["ear_covered_verts"] = rep["cap"]["ear_covered_verts"]
     parts = {}
     for name, part in rep["face"]["parts"].items():
-        parts[name] = {k: part[k] for k in ("faces", "verts", "weights", "regions", "colour") if k in part}
+        parts[name] = {k: part[k] for k in ("faces", "verts", "weights", "regions", "colour", "lid_cards") if k in part}
+        tex = (part.get("material") or {}).get("texture")
+        if tex:
+            # the card texture: share of texels a hair covers (skin between the hairs, no opaque band)
+            parts[name]["texture"] = tex
+        mat = bpy.data.materials.get(f"{ch.name}_{name}")
+        if mat is not None and name in ("brows", "lashes"):
+            parts[name]["transparent_shadow"] = bool(getattr(mat, "use_transparent_shadow", False))
     out["parts"] = H.stable(parts)
     out["skipped"] = rep["face"]["skipped"]
     out["face_order"] = {o.name: H.face_order(o) for o in made if o.name != f"{ch.name}_hair"}
@@ -281,6 +288,8 @@ def _face(ch, root):
                           "normal_texture": "normalTexture" in m,
                           "godot_transparency": ((m.get("extras") or {}).get("lookdev") or {}).get("godot", {}).get("transparency"),
                           "lookdev_preset": ((m.get("extras") or {}).get("lookdev") or {}).get("preset")}
+            g = ((m.get("extras") or {}).get("lookdev") or {}).get("godot", {})
+            mats[part]["godot_sheen"] = {k: g.get(k) for k in ("rim_enabled", "backlight_enabled", "anisotropy_enabled")}
             mats[part]["texture_hash"] = _pixels_hash(f"{ch.name}_{part}_strands")
     out["gltf"] = H.stable(mats)
     for o in made:

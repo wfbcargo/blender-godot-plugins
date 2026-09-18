@@ -26,6 +26,14 @@ lashes by `LASH_DARKEN`; lashes are two-sided (glTF doubleSided). Brow strands l
 across it from the lower edge (roots) to the upper edge (tips), U is sheared so a strand runs up and
 toward the temple, upright at the brow's head and nearly along it by its tail.
 
+Brows and lashes replace lookdev's tiled strand pixels with `card_texture`: separate hairs two or three
+texels wide tapering to under one, skin between them (the hair texture's opaque middle band made the brow an
+ink stroke and the lashes an eyeliner ring). U runs once along each brow and along each lid's card (upper lid
+in the texture's left half, lower in its right), so the brow feathers in at its head and thins into its tail
+and the lower lashes are fewer and finer. In Godot the cards take scissor and no rim, backlight or
+anisotropy (`CARD_GODOT`: at a grazing angle they lit a brow's tail into a grey sliver); in Blender their
+shadows are transparent (an opaque lash card shadowed a streak onto the cheek).
+
 **Body hair** (off unless asked): a shell 0.3 mm off the skin over the regions, cut from the body's faces
 by bone weight (and facing, for the torso), with a sparse strand texture - the hair texture with most of
 its strands removed in bands and the rest staggered - repeating in V every `BODY_HAIR_STRAND_M` along the
@@ -47,8 +55,8 @@ import bpy
 import numpy as np
 from mathutils import Vector
 
-BROW_DARKEN = 0.6           # brow colour: the hair colour's sRGB channels times this
-LASH_DARKEN = 0.35
+BROW_DARKEN = 0.8           # brow colour: the hair colour's sRGB channels times this
+LASH_DARKEN = 0.4
 BODY_HAIR_DARKEN = 0.8
 BODY_HAIR_STRAND_M = 0.014  # one strand's length on the skin; V repeats every this far
 BODY_HAIR_KEEP = 0.22       # share of the texture's strand bands kept
@@ -56,15 +64,21 @@ BODY_HAIR_LIFT_M = 0.0003
 TILE_M = 0.04
 GODOT_SCISSOR = 2           # BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 
-# lookdev hair preset overrides per part (keys of lookdev's `hair` material preset)
+# lookdev hair preset overrides per part (keys of lookdev's `hair` material preset). Brows and lashes then
+# get their own texture (`card_texture`): U runs once along each brow / lid (0..1, not tiled), so the strands
+# can thin toward the brow's tail and the lid's corners, and every strand is a hair's width with skin between.
 LOOK = {
-    "brows": {"texture_px": [256, 512], "strands_per_tile": 90, "root_zone": [0.02, 0.3], "tip_zone": [0.6, 0.98],
-              "root_fade": [0.0, 0.25], "tip_mult": 1.1, "gap_mult": 0.35, "wave_px": 0.8, "lock_jitter": 0.15},
-    "lashes": {"texture_px": [256, 512], "strands_per_tile": 60, "root_zone": [0.0, 0.1], "tip_zone": [0.45, 0.97],
-               "root_fade": [0.0, 0.04], "tip_mult": 1.0, "root_mult": 1.0, "gap_mult": 0.3, "wave_px": 0.5},
+    "brows": {"texture_px": [1024, 256]},
+    "lashes": {"texture_px": [1024, 256]},
     "body_hair": {"texture_px": [256, 512], "strands_per_tile": 48, "root_zone": [0.05, 0.4], "tip_zone": [0.6, 0.95],
                   "root_fade": [0.0, 0.2], "tip_mult": 1.15, "gap_mult": 0.5, "wave_px": 1.2},
 }
+# Godot: no rim, backlight or anisotropic sheen on hairs this fine - at a grazing angle (a brow's tail round
+# the temple) they light a whole card's strands into a grey sliver
+CARD_GODOT = {"transparency": GODOT_SCISSOR, "rim_enabled": False, "backlight_enabled": False,
+              "anisotropy_enabled": False, "roughness": 0.75, "metallic_specular": 0.2}
+# the lash texture's two halves: upper lid in U 0.02..0.48, lower lid in 0.52..0.98 (outer corner at 0.02 / 0.98)
+LASH_U = {"upper": (0.02, 0.48), "lower": (0.52, 0.98)}
 
 _DATA = None
 
@@ -122,16 +136,176 @@ def _material(name, colour, uv_name, part, double_sided=False):
     if ld_hair is None:
         from . import look
         mat = look.material(name, srgb=colour, roughness=0.5)
-        return mat, {"material": mat.name, "source": "flat (lookdev_blender not importable)"}, TILE_M
+        return mat, {"material": mat.name, "source": "flat (lookdev_blender not importable)"},             (1.0 if part in ("brows", "lashes") else TILE_M)
     over = dict(LOOK[part])
     # in Godot, scissor rather than the hair preset's depth pre-pass: a card this fine and this close to the
     # skin blends its many sub-cutoff strand fringes into a grey haze (eyeshadow round the lashes, a smudge under
     # the brow); cut at the same 0.5 the exporter writes, it is strands with skin between them
-    over["godot"] = dict(ld_hair.preset("hair")["godot"], transparency=GODOT_SCISSOR)
+    godot = dict(ld_hair.preset("hair")["godot"], transparency=GODOT_SCISSOR)
+    if part in ("brows", "lashes"):
+        godot.update(CARD_GODOT)
+        godot.pop("backlight_share", None)
+    over["godot"] = godot
     mat, rep = ld_hair.material(name, colour, uv_map=uv_name, **over)
+    if part in ("brows", "lashes"):
+        rep = dict(rep, texture=card_texture(part, colour, bpy.data.images[rep["image"]],
+                                             bpy.data.images.get(rep["gltf"]["normalTexture"])))
+    if hasattr(mat, "use_transparent_shadow"):
+        mat.use_transparent_shadow = True       # a card's shadow is its strands', not the whole card's
     if double_sided:
         mat.use_backface_culling = False
-    return mat, dict(rep, source="lookdev", double_sided=double_sided), rep["tile_m"]
+    tile = 1.0 if part in ("brows", "lashes") else rep["tile_m"]
+    return mat, dict(rep, source="lookdev", double_sided=double_sided), tile
+
+
+# ------------------------------------------------------------------------------------------ card textures
+
+def _srgb_to_linear(c):
+    c = np.clip(c, 0.0, 1.0)
+    return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+
+
+def _strand(cover, tone, rng, x0, v0, v1, w0, w1, lean, bright):
+    """Draw one hair into `cover` (H, W) as an antialiased tapering line from (x0 px, v0) to (x0 + lean px, v1),
+    keeping the brightness of whichever hair is on top in `tone`."""
+    H, W = cover.shape
+    r0, r1 = int(max(0, math.floor(v0 * H))), int(min(H, math.ceil(v1 * H)))
+    if r1 - r0 < 2:
+        return
+    v = (np.arange(r0, r1) + 0.5) / H
+    t = (v - v0) / max(v1 - v0, 1e-6)
+    cx = x0 + lean * t * t                                  # a hair curves as it leaves the skin
+    half = 0.5 * (w0 + (w1 - w0) * t)
+    lo = int(math.floor(min(x0, x0 + lean) - w0 - 2))
+    hi = int(math.ceil(max(x0, x0 + lean) + w0 + 2))
+    cols = np.arange(lo, hi)
+    inside = (cols >= 0) & (cols < W)
+    cols = cols[inside]
+    if not len(cols):
+        return
+    dx = np.abs((cols + 0.5)[None, :] - cx[:, None])
+    c = np.clip(half[:, None] + 0.5 - dx, 0.0, 1.0) * np.clip(half[:, None] * 2.0, 0.0, 1.0) ** 0.5
+    blk = cover[r0:r1, cols]
+    better = c > blk
+    cover[r0:r1, cols] = np.maximum(blk, c)
+    tone[r0:r1, cols] = np.where(better, (bright * (0.85 + 0.25 * t))[:, None], tone[r0:r1, cols])
+
+
+def _brow_hairs(W, H, rng):
+    """(cover, tone) for both brows: U 0 at the brow's head (nose), 1 at its tail; V 0 lower edge, 1 upper."""
+    cover, tone = np.zeros((H, W)), np.ones((H, W))
+    n = 850
+    # how many hairs along the brow: feathered in at the head, full over the body, thinning into the tail
+    us = rng.uniform(0.0, 1.0, n * 3)
+    dens = np.interp(us, [0.0, 0.07, 0.2, 0.6, 0.85, 1.0], [0.15, 0.6, 1.0, 0.9, 0.45, 0.12])
+    us = us[rng.uniform(0, 1, len(us)) < dens][:n]
+    for u in us:
+        # roots over the lower two thirds, hairs a third to a half of the card long; at the tail they are
+        # confined to the middle, so the brow narrows to a point rather than a cut
+        mid = 0.45
+        spread = float(np.interp(u, [0.0, 0.6, 1.0], [0.42, 0.38, 0.18]))
+        v0 = float(np.clip(rng.normal(mid - 0.12, spread * 0.5), 0.0, 0.8))
+        length = rng.uniform(0.28, 0.55)
+        v1 = min(0.99, v0 + length)
+        _strand(cover, tone, rng, u * W, v0, v1, rng.uniform(1.9, 2.8), rng.uniform(0.5, 0.9),
+                rng.normal(0.0, 3.0) + 4.0, float(np.clip(rng.normal(1.0, 0.13), 0.7, 1.35)))
+    return cover, tone
+
+
+def _lash_hairs(W, H, rng):
+    """(cover, tone): upper lid in U LASH_U["upper"], lower lid in LASH_U["lower"], both with the outer corner at
+    their outer ends (0.02 and 0.98); V 0 at the lid, 1 at the card's far edge."""
+    cover, tone = np.zeros((H, W)), np.ones((H, W))
+    for lid, n, lengths, width in (("upper", 170, (0.6, 0.97), (1.6, 2.3)), ("lower", 45, (0.35, 0.7), (1.1, 1.6))):
+        a, b = LASH_U[lid]
+        # s: 0 at the outer corner, 1 at the inner; lashes are longest and densest over the outer middle
+        ss = rng.uniform(0.0, 1.0, n * 3)
+        dens = np.interp(ss, [0.0, 0.08, 0.3, 0.7, 0.9, 1.0], [0.3, 0.9, 1.0, 0.8, 0.35, 0.1])
+        ss = ss[rng.uniform(0, 1, len(ss)) < dens][:n]
+        # lashes gather in small clumps whose tips meet: each lash leans toward its clump's centre
+        clumps = np.sort(rng.uniform(0.0, 1.0, max(3, n // 4)))
+        for s_ in ss:
+            u = a + (b - a) * (s_ if lid == "upper" else 1.0 - s_)
+            reach = float(np.interp(s_, [0.0, 0.35, 0.75, 1.0], [0.75, 1.0, 0.85, 0.5]))
+            v1 = 0.03 + reach * rng.uniform(*lengths)
+            # outer lashes sweep out toward the corner, inner ones toward the nose
+            out = (0.5 - s_) * 2.0 * (1 if lid == "upper" else -1)
+            c = clumps[np.argmin(np.abs(clumps - s_))]
+            gather = (c - s_) * (b - a) * W * (1 if lid == "upper" else -1) * 0.6
+            _strand(cover, tone, rng, u * W, 0.02, min(0.99, v1), rng.uniform(*width), 0.35,
+                    -out * rng.uniform(8.0, 18.0) + gather + rng.normal(0.0, 2.5),
+                    float(np.clip(rng.normal(1.0, 0.12), 0.7, 1.35)))
+    return cover, tone
+
+
+def card_texture(part, colour, img, nimg=None, seed=5):
+    """Overwrite a lookdev hair material's strand texture with separate hairs for a brow or lash card: each
+    hair two or three texels wide at the root tapering to under one, skin (alpha 0) between them, colour the
+    part's colour with a little per-hair variation and lighter toward the tip. Returns a small report."""
+    W, H = img.size
+    rng = np.random.RandomState(seed)
+    cover, tone = (_brow_hairs if part == "brows" else _lash_hairs)(W, H, rng)
+    lin = _srgb_to_linear(np.asarray(colour[:3], np.float64))
+    rgb = np.clip(lin[None, None, :] * tone[:, :, None], 0.0, 1.0)
+    px = np.empty((H, W, 4), np.float32)
+    px[:, :, :3] = np.where(rgb <= 0.0031308, rgb * 12.92, 1.055 * np.power(rgb, 1 / 2.4) - 0.055)
+    px[:, :, 3] = np.clip(cover * 1.15, 0.0, 1.0)
+    img.pixels.foreach_set(px.ravel())
+    img.pack()
+    if nimg is not None and tuple(nimg.size) == (W, H):
+        # each hair a rounded ridge across U
+        slope = (np.roll(cover, -1, axis=1) - np.roll(cover, 1, axis=1)) * 0.5
+        nrm = np.stack([-slope, np.zeros_like(slope), np.ones_like(slope)], axis=2)
+        nrm /= np.linalg.norm(nrm, axis=2, keepdims=True)
+        npx = np.ones((H, W, 4), np.float32)
+        npx[:, :, :3] = nrm * 0.5 + 0.5
+        nimg.pixels.foreach_set(npx.ravel())
+        nimg.pack()
+    return {"texture_px": [W, H], "coverage": round(float((px[:, :, 3] >= 0.5).mean()), 4), "seed": seed}
+
+
+def _components(n, faces):
+    parent = list(range(n))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    for q in faces:
+        for i in q[1:]:
+            parent[find(i)] = find(q[0])
+    return [find(i) for i in range(n)]
+
+
+def _card_uv(part, pts, faces, uv):
+    """Per-vertex UVs for one side's card in the card texture's layout (see LOOK): U once along the brow
+    (0 head .. 1 tail, keeping the stored lean of the strands), or along each lid's card from its outer
+    corner (lashes: upper lid 0.02..0.48, lower 0.52..0.98). V as stored. Returns (uvs, {lid: cards})."""
+    uv = np.asarray(uv, np.float64)
+    out = uv.copy()
+    if part == "brows":
+        lo, hi = float(uv[:, 0].min()), float(uv[:, 0].max())
+        out[:, 0] = 0.01 + 0.98 * (uv[:, 0] - lo) / max(hi - lo, 1e-9)
+        return out.tolist(), {}
+    # lashes: each lid's card is its own piece; which lid by where its roots are (V near 0) against the other
+    # piece's, and the outer corner is the end furthest from the face's middle
+    comp = np.array(_components(len(pts), faces))
+    keys = sorted(set(comp.tolist()))
+    root_z = {k: float(pts[(comp == k) & (uv[:, 1] < 0.2), 2].mean()) if ((comp == k) & (uv[:, 1] < 0.2)).any()
+              else float(pts[comp == k, 2].mean()) for k in keys}
+    mid_z = float(np.median(list(root_z.values())))
+    lat = np.abs(pts[:, 0])
+    counts = {}
+    for k in keys:
+        m = comp == k
+        lid = "upper" if root_z[k] >= mid_z and len(keys) > 1 else ("lower" if len(keys) > 1 else "upper")
+        counts[lid] = counts.get(lid, 0) + 1
+        a, b = LASH_U[lid]
+        lo, hi = float(lat[m].min()), float(lat[m].max())
+        s_ = (hi - lat[m]) / max(hi - lo, 1e-9)                # 0 at the outer corner, 1 at the inner
+        out[m, 0] = a + (b - a) * (s_ if lid == "upper" else 1.0 - s_)
+    return out.tolist(), counts
 
 
 def _card_object(name, body, rig, pts_world, faces, uvs, weights, uv_name, tile):
@@ -173,13 +347,20 @@ def _cards(ob, co, part, base, rig, colour, uv_name, head):
     d = regions()[part]
     mat, mat_rep, tile = _material(f"{base}_{part}", colour, uv_name, part, double_sided=(part == "lashes"))
     pts, faces, uvs, tris, bary = [], [], [], ([], [], []), []
+    lids = {}
     for side in ("L", "R"):
         card = d[side]
         p, (ia, ib, ic), w = _rebuild(co, card["fit"])
         off = len(pts)
         pts.extend(p.tolist())
         faces.extend([[off + i for i in q] for q in card["faces"]])
-        uvs.extend(card["uv"])
+        if tile == 1.0:
+            uv, side_lids = _card_uv(part, p, card["faces"], card["uv"])
+            for k, n in side_lids.items():
+                lids[k] = lids.get(k, 0) + n
+        else:
+            uv = card["uv"]
+        uvs.extend(uv)
         tris[0].extend(ia.tolist())
         tris[1].extend(ib.tolist())
         tris[2].extend(ic.tolist())
@@ -191,8 +372,8 @@ def _cards(ob, co, part, base, rig, colour, uv_name, head):
     card["humanform_hair"] = {"part": part}
     # the lash roots and the brow must lie on the skin: the distance of each card's root row from the body
     return card, {"faces": len(faces), "verts": len(pts), "weights": sorted(weights),
-                  "material": {k: mat_rep.get(k) for k in ("material", "source", "gltf", "double_sided")},
-                  "colour": [round(c, 4) for c in colour]}
+                  "material": {k: mat_rep.get(k) for k in ("material", "source", "gltf", "double_sided", "texture")},
+                  "colour": [round(c, 4) for c in colour], **({"lid_cards": lids} if lids else {})}
 
 
 # ------------------------------------------------------------------------------------------ body hair
