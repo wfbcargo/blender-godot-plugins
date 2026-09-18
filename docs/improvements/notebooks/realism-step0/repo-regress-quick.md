@@ -90,3 +90,33 @@ measure against `out_root` as given (not resolved), print `deepest output: N cha
 free value - and write the diff file in `finally`, so a run that dies part-way still leaves one.
 test_tools.py gained a `--keep` case: a 255-character output path must warn after the run, and a short
 `--keep` (the control) must not. Stopped the `--twice` run started at 08:57 on the old code and restarted.
+
+## 08:58-09:10 final `--twice --jobs 2` on 7eb67b9
+
+`python tools/regress.py --twice --jobs 2 --keep <scratch>/tw`: 20 ok, last lines
+`no change` / `REGRESS DONE exit=0, 20 fixtures ok`, 08:57:57-09:09:55 (12 min; tests/README.md said
+about half an hour for this before). Rabbit and cricket started first and finished first; results
+came in schedule order because the pool ran both builds of each fixture side by side. No golden moved
+(`git diff main -- tests/golden` empty). Deepest output 154 characters under a 58-character --keep root.
+
+Stage lines printed: pipeline_muscle `draft, 11.2s: body 3.8, bake 1.9, hair 0.3, moves 3.5, export 1.6`,
+pipeline_woman `final, 5.0s: export 2.3, review 2.4`, pipeline_ponytail `final, 2.6s: strand 0.2, export 2.4`.
+
+**The VOLATILE-dict warning found a real hole on its first run:** `mpfb_woman_curvy`'s `export.file` is
+a dict of 9 entries - the glb read back: animation lengths for 8 clips, joints 53, meshes, node count,
+size, skins - and because `file` is a volatile word none of it has ever been compared. Left as it is
+here (renaming the key adds keys to a golden, which is a fixture change for a reviewed commit); open.
+
+## Open
+
+- `mpfb_woman_curvy` `export.file`: rename (e.g. `export.glb`) so the readback is compared; records new
+  golden keys.
+- Stage times are the last build each manifest records; pipeline_woman's full build is overwritten by
+  its second-Blender export. A fixture could report `build.stage_seconds` of its first build under a
+  non-volatile-free name - but seconds are volatile by design, so it would be a regress side channel,
+  not a report key.
+- DURATIONS is a static table. regress could keep the last run's times in a user cache and schedule
+  from that; not done, since the order barely changes and a table is reviewable.
+- Not done from 06's list: `--restamp` and refusing `--update` when HEAD is not a descendant of main.
+  bump.py says it does not restamp goldens (no mechanism exists; the stamp is never compared).
+- `--update` keeps a within-tolerance golden, so its `plugins` version stamp stays at the old version.
