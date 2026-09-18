@@ -26,8 +26,8 @@ extends SceneTree
 ## Head penetration is measured against the body's skin, not the colliders: every strand vertex is
 ## skinned on the CPU and compared with the head's own surface (the body's vertices skinned mostly to
 ## the collider bone named `head`, as a radius per direction round their centroid, in that bone's
-## frame). A strand vertex counts by how much deeper it is than it was at rest, so a root grown into
-## the scalp is not a penetration.
+## frame, read between cells). A strand vertex counts by how much deeper it is than it was at rest,
+## so a root grown into the scalp is not a penetration.
 ##
 ## Across rates: the run's swing_deg within 25% of each other (max / min <= 1.25).
 ##
@@ -462,9 +462,41 @@ func _depths(h: Dictionary, skel: Skeleton3D, head: Dictionary, rest: bool) -> P
 	var c: Vector3 = head["centre"]
 	for i in h["verts"].size():
 		var d := inv * _skinned(h, i, skel, rest) - c
-		var r: float = head["radius"][_cell(d)]
+		var r := _radius_at(head, d)
 		out[i] = (r - d.length()) if r > 0.0 else -1.0
 	return out
+
+
+## The head's surface along `d`, read between the four cell centres round it. A nearest-cell read
+## steps by however much the surface changes from one cell to the next - 2 cm on an MPFB woman, where
+## the hair tie a ponytail is gathered in stands off the skull - and a strand vertex resting on such a
+## step went from 12 mm outside the head to 9 mm inside it on a 3 mm move, which is not a penetration
+## but the step. Cells the surface never reached are left out; all four means no surface here.
+func _radius_at(head: Dictionary, d: Vector3) -> float:
+	var r := d.length()
+	if r < 1e-9:
+		return -1.0
+	var radius: PackedFloat32Array = head["radius"]
+	var fi := acos(clampf(d.y / r, -1.0, 1.0)) / PI * LAT - 0.5
+	var fj := (atan2(d.z, d.x) + PI) / TAU * LON - 0.5
+	var i0 := floori(fi)
+	var j0 := floori(fj)
+	var ti := fi - i0
+	var tj := fj - j0
+	var total := 0.0
+	var weight := 0.0
+	for a in 2:
+		var i := clampi(i0 + a, 0, LAT - 1)
+		var wi := ti if a == 1 else 1.0 - ti
+		for b in 2:
+			var j := posmod(j0 + b, LON)
+			var v: float = radius[i * LON + j]
+			if v <= 0.0:
+				continue
+			var w := wi * (tj if b == 1 else 1.0 - tj)
+			total += v * w
+			weight += w
+	return total / weight if weight > 1e-6 else -1.0
 
 
 ## Called when the skeleton has applied its modifiers (the only moment the sprung poses can be read:

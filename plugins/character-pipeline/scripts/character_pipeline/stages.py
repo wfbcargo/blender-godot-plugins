@@ -2,11 +2,14 @@
 
     body      humanform body and rig from the brief (or an object already in the file)
     bake      one skinned mesh: shape keys and helpers baked, skin material, eyes joined
-    hair      humanform's hair layer from a preset, joined into the body (optional)
+    hair      humanform's hair layer from a preset, joined into the body - except a strand part the
+              strand stage will chain, which stays its own object (optional)
     flesh     follow-through jiggle bones (optional)
     moves     rig-anything's move set - after flesh, before garments
+    strand    a follow-through spring-bone chain on the hair the hair stage left loose: a ponytail's
+              tail (only where the preset grows one that is a line - `CHAINED_STRAND_KINDS`)
     garments  wardrobe presets, cut from the fleshed skin (optional)
-    export    the glb, .moves.json and garment glbs, and the .blend
+    export    the glb, .moves.json, the hair strand's own glb and the garment glbs, and the .blend
     review    the review sheet: every clip as 8-frame strips of the dressed character (on unless the spec
               says `[review] enabled = false`)
 
@@ -20,7 +23,13 @@ by breaking them on a real character:
   carries no jiggle bones;
 - bake before moves;
 - hair once: the stage joins the hair into the body and cannot take it off again, so a body that already
-  has hair refuses (`check_hair`) and changing `[hair]` means rebuilding from `body`.
+  has hair refuses (`check_hair`) and changing `[hair]` means rebuilding from `body`;
+- moves before strand: the chain hangs 3-8 new bones off the head bone, and rig-anything reads a rig's
+  *structure* to find its limbs, neck and tail. The move set is authored (and stored) while the rig is
+  still the body's own; `export_character` after the chain is the path follow-through's `strand_ponytail`
+  fixture already exercises;
+- strand before garments: the chain's colliders are measured from every other mesh skinned to the rig,
+  and a top's cloth round the neck would widen the neck capsule the hair is held off.
 """
 
 from __future__ import annotations
@@ -92,6 +101,68 @@ def haired(ch):
             and (o.name.startswith(ch.name + "_")
                  or (rig is not None and any(m.type == "ARMATURE" and m.object == rig for m in o.modifiers)))]
     return sorted(o.name for o in views.hair_objects(ob, mine))
+
+
+def strand_meshes(ch):
+    """This character's follow-through strand meshes: hair the hair stage left as its own object
+    (`ft_type = "strand"` - humanform's ponytail tail).
+
+    The hair stage joins its cap and its rigid volumes into the body, because rig-anything exports one
+    mesh, but a strand cannot go in: the join drops the object properties the chain is built from
+    (`ft_centreline`, `ft_root_bone`), and a body mesh can carry one follow-through spec, which on a
+    fleshed body is its jiggle. So the strand stays a mesh of its own, gets its chain here, and is
+    exported beside the body for `FollowThrough.attach`.
+
+    Only this character's: named `<name>_*`, or skinned to its rig (as `haired` does, since a file can
+    hold a whole crowd)."""
+    rig = _obj(ch.rig)
+    out = []
+    for o in bpy.data.objects:
+        if o.type != "MESH" or o.name == ch.mesh:
+            continue
+        if str(o.get("ft_type", "")).lower() != "strand":
+            continue
+        if o.name.startswith(ch.name + "_") or (
+                rig is not None and any(m.type == "ARMATURE" and m.object == rig for m in o.modifiers)):
+            out.append(o.name)
+    return sorted(out)
+
+
+def chained(ch):
+    """The strand meshes that already carry a chain: a follow-through spec with `strands.chains`."""
+    out = []
+    for name in strand_meshes(ch):
+        s = _obj(name).get("follow_through")
+        if s is not None and (s.get("strands") or {}).get("chains"):
+            out.append(name)
+    return out
+
+
+# The shapes of humanform strand follow-through hangs a chain on. A chain is a line, and
+# `long_loose`'s curtain is a 16 cm-wide sheet: one chain down its middle turns it, running, into a
+# twisted wedge standing out of the shoulder, and `verify_strands.gd` measures 2.9 cm of it inside the
+# head (against 1.2 mm for the ponytail). Until follow-through builds a sheet of chains - or types the
+# curtain as the shell it is - a curtain is joined into the body and rides the head rigidly, as all
+# hair did before this stage existed.
+CHAINED_STRAND_KINDS = ("tube",)
+
+
+def hair_strand_kind(ch):
+    """The shape of the strand part this spec's hair preset grows (`tube`, `curtain`), or None -
+    humanform's own answer, not a list kept here, so a preset that grows one later needs no edit."""
+    if ch.hair is None or ch.hair.kind != "preset" or not ch.hair.preset:
+        return None
+    from humanform import hair as hf_hair
+    try:
+        p = hf_hair.params(ch.hair.preset)
+    except (KeyError, ValueError):
+        return None
+    return p["strand"]["kind"] if "strand" in p["parts"] else None
+
+
+def hair_has_chain(ch):
+    """Whether this spec's hair grows a strand the strand stage can chain."""
+    return hair_strand_kind(ch) in CHAINED_STRAND_KINDS
 
 
 def moves_stored(ch):
@@ -222,8 +293,13 @@ def _rest(ch):
 
 def run_hair(ch, ctx):
     """humanform's hair layer from the spec's preset and colour, joined into the body - rig-anything exports
-    one mesh. A strand part (ponytail, long_loose) is joined too: its follow-through contract is checked and
-    reported before the join, and its `ft_strand` vertex group and fallback weights survive it."""
+    one mesh.
+
+    A strand part the strand stage will chain (`CHAINED_STRAND_KINDS`) is *not* joined: the join drops the
+    object properties follow-through builds a chain from, and the strand stage needs them. It is left
+    skinned to the rig with humanform's rigid fallback weights, so a build stopped before the strand stage
+    still shows hair that moves with the head. Any other strand part is joined like the rest of the hair.
+    Either way its follow-through contract is checked and reported here."""
     if ch.hair.kind == "shell_bun":
         from . import hair
         out = hair.shell_bun(ch, **ch.hair.params)
@@ -233,14 +309,18 @@ def run_hair(ch, ctx):
     _rest(ch)
     rep = hf_hair.add(ch.mesh, preset=ch.hair.preset, colour=ch.hair.colour, name=ch.name)
     ob = _obj(ch.mesh)
-    parts = [_obj(n) for n in rep["objects"].values()]
+    made = dict(rep["objects"])
+    strand = made.pop("strand") if "strand" in made and hair_has_chain(ch) else None
+    parts = [_obj(n) for n in made.values()]
     selected = [ob] + parts
     with bpy.context.temp_override(active_object=ob, selected_editable_objects=selected, object=ob,
                                    selected_objects=selected):
         bpy.ops.object.join()
-    out = {"preset": rep["preset"], "colour": rep["colour"], "joined": sorted(rep["objects"].values()),
+    out = {"preset": rep["preset"], "colour": rep["colour"], "joined": sorted(made.values()),
            "head": rep["landmarks"]["head_bone"], "cap": rep["cap"], "hair": rep["hair"],
            "parts": rep["parts"], "material": {k: rep["material"].get(k) for k in ("material", "source", "gltf")}}
+    out["strand_object"] = strand                   # None: there is none, or it was joined like the rest
+    out["strand_kind"] = hair_strand_kind(ch)
     if "contract" in rep:
         out["strand_contract"] = rep["contract"]
         if not rep["contract"]["passed"]:
@@ -317,6 +397,54 @@ def run_moves(ch, ctx):
     return out
 
 
+def check_strand(ch):
+    """A strand mesh to chain, the move set already authored, and nothing dressed yet."""
+    problem = check_not_dressed("strand")(ch)
+    if problem:
+        return problem
+    if not strand_meshes(ch):
+        return ("strand needs hair: no mesh with ft_type = \"strand\" for %s in the file - run hair first "
+                "(the %s preset grows one)" % (ch.name, (ch.hair.preset if ch.hair else None) or "ponytail"))
+    missing = [r for r in ch.moves.roles if r not in moves_stored(ch)]
+    if missing:
+        return (f"strand needs moves: no stored clips for {missing} - run moves before strand (rig-anything "
+                "reads the rig's structure to find its limbs and neck, so the move set is authored before "
+                "3-8 chain bones hang off the head)")
+    return None
+
+
+def run_strand(ch, ctx):
+    """follow-through's spring-bone chain on each strand mesh the hair stage left loose.
+
+    `strand.prepare` hangs the bones off the strand's `ft_root_bone` (the head), weights the mesh along
+    them, measures head and neck colliders from the body's own skin and writes the `strands` spec the
+    Godot modifier springs. The spec travels in the strand's own glb (`run_export`), which
+    `FollowThrough.attach` puts on the body's skeleton."""
+    from follow_through import strand as ft_strand
+    _rest(ch)
+    out = {}
+    for name in strand_meshes(ch):
+        r = ft_strand.prepare(name, rig_name=ch.rig)
+        if "error" in r:
+            raise RuntimeError(f"strand: {r['error']}")
+        if not r["colliders"]:
+            raise RuntimeError(f"strand: {name} has no head or neck collider - nothing would keep the "
+                               "hair out of the head in Godot")
+        blk = r["spec"]["strands"]
+        out[name] = {
+            "type": r["type"], "type_source": r["type_source"], "material": r["material"],
+            "root_bone": r["root_bone"], "warnings": r["warnings"],
+            "chains": [dict(c, frequency_hz=[b["frequency_hz"] for b in s["bones"]],
+                            bone_names=[b["bone"] for b in s["bones"]])
+                       for c, s in zip(r["chains"], blk["chains"])],
+            "colliders": r["colliders"], "collider_source": r["collider_source"],
+            "weights": r["weights"],
+            "damping_ratio": blk["chains"][0]["bones"][0]["damping_ratio"],
+            "collision_friction": blk["collision_friction"],
+        }
+    return out
+
+
 def check_garments(ch):
     if not baked(ch):
         return "garments needs bake - run bake first"
@@ -355,6 +483,10 @@ def check_export(ch):
         return f"export needs moves: no stored clips for {missing} - run moves first"
     if ch.outfit and not garments_bound(ch):
         return "export needs garments: the spec has an outfit and none is bound - run garments first"
+    loose = [n for n in strand_meshes(ch) if n not in chained(ch)]
+    if loose:
+        return (f"export needs strand: {', '.join(loose)} has no spring-bone chain yet - run strand first, "
+                "or the hair would ship weighted rigidly to the head and never swing")
     return None
 
 
@@ -381,6 +513,11 @@ def run_export(ch, ctx):
     if garment_names:
         # the garments a controller equips, innermost first
         extra["garments"] = [f"{ch.export.res_dir}/{ch.id}_{n.lower()}.glb" for n in garment_names]
+    strands = chained(ch)
+    strand_glb = os.path.join(ch.out_dir(), f"{ch.id}_hair.glb")
+    if strands:
+        # the strand file a controller hands FollowThrough.attach, then apply - one glb for every chain
+        extra["strands"] = [f"{ch.export.res_dir}/{ch.id}_hair.glb"]
     if ch.body.source == "brief":
         extra["brief"] = dict(ch.body.brief, name=ch.name)
     e = ra_export.export_character(ch.mesh, ch.rig, glb, name=ch.name, creature=ch.id, reports=reports,
@@ -402,7 +539,18 @@ def run_export(ch, ctx):
     with open(e["moves"], "w", encoding="utf-8") as fh:
         json.dump(manifest, fh, indent=2)
     e["manifest"]["height_m"]["stand"] = stand
-    return {k: e.get(k) for k in ("glb", "moves", "verified", "clips", "bones", "problems")}
+    out = {k: e.get(k) for k in ("glb", "moves", "verified", "clips", "bones", "problems")}
+    if strands:
+        from follow_through import strand as ft_strand
+        s = ft_strand.export(strand_glb, strands, ch.rig)
+        if not s.get("passed"):
+            raise RuntimeError(f"export: the hair strand glb did not read back: "
+                               f"{s.get('error') or [c['problems'] for c in s.get('specs', [])]}")
+        out["strands"] = {"glb": s["path"], "res": extra["strands"], "meshes": s["meshes"],
+                          "specs": [{k: c.get(k) for k in ("node", "route", "strand_chains", "strand_bones",
+                                                           "strand_head_error_m", "problems")}
+                                    for c in s.get("specs", [])]}
+    return out
 
 
 def review_dir(ch):
@@ -454,8 +602,9 @@ STAGES = [
     ("hair", ("bake",), ("hair",), check_hair, run_hair, lambda ch: ch.hair is not None),
     ("flesh", ("bake", "hair"), ("flesh",), check_not_dressed("flesh"), run_flesh, lambda ch: ch.flesh is not None),
     ("moves", ("bake", "hair", "flesh"), ("moves",), check_not_dressed("moves"), run_moves, lambda ch: True),
-    ("garments", ("moves", "flesh"), ("outfit",), check_garments, run_garments, lambda ch: bool(ch.outfit)),
-    ("export", ("moves", "garments"), ("export", "moves"), check_export, run_export, lambda ch: True),
+    ("strand", ("hair", "moves"), ("hair",), check_strand, run_strand, hair_has_chain),
+    ("garments", ("moves", "flesh", "strand"), ("outfit",), check_garments, run_garments, lambda ch: bool(ch.outfit)),
+    ("export", ("moves", "garments", "strand"), ("export", "moves"), check_export, run_export, lambda ch: True),
     ("review", ("export",), ("review",), check_review, run_review, lambda ch: ch.review.enabled),
 ]
 ORDER = [s[0] for s in STAGES]

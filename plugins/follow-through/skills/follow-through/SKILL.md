@@ -237,6 +237,14 @@ and verify with `verify_strands.gd` (rest, knock, thrown at the head, run, a sta
 body. Everything - the contract, the numbers, what the verifier caught - is in
 `${CLAUDE_PLUGIN_ROOT}/references/strands.md`.
 
+**From a character spec, none of this is called by hand.** character-pipeline's `strand` stage runs
+`prepare` on whatever humanform's hair layer left as a strand object (preset `ponytail`), between the
+move set and the garments, and its export writes the strand's glb beside the body and names it in the
+manifest's `strands` for `FollowThrough.attach` (fixture `pipeline_ponytail`). It does **not** chain
+`long_loose`'s curtain: a chain is a line, and one down the middle of a 16 cm-wide sheet twists it into a
+wedge while running (2.9 cm into the head, against 1.2 mm for the ponytail), so that hair stays joined
+into the body and rigid. A sheet wants several chains, or typing as the shell it is.
+
 **Selection is per scene.** An exporter run without `use_active_scene` takes objects
 selected in other scenes: a body exported after a volume export carried eleven meshes it
 had never seen. `export.export` deselects its scene, rig-anything's export passes

@@ -50,6 +50,8 @@ contract, on the object:
 - `ft_centreline` = a flat [x, y, z, ...] list of `points` points in the object's local space, root first,
   evenly spaced along the strand
 - `ft_length_m`, `ft_radius_m` (per centreline point: the tube's half width, the curtain's half thickness)
+- `ft_strand_type` = the follow-through type the preset is (`ponytail`, `long_hair`), so the registry
+  types it from the preset rather than from the object's name
 - a vertex group `ft_strand` whose weight is each vertex's share of the length (0 at the root, 1 at the
   tip), so the order survives a join into another mesh
 - `humanform_hair = {"preset", "part": "strand", "kind": "tube" | "curtain"}`
@@ -1069,6 +1071,7 @@ def add(body, preset=None, colour=None, sheet=None, name=None, **overrides):
         strand_ob["ft_root_bone"] = head
         strand_ob["ft_centreline"] = [round(float(x), 5) for pt in local for x in pt]
         strand_ob["ft_length_m"] = round(length, 4)
+        strand_ob["ft_strand_type"] = sp["type"]
         strand_ob["ft_radius_m"] = radii
         strand_ob["humanform_hair"] = {"preset": preset, "part": "strand", "kind": sp["kind"]}
         objects["strand"] = strand_ob.name

@@ -28,6 +28,9 @@ that belong to a plugin.
     [hair]                       # optional: humanform's hair layer (the brief's `hair`)
     preset = "bun"               # short_crop, bob, bun, ponytail, long_loose
     colour = [0.17, 0.10, 0.06]  # a screen (sRGB) colour
+                                 # a ponytail swings: the strand stage hangs a follow-through
+                                 # spring-bone chain on the tail and exports it as
+                                 # <id>_hair.glb beside the body
     [flesh]                      # optional: follow-through
     types = ["breast", "butt"]
     [[flesh.zones]]              # optional: marked on the flesh sheet when the measure is wrong
