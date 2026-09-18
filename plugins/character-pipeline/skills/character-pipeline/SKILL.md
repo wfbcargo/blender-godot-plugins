@@ -108,7 +108,7 @@ colour = [0.035, 0.16, 0.20]
 [export]
 dir = "assets/belle"               # under the project (characters/ sits in it)
 res_dir = "res://assets/belle"
-blend = "C:/Users/pauli/Code/Blender/belle_realistic.blend"
+blend = "belle_realistic.blend"    # relative: under $BLEND_DIR when set, else the project
 ```
 
 **The flesh stage says what it found.** The build log gets `flesh: found <type>: <regions>` and
@@ -275,6 +275,13 @@ runner.build(spec, from_stage="moves", to_stage="moves", force=True)   # rerun o
   6.5 s, export 3.1 s), which has no cheaper setting yet.
 - With `save` (the default) the .blend goes to `export.blend`, refusing to overwrite a file holding a
   scene this session lacks.
+- **Specs are safe to copy.** A relative `export.blend` resolves under `$BLEND_DIR` when it is set, else under
+  the spec's project (the folder holding `characters/`); an absolute one is still accepted
+  (`spec.resolve_blend`, `Character.blend_path()`). `runner.build` refuses, before any stage runs, to save
+  outside the project and `$BLEND_DIR` unless `save_outside=True` (`build.py ... save_outside=1`), so a spec
+  copied into a scratch project cannot save over the real blend. The string is hashed as written, so a spec
+  copied unedited, with its saved .blend copied beside it, resumes there with every stage unchanged. To make
+  such a copy of a project, use the plugins repo's `tools/scratch_project.py`.
 
 What the stages write that is the pipeline's own convention rather than a plugin's:
 

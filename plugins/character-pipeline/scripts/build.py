@@ -1,7 +1,7 @@
 """Build one character from its spec: the thin caller a project's build script (or `run.sh`) is.
 
     blender -b --factory-startup --python-exit-code 1 --python build.py -- spec=<path.toml> \
-        [from=<stage>] [to=<stage>] [force=1] [quality=draft|preview|final] [fresh=1]
+        [from=<stage>] [to=<stage>] [force=1] [quality=draft|preview|final] [fresh=1] [save_outside=1]
 
 It opens the spec's saved `[export] blend` first when it exists (`runner.open_saved`), so the stage records in
 that file are used: a `[flesh]`-only edit reruns flesh, export and review (moves too when the rig or the weights moved; on a
@@ -9,6 +9,9 @@ dressed spec the garments come off and are cut again), a garment preset edit rer
 unchanged spec skips everything. `fresh=1` builds from nothing instead (the saved file is then overwritten by
 the new build, as always). Blender started on a .blend of your own (`blender -b <file> ...`) keeps that file:
 it is the source a `body.source = "blend"` spec needs.
+
+A relative `[export] blend` lives under $BLEND_DIR when it is set, else under the spec's project (the folder
+holding `characters/`). A path outside both is refused before anything is built unless `save_outside=1`.
 
 The plugins come from RA_SCRIPTS, HF_SCRIPTS, FT_SCRIPTS, WD_SCRIPTS (and LD_SCRIPTS) else the installed copies;
 character-pipeline from this file's folder. Prints the statuses and the build record as JSON on the last line.
@@ -30,7 +33,8 @@ from character_pipeline import runner  # noqa: E402
 def main(args):
     report = runner.build(args["spec"], from_stage=args.get("from"), to_stage=args.get("to"),
                           force=args.get("force") in ("1", "true", "yes"), quality=args.get("quality"),
-                          resume=args.get("fresh") not in ("1", "true", "yes"))
+                          resume=args.get("fresh") not in ("1", "true", "yes"),
+                          save_outside=args.get("save_outside") in ("1", "true", "yes"))
     statuses = {k: (v.get("status") if isinstance(v, dict) and "status" in v else v) for k, v in report.items()}
     print(json.dumps(statuses, default=str))
     return report

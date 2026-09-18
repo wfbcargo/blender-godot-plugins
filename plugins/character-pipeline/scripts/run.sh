@@ -14,6 +14,8 @@ set -euo pipefail
 BLENDER="${BLENDER:-C:/Program Files/Blender Foundation/Blender 5.2/blender.exe}"
 CP_SCRIPTS="${CP_SCRIPTS:-$HOME/.claude/skills/character-pipeline/scripts}"
 # export RA_SCRIPTS=... HF_SCRIPTS=... FT_SCRIPTS=... WD_SCRIPTS=... LD_SCRIPTS=... HUMANFORM_LIBRARY=...
+# BLEND_DIR: where a relative [export] blend lives (else the spec's project); saving outside both is refused
+# unless save_outside=1.
 spec="$1"; shift
 # Blender and Godot want C:/... paths, not /c/...
 if command -v cygpath >/dev/null 2>&1; then spec="$(cygpath -m "$spec")"; CP_SCRIPTS="$(cygpath -m "$CP_SCRIPTS")"; fi
