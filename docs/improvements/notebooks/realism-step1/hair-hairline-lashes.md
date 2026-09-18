@@ -181,3 +181,12 @@ Honest read at 1 m (`%TEMP%/rw/hhl2/r6/sheet.png`):
 - Still open: the cap as a whole is a smooth, dark, slicked shape (its volume, and colour variation beyond the
   locks). Short hair also needs a shape that is not a shell 3.5 mm thick.
 - A small patch just above the ear still shows a few crossing hairs.
+
+Final `--quick --jobs 2` (15:19-15:21): `REGRESS DONE exit=0, 9 fixtures ok`. Full output:
+`%TEMP%/rw/hhl2/regress_quick_r2.log`. humancheck on the rebuilt study_man blend: 0 fail, 2 warn, 30 pass
+(`%TEMP%/rw/hhl2/hc_man.log`). study_woman was not rebuilt in this round: she is a ponytail, and neither
+`line_u_m` nor the edge hairs apply to her. Her round-1 result (0 fail) stands. The version numbers are unchanged
+from round 1 (humanform 0.12.0, lookdev 0.7.0, character-pipeline 0.12.0); main is still at 9d44ece. Ended 15:23.
+
+Still open: the cap's smooth dark volume at 1 m; the crossing hairs just above the ear; short_crop's higher
+`uv_tangent_turn` count; the game's glbs are not rebuilt (ship step: study_man, study_woman, belle).
