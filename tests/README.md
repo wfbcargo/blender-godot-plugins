@@ -13,7 +13,60 @@ python tools/regress.py --plugins <checkout>  # run the fixtures against another
 python tools/regress.py --update              # rewrite the goldens, then review the diff
 python tools/regress.py --twice --jobs 2      # build each fixture twice; the builds must agree
 python tools/regress.py --godot <project>     # then play the exports in Godot's verifiers
+python tools/regress.py --quick --jobs 2      # only the fixtures the branch's changes reach
+python tools/regress.py --quick --dry-run     # what --quick would run and skip, and why
+python tools/test_tools.py                    # regress's and bump.py's own checks, no Blender
 ```
+
+Every run ends with exactly one line, `REGRESS DONE exit=N, K fixtures ok`: wait on that line when a run
+is in the background. The longest fixtures start first (`DURATIONS` in `regress.py`, measured; a fixture
+missing from it starts before all of them), and each result is printed and flushed the moment its
+builds are in, so a slow fixture no longer holds back the ones after it. A `CHANGED` result shows its
+first 40 keys; the full diff of every fixture goes to a file whose path the run prints (`--diff FILE`
+to choose it, else the `--keep` folder or `<temp>/regress-diffs/`). A pipeline fixture's exported
+manifests record how long each character-pipeline stage took, and the result line is followed by
+them, so a slow run explains itself. `--keep` warns when its folder plus the deepest fixture output
+comes within 20 characters of Windows' 260-character MAX_PATH.
+
+## `--quick`
+
+`--quick` lists what changed against `main` - `git diff --name-only main...HEAD`, plus staged,
+unstaged and untracked files (`--base` for another ref, `--changed PATH...` to name them yourself) -
+and runs only the fixtures that change reaches:
+
+- `plugins/<name>/...`: every fixture that uses that plugin, directly (`H.use`, or any `*_SCRIPTS` it
+  reads) or through another plugin's imports, scanned from the plugin sources at run time (humanform
+  imports wardrobe and lookdev, so a wardrobe change also runs `mpfb_woman_curvy`). A plugin no
+  fixture reaches (godot-lsp, animate-anything) runs nothing.
+- `tests/fixtures/<name>.py` or `tests/golden/<name>.json`: that fixture. A helper
+  `tests/fixtures/_<x>.py`: every fixture that names it, so `_harness.py` runs all of them and
+  `_export_only.py` runs `rabbit`.
+- `tools/`: everything. Documentation (`*.md`, `docs/`) and `.claude-plugin/`: nothing. Anything
+  else: everything, since it is not known what reads it.
+
+It prints each changed path with what it selected, then every fixture it will run and why and every
+one it skips and why. `--quick` is for iterating and for a merge queue; run the full `--twice` before
+merging all the same.
+
+## `--update`
+
+`--update` rewrites the goldens whose report moved. A golden whose fresh report is within tolerance of
+it is left as it was (`ok ... (golden within tolerance, kept)`), so re-recording after a change that
+moved three fixtures touches three files, not twenty with rounding noise and new version stamps.
+
+## Bumping a version: `tools/bump.py`
+
+```
+python tools/bump.py wardrobe 0.6.0 "skirts fold with the thighs."
+```
+
+edits `plugins/<plugin>/.claude-plugin/plugin.json`'s `version`, and that plugin's `version` and
+description in `.claude-plugin/marketplace.json`, appending "Since 0.6.0 skirts fold with the thighs."
+It edits text, keeping line endings and layout, and re-parses both files to prove nothing else moved.
+It refuses (and writes nothing) on a version that is not `x.y.z` or not above the current one, an
+unknown plugin, versions that already disagree between the two files, or a description that already
+has that version's sentence. Goldens record the versions that built them (`plugins`), but regress
+never compares that stamp and there is no restamp mechanism, so bump.py leaves `tests/golden` alone.
 
 A change is not by itself a failure — a fix moves numbers. The point is that the move is **seen**,
 on every fixture rather than on one character, and that accepting it is a reviewed commit to
