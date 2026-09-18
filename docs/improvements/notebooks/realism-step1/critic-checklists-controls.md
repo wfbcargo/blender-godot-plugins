@@ -107,3 +107,23 @@ full output `C:/Users/pauli/AppData/Local/Temp/rw/critic-checklists-controls/reg
 `REGRESS DONE exit=0, 17 fixtures ok`, no change. About 6 min wall. Branch time in all: 12:02-12:25.
 Open: limit_influences not in regress.py DURATIONS (a tools/ edit); `--quick` runs every fixture of a plugin
 whose only change is a .md file - a docs-only plugin change could select nothing (a regress.py item).
+
+## Fix round 1 (after critic round 1), 2026-09-18 12:30 CDT
+
+Critic finding: the 'final close-up views' row's in-fixture control was vacuous. `control_before` was planned
+after `quality.LEVELS["final"]["close"]` had already been changed, so both control plans saw the same quality
+and `control_unseen` was true whether or not `quality:close` was dropped.
+
+Fix: `tests/fixtures/pipeline_hashes.py` now plans `control_before` before the change, as the skin row does.
+No plugin code changed and the golden is unchanged (control_unseen stays true).
+
+Evidence (scratch r2 = C:/Users/pauli/AppData/Local/Temp/rw/critic-checklists-controls/r2):
+- Fixed fixture: exit 0. All four rows (wardrobe version, final skin map size, spec [flesh] edit, final close-up
+  views) have ok true and control_unseen true.
+- Must-fail control (the critic's): a scratch copy of the fixtures whose `_left_out` for_hash wrapper no longer
+  drops `quality:` parts. It exits 1, and now **both** 'final skin map size 2048 -> 1024' and 'final close-up
+  views' fail with control_unseen false. Before the fix, only the skin row failed.
+- Harness control PIPELINE_HASHES_DROP=review:quality:close: exit 1, 'final close-up views' moved [].
+
+Correction: Step 0 asked for three drop-controls. This branch added four: wardrobe version, skin size, spec
+[flesh] and the extra close-up views row. The fourth is the one fixed above.

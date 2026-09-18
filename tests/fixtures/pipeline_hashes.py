@@ -337,10 +337,12 @@ def build():
 
     # the close-up set of a final build is in review's hash (a final file reviewed before the set existed must
     # review again and write it): the final views changed to the draft's move review and nothing before it
-    saved = quality.LEVELS["final"]["close"]
-    quality.LEVELS["final"]["close"] = dict(saved, views=quality.CLOSE_DRAFT)
+    # control_before is planned before the change, as for the skin row: planned after it, both control plans see
+    # the same quality and agree whether or not quality:close is dropped (critic round 1)
     close_drop = {"review": ["quality:close"]}
     control_before = plan("full", drop=close_drop)
+    saved = quality.LEVELS["final"]["close"]
+    quality.LEVELS["final"]["close"] = dict(saved, views=quality.CLOSE_DRAFT)
     try:
         other = plan("full")
         control = plan("full", drop=close_drop)
