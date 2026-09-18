@@ -24,6 +24,11 @@
    "bake": {
     "cut_faces": 22,
     "cut_vertices": 13,
+    "muscle_high": {
+     "faces_after": 14148,
+     "faces_before": 13560,
+     "moved": 13367
+    },
     "open_edges_after": 0,
     "open_edges_before": 34,
     "rim": 20,
@@ -39,21 +44,48 @@
      "penis-length-decr": 0.2
     }
    },
-   "clearance": {
-    "max_mm": 14.9,
-    "poses": 126,
-    "pushed": 403
+   "chain_shares": {
+    "pelvis": 0.975,
+    "thigh": 0.025
    },
+   "clearance": {
+    "max_mm": 2.0,
+    "poses": 2,
+    "pushed": 22
+   },
+   "clearance_better": true,
    "flesh_regions": {
     "genital": {
      "bone_parent": "spine",
      "material": "firm_flesh",
-     "max_offset_m": 0.0195,
-     "peak_m": 0.065,
+     "max_offset_m": 0.0194,
+     "peak_m": 0.0647,
      "type": "genital"
     }
    },
    "glb": {
+    "corrective_nodes": [
+     "hf_genital.L",
+     "hf_genital.R"
+    ],
+    "corrective_tracks": {
+     "FixStudyMan_Idle": [
+      "hf_genital.L.rotation",
+      "hf_genital.L.scale",
+      "hf_genital.L.translation",
+      "hf_genital.R.rotation",
+      "hf_genital.R.scale",
+      "hf_genital.R.translation"
+     ],
+     "FixStudyMan_Walk": [
+      "hf_genital.L.rotation",
+      "hf_genital.L.scale",
+      "hf_genital.L.translation",
+      "hf_genital.R.rotation",
+      "hf_genital.R.scale",
+      "hf_genital.R.translation"
+     ]
+    },
     "jiggle_nodes": [
      "ft_jiggle_genital"
     ],
@@ -62,7 +94,21 @@
     ],
     "skins": 1
    },
+   "muscle_high": {
+    "faces_after": 14148,
+    "faces_before": 13560,
+    "moved": 13367
+   },
+   "muscle_normal": {
+    "method": "matched",
+    "warnings": []
+   },
    "pelvis_dominant": true,
+   "rest_not_pinched": "True",
+   "rest_shape": [
+    0.55,
+    0.57
+   ],
    "shares": {
     "spine": 0.934,
     "thigh.L": 0.033,
@@ -73,44 +119,75 @@
     "body": "ran",
     "export": "ran",
     "flesh": "ran",
-    "moves": "ran"
+    "moves": "ran",
+    "muscle": "ran"
    },
    "surface": {
     "largest": 14130,
     "open_edges": 0,
     "pieces": 1
    },
+   "thigh_clearance": {
+    "FixStudyMan_Idle": {
+     "after": [
+      0,
+      0.0,
+      null
+     ],
+     "before": [
+      77,
+      8.7,
+      21
+     ],
+     "key_max_deg": 0.0,
+     "key_max_mm": 11.4
+    },
+    "FixStudyMan_Walk": {
+     "after": [
+      74,
+      8.4,
+      25
+     ],
+     "before": [
+      194,
+      27.8,
+      24
+     ],
+     "key_max_deg": 16.0,
+     "key_max_mm": 30.0
+    }
+   },
    "unweighted": 0,
    "walk_in_thighs": [
     {
-     "deepest_mm": 5.6,
+     "deepest_mm": 0.0,
      "frame": 1,
-     "inside": 7
+     "inside": 0
     },
     {
-     "deepest_mm": 14.7,
+     "deepest_mm": 4.3,
      "frame": 7,
-     "inside": 74
+     "inside": 9
     },
     {
-     "deepest_mm": 11.5,
+     "deepest_mm": 3.2,
      "frame": 13,
-     "inside": 19
+     "inside": 4
     },
     {
-     "deepest_mm": 10.9,
+     "deepest_mm": 2.1,
      "frame": 20,
-     "inside": 38
-    },
-    {
-     "deepest_mm": 12.1,
-     "frame": 26,
-     "inside": 60
+     "inside": 1
     },
     {
      "deepest_mm": 5.6,
+     "frame": 26,
+     "inside": 20
+    },
+    {
+     "deepest_mm": 0.0,
      "frame": 33,
-     "inside": 7
+     "inside": 0
     }
    ]
   },
@@ -127,18 +204,18 @@
    "body": {
     "groups": {
      "cleft": {
-      "max_mm": 1.09,
-      "vertices": 23,
+      "max_mm": 1.81,
+      "vertices": 25,
       "weight": 1.0
      },
      "labia": {
-      "max_mm": 2.94,
-      "vertices": 81,
+      "max_mm": 4.62,
+      "vertices": 85,
       "weight": 1.0
      },
      "mons": {
-      "max_mm": 4.22,
-      "vertices": 141,
+      "max_mm": 6.09,
+      "vertices": 155,
       "weight": 1.0
      }
     },
@@ -155,7 +232,7 @@
       0.8729
      ]
     },
-    "max_mm": 4.82,
+    "max_mm": 7.01,
     "sex": "female",
     "strength": 1.0
    },

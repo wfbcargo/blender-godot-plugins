@@ -335,7 +335,13 @@ def run_bake(ch, ctx):
     if ch.body.genitals and ch.body.brief.get("sex") == "male":
         # the shell the body stage kept, fused on the baked mesh before the eyes join it (humanform.genitals)
         from humanform import genitals
+        high = _obj(f"{ch.name}_muscle_high") if ch.muscle is not None and ch.muscle.output == "normal" else None
+        pre = genitals.mark_source(ob) if high is not None else None
         fused = genitals.fuse(ob)
+        if high is not None:
+            # the muscle stage's high copy has the unfused topology: carried onto the fused one, or the
+            # matched normal bake below falls back to rays for the whole body
+            fused["muscle_high"] = genitals.refit_high(ob, high, pre)
     skin = ch.body.brief.get("skin") if ch.body.source == "brief" else ch.body.skin
     if skin is not None:
         look.skin(ob, skin, name=f"{ch.name}_skin")
@@ -492,6 +498,10 @@ def run_moves(ch, ctx):
         out[role] = {"action": r["action"], "passed": r.get("passed"), "failures": r.get("failures", [])[:4],
                      "stance_width": r.get("stance_width"), "drop_m": r.get("drop_m"),
                      "arm_out": up.get("arm_out"), "arm_clearance_m": r.get("arm_clearance_m")}
+    if ch.body.genitals and ch.body.brief.get("sex") == "male":
+        # the thighs sweep through the scrotum in every clip: humanform keys its corrective bones per frame
+        from humanform import genitals
+        out["genitals"] = genitals.clear_thighs(ch.mesh, ch.rig, [res[r]["action"] for r in ch.moves.roles])
     for role in ch.moves.clearance_check:
         c = verify.limb_clearance(ch.rig, res[role]["action"], mesh_name=ch.mesh, every=2)
         out[role]["limb_clearance"] = {k: c.get(k) for k in ("closest_m", "at_frame", "samples_inside", "error")

@@ -44,7 +44,7 @@ import os
 import bmesh
 import bpy
 import numpy as np
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 from . import delta
 
@@ -56,13 +56,32 @@ THIGH_SHARE = 0.06              # most a thigh may hold of a shell vertex away f
 BLEND_M = 0.02                  # the join's own weights fade to the capped ones over this far from the loop
 CLEAR_M = 0.006                 # the shell is moved to stand at least this far off a thigh's swept skin
 MAX_PUSH_M = 0.015              # the most the sweep moves a shell vertex
-SWEEP_FLEX_DEG = (-30, -10, 10, 30, 50, 75, 100)   # each thigh swung through these (forward positive) ...
-SWEEP_ABD_DEG = (-10, 0, 12)                       # ... at these abductions (in negative) ...
-SWEEP_TWIST_DEG = (-15, 0, 15)                     # ... and twists, the pelvis still
+# The bake-time clearance is taken at rest only. Sweeping each thigh through 126 poses (flexion to 100 deg)
+# and adding both thighs' pushes pinched the scrotum from both sides to half MPFB's width (width/height 0.23
+# at 10% of its height against the helper's 0.54) and still left the walk 15 mm inside a thigh: static
+# geometry cannot clear a thigh that moves. The moving thighs are cleared per clip frame instead
+# (`clear_thighs`, corrective bones keyed in the clips).
+SWEEP_FLEX_DEG = (0,)
+SWEEP_ABD_DEG = (0,)
+SWEEP_TWIST_DEG = (0,)
+SIDE_BONE = "hf_genital"        # hf_genital.L / .R: the shell's halves, keyed per clip frame off the thighs
+SIDE_ROLE = "genital_clearance"  # tagged ft_role so rig-anything's body map skips them like jiggle bones
+SIDE_SHARE = 0.9                # the most the two side bones hold of a shell vertex, away from the join
+SIDE_FADE_M = (0.006, 0.026)    # side weight fades in from 0 at this far from the join to full at that far
+SIDE_SPLIT_M = 0.012            # the halves cross over the midline across +-this (the shaft rides both)
+KEY_CLEAR_M = 0.0015            # each keyed frame stands the scrotum this far off the thigh skin
+KEY_MAX_M = 0.03                # most a side bone moves
+SWING_DEG = (0, 8, 16)           # the common escape searched: a forward swing of both halves about their roots ...
+ESCAPE_M = (0.0, 0.01, 0.02, 0.03)  # ... and forward (and the first two, down) travel
+ESCAPE_COST = 0.5               # shortfall (m summed over vertices) one metre of escape travel is worth
+ESCAPE_AFTER_M = 0.01           # the escape is searched only when moving apart leaves this much shortfall
+ROT_ARM_M = 0.04                # a turn of 1 rad costs what this much travel does (about the scrotum's length)
+SQUASH_MAX_M = 0.02             # most the two halves close on each other (the scrotum's ~5 cm to ~3 cm)
 JOIN_KEEP_M = 0.015             # shell vertices this close to the join keep their place and the join's weights
 REGION = "genital"
 RELIEF_KEY = delta.KEY_PREFIX + REGION
 ATTR = "hf_genital"             # point attribute marking the shell; survives the bake's mask and a subdivision
+ATTR_SCROTUM = "hf_genital_scrotum"  # 0 shaft .. 1 scrotum, from which of MPFB's targets moves the vertex
 
 
 def _obj(o):
@@ -113,6 +132,58 @@ def _shape(human, shape):
     return out
 
 
+def _target_deltas(stem):
+    import gzip
+    path = _target_path(stem)
+    out = {}
+    if path is None:
+        return out
+    with gzip.open(path, "rt") as fh:
+        for line in fh:
+            f = line.split()
+            if len(f) == 4 and not line.startswith("#"):
+                out[int(f[0])] = float(np.linalg.norm([float(x) for x in f[1:]]))
+    return out
+
+
+def _scrotum_score(human, idx):
+    """Per body vertex, 0 on the shaft .. 1 on the scrotum: MPFB's `penis-testicles` target moves only the
+    scrotum and `penis-length` / `penis-circ` only the shaft, so the share of a vertex's movement that is the
+    testicles target's says which it is; vertices none of them move take their neighbours' (diffused over
+    the shell), and the result is smoothed twice."""
+    n = len(human.data.vertices)
+    t = _target_deltas("penis-testicles-incr")
+    s = {k: v for stem in ("penis-length-incr", "penis-circ-incr") for k, v in _target_deltas(stem).items()}
+    score = np.zeros(n, np.float32)
+    known = np.zeros(n, bool)
+    for i in idx:
+        a, b = t.get(i, 0.0), s.get(i, 0.0)
+        if a + b > 1e-6:
+            score[i], known[i] = a / (a + b), True
+    sset = set(idx)
+    nb = {i: [] for i in idx}
+    for e in human.data.edges:
+        a, b = e.vertices
+        if a in sset and b in sset:
+            nb[a].append(b)
+            nb[b].append(a)
+    for _ in range(40):
+        todo = [i for i in idx if not known[i] and any(known[j] for j in nb[i])]
+        if not todo:
+            break
+        for i in todo:
+            ks = [j for j in nb[i] if known[j]]
+            score[i] = float(np.mean(score[ks]))
+        known[todo] = True
+    for _ in range(2):
+        new = score.copy()
+        for i in idx:
+            if nb[i]:
+                new[i] = 0.5 * score[i] + 0.5 * float(np.mean(score[nb[i]]))
+        score = new
+    return score
+
+
 def keep(human, shape=None):
     """Put the shell into the mask's kept group (and its targets on). Returns a report."""
     human = _obj(human)
@@ -127,6 +198,8 @@ def keep(human, shape=None):
     mark = np.zeros(len(human.data.vertices), np.float32)
     mark[idx] = 1.0
     at.data.foreach_set("value", mark)
+    sa = human.data.attributes.get(ATTR_SCROTUM) or human.data.attributes.new(ATTR_SCROTUM, "FLOAT", "POINT")
+    sa.data.foreach_set("value", _scrotum_score(human, idx))
     targets = _shape(human, shape)
     human.data.update()
     human["hf_genitals"] = "male"
@@ -253,6 +326,16 @@ def _shell_mask(me):
     v = np.empty(len(me.vertices), np.float32)
     at.data.foreach_get("value", v)
     return v > 0.5
+
+
+def _scrotum(me, shell):
+    """The `ATTR_SCROTUM` score per vertex (1 on the whole shell of a body kept before the score existed)."""
+    at = me.attributes.get(ATTR_SCROTUM)
+    if at is None or at.domain != "POINT":
+        return shell.astype(np.float32)
+    v = np.empty(len(me.vertices), np.float32)
+    at.data.foreach_get("value", v)
+    return v
 
 
 def _mesh_co(me):
@@ -600,8 +683,448 @@ def _pelvis_weights(ob):
             ob.vertex_groups[k].add([int(i)], v, "REPLACE")
             out[k] = out.get(k, 0.0) + v
     s = sum(out.values()) or 1.0
+    ob["hf_genital_pelvis"] = pelvis
+    ob["hf_genital_thighs"] = list(thighs)
     return {"bone": pelvis, "shares": {k: round(v / s, 3) for k, v in sorted(out.items())},
             "clearance": clearance}
+
+
+SRC_ATTR = "hf_src"             # int point attribute: the vertex's index before `fuse` (-1 on the shell)
+
+
+def mark_source(ob):
+    """Before `fuse`: number each vertex with its index (the shell -1), so a mesh that shared the unfused
+    topology can be carried over (`refit_high`). Returns the unfused coordinates."""
+    ob = _obj(ob)
+    me = ob.data
+    src = np.arange(len(me.vertices), dtype=np.int32)
+    src[_shell_mask(me)] = -1
+    at = me.attributes.get(SRC_ATTR) or me.attributes.new(SRC_ATTR, "INT", "POINT")
+    at.data.foreach_set("value", src)
+    return _mesh_co(me)
+
+
+def refit_high(ob, high, pre_co):
+    """After `fuse`: rebuild `high` (a normal map's high copy with the UNFUSED topology, e.g. the muscle stage's
+    `delta.high_copy`) on the fused mesh - the fused mesh's own vertices moved by high's offset from the unfused
+    body at the vertex each came from (none on the shell and the seam, which the high copy has no offset for) -
+    so lookdev's matched bake still lines up face for face. Without it the fused body's face count differs and
+    the whole body's bake falls back to rays (a faceted collar at the join, streaks down the groin). Returns
+    the face counts."""
+    ob, high = _obj(ob), _obj(high)
+    me = ob.data
+    at = me.attributes.get(SRC_ATTR)
+    if at is None:
+        raise ValueError(f"{ob.name}: no {SRC_ATTR} - call mark_source before fuse")
+    src = np.empty(len(me.vertices), np.int32)
+    at.data.foreach_get("value", src)
+    hco = _mesh_co(high.data)
+    if len(hco) != len(pre_co):
+        raise ValueError(f"{high.name} has {len(hco)} vertices, the unfused body {len(pre_co)}")
+    rel = np.array(ob.matrix_world.inverted() @ high.matrix_world)
+    hco = hco @ rel[:3, :3].T + rel[:3, 3]
+    off = np.zeros((len(src), 3))
+    ok = (src >= 0) & (src < len(hco))
+    off[ok] = hco[src[ok]] - pre_co[src[ok]]
+    new = me.copy()
+    new.attributes.remove(new.attributes[SRC_ATTR])
+    new.vertices.foreach_set("co", (_mesh_co(me) + off).ravel())
+    new.update()
+    old = high.data
+    before = len(old.polygons)
+    high.data = new
+    high.matrix_world = ob.matrix_world.copy()
+    bpy.data.meshes.remove(old)
+    me.attributes.remove(at)
+    return {"faces_before": before, "faces_after": len(new.polygons), "moved": int(ok.sum())}
+
+
+# ------------------------------------------------------------------ male: clear of the moving thighs
+
+def _join_d(me, shell):
+    """Per shell vertex, how far it lies from the join (the shell vertices with a neighbour off the shell)."""
+    co = _mesh_co(me)
+    ev = np.empty(len(me.edges) * 2, np.int64)
+    me.edges.foreach_get("vertices", ev)
+    ev = ev.reshape(-1, 2)
+    cross = shell[ev[:, 0]] != shell[ev[:, 1]]
+    join = np.unique(np.where(shell[ev[cross, 0]], ev[cross, 0], ev[cross, 1]))
+    out = np.full(len(co), np.inf)
+    if len(join):
+        from mathutils.kdtree import KDTree
+        kd = KDTree(len(join))
+        for k, i in enumerate(join):
+            kd.insert(Vector(co[i]), k)
+        kd.balance()
+        for i in np.nonzero(shell)[0]:
+            out[i] = kd.find(Vector(co[i]))[2]
+    return out
+
+
+def _smooth01(x, a, b):
+    t = np.clip((x - a) / (b - a), 0.0, 1.0)
+    return t * t * (3 - 2 * t)
+
+
+def _limit4(ob, idx, bones):
+    """Keep the four strongest bone weights of each vertex in `idx` (glTF's four joints), renormalised."""
+    for i in idx:
+        v = ob.data.vertices[int(i)]
+        d = sorted((x for x in v.groups if ob.vertex_groups[x.group].name in bones and x.weight > 0.0),
+                   key=lambda x: (-x.weight, x.group))
+        if len(d) <= 4:
+            continue
+        tot, kept = sum(x.weight for x in d), sum(x.weight for x in d[:4]) or 1.0
+        for x in d[4:]:
+            ob.vertex_groups[x.group].remove([int(i)])
+        for x in d[:4]:
+            x.weight = x.weight / kept * tot
+
+
+def side_rig(ob, rig):
+    """The corrective bones `hf_genital.L/.R` and their weights (idempotent): each holds one half of the shell,
+    the halves crossing over the midline across +-SIDE_SPLIT_M (so the shaft rides both and moves whole when
+    they move together), up to SIDE_SHARE of a vertex, fading to nothing at the join so the seam never moves
+    against the body. Parented to follow-through's `ft_jiggle_genital` when there is one (the part still
+    swings as a whole), else to the pelvis. Returns the bone names."""
+    ob, rig = _obj(ob), _obj(rig)
+    names = (SIDE_BONE + ".L", SIDE_BONE + ".R")
+    me = ob.data
+    shell = _shell_mask(me)
+    if not shell.any():
+        raise ValueError(f"{ob.name} carries no genital shell")
+    if all(n in rig.data.bones for n in names) and all(n in ob.vertex_groups for n in names):
+        return list(names)
+    pelvis = ob.get("hf_genital_pelvis") or "spine"
+    parent = "ft_jiggle_genital" if "ft_jiggle_genital" in rig.data.bones else pelvis
+    mw = np.array(ob.matrix_world)
+    co = _mesh_co(me) @ mw[:3, :3].T + mw[:3, 3]
+    sc = co[shell]
+    cx = float(np.median(sc[:, 0]))
+    jd = _join_d(me, shell)
+    scr = _scrotum(me, shell)
+    rootm = shell & (jd < 0.004)
+    root = co[rootm & (scr > 0.5)] if (rootm & (scr > 0.5)).any() else co[rootm]
+    inv = rig.matrix_world.inverted()
+    win = bpy.context.window
+    prev_active = bpy.context.view_layer.objects.active
+    try:
+        for o in bpy.context.view_layer.objects:
+            o.select_set(False)
+        bpy.context.view_layer.objects.active = rig
+        rig.select_set(True)
+        bpy.ops.object.mode_set(mode="EDIT")
+        eb = rig.data.edit_bones
+        for n, s in zip(names, (1, -1)):
+            b = eb.get(n) or eb.new(n)
+            # the head at the half's root: the bone turns the half about where it hangs from
+            half = root[(root[:, 0] - cx) * s > 0]
+            h = half.mean(axis=0) if len(half) else root.mean(axis=0)
+            b.head = inv @ Vector(h)
+            b.tail = inv @ Vector(h + np.array((0.0, 0.0, -0.03)))
+            b.parent = eb.get(parent)
+            b.use_deform = True
+            b.use_connect = False
+            b["ft_role"] = SIDE_ROLE
+        bpy.ops.object.mode_set(mode="OBJECT")
+    finally:
+        if bpy.context.view_layer.objects.active is not None and \
+                bpy.context.view_layer.objects.active.mode != "OBJECT":
+            bpy.ops.object.mode_set(mode="OBJECT")
+        if prev_active is not None and prev_active.name in bpy.context.view_layer.objects:
+            bpy.context.view_layer.objects.active = prev_active
+    for n in names:
+        g = ob.vertex_groups.get(n)
+        if g is not None:
+            ob.vertex_groups.remove(g)
+    gl, gr = (ob.vertex_groups.new(name=n) for n in names)
+    idx = np.nonzero(shell)[0]
+    # the scrotum only: the shaft hangs in front, where the thighs leave room, and stays on the pelvis (or
+    # the jiggle bone) - swung with the scrotum it pointed up
+    fade = _smooth01(jd[idx], *SIDE_FADE_M) * SIDE_SHARE * _smooth01(scr[idx], 0.25, 0.75)
+    sl = np.clip(0.5 + (co[idx, 0] - cx) / (2 * SIDE_SPLIT_M), 0.0, 1.0)
+    for i, f, s in zip(idx, fade, sl):
+        w = float(f)
+        if w <= 1e-3:
+            continue
+        v = me.vertices[int(i)]
+        for x in v.groups:
+            x.weight *= (1.0 - w)
+        if w * s > 1e-4:
+            gl.add([int(i)], w * s, "REPLACE")
+        if w * (1 - s) > 1e-4:
+            gr.add([int(i)], w * (1 - s), "REPLACE")
+    _limit4(ob, idx, {b.name for b in rig.data.bones})
+    return list(names)
+
+
+def _group_weights(ob, name):
+    g = ob.vertex_groups.get(name)
+    w = np.zeros(len(ob.data.vertices))
+    if g is None:
+        return w
+    for v in ob.data.vertices:
+        for x in v.groups:
+            if x.group == g.index:
+                w[v.index] = x.weight
+    return w
+
+
+def _thigh_faces(ob, thighs):
+    me = ob.data
+    shell = _shell_mask(me)
+    gi = {g.index: g.name for g in ob.vertex_groups}
+    dom = [None] * len(me.vertices)
+    for v in me.vertices:
+        best = max(((gi[x.group], x.weight) for x in v.groups), key=lambda t: t[1], default=(None, 0))
+        dom[v.index] = best[0]
+    return {t: [p.vertices[:] for p in me.polygons if not any(shell[i] for i in p.vertices)
+                and all(dom[i] == t for i in p.vertices)] for t in thighs}
+
+
+def _bvhs(pco, faces_by_thigh):
+    from mathutils.bvhtree import BVHTree
+    verts = [Vector(c) for c in pco]
+    return [BVHTree.FromPolygons(verts, f) for f in faces_by_thigh.values() if f]
+
+
+def _contacts(bvhs, pts, idx, reach=0.05):
+    """{vertex: (signed distance, normal)} of each vertex in `idx` (at `pts[k]`) against the nearest thigh skin
+    within reach."""
+    out = {}
+    for k, i in enumerate(idx):
+        p = Vector(pts[k])
+        for bvh in bvhs:
+            loc, nrm, _, _ = bvh.find_nearest(p, reach)
+            if loc is None:
+                continue
+            s = (p - loc).dot(nrm)
+            if i not in out or s < out[i][0]:
+                out[i] = (s, np.asarray(nrm))
+    return out
+
+
+def _rot(axis, ang):
+    axis = axis / (np.linalg.norm(axis) or 1.0)
+    k = np.array([[0, -axis[2], axis[1]], [axis[2], 0, -axis[0]], [-axis[1], axis[0], 0]])
+    return np.eye(3) + np.sin(ang) * k + (1 - np.cos(ang)) * (k @ k)
+
+
+def _moved(p, wl, wr, heads, moves):
+    """Where points `p` go under the side bones' moves [(t, R)] about their heads (linear blend skinning)."""
+    out = p.copy()
+    for w, h, (t, r) in zip((wl, wr), heads, moves):
+        out += w[:, None] * ((p - h) @ r.T + h + t - p)
+    return out
+
+
+def _shortfall(bvhs, pts, clear, reach=0.05):
+    tot = 0.0
+    for q in pts:
+        v = Vector(q)
+        s = min((((v - loc).dot(n)) for loc, n, _, _ in (b.find_nearest(v, reach) for b in bvhs) if loc is not None),
+                default=clear)
+        if s < clear:
+            tot += clear - s
+    return tot
+
+
+def _apart(bvhs, pts, idx, wl, wr, lat, clear):
+    """Per-half translations moving the halves off what they touch (least moved, closing on each other by at
+    most SQUASH_MAX_M): cyclic projection onto the violated half-spaces of the contacts at `pts`."""
+    con = _contacts(bvhs, pts, idx)
+    x = np.zeros(6)
+    rows = [(np.concatenate([wl[i] * n, wr[i] * n]), clear - s_) for i, (s_, n) in con.items()
+            if s_ < clear and wl[i] + wr[i] > 0.2]
+    if rows:
+        sq = np.zeros(6)
+        sq[:3], sq[3:] = lat, -lat
+        rows.append((sq, -SQUASH_MAX_M))
+        A = np.array([r_[0] for r_ in rows])
+        b = np.array([r_[1] for r_ in rows])
+        nn = np.einsum("ij,ij->i", A, A)
+        for _ in range(100):
+            worst = 0.0
+            for k in range(len(b)):
+                v = b[k] - A[k] @ x
+                if v > 1e-5:
+                    x += A[k] * v / nn[k]
+                    worst = max(worst, v)
+            if worst < 2e-4:
+                break
+    return x[:3], x[3:]
+
+
+def _cap(moves):
+    out = []
+    for t, r in moves:
+        m = np.linalg.norm(t)
+        out.append((t * KEY_MAX_M / m if m > KEY_MAX_M else t, r))
+    return out
+
+
+def _solve(bvhs, pco, idx, wl, wr, heads, frame_axes, clear):
+    """The side bones' moves [(t, R)] for one frame. First the halves are only moved apart from what they
+    touch (`_apart`). Where the thighs collapse into the crotch (linear blend skinning crosses the two inner
+    thighs' skin behind the scrotum in a walk or run) that leaves it inside: there is no room between them,
+    only in front. Then a common escape is searched - both halves swung forward about their roots (SWING_DEG)
+    and carried forward and down (ESCAPE_M), scored by the summed shortfall of `clear` plus ESCAPE_COST per
+    metre - and the halves moved apart from what still touches."""
+    # only what the side bones can move is solved for (the shaft and the root are the pelvis's)
+    idx = [i for i in idx if wl[i] + wr[i] > 0.2]
+    if not idx:
+        return [(np.zeros(3), np.eye(3))] * 2
+    ii = np.array(idx)
+    p = pco[ii]
+    wli, wri = wl[ii], wr[ii]
+    fwd, down, lat = frame_axes
+    eye = np.eye(3)
+    tl, tr = _apart(bvhs, p, idx, wl, wr, lat, clear)
+    first = _cap([(tl, eye), (tr, eye)])
+    left = _shortfall(bvhs, _moved(p, wli, wri, heads, first), clear)
+    if left < ESCAPE_AFTER_M:
+        return first
+    axis = np.cross(down, fwd)
+    best = (_shortfall(bvhs, p, clear), [(np.zeros(3), eye)] * 2)
+    for deg in SWING_DEG:
+        r = _rot(axis, np.radians(deg))
+        for f in ESCAPE_M:
+            for d in ESCAPE_M[:2]:
+                if not deg and not f and not d:
+                    continue
+                t = fwd * f + down * d
+                mv = [(t, r), (t, r)]
+                sc = _shortfall(bvhs, _moved(p, wli, wri, heads, mv), clear)
+                cost = sc + ESCAPE_COST * (np.radians(deg) * ROT_ARM_M + f + d)
+                if cost < best[0] - 1e-9:
+                    best = (cost, mv)
+    moves = best[1]
+    dl, dr = _apart(bvhs, _moved(p, wli, wri, heads, moves), idx, wl, wr, lat, clear)
+    second = _cap([(moves[0][0] + dl, moves[0][1]), (moves[1][0] + dr, moves[1][1])])
+    if _shortfall(bvhs, _moved(p, wli, wri, heads, second), clear) < left:
+        return second
+    return first
+
+
+def _eval_co(ob):
+    dg = bpy.context.evaluated_depsgraph_get()
+    ev = ob.evaluated_get(dg)
+    em = ev.to_mesh()
+    pco = _mesh_co(em)
+    ev.to_mesh_clear()
+    mw = np.array(ob.matrix_world)
+    return pco @ mw[:3, :3].T + mw[:3, 3]
+
+
+def clear_thighs(ob, rig, actions, measure=True):
+    """Key the corrective bones in each clip so the shell stands KEY_CLEAR_M off the thighs' skin at every frame
+    (the thigh sweeps through the scrotum's side in a walk, run or crouch; linear blend skinning with the pelvis
+    holding the part cannot keep it out, and moving the rest shape out of every pose the thigh can take pinched
+    it). Each frame the body is evaluated with the side bones at rest, the shell's contacts with each thigh's
+    skin found, and the two translations solved (least move; the halves close on each other at most
+    SQUASH_MAX_M). With `measure`, each clip is evaluated again afterwards. Returns per clip the worst frame
+    (shell vertices more than 1 mm inside a thigh, deepest mm) before and after, and the largest key."""
+    ob, rig = _obj(ob), _obj(rig)
+    names = side_rig(ob, rig)
+    thighs = list(ob.get("hf_genital_thighs") or [b.name for b in rig.data.bones if "thigh" in b.name.lower()
+                                                   and b.parent is not None and b.parent.name == "spine"])
+    me = ob.data
+    shell = _shell_mask(me)
+    jd = _join_d(me, shell)
+    wl, wr = _group_weights(ob, names[0]), _group_weights(ob, names[1])
+    idx = [int(i) for i in np.nonzero(shell)[0]]
+    far = [i for i in idx if jd[i] >= 0.01]
+    faces = _thigh_faces(ob, thighs)
+    ad = rig.animation_data or rig.animation_data_create()
+    was_action = ad.action
+    sc = bpy.context.scene
+    was_frame = sc.frame_current
+    pbs = [rig.pose.bones[n] for n in names]
+    rinv = np.array(rig.matrix_world.inverted().to_3x3())
+    pelvis_pb = rig.pose.bones[ob.get("hf_genital_pelvis") or "spine"]
+    pelvis_rest_inv = np.linalg.inv(np.array((rig.matrix_world @ pelvis_pb.bone.matrix_local).to_3x3()))
+    report = {}
+
+    def worst_of(contacts):
+        d = [-s for i, (s, _) in contacts.items() if s < -0.001 and i in far_set]
+        return (len(d), round(max(d) * 1000, 1) if d else 0.0)
+    far_set = set(far)
+    try:
+        for act in actions:
+            act = bpy.data.actions[act] if isinstance(act, str) else act
+            ad.action = act
+            if getattr(act, "slots", None) and len(act.slots):
+                ad.action_slot = act.slots[0]
+            _drop_keys(act, names)
+            for pb in pbs:
+                pb.rotation_mode = "QUATERNION"
+                pb.location = (0.0, 0.0, 0.0)
+                pb.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+            f0, f1 = (int(round(x)) for x in act.frame_range)
+            keys, before, peak, peak_deg = {}, (0, 0.0, None), 0.0, 0.0
+            for f in range(f0, f1 + 1):
+                sc.frame_set(f)
+                pco = _eval_co(ob)
+                bvhs = _bvhs(pco, faces)
+                con = _contacts(bvhs, pco[idx], idx)
+                w = worst_of(con)
+                if w > before[:2]:
+                    before = w + (f,)
+                heads = [np.array(rig.matrix_world @ pb.head) for pb in pbs]
+                pm = np.array((rig.matrix_world @ pelvis_pb.matrix).to_3x3()) @ pelvis_rest_inv
+                axes = (pm @ np.array((0.0, -1.0, 0.0)), pm @ np.array((0.0, 0.0, -1.0)), pm @ np.array((1.0, 0, 0)))
+                near = [i for i in idx if i in con and con[i][0] < 0.03]
+                moves = [(np.zeros(3), np.eye(3))] * 2
+                if near:
+                    moves = _solve(bvhs, pco, near, wl, wr, heads, axes, KEY_CLEAR_M)
+                loc = []
+                for pb, (t, r) in zip(pbs, moves):
+                    rb = np.array(pb.matrix.to_3x3())
+                    rl = np.linalg.solve(rb, rinv @ t)
+                    ql = Matrix((np.linalg.solve(rb, rinv @ r @ np.linalg.inv(rinv)) @ rb).tolist()).to_quaternion()
+                    loc.append((rl, ql))
+                    peak = max(peak, float(np.linalg.norm(t)))
+                    peak_deg = max(peak_deg, float(np.degrees(np.arccos(np.clip((np.trace(r) - 1) / 2, -1, 1)))))
+                keys[f] = loc
+            for f, loc in keys.items():
+                for pb, (lv, q) in zip(pbs, loc):
+                    pb.location = Vector(lv)
+                    pb.rotation_quaternion = q
+                    pb.keyframe_insert("location", frame=f, group=pb.name)
+                    pb.keyframe_insert("rotation_quaternion", frame=f, group=pb.name)
+            after = None
+            if measure:
+                after = (0, 0.0, None)
+                for f in range(f0, f1 + 1):
+                    sc.frame_set(f)
+                    pco = _eval_co(ob)
+                    w = worst_of(_contacts(_bvhs(pco, faces), pco[far], far))
+                    if w > after[:2]:
+                        after = w + (f,)
+            report[act.name] = {"before": list(before), "after": list(after) if after else None,
+                                "key_max_mm": round(peak * 1000, 1), "key_max_deg": round(peak_deg, 1)}
+    finally:
+        ad.action = was_action
+        for pb in pbs:
+            pb.location = (0.0, 0.0, 0.0)
+            pb.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+        sc.frame_set(was_frame)
+    return {"bones": names, "clips": report}
+
+
+def _drop_keys(act, names):
+    """Remove `act`'s location curves of the bones `names` (a rerun keys them afresh)."""
+    paths = {f'pose.bones["{n}"].{p}' for n in names for p in ("location", "rotation_quaternion")}
+    curves = []
+    if hasattr(act, "fcurves"):
+        curves = [(act.fcurves, fc) for fc in act.fcurves if fc.data_path in paths]
+    else:
+        for layer in act.layers:
+            for strip in layer.strips:
+                for bag in strip.channelbags:
+                    curves += [(bag.fcurves, fc) for fc in bag.fcurves if fc.data_path in paths]
+    for coll, fc in curves:
+        coll.remove(fc)
 
 
 # ------------------------------------------------------------------ female: relief
@@ -633,10 +1156,10 @@ def relief_card(human):
     lab_z = zc + 0.03 * k
     lab_c = lambda s: (s * 0.014 * k, float(y(lab_z)), lab_z)  # noqa: E731
     front_side = co[:, 1] < crotch[1] + 0.02 * k
-    mons = 0.0045 * k * _gauss(co, mons_c, (0.045 * k, 0.04 * k, 0.03 * k)) * front_side
-    lab = 0.0035 * k * (_gauss(co, lab_c(1), (0.011 * k, 0.03 * k, 0.03 * k)) +
+    mons = 0.0065 * k * _gauss(co, mons_c, (0.045 * k, 0.04 * k, 0.03 * k)) * front_side
+    lab = 0.0055 * k * (_gauss(co, lab_c(1), (0.011 * k, 0.03 * k, 0.03 * k)) +
                         _gauss(co, lab_c(-1), (0.011 * k, 0.03 * k, 0.03 * k))) * front_side
-    cleft = -0.0015 * k * _gauss(co, (0.0, float(y(lab_z)), lab_z), (0.005 * k, 0.03 * k, 0.03 * k)) * front_side
+    cleft = -0.0025 * k * _gauss(co, (0.0, float(y(lab_z)), lab_z), (0.005 * k, 0.03 * k, 0.03 * k)) * front_side
     groups = {"mons": mons, "labia": lab, "cleft": cleft}
     faces = delta.body_faces(human)
     groups = {g: delta.smooth(h, faces, iterations=1, share=0.4) for g, h in groups.items()}

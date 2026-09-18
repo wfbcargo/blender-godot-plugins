@@ -5,9 +5,15 @@ A man and a woman are built from seeded briefs in TOML specs with `genitals = tr
 - the man (`genital_shape = { length = 0.4 }`, `[flesh] types = ["genital"]`, a draft Walk) through every stage:
   humanform's `genitals.keep` in the body stage (MPFB's `helper-genital` shell kept past the helper mask, the
   `hfg:penis-length-decr` target at 0.2), `genitals.fuse` in the bake stage (the shell subdivided, its footprint
-  cut out of the body, the rim zipped to the shell's loop, the thighs' sweep cleared, pelvis-dominant weights),
-  follow-through's `genital` flesh type (a jiggle bone on the pelvis at firm_flesh's 6 Hz, limit 0.3 x peak),
-  and the glb read back for the geometry and `ft_jiggle_genital`;
+  cut out of the body, the rim zipped to the shell's loop, cleared of the thighs at rest only, pelvis-dominant
+  weights), follow-through's `genital` flesh type (a jiggle bone on the pelvis at firm_flesh's 6 Hz, limit 0.3 x
+  peak), the moves stage's `genitals.clear_thighs` (corrective bones `hf_genital.L/.R` on the scrotum, keyed
+  per Walk frame off the thighs: each clip's worst frame before and after), and the glb read back for the
+  geometry, `ft_jiggle_genital`, the corrective bones and their tracks;
+- `[muscle] output = "normal"` with genitals: the muscle stage's high copy carried onto the fused topology
+  (`genitals.refit_high`), so the bake stays lookdev's matched bake (it fell back to rays for the whole body);
+- the shell's rest shape against MPFB's helper (width/height low on the scrotum): the swept bake clearance it
+  replaced pinched it to half;
 - the body's surface after the fuse: open edges and connected pieces of the baked body (eyes and hair apart),
   and how far the shell goes into the thighs over the Walk (skinning only; the jiggle bone is Godot's);
 - the woman through body and bake only: the `hfd:genital` relief key (mons, labia, cleft) folded in;
@@ -41,6 +47,9 @@ firmness = 0.65
 skin = [0.62, 0.44, 0.33]
 genitals = true
 genital_shape = { length = 0.4 }
+
+[muscle]
+output = "normal"
 
 [flesh]
 types = ["genital"]
@@ -176,9 +185,63 @@ def _glb(path):
         b = fh.read()
     n = struct.unpack("<I", b[12:16])[0]
     j = json.loads(b[20:20 + n])
-    return {"jiggle_nodes": sorted(x["name"] for x in j["nodes"] if "jiggle" in x.get("name", "")),
+    names = [x.get("name", "") for x in j["nodes"]]
+    tracks = {}
+    for a in j.get("animations", []):
+        got = sorted({f"{names[c['target']['node']]}.{c['target']['path']}" for c in a["channels"]
+                      if names[c["target"].get("node", 0)].startswith("hf_genital")})
+        tracks[a["name"]] = got
+    return {"jiggle_nodes": sorted(x for x in names if "jiggle" in x),
+            "corrective_nodes": sorted(x for x in names if x.startswith("hf_genital")),
+            "corrective_tracks": tracks,
             "meshes": sorted(m["name"] for m in j["meshes"]),
             "skins": len(j.get("skins", []))}
+
+
+def _rest_shape(ob):
+    """The shell's width/height (left-right against up-down) at 10% and 30% of its lower half's height, at rest -
+    the scrotum's roundness; MPFB's helper-genital reads 0.54 / 0.67 in base.obj."""
+    import numpy as np
+    at = ob.data.attributes["hf_genital"]
+    m = np.zeros(len(ob.data.vertices), np.float32)
+    at.data.foreach_get("value", m)
+    co = np.empty(len(ob.data.vertices) * 3)
+    ob.data.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)[m > 0.5] @ np.array(ob.matrix_world)[:3, :3].T
+    lo, hi = co[:, 2].min(), co[:, 2].max()
+    out = []
+    for t in (0.1, 0.3):
+        z = lo + t * (hi - lo)
+        sel = np.abs(co[:, 2] - z) < 0.06 * (hi - lo)
+        out.append(round(float(np.ptp(co[sel, 0])) / (hi - lo), 2))
+    return out
+
+
+def _chain_shares(ob, rig):
+    """The shell's skin by where each bone hangs: on the pelvis's chain (the pelvis, the jiggle bone, the
+    corrective bones under it) or on a thigh."""
+    import numpy as np
+    at = ob.data.attributes["hf_genital"]
+    m = np.zeros(len(ob.data.vertices), np.float32)
+    at.data.foreach_get("value", m)
+    gi = {g.index: g.name for g in ob.vertex_groups}
+
+    def chain(name):
+        b = rig.data.bones.get(name)
+        while b is not None:
+            if "thigh" in b.name:
+                return "thigh"
+            b = b.parent
+        return "pelvis"
+    tot = {}
+    for i in np.nonzero(m > 0.5)[0]:
+        v = ob.data.vertices[int(i)]
+        ws = {gi[x.group]: x.weight for x in v.groups if gi[x.group] in rig.data.bones}
+        s = sum(ws.values()) or 1.0
+        for k, w in ws.items():
+            tot[chain(k)] = tot.get(chain(k), 0.0) + w / s
+    s = sum(tot.values()) or 1.0
+    return {k: round(v / s, 3) for k, v in sorted(tot.items())}
 
 
 def build():
@@ -219,6 +282,14 @@ def build():
         "surface": _surface(ob, skip_materials=("sclera", "iris", "pupil", "hair")),
         "flesh_regions": H.stable(regions, places=4),
         "walk_in_thighs": _shell_in_thighs(ob, rig, f"{man.name}_Walk"),
+        "thigh_clearance": H.stable(r["moves"]["report"]["genitals"]["clips"], places=4),
+        "clearance_better": all(c["after"][1] < c["before"][1] for c in
+                                r["moves"]["report"]["genitals"]["clips"].values()),
+        "rest_shape": _rest_shape(ob),
+        "rest_not_pinched": min(_rest_shape(ob)) >= 0.4,
+        "chain_shares": _chain_shares(ob, rig),
+        "muscle_normal": H.stable({k: r["bake"]["report"]["muscle_normal"][k] for k in ("method", "warnings")}),
+        "muscle_high": bake_rep.get("muscle_high"),
         "glb": _glb(os.path.join(man.out_dir(), "fixstudyman.glb")),
         "unweighted": r["bake"]["report"]["unweighted"],
     }
