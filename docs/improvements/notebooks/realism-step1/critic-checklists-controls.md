@@ -127,3 +127,7 @@ Evidence (scratch r2 = C:/Users/pauli/AppData/Local/Temp/rw/critic-checklists-co
 
 Correction: Step 0 asked for three drop-controls. This branch added four: wardrobe version, skin size, spec
 [flesh] and the extra close-up views row. The fourth is the one fixed above.
+
+Regress after the fix: `python tools/regress.py --quick --jobs 2` ended at 12:36 CDT with "no change / REGRESS DONE
+exit=0, 17 fixtures ok". pipeline_hashes and limit_influences are both ok. Log:
+C:/Users/pauli/AppData/Local/Temp/rw/critic-checklists-controls/regress_quick_r2.log
