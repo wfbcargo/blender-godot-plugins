@@ -197,6 +197,32 @@ def build():
             "bloater_belly" in str(exc), " m out (a seed needs " in str(exc))
     miss["with_may_miss"] = stages.judge_flesh(lenient, looked)["found"]
 
+    # where the breast bones land (follow-through check_placement). This body's chin stands out of the neck's
+    # lean envelope inside the breast zone: before face vertices were kept out of regions its breast bones went
+    # on it (about 1.45 m, most of their weight on the face, 0.05 at the bust). The control puts that back and must
+    # fail the check, and the stage's judgment must fail on it.
+    def placed(found):
+        p = ft_flesh.check_placement(found["tissue"], [r for r in found["regions"] if r["type"] == "breast"],
+                                     found["coords"])
+        return {"ok": p["ok"], "chin_z": p["chin_z"],
+                "regions": {r["name"]: {"tail_z": r["tail_z"], "head_share": r["head_share"], "ok": r["ok"]}
+                            for r in p["regions"]}}
+    placement = placed(looked)
+    os.environ["FT_FLESH_LEGACY_PLACEMENT"] = "1"
+    try:
+        legacy = ft_flesh.find_regions(ch.mesh, ch.rig, types=["breast"])
+        legacy["placement"] = ft_flesh.check_placement(legacy["tissue"], legacy["regions"], legacy["coords"])
+    finally:
+        os.environ.pop("FT_FLESH_LEGACY_PLACEMENT", None)
+    placement["control_legacy"] = placed(legacy)
+    legacy_ch = dataclasses.replace(ch, flesh=dataclasses.replace(ch.flesh, types=["breast"]))
+    try:
+        stages.judge_flesh(legacy_ch, legacy)
+        placement["control_legacy"]["judged"] = "passed (it must fail)"
+    except RuntimeError as exc:
+        placement["control_legacy"]["judged"] = "failed: MISPLACED names the chin %s, the face %s" % (
+            "above the chin" in str(exc), "head-skinned" in str(exc))
+
     manifest_path = first["export"]["report"]["moves"]
     with open(manifest_path, encoding="utf-8") as fh:
         manifest = json.load(fh)
@@ -236,6 +262,8 @@ def build():
         "flesh_found": flesh.get("found"),
         "flesh_missed": [{k: m.get(k) for k in ("type", "reason")} for m in flesh.get("missed") or []],
         "flesh_miss_judged": miss,
+        "flesh_placement": placement,
+        "flesh_stage_placement": flesh.get("placement"),
         "may_miss_stray": may_miss_stray,
         "manifest_flesh": H.stable({"types": manifest.get("flesh", {}).get("types"),
                                     "missed": manifest.get("flesh", {}).get("missed"),

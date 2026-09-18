@@ -140,7 +140,7 @@ and kept across plugin updates.
 | water_balloon | volume | loose | water_balloon | |
 | rubber_ball | volume | loose | rubber | |
 | rock | volume | loose, mounted | rigid - nothing moves | |
-| breast (paired) | volume | flesh | soft_fat | spine, height 0.5-1.45, front |
+| breast (paired) | volume | flesh | soft_fat | spine, height 0.5-1.45, front; nearest patch a side |
 | belly | volume | flesh | soft_fat | spine, height 0.2-0.75, front |
 | bloater_belly | volume | flesh | bloated | a belly named so, or 20% of the body and 8% of its height out |
 | butt (paired) | volume | flesh | soft_fat | hips, back |

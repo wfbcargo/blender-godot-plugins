@@ -85,6 +85,18 @@ SEED_RELATIVE = 0.25      # ... and as a fraction of the lean radius there
 GROW_RELATIVE = 0.10      # clusters grow into vertices down to this, so weights feather out
 MIN_REGION_FRACTION = 0.003   # of the body's vertices; smaller clusters are noise
 
+# check_placement: a region fails when more than this share of its weight is on head-skinned vertices
+HEAD_SHARE_MAX = 0.02
+
+# FT_FLESH_LEGACY_PLACEMENT=1 puts back how regions were placed before check_placement existed - the face
+# seeding and growing regions, every patch in a zone merged - so check_placement has a control that must
+# fail (the cast builds' breast bones on the chin).
+
+
+def _legacy_placement():
+    import os
+    return os.environ.get("FT_FLESH_LEGACY_PLACEMENT") == "1"
+
 
 def armature_of(obj):
     for m in obj.modifiers:
@@ -334,6 +346,14 @@ def tissue(obj_name, rig_name=None, side=SIDE_BONES):
             # longer limb's last searched ring is the wrist or ankle, a slice through it - even
             # when no hand vertex happens to be skinned to the chain
             ch["to_end"] = len(seg_len) <= 2
+    # The face is never flesh. The shoulder cut above sits 0.1 x height over the shoulder joints, which
+    # on a slim fitted body is above the chin: the chin stands well out of the neck's lean envelope, and
+    # the cast's Mei and Ruth got their breast bones on it (1.66-1.71 m, lips weighted 100 % to them)
+    # while their breasts never moved. A vertex skinned mostly to the head or a bone under it neither
+    # seeds nor grows a region (find_regions). It still shapes the envelope: taking the neck's rings out
+    # of the fit lowered the upper-chest line and cut the sample Figure's breasts from 687 to 458
+    # vertices, and its sports top then failed its cover check.
+    head_skinned = _head_skinned(obj, rig, roles)
 
     band = H / BANDS_PER_HEIGHT
     halves = [max(2, int(round(hw * H / band))) for hw in ENVELOPE_HALF_WIDTHS]
@@ -403,7 +423,42 @@ def tissue(obj_name, rig_name=None, side=SIDE_BONES):
     return {"object": obj.name, "rig": rig.name, "P": P, "height": H, "chains": chs,
             "chain_of": chain_of, "arc": arc, "searched": searched, "lean": lean,
             "excess": excess, "relative": relative, "frame": frame, "rings": rings,
-            "roles": roles, "radius": dist_c[chain_of, cols]}
+            "roles": roles, "radius": dist_c[chain_of, cols], "head_skinned": head_skinned}
+
+
+def _head_bones(rig, roles):
+    """The head bone (its rig-anything role, else a bone named `head`) and every bone under it that is not
+    one of follow-through's own: the jaw, lips, eyes and tongue move the face, not flesh."""
+    name = _role_bone(rig, roles, "head")
+    if name is None:
+        name = next((b.name for b in rig.data.bones if b.name.lower() == "head"), None)
+    if name is None:
+        return set()
+    out, stack = set(), [rig.data.bones[name]]
+    while stack:
+        b = stack.pop()
+        if b.name.startswith("ft_"):
+            continue
+        out.add(b.name)
+        stack.extend(b.children)
+    return out
+
+
+def _head_skinned(obj, rig, roles):
+    """Per vertex, whether its strongest bone weight (follow-through's own bones left out) is a head bone."""
+    head = _head_bones(rig, roles)
+    out = np.zeros(len(obj.data.vertices), dtype=bool)
+    if not head:
+        return out
+    group_name = {g.index: g.name for g in obj.vertex_groups}
+    for v in obj.data.vertices:
+        best, bw = None, 0.0
+        for x in v.groups:
+            gname = group_name.get(x.group, "")
+            if x.weight > bw and not gname.startswith("ft_"):
+                best, bw = gname, x.weight
+        out[v.index] = best in head
+    return out
 
 
 def _chain_from_skin(obj, rig, chs):
@@ -703,12 +758,14 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
     name_toks = set(registry.name_tokens(obj.name))
     min_size = max(8, int(MIN_REGION_FRACTION * n))
     regions, declined, missed = [], [], []
+    legacy = _legacy_placement()
+    not_face = np.ones(n, dtype=bool) if legacy else ~t.get("head_skinned", np.zeros(n, dtype=bool))
     for tname in order:
         entry = flesh_types[tname]
         zone = entry["zone"]
         tt = measured(t, entry)       # rings, or the side profile for a type that asks for it
-        seed_all = (tt["excess"] > SEED_EXCESS * H) & (tt["relative"] > SEED_RELATIVE) & tt["searched"]
-        grow_all = (tt["relative"] > GROW_RELATIVE) & tt["searched"]
+        seed_all = (tt["excess"] > SEED_EXCESS * H) & (tt["relative"] > SEED_RELATIVE) & tt["searched"] & not_face
+        grow_all = (tt["relative"] > GROW_RELATIVE) & tt["searched"] & not_face
         in_zone = _in_zone(zone, c)
         seeds = seed_all & in_zone & ~claimed
         if seeds.sum() < min_size:
@@ -725,10 +782,19 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
             continue
         groups = []
         members = sorted(v for cmp in comps for v in cmp)
+        nearest = entry.get("patches") == "nearest" and not legacy
         if entry.get("paired"):
             for side, suffix in ((1.0, ".L"), (-1.0, ".R")):
-                verts = np.array([v for v in members if c["side"][v] == side or (c["side"][v] == 0 and side > 0)],
-                                 dtype=int)
+                on_side = lambda v: c["side"][v] == side or (c["side"][v] == 0 and side > 0)
+                if nearest:
+                    # one mass a side: the patch nearest the zone's centre, not every bulge in the zone
+                    # merged, whose excess^2 centre can land on whichever patch stands out most
+                    parts = [[v for v in cmp if on_side(v)] for cmp in comps]
+                    parts = [p for p in parts if len(p) >= min_size]
+                    verts = np.array(sorted(min(parts, key=lambda p: _zone_distance(zone, c, p))) if parts else [],
+                                     dtype=int)
+                else:
+                    verts = np.array([v for v in members if on_side(v)], dtype=int)
                 if len(verts) >= min_size:
                     groups.append((tname + suffix, verts))
         else:
@@ -827,6 +893,19 @@ def _miss(tname, entry, tt, in_zone, claimed, claimed_by, seed_all, H, min_size,
                       f"{out['over_relative']} the second, {seeds} both (a region needs {min_size}); "
                       f"{out['searched']} of {zone_n} zone vertices searched, {out['claimed']} claimed")
     return out
+
+
+def _zone_distance(zone, c, verts):
+    """How far a patch's mean place is from the middle of `zone`, each coordinate over the zone's own range."""
+    d2 = 0.0
+    for k in ("height", "facing", "lateral"):
+        key = "facing_deg" if k == "facing" else k
+        if key not in zone:
+            continue
+        lo, hi = zone[key]
+        mid, half = 0.5 * (lo + hi), max(0.5 * (hi - lo), 1e-6)
+        d2 += ((float(np.mean(c[k][verts])) - mid) / half) ** 2
+    return d2
 
 
 def _grown_zone(zone):
@@ -937,6 +1016,58 @@ def _region(obj, t, c, rname, tname, entry, verts, area, normals, body_volume, n
                      f"out of the body in the {tname} zone: height {coords['height']:.2f}, facing "
                      f"{coords['facing']:.0f} deg, on the {role}"],
     }
+
+
+def check_placement(t, regions, c=None):
+    """Whether each region sits where its type's flesh is on a body: its bone's tail and its weight centre
+    below the chin (the lowest head-skinned vertex, `tissue`'s `head_skinned`) and inside the type's
+    (grown) zone height, and at most HEAD_SHARE_MAX of its weight on head-skinned vertices. Nothing else
+    tests where a jiggle bone lands anatomically: the cast's Mei and Ruth passed every check with their
+    breast bones on the chin.
+
+    Returns {"ok": bool, "chin_z": float or None, "regions": [{name, type, ok, tail_z, centre_z,
+    tail_height, centre_height, zone_height, head_share, problems}]}. Heights are zone coordinates (0 at
+    the hip joints, 1 at the shoulder joints), z in metres; a region whose type has no registry zone is
+    checked against the chin and for head weight only."""
+    from . import registry
+    c = c if c is not None else coordinates(t)
+    f = t["frame"]
+    P = t["P"]
+    span = max(f["shoulder"] - f["hip"], 1e-6)
+    head = t.get("head_skinned")
+    chin = float(P[head, 2].min()) if head is not None and head.any() else None
+    types = registry.types_for(cls="flesh")
+    out = []
+    for r in regions:
+        verts = np.asarray(r["vertices"], dtype=int)
+        w = np.clip(np.asarray(r["weights"], dtype=float), 0.0, None)
+        wsum = max(float(w.sum()), 1e-12)
+        zone = (types.get(r["type"]) or {}).get("zone")
+        tail_z = float(r["tail"][2])
+        centre_z = float((P[verts, 2] * w).sum() / wsum)
+        row = {"name": r["name"], "type": r["type"], "problems": [],
+               "tail_z": round(tail_z, 3), "centre_z": round(centre_z, 3),
+               "tail_height": round((tail_z - f["hip"]) / span, 3),
+               "centre_height": round(float((c["height"][verts] * w).sum() / wsum), 3),
+               "head_share": round(float(w[head[verts]].sum() / wsum), 3) if head is not None else 0.0}
+        if chin is not None:
+            for z, what in ((tail_z, "bone tail"), (centre_z, "weight centre")):
+                if z >= chin:
+                    row["problems"].append(f"{r['name']}: its {what} is at {z:.3f} m, at or above the chin "
+                                           f"({chin:.3f} m, the lowest vertex skinned to the head)")
+        if zone and "height" in zone:
+            lo, hi = _grown_zone(zone)["height"]
+            row["zone_height"] = [round(lo, 3), round(hi, 3)]
+            for k, what in (("tail_height", "bone tail"), ("centre_height", "weight centre")):
+                if not lo <= row[k] <= hi:
+                    row["problems"].append(f"{r['name']}: its {what} is at height {row[k]:.2f}, outside the "
+                                           f"{r['type']} zone's {lo:.2f}-{hi:.2f} (0 hip joints, 1 shoulder joints)")
+        if row["head_share"] > HEAD_SHARE_MAX:
+            row["problems"].append(f"{r['name']}: {row['head_share']:.0%} of its weight is on head-skinned "
+                                   f"vertices (the face), over {HEAD_SHARE_MAX:.0%}")
+        row["ok"] = not row["problems"]
+        out.append(row)
+    return {"ok": all(x["ok"] for x in out), "chin_z": None if chin is None else round(chin, 3), "regions": out}
 
 
 def _region_features(coords, role, peak_rel, volume_fraction):
@@ -1239,10 +1370,13 @@ def prepare(obj_name, rig_name=None, types=None, overrides=None, weight_scale=1.
         if "error" in found:
             return found
         regions, declined, missed = found["regions"], found["declined"], found["missed"]
+        placement = check_placement(found["tissue"], regions, found["coords"])
     else:
         declined, missed = [], []
+        t = tissue(obj_name, rig.name)
+        placement = check_placement(t, regions) if "error" not in t else {"ok": True, "regions": []}
     report = {"object": obj_name, "rig": rig.name, "regions": regions, "declined": declined,
-              "missed": missed, "warnings": []}
+              "missed": missed, "warnings": [], "placement": placement}
     if not regions:
         report["warnings"].append("no soft masses found - look at render_heat(); paint a vertex group "
                                   "and registry.teach(obj, type, group=...) if one was missed")

@@ -116,7 +116,9 @@ blend = "belle_realistic.blend"    # relative: under $BLEND_DIR when set, else t
 and `missed`, and the manifest a `flesh` block - `types`, per region `name, type, bone, parent,
 peak_m, max_offset_m, material, frequency_hz, damping_ratio`, and `missed` `[{type, reason,
 allowed}]`. A type in `types` that finds no mass fails the stage, naming why, unless `may_miss`
-lists it. Keep the limit at or under `peak_m`: a larger one fails `verify_flesh.gd`'s `within_body`
+lists it. A region outside its type's anatomical zone, or with weight on the face, fails the stage
+too (`flesh: MISPLACED ...`, follow-through's `check_placement`; the stage report's `placement` has
+each region's heights and `head_share`); nothing lets it through. Keep the limit at or under `peak_m`: a larger one fails `verify_flesh.gd`'s `within_body`
 (a figure study's belly at the material's 1.2 x peak_m swung 0.198 m off a 0.165 m stand-out on the
 Jump clip).
 

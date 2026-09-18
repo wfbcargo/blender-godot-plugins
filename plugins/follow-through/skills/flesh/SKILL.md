@@ -222,6 +222,20 @@ How it works:
 
 ## Rules
 
+**Every region is checked for where it landed.** `prepare`'s report has `placement`
+(`flesh.check_placement`): per region, its bone tail and weight centre must be below the chin (`chin_z`,
+the lowest vertex skinned mostly to the head or a bone under it) and inside its type's zone height grown
+by 0.1 (0 hip joints, 1 shoulder joints), and `head_share`, the share of its weight on those face
+vertices, must be at most 0.02. character-pipeline fails the flesh stage on any problem there. Face
+vertices never seed or grow a region (`tissue`'s `head_skinned`; they still shape the lean envelope), and
+a type with `"patches": "nearest"` (breast) keeps, per side, the one bulging patch nearest its zone's
+centre instead of merging every patch in the zone. Before this the cast's slim Mei and Ruth got their
+breast bones on the chin (1.66-1.71 m, lips weighted 100 % to them, breasts rigid) and passed every
+check; `FT_FLESH_LEGACY_PLACEMENT=1` puts that placement back, as the check's control that must fail.
+The breast zone keeps its 1.45 top: 1.0 changed nothing on Mei, Ruth or study_woman once the face was
+out, and cut the sample Figure's breasts (shoulder joints near its bust) from 687 to 458 vertices, which
+failed its sports top's cover check.
+
 **Buttocks ride the pelvis.** A type's `"anchor"` names a **bone role** from rig-anything's body map
 (`bodymap.build(...)["roles"]`: `pelvis`, `chest`, `head`, ...), and its jiggle bone is parented to
 the bone that role names instead of the core bone nearest the region; without rig-anything,
