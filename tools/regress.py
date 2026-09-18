@@ -429,13 +429,17 @@ GODOT_FLESH = {
 }
 # A fixture whose export carries a strand chain has it swung by follow-through's `verify_strands.gd` at
 # 30/60/120/240 fps: rest drift, a kick that settles, a fling at the head and the run kept out of the
-# head's skin, a stalled frame capped, and the run's swing within 1.25x across the rates. `control`
-# steps the strands as before follow-through 0.6.3 (`legacy_integration=true`: the target's velocity
-# per step, not averaged over a 30 fps frame), whose run swung 67/52/53/53 deg here: it must fail, so a
-# verifier that stops telling rates apart fails the harness.
+# head's skin, a stalled frame capped, and the run's swing within 1.25x across the rates, both as it
+# gets going and once settled. `control` steps the strands as before follow-through 0.6.3
+# (`legacy_integration=true`: the body's motion not low-passed), whose run swung 68/73/53/53 deg at
+# the start and 65/69/53/53 settled here: it must fail, and fail on every line in `control_fails`
+# (a control that failed for something else - a strand in the head - would prove nothing), so a
+# verifier that stops telling rates apart in either window fails the harness.
 GODOT_STRANDS = {
     "pipeline_ponytail": {"body": "ponywoman.glb", "strands": "ponywoman_hair.glb", "args": [],
-                          "control": ["legacy_integration=true"]},
+                          "control": ["legacy_integration=true"],
+                          "control_fails": ["starting swing differs across frame rates",
+                                            "settled swing differs across frame rates"]},
 }
 # The Godot addons the verifiers load from the project, and where this repo keeps each one.
 GODOT_ADDONS = {"rig_anything": "rig-anything", "wardrobe": "wardrobe", "follow_through": "follow-through",
@@ -637,8 +641,14 @@ def _run_strands(godot, project, where, name):
             continue
         passed = code == 0 and "PASSED" in verdict[-1]
         fails = [l.strip() for l in out.splitlines() if l.strip().startswith("FAIL ")]
-        detail = verdict[-1] + "".join("\n            %s fps: swing %s deg (mean %s), head %s m, rest drift %s deg" % (
-            r.get("fps"), r.get("swing_deg"), r.get("swing_mean_deg"), r.get("run_head_penetration_m"),
+        if not should_pass:
+            missing = [w for w in spec.get("control_fails", []) if not any(w in f for f in fails)]
+            if missing:
+                # failed, but not for the reason the control exists for: that is not the control failing
+                passed = True
+                fails.insert(0, "FAIL (control) did not fail on: " + "; ".join(missing))
+        detail = verdict[-1] + "".join("\n            %s fps: swing %s deg settled (mean %s), %s starting, head %s m, rest drift %s deg" % (
+            r.get("fps"), r.get("swing_deg"), r.get("swing_mean_deg"), r.get("start_swing_deg"), r.get("run_head_penetration_m"),
             r.get("rest_drift_deg")) for r in per_rate) + "".join("\n            " + f for f in fails[:8])
         rows.append((label, passed == should_pass, detail))
     return rows

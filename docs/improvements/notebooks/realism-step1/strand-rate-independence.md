@@ -85,3 +85,52 @@ verification, bump, commits 13:44. Godot verify_strands ~38 s per 4 rates; pipel
 `verify_strands pipeline_ponytail` 1.091 PASSED and its `legacy_integration=true (must fail)` 1.385 FAILED.
 `REGRESS DONE exit=0, 22 fixtures ok`. 23 min wall. (A comment-only fix to strand_modifier.gd landed
 after the run started; the Godot phase read the corrected file.)
+
+## Fix round 1 (after critic round 1), 14:17-14:30 | scratch `%TEMP%/rw/strand/r2/`
+
+Critic: the LOAD_STEPS pass held only in the 0.5 s + 4 s window; after a 3 s warm-up the new
+integration settled at 35.57/31.1/27.53/27.53 (1.292, FAILED) while 0.6.2 passed it (1.212); the
+study_woman control failed only by 0.01; swing fell to 31 deg; figure_study's strand check read the
+40 deg bone limit; the regress control counted any failure.
+
+**Reading:** averaging the load changed what the spring was pushed by, but the length, limit,
+collision and friction projections still ran on the straight-line-interpolated parent, which is
+what differs between rates. So filter the motion itself, not the load.
+
+**The fix:** a critically damped second-order low-pass (exact, per 1/120 s step, input moving in a
+straight line over the step) on each chain's parent (origin and rotation quaternion) and each
+collider's ends and rotation, SMOOTH_HZ = 10. The sim runs entirely in the smoothed body; the bone
+rotations it produces are relative to their frames, so they are applied to the body as animated (no
+root detaches). LOAD_STEPS removed (the load is the per-step velocity change again, of a smooth
+target). Filter reset on first frame, teleport and a hitch's seed (to the window-start pose, with
+the frame's own velocity, so a running body is not jolted).
+
+verify_strands now runs 9 s of the run and tests the spread in two windows: start (0.5-4.5 s, the
+old window) and settled (3-9 s, `swing_deg`). Results (warmup 0.5, run 8.5; logs r2/*.log):
+
+| run | start swing 30/60/120/240 | settled | spreads |
+|---|---|---|---|
+| study_woman, new | 38.04/38.71/39.21/39.21 | 36.31/36.03/36.76/36.77 | 1.031 / 1.021 PASSED |
+| study_woman 29,45,58,72,90,144 | 37.5-38.8 | 35.2-36.6 | 1.034 / 1.039 PASSED |
+| study_woman 40,50,100,200 | 37.6-38.9 | 35.3-36.8 | 1.033 / 1.044 PASSED |
+| study_woman legacy (control) | 53.05/49.45/62.33/62.33 (0.6.2 to the digit) | 53.95/51.43/62.33/62.33 | 1.260 FAILED / 1.212 |
+| pipeline_ponytail, new | 43.93/44.3/45.25/45.25 | 39.16/37.34/36.77/36.77 | 1.030 / 1.065 PASSED |
+| pipeline_ponytail legacy (control) | 68.4/73.41/53.0/53.0 | 64.81/69.37/53.04/53.04 | 1.385 / 1.308 FAILED on both |
+
+Cutoff sweep (study_woman, settled window): 10 Hz 1.021 (36-37 deg), 15 Hz 1.067 (39-42), 20 Hz 1.206
+(39-47). 10 Hz kept: the most robust, and a 30 fps frame cannot carry more than 15 Hz anyway.
+Penetration 1.7-2.8 mm on the run, every kick/fling/hitch check passes, no ERROR lines.
+
+**Controls:** the regress control is pipeline_ponytail with legacy_integration=true, and it now counts
+only if the verifier fails on *both* spread lines (`control_fails` in GODOT_STRANDS); a failure for
+another reason is reported as the control not failing. study_woman's legacy control stays marginal at
+the start (1.26) and passes settled (1.21): it is not used as a control.
+
+**Swing (done-when 2):** free tip swing 36-39 deg on study_woman (was 49-62, 31 in round 1), 37-45 on
+pipeline_ponytail. figure_study's check now reads the modifier's new `peak_tip_deg` (the chain tip's
+angle at its first bone's head from where it hangs at rest, not clamped by any bone's limit):
+`study_woman strands on the run: tip swing 40.5 deg (>= 3), bone peak 40.0`, and a new control
+(strands paused on the run) reads 0.03 deg (< 3). The 45.7 in figure-study/final.md was the clamped
+bone peak, so "about 45" was never a free measure; 36-40 deg is what the smoothed run gives with the
+shipped preset. More swing is a preset change (response/frequency), which means rebuilding the game's
+characters: not done here.

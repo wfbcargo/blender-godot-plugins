@@ -9,10 +9,12 @@ extends SkeletonModifier3D
 ##
 ## The simulation runs in fixed steps of 1/120 s, as many as fit in each frame (at most MAX_STEPS, so
 ## a stalled frame drops time rather than spiralling), with the animated parent and the colliders
-## interpolated to each step's moment, so 30 fps and 240 fps swing the same. Per bone, per substep, in order:
+## interpolated to each step's moment and low-passed at SMOOTH_HZ, so 30 fps and 240 fps swing the
+## same. The bones' poses come out relative to their parents, so they are applied to the body as it
+## is animated, not as it was smoothed. Per bone, per substep, in order:
 ##   spring      the exact damped oscillator over the frame (as jiggle_modifier.gd and wardrobe's
-##               hem), loaded by the target's acceleration (averaged over LOAD_STEPS) and the
-##               change of gravity in the parent's frame. Stable at any frame rate and frequency, so a frequency means Hz.
+##               hem), loaded by the target's acceleration and the change of gravity in the parent's
+##               frame. Stable at any frame rate and frequency, so a frequency means Hz.
 ##   length      the tail is put back on the bone's length: a strand swings, it does not stretch
 ##   angle       no further than max_angle_deg from where the parent points it
 ##   collision   four points along the bone kept out of an ellipsoid round the head and capsules round
@@ -31,11 +33,13 @@ var colliders: Array[Dictionary] = []
 var paused := false                 # hold every bone at rest
 var response_scale := 1.0           # multiplies every bone's response to the body's motion, live
 var legacy_integration := false     # step as before 0.6.3 (verify_strands' must-fail control): no
-                                    # LOAD_STEPS average, MAX_ACCEL's excess dropped, colliders' bases
+                                    # SMOOTH_HZ low-pass, MAX_ACCEL's excess dropped, colliders' bases
                                     # not turned through the frame
 
 # stats, since the last reset_stats()
-var peak_angle_deg := 0.0
+var peak_angle_deg := 0.0           # the largest bone angle: each bone's own, so never above its max_angle_deg
+var peak_tip_deg := 0.0             # the largest swing of any chain's tip, as an angle at its first bone's
+                                    # head from where it hangs at rest in the parent's frame: the free measure
 var limit_hits := 0
 var collision_hits := 0
 var nonfinite := 0
@@ -44,7 +48,9 @@ var frames := 0
 var peak_steps := 0
 var dropped_steps := 0
 var accel_clamps := 0               # steps whose target moved faster than MAX_ACCEL explains
+var smooth_hz := SMOOTH_HZ          # the low-pass on the body's motion the strands simulate against; 0 = off
 var _caps_prev: Array = []
+var _caps_filt: Array = []          # per collider: the low-passed [a, b, rotation] filter states
 var _left := 0.0                    # time since the last step, carried between frames
 
 const TELEPORT_M := 1.0
@@ -54,20 +60,21 @@ const TELEPORT_M := 1.0
 ## the excess was dropped, and a snap then counted by how many steps its frame spanned: the ~10 cm
 ## start of study_woman's run was clamped at 120 fps and at 60, and not at 30.
 const MAX_ACCEL := 400.0
-## Steps (1/30 s) the target's velocity is averaged over before it loads the spring. The animation
-## reaches the strand only at frames, and between them the parent is interpolated in a straight line,
-## so a 30 fps frame turns a clip's 24 Hz key-to-key velocity changes (a footfall) into one sharp
-## change a frame, and a 120 fps frame into four smaller ones at the keys themselves. The linear spring
-## sees the same impulse either way, but the length, limit, collision and friction projections do not,
-## and study_woman's ponytail swung in one of two stable ways on the run depending on which it got:
-## 53 deg at 30 fps, 62 at 120, 49 at 60. Averaged over a 30 fps frame, every rate at or above 30
-## loads the spring with the same motion, and nothing a strand's 1-3 Hz swing responds to is lost
-## (a 1/30 s average passes 3 Hz at 98%). Its cost is 17 ms of lag in the load, never in the root.
-## Measured (verify_strands, tip swing on the run): before, study_woman 53/49/62/62 deg at
-## 30/60/120/240 fps and 49-63 across 29-240, pipeline_ponytail 67/52/53/53; averaged, study_woman
-## 31-37 and pipeline_ponytail 43-48 across 29-240 fps. The sharp steps also pumped the swing: the
-## averaged ponytail swings less (study_woman 31 deg at 60 fps, against 49).
-const LOAD_STEPS := 4
+## Hz of the low-pass (critically damped, second order) on the parents' and colliders' motion the
+## strands simulate against. The animation reaches the strand only at frames, and between them the
+## parent is interpolated in a straight line, so a 30 fps frame turns a clip's 24 Hz key-to-key
+## velocity changes (every footfall) into one sharp change a frame, and 120 fps into four smaller ones
+## at the keys themselves. The length, limit, collision and friction projections are not linear, so
+## the strand's swing followed what it was fed, and a run has more than one stable swing:
+## study_woman's ponytail swung 53/49/62/62 deg at 30/60/120/240 fps (0.6.2), and averaging the load
+## alone over a 30 fps frame (0.6.3's first attempt) still settled at 36/31/28/28 once the run had
+## run 3 s. Everything above ~10 Hz is what a 30 fps frame cannot carry (its Nyquist is 15 Hz), so the
+## strand is simulated against the body's motion below it, which every rate from 30 fps up
+## reconstructs alike: study_woman 36-39 deg and pipeline_ponytail 37-45 at 30-240 fps, spread
+## 1.02-1.07 at the run's start and once settled. A strand's own swing (1-3 Hz) passes at 92-99%;
+## 15 Hz kept more (40-42 deg) but spread 1.07, 20 Hz 1.21. The filter lags the body by 2/(2 pi
+## SMOOTH_HZ) s (32 ms) in the simulation only: the bones are posed relative to the body as animated.
+const SMOOTH_HZ := 10.0
 const PASSES := 2                   # collision passes over every collider per bone
 const STEP := 1.0 / 120.0           # the simulation's fixed step; a frame takes as many as fit in it
 const MAX_STEPS := 16               # the most one frame may simulate: a stall drops time, never spirals
@@ -154,13 +161,21 @@ func _setup(skel: Skeleton3D, options: Dictionary) -> void:
 				"response": float(p.get("response", blk.get("response", 1.0))),
 				"gaps": gaps, "reach": reach,
 				"friction": clampf(float(p.get("collision_friction", blk.get("collision_friction", 0.0))), 0.0, 1.0),
-				"e": Vector3.ZERO, "u": Vector3.ZERO, "target": Vector3.ZERO, "target_v": Vector3.ZERO, "x_hist": [],
+				"e": Vector3.ZERO, "u": Vector3.ZERO, "target": Vector3.ZERO, "target_v": Vector3.ZERO,
 				"started": false, "g_rest_local": Vector3.ZERO, "angle": 0.0, "tip": Vector3.ZERO,
 				"q": Quaternion.IDENTITY,
 			})
 			count += 1
-		chains.append({"name": String(ch["name"]), "root_bone": _find(skel, String(ch.get("root_bone", ""))),
-			"bones": bones})
+		var chain := {"name": String(ch["name"]), "root_bone": _find(skel, String(ch.get("root_bone", ""))),
+			"bones": bones}
+		if not bones.is_empty() and bones[0]["parent"] >= 0:
+			# the chain's head and tip at rest, in its first bone's parent's frame (for peak_tip_deg)
+			var pinv := skel.get_bone_global_rest(bones[0]["parent"]).affine_inverse()
+			var b0: Dictionary = ch["bones"][0]
+			var bl: Dictionary = ch["bones"][-1]
+			chain["head_local"] = pinv * _vec(b0["head"])
+			chain["tip_local"] = pinv * _vec(bl["tail"])
+		chains.append(chain)
 	if worst_head > 0.01:
 		problems.append("strand bone heads are %.3f m from where Blender put them: wrong skeleton or space" % worst_head)
 	report = {"built": count > 0, "problems": problems, "chains": chains.size(), "bones": count,
@@ -205,6 +220,7 @@ func _gravity() -> Vector3:
 
 func reset_stats() -> void:
 	peak_angle_deg = 0.0
+	peak_tip_deg = 0.0
 	limit_hits = 0
 	collision_hits = 0
 	nonfinite = 0
@@ -253,6 +269,27 @@ func _process_modification_with_delta(delta: float) -> void:
 		_left = 0.0
 		seed_f = maxf(float(steps[0]) - STEP / delta, 0.0)
 	peak_steps = maxi(peak_steps, steps.size())
+	var smooth := smooth_hz > 0.0 and not legacy_integration
+	var w := TAU * smooth_hz
+	# the colliders at each step's moment, low-passed like the parents when smoothing
+	var caps_at: Array = []
+	var fresh := _caps_filt.size() != caps_now.size() or seed_f >= 0.0
+	for c in caps_now.size():
+		fresh = fresh or (caps_prev[c][0] as Vector3).distance_to(caps_now[c][0]) > TELEPORT_M
+	if smooth and fresh:
+		_caps_filt = []
+		var f0 := seed_f if seed_f >= 0.0 else (float(steps[0]) - STEP / delta if not steps.is_empty() else 1.0)
+		for c in caps_now.size():
+			var start: Array = _cap_at(caps_prev[c], caps_now[c], clampf(f0, 0.0, 1.0))
+			_caps_filt.append(_filt_new(start, _cap_at(caps_prev[c], caps_now[c], 1.0), caps_prev[c], delta))
+	for f in steps:
+		var caps: Array = []
+		for c in caps_now.size():
+			var raw: Array = _cap_at(caps_prev[c], caps_now[c], f)
+			if legacy_integration:
+				raw[2] = caps_now[c][2]     # 0.6.2: the end-of-frame basis on every step
+			caps.append(_filt_cap(_caps_filt[c], raw, w) if smooth else raw)
+		caps_at.append(caps)
 	for ch in chains:
 		var bones: Array = ch["bones"]
 		if bones.is_empty():
@@ -262,25 +299,26 @@ func _process_modification_with_delta(delta: float) -> void:
 		var prev: Transform3D = ch.get("parent_prev", now)
 		if prev.origin.distance_to(now.origin) > TELEPORT_M:
 			prev = now
+			ch.erase("filt")
+		if smooth and (seed_f >= 0.0 or not ch.has("filt")):
+			var f0 := seed_f if seed_f >= 0.0 else (float(steps[0]) - STEP / delta if not steps.is_empty() else 1.0)
+			ch["filt"] = _filt_xf_new(_blend(prev, now, clampf(f0, 0.0, 1.0)), prev, now, delta)
 		if seed_f >= 0.0:
-			var seed_xf := _blend(prev, now, seed_f)
+			var seed_xf: Transform3D = _filt_xf_out(ch["filt"], now) if smooth else _blend(prev, now, seed_f)
 			for bd in bones:
 				seed_xf = _seed(seed_xf, bd)
-		for f in steps:
-			var parent_xf := _blend(prev, now, f)
-			var caps: Array = []
-			for c in caps_now.size():
-				# the ellipsoid turns with the head through the frame too: its end-of-frame basis on every
-				# step led the head by up to a frame at any rate below 120 fps
-				var axes = caps_now[c][2]
-				if axes != null and caps_prev[c][2] != null and not legacy_integration:
-					# its rotation turned; the rest of the basis (the rig's scale) kept as it is now
-					var q_now := (axes as Basis).get_rotation_quaternion()
-					var q_at := (caps_prev[c][2] as Basis).get_rotation_quaternion().slerp(q_now, f)
-					axes = Basis(q_at * q_now.inverse()) * (axes as Basis)
-				caps.append([(caps_prev[c][0] as Vector3).lerp(caps_now[c][0], f), (caps_prev[c][1] as Vector3).lerp(caps_now[c][1], f), axes])
+		for i in steps.size():
+			var parent_xf := _blend(prev, now, steps[i])
+			if smooth:
+				parent_xf = _filt_xf(ch["filt"], parent_xf, w)
+			var root_xf := parent_xf
 			for bd in bones:
-				parent_xf = _step(parent_xf, g, caps, bd, STEP)
+				parent_xf = _step(parent_xf, g, caps_at[i], bd, STEP)
+			if ch.has("tip_local"):
+				var h: Vector3 = root_xf * (ch["head_local"] as Vector3)
+				var a := (root_xf * (ch["tip_local"] as Vector3) - h).normalized()
+				var d := ((bones[-1]["tip"] as Vector3) - h).normalized()
+				peak_tip_deg = maxf(peak_tip_deg, rad_to_deg(acos(clampf(a.dot(d), -1.0, 1.0))))
 		ch["parent_prev"] = now
 		for bd in bones:
 			var rest: Transform3D = bd["rest"]
@@ -289,6 +327,99 @@ func _process_modification_with_delta(delta: float) -> void:
 	_caps_prev = caps_now
 	usec_total += Time.get_ticks_usec() - t0
 	frames += 1
+
+
+## A collider at fraction f of the frame: its ends in a straight line, its rotation turned (the rest of
+## its basis - the rig's scale - kept as it is now). [a, b, basis or null]
+static func _cap_at(prev: Array, now: Array, f: float) -> Array:
+	var axes = now[2]
+	if axes != null and prev[2] != null and f < 1.0:
+		var q_now := (axes as Basis).get_rotation_quaternion()
+		var q_at := (prev[2] as Basis).get_rotation_quaternion().slerp(q_now, f)
+		axes = Basis(q_at * q_now.inverse()) * (axes as Basis)
+	return [(prev[0] as Vector3).lerp(now[0], f), (prev[1] as Vector3).lerp(now[1], f), axes]
+
+
+static func _q4(q: Quaternion) -> Vector4:
+	return Vector4(q.x, q.y, q.z, q.w)
+
+
+## One step of a critically damped low-pass (x'' = w^2 (in - x) - 2 w x', exact) whose input moves
+## in a straight line from x_in0 to x_in1 over dt. `st` = [x, x', x_in0]; works on Vector3 and Vector4.
+static func _lp(st: Array, x_in1, w: float, dt: float) -> void:
+	var vin = (x_in1 - st[2]) / dt
+	var eq = vin * (-2.0 / w)
+	var d0 = st[0] - st[2] - eq
+	var dv = st[1] - vin
+	var ex := exp(-w * dt)
+	st[0] = x_in1 + eq + (d0 + (dv + d0 * w) * dt) * ex
+	st[1] = vin + (dv - (dv + d0 * w) * (w * dt)) * ex
+	st[2] = x_in1
+
+
+## A filter state sitting on `x` and moving with velocity `v`.
+static func _lp_new(x, v) -> Array:
+	return [x, v, x]
+
+
+static func _filt_xf_new(at: Transform3D, prev: Transform3D, now: Transform3D, delta: float) -> Dictionary:
+	var q0 := prev.basis.get_rotation_quaternion()
+	var q1 := now.basis.get_rotation_quaternion()
+	if _q4(q0).dot(_q4(q1)) < 0.0:
+		q0 = -q0
+	var qa := at.basis.get_rotation_quaternion()
+	if _q4(qa).dot(_q4(q1)) < 0.0:
+		qa = -qa
+	return {"pos": _lp_new(at.origin, (now.origin - prev.origin) / delta),
+		"rot": _lp_new(_q4(qa), (_q4(q1) - _q4(q0)) / delta)}
+
+
+## The parent low-passed: one filter step towards `raw`, returned with raw's scale.
+static func _filt_xf(st: Dictionary, raw: Transform3D, w: float) -> Transform3D:
+	var q := _q4(raw.basis.get_rotation_quaternion())
+	if q.dot(st["rot"][2]) < 0.0:
+		q = -q
+	_lp(st["pos"], raw.origin, w, STEP)
+	_lp(st["rot"], q, w, STEP)
+	return _filt_xf_out(st, raw)
+
+
+static func _filt_xf_out(st: Dictionary, raw: Transform3D) -> Transform3D:
+	var v: Vector4 = st["rot"][0]
+	var q := Quaternion(v.x, v.y, v.z, v.w).normalized()
+	return Transform3D(Basis(q).scaled(raw.basis.get_scale()), st["pos"][0])
+
+
+static func _filt_new(at: Array, now: Array, prev: Array, delta: float) -> Array:
+	var out := [_lp_new(at[0], ((now[0] as Vector3) - (prev[0] as Vector3)) / delta),
+		_lp_new(at[1], ((now[1] as Vector3) - (prev[1] as Vector3)) / delta), null]
+	if at[2] != null:
+		var q1 := (now[2] as Basis).get_rotation_quaternion()
+		var q0 := (prev[2] as Basis).get_rotation_quaternion() if prev[2] != null else q1
+		if _q4(q0).dot(_q4(q1)) < 0.0:
+			q0 = -q0
+		var qa := (at[2] as Basis).get_rotation_quaternion()
+		if _q4(qa).dot(_q4(q1)) < 0.0:
+			qa = -qa
+		out[2] = _lp_new(_q4(qa), (_q4(q1) - _q4(q0)) / delta)
+	return out
+
+
+static func _filt_cap(st: Array, raw: Array, w: float) -> Array:
+	_lp(st[0], raw[0], w, STEP)
+	_lp(st[1], raw[1], w, STEP)
+	var axes = raw[2]
+	if axes != null and st[2] != null:
+		var basis := axes as Basis
+		var qr := basis.get_rotation_quaternion()
+		var q := _q4(qr)
+		if q.dot(st[2][2]) < 0.0:
+			q = -q
+		_lp(st[2], q, w, STEP)
+		var v: Vector4 = st[2][0]
+		var qf := Quaternion(v.x, v.y, v.z, v.w).normalized()
+		axes = Basis(qf * qr.inverse()) * basis
+	return [st[0][0], st[1][0], axes]
 
 
 ## Move a bone's target to where the parent puts it at the start of a shortened frame's window,
@@ -300,16 +431,7 @@ func _seed(parent_xf: Transform3D, b: Dictionary) -> Transform3D:
 	if b["started"]:
 		b["target"] = frame * (b["tail_local"] as Vector3)
 		b["target_v"] = Vector3.ZERO
-		b["x_hist"] = _still(b["target"])
 	return frame * Transform3D(Basis(b["q"] as Quaternion), Vector3.ZERO)
-
-
-## LOAD_STEPS copies of a point: the history of a target that has not moved.
-static func _still(p: Vector3) -> Array:
-	var out := []
-	for i in LOAD_STEPS:
-		out.append(p)
-	return out
 
 
 static func _blend(a: Transform3D, b: Transform3D, f: float) -> Transform3D:
@@ -331,16 +453,11 @@ func _step(parent_xf: Transform3D, g: Vector3, caps: Array, b: Dictionary, dt: f
 	if not b["started"] or target.distance_to(b["target"]) > TELEPORT_M:
 		b["target"] = target
 		b["target_v"] = Vector3.ZERO
-		b["x_hist"] = _still(target)
 		b["e"] = Vector3.ZERO
 		b["u"] = Vector3.ZERO
 		b["g_rest_local"] = parent_basis.inverse() * g
 		b["started"] = true
-	# the target's velocity over the last LOAD_STEPS steps, not the last one (see LOAD_STEPS)
-	var hist: Array = b["x_hist"]
-	var vt: Vector3 = (target - b["target"]) / dt if legacy_integration else (target - (hist[0] as Vector3)) / (LOAD_STEPS * dt)
-	hist.pop_front()
-	hist.append(target)
+	var vt: Vector3 = (target - b["target"]) / dt
 	var at: Vector3 = (vt - b["target_v"]) / dt
 	var gain := float(b["response"]) * response_scale
 	var e0: Vector3 = b["e"]
@@ -504,7 +621,8 @@ func kick(velocity: Vector3, only_chain := "") -> void:
 
 
 func stats() -> Dictionary:
-	return {"chains": chains.size(), "peak_angle_deg": snappedf(peak_angle_deg, 0.01), "limit_hits": limit_hits,
+	return {"chains": chains.size(), "peak_angle_deg": snappedf(peak_angle_deg, 0.01),
+		"peak_tip_deg": snappedf(peak_tip_deg, 0.01), "limit_hits": limit_hits,
 		"collision_hits": collision_hits, "nonfinite": nonfinite,
 		"usec_per_frame": snappedf(float(usec_total) / maxf(frames, 1), 0.1), "frames": frames,
 		"peak_steps": peak_steps, "dropped_steps": dropped_steps, "accel_clamps": accel_clamps}

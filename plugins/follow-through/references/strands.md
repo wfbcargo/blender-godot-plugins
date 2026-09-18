@@ -89,7 +89,10 @@ carries them.
 
 Per chain, root to tip, in fixed steps of 1/120 s (as many as fit in a frame - at most 16, so a
 stalled frame drops the time it cannot afford instead of costing 90 steps and stalling the next one -
-the remainder carried, the animated parent and colliders interpolated to each step's moment):
+the remainder carried, the animated parent and colliders interpolated to each step's moment and
+low-passed at `SMOOTH_HZ`, 10 Hz, by an exact critically damped filter - the strands simulate against
+the body's motion below 10 Hz, which every frame rate from 30 fps up reconstructs alike, and their
+poses, relative to their parents, are applied to the body as animated):
 
 1. the tail's offset from where its parent (animated for the first bone, sprung for the rest) puts it
    is a damped spring solved exactly over the step, loaded by that target's acceleration and the
@@ -111,7 +114,8 @@ godot --headless --path <project> -s res://addons/follow_through/verify_strands.
 
 Time is stepped by hand (AnimationPlayer and Skeleton3D both in manual mode) at 30, 60, 120 and 240
 fps, each on a fresh body: 1 s at rest, a 1.5 m/s sideways knock, a 3 m/s knock that throws the
-strands at the head, 4 s of the run clip, and one stalled 0.75 s frame in the middle of the run
+strands at the head, 9 s of the run clip (the start measured over 0.5-4.5 s, the settled run over
+3-9 s), and one stalled 0.75 s frame in the middle of the run
 followed by half a second at the rate again. Head penetration is measured against the body's own
 skin, not the colliders: strand vertices are skinned on the CPU and compared with the head skin's
 radius per direction (24 x 48 cells) in the head bone's frame, counting only depth beyond what the
@@ -122,12 +126,14 @@ vertex had at rest.
 | `rest_drift_deg` | 0.5 |
 | kick: last 0.5 s of 4 s | under 10% of the peak (or 0.1 deg) and under 2 deg |
 | `fling_head_penetration_m`, `run_head_penetration_m`, `hitch_head_penetration_m` | 0.005 |
-| `swing_deg` (tip deflection in the root bone's frame, running) | at least 3 |
+| `swing_deg` (tip deflection in the root bone's frame, settled run, 3-9 s) | at least 3 |
 | `hitch_steps` (the substeps a 0.75 s frame simulated) | at most `MAX_STEPS`, 16, with the rest dropped |
 | finite | no non-finite state or pose |
-| across rates | `swing_deg` max / min at most 1.25 |
+| across rates | `swing_deg` max / min at most 1.25, and `start_swing_deg` (0.5-4.5 s) too |
 
-`set=damping_ratio:0.3,...` overrides spring values; `dump=<file>` writes the joints per frame of the
+`set=damping_ratio:0.3,...` overrides spring values; `mod=smooth_hz:15` sets modifier properties;
+`legacy_integration=true` steps as 0.6.2 (the must-fail control); `warmup=`, `settle_s=`, `run_s=` move
+the run's windows; `dump=<file>` writes the joints per frame of the
 fling and the run for rendering.
 
 Measured (follow-through strands, Godot 4.7.2):
@@ -177,6 +183,8 @@ run measures 1.1-1.2 mm and the collisions-off control still reports 11.9 cm.
 | a script error in the verifier | `FT_SUMMARY ... PASSED` with nothing measured | a rate without a measured run fails |
 | a 0.75 s frame, steps uncapped | 90 substeps in one frame: a stall pays for itself twice | at most `MAX_STEPS` (16), the rest dropped |
 | a 0.75 s frame, steps capped | the first kept step read the whole stall's motion of the body as one 1/120 s step: the MPFB strand hit its 60 deg root limit and went 6.0-6.2 mm into the head | the skipped time seeds each bone's target (`_seed`) instead of pushing it: 32-33 deg, 3.8-3.9 mm |
+| 24 Hz clip keys between frames, 0.6.2 | the parent is interpolated in a straight line between frames, so a 30 fps frame fed the spring each footfall's velocity change as one sharp step and 120 fps as four at the keys; the projections are not linear and a run has more than one stable swing: study_woman 53 / 49 / 62 / 62 deg at 30 / 60 / 120 / 240 fps (1.26), pipeline_ponytail 68 / 73 / 53 / 53 (1.39) | the body's motion low-passed at 10 Hz: study_woman 38-39 deg starting, 36-37 settled (1.03 / 1.02); pipeline_ponytail 44-45 / 37-39 (1.03 / 1.07); 29-200 fps 1.03-1.04 |
+| the load alone averaged over a 30 fps frame (0.6.3's first attempt) | passed 1.13 over the run's first 4 s, but settled 36 / 31 / 28 / 28 (1.29): the collisions and limits still read the straight-line path | the whole motion filtered, not the load; `verify_strands` measures the settled run as well as the start |
 | the hair layer's own ponytail, run | 8.6 mm "into the head", unmoved by any collider or radius change: the head's surface was read from the nearest cell of a map that includes the hair tie, and the root sits on the 2 cm step between the tie's cell and the skull's | the surface is read between the four cells round the direction: 1.1-1.2 mm |
 
 ## Limits

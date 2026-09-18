@@ -265,5 +265,8 @@ had never seen. `export.export` deselects its scene, rig-anything's export passe
   120 and 240 fps (swing spread 1.014 and 1.050, head penetration 1.3 and 3.7 mm), and through a stalled
   0.75 s frame, which simulates at most 16 substeps of the 90 it is worth and seeds the skipped time
   rather than being pushed by it.
+- **0.6.3** - strands simulate against the body's motion low-passed at 10 Hz, so a run swings alike
+  at every rate from 30 fps up, as it starts and once settled (study_woman 1.03 / 1.02, was 1.26);
+  `verify_strands` measures both windows, `legacy_integration=true` is its must-fail control.
 - Next: strap and tail chains, volume-volume and two-way collision, wind, proxy meshes for dense
   cloth.
