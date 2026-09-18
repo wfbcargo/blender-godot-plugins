@@ -130,3 +130,15 @@ weights the jiggle bones. Exactly the staleness rank 3 is about, so `code:follow
 flesh stage's reads (and a flip in pipeline_hashes: moves flesh first, control unseen). The plugin's
 `scripts/run.sh` template on study_woman's saved file then logged `flesh: what it reads changed:
 code:follow_through.flesh` and ran flesh, moves, strand, export, review: 21.2 s.
+
+## 09:11-09:26 regress --update --twice --jobs 2 | kind=win (14.6 min)
+All 21 fixtures built twice and agreed. `--update` rewrote all 21 goldens; 13 differed only in paths,
+seconds and version stamps (by `regress.compare`) and were put back with `git checkout`. Kept:
+- pipeline_woman: manifest fields gain `skin`; `skin.size` 1024 -> 2048 (the final bake size, intended).
+- pipeline_ponytail: manifest fields gain `skin`.
+- flesh_figure: the new `prepare_again` block (0 weight lost, control 25 unweighted).
+- dressed_figure, dressed_presets, dressed_skirts, traced_detail: garment cover/ease/detail counts move
+  by a few percent (e.g. sports_top hidden 2738 -> 2797, breast skin_verts 727 -> 739, skirt pelvis shares
+  0.0180 -> 0.0179, Dress face_order hash): the garments are cut from the fleshed skin and take its
+  weights, which now keep each vertex's total where limit_influences dropped a fifth influence (0.6.1).
+- pipeline_hashes: new (re-recorded with --twice after flesh.py joined the flesh reads).

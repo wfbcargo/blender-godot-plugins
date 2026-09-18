@@ -1,8 +1,8 @@
 {
  "fixture": "flesh_figure",
  "plugins": {
-  "follow-through": "0.5.2",
-  "rig-anything": "0.23.0"
+  "follow-through": "0.6.1",
+  "rig-anything": "0.24.0"
  },
  "report": {
   "bodies": {
@@ -545,7 +545,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-1zflmuyv\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\rw\\cp-resume-hashes\\rk\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -1824,13 +1824,26 @@
      },
      "warnings": []
     },
+    "prepare_again": {
+     "control_fails": true,
+     "control_without_giving_back": {
+      "max_total_lost": 0.9999,
+      "max_weight_diff": 0.9999,
+      "unweighted": 25
+     },
+     "max_total_lost": 0.0,
+     "max_weight_diff": 0.0739,
+     "regions_equal": true,
+     "unweighted": 0,
+     "unweighted_first": 0
+    },
     "read_back": {
      "meshes": [
       "Figure"
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-1zflmuyv\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\rw\\cp-resume-hashes\\rk\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",
