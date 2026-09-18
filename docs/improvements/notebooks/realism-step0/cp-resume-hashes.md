@@ -160,3 +160,8 @@ review only changed clips) are what would cut it further.
 - An explicit `from=bake` on a haired body now refuses (it cannot be done without taking the hair off);
   a whole build restarts from body instead.
 - The skin at 2048 px adds about 7 s to a final bake (8-9 s against 1.9 s at 1024).
+
+## 09:28-09:48 final regress | kind=win
+`python tools/regress.py --twice --jobs 2 --godot <game worktree cp-resume-hashes> --keep rw/.../rk3`:
+21 fixtures ok twice, "no change" against the goldens; verify_moves (12 manifests) passed, every
+verify_wardrobe and verify_flesh run ok, and each must-fail control failed. 20 min wall.
