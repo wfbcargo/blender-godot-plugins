@@ -236,6 +236,21 @@ The breast zone keeps its 1.45 top: 1.0 changed nothing on Mei, Ruth or study_wo
 out, and cut the sample Figure's breasts (shoulder joints near its bust) from 687 to 458 vertices, which
 failed its sports top's cover check.
 
+**Breasts and buttocks hang from above.** A type with `"attachment": "upper"` (breast, butt) pivots where
+it is attached, not at its own height (`flesh._hang_from_above`): the tail on the apex (the mean of the
+region's most outward vertices), the head 2 cm under the lean surface there and 3-6 cm above the apex
+(0.6 x the region's height above it, clipped), and the weight is the measured feathering times a smoothstep
+along head -> tail (0 for the first 0.3 of the way) times 0 on vertices half or more skinned to a leg,
+normalised so the apex's 2 cm is full weight. So a bounce moves the lower pole and the apex while the upper
+chest and the small of the back stay; the buttock no longer creases the back of the thigh. Before, the tail
+sat 5-8 cm inside the surface, the head level with it or below (study_woman's breast 3 cm below) and the
+weight was a plateau from 14 cm above the nipple. `check_placement` tests it: pivot rise >= 3 cm, weight
+>= 0.9 within 2 cm of the tail, <= 0.3 10 cm above it, <= 0.05 on leg-dominant vertices
+(`pivot_rise_m`, `weight_at_apex`, `weight_10cm_above`, `weight_on_thigh`, free values);
+`FT_FLESH_LEGACY_ATTACHMENT=1` puts the old bone and weights back as its must-fail control. The longer lever
+raises a jump-only course's time on the limit a little (the cast's breasts 9.9 -> 10.6-10.9 %), still under
+the full course's line.
+
 **Buttocks ride the pelvis.** A type's `"anchor"` names a **bone role** from rig-anything's body map
 (`bodymap.build(...)["roles"]`: `pelvis`, `chest`, `head`, ...), and its jiggle bone is parented to
 the bone that role names instead of the core bone nearest the region; without rig-anything,
