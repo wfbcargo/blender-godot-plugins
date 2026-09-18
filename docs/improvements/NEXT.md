@@ -47,14 +47,16 @@ frame) and both its controls fail as they must (`rigid=spine`: 46 skirt vertices
 
 **Then `fig-brows-lashes-hairline` was merged on its own** (humanform 0.9.0, character-pipeline 0.7.0): `humanform.brows` adds brow cards (850 fine hairs) and upper/lower lash cards (170/45) with their own tapering-hair texture, alpha scissor, transparent shadows and no Godot rim/backlight/anisotropy, in the hair colour darkened, plus optional body hair; every hair cap is now cut round the ears (ear-covered verts 0, was ~430); `[hair] brows/lashes/body_hair` switches default false and a false switch hashes as before. `regress.py --twice --jobs 4 --godot` on the merged `main`: 19 fixtures agreeing, no change, every verifier passing and every control failing (13.5 min). No Godot addon changed, nothing synced. Open: the ear cut changes every preset's cap but not the hair stage's input hash, so already-built characters (Belle) keep the old ear-covering cap until rebuilt from body (`force=1`); short_crop cap clearance -0.18 mm at the ear crease; lashes read sparse beyond 1 m and brows near-black/hard in shadowed Godot shots (tune `brows.LOOK`, `LOWER_LASH`; consider alpha-to-coverage/mip bias in lookdev_materials.gd); body hair is a stipple grid, keep it off; `brows.is_mpfb` only checks the vertex count; one brow shape for every body; lookdev `hair.strand_texture` has no fine-card mode; stale docs (derive_face_regions.py EAR_OUT_M, '16 x 4 card', the Belle cap figure in SKILL.md). Not pushed.
 
+**Then `fig-realistic-skin` was merged on its own** (humanform 0.10.0, lookdev 0.3.0, character-pipeline 0.7.1): `look.skin` marks skin regions and gives a flat subsurface skin until baked (an unbaked export keeps its tone, no COLOR_n), the bake stage bakes albedo/ORM/normal with lookdev (study figures' tone within 0.003 of spec), Godot gets SSS skin mode, 1 cm transmittance and pore detail on UV2, lint warns `SKIN_PLASTIC`; new fixture `skin_detail`; the bake stage hash now covers lookdev; `lookdev_materials.gd` synced into `grungist-creek` (`a8fc064`). `regress.py --twice --jobs 4 --godot`: 21 fixtures agreeing, only hair_presets' bake version keys changed (re-recorded), every verifier passing. Open: final quality still bakes 1024 px (quality not passed to look.skin), a bake-only rerun flattens the regions (hf_skin_tint deleted after bake), muscle normal replaces the skin normal, glb extras lack the post-bake humanform_skin keys, orange finger-web lines under clear_midday, lint's name match on "skin", skin.bake leaks a temp dir. Not pushed.
+
 Installed copies in `~/.claude/skills` match the repo:
 - rig-anything 0.23.0
 - animate-anything 0.10.0
 - follow-through 0.6.0
-- humanform 0.9.0
-- character-pipeline 0.7.0
+- humanform 0.10.0
+- character-pipeline 0.7.1
 - wardrobe 0.5.0
-- lookdev 0.2.0
+- lookdev 0.3.0
 - godot-lsp 0.1.0
 
 Read the repo's `CLAUDE.md` first: worktrees, scratch folders, the regression harness, install and version rules,
