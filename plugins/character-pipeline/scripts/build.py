@@ -4,8 +4,8 @@
         [from=<stage>] [to=<stage>] [force=1] [quality=draft|preview|final] [fresh=1] [save_outside=1]
 
 It opens the spec's saved `[export] blend` first when it exists (`runner.open_saved`), so the stage records in
-that file are used: a `[flesh]`-only edit reruns flesh to review (from body on a dressed spec: flesh and moves
-refuse while garments are bound), a garment preset edit reruns garments, and an
+that file are used: a `[flesh]`-only edit reruns flesh, export and review (moves too when the rig or the weights moved; on a
+dressed spec the garments come off and are cut again), a garment preset edit reruns garments, and an
 unchanged spec skips everything. `fresh=1` builds from nothing instead (the saved file is then overwritten by
 the new build, as always). Blender started on a .blend of your own (`blender -b <file> ...`) keeps that file:
 it is the source a `body.source = "blend"` spec needs.

@@ -14,7 +14,7 @@ What every builder and critic did by hand (NEXT.md Step 0.5; 1-6 min each, and w
   same layout;
 - copies each chosen spec's current `.blend` into `<dir>/blends/`, so a build resumes from it;
 - points every spec's `[export] blend` into the copy: a relative one already resolves under `BLEND_DIR`
-  (character-pipeline 0.10.0), an absolute one is rewritten to its file name; then checks that every spec in
+  (character-pipeline 0.11.0), an absolute one is rewritten to its file name; then checks that every spec in
   the copy resolves under `<dir>` (it refuses otherwise);
 - copies `~/.claude/humanform/library` (or `--library`) to `<dir>/humanform_library`, so humanform writes there;
 - writes `env.sh` and `env.ps1` (PROJECT, BLEND_DIR, RA/HF/FT/WD/CP/LD_SCRIPTS at the checkout,

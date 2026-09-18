@@ -30,9 +30,16 @@ stage ran, the manifest's `build` block (rewritten once review has run, so it is
 Stages that put something on the body nothing takes off (hair, muscle: `stages.RESTARTS_FROM_BODY`) are not
 run a second time on a body that has it: a whole build (no `from_stage`, or `from_stage="body"`) whose
 `[hair]` or `[muscle]` changed rebuilds from body, forced, and says so in `report["build"]["restarted"]`; a
-build started later than body still refuses (the stage's own check). Flesh and moves are there too for a
-dressed body: they refuse while garments are bound, so a whole build whose `[flesh]` or `[moves]` changed on
-a dressed file restarts from body.
+build started later than body still refuses (the stage's own check). Moves is there too for a dressed body: it
+refuses while garments are bound, so a whole build whose `[moves]` changed on a dressed file restarts from body.
+A whole build whose flesh must rerun on a dressed file takes the garments off instead (`stages.undress`,
+`UNDRESS_FOR_FLESH`) and the garments stage cuts them again; it restarts from body only if something of
+wardrobe's could not be taken off.
+
+The cascade stops where an output did not change: a stage that reads an earlier one only through what it left
+in the file (`inputs.READS_OUTPUT`: moves of flesh) keeps a view hash with the digest of that output
+(`inputs.outputs`) in place of the earlier stage's input hash (`view_hash`), and is skipped when its input
+hash moved but its view did not.
 """
 
 from __future__ import annotations
@@ -112,7 +119,39 @@ def stage_hash(ch, name, needs, sections, done, q, drop=()):
     files it reads (`inputs.stage_inputs`)."""
     versions = plugins.stage_versions(ch, name)
     reads = inputs.stage_inputs(ch, name, drop=drop)
-    return _hash(ch, name, needs, sections, done, versions, quality_mod.for_hash(q, name), reads), versions, reads
+    return _hash(ch, name, needs, sections, done, versions, quality_mod.for_hash(q, name, ch), reads), versions, reads
+
+
+def view_hash(ch, name, needs, sections, done, outs, q, versions, reads, drop=()):
+    """The stage's hash with, for each stage it needs whose output it reads (`inputs.READS_OUTPUT`), the digest of
+    that output (`outs[need]`, as `inputs.outputs` took it) in place of the need's input hash - or None when the
+    stage reads no earlier output, or an output it reads was never digested (a record from before 0.10.0). A stage
+    whose input hash moved but whose view hash did not reads exactly what it read when it last ran. `drop` leaves
+    output labels out of the digests: the hash test's control only."""
+    reads_out = [n for n in inputs.READS_OUTPUT.get(name, ()) if n in needs]
+    if not reads_out:
+        return None
+    seen = {n: done.get(n) for n in needs}
+    for n in reads_out:
+        out = outs.get(n)
+        if not out:
+            return None
+        seen[n] = "output:" + inputs.data({k: v for k, v in out.items() if k not in drop})
+    parts = {"stage": name, "spec": ch.digest(*sections), "needs": seen, "versions": versions, "view": True,
+             "quality": quality_mod.for_hash(q, name)}
+    if reads:
+        parts["reads"] = reads
+    return hashlib.sha1(json.dumps(parts, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def _same_view(ch, name, rec, view):
+    """Whether a stage whose input hash moved can be skipped: its record's view hash is the one it has now, and
+    what it made is still in the file (the moves stage's stored clips)."""
+    if view is None or rec is None or rec.get("view") != view:
+        return False
+    if name == "moves":
+        return list(stages.moves_stored(ch)) == list(ch.moves.roles)
+    return False
 
 
 def plan(spec, quality=None, drop=None):
@@ -187,6 +226,11 @@ def _save(ch, path, save_outside=False):
 
 class _Restart(Exception):
     pass
+
+
+# A whole build whose flesh must rerun on a dressed body takes the garments off (`stages.undress`) instead of
+# restarting from body. False restores the restart (the control in pipeline_woman's dressed flesh edit).
+UNDRESS_FOR_FLESH = True
 
 
 def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=print, quality=None, resume=False,
@@ -269,6 +313,7 @@ def _build(ch, from_stage, to_stage, force, log, q, forced):
 
     stored = records(ch)
     done = {}                                   # stage -> input hash, as the file holds it or this run made it
+    outs = {}                                   # stage -> digest of its output a later stage reads (inputs.outputs)
     report = {}
     ctx = {"scratch": tempfile.mkdtemp(prefix=f"pipeline_{ch.id}_"), "versions": versions, "quality": q}
     # a whole build of a brief body can start over from body; one started later cannot
@@ -282,15 +327,19 @@ def _build(ch, from_stage, to_stage, force, log, q, forced):
         # the four plugins every stage builds with, an optional one (lookdev) only where the stage reads it,
         # and the data and code files it reads
         h, stage_versions, reads = stage_hash(ch, name, needs, sections, done, q)
+        view = view_hash(ch, name, needs, sections, done, outs, q, stage_versions, reads)
         if i < start:
             rec = stored.get(name)
             if rec is None:
                 raise BuildRefused(f"from_stage={from_stage!r}, but {name} has not run in this file - "
                                    f"open the .blend saved after it, or start from {name}")
-            if rec.get("hash") != h and not force:
+            same_view = rec.get("hash") != h and _same_view(ch, name, rec, view)
+            if rec.get("hash") != h and not force and not same_view:
                 raise BuildRefused(f"{name} in this file was built from a different spec or plugin versions "
                                    f"(stored {rec.get('hash')}, now {h}) - rebuild from {name}")
-            done[name] = rec.get("hash")
+            done[name] = h if same_view else rec.get("hash")
+            if rec.get("output") is not None:
+                outs[name] = rec["output"]
             report[name] = {"status": "in file"}
             continue
         if i >= stop:
@@ -300,14 +349,39 @@ def _build(ch, from_stage, to_stage, force, log, q, forced):
         # garments bound" can never hold again, and a finished build must still rerun as unchanged
         if not force and name not in forced and rec is not None and rec.get("hash") == h:
             done[name] = h
+            if rec.get("output") is not None:
+                outs[name] = rec["output"]
             report[name] = {"status": "unchanged", "report": rec.get("report")}
             log(f"[{ch.id}] {name}: unchanged")
             continue
+        # the cascade stops here: an earlier stage reran, but what this one reads of it came out the same. Its
+        # record takes the new input hash, so every stage after it still sees the change upstream and reruns
+        if not force and name not in forced and _same_view(ch, name, rec, view):
+            done[name] = h
+            _store(ch, name, dict(rec, hash=h, versions=stage_versions, inputs=reads, view=view))
+            stored = records(ch)
+            what = ", ".join(inputs.READS_OUTPUT[name])
+            report[name] = {"status": "unchanged", "report": rec.get("report"),
+                            "why": f"what it reads of {what} came out the same"}
+            log(f"[{ch.id}] {name}: unchanged (its input hash moved, but what it reads of {what} came out the same)")
+            continue
+        if rec is not None and view is not None and rec.get("view") and not force and name not in forced:
+            log(f"[{ch.id}] {name}: what it reads of {', '.join(inputs.READS_OUTPUT[name])} changed")
         if rec is not None and not force and name not in forced:
             moved = inputs.changed(rec.get("inputs"), reads)
             if moved and "inputs" in rec:
                 log(f"[{ch.id}] {name}: what it reads changed: {', '.join(moved)}")
         again = stages.RESTARTS_FROM_BODY.get(name)
+        if name == "flesh" and restartable and UNDRESS_FOR_FLESH and stages.garments_bound(ch):
+            # a dressed body's flesh: the garments come off (they are cut again from the new flesh by the garments
+            # stage) rather than the whole build starting over from body; if anything of wardrobe's is left, restart
+            took_off = stages.undress(ch)
+            log(f"[{ch.id}] flesh changed on a dressed body: took off {', '.join(took_off['garments'])} "
+                f"({took_off['hem_bones']} hem bones, {len(took_off['body_groups'])} cover groups on the body)")
+            if took_off["left"]:
+                raise _Restart(f"flesh changed and garments could not all be taken off ({took_off['left']}): "
+                               "rebuilding from body")
+            ctx["undressed"] = took_off
         if again is not None and restartable and again(ch):
             if name in ("flesh", "moves"):
                 raise _Restart(f"{name} changed and garments are bound to the rig ({', '.join(stages.garments_bound(ch))}): "
@@ -322,10 +396,22 @@ def _build(ch, from_stage, to_stage, force, log, q, forced):
         out = run(ch, ctx)
         took = round(time.time() - t0, 1)
         done[name] = h
-        # what came after this stage was built on what it just replaced
-        _forget(ch, names[i + 1:])
-        _store(ch, name, {"hash": h, "report": _small(out), "versions": stage_versions, "inputs": reads,
-                          "seconds": took})
+        # what came after this stage was built on what it just replaced - except a stage that reads this one only
+        # through its output (inputs.READS_OUTPUT): its record stays, and its view hash says whether it still holds
+        _forget(ch, [n for n in names[i + 1:] if name not in inputs.READS_OUTPUT.get(n, ())])
+        entry = {"hash": h, "report": _small(out), "versions": stage_versions, "inputs": reads, "seconds": took}
+        if view is not None:
+            entry["view"] = view
+        output = inputs.outputs(ch, name)
+        if output is not None:
+            entry["output"] = output
+            outs[name] = output
+            before = (rec or {}).get("output")
+            if before:
+                moved = inputs.output_changed(before, output)
+                log(f"[{ch.id}] {name}: what later stages read of it "
+                    + (f"changed: {', '.join(moved)}" if moved else "came out the same"))
+        _store(ch, name, entry)
         stored = records(ch)
         report[name] = {"status": "ran", "seconds": took, "report": out}
         log(f"[{ch.id}] {name}: done in {took}s")
