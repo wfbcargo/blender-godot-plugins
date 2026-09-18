@@ -102,3 +102,28 @@ ran, moves unchanged "what it reads of flesh came out the same", unfleshed "rest
 groups taken off, nothing left, control_restart = the old restart line, control = the old refusal). Recorded
 with `--only ... --twice --update` (13:23:19-13:25:21): both agree twice; `git diff tests/golden` read: those
 blocks and version stamps only.
+
+## 13:26-13:30 final regress | kind=win
+`python tools/regress.py --quick --jobs 2` (full output `rw/ccs/final_quick.log`): 14 paths changed, 5 of 22
+selected (pipeline_hashes, pipeline_woman, pipeline_muscle, pipeline_ponytail, hair_presets), all ok,
+`REGRESS DONE exit=0, 5 fixtures ok`. No `--godot`: no Godot addon changed and the exported files are
+byte-identical to a fresh build's (above).
+
+## Open
+- study_woman (and any spec with a chained strand): a [flesh] edit still reruns moves, because the rig then
+  carries the strand stage's chain bones (`ft_role = "strand"`) and the strand mesh is bound, so the digest
+  after flesh never equals the one taken before strand first ran. Not measured on study_woman in this branch.
+  Leaving strand-tagged bones and the strand mesh out of moves' view would stop it, but moves itself then
+  reruns on a rig with chain bones present (a pre-existing order issue: `check_not_dressed` does not look at
+  strand), so it was left conservative.
+- Only moves reads an output view (`READS_OUTPUT = {"moves": ("flesh",)}`); export and review still rerun on
+  any flesh edit (they read the jiggle block). Review is now the largest remaining cost (7-12 s).
+- A file built before 0.10.0 has no flesh `output` and no `<mesh>:preflesh`: its first flesh edit reruns moves
+  (and weights drift by up to 0.020 as before); from then on the cascade stops. The game's three figures get
+  both on their next fresh or from-body build.
+- A dressed spec's `[moves]` edit still restarts from body (undress is wired for flesh only).
+- A glb exported from a reopened .blend carries `materials[0].extras.humanform_skin` that a glb exported in
+  the building session lacks (seen with `from=export force=1` alone): pre-existing, not this branch.
+- The game's `assets/belle/build_belle.py` docstring still says a [flesh] edit on dressed Belle restarts from
+  body (no game branch was made; the merge or ship step should update that line).
+- `<mesh>:preflesh` adds one mesh datablock per fleshed character to the .blend.
