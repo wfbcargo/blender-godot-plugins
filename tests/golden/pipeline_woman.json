@@ -17,6 +17,13 @@
    "butt.R butt"
   ],
   "fresh_session": {
+   "build_block": {
+    "quality": "final",
+    "stages_timed": [
+     "export",
+     "review"
+    ]
+   },
    "exit": 0,
    "manifest_equal": true,
    "statuses": {
@@ -189,7 +196,7 @@
    "fields": {
     "first": "arm_pose",
     "last": "verified",
-    "len": 22
+    "len": 23
    },
    "gaits": {
     "Run": {

@@ -77,7 +77,7 @@ def _second_blender(blend, spec_path, out_json):
         "import sys, json; sys.path[:0] = %r\n"
         "from character_pipeline import runner\n"
         "r = runner.build(%r, from_stage='export', force=True, save=False, log=lambda m: None)\n"
-        "json.dump({k: v['status'] for k, v in r.items()}, open(%r, 'w'))\n"
+        "json.dump({k: v['status'] for k, v in r.items() if isinstance(v, dict) and 'status' in v}, open(%r, 'w'))\n"
     ) % ([H.scripts(v) for v in ("CP_SCRIPTS",)], spec_path, out_json)
     import bpy
     proc = subprocess.run([bpy.app.binary_path, "-b", blend, "--factory-startup", "--python-exit-code", "1",
@@ -119,7 +119,9 @@ def build():
     manifest_path = first["export"]["report"]["moves"]
     with open(manifest_path, encoding="utf-8") as fh:
         manifest = json.load(fh)
-    before = json.dumps(manifest, sort_keys=True)
+    # the `build` block is where this build's minutes went (runner.build rewrites it after every build that
+    # exported), so the second Blender's export-only run writes its own: the rest must be equal
+    before = json.dumps(dict(manifest, build=None), sort_keys=True)
 
     statuses_path = os.path.join(root, "second_blender.json")
     code, tail = _second_blender(ch.export.blend, spec_path, statuses_path)
@@ -128,7 +130,10 @@ def build():
         with open(statuses_path, encoding="utf-8") as fh:
             fresh["statuses"] = json.load(fh)
         with open(manifest_path, encoding="utf-8") as fh:
-            fresh["manifest_equal"] = json.dumps(json.load(fh), sort_keys=True) == before
+            again_manifest = json.load(fh)
+            fresh["manifest_equal"] = json.dumps(dict(again_manifest, build=None), sort_keys=True) == before
+            fresh["build_block"] = {"quality": again_manifest.get("build", {}).get("quality"),
+                                    "stages_timed": sorted(again_manifest.get("build", {}).get("stage_seconds", {}))}
     else:
         fresh["tail"] = tail
 

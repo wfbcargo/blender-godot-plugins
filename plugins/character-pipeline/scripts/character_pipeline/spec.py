@@ -25,6 +25,17 @@ that belong to a plugin.
     [moves.per_gait.Walk]        # anything move_set takes per role, over the style
     max_drop = 0.035
 
+    [muscle]                     # optional: humanform's muscle definition (delta parts), weighted by
+                                 # the brief's muscle and estimated body fat - applied between body and bake
+    output = "geometry"          # or "normal": baked into the skin's normal map (silhouette bulk stays geometry)
+    strength = 1.0               # scales every definition group
+    groups = ["pectorals", "abdominals"]   # default: all (humanform.muscle.GROUPS)
+    normal_size = 2048           # output = "normal" only; default by [build] quality
+
+    [build]                      # optional: how much a build spends (default "final")
+    quality = "final"            # "draft" | "preview" | "final" - see quality.py; runner.build(quality=)
+                                 # overrides it
+
     [hair]                       # optional: humanform's hair layer (the brief's `hair`)
     preset = "bun"               # short_crop, bob, bun, ponytail, long_loose
     colour = [0.17, 0.10, 0.06]  # a screen (sRGB) colour
@@ -75,6 +86,10 @@ DEPRECATED = {
                  "still builds; use preset = \"<humanform hair preset>\" and colour (improvements 05 5.2)",
 }
 HAIR_PRESETS = ("short_crop", "bob", "bun", "ponytail", "long_loose")   # humanform.sheet.HAIR_PRESETS
+MUSCLE_GROUPS = ("deltoids", "upper_arms", "pectorals", "abdominals", "obliques", "quadriceps", "calves",
+                 "forearms", "relief", "bulk")                           # humanform.muscle.GROUPS
+MUSCLE_OUTPUTS = ("geometry", "normal")
+QUALITIES = ("draft", "preview", "final")
 
 
 class SpecError(ValueError):
@@ -110,6 +125,19 @@ class Hair:
     preset: str | None = None                   # a humanform hair preset
     colour: list | None = None                  # screen (sRGB); None takes the preset's
     params: dict = field(default_factory=dict)  # shell_bun only
+
+
+@dataclass
+class Muscle:
+    output: str = "geometry"                    # "geometry" | "normal"
+    strength: float = 1.0
+    groups: list = field(default_factory=lambda: list(MUSCLE_GROUPS))
+    normal_size: int | None = None              # None: the quality's
+
+
+@dataclass
+class Build:
+    quality: str = "final"
 
 
 @dataclass
@@ -152,6 +180,8 @@ class Character:
     flesh: Flesh | None = None
     outfit: list = field(default_factory=list)
     review: Review = field(default_factory=Review)
+    muscle: Muscle | None = None
+    build: Build = field(default_factory=Build)
     path: str | None = None                  # the spec file
     project: str | None = None               # the project it builds into
 
@@ -208,7 +238,8 @@ def _unknown(table, allowed, where):
 
 def parse(data, path=None):
     """A `Character` from parsed TOML, checked. Raises `SpecError` naming the field."""
-    _unknown(data, ("character", "body", "moves", "hair", "flesh", "outfit", "export", "review"), "spec")
+    _unknown(data, ("character", "body", "moves", "hair", "flesh", "outfit", "export", "review", "muscle", "build"),
+             "spec")
     c = _take(data, "character", dict, required=True)
     _unknown(c, ("id", "name"), "[character]")
     cid = _take(c, "id", str, required=True, where="character.")
@@ -302,13 +333,45 @@ def parse(data, path=None):
     review = Review(enabled=_take(r, "enabled", bool, default=True, where="review."),
                     frame_height_m=_take(r, "frame_height_m", float, where="review."))
 
+    muscle = None
+    if "muscle" in data:
+        mu = _take(data, "muscle", dict)
+        _unknown(mu, ("output", "strength", "groups", "normal_size"), "[muscle]")
+        output = _take(mu, "output", str, default="geometry", where="muscle.")
+        if output not in MUSCLE_OUTPUTS:
+            raise SpecError(f"muscle.output must be one of {MUSCLE_OUTPUTS}, not {output!r}")
+        strength = _take(mu, "strength", float, default=1.0, where="muscle.")
+        if not 0.0 <= strength <= 2.0:
+            raise SpecError(f"muscle.strength must be 0..2, not {strength}")
+        groups = list(_take(mu, "groups", list, default=list(MUSCLE_GROUPS), where="muscle."))
+        bad = [g for g in groups if g not in MUSCLE_GROUPS]
+        if bad or not groups:
+            raise SpecError(f"muscle.groups {bad or groups} - each must be one of {MUSCLE_GROUPS}")
+        size = _take(mu, "normal_size", int, where="muscle.")
+        if size is not None and (size < 64 or size > 8192 or size & (size - 1)):
+            raise SpecError(f"muscle.normal_size must be a power of two 64..8192, not {size}")
+        if size is not None and output != "normal":
+            raise SpecError("muscle.normal_size is only read with output = \"normal\"")
+        if body.source != "brief":
+            raise SpecError("[muscle] needs body.source = \"brief\": definition is weighted by the brief and put "
+                            "on the unbaked humanform body")
+        muscle = Muscle(output=output, strength=strength, groups=[g for g in MUSCLE_GROUPS if g in groups],
+                        normal_size=size)
+
+    bt = _take(data, "build", dict, default={})
+    _unknown(bt, ("quality",), "[build]")
+    quality = _take(bt, "quality", str, default="final", where="build.")
+    if quality not in QUALITIES:
+        raise SpecError(f"build.quality must be one of {QUALITIES}, not {quality!r}")
+
     project = None
     if path:
         # characters/<id>.toml sits in the project it builds into
         here = os.path.dirname(os.path.abspath(path))
         project = os.path.dirname(here) if os.path.basename(here) == "characters" else here
     return Character(id=cid, name=name, body=body, moves=moves, export=export, hair=hair, flesh=flesh,
-                     outfit=outfit, review=review, path=os.path.abspath(path) if path else None, project=project)
+                     outfit=outfit, review=review, muscle=muscle, build=Build(quality=quality),
+                     path=os.path.abspath(path) if path else None, project=project)
 
 
 def load(path):

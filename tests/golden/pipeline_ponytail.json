@@ -202,7 +202,7 @@
    "fields": {
     "first": "arm_pose",
     "last": "verified",
-    "len": 22
+    "len": 23
    },
    "gaits": {
     "Run": {

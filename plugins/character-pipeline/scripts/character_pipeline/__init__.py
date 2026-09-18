@@ -13,7 +13,7 @@ import importlib
 
 SCHEMA = "character-pipeline/1"
 
-MODULES = ("spec", "plugins", "hair", "stages", "runner")
+MODULES = ("spec", "plugins", "quality", "hair", "stages", "runner")
 
 
 def reload_all():

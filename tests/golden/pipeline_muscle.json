@@ -1,0 +1,275 @@
+{
+ "fixture": "pipeline_muscle",
+ "plugins": {
+  "character-pipeline": "0.4.0",
+  "follow-through": "0.5.1",
+  "humanform": "0.7.1",
+  "lookdev": "0.2.0",
+  "rig-anything": "0.23.0",
+  "wardrobe": "0.3.0"
+ },
+ "report": {
+  "build_record": {
+   "all_positive": true,
+   "blend_record_same": true,
+   "manifest_has_total": true,
+   "manifest_quality": "draft",
+   "manifest_stages_timed": [
+    "bake",
+    "body",
+    "export",
+    "hair",
+    "moves",
+    "muscle"
+   ],
+   "quality": "draft",
+   "stages_timed": [
+    "bake",
+    "body",
+    "export",
+    "hair",
+    "moves",
+    "muscle"
+   ]
+  },
+  "built": {
+   "cp_muscle": "geometry",
+   "hair_materials": [
+    "FixDante_hair"
+   ],
+   "haired": [
+    "FixDante_body"
+   ],
+   "high_left": false,
+   "images": [],
+   "muscled": true,
+   "skin_textures": [
+    "FixDante_hair_strands",
+    "FixDante_hair_strands_normal"
+   ],
+   "verts": 16323
+  },
+  "draft_hash_part_moves": null,
+  "final_hash_part": {
+   "body": null,
+   "moves": null,
+   "review": null
+  },
+  "hair_change": {
+   "cp_muscle": "geometry",
+   "from_hair_stage": "[fixdante] hair is already in this file (FixDante_body) and the hair stage joins a layer on rather than replacing it - rebuild from body (from_stage=\"body\") to change [hair]",
+   "hair_materials": [
+    "FixDante_hair"
+   ],
+   "haired": [
+    "FixDante_body"
+   ],
+   "high_left": false,
+   "images": [],
+   "muscled": true,
+   "restarted": "hair changed and the body already carries it (it cannot be taken off): rebuilding from body",
+   "skin_textures": [
+    "FixDante_hair_strands",
+    "FixDante_hair_strands_normal"
+   ],
+   "statuses": {
+    "bake": "ran",
+    "body": "ran",
+    "export": "ran",
+    "hair": "ran",
+    "moves": "ran",
+    "muscle": "ran"
+   },
+   "verts": 15581,
+   "verts_equal_fresh_build": true
+  },
+  "muscle": {
+   "body_fat_pct": 15.81,
+   "definition_total": 7.4239,
+   "fitted_muscle": 0.6443,
+   "groups": [
+    "deltoids",
+    "upper_arms",
+    "pectorals",
+    "abdominals",
+    "obliques",
+    "quadriceps",
+    "calves",
+    "forearms",
+    "relief",
+    "bulk"
+   ],
+   "max_mm": 23.91,
+   "muscle_term": 0.9446,
+   "output": "geometry",
+   "spike_limit_um": 4621,
+   "spike_um": 4728,
+   "weights": {
+    "abdominals": 0.6377,
+    "bulk": 0.5114,
+    "calves": 0.9366,
+    "deltoids": 0.9013,
+    "forearms": 0.9366,
+    "obliques": 0.6377,
+    "pectorals": 0.8135,
+    "quadriceps": 0.8135,
+    "relief": 0.8457,
+    "upper_arms": 0.9013
+   }
+  },
+  "muscle_dropped": {
+   "cp_muscle": null,
+   "fresh_statuses": {
+    "bake": "ran",
+    "body": "ran",
+    "export": "ran",
+    "hair": "ran",
+    "moves": "ran"
+   },
+   "hair_materials": [
+    "FixDante_hair"
+   ],
+   "haired": [
+    "FixDante_body"
+   ],
+   "high_left": false,
+   "images": [],
+   "muscled": false,
+   "restarted": "the spec has no [muscle] now but the body carries it: rebuilding from body",
+   "skin_textures": [
+    "FixDante_hair_strands",
+    "FixDante_hair_strands_normal"
+   ],
+   "statuses": {
+    "bake": "ran",
+    "body": "ran",
+    "export": "ran",
+    "hair": "ran",
+    "moves": "ran"
+   },
+   "verts": 15581
+  },
+  "muscle_normal": {
+   "bake": {
+    "materials": [
+     "FixDante_skin"
+    ],
+    "method": "matched",
+    "size": 512,
+    "warnings": []
+   },
+   "cp_muscle": "normal",
+   "hair_materials": [
+    "FixDante_hair"
+   ],
+   "haired": [
+    "FixDante_body"
+   ],
+   "high_left": false,
+   "images": [
+    "FixDante_muscle_normal"
+   ],
+   "muscled": true,
+   "output": "normal",
+   "restarted": "muscle changed and the body already carries it (it cannot be taken off): rebuilding from body",
+   "skin_textures": [
+    "FixDante_hair_strands",
+    "FixDante_hair_strands_normal",
+    "FixDante_muscle_normal"
+   ],
+   "statuses": {
+    "bake": "ran",
+    "body": "ran",
+    "export": "ran",
+    "hair": "ran",
+    "moves": "ran",
+    "muscle": "ran"
+   },
+   "verts": 15581
+  },
+  "quality": {
+   "draft": {
+    "body": {
+     "fit_detail": false,
+     "fit_iterations": 3
+    },
+    "hair": {
+     "subdivide": 0
+    },
+    "muscle": {
+     "normal_size": 512
+    },
+    "review": {
+     "cell_px": 160,
+     "frames": 4,
+     "views": [
+      "front"
+     ]
+    }
+   },
+   "final": {
+    "body": {},
+    "hair": {},
+    "muscle": {
+     "normal_size": 2048
+    },
+    "review": {}
+   },
+   "preview": {
+    "body": {
+     "fit_iterations": 6
+    },
+    "hair": {},
+    "muscle": {
+     "normal_size": 1024
+    },
+    "review": {
+     "cell_px": 240,
+     "frames": 6,
+     "views": [
+      "front",
+      "right"
+     ]
+    }
+   }
+  },
+  "refusals": {
+   "bad_group": "muscle.groups ['glutes'] - each must be one of ('deltoids', 'upper_arms', 'pectorals', 'abdominals', 'obliques', 'quadriceps', 'calves', 'forearms', 'relief', 'bulk')",
+   "bad_output": "muscle.output must be one of ('geometry', 'normal'), not 'texture'",
+   "bad_quality": "build.quality must be one of ('draft', 'preview', 'final'), not 'ultra'",
+   "blend_source": "[muscle] needs body.source = \"brief\": definition is weighted by the brief and put on the unbaked humanform body",
+   "size_not_pow2": "muscle.normal_size must be a power of two 64..8192, not 1000",
+   "size_without_normal": "muscle.normal_size is only read with output = \"normal\"",
+   "strength_range": "muscle.strength must be 0..2, not 3.0",
+   "unknown_field": "[muscle]: unknown field(s) tone"
+  },
+  "rerun": {
+   "bake": "unchanged",
+   "body": "unchanged",
+   "export": "unchanged",
+   "hair": "unchanged",
+   "moves": "unchanged",
+   "muscle": "unchanged"
+  },
+  "stage_names": [
+   "body",
+   "muscle",
+   "bake",
+   "hair",
+   "flesh",
+   "moves",
+   "strand",
+   "garments",
+   "export",
+   "review"
+  ],
+  "stages": {
+   "bake": "ran",
+   "body": "ran",
+   "export": "ran",
+   "hair": "ran",
+   "moves": "ran",
+   "muscle": "ran"
+  }
+ }
+}
