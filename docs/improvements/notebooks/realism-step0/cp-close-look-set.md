@@ -87,3 +87,16 @@ Scratch final builds, review/<id>/close/*.png, Idle f1.
   arch faint; malleoli not modelled (inner vs outer height cannot be said to differ) -> no.
 - Faceting/seams (all): none seen.
 Not answerable from the set: the Godot neck stipple and pore detail past 1 m (lookdev close-shot).
+
+## 11:05-11:16 regress --twice --jobs 2 (full, at 43eb9d3) | kind=win
+`REGRESS DONE exit=0, 21 fixtures ok`, "no change", ~11 min. No --godot: no addon or export changed.
+
+## Open
+- Critics: the checklist above was answered by the author (no Agent tool in this leaf); an independent critic should
+  answer it from the PNGs.
+- The set shows Blender materials; the Godot look (stipple, pores past 1 m, orange webs) stays lookdev close-shot's.
+- foot_inner/foot_outer frame the foot slightly right of centre (target from ankle-to-toe, the heel is behind the
+  ankle); passes its check (subject_off 0.09).
+- Only the left foot has side views; the right foot is seen in `feet` only.
+- The pipeline does not run the set on a non-human rig (missing bones raise); `[review] close = false` for those.
+- Preview quality's set (6 tiles) was not built on a real spec, only recorded in the quality table.
