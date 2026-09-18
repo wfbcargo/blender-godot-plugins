@@ -31,8 +31,9 @@ blender -b --factory-startup --python-exit-code 1 --python <cp>/scripts/build.py
 **A command-line build resumes from the spec's saved `[export] blend`.** `runner.build(spec, resume=True)`
 (what `build.py`, `run.sh` and a project's own build scripts call) first opens that file when it exists and
 Blender was started with no file of its own (`runner.open_saved`), so the stage records in it are used: a
-`[flesh]`-only edit reruns flesh, moves, export and review - study_man 30 s against 64 s for the whole build
-on the same loaded machine. Without it every call started from an empty scene and rebuilt from body.
+`[flesh]`-only edit reruns flesh, moves, export and review - study_man 18 s against 31 s for the whole build
+on the same loaded machine. On a dressed spec (an `[outfit]`) a `[flesh]` or `[moves]` change restarts from
+body instead, since flesh and moves refuse while garments are bound (`RESTARTS_FROM_BODY`). Without it every call started from an empty scene and rebuilt from body.
 `fresh=1` (`resume=False`) builds from nothing. A Blender started on a .blend of your own keeps it (a
 `body.source = "blend"` spec's source file).
 

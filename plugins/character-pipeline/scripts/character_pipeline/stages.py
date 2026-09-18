@@ -397,7 +397,8 @@ def check_not_dressed(stage):
             return f"{stage} needs bake: {ch.mesh} is not a baked mesh - run bake first"
         worn = garments_bound(ch)
         if worn:
-            return (f"garments are bound to the rig ({', '.join(worn)}) - run {stage} before garments"
+            return (f"garments are bound to the rig ({', '.join(worn)}) - run {stage} before garments, or build "
+                    "from body (a whole build restarts there by itself; fresh=1 builds from nothing)"
                     + (": rig-anything measures arm hang against every mesh on the rig" if stage == "moves"
                        else ": a garment cut first carries no jiggle weights" if stage == "flesh" else ""))
         return None
@@ -872,4 +873,10 @@ RESTARTS_FROM_BODY = {"hair": CARRIED["hair"],
                       # a bake that has to run again on a body that already has hair joined: humanform's look.skin
                       # gives every face the skin material (the hair's and eyes' too), and hair must follow it anyway
                       # and cannot go on twice - so start from body rather than bake, re-skin, then restart at hair
-                      "bake": CARRIED["hair"]}
+                      "bake": CARRIED["hair"],
+                      # flesh and moves on a dressed body: the garments were cut from (and weighted by) the body
+                      # before, and flesh/moves refuse while they are bound - a resumed build of a dressed spec
+                      # whose [flesh] or [moves] (or flesh's code or registry) changed starts over from body, as
+                      # the build did before builds resumed from the saved blend
+                      "flesh": lambda ch: bool(garments_bound(ch)),
+                      "moves": lambda ch: bool(garments_bound(ch))}

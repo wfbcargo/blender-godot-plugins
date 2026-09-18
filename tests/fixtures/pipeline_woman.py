@@ -7,7 +7,9 @@ takes it through body, bake, flesh, moves, garments and export, and saves the .b
 - a garment bound to the rig makes the moves stage refuse, naming the order;
 - a spec that still names the removed `export.height` is rejected;
 - a second Blender opens the saved .blend and runs the export stage alone (`from_stage="export"`,
-  forced): the manifest it writes must equal the first one - the fresh-session resume 01 asks for.
+  forced): the manifest it writes must equal the first one - the fresh-session resume 01 asks for;
+- last, a `[flesh]` edit on the dressed file restarts the whole build from body (flesh refuses while
+  garments are bound), and with flesh taken out of `RESTARTS_FROM_BODY` (the control) it refuses.
 
 The golden holds the stage statuses, what each stage reports that a person would check (the body's
 stature, moves passed, flesh regions, garments passed and what they hide), the flesh stage's found
@@ -218,7 +220,7 @@ def build():
     moves = first["moves"]["report"]
     garments = first["garments"]["report"]["garments"]
     flesh = first["flesh"]["report"]
-    return {
+    result = {
         "stages": _statuses(first),
         "rerun": _statuses(again),
         "refused": refused,
@@ -248,6 +250,37 @@ def build():
         "review_meshes": first["review"]["report"]["meshes"],
         "skin": _skin(ch, first["export"]["report"]["glb"]),
     }
+    # last, as it rebuilds the body: a [flesh] edit on this dressed file (what a resumed build of Belle meets)
+    result["dressed_flesh_edit"] = _dressed_flesh_edit(ch)
+    return result
+
+
+def _dressed_flesh_edit(ch):
+    """A whole build whose [flesh] changed on a file with the garments bound restarts from body (flesh refuses
+    while garments are bound). Control first, while the file is still dressed: without flesh in
+    `RESTARTS_FROM_BODY` the same build must refuse. to_stage=flesh and save=False, so nothing this fixture
+    exported or saved is rewritten."""
+    import dataclasses
+    from character_pipeline import runner, stages
+    edited = dataclasses.replace(ch, flesh=dataclasses.replace(ch.flesh, limit_share={"butt": 0.85}))
+    out = {"bound_before": stages.garments_bound(edited)}
+    kept = stages.RESTARTS_FROM_BODY.pop("flesh")
+    try:
+        runner.build(edited, to_stage="flesh", save=False, log=lambda m: None)
+        out["control"] = "built (it must refuse)"
+    except stages.StageRefused as exc:
+        out["control"] = "refused: names garments %s, names fresh=1 %s" % ("garments are bound" in str(exc),
+                                                                           "fresh=1" in str(exc))
+    finally:
+        stages.RESTARTS_FROM_BODY["flesh"] = kept
+    try:
+        r = runner.build(edited, to_stage="flesh", save=False, log=lambda m: None)
+        out["statuses"] = _statuses(r)
+        out["restarted"] = r["build"].get("restarted")
+    except stages.StageRefused as exc:
+        out["refused"] = str(exc)
+    out["bound_after"] = stages.garments_bound(edited)
+    return out
 
 
 H.run("pipeline_woman", build)

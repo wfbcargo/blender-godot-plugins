@@ -28,7 +28,9 @@ stage ran, the manifest's `build` block (rewritten once review has run, so it is
 Stages that put something on the body nothing takes off (hair, muscle: `stages.RESTARTS_FROM_BODY`) are not
 run a second time on a body that has it: a whole build (no `from_stage`, or `from_stage="body"`) whose
 `[hair]` or `[muscle]` changed rebuilds from body, forced, and says so in `report["build"]["restarted"]`; a
-build started later than body still refuses (the stage's own check).
+build started later than body still refuses (the stage's own check). Flesh and moves are there too for a
+dressed body: they refuse while garments are bound, so a whole build whose `[flesh]` or `[moves]` changed on
+a dressed file restarts from body.
 """
 
 from __future__ import annotations
@@ -285,6 +287,9 @@ def _build(ch, from_stage, to_stage, force, log, q, forced):
                 log(f"[{ch.id}] {name}: what it reads changed: {', '.join(moved)}")
         again = stages.RESTARTS_FROM_BODY.get(name)
         if again is not None and restartable and again(ch):
+            if name in ("flesh", "moves"):
+                raise _Restart(f"{name} changed and garments are bound to the rig ({', '.join(stages.garments_bound(ch))}): "
+                               "rebuilding from body")
             raise _Restart(f"{name} changed and the body already carries it (it cannot be taken off): "
                            "rebuilding from body")
         problem = check(ch)
