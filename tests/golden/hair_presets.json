@@ -11,6 +11,8 @@
  "report": {
   "brief_refusal": [
    "hair must be {'preset': one of ('short_crop', 'bob', 'bun', 'ponytail', 'long_loose'), 'colour': (r, g, b)}",
+   "hair brow_shape 'bushy' is not one of ('natural', 'straight', 'arched', 'soft')",
+   "hair colour must be an (r, g, b) screen colour with channels 0..1",
    "hair brow_shape 'bushy' is not one of ('natural', 'straight', 'arched', 'soft')"
   ],
   "face": {
@@ -177,6 +179,9 @@
     "bob": {
      "edge_wander_mm": 0.0,
      "feather_mm": 9.18,
+     "fringe_ok": false,
+     "fringe_ratio": 0.0478,
+     "fringe_rows": 53,
      "ok": false,
      "v_10_90": [
       0.0278,
@@ -184,23 +189,74 @@
      ]
     },
     "control_fails": true,
+    "control_short_crop_comb": {
+     "edge_wander_mm": 2.21,
+     "feather_mm": 10.55,
+     "fringe_ok": false,
+     "fringe_ratio": 0.0497,
+     "fringe_rows": 61,
+     "ok": true,
+     "v_10_90": [
+      0.0425,
+      0.0952
+     ]
+    },
     "control_short_crop_without_look": {
      "edge_wander_mm": 0.0,
      "feather_mm": 9.18,
+     "fringe_ok": false,
+     "fringe_ratio": 0.0478,
+     "fringe_rows": 53,
      "ok": false,
      "v_10_90": [
       0.0278,
       0.0737
      ]
     },
+    "edge_wobble": {
+     "control_fails": true,
+     "control_wobble_off_mm": 0.0,
+     "edge_wobble_m": 0.003,
+     "loops": 9824,
+     "loops_moved": 6777,
+     "min_mm": 1.0,
+     "moved_max_mm": 3.0,
+     "ok": true
+    },
+    "fringe_control_fails": true,
+    "line_u": {
+     "control_fails": true,
+     "control_line_u_off": {
+      "faces": 783,
+      "line_u": null,
+      "median_deg": 35.53,
+      "share_under_45": 0.5951
+     },
+     "min_median_deg": 50.0,
+     "ok": true,
+     "on": {
+      "faces": 783,
+      "line_u": {
+       "line_u_m": 0.03,
+       "turned_deg_max": 19.73,
+       "verts": 1968
+      },
+      "median_deg": 57.72,
+      "share_under_45": 0.3461
+     }
+    },
+    "min_fringe_ratio": 0.1,
     "min_wander_mm": 1.0,
     "short_crop": {
-     "edge_wander_mm": 2.21,
-     "feather_mm": 10.55,
+     "edge_wander_mm": 2.34,
+     "feather_mm": 10.94,
+     "fringe_ok": true,
+     "fringe_ratio": 0.1607,
+     "fringe_rows": 62,
      "ok": true,
      "v_10_90": [
-      0.0425,
-      0.0952
+      0.0376,
+      0.0923
      ]
     }
    },
@@ -457,6 +513,7 @@
      "ear_covered_verts": 0,
      "faces": 2544,
      "faces_from_body": 636,
+     "line_u": null,
      "strand_turns": 14,
      "thick_mm": [
       0.6,
@@ -545,6 +602,7 @@
      "ear_covered_verts": 0,
      "faces": 2544,
      "faces_from_body": 636,
+     "line_u": null,
      "strand_turns": 14,
      "thick_mm": [
       0.6,
@@ -634,6 +692,7 @@
      "ear_covered_verts": 0,
      "faces": 2544,
      "faces_from_body": 636,
+     "line_u": null,
      "strand_turns": 14,
      "thick_mm": [
       0.6,
@@ -772,6 +831,7 @@
      "ear_covered_verts": 0,
      "faces": 2544,
      "faces_from_body": 636,
+     "line_u": null,
      "strand_turns": 14,
      "thick_mm": [
       0.6,
@@ -909,6 +969,11 @@
      "ear_covered_verts": 0,
      "faces": 2456,
      "faces_from_body": 614,
+     "line_u": {
+      "line_u_m": 0.03,
+      "turned_deg_max": 19.73,
+      "verts": 1968
+     },
      "strand_turns": 14,
      "thick_mm": [
       0.6,
@@ -969,8 +1034,8 @@
     "parts": {},
     "uv_tangent_turn": {
      "hair": {
-      "max_deg": 80.9,
-      "over_35_deg": 83,
+      "max_deg": 86.2,
+      "over_35_deg": 246,
       "tris": 4912
      }
     }
