@@ -25,6 +25,7 @@ node <skill>/bin/lookdev.mjs compare --project . --a <capture dir> --b <capture 
 node <skill>/bin/lookdev.mjs close-shot --project . --glb res://assets/x/x.glb --distance 1 --presets clear_midday,overcast
 node <skill>/bin/lookdev.mjs tone    --project . --glb res://assets/x/x.glb [--material skin] [--expect 0.86,0.68,0.57]
 node <skill>/bin/lookdev.mjs selftest --project .
+node <skill>/bin/lookdev.mjs stipple <tile.png> --region x,y,w,h      # no Godot, < 2 s
 ```
 
 | Command | What it gives you |
@@ -35,7 +36,8 @@ node <skill>/bin/lookdev.mjs selftest --project .
 | `compare` | `<name>_ab.png` and `_ba.png` side by side, plus stat deltas. |
 | `close-shot` | **Judge a character in Godot with one command.** A labelled sheet of close-ups of one glb, one row per view, one column per preset, optionally beside its Blender close set (`--pair-blender`), ~10-15 s. Details below. |
 | `tone` | Mean albedo per material over the texels its UVs cover (padding ignored), linear and sRGB; `ok` is 0.01-0.9 linear luminance, so a black albedo fails. Headless, < 1 s. |
-| `selftest` | Runs the controls: every check above fails on a case built to fail (0-material lint and capture, unwritable `--out`, black albedo, no skeleton, a missing bone, interior_daylight on an open stage) and passes its positive twin; close-shot's tile checks each fail on a camera moved off its subject (EMPTY_TILE, OFF_TARGET), `--min-subject` (SUBJECT_SMALL) and `--label inside` (LABEL_OVER_HEAD), and `--pair-blender` on a small fake set pairs and names the unpaired views. About 50 s. Run it after changing any tool; `regress.py --godot` runs it. |
+| `stipple` | **A dithered lattice in shadowed skin**, the stipple Godot's default soft-low shadow filter drew on necks and fingers under a sun. Give it a close-shot tile and a region on the skin (pixels, or fractions when every number is at most 1). It keeps shadowed, smooth, warm pixels at least 3 px from anything else, high-passes luma, and in 96 px windows looks for a detail that repeats along two directions (correlation at a lag less that at half the lag, the weaker of the best lag and the best one 30 deg away from it); `lattice` >= 0.25 at >= 1.2% contrast is a stipple, exit 1. Hair, lashes and aliased silhouettes also repeat, so aim the region at skin. |
+| `selftest` | Runs the controls: every check above fails on a case built to fail (0-material lint and capture, unwritable `--out`, black albedo, no skeleton, a missing bone, interior_daylight on an open stage, the Step 0 neck and fingers for `stipple`) and passes its positive twin; close-shot's tile checks each fail on a camera moved off its subject (EMPTY_TILE, OFF_TARGET), `--min-subject` (SUBJECT_SMALL) and `--label inside` (LABEL_OVER_HEAD), and `--pair-blender` on a small fake set pairs and names the unpaired views. About 50 s. Run it after changing any tool; `regress.py --godot` runs it. |
 
 Exit codes: `lint` exits 1 on any error finding - including `NO_MATERIALS`, a scene with nothing to check
 (lint does not run scripts, so a stage built in `_ready` is invisible to it; use `capture` or `close-shot`,
@@ -236,10 +238,19 @@ LookdevMaterials.apply(scene)    # godot/addons/lookdev/lookdev_materials.gd - c
 Strand texture with a root-to-tip gradient and alpha that fades toward the roots and thins at the tips
 (glTF MASK), a strand normal map, Principled anisotropy in Blender, and a `lookdev` custom property that glTF
 carries as material extras and `LookdevMaterials.apply` turns into StandardMaterial3D anisotropy, backlight,
-rim, specular and a depth pre-pass blend (so the hairline fades instead of cutting), and tangents from U on
+rim, specular and a depth pre-pass blend (so the hairline fades instead of cutting), its alpha extras (the
+albedo's mipmaps rebuilt so every level keeps level 0's coverage over 0.5, and alpha ramped over 0.5 +- 0.25:
+strands at the hairline, not a smeared film), and tangents from U on
 the hair's surfaces - per face, then averaged mod 180 degrees where faces meet, so the anisotropic highlight
 neither glints where a shell's UV frame turns nor facets into dark polygons where it turns fast, with no need
-for the exporter to write tangents. See `references/hair.md`.
+for the exporter to write tangents. `strand_texture` has a `card` mode (strands with gaps all the way along,
+no opaque middle) and `hair.material(pixels=(colour, normal))` takes a caller's own hairs (humanform's brow and
+lash cards), so nobody overwrites the images it made. See `references/hair.md`.
+
+**Lighting presets set the directional soft-shadow filter to high** (`sun.soft_shadow_filter_quality`, applied
+project-wide through RenderingServer by `LookdevPresets.apply`; `preset` warns that a scene cannot carry it). At
+Godot's default, soft low, a 0.5 deg sun drew a regular lattice of lit dots over shadowed skin (a neck under the
+chin, the sides of fingers); the transmittance, pores, subsurface and the hair's shadow were each ruled out.
 
 **Skin** (humanform's `look.skin`, realistic by default) reaches Godot the same way: the procedural skin is
 baked by `bake.bake_material(obj, material, out_dir, size)` - one material rebuilt in place from albedo, ORM

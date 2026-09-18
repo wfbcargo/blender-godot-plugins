@@ -9,6 +9,7 @@
 //   node lookdev.mjs close-shot --project <dir> --glb res://x.glb [--distance 1] [--presets a,b] [...]
 //   node lookdev.mjs tone     --project <dir> --glb <file.glb> [--material skin]
 //   node lookdev.mjs selftest --project <dir>   (the controls: every check here must be able to fail)
+//   node lookdev.mjs stipple  <png> [--region x,y,w,h]   (a dithered lattice in shadowed skin; no Godot)
 //
 // Every subcommand runs a GDScript from ../godot against the project, then reads
 // back what it wrote. Godot fails quietly - a broken scene loads with nodes
@@ -22,6 +23,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { stippleCommand } from "./stipple.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -852,6 +854,13 @@ async function selftest(args) {
   };
   const firstLine = (out, re) => (out.split(/\r?\n/).find((l) => re.test(l)) ?? out.trim().split(/\r?\n/).pop() ?? "").trim();
 
+  // stipple: the Step 0 renders' neck and fingers (soft low shadow filter) must stipple, the same neck at soft high not
+  for (const [png, want] of [["stipple_neck_soft_low.png", true], ["stipple_fingers_soft_low.png", true], ["stipple_neck_soft_high.png", false]]) {
+    const st = await runSelf(["stipple", fwd(path.join(HERE, "controls", png))], 120);
+    const said = firstLine(st.out, /STIPPLE|clean/);
+    check(`stipple on ${png} ${want ? "reports the lattice" : "is clean"}`, want ? st.code === 1 && /STIPPLE/.test(st.out) : st.code === 0 && /clean/.test(st.out), said.slice(0, 160));
+  }
+
   // tone: a black albedo is not ok, an 18% grey one reads 0.18
   const tres = await runGodot(godot, ["--headless", "--path", project, "--script", `${GODOT_DIR}/glb_tone.gd`, "--", "--selftest", "--out-dir", `${dir}/tone`], 120);
   const toneLines = tres.out.split(/\r?\n/).filter((l) => l.startsWith("TONE_SELFTEST"));
@@ -968,6 +977,7 @@ const USAGE = `lookdev - lighting and shading tools for Godot
   tone     --project <dir> --glb <res://|path> [--material skin] [--expect r,g,b] [--json]
   selftest --project <dir> [--glb <rigged character>]   run the controls (each must fail)
   compare  --project <dir> --a <png|capture dir> --b <png|capture dir> [--views lit,unshaded] [--out dir]
+  stipple  <png> [--region x,y,w,h | fx,fy,fw,fh] [--out crop.png] [--json]   exit 1 when shadowed skin stipples
 
 Views: lit unshaded lighting normal overdraw ssao ssil pssm sdfgi sdfgi_probes gi_buffer voxel_gi_lighting luminance
 Set targets: @env @sun @camera @world or a node path, e.g. --set "Sun:light_energy=2" --set "@env:ssao_enabled=true"
@@ -975,7 +985,8 @@ Godot binary: --godot <path>, LOOKDEV_GODOT, GODOT_PATH, or the project's .mcp.j
 
 const args = parseArgs(process.argv.slice(2));
 const cmd = args._[0];
-const commands = { capture, lint, preset, compare, presets: listPresets, "close-shot": closeShot, tone, selftest };
+const commands = { capture, lint, preset, compare, presets: listPresets, "close-shot": closeShot, tone, selftest,
+  stipple: (a) => stippleCommand(a, die) };
 if (!cmd || args.help || !commands[cmd]) {
   console.log(USAGE);
   process.exit(cmd && !args.help ? 2 : 0);

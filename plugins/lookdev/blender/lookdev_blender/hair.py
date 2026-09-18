@@ -124,7 +124,12 @@ def strand_texture(colour_linear, p, seed=0):
         shade[:, wrapped] = np.where(better, (p["gap_mult"] + (1 - p["gap_mult"]) * prof) * bright,
                                      shade[:, wrapped])
 
-    body = _smooth(r1 - 0.01, r1 + 0.005, v) * (1 - _smooth(t0 - 0.005, t0 + 0.01, v))   # opaque middle
+    # a shell has an opaque middle between the thinned roots and tips (it hides the scalp); a card has none -
+    # its strands with gaps between them all the way along, so a card over skin shows skin between the hairs
+    if p.get("mode", "shell") == "card":
+        body = np.zeros(H)
+    else:
+        body = _smooth(r1 - 0.01, r1 + 0.005, v) * (1 - _smooth(t0 - 0.005, t0 + 0.01, v))   # opaque middle
     alpha = np.maximum(body[:, None], cover)
     # toward the root, coverage fades rather than stopping: Blender and glTF's MASK cut it at 0.5, so strands
     # thin out toward the hairline; Godot's depth pre-pass blends the rest, so the hairline is a soft fade
@@ -146,9 +151,14 @@ def strand_texture(colour_linear, p, seed=0):
     return out, normal
 
 
-def material(name, colour, preset_name="hair", seed=0, uv_map=None, **overrides):
+def material(name, colour, preset_name="hair", seed=0, uv_map=None, pixels=None, **overrides):
     """A Principled hair material, reused and rebuilt by name. `colour` is the hair's mid-length screen
     (sRGB) colour; the texture darkens it toward the roots and lightens it toward the tips.
+
+    `pixels` is (colour, normal) as `strand_texture` returns them - (H, W, 4) arrays, rows bottom-up, colour
+    sRGB with straight alpha - for a caller that draws its own hairs (humanform's brow and lash cards, its
+    sparse body hair). They become the material's images in place of the preset's strands, so a caller never
+    has to overwrite the pixels of an image this function made (the report's `pixels` says whose they are).
 
     Returns (material, report). The report says what glTF will carry and what Godot must re-apply."""
     p = preset(preset_name, **overrides)
@@ -158,7 +168,13 @@ def material(name, colour, preset_name="hair", seed=0, uv_map=None, **overrides)
     old = bpy.data.images.get(img_name)
     if old is not None:
         bpy.data.images.remove(old)
-    colour_px, normal_px = strand_texture(lin, p, seed=seed)
+    if pixels is not None:
+        colour_px, normal_px = (np.asarray(a, np.float64) for a in pixels)
+        if colour_px.shape[2] != 4 or normal_px.shape != colour_px.shape:
+            raise ValueError(f"pixels must be two (H, W, 4) arrays of one size, got {colour_px.shape} and {normal_px.shape}")
+        H, W = colour_px.shape[:2]
+    else:
+        colour_px, normal_px = strand_texture(lin, p, seed=seed)
     img = bpy.data.images.new(img_name, W, H, alpha=True)
     img.colorspace_settings.name = "sRGB"
     img.alpha_mode = "STRAIGHT"
@@ -233,8 +249,12 @@ def material(name, colour, preset_name="hair", seed=0, uv_map=None, **overrides)
     mat["lookdev"] = {"preset": preset_name, "godot": g}
     if p.get("mesh"):
         mat["lookdev"]["mesh"] = dict(p["mesh"])
+    if p.get("alpha"):
+        mat["lookdev"]["alpha"] = dict(p["alpha"])
     report = {"material": mat.name, "image": img.name, "texture_px": [W, H], "tile_m": p["tile_m"],
               "colour_linear": [round(c, 4) for c in lin], "gltf": {"alphaMode": "MASK", "alphaCutoff": 0.5,
               "baseColorTexture": img.name,
-              "normalTexture": nimg.name}, "godot_extras": g, "mesh_extras": p.get("mesh")}
+              "normalTexture": nimg.name}, "godot_extras": g, "mesh_extras": p.get("mesh"),
+              "alpha_extras": p.get("alpha"), "mode": p.get("mode", "shell"),
+              "pixels": "caller" if pixels is not None else "preset"}
     return mat, report
