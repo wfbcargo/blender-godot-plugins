@@ -122,3 +122,62 @@ Final `--quick --jobs 2` after the golden (14:55-14:57): `REGRESS DONE exit=0, 9
 - Cost: the lash lift (8 min, reverted); the scalloped first hairline (one build); a bash heredoc with nested
   quotes failed to parse (use Write for Python edit scripts); pipeline builds took 60-80 s each under load
   (hair changes restart from body).
+
+## Fix round after critic 1 (15:01-)
+
+Critic 1: Q1 not met. At 1 m study_man's hairline was still a band of dark comb-like spikes over a smooth dark
+cap, and from the side a helmet with a spiky rim. Minor points: `sheet.validate` reported only the first of a bad
+colour and a bad brow_shape; `edge_wobble_m` had no check of its own. Scratch for this round: `%TEMP%/rw/hhl2/`
+(`preview.py` draws the cap texture near the line over skin, at 0.1 mm/px and at 1 m pixel size, pure numpy
+under Blender's Python; `uvshear.py` measures the angle between U and V on the exported cap; `shot1m.sh` =
+close-shot at 1 m unpaired).
+
+1. **The front: edge hairs (kept).** `preview.py` of round 1's look reproduced the comb. The long strands rooted
+   up to 1.5 cm in front of the dense start, all parallel and full dark. New lookdev settings (off at the
+   defaults, own random stream seed + 15485): `edge_hairs` short thin hairs per tile scattered in front of the
+   dense start, denser nearer it (`edge_power`), up to `edge_depth` in front with that reach itself wandering
+   (0.4-1.6 x), each leaning off a slowly turning direction (`edge_lean`), lighter toward the front
+   (`edge_tone`). short_crop: 900 per tile, width 0.2-0.4 pitch, lean 9 texels, and the long strands rooted
+   close to the dense start (`root_power` 0.15, so no long spikes left). A little more lock and strand variation
+   on the dome (`lock_jitter` 0.5, `strand_jitter` 0.25, `gap_mult` 0.6). Iterated in `preview.py` (e1-e6), and
+   `z_r2_texture_preview.png` is the kept look. The first scatter (500 hairs, thick) read as dark stubble or a
+   band of grass with a ruled lower edge. Thinner, denser, lighter hairs with a wandering reach fixed that.
+   In Godot at 1 m (`z_r2_front_1m.png`, round 1 left, now right) the comb is gone. The hairline thins through
+   scattered fine hairs.
+2. **The side: the UVs, not the texture.** The temples and sideburns still showed long diagonal spikes after
+   step 1. `uvshear.py` on the exported cap found the cause. Near the line on the sides (|x| > 7 cm, V < 0.12),
+   U and V met at a median of 26 degrees (front: 82). U runs round the strand axis (azimuth 180, elevation 70),
+   and where the hairline runs steeply the axis's U lines cross it at a slant, so the root zone sheared into
+   spikes. New humanform `line_u_m` (off at the defaults; short_crop 3 cm): within it, U is the axis angle at the
+   foot of the vertex on the line (one Newton step down the tangent-plane gradient of `d`), eased back to the
+   axis's U by 3 cm.
+   - First build: side median 26 -> 63 degrees and the spikes gone. But faceted blotches appeared behind the
+     temple, because `d`'s gradient jumps where the ear distance takes over.
+   - Relaxed the turn over the mesh (8 passes, then 16): the blotches went, but the shear came back partly (side
+     median 45).
+   - Held the relaxation at the line (weight 0 at d = 0, full from 0.9 cm in). Kept: no facets
+     (`z_r2_side_1m.png`: round 1, edge hairs only, both), and near-line median on study_man 61 degrees.
+3. **Checks (each with a control that must fail, and does).** In the fixture, on the curvy woman:
+   - `hairline_feather.*.fringe_ratio`: in the thinning band, the mean |d alpha / d mm| along V over across U.
+     short_crop 0.161; the control (round 1's comb look) 0.050; bob 0.048. Floor 0.1.
+   - `hairline_feather.line_u`: the median U-V angle on cap faces within 8 mm of the line at |x| > 4 cm. 57.7
+     degrees, against 35.5 with `line_u_m` 0 (the control). Floor 50. I first guessed 60 before measuring; that
+     was never committed, and the floor was set once from these numbers.
+   - `hairline_feather.edge_wobble`: `edge_wobble_m` moves the cap's V by at most 3.0 mm near the line; the
+     control, off against off, moves 0.0 mm. Floor 1 mm.
+   - `sheet.validate` now checks brow_shape on its own. The fixture's brief with a bad colour and a bad
+     brow_shape reports both.
+4. **What moved in the golden** (its own commit, 9567dc5):
+   - short_crop edge wander 2.21 -> 2.34 mm, feather 10.55 -> 10.94 mm.
+   - The new keys, plus `cap.line_u` (null on every other preset).
+   - short_crop `uv_tangent_turn.hair.over_35_deg` 83 -> 246 (max 80.9 -> 86.2). This is the cost of the line-U
+     turn: more per-face tangent turn. Godot's `strand_tangents` averages tangents, and the 1 m sheet shows no
+     dark facets in the sheen under clear_midday or overcast. It is recorded here and left open.
+   - No other preset's numbers moved.
+
+Honest read at 1 m (`%TEMP%/rw/hhl2/r6/sheet.png`):
+- Front and 3/4: the hairline is feathered. Fine hairs thin out unevenly over about 1 cm, with no comb.
+- Side: the temple and sideburn edge now thins out in fine hairs instead of long diagonal spikes.
+- Still open: the cap as a whole is a smooth, dark, slicked shape (its volume, and colour variation beyond the
+  locks). Short hair also needs a shape that is not a shell 3.5 mm thick.
+- A small patch just above the ear still shows a few crossing hairs.
