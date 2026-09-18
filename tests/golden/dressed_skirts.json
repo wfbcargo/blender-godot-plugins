@@ -1,9 +1,9 @@
 {
  "fixture": "dressed_skirts",
  "plugins": {
-  "follow-through": "0.4.0",
-  "rig-anything": "0.21.0",
-  "wardrobe": "0.2.2"
+  "follow-through": "0.5.1",
+  "rig-anything": "0.23.0",
+  "wardrobe": "0.3.0"
  },
  "report": {
   "body": {
@@ -80,7 +80,7 @@
     "export": {
      "edge": 642,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-1jq5bq8_\\a\\dressed_skirts\\dressed_skirts\\dress.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-niqhjx6d\\a\\dressed_skirts\\dressed_skirts\\dress.glb",
      "garment": "Dress",
      "hem_bones": 24,
      "hem_head_error_m": 1e-06,
@@ -265,7 +265,7 @@
     "export": {
      "edge": 108,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-1jq5bq8_\\a\\dressed_skirts\\dressed_skirts\\skirtknee.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-niqhjx6d\\a\\dressed_skirts\\dressed_skirts\\skirtknee.glb",
      "garment": "SkirtKnee",
      "hem_bones": 24,
      "hem_head_error_m": 1e-06,
@@ -450,7 +450,7 @@
     "export": {
      "edge": 66,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-1jq5bq8_\\a\\dressed_skirts\\dressed_skirts\\skirtmini.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-niqhjx6d\\a\\dressed_skirts\\dressed_skirts\\skirtmini.glb",
      "garment": "SkirtMini",
      "hem_bones": 24,
      "hem_head_error_m": 1e-06,
@@ -652,7 +652,7 @@
     "export": {
      "edge": 381,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-1jq5bq8_\\a\\dressed_skirts\\dressed_skirts\\skirtsoft.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-niqhjx6d\\a\\dressed_skirts\\dressed_skirts\\skirtsoft.glb",
      "garment": "SkirtSoft",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
