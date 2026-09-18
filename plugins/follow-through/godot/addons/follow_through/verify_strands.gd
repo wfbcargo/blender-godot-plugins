@@ -15,9 +15,11 @@ extends SceneTree
 ##                                                        peak and under 2 deg; peak_deg reported
 ##   fling    knocked back at 3 m/s so the strands are    head_penetration_m <= 0.005
 ##            thrown forward at the head, 2 s
-##   run      the clip, looped, 4 s                       swing_deg >= 3 (tip deflection in the
-##                                                        root bone's frame, after the first 0.5 s)
-##                                                        head_penetration_m <= 0.005
+##   run      the clip, looped, 9 s                       swing_deg >= 3: the largest tip deflection
+##                                                        in the root bone's frame once the run has
+##                                                        settled (3-9 s); start_swing_deg the same
+##                                                        over 0.5-4.5 s, as the run gets going
+##                                                        head_penetration_m <= 0.005 (0.5-9 s)
 ##   hitch    one 0.75 s frame mid-run, then 0.5 s        the frame simulates at most
 ##            at the rate again                           StrandModifier.MAX_STEPS steps and drops the
 ##                                                        rest; head_penetration_m <= 0.005
@@ -29,8 +31,17 @@ extends SceneTree
 ## frame, read between cells). A strand vertex counts by how much deeper it is than it was at rest,
 ## so a root grown into the scalp is not a penetration.
 ##
-## Across rates: the run's swing_deg within 25% of each other (max / min <= 1.25).
+## Across rates: the run's swing_deg within 25% of each other (max / min <= 1.25), and its
+## start_swing_deg too. Both windows, because a strand can swing alike at every rate while the run
+## gets going and settle differently (follow-through 0.6.3's first attempt: 1.13 at the start, 1.29
+## settled), or the other way round (0.6.2 on study_woman: 1.26 at the start, 1.21 settled).
+## warmup=, settle_s= and run_s= move the windows (0.5, 2.5 and 8.5 s: the start window is the first
+## 4 s of run_s after warmup, the settled one what is left after settle_s).
 ##
+## legacy_integration=true steps the strands as before follow-through 0.6.3 (StrandModifier's
+## legacy_integration): the run swings differently at each rate. It is regress's control and must fail
+## a spread, on pipeline_ponytail (1.39 at the start, 1.31 settled) as on study_woman (1.26 at the start).
+## mod=key:value,... sets StrandModifier properties (smooth_hz, smooth_gain, response_scale) on every modifier, for tuning.
 ## set=key:value,... overrides spring values on every bone (damping_ratio, frequency_hz, max_angle_deg,
 ## gravity_scale, response, collision_margin_m) for tuning without re-exporting.
 ## dump=<file.json> writes, for the first rate, every chain's joints (skeleton space, glTF axes) each
@@ -66,6 +77,7 @@ func _main() -> void:
 	for r in String(args.get("rates", "30,60,120,240")).split(","):
 		rates.append(int(r))
 	var swings := []
+	var starts := []
 	for rate in rates:
 		var res = await _run_rate(rate)
 		if typeof(res) != TYPE_DICTIONARY or not res.has("swing_deg"):
@@ -76,15 +88,20 @@ func _main() -> void:
 		print("FT_STRAND " + JSON.stringify(res))
 		if res.has("swing_deg"):
 			swings.append(float(res["swing_deg"]))
+			starts.append(float(res["start_swing_deg"]))
 		for f in res.get("failures", []):
 			failures.append("%d fps: %s" % [rate, f])
 	var spread := 0.0
+	var start_spread := 0.0
 	if swings.size() > 1:
 		spread = swings.max() / maxf(swings.min(), 1e-6)
+		start_spread = starts.max() / maxf(starts.min(), 1e-6)
 		if spread > 1.25:
-			failures.append("the run's swing differs across frame rates: %s deg (max/min %.2f > 1.25)" % [str(swings), spread])
+			failures.append("the run's settled swing differs across frame rates: %s deg (max/min %.2f > 1.25)" % [str(swings), spread])
+		if start_spread > 1.25:
+			failures.append("the run's starting swing differs across frame rates: %s deg (max/min %.2f > 1.25)" % [str(starts), start_spread])
 	var passed := failures.is_empty() and not results.is_empty()
-	print("FT_SUMMARY %s rates=%s swing_spread=%.3f %s" % [args["scene"], str(rates), spread, "PASSED" if passed else "FAILED"])
+	print("FT_SUMMARY %s rates=%s swing_spread=%.3f start_spread=%.3f %s" % [args["scene"], str(rates), spread, start_spread, "PASSED" if passed else "FAILED"])
 	for f in failures:
 		print("  FAIL " + f)
 	quit(0 if passed else 1)
@@ -128,6 +145,12 @@ func _run_rate(rate: int) -> Dictionary:
 		body.queue_free()
 		return out
 	var mod = mods[0]
+	for m in mods:
+		m.legacy_integration = args.get("legacy_integration", "false") == "true"
+		if args.has("mod"):
+			for pair in String(args["mod"]).split(","):
+				var kv: PackedStringArray = pair.split(":")
+				m.set(kv[0], float(kv[1]))
 	var skel: Skeleton3D = mod.get_skeleton()
 	out["build"] = mod.report.duplicate()
 	out["build"].erase("problems")
@@ -202,22 +225,28 @@ func _run_rate(rate: int) -> Dictionary:
 		out["clip"] = clip
 		ap.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
 		ap.play(clip)
-		await _steps(ap, skel, dt, 0.5, state)
+		await _steps(ap, skel, dt, float(args.get("warmup", "0.5")), state)
 		state["pen"] = 0.0
 		state["pen_at"] = []
 		for m in mods:
 			m.reset_stats()
 		state["phase"] = "run" if dumping else ""
-		var swing: Array = await _steps(ap, skel, dt, 4.0, state, true)
+		var run_series: Array = await _steps(ap, skel, dt, float(args.get("run_s", "8.5")), state, true)
 		state["phase"] = ""
+		var n_start := mini(int(round(4.0 / dt)), run_series.size())
+		var n_settle := mini(int(round(float(args.get("settle_s", "2.5")) / dt)), run_series.size() - 1)
+		var start: Array = run_series.slice(0, n_start)
+		var swing: Array = run_series.slice(n_settle)
 		out["swing_deg"] = snappedf(swing.max(), 0.01)
 		out["swing_mean_deg"] = snappedf(_mean(swing), 0.01)
+		out["start_swing_deg"] = snappedf(start.max(), 0.01)
 		out["run_peak_bone_angle_deg"] = mod.peak_angle_deg
 		out["run_limit_hits"] = mod.limit_hits
 		out["run_collision_hits"] = mod.collision_hits
 		out["run_head_penetration_m"] = snappedf(state["pen"], 0.0001)
 		out["run_penetration_at"] = state["pen_at"]
 		out["run_usec_per_frame"] = mod.stats()["usec_per_frame"]
+		out["run_accel_clamps"] = mod.accel_clamps
 		if swing.max() < 3.0:
 			out["failures"].append("the run swings the strands only %.2f deg" % swing.max())
 		if state["pen"] > 0.005:

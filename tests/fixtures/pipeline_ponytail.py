@@ -17,8 +17,9 @@ own spec with its bone heads where the spec puts them - and the manifest.
 Two refusals: export before the strand stage has run (the hair would ship weighted rigidly to the
 head and never swing), and the strand stage before the moves are authored.
 
-Not here: the swinging itself, which is Godot's. `verify_strands.gd` on this character's exports is
-in follow-through's strands reference.
+Not here: the swinging itself, which is Godot's. `regress.py --godot` runs `verify_strands.gd` on this
+character's exports at 30/60/120/240 fps, and its pre-0.6.3 integration as a control that must fail
+(GODOT_STRANDS).
 """
 import json
 import os
