@@ -44,6 +44,8 @@ that belong to a plugin.
                                  # <id>_hair.glb beside the body
     [flesh]                      # optional: follow-through
     types = ["breast", "butt"]
+    may_miss = []                # types the stage may come back without; any other type in `types`
+                                 # that finds no mass fails the flesh stage, naming why with numbers
     [[flesh.zones]]              # optional: marked on the flesh sheet when the measure is wrong
     [[outfit]]                   # optional: wardrobe presets, innermost first
     preset = "sports_top"
@@ -145,6 +147,7 @@ class Flesh:
     types: list = field(default_factory=list)
     zones: list = field(default_factory=list)
     limit_share: dict = field(default_factory=dict)   # overrides the type's own
+    may_miss: list = field(default_factory=list)      # types the flesh stage may come back without
 
 
 @dataclass
@@ -305,10 +308,14 @@ def parse(data, path=None):
     flesh = None
     if "flesh" in data:
         f = data["flesh"]
-        _unknown(f, ("types", "zones", "limit_share"), "[flesh]")
+        _unknown(f, ("types", "zones", "limit_share", "may_miss"), "[flesh]")
         flesh = Flesh(types=list(_take(f, "types", list, default=[])),
                       zones=list(_take(f, "zones", list, default=[])),
-                      limit_share=dict(_take(f, "limit_share", dict, default={})))
+                      limit_share=dict(_take(f, "limit_share", dict, default={})),
+                      may_miss=list(_take(f, "may_miss", list, default=[])))
+        stray = [t for t in flesh.may_miss if t not in flesh.types]
+        if stray:
+            raise SpecError(f"[flesh] may_miss names {stray}, which types does not ask for ({flesh.types})")
     outfit = []
     for i, g in enumerate(_take(data, "outfit", list, default=[])):
         _unknown(g, ("preset", "name", "colour"), f"[[outfit]] {i}")

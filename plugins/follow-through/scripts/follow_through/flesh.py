@@ -394,7 +394,7 @@ def tissue(obj_name, rig_name=None, side=SIDE_BONES):
                 if len(hit):
                     R[k, s] = np.median(hit)
             rings += 1
-        env = np.nanmin(np.stack([_lower_envelope(R, h) for h in halves]), axis=0)
+        env = _nanmin_quiet(np.stack([_lower_envelope(R, h) for h in halves]))
         lv = env[k_of, s_of]
         good = ~np.isnan(lv)
         lean[idx[good]] = lv[good]
@@ -471,8 +471,25 @@ def _lower_envelope(R, half):
     out = env.copy()
     for s in range(ns):
         stack = np.stack([env[:, (s - 1) % ns], env[:, s], env[:, (s + 1) % ns]])
-        out[:, s] = np.nanmean(stack, axis=0) if not np.all(np.isnan(stack)) else np.nan
+        out[:, s] = _nanmean_quiet(stack)
     return np.where(np.isnan(env), np.nan, out)
+
+
+# A ring with too few vertices to build (a sliver at a chain's end, a sector no vertex faces) is NaN
+# all the way down its column, and numpy's nanmin / nanmean warn on every such column. The warnings
+# read like failures in a build log and meant nothing: these give the same numbers without them.
+
+def _nanmin_quiet(stack):
+    """np.nanmin(stack, axis=0), NaN where a column is all NaN, without the RuntimeWarning."""
+    return np.fmin.reduce(stack, axis=0)
+
+
+def _nanmean_quiet(stack):
+    """np.nanmean(stack, axis=0), NaN where a column is all NaN, without the RuntimeWarning."""
+    ok = ~np.isnan(stack)
+    n = ok.sum(axis=0)
+    total = np.where(ok, stack, 0.0).sum(axis=0)
+    return np.where(n > 0, total / np.maximum(n, 1), np.nan)
 
 
 def _profile(t, facing_back=True):
@@ -518,7 +535,7 @@ def _profile(t, facing_back=True):
         row = np.floor((P[use, 2] - f["bottom"]) / band).astype(int)
         S = np.full((row.max() + 1, col.max() + 2), np.nan)
         np.fmax.at(S, (row, col), depth[use])
-        env = np.nanmin(np.stack([_lower_envelope(S, h) for h in halves]), axis=0)
+        env = _nanmin_quiet(np.stack([_lower_envelope(S, h) for h in halves]))
         lv = env[row, col]
         good = ~np.isnan(lv)
         v = use[good]
@@ -660,9 +677,11 @@ ORDER = ("bloater_belly", "breast", "butt", "belly", "love_handle", "arm_flab", 
 def find_regions(obj_name, rig_name=None, types=None, t=None):
     """Soft masses on a skinned body, typed by the registry's flesh zones.
 
-    Returns {"regions": [...], "declined": [...], "tissue": t, "coords": c}. Each region
-    has its vertices and weights, its size, where its jiggle bone goes, and why it got
-    its type."""
+    Returns {"regions": [...], "declined": [...], "missed": [...], "tissue": t, "coords": c}.
+    Each region has its vertices and weights, its size, where its jiggle bone goes, and why it
+    got its type. `missed` has one entry per type looked for that came out with no region at
+    all, saying why with the numbers (see `_miss`); `declined` keeps the one-line notes, which
+    also cover a type that was found on one side only."""
     from . import registry
     obj = bpy.data.objects[obj_name]
     t = t or tissue(obj_name, rig_name)
@@ -680,18 +699,21 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
     if types is not None:
         order = [x for x in order if x in types]
     claimed = np.zeros(n, dtype=bool)
+    claimed_by = np.full(n, "", dtype=object)      # which type took each vertex, for a miss's reason
     name_toks = set(registry.name_tokens(obj.name))
     min_size = max(8, int(MIN_REGION_FRACTION * n))
-    regions, declined = [], []
+    regions, declined, missed = [], [], []
     for tname in order:
         entry = flesh_types[tname]
         zone = entry["zone"]
         tt = measured(t, entry)       # rings, or the side profile for a type that asks for it
         seed_all = (tt["excess"] > SEED_EXCESS * H) & (tt["relative"] > SEED_RELATIVE) & tt["searched"]
         grow_all = (tt["relative"] > GROW_RELATIVE) & tt["searched"]
-        seeds = seed_all & _in_zone(zone, c) & ~claimed
+        in_zone = _in_zone(zone, c)
+        seeds = seed_all & in_zone & ~claimed
         if seeds.sum() < min_size:
             declined.append(f"{tname}: {int(seeds.sum())} bulging vertices in its zone")
+            missed.append(_miss(tname, entry, tt, in_zone, claimed, claimed_by, seed_all, H, min_size))
             continue
         # grow from the seeds through vertices that still bulge a little, within a
         # slightly larger zone, so the weights can feather to nothing at the edge
@@ -699,6 +721,7 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
         comps = [cmp for cmp in _components(np.where(seeds)[0], allowed, nbr) if len(cmp) >= min_size]
         if not comps:
             declined.append(f"{tname}: bulges in its zone were each under {min_size} vertices")
+            missed.append(_miss(tname, entry, tt, in_zone, claimed, claimed_by, seed_all, H, min_size, reason="too_small"))
             continue
         groups = []
         members = sorted(v for cmp in comps for v in cmp)
@@ -710,6 +733,8 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
                     groups.append((tname + suffix, verts))
         else:
             groups.append((tname, np.array(members, dtype=int)))
+        kept = 0
+        last_why = None
         for rname, verts in groups:
             reg = _region(obj, tt, c, rname, tname, entry, verts, area, normals, body_volume, nbr)
             when = entry.get("when", {})
@@ -721,14 +746,87 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
                        f"height out; has {reg['volume_fraction']:.1%} and {reg['peak_m'] / H:.1%}")
                 if not named:
                     declined.append(why)
+                    last_why = (reg, need, need_peak)
                     continue
                 reg["evidence"].append(why + " - taken anyway, the name says so")
             if named:
                 reg["evidence"].append(f"name agrees: {obj.name}")
             regions.append(reg)
             claimed[verts] = True
-    return {"object": obj.name, "rig": t["rig"], "regions": regions, "declined": declined,
+            claimed_by[verts] = tname
+            kept += 1
+        if not kept:
+            m = _miss(tname, entry, tt, in_zone, claimed, claimed_by, seed_all, H, min_size,
+                      reason="too_small" if last_why is None else "too_little")
+            if last_why is not None:
+                reg, need, need_peak = last_why
+                m.update({"volume_fraction": reg["volume_fraction"], "volume_fraction_min": need,
+                          "region_peak_m": reg["peak_m"], "peak_over_height": round(reg["peak_m"] / H, 4),
+                          "peak_over_height_min": need_peak})
+                m["message"] += (f"; its bulge holds {reg['volume_fraction']:.1%} of the body's volume (needs "
+                                 f"{need:.0%}) and stands {reg['peak_m'] / H:.1%} of its height out "
+                                 f"(needs {need_peak:.0%})")
+            missed.append(m)
+    return {"object": obj.name, "rig": t["rig"], "regions": regions, "declined": declined, "missed": missed,
             "tissue": t, "coords": c, "body_volume_m3": round(body_volume, 5)}
+
+
+def _miss(tname, entry, tt, in_zone, claimed, claimed_by, seed_all, H, min_size, reason=None):
+    """Why a flesh type looked for came out with no region, with the numbers a spec author needs.
+
+    `reason` is one of
+      zone_empty         no vertex the measure searched lies in the type's zone
+      claimed            the zone's bulge was taken by a type looked for earlier (ORDER)
+      below_threshold    the zone's skin never stands out far enough to seed a region: its peak
+                         excess (m) and relative excess against SEED_EXCESS x height and SEED_RELATIVE
+      too_small          it seeded, but fewer than `min_size` vertices, or in pieces each under it
+      too_little         a region was built but falls short of the type's `when` volume / peak
+    """
+    zone_n = int(in_zone.sum())
+    looked = in_zone & tt["searched"]
+    free = looked & ~claimed
+    need_m = SEED_EXCESS * H
+    exc = tt["excess"][free]
+    rel = tt["relative"][free]
+    peak = float(exc.max()) if len(exc) else 0.0
+    peak_rel = float(rel.max()) if len(rel) else 0.0
+    seeds = int((seed_all & free).sum())
+    seeds_claimed = int((seed_all & looked & claimed).sum())
+    takers = {}
+    for who in claimed_by[looked & claimed]:
+        takers[who] = takers.get(who, 0) + 1
+    if reason is None:
+        if not looked.any():
+            reason = "zone_empty"
+        elif seeds_claimed >= min_size and seeds < min_size:
+            reason = "claimed"
+        elif seeds == 0:
+            reason = "below_threshold"
+        else:
+            reason = "too_small"
+    out = {"type": tname, "reason": reason, "zone_vertices": zone_n, "searched": int(looked.sum()),
+           "claimed": int((looked & claimed).sum()), "peak_excess_m": round(peak, 4),
+           "seed_excess_m": round(need_m, 4), "peak_relative": round(peak_rel, 3),
+           "seed_relative": SEED_RELATIVE, "over_excess": int((free & (tt["excess"] > need_m)).sum()),
+           "over_relative": int((free & (tt["relative"] > SEED_RELATIVE)).sum()),
+           "seeds": seeds, "min_size": int(min_size),
+           "claimed_by": dict(sorted(takers.items())),
+           "measure": "profile" if (entry or {}).get("lean") == "profile" else "rings"}
+    lead = {
+        "zone_empty": f"no searched vertex in its zone ({zone_n} vertices in the zone, none on a searched ring)",
+        "claimed": (f"its zone's bulge ({seeds_claimed} seed vertices) was already taken by "
+                    + ", ".join(f"{k} ({v} vertices)" for k, v in sorted(takers.items()))
+                    + ", looked for before it"),
+        "below_threshold": "peak below threshold",
+        "too_small": f"{seeds} seed vertices, fewer than {min_size} or in pieces each under it",
+        "too_little": "a bulge too slight for the type",
+    }[reason]
+    out["message"] = (f"{tname}: {lead}: in its zone the skin stands at most {peak:.4f} m out (a seed needs "
+                      f"{need_m:.4f} m = {SEED_EXCESS} x height {H:.2f} m) and {peak_rel:.0%} of its lean "
+                      f"radius (needs {SEED_RELATIVE:.0%}); {out['over_excess']} vertices pass the first, "
+                      f"{out['over_relative']} the second, {seeds} both (a region needs {min_size}); "
+                      f"{out['searched']} of {zone_n} zone vertices searched, {out['claimed']} claimed")
+    return out
 
 
 def _grown_zone(zone):
@@ -1090,11 +1188,11 @@ def prepare(obj_name, rig_name=None, types=None, overrides=None, weight_scale=1.
         found = find_regions(obj_name, rig.name, types)
         if "error" in found:
             return found
-        regions, declined = found["regions"], found["declined"]
+        regions, declined, missed = found["regions"], found["declined"], found["missed"]
     else:
-        declined = []
+        declined, missed = [], []
     report = {"object": obj_name, "rig": rig.name, "regions": regions, "declined": declined,
-              "warnings": []}
+              "missed": missed, "warnings": []}
     if not regions:
         report["warnings"].append("no soft masses found - look at render_heat(); paint a vertex group "
                                   "and registry.teach(obj, type, group=...) if one was missed")
@@ -1197,6 +1295,8 @@ def summarize(report):
                      f"on {r['anchor_bone']} (height {p['height']:.2f}, facing {p['facing']:.0f}, {p['chain']})")
     for d in report.get("declined", []):
         lines.append("  - " + d)
+    for m in report.get("missed", []):
+        lines.append("  MISSED " + m["message"])
     s = report.get("spec")
     if s:
         for j in s["jiggle"]["regions"]:

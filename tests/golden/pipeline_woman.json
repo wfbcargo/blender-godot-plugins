@@ -9,7 +9,41 @@
  },
  "report": {
   "body_stature": 1.6985,
+  "flesh_found": {
+   "breast": [
+    "breast.L",
+    "breast.R"
+   ],
+   "butt": [
+    "butt.L",
+    "butt.R"
+   ]
+  },
   "flesh_limits_m": {},
+  "flesh_miss_judged": {
+   "missed": [
+    {
+     "claimed": 0,
+     "min_size": 43,
+     "reason": "too_little",
+     "seeds": 319,
+     "type": "bloater_belly",
+     "zone_vertices": 590
+    }
+   ],
+   "with_may_miss": {
+    "breast": [
+     "breast.L",
+     "breast.R"
+    ],
+    "butt": [
+     "butt.L",
+     "butt.R"
+    ]
+   },
+   "without_may_miss": "failed: names bloater_belly True, gives numbers True"
+  },
+  "flesh_missed": [],
   "flesh_regions": [
    "breast.L breast",
    "breast.R breast",
@@ -196,7 +230,7 @@
    "fields": {
     "first": "arm_pose",
     "last": "verified",
-    "len": 23
+    "len": 24
    },
    "gaits": {
     "Run": {
@@ -232,6 +266,60 @@
    ],
    "problems": []
   },
+  "manifest_flesh": {
+   "missed": [],
+   "regions": [
+    {
+     "bone": "ft_jiggle_breast.L",
+     "damping_ratio": 0.25,
+     "frequency_hz": 2.7,
+     "material": "soft_fat",
+     "max_offset_m": 0.0565,
+     "name": "breast.L",
+     "parent": "spine.003",
+     "peak_m": 0.0856,
+     "type": "breast"
+    },
+    {
+     "bone": "ft_jiggle_breast.R",
+     "damping_ratio": 0.25,
+     "frequency_hz": 2.7,
+     "material": "soft_fat",
+     "max_offset_m": 0.0565,
+     "name": "breast.R",
+     "parent": "spine.003",
+     "peak_m": 0.0856,
+     "type": "breast"
+    },
+    {
+     "bone": "ft_jiggle_butt.L",
+     "damping_ratio": 0.25,
+     "frequency_hz": 2.7,
+     "material": "soft_fat",
+     "max_offset_m": 0.0796,
+     "name": "butt.L",
+     "parent": "spine",
+     "peak_m": 0.0885,
+     "type": "butt"
+    },
+    {
+     "bone": "ft_jiggle_butt.R",
+     "damping_ratio": 0.25,
+     "frequency_hz": 2.7,
+     "material": "soft_fat",
+     "max_offset_m": 0.0796,
+     "name": "butt.R",
+     "parent": "spine",
+     "peak_m": 0.0885,
+     "type": "butt"
+    }
+   ],
+   "types": [
+    "breast",
+    "butt"
+   ]
+  },
+  "may_miss_stray": "[flesh] may_miss names ['belly'], which types does not ask for (['breast', 'butt'])",
   "moves": {
    "Idle": {
     "drop_m": null,

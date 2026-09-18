@@ -24,8 +24,9 @@ NONDETERMINISTIC and fails the run, and no golden is written from a build that d
 
 `--godot <project>` then copies each fixture's `.glb` and `.moves.json` into
 `<project>/_regress/`, imports them, and runs the engine-side verifiers the project's addons carry:
-every manifest through rig-anything's `verify_moves.gd`, and each fixture in GODOT_WARDROBE dressed
-and walked by wardrobe's `verify_wardrobe.gd`. The folder is removed afterwards whatever happens.
+every manifest through rig-anything's `verify_moves.gd`, each fixture in GODOT_WARDROBE dressed
+and walked by wardrobe's `verify_wardrobe.gd`, and each fixture in GODOT_FLESH's body driven round
+follow-through's `verify_flesh.gd` courses. The folder is removed afterwards whatever happens.
 It warns first when the project's addons differ from this repo's, since those are what run.
 
 Blender is found at $BLENDER, or the newest under Program Files, or `blender` on PATH; Godot at
@@ -179,6 +180,20 @@ GODOT_WARDROBE = {
     "traced_detail": {"body": "figure.glb", "garment": "top_compressed.glb,shorts_compressed.glb",
                       "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
 }
+# A pipeline fixture whose body carries flesh has it sprung in Godot by follow-through's `verify_flesh.gd`:
+# the full course with every check, then each motion alone on its own clip (walk, run; jump needs a Jump
+# clip, which only a spec listing that role has) deciding on `within_body` - does any jiggle bone swing
+# further than its mass stands out, carrying skin through the body. on_limit's 10% line is drawn on the
+# full course and a one-motion course concentrates it, so there it is printed, not decisive. `control`
+# raises every region's limit to 2 x its manifest `peak_m` (the flesh block export writes), the failure
+# within_body exists for, and must fail - so a check that stops measuring fails the harness.
+GODOT_FLESH = {
+    "pipeline_woman": {"body": "fixwoman.glb", "manifest": "fixwoman.moves.json",
+                       "runs": [("full", []),
+                                ("walk", ["course=walk", "require=within_body"]),
+                                ("run", ["course=run", "require=within_body"])],
+                       "control": ["require=within_body"]},
+}
 # The Godot addons the verifiers load from the project, and where this repo keeps each one.
 GODOT_ADDONS = {"rig_anything": "rig-anything", "wardrobe": "wardrobe", "follow_through": "follow-through"}
 GODOT_STAGE = "_regress"                         # res://_regress/<fixture>/, removed afterwards
@@ -229,7 +244,7 @@ def run_godot(godot, project, out_root, names):
     Returns [(fixture or check, passed, one-line detail)]."""
     stage = project / GODOT_STAGE
     shutil.rmtree(stage, ignore_errors=True)
-    results, manifests, wardrobe = [], [], []
+    results, manifests, wardrobe, flesh = [], [], [], []
     try:
         for name in names:
             src = out_root / name
@@ -263,7 +278,9 @@ def run_godot(godot, project, out_root, names):
                                         "skipped - its manifest has no gaits for MovesController to drive"))
             if name in GODOT_WARDROBE:
                 wardrobe.append(name)
-        if not manifests and not wardrobe:
+            if name in GODOT_FLESH:
+                flesh.append(name)
+        if not manifests and not wardrobe and not flesh:
             return results or [("godot", True, "no fixture in this run exports anything Godot checks")]
 
         code, out = _godot(godot, project, "--import")
@@ -306,9 +323,50 @@ def run_godot(godot, project, out_root, names):
                                     100 * r.get("holes_frac", 0), r.get("occluded_worst"), r.get("coincident_worst"),
                                     100 * r.get("poke_frac", 0), r.get("frames"),
                                     "".join("\n            " + p for p in r.get("problems", [])))))
+        for name in flesh:
+            results += _run_flesh(godot, project, stage / name, name)
     finally:
         shutil.rmtree(stage, ignore_errors=True)
     return results
+
+
+def _run_flesh(godot, project, where, name):
+    """GODOT_FLESH's runs on one fixture's body: [(check, passed, detail)]."""
+    spec = GODOT_FLESH[name]
+    body = sorted(where.rglob(spec["body"]))
+    manifest = sorted(where.rglob(spec["manifest"]))
+    if not body or not manifest:
+        return [("verify_flesh %s" % name, False, "the fixture did not export %s and %s" % (spec["body"], spec["manifest"]))]
+    with open(manifest[0], encoding="utf-8") as fh:
+        block = json.load(fh).get("flesh") or {}
+    regions = block.get("regions") or []
+    if not regions:
+        return [("verify_flesh %s" % name, False, "its manifest has no flesh block with regions: %s" % block)]
+    scene = "res://" + body[0].relative_to(project).as_posix()
+    raised = ",".join("%s:%.4f" % (r["name"], 2.0 * float(r["peak_m"])) for r in regions)
+    runs = [("verify_flesh %s %s" % (name, label), args, True) for label, args in spec["runs"]]
+    runs.append(("verify_flesh %s limits=2x peak_m (must fail)" % name, spec["control"] + ["limits=" + raised], False))
+    out_rows = []
+    for label, args, should_pass in runs:
+        code, out = _godot(godot, project, "--fixed-fps", "60", "-s", "res://addons/follow_through/verify_flesh.gd",
+                           "--", "scene=" + scene, *args)
+        reports = [json.loads(l[len("FT_FLESH_LIMITS "):]) for l in out.splitlines() if l.startswith("FT_FLESH_LIMITS ")]
+        verdict = [l for l in out.splitlines() if l.startswith("FT_SUMMARY")]
+        if not reports or not verdict:
+            out_rows.append((label, False, "no FT_FLESH_LIMITS / FT_SUMMARY, exit %s: %s"
+                             % (code, " | ".join(out.strip().splitlines()[-3:]))))
+            continue
+        passed = code == 0 and "PASSED" in verdict[-1]
+        rows = []
+        for rep in reports:
+            for rname, g in sorted(rep["regions"].items()):
+                rows.append("%s peak %.3f / limit %.3f / stands %.3f, on limit %.1f%%%s" % (
+                    rname, g["peak_offset_m"], g["max_offset_m"], g["peak_m"], 100 * g["on_limit_share"],
+                    "" if not g.get("advisory") else " (advisory: %s)" % ",".join(g["advisory"])))
+            rows += ["FAILED " + f for f in rep.get("failures", [])] + ["PROBLEM " + p for p in rep.get("problems", [])]
+        out_rows.append((label, passed == should_pass,
+                         verdict[-1] + "".join("\n            " + r for r in rows[:12])))
+    return out_rows
 
 
 def show(changes, was="was", now="now", limit=40):
