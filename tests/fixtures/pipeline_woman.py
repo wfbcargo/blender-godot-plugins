@@ -10,7 +10,10 @@ takes it through body, bake, flesh, moves, garments and export, and saves the .b
   forced): the manifest it writes must equal the first one - the fresh-session resume 01 asks for.
 
 The golden holds the stage statuses, what each stage reports that a person would check (the body's
-stature, moves passed, flesh regions, garments passed and what they hide), the manifest as
+stature, moves passed, flesh regions, garments passed and what they hide), the flesh stage's found
+and missed types, a type it cannot find failing the stage unless `[flesh] may_miss` lists it (judged on
+this body's own measure with `bloater_belly` added, which it has no mass for), the manifest's `flesh`
+block, the manifest as
 `moves_manifest` holds it, and the Idle clip's standing height, which `height_m.stand` must equal.
 """
 import json
@@ -116,6 +119,34 @@ def build():
     except spec.SpecError as exc:
         height_field = str(exc)
 
+    # [flesh] may_miss may only name a type the spec asks for
+    may_miss_stray = None
+    try:
+        import tomllib
+        spec.parse(tomllib.loads(SPEC.replace('types = ["breast", "butt"]',
+                                              'types = ["breast", "butt"]\nmay_miss = ["belly"]')))
+    except spec.SpecError as exc:
+        may_miss_stray = str(exc)
+
+    # a type the spec asks for that the body has no mass for: the stage's judgment on this body's own
+    # measure, failing without may_miss and passing with it. find_regions only reads the body.
+    import dataclasses
+    from follow_through import flesh as ft_flesh
+    asked = ["breast", "butt", "bloater_belly"]
+    stages._rest(ch)
+    looked = ft_flesh.find_regions(ch.mesh, ch.rig, types=asked)
+    strict = dataclasses.replace(ch, flesh=dataclasses.replace(ch.flesh, types=asked))
+    lenient = dataclasses.replace(ch, flesh=dataclasses.replace(ch.flesh, types=asked, may_miss=["bloater_belly"]))
+    miss = {"missed": [{k: m[k] for k in ("type", "reason", "seeds", "min_size", "zone_vertices", "claimed")}
+                       for m in looked["missed"]]}
+    try:
+        stages.judge_flesh(strict, looked)
+        miss["without_may_miss"] = "passed"
+    except RuntimeError as exc:
+        miss["without_may_miss"] = "failed: names bloater_belly %s, gives numbers %s" % (
+            "bloater_belly" in str(exc), " m out (a seed needs " in str(exc))
+    miss["with_may_miss"] = stages.judge_flesh(lenient, looked)["found"]
+
     manifest_path = first["export"]["report"]["moves"]
     with open(manifest_path, encoding="utf-8") as fh:
         manifest = json.load(fh)
@@ -152,6 +183,16 @@ def build():
         "flesh_regions": sorted("%s %s" % (g["name"], g["type"])
                                 for g in bpy.data.objects[ch.mesh]["follow_through"]["jiggle"]["regions"]),
         "flesh_limits_m": flesh.get("limits_m"),
+        "flesh_found": flesh.get("found"),
+        "flesh_missed": [{k: m.get(k) for k in ("type", "reason")} for m in flesh.get("missed") or []],
+        "flesh_miss_judged": miss,
+        "may_miss_stray": may_miss_stray,
+        "manifest_flesh": H.stable({"types": manifest.get("flesh", {}).get("types"),
+                                    "missed": manifest.get("flesh", {}).get("missed"),
+                                    "regions": [{k: r.get(k) for k in ("name", "type", "bone", "parent", "material",
+                                                                       "frequency_hz", "damping_ratio", "peak_m",
+                                                                       "max_offset_m")}
+                                                for r in manifest.get("flesh", {}).get("regions", [])]}),
         "garments": {name: {"passed": g.get("passed"), "verts": g.get("verts"),
                             "jiggle_groups": g.get("jiggle_groups")} for name, g in garments.items()},
         "manifest": H.moves_manifest({"manifest": manifest, "problems": first["export"]["report"].get("problems")}),

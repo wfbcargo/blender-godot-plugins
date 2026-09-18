@@ -167,6 +167,28 @@
      "declined": [
       "belly: 0 bulging vertices in its zone"
      ],
+     "missed": [
+      {
+       "claimed": 1016,
+       "claimed_by": {
+        "bloater_belly": 1016
+       },
+       "measure": "rings",
+       "message": "belly: its zone's bulge (1016 seed vertices) was already taken by bloater_belly (1016 vertices), looked for before it: in its zone the skin stands at most 0.0000 m out (a seed needs 0.0213 m = 0.012 x height 1.77 m) and 0% of its lean radius (needs 25%); 0 vertices pass the first, 0 the second, 0 both (a region needs 68); 1016 of 1016 zone vertices searched, 1016 claimed",
+       "min_size": 68,
+       "over_excess": 0,
+       "over_relative": 0,
+       "peak_excess_m": 0.0,
+       "peak_relative": 0.0,
+       "reason": "claimed",
+       "searched": 1016,
+       "seed_excess_m": 0.0213,
+       "seed_relative": 0.25,
+       "seeds": 0,
+       "type": "belly",
+       "zone_vertices": 1016
+      }
+     ],
      "object": "Bloater",
      "rig": "Bloater_metarig",
      "spec": {
@@ -1459,6 +1481,51 @@
      "declined": [
       "bloater_belly: needs 20% of the body's volume and to stand 8% of its height out; has 3.8% and 2.7%",
       "love_handle: 35 bulging vertices in its zone"
+     ],
+     "missed": [
+      {
+       "claimed": 0,
+       "claimed_by": {},
+       "measure": "rings",
+       "message": "bloater_belly: a bulge too slight for the type: in its zone the skin stands at most 0.0618 m out (a seed needs 0.0212 m = 0.012 x height 1.77 m) and 74% of its lean radius (needs 25%); 667 vertices pass the first, 518 the second, 509 both (a region needs 51); 1591 of 1611 zone vertices searched, 0 claimed; its bulge holds 3.8% of the body's volume (needs 20%) and stands 2.7% of its height out (needs 8%)",
+       "min_size": 51,
+       "over_excess": 667,
+       "over_relative": 518,
+       "peak_excess_m": 0.0618,
+       "peak_over_height": 0.0266,
+       "peak_over_height_min": 0.08,
+       "peak_relative": 0.735,
+       "reason": "too_little",
+       "region_peak_m": 0.047,
+       "searched": 1591,
+       "seed_excess_m": 0.0212,
+       "seed_relative": 0.25,
+       "seeds": 509,
+       "type": "bloater_belly",
+       "volume_fraction": 0.0379,
+       "volume_fraction_min": 0.2,
+       "zone_vertices": 1611
+      },
+      {
+       "claimed": 7,
+       "claimed_by": {
+        "butt": 7
+       },
+       "measure": "rings",
+       "message": "love_handle: 35 seed vertices, fewer than 51 or in pieces each under it: in its zone the skin stands at most 0.0359 m out (a seed needs 0.0212 m = 0.012 x height 1.77 m) and 28% of its lean radius (needs 25%); 167 vertices pass the first, 35 the second, 35 both (a region needs 51); 370 of 370 zone vertices searched, 7 claimed",
+       "min_size": 51,
+       "over_excess": 167,
+       "over_relative": 35,
+       "peak_excess_m": 0.0359,
+       "peak_relative": 0.284,
+       "reason": "too_small",
+       "searched": 370,
+       "seed_excess_m": 0.0212,
+       "seed_relative": 0.25,
+       "seeds": 35,
+       "type": "love_handle",
+       "zone_vertices": 370
+      }
      ],
      "object": "Figure",
      "rig": "Figure_metarig",

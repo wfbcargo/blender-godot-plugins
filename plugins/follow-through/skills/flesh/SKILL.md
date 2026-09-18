@@ -35,7 +35,17 @@ res = flesh.render_heat("Bloater", r"C:/scratch/flesh", regions=found["regions"]
   butt.L         soft_fat   217 verts, stands 0.123 m out, 0.9% of the body, on spine.001 (height 0.29, facing 142, spine)
   ...
   - belly: 0 bulging vertices in its zone
+  MISSED belly: its zone's bulge (1016 seed vertices) was already taken by bloater_belly (1016 vertices), looked
+  for before it: in its zone the skin stands at most 0.0000 m out (a seed needs 0.0213 m = 0.012 x height 1.77 m) ...
 ```
+
+**A type looked for and not found says why, with the numbers.** `found["missed"]` (and `prepare`'s
+report) has one entry per such type: `reason` is `zone_empty` (no searched vertex in its zone),
+`claimed` (an earlier type in `ORDER` took the zone's bulge - `claimed_by` names it and counts),
+`below_threshold` (the zone's peak `peak_excess_m` under `seed_excess_m` = 0.012 x height, or its
+`peak_relative` under 0.25), `too_small` (fewer seed vertices than `min_size`) or `too_little` (built,
+but under the type's `when` volume or peak). A figure study's belly came back `claimed`: the breasts
+grow 0.1 below their zone and took 190 of the belly zone's 298 vertices.
 
 **Read the heat renders** (white lean, red standing out, blue a found region, green not
 searched). The measure is good at *where and how far*; it is weaker at *what*: on the test
@@ -192,6 +202,12 @@ How it works:
   region smaller than g/(2 pi f)^2 (3.4 cm at `soft_fat`'s 2.7 Hz) hangs off its limit whatever the
   body does, and the row says so.
 - `verify_flesh.gd` also fails a region whose peak offset passed its own stand-out (`within_body`).
+  `course=walk|run|jump` drives one motion alone on the body's own clip (a jump plays the Jump clip,
+  takes off at its highest hips, holds that pose through the flight and lands on the rest), so a
+  failure names the motion; `require=within_body` makes only that check decide, printing the rest as
+  `NOTE ... advisory`. On a jump-only course on_limit's 10% line is not decisive: it was drawn on the
+  mixed course, and the Jump clip's take-off crouch put a figure study's breasts on the limit 10.6% of
+  a jump-only run (0.9% on the full course). `regress.py --godot` runs both on `pipeline_woman`.
 - The band is Belle's: her self-test fails at 10%, and her eye-approved regions sit at 7.5-9% there and
   4.4-4.9% on this course (`references/flesh.md` "Swing limits from Godot").
 - Tune at the `response` the game plays at.

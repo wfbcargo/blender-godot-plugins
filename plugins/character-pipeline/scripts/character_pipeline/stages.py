@@ -423,6 +423,37 @@ def run_hair(ch, ctx):
     return out
 
 
+def judge_flesh(ch, r, asked=None):
+    """What the flesh stage says it did: {"found": {type: [region names]}, "missed": [miss]}, printed to
+    the build log, raising RuntimeError when a type the spec asks for found no mass and is not in
+    `[flesh] may_miss`. `r` is follow-through's `flesh.prepare` (or `find_regions`) report; each miss is
+    its `missed` entry - why, with the numbers - or `not_looked_for` for a type the registry lacks.
+
+    A type named in the spec that finds no mass used to be dropped with no line in the log, the report
+    or the manifest (study_woman's belly)."""
+    asked = list(ch.flesh.types) if asked is None else asked
+    found = {}
+    for g in r.get("regions", []):
+        found.setdefault(str(g["type"]), []).append(str(g["name"]))
+    missed = [dict(m) for m in r.get("missed", []) if m["type"] in asked]
+    for t in asked:
+        if t not in found and not any(m["type"] == t for m in missed):
+            missed.append({"type": t, "reason": "not_looked_for",
+                           "message": f"{t}: not a flesh type follow-through's registry has, so never looked for"})
+    out = {"found": {t: sorted(v) for t, v in sorted(found.items())}, "missed": missed}
+    for t, names in out["found"].items():
+        print(f"[{ch.id}] flesh: found {t}: {', '.join(names)}")
+    for m in missed:
+        allowed = m["type"] in ch.flesh.may_miss
+        print(f"[{ch.id}] flesh: MISSED {m['message']}" + (" (allowed: [flesh] may_miss)" if allowed else ""))
+    fatal = [m for m in missed if m["type"] not in ch.flesh.may_miss]
+    if fatal:
+        raise RuntimeError("flesh: the spec asks for %s and the body has none: %s. Add the type to [flesh] may_miss "
+                           "to build without it" % ([m["type"] for m in fatal],
+                                                     "; ".join(m["message"] for m in fatal)))
+    return out
+
+
 def run_flesh(ch, ctx):
     from follow_through import flesh as ft_flesh
     from follow_through import marks
@@ -439,6 +470,7 @@ def run_flesh(ch, ctx):
                          types=ch.flesh.types or None if regions is None else None)
     if "error" in r:
         raise RuntimeError(f"flesh: {r['error']}")
+    out.update(judge_flesh(ch, r, asked=list(ch.flesh.types) if regions is None else []))
     # copied out first: set_params replaces the object's `follow_through` property, and iterating the
     # old one while that happens reads freed memory (it crashed Blender)
     spec_regions = [(str(g["name"]), str(g["type"]), float(g["peak_m"]))
@@ -633,7 +665,15 @@ def run_export(ch, ctx):
     with open(e["moves"], "w", encoding="utf-8") as fh:
         json.dump(manifest, fh, indent=2)
     e["manifest"]["height_m"]["stand"] = stand
+    fl = flesh_manifest(ch)
+    if fl is not None:
+        manifest["flesh"] = fl
+        with open(e["moves"], "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
+        e["manifest"]["flesh"] = fl
     out = {k: e.get(k) for k in ("glb", "moves", "verified", "clips", "bones", "problems")}
+    if fl is not None:
+        out["flesh"] = fl
     if strands:
         from follow_through import strand as ft_strand
         s = ft_strand.export(strand_glb, strands, ch.rig)
@@ -645,6 +685,39 @@ def run_export(ch, ctx):
                                                            "strand_head_error_m", "problems")}
                                     for c in s.get("specs", [])]}
     return out
+
+
+def flesh_manifest(ch):
+    """The manifest's `flesh` block: what the glb's jiggle bones are and how they are sprung, and what
+    the spec asked for that the flesh stage did not find. None for a spec with no [flesh].
+
+    {"regions": [{name, type, bone, parent, peak_m, max_offset_m, material, frequency_hz,
+    damping_ratio}], "missed": [{type, reason}]}. A game reads it without opening the glb; the Godot
+    verifier (verify_flesh.gd) checks each bone's swing against its peak_m."""
+    if ch.flesh is None:
+        return None
+    spec = _obj(ch.mesh).get("follow_through")
+    regions = []
+    if spec is not None and "jiggle" in spec:
+        for g in spec["jiggle"]["regions"]:
+            g = {k: g[k] for k in g.keys()}
+            row = {"name": str(g["name"]), "type": str(g["type"]), "bone": str(g["bone"]),
+                   "parent": str(g.get("parent", "")), "peak_m": round(float(g["peak_m"]), 4),
+                   "max_offset_m": round(float(g["max_offset_m"]), 4),
+                   "material": str(g["material"]) if g.get("material") is not None else None}
+            for k in ("frequency_hz", "damping_ratio"):
+                if g.get(k) is not None:
+                    row[k] = round(float(g[k]), 4)
+            regions.append(row)
+    # the reasons are in the flesh stage's stored report when it fitted there; which types are
+    # missing is read from the bones themselves, so it holds whatever the record kept
+    from . import runner
+    rec = (runner.records(ch).get("flesh") or {}).get("report") or {}
+    why = {m.get("type"): m.get("reason") for m in rec.get("missed") or [] if isinstance(m, dict)}
+    have = {r["type"] for r in regions}
+    missed = [{"type": t, "reason": why.get(t), "allowed": t in ch.flesh.may_miss}
+              for t in ch.flesh.types if t not in have]
+    return {"types": list(ch.flesh.types), "regions": regions, "missed": missed}
 
 
 def review_dir(ch):

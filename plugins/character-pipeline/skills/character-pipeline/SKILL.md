@@ -71,6 +71,7 @@ colour = [0.17, 0.10, 0.06]        # screen (sRGB)
 
 [flesh]                            # follow-through; limit shares come from the type registry
 types = ["breast", "butt"]
+may_miss = []                      # types the stage may come back without (see below)
 [[flesh.zones]]                    # only while the measure reads a mass wrong (05 5.9)
 type = "butt"
 view = "back"
@@ -87,6 +88,15 @@ dir = "assets/belle"               # under the project (characters/ sits in it)
 res_dir = "res://assets/belle"
 blend = "C:/Users/pauli/Code/Blender/belle_realistic.blend"
 ```
+
+**The flesh stage says what it found.** The build log gets `flesh: found <type>: <regions>` and
+`flesh: MISSED <type>: <reason with numbers>` (follow-through's `missed`), the stage report `found`
+and `missed`, and the manifest a `flesh` block - `types`, per region `name, type, bone, parent,
+peak_m, max_offset_m, material, frequency_hz, damping_ratio`, and `missed` `[{type, reason,
+allowed}]`. A type in `types` that finds no mass fails the stage, naming why, unless `may_miss`
+lists it. Keep the limit at or under `peak_m`: a larger one fails `verify_flesh.gd`'s `within_body`
+(a figure study's belly at the material's 1.2 x peak_m swung 0.198 m off a 0.165 m stand-out on the
+Jump clip).
 
 `spec.load(path)` checks it and names the field it rejects. `spec.GAPS` lists what a spec may carry
 that no plugin owns yet. Tuned numbers live with their owners, and a spec only names them:
