@@ -78,3 +78,10 @@ follow-through strand.prepare), rebuilt, not the integration.
 ## Time
 Baseline and diagnosis 13:01-13:17; attempts 1-3 to 13:30; the load average and both characters 13:40;
 verification, bump, commits 13:44. Godot verify_strands ~38 s per 4 rates; pipeline_ponytail build 103 s.
+
+## 13:44-14:07 final regress | kind=win
+`regress.py --quick --jobs 2 --godot <game worktree>` (22 of 22 fixtures: regress.py changed), log
+`%TEMP%/rw/strand/final_quick.log`: all 22 ok, no golden change, every Godot row ok, including
+`verify_strands pipeline_ponytail` 1.091 PASSED and its `legacy_integration=true (must fail)` 1.385 FAILED.
+`REGRESS DONE exit=0, 22 fixtures ok`. 23 min wall. (A comment-only fix to strand_modifier.gd landed
+after the run started; the Godot phase read the corrected file.)
