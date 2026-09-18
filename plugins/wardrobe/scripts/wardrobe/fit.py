@@ -673,7 +673,8 @@ def detail(garment, body, regions=None, limit=None, band=DETAIL_BAND, min_verts=
 
 def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, inflate=True,
          hang=1.0, hang_window=0.15, hang_bins=64, over=(), over_gap=0.003,
-         smooth=0.0, flatten=None, fade=COMPRESS_FADE, detail_limit=None, settle=0.0):
+         smooth=0.0, flatten=None, fade=COMPRESS_FADE, detail_limit=None, settle=0.0, span=0.0,
+         span_radius=0.0):
     """Push the garment off the body to its ease, bridging hollows, and let it hang. `over`:
     garments worn under this one - it is kept `over_gap` outside each of them too.
 
@@ -770,6 +771,10 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
         _clear_unders(bm, unders, over_gap)
         push_out()
 
+    spanned = None
+    if compressing and span and span > 0:
+        spanned = _span(bm, floor, span, radius=span_radius)
+        push_out()
     settled = _settle(bm, floor, settle) if compressing and settle and settle > 0 else None
 
     skin_bvh = body_bvh(body)[0] if compressing else bvh
@@ -793,11 +798,116 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
         rep = {k: v for k, v in comp.items() if not k.startswith("_")}
         rep["gap_min_from_compressed_m"] = round(from_compressed[0], 4)
         rep["inside_skin_verts"] = sum(1 for x in gaps if x < 0.0)
+        if spanned is not None:
+            rep["span"] = spanned
         if settled is not None:
             rep["settle"] = settled
         out["compression"] = rep
     out["detail"] = detail(g, body, limit=detail_limit)
     return out
+
+
+def _hollows(X, tris, radius, live):
+    """Per vertex, how far it lies below a ball of `radius` (m) rolled over the outside of the
+    surface - 0 where the ball rests on it, so the vertex is in no hollow narrower than that. The
+    ball on a vertex is raised along its normal until it clears every other vertex (one pass, over
+    the positions as given: moving the vertices and repeating ran away, and moving both sides of a
+    notch toward each other crossed them)."""
+    from mathutils.kdtree import KDTree
+    n = len(X)
+    N = _vertex_normals(X, tris)
+    kd = KDTree(n)
+    for i, p in enumerate(X):
+        kd.insert(Vector(p), i)
+    kd.balance()
+    R = float(radius)
+    t = np.zeros(n)
+    for i in live:
+        near = [j for _p, j, _d in kd.find_range(Vector(X[i] + R * N[i]), R) if j != i]
+        if not near:
+            continue
+        d = X[near] - X[i]
+        a = d @ N[i]
+        b2 = np.maximum((d * d).sum(axis=1) - a * a, 0.0)
+        inside = b2 < R * R
+        if inside.any():
+            t[i] = max(0.0, float((a[inside] + np.sqrt(R * R - b2[inside]) - R).max()))
+    return t
+
+
+def _span(bm, floor, share, radius=0.0, feather=0.04, passes=24, relax=0.5):
+    """Stretch a compression garment taut across the body's hollows: `share` (0..1) of the way out
+    to the convex hull of the cloth itself, each vertex by its compression weight (1 - `floor`, so
+    none at a neckline, hem or armhole), relaxed toward its neighbours between pushes so the cloth
+    slides along the hull instead of piling up where it was pushed.
+
+    Fabric under tension goes straight from one high point to the next. Cut from the skin and
+    eased off a smoothed copy of it, the cloth still followed the underside of a heavy bust back up
+    into the fold beneath it (Belle, improvements NEXT 9) - a faceted rim under each breast, a
+    wedge in the cleavage and each breast wrapped on its own. Spanned, it runs from the bust to the
+    band and across the cleavage; `_settle` afterwards rounds the hull's edges.
+
+    `radius` (m): span only around the hollows narrower than that (see `_hollows`), fading out over
+    `feather` along the cloth. The hull alone also spans the whole taper from a bust to a waist hem,
+    which on the sample figure left the top 2-5 cm off the body."""
+    bm.verts.ensure_lookup_table()
+    n = len(bm.verts)
+    X = np.array([tuple(v.co) for v in bm.verts])
+    hb = bmesh.new()
+    for p in X:
+        hb.verts.new(Vector(p))
+    hull = bmesh.ops.convex_hull(hb, input=list(hb.verts))
+    drop = [e for e in hull.get("geom_interior", []) if isinstance(e, bmesh.types.BMVert)]
+    bmesh.ops.delete(hb, geom=drop, context="VERTS")
+    loose = [v for v in hb.verts if not v.link_faces]
+    bmesh.ops.delete(hb, geom=loose, context="VERTS")
+    bmesh.ops.recalc_face_normals(hb, faces=list(hb.faces))
+    hbvh = BVHTree.FromBMesh(hb)
+    hb.free()
+    ed = np.array([(e.verts[0].index, e.verts[1].index) for e in bm.edges], dtype=np.int64)
+    deg = np.bincount(ed.ravel(), minlength=n).astype(float)
+    w = np.array([0.0 if v.is_boundary else 1.0 - floor[v.index] for v in bm.verts])
+    start = X.copy()
+    hollow = None
+    if radius and radius > 0:
+        tris = np.array([[f.verts[0].index, f.verts[k].index, f.verts[k + 1].index]
+                         for f in bm.faces for k in range(1, len(f.verts) - 1)], dtype=np.int64)
+        t = _hollows(X, tris, radius, np.flatnonzero(w > 0))
+        seeds = t > 0.001
+        hollow = int(seeds.sum())
+        if not seeds.any():
+            return {"share": float(share), "radius_m": float(radius), "hollow_verts": 0, "moved_max_m": 0.0}
+        dist = _geodesic_np(X, ed, seeds, feather)
+        f = np.clip(np.where(np.isinf(dist), 1.0, dist / max(feather, 1e-9)), 0.0, 1.0)
+        w = w * (1.0 - f * f * (3 - 2 * f))
+    # the taut cloth: every weighted vertex pushed all the way out to the hull, relaxed between
+    for _ in range(passes):
+        X = X + (relax * np.minimum(w * 4.0, 1.0))[:, None] * (_umbrella(X, ed, deg) - X)
+        for i in np.flatnonzero(w > 0):
+            h = hbvh.find_nearest(Vector(X[i]))
+            if h[0] is None:
+                continue
+            s = float((Vector(X[i]) - h[0]).dot(h[1]))
+            if s < 0.0:
+                X[i] = X[i] + w[i] * (-s) * np.array(h[1])
+    # then `share` of the way there: all of it is a tube with no bust left in it. A share of a
+    # move that also slid along a curved surface cuts the chord, into the breast - ease pushes the
+    # cloth back out of the compressed body after this
+    D = (float(share) * w)[:, None] * (X - start)
+    # and none of it inward: relaxing between pushes shrank the cloth over the breast's lower pole,
+    # and the skin kept drawn at the rim came through in front of it
+    tris = np.array([[f.verts[0].index, f.verts[k].index, f.verts[k + 1].index]
+                     for f in bm.faces for k in range(1, len(f.verts) - 1)], dtype=np.int64)
+    N = _vertex_normals(start, tris)
+    D -= np.minimum((D * N).sum(axis=1), 0.0)[:, None] * N
+    X = start + D
+    for v in bm.verts:
+        v.co = Vector(X[v.index])
+    moved = np.linalg.norm(X - start, axis=1)
+    return {"share": float(share), "passes": passes, **({"radius_m": float(radius), "hollow_verts": hollow}
+                                                         if hollow is not None else {}),
+            "moved_max_m": round(float(moved.max()), 4),
+            "moved_p95_m": round(float(np.percentile(moved, 95)), 4)}
 
 
 def _settle(bm, floor, reach):
@@ -829,6 +939,31 @@ def _settle(bm, floor, reach):
         v.co = Vector(X[v.index])
     moved = np.linalg.norm(X - start, axis=1)
     return {"reach_m": reach, "passes": passes, "moved_max_m": round(float(moved.max()), 4)}
+
+
+def folds(garment, bend=35.0):
+    """How the cloth folds: `folded_faces`, faces whose normal points against the summed normals
+    of the faces sharing their edges (the cloth turned over on itself), and `sharp_edges`, edges
+    between two faces bent more than `bend` degrees - a crease the eye reads as a shelf. Under
+    Belle's bust the eased cloth had 16 edges bent 35-146 degrees (improvements NEXT 9); spanned,
+    none. Measured against its neighbours, not the cut: spanning turns faces cut on the underside of
+    a breast from facing down-and-back to facing forward, which is not a fold."""
+    import math
+    bm = bmesh.new()
+    bm.from_mesh(rigmap._obj(garment).data)
+    folded = 0
+    for f in bm.faces:
+        s = Vector()
+        for e in f.edges:
+            for o in e.link_faces:
+                if o is not f:
+                    s += o.normal
+        if s.length > 1e-9 and f.normal.dot(s) < 0.0:
+            folded += 1
+    lim = math.radians(bend)
+    sharp = sum(1 for e in bm.edges if len(e.link_faces) == 2 and e.calc_face_angle(0.0) > lim)
+    bm.free()
+    return {"folded_faces": folded, "sharp_edges": sharp}
 
 
 def lift_over(garment, body, tris, gap, radius=0.02, spread=12, keep=0.8, reach=0.03, smooth=0.0):

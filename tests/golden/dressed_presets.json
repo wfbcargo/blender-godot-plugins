@@ -134,6 +134,7 @@
     "lifted": [],
     "passed": true,
     "problems": [],
+    "sharp_edges": 8,
     "vertices": 2964
    },
    "leggings": {
@@ -254,6 +255,7 @@
     "lifted": [],
     "passed": true,
     "problems": [],
+    "sharp_edges": 10,
     "vertices": 6626
    },
    "shorts_mid_thigh": {
@@ -334,6 +336,7 @@
     "lifted": null,
     "passed": true,
     "problems": [],
+    "sharp_edges": 15,
     "vertices": 2615
    },
    "sports_top": {
@@ -341,20 +344,20 @@
      "behind": 0.03,
      "body": "Figure",
      "body_verts": 17112,
-     "covered": 3514,
+     "covered": 3487,
      "crease": 0.03,
      "creased": 0,
-     "disagree": 13,
+     "disagree": 39,
      "drawn_over_cloth": 0,
-     "edge": 627,
+     "edge": 749,
      "garment": "SportsTop",
-     "hidden": 2887,
-     "hidden_gap_max_m": 0.0163,
-     "hidden_gap_median_m": 0.0097,
-     "inside": 1,
+     "hidden": 2738,
+     "hidden_gap_max_m": 0.0524,
+     "hidden_gap_median_m": 0.0112,
+     "inside": 2,
      "margin": 0.03,
      "max_gap": 0.1,
-     "tris_hidden": 5514,
+     "tris_hidden": 5151,
      "tris_total": 34220
     },
     "cut": {
@@ -368,18 +371,26 @@
      "compression": {
       "edge_m": 0.0102,
       "fade_m": 0.05,
-      "gap_min_from_compressed_m": 0.0071,
+      "gap_min_from_compressed_m": 0.0051,
       "inside_skin_verts": 0,
       "moved_max_m": 0.0078,
       "moved_p95_m": 0.0043,
       "passes": 383,
       "region_verts": 3413,
       "settle": {
-       "moved_max_m": 0.0031,
-       "passes": 91,
-       "reach_m": 0.1
+       "moved_max_m": 0.0155,
+       "passes": 169,
+       "reach_m": 0.14
       },
-      "smooth": 1.0
+      "smooth": 1.0,
+      "span": {
+       "hollow_verts": 674,
+       "moved_max_m": 0.0413,
+       "moved_p95_m": 0.0279,
+       "passes": 24,
+       "radius_m": 0.1,
+       "share": 0.8
+      }
      },
      "detail": {
       "band_m": 0.03,
@@ -395,41 +406,41 @@
       "reach_m": 0.03,
       "regions": {
        "all": {
-        "cloth_relief_mm": 0.038,
-        "cloth_verts": 2635,
-        "relief_mm": 0.032,
-        "skin_relief_mm": 0.033,
-        "skin_verts": 2543,
-        "traced": 0.962
+        "cloth_relief_mm": 0.047,
+        "cloth_verts": 2642,
+        "relief_mm": 0.015,
+        "skin_relief_mm": 0.034,
+        "skin_verts": 2623,
+        "traced": 0.434
        },
        "breast": {
-        "cloth_relief_mm": 0.056,
-        "cloth_verts": 684,
-        "relief_mm": 0.047,
-        "skin_relief_mm": 0.05,
-        "skin_verts": 671,
-        "traced": 0.935
+        "cloth_relief_mm": 0.043,
+        "cloth_verts": 679,
+        "relief_mm": 0.004,
+        "skin_relief_mm": 0.051,
+        "skin_verts": 686,
+        "traced": 0.078
        }
       }
      },
-     "gap_max_m": 0.0171,
-     "gap_median_m": 0.0098,
-     "gap_min_m": 0.0073,
-     "gap_p95_m": 0.0133,
+     "gap_max_m": 0.0531,
+     "gap_median_m": 0.0111,
+     "gap_min_m": 0.0057,
+     "gap_p95_m": 0.0342,
      "verts": 3546
     },
     "export": {
-     "edge": 627,
+     "edge": 749,
      "exported": true,
      "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\dressed_presets\\dressed_presets\\sports_top.glb",
      "garment": "SportsTop",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
-     "hidden": 2887,
+     "hidden": 2738,
      "joints": 38,
      "passed": true,
      "problems": [],
-     "size_bytes": 268292,
+     "size_bytes": 267972,
      "weight_sum_min": 1.0
     },
     "exported": true,
@@ -441,6 +452,7 @@
     "lifted": [],
     "passed": true,
     "problems": [],
+    "sharp_edges": 7,
     "vertices": 3546
    }
   }
