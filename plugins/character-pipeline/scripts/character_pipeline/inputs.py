@@ -24,6 +24,8 @@ into the stage's record in the .blend (so a rerun can say which input moved - `c
     flesh     data:follow_through.registry                    the merged type registry: built-in and user
               code:follow_through.flesh                       finding the masses and weighting the jiggle bones
     garments  preset:<name>                                   each worn wardrobe preset's contents (garments.json)
+    review    code:rig_analysis.closeups                      the close-up look set: views, aim, lights, checks
+                                                              (only with `[review] close` on)
 
 Data is hashed as parsed JSON (so a CRLF checkout and an LF one agree, and key order does not matter); code
 as its source with line endings normalised. Presets are hashed one by one, so editing a preset the spec
@@ -31,8 +33,8 @@ does not wear, or a hair preset it does not use, reruns nothing. The version of 
 with was in the hash already (`plugins.stage_versions`).
 
 Stages not listed read only the spec and the stages before them (body's library and fit are humanform's
-version; moves, strand, export and review read rig-anything's and follow-through's code, covered by their
-versions). A stage that starts reading a new file must add it here, and `tests/fixtures/pipeline_hashes.py`
+version; moves, strand and export read rig-anything's and follow-through's code, covered by their versions, as
+is the review sheet's). A stage that starts reading a new file must add it here, and `tests/fixtures/pipeline_hashes.py`
 must flip it.
 """
 
@@ -111,7 +113,13 @@ def _garments(ch):
     return {f"preset:{g.preset}": data(presets.get(g.preset)) for g in ch.outfit}
 
 
-READS = {"bake": _bake, "hair": _hair, "flesh": _flesh, "garments": _garments}
+def _review(ch):
+    if not ch.review.close:
+        return {}
+    return {"code:rig_analysis.closeups": code("rig_analysis.closeups")}
+
+
+READS = {"bake": _bake, "hair": _hair, "flesh": _flesh, "garments": _garments, "review": _review}
 
 
 def stage_inputs(ch, stage, drop=()):

@@ -1,11 +1,11 @@
 {
  "fixture": "pipeline_hashes",
  "plugins": {
-  "character-pipeline": "0.8.0",
+  "character-pipeline": "0.9.0",
   "follow-through": "0.6.1",
   "humanform": "0.10.0",
-  "lookdev": "0.3.0",
-  "rig-anything": "0.24.0",
+  "lookdev": "0.4.0",
+  "rig-anything": "0.25.0",
   "wardrobe": "0.5.0"
  },
  "report": {
@@ -27,6 +27,15 @@
      "moves",
      "garments",
      "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "final close-up views": {
+    "expect": "review",
+    "first": "review",
+    "moved": [
      "review"
     ],
     "ok": true,
@@ -309,6 +318,17 @@
     "ok": true,
     "spec": "shell"
    },
+   "rig-anything closeups.py": {
+    "control_unseen": true,
+    "expect": "review",
+    "first": "review",
+    "label": "code:rig_analysis.closeups",
+    "moved": [
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
    "spec [flesh] edit": {
     "expect": "flesh",
     "first": "flesh",
@@ -321,6 +341,13 @@
     ],
     "ok": true,
     "spec": "full"
+   },
+   "unrelated: closeups.py with [review] close = false": {
+    "expect": null,
+    "first": null,
+    "moved": [],
+    "ok": true,
+    "spec": "noclose"
    },
    "unrelated: face_regions.json without brows or lashes": {
     "expect": null,
@@ -412,7 +439,9 @@
    ],
    "moves": [],
    "muscle": [],
-   "review": []
+   "review": [
+    "code:rig_analysis.closeups"
+   ]
   },
   "stages": {
    "full": [
@@ -423,6 +452,13 @@
     "flesh",
     "moves",
     "garments",
+    "export",
+    "review"
+   ],
+   "noclose": [
+    "body",
+    "bake",
+    "moves",
     "export",
     "review"
    ],
