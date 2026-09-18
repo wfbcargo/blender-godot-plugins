@@ -62,9 +62,9 @@ const MAX_ACCEL := 400.0
 ## and study_woman's ponytail swung in one of two stable ways on the run depending on which it got:
 ## 53 deg at 30 fps, 62 at 120, 49 at 60. Averaged over a 30 fps frame, every rate at or above 30
 ## loads the spring with the same motion, and nothing a strand's 1-3 Hz swing responds to is lost
-## (a 1/30 s average passes 3 Hz at 98.5%). Its cost is 17 ms of lag in the load, never in the root.
+## (a 1/30 s average passes 3 Hz at 98%). Its cost is 17 ms of lag in the load, never in the root.
 ## Measured (verify_strands, tip swing on the run): before, study_woman 53/49/62/62 deg at
-## 30/60/120/240 fps and 45-63 across 29-144, pipeline_ponytail 67/52/53/53; averaged, study_woman
+## 30/60/120/240 fps and 49-63 across 29-240, pipeline_ponytail 67/52/53/53; averaged, study_woman
 ## 31-37 and pipeline_ponytail 43-48 across 29-240 fps. The sharp steps also pumped the swing: the
 ## averaged ponytail swings less (study_woman 31 deg at 60 fps, against 49).
 const LOAD_STEPS := 4
