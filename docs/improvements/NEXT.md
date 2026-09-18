@@ -76,6 +76,13 @@ and a close-up that would have shown a defect was missing twice. Fix the loop be
 - **06 rank 3 - rebuilds that match what changed:** the thin callers open the saved blend, and every stage
   hash names the code and data it reads. A `[flesh]` edit today reruns the whole build from body.
 - **06 rank 12 - bake at final size:** pass `[build] quality` to `look.skin` (2048 px at final).
+- **06 section 5 - repo tooling: done** (branch `repo-regress-quick`, merged 2026-09-18). `regress.py`
+  runs longest first, prints results as they finish, ends with `REGRESS DONE exit=N, K fixtures ok`,
+  always writes a diff file, and has `--quick` (fixtures selected from the git diff; `--dry-run` shows why).
+  `tools/bump.py` does version bumps; `tools/test_tools.py` checks both. A full `--quick --jobs 4` took
+  about 3.5 min. Open: mpfb_woman_curvy's glb readback sits under the VOLATILE key `export.file` and is
+  never compared (renaming it moves goldens); `--restamp` and refusing `--update` off main are not done;
+  DURATIONS is a static table; addon sync and `.gitattributes` from the same list are not done.
 
 ### Step 1 - hair
 
