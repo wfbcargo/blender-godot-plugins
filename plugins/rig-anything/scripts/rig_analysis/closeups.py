@@ -27,24 +27,28 @@ lens the framing: each tile's field of view is chosen so the subject fills it at
     head_side       1.0 m     the whole head from its left: the ear, the hairline round it, the nape
     head_back       1.0 m     the whole head from behind: the nape hairline, a bun or tail and how it attaches
     hand_palm.L/.R  0.5 m     the palm; whatever is nearer the camera than the hand (the thigh) is clipped
-    hand_back.L/.R  0.5 m     the back of the hand: knuckles, nails
+    hand_back.L/.R  0.5 m     the back of the hand, knuckles and nails: from the front and the hand's outer side,
+                              a little below the knuckles; nothing further than the hand (the thigh) is drawn
     bust            0.8 m     the chest from the front, collarbones to under the breasts
     under_bust      0.42 m    from below the bust, looking up: the fold under a breast and a top's lower edge
                               (only when asked, `under_bust=True`: the pipeline asks for any spec wearing a top)
     crotch          0.8 m     the pelvis from the front, hips to upper thighs
     knees           0.8 m     both knees from the front: the kneecaps
     feet            1.0 m     both feet from the front and above
-    foot_inner.L    0.6 m     the left foot's inner side: the arch and the inner ankle bone
-    foot_outer.L    0.6 m     the left foot's outer side: the outer ankle bone and the heel
+    foot_inner.L/.R 0.6 m     a foot's inner side: the arch and the inner ankle bone
+    foot_outer.L/.R 0.6 m     a foot's outer side: the outer ankle bone and the heel
 
 **Checked, and it fails.** Every tile is measured from its own pixels and the posed bones, with the free
 values reported (`tiles[view]`):
 - `coverage` - the share of the tile the figure covers (the render's alpha); under `MIN_COVERAGE` the tile
   shows no body and fails (`empty`);
-- `subject_uv` / `subject_off` - where the view's own bones (`subject`, e.g. the wrist, knuckle and
-  fingertip of the hand it is named after) project in the tile, and how far their centroid is from the
-  centre (0 centre, 0.5 the edge); past `CENTRAL` the camera is not on the part it names (`off_centre`),
-  and a subject behind the camera fails the same way;
+- `subject_uv` / `subject_off` - where the view's own points (`subject`: the hand's wrist, each knuckle and
+  each fingertip; both eyes; each foot's ankle, heel and toe tip; the head, shoulders, hips or knees) project
+  in the tile, and how far their centroid is from the centre (0 centre, 0.5 the edge); past `CENTRAL` the
+  camera is not on the part it names (`off_centre`), and a subject behind the camera fails the same way;
+- `subject_margin` - how far the worst of those points is inside the tile's nearest edge (negative outside);
+  under `MARGIN` the tile cuts off part of what it is for (`cut`, naming the points) - a palm camera 3 cm up
+  the arm keeps the centroid central and puts the fingertips on the edge;
 - `on_body` - whether the figure covers the tile at that projected centroid, for views whose subject is
   on the body (not the gap between the feet or the thighs) (`off_body`).
 A failed tile is still written and labelled; `failed` lists `view: reason` and the caller decides (the
@@ -74,14 +78,20 @@ from mathutils import Matrix, Vector
 DISTANCES = {"face": 0.6, "face_3q": 0.6, "eyes": 0.4, "head_side": 1.0, "head_back": 1.0,
              "hand_palm.L": 0.5, "hand_back.L": 0.5, "hand_palm.R": 0.5, "hand_back.R": 0.5,
              "bust": 0.8, "under_bust": 0.42, "crotch": 0.8, "knees": 0.8, "feet": 1.0,
-             "foot_inner.L": 0.6, "foot_outer.L": 0.6}
+             "foot_inner.L": 0.6, "foot_outer.L": 0.6, "foot_inner.R": 0.6, "foot_outer.R": 0.6}
 VIEWS = ("face", "face_3q", "eyes", "head_side", "head_back", "hand_palm.L", "hand_back.L", "hand_palm.R",
-         "hand_back.R", "bust", "crotch", "knees", "feet", "foot_inner.L", "foot_outer.L")
+         "hand_back.R", "bust", "crotch", "knees", "feet", "foot_inner.L", "foot_outer.L", "foot_inner.R",
+         "foot_outer.R")
 # the subject of a view is on the body at its projected centroid; not so for the gap between feet or thighs
 OFF_BODY_OK = ("feet", "crotch", "knees")
 
 MIN_COVERAGE = 0.05       # a tile the figure covers less of shows no body
 CENTRAL = 0.3             # the subject's centroid within this of the centre (0.5 = the tile's edge), each axis
+MARGIN = 0.04             # every subject point at least this far inside the tile's edges (0.5 = the centre)
+# hand_back's camera direction, as weights of (the back of the hand's normal, the body's front, world up): from
+# the outside front, a little below the knuckles - from above, the curled fingertips hide the nails
+HAND_BACK = (1.0, 0.8, -0.4)
+HAND_BACK_BEHIND = 0.02   # m: hand_back draws nothing further than the hand's deepest point and this (the thigh)
 SIZE_PX = 512
 LABEL_PX = 34
 SAMPLES = 16
@@ -96,14 +106,16 @@ ALIASES = {
     "chest": ["chest", "spine.003", "mixamorig:Spine2"],
     "hips": ["hips", "pelvis", "spine", "mixamorig:Hips"],
 }
+FINGERS = (("f_index", "Index"), ("f_middle", "Middle"), ("f_ring", "Ring"), ("f_pinky", "Pinky"))
 for _s, _m in (("L", "Left"), ("R", "Right")):
+    for _f, _mf in FINGERS:
+        for _i in ("01", "03"):
+            ALIASES[f"{_f}.{_i}.{_s}"] = [f"{_f}.{_i}.{_s}", f"mixamorig:{_m}Hand{_mf}{int(_i)}"]
     ALIASES.update({
         f"upper_arm.{_s}": [f"upper_arm.{_s}", f"mixamorig:{_m}Arm"],
         f"hand.{_s}": [f"hand.{_s}", f"mixamorig:{_m}Hand"],
-        f"f_index.01.{_s}": [f"f_index.01.{_s}", f"mixamorig:{_m}HandIndex1"],
-        f"f_middle.01.{_s}": [f"f_middle.01.{_s}", f"mixamorig:{_m}HandMiddle1"],
-        f"f_middle.03.{_s}": [f"f_middle.03.{_s}", f"mixamorig:{_m}HandMiddle3"],
-        f"f_pinky.01.{_s}": [f"f_pinky.01.{_s}", f"mixamorig:{_m}HandPinky1"],
+        f"thumb.02.{_s}": [f"thumb.02.{_s}", f"mixamorig:{_m}HandThumb2"],
+        f"thumb.03.{_s}": [f"thumb.03.{_s}", f"mixamorig:{_m}HandThumb3"],
         f"thigh.{_s}": [f"thigh.{_s}", f"mixamorig:{_m}UpLeg"],
         f"shin.{_s}": [f"shin.{_s}", f"mixamorig:{_m}Leg"],
         f"foot.{_s}": [f"foot.{_s}", f"mixamorig:{_m}Foot"],
@@ -177,6 +189,34 @@ def _eyes(frozen, left):
     return []
 
 
+def _heel(frozen, ankle, toe_end, stature):
+    """The back of the heel: of the body's (the first frozen mesh's) vertices below the ankle and within a
+    foot's length of it, the one furthest back along the foot. A rig has no heel bone. Without such vertices,
+    a point behind and below the ankle at a typical heel's offset."""
+    import numpy as np
+    flat = Vector((toe_end.x - ankle.x, toe_end.y - ankle.y, 0.0))
+    back = -flat.normalized() if flat.length > 1e-4 else Vector((0.0, 1.0, 0.0))
+    reach = max(flat.length, 0.1 * stature / 1.7)
+    if frozen:
+        ob = frozen[0]
+        n = len(ob.data.vertices)
+        if n:
+            co = np.empty(n * 3, dtype=np.float64)
+            ob.data.vertices.foreach_get("co", co)
+            co = co.reshape(n, 3)
+            mw = np.array(ob.matrix_world, dtype=np.float64)
+            w = co @ mw[:3, :3].T + mw[:3, 3]
+            d = w - np.array(ankle, dtype=np.float64)
+            b = np.array(back, dtype=np.float64)
+            along = d @ b                                       # how far behind the ankle
+            side = np.linalg.norm(d[:, :2] - np.outer(along, b[:2]), axis=1)
+            near = (d[:, 2] < 0.0) & (side < reach * 0.3) & (along > -reach) & (along < reach)
+            if near.any():
+                i = int(np.flatnonzero(near)[np.argmax(along[near])])
+                return Vector(w[i])
+    return ankle + back * 0.05 * stature / 1.7 - Vector((0.0, 0.0, max(0.0, ankle.z) * 0.6))
+
+
 def _aim(view, dist, P, frozen, fwd_rest, up_rest, left_rest, stature):
     """{target, dir (toward the camera), up, frame (m across), near, subject {name: point}, body} or {error}."""
     fwd = P.carry("chest" if P.name("chest") else "hips", fwd_rest)
@@ -202,14 +242,18 @@ def _aim(view, dist, P, frozen, fwd_rest, up_rest, left_rest, stature):
             centre, ipd = P.p("head") + hu * nl * 0.9 + hf * nl * 0.7, 0.063 * stature / 1.7
         a["up"] = hu
         a["subject"] = {"head": head_mid}
+        # both eyes must be in the face views' picture, not only their centroid
+        both = {"eye.L": eyes[0], "eye.R": eyes[1]} if eyes else {}
         if view == "face":
             a.update(target=centre - hu * ipd * 0.35 + hf * ipd * 0.2, dir=hf, frame=ipd * 4.4)
+            a["subject"].update(both)
         elif view == "face_3q":
             a.update(target=centre - hu * ipd * 0.2, dir=(hf + hl).normalized(), frame=ipd * 4.8)
+            a["subject"].update(both)
         elif view == "eyes":
             a.update(target=centre + hf * ipd * 0.2, dir=hf, frame=ipd * 2.4)
             if eyes:
-                a["subject"] = {"eye.L": eyes[0], "eye.R": eyes[1]}
+                a["subject"] = dict(both)
         else:
             # the whole head and whatever hangs off it: from the neck's base to a head height above the eyes
             top = centre + hu * ipd * 2.3
@@ -219,22 +263,39 @@ def _aim(view, dist, P, frozen, fwd_rest, up_rest, left_rest, stature):
         return a
     if view.startswith("hand_"):
         s = view[-1]
-        roles = [f"hand.{s}", f"f_index.01.{s}", f"f_middle.01.{s}", f"f_middle.03.{s}", f"f_pinky.01.{s}"]
+        roles = [f"hand.{s}", f"thumb.02.{s}", f"thumb.03.{s}"] + [f"{f}.{i}.{s}" for f, _ in FINGERS
+                                                                     for i in ("01", "03")]
         m = P.missing(roles)
         if m:
             return {"error": m}
-        wrist, knuckle, mid3 = P.p(f"hand.{s}"), P.p(f"f_middle.01.{s}"), P.p(f"f_middle.03.{s}")
-        tip = mid3 + (mid3 - knuckle).normalized() * (knuckle - wrist).length * 0.3
+        wrist, knuckle = P.p(f"hand.{s}"), P.p(f"f_middle.01.{s}")
+        # every point the tile must show: the wrist, each knuckle and each fingertip (the end bone's tail)
+        subject = {"wrist": wrist, "thumb.knuckle": P.p(f"thumb.02.{s}"),
+                   "thumb.tip": P.p(f"thumb.03.{s}", tail=True)}
+        for f, _ in FINGERS:
+            subject[f"{f[2:]}.knuckle"] = P.p(f"{f}.01.{s}")
+            subject[f"{f[2:]}.tip"] = P.p(f"{f}.03.{s}", tail=True)
+        tip = subject["middle.tip"]
         along = (knuckle - wrist).normalized()
         across = (P.p(f"f_index.01.{s}") - P.p(f"f_pinky.01.{s}")).normalized()
         palm = along.cross(across).normalized() * (1.0 if s == "L" else -1.0)
-        palm_view = view.startswith("hand_palm")
-        toward = palm if palm_view else -palm
         length = (tip - wrist).length
-        a.update(target=(wrist + tip) / 2.0, dir=(toward + fwd * (0.6 if palm_view else 0.25)).normalized(),
-                 frame=length * 1.3, up=-along, subject={"wrist": wrist, "knuckle": knuckle, "tip": tip})
-        # the hand hangs by the thigh: clip whatever is nearer the camera than the hand itself
-        a["near"] = max(0.02, dist - length * 0.35)
+        if view.startswith("hand_palm"):
+            # the palm faces the thigh: from the palm's side and the front, the thigh clipped (below)
+            a.update(target=(wrist + tip) / 2.0, dir=(palm + fwd * 0.6).normalized(), frame=length * 1.3,
+                     up=-along)
+            # the hand hangs by the thigh: clip whatever is nearer the camera than the hand itself
+            a["near"] = max(0.02, dist - length * 0.35)
+        else:
+            # the back of the hand and the nails: from the hand's outer side and the front, a little below the
+            # knuckles, so the curled fingertips show their nails; the thigh behind the hand is not drawn (far
+            # clip). From the outer side alone the thigh filled half the tile and the fingertips were hidden;
+            # from above the knuckles the thigh filled the tile and the nails were hidden
+            a.update(target=(wrist + tip) / 2.0, dir=(-palm * HAND_BACK[0] + fwd * HAND_BACK[1]
+                                                      + zup * HAND_BACK[2]).normalized(),
+                     frame=length * 1.3, up=-along)
+            a["far_behind"] = HAND_BACK_BEHIND
+        a["subject"] = subject
         a["key_side"] = 0.0
         return a
     if view in ("bust", "under_bust"):
@@ -271,10 +332,16 @@ def _aim(view, dist, P, frozen, fwd_rest, up_rest, left_rest, stature):
         a.update(target=(l + r) / 2.0, frame=w * 2.8, dir=(fwd + zup * 0.1).normalized(),
                  subject={"shin.L": l, "shin.R": r})
         return a
-    if view in ("feet", "foot_inner.L", "foot_outer.L"):
+    if view == "feet" or view.startswith("foot_"):
         m = P.missing(["foot.L", "foot.R", "toe.L", "toe.R"])
         if m:
             return {"error": m}
+        # each foot's ankle (the foot bone's head), heel (the rearmost skin under the ankle) and toe (the toe
+        # bone's tail): every one must be in the picture
+        feet = {}
+        for s in ("L", "R"):
+            ankle, toe_end = P.p(f"foot.{s}"), P.p(f"toe.{s}", tail=True)
+            feet[s] = {"ankle": ankle, "heel": _heel(frozen, ankle, toe_end, stature), "toe": toe_end}
         if view == "feet":
             pts = [P.p("foot.L"), P.p("foot.R"), P.p("toe.L"), P.p("toe.R")]
             lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
@@ -284,16 +351,19 @@ def _aim(view, dist, P, frozen, fwd_rest, up_rest, left_rest, stature):
             c.z = max(0.0, lo.z) * 0.5 + 0.03
             a.update(target=c, frame=max(hi.x - lo.x, hi.y - lo.y) + foot_len,
                      dir=(fwd + zup * 0.7).normalized(),
-                     subject={"foot.L": pts[0], "foot.R": pts[1], "toe.L": pts[2], "toe.R": pts[3]})
+                     subject={f"{k}.{s}": p for s, f in feet.items() for k, p in f.items()})
         else:
-            ankle, ball, toe_end = P.p("foot.L"), P.p("toe.L"), P.p("toe.L", tail=True)
+            s = view[-1]
+            ankle, toe_end = feet[s]["ankle"], feet[s]["toe"]
             c = (ankle + toe_end) / 2.0
             c.z = (ankle.z + max(0.0, toe_end.z)) / 2.0 - 0.01
-            side = -left if view == "foot_inner.L" else left
-            a.update(target=c, frame=(toe_end - ankle).length * 1.9, dir=(side + zup * 0.15).normalized(),
-                     subject={"foot.L": ankle, "toe.L": ball})
-            if view == "foot_inner.L":
-                # the right foot stands between the camera and the left foot's inner side: clip what is
+            outer = left if s == "L" else -left              # away from the other foot
+            inner = view.startswith("foot_inner")
+            a.update(target=c, frame=(toe_end - ankle).length * 1.9,
+                     dir=((-outer if inner else outer) + zup * 0.15).normalized(),
+                     subject={f"{k}.{s}": p for k, p in feet[s].items()})
+            if inner:
+                # the other foot stands between the camera and this foot's inner side: clip what is
                 # nearer than the foot's own half width
                 a["near"] = max(0.02, dist - 0.09 * stature / 1.7)
                 # ...and it still shades the big toe from the key though it is out of the picture: no key shadow
@@ -593,6 +663,11 @@ def look_set(meshes, rig_name, out_dir, views=None, action=None, frame=None, und
             cam_data.angle_y = a["fov"]
             cam_data.clip_start = a["near"]
             cam_data.clip_end = a["distance"] + 4.0
+            if a.get("far_behind") is not None:
+                # nothing further than the subject's deepest point (and a margin) is drawn: the thigh
+                # behind a hand
+                deepest = max((a["target"] - Vector(p_)).dot(a["dir"]) for p_ in a["subject"].values())
+                cam_data.clip_end = a["distance"] + max(0.0, deepest) + a["far_behind"]
             raw = os.path.join(out_dir, "_render_tmp.png")
             scene.render.filepath = raw
             bpy.ops.render.render(write_still=True, scene=scene.name)
@@ -613,10 +688,19 @@ def look_set(meshes, rig_name, out_dir, views=None, action=None, frame=None, und
             reasons = []
             if coverage < MIN_COVERAGE:
                 reasons.append("empty (coverage %.3f < %.2f)" % (coverage, MIN_COVERAGE))
-            off, on_body = None, None
+            off, on_body, margin = None, None, None
             if behind:
                 reasons.append("off_centre (%s behind the camera)" % ", ".join(behind))
             elif uvs:
+                # every point, not only the centroid: a palm camera 6 cm up keeps the centroid in the middle
+                # and cuts the fingertips off. The free value: how far the worst point is inside the edge
+                # (negative outside the tile)
+                inside = {k: min(u, 1.0 - u, v, 1.0 - v) for k, (u, v) in uvs.items()}
+                worst = min(inside, key=inside.get)
+                margin = round(inside[worst], 3)
+                if margin < MARGIN:
+                    cut = sorted(k for k, m_ in inside.items() if m_ < MARGIN)
+                    reasons.append("cut (%s: %.3f inside the edge < %.2f)" % (", ".join(cut), margin, MARGIN))
                 cu = sum(u for u, _ in uvs.values()) / len(uvs)
                 cv = sum(v for _, v in uvs.values()) / len(uvs)
                 off = round(max(abs(cu - 0.5), abs(cv - 0.5)), 3)
@@ -636,6 +720,7 @@ def look_set(meshes, rig_name, out_dir, views=None, action=None, frame=None, und
             tiles[view] = {"file": path, "distance_m": round(a["distance"], 3), "frame_m": round(a["frame"], 4),
                            "fov_deg": round(math.degrees(a["fov"]), 2), "near_m": round(a["near"], 3),
                            "coverage": round(coverage, 4), "subject_uv": uvs, "subject_off": off,
+                           "subject_margin": margin,
                            "on_body": on_body, "body_view": a["body"], "ok": not reasons, "fail": reasons,
                            "target": [round(x, 4) for x in a["target"]], "eye": [round(x, 4) for x in eye]}
             if "overridden" in a:
@@ -708,6 +793,7 @@ def summary(r):
     if "error" in r:
         return {"error": r["error"]}
     return {"count": r["count"], "pose": r["pose"], "views": r["views"], "size_px": r["size_px"],
-            "tiles": {v: {k: t[k] for k in ("distance_m", "frame_m", "coverage", "subject_off", "on_body", "ok")}
+            "tiles": {v: {k: t[k] for k in ("distance_m", "frame_m", "coverage", "subject_off", "subject_margin",
+                                                   "on_body", "ok")}
                       for v, t in r["tiles"].items()},
             "failed": r["failed"], "seconds": r["seconds"]}
