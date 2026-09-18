@@ -210,7 +210,7 @@ Still to do on the characters themselves: Belle's top and hair (Belle and the cr
 `kind = "shell_bun"`), and Dante's `muscle = 1.0`, are still built the old way in `grungist-creek`,
 and no shipped manifest carries `arm_pose` yet. Rebuilding them on these versions is the next real use of all
 four features - and the thing that would show whether the review sheets and the detail limits hold on a
-shipped character rather than a fixture.
+shipped character rather than a fixture. A first try at that rebuild shipped nothing; item 9 says why.
 
 A new hair or garment kind should arrive as a plugin preset or builder that a spec names, not as code in a build
 script.
@@ -277,6 +277,64 @@ From the second round (motion-critic, hair-strands-integration):
   every update churns all goldens with noise that has to be put back by hand.
 - **04's doc cites session scratch paths** (`scratchpad/wf2/critic/...`) as evidence; they die with the
   session.
+
+### 9. Rebuilding the characters on these versions - attempted, nothing shipped
+
+A rebuild of the `grungist-creek` characters on the installed plugins (listed above) stopped before
+anything was worth committing. `grungist-creek` is still at `f7a039b` with its assets unchanged, and
+`C:/Users/pauli/Code/Blender/belle_realistic.blend` is byte-identical to its backup (a failed build
+does not save). The plan was Belle's hair and top, muscle definition on Dante and Freya, and a skirt or
+dress on one or two adult crowd women. What happened to each:
+
+- **Skirts and dresses: skipped.** 5.4 is not merged (item 6).
+- **Dante and Freya: skipped.** There is no spec field for muscle definition. Nothing in
+  character-pipeline calls `muscle.define` (item 8). So rebuilding them would change nothing but
+  `arm_pose`, and Dante's `muscle = 1.0` is still the only thing making him read muscular. To unblock
+  them, the pipeline needs a `[body] definition` field and a stage (or a bake step) that calls
+  `muscle.define`.
+- **Belle: blocked by wardrobe's `sports_top` on her own body.** The spec edits are ready: `[hair]
+  preset = "bun"` with the old colour replacing the `shell_bun` block, and one moves change (below). With
+  them, and every stage forced, body, bake, hair (0.9 s), flesh and moves all pass. Then garments
+  raises:
+
+  ```
+  garments: SportsTop did not pass: ["detail all: the cloth carries 0.171 mm of the skin's relief,
+  limit 0.060 mm", 'cover: 10 drawn body triangles still lie over the cloth after lifting it']
+  ```
+
+  - **Where it fails.** All of the traced relief is on the front, and 86% of it is in the band
+    z 1.10-1.13 m, under the bust. One cloth vertex, at (-0.082, -0.169, 1.112), stands 5.8 mm off its
+    smoothed surface and alone makes up 22% of the regression. Drop the top 2% of contributors and
+    `traced` goes from 0.159 to 0.020. The breast region itself passes: 0.101 mm, `traced` 0.09.
+    Compression moved the cloth up to 9.5 mm (p95 5.6 mm) under the bust. The skin that cover keeps
+    drawn along the band (222 edge vertices within 3 cm) then lies over the cloth. All 4 `lift_over`
+    passes ran and still left 10 drawn triangles over the cloth.
+  - **What it looks like.** A workbench close-up of the top on her body shows the nipples gone, as
+    intended. But under each breast the lifted cloth is a faceted, pointed shelf, with a dark wedge
+    between the breasts. That reads worse than the old top's underside.
+  - **Why the fixtures miss it.** On the curvy MPFB woman in 5.3 the whole top carried 0.000 mm. Belle's
+    skin under the top has 1.08 mm of relief (0.33 mm on that woman's breasts), and her band sits close
+    under a heavier bust.
+  - **Scope.** The garments stage always uses the preset. A spec cannot pass it `ease` or `cover`
+    overrides, and a `[hair]` change forces a rebuild from `body`. So Belle cannot be rebuilt at all
+    until the preset passes on her. Her hair change is blocked with it.
+  - **What the fix needs.** A fix belongs in wardrobe, and the limit should stay as it is. Compression
+    has to stop pulling the cloth inside skin that stays drawn near the band. Or `lift_over` has to lift
+    smoothly (wider radius, then relaxed) instead of per corner. Then check Belle with `verify_wardrobe`
+    on every clip.
+- **Belle's Trot fails rig-anything 0.23.0's new `verify.arm_swing`.** Her arms swing 47 deg but never
+  come back to hanging; the nearest is 6 deg in front, and the limit is 2. The spec fix is `[moves.per_gait.Trot]
+  upper.arm_forward` -10 -> -17. Arm carry then runs -0.8..45.9 deg with the swing unchanged
+  (46.7 deg), and every clip passes: Idle, Walk, Trot, Run, Crouch, CrouchWalk, Jump. The crowd
+  was not probed. Any of them whose walk or run carries the arm in front will fail the same way on its
+  next rebuild.
+- **Godot checks, the motion critic, the look critic, a `grungist-creek` commit:** none of them ran,
+  because nothing was rebuilt.
+
+The spec patch (belle.toml, the build_belle.py docstring, and a `.gitignore` line for
+`assets/**/review/`), the pre-rebuild copies of Belle's glbs, manifests and .blend, and the
+close-up renders are in that session's scratch (`scratchpad/wf2/rebuild/`). The numbers above are the
+record; the scratch dies with the session.
 
 ---
 
