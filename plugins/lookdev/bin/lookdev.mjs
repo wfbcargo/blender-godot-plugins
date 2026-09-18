@@ -575,12 +575,24 @@ async function compare(args) {
 
 // ------------------------------------------------------------- close-shot
 
-const CLOSE_VIEWS = ["face", "eyes", "hand_palm.L", "hand_back.L", "hand_palm.R", "hand_back.R", "feet", "bust", "crotch", "full"];
-const VIEW_GROUPS = { hands: ["hand_palm.L", "hand_back.L", "hand_palm.R", "hand_back.R"] };
-const DEFAULT_CLOSE = "face,eyes,hands,feet,bust,full";
+const CLOSE_VIEWS = ["face", "face_3q", "eyes", "head_side", "head_back", "hand_palm.L", "hand_back.L", "hand_palm.R",
+  "hand_back.R", "feet", "bust", "crotch", "full"];
+const VIEW_GROUPS = {
+  hands: ["hand_palm.L", "hand_back.L", "hand_palm.R", "hand_back.R"],
+  head: ["face", "face_3q", "eyes", "head_side", "head_back"],
+};
+const DEFAULT_CLOSE = "face,face_3q,eyes,head_side,head_back,hands,feet,bust,full";
+// The Blender close set's tile (rig-anything closeups.look_set, the review stage's review/<id>/close/) that
+// shows the same thing as a Godot view. Views missing here have no Blender twin: full and bone:<name> in
+// Godot; knees, foot_inner.L, foot_outer.L and under_bust in Blender.
+const BLENDER_TWIN = {
+  face: "face", face_3q: "face_3q", eyes: "eyes", head_side: "head_side", head_back: "head_back",
+  "hand_palm.L": "hand_palm.L", "hand_back.L": "hand_back.L", "hand_palm.R": "hand_palm.R", "hand_back.R": "hand_back.R",
+  feet: "feet", bust: "bust", crotch: "crotch",
+};
 
-// `face,eyes@0.5,hands,full@4,bone:spine.003` -> [{view, distance}]. A view without @ takes --distance,
-// except `full`, which takes --full-distance.
+// `face,eyes@0.5,hands,full@4,bone:spine.003` -> [{view, distance, explicit}]. A view without @ takes
+// --distance, except `full`, which takes --full-distance.
 function closeViews(spec, distance, fullDistance) {
   const out = [];
   for (const raw of String(spec).split(",").map((s) => s.trim()).filter(Boolean)) {
@@ -589,12 +601,62 @@ function closeViews(spec, distance, fullDistance) {
     if (!(d > 0)) die(`view '${raw}': distance must be a positive number of metres`);
     for (const v of VIEW_GROUPS[name] ?? [name]) {
       if (!v.startsWith("bone:") && !CLOSE_VIEWS.includes(v)) {
-        die(`unknown view '${v}' (views: ${CLOSE_VIEWS.join(" ")}, hands, or bone:<name>)`);
+        die(`unknown view '${v}' (views: ${CLOSE_VIEWS.join(" ")}, hands, head, or bone:<name>)`);
       }
-      out.push({ view: v, distance: d });
+      out.push({ view: v, distance: d, explicit: at !== undefined });
     }
   }
   return out;
+}
+
+// `face=0,3,0;hand_palm.L=0.25,0,0` -> {view: [x,y,z]}: moves those views' cameras, not their subjects.
+function aimOffsets(raw) {
+  const out = {};
+  if (!raw) return out;
+  for (const part of String(raw).split(";").map((s) => s.trim()).filter(Boolean)) {
+    const i = part.indexOf("=");
+    if (i < 1) die(`--aim-offset wants view=x,y,z[;view=x,y,z] (got '${part}')`);
+    out[part.slice(0, i)] = vec(part.slice(i + 1), "aim-offset");
+  }
+  return out;
+}
+
+// --pair-blender <close dir>: the Blender tile of each view beside its Godot tiles. A paired view with no
+// @distance of its own takes the Blender tile's distance unless --distance was given, so both show the
+// same perspective. Returns the summary close.json carries: which views are paired, which are not and why.
+function pairBlender(dir, views, distanceGiven) {
+  const abs = path.resolve(dir);
+  const cj = path.join(abs, "close.json");
+  if (!fs.existsSync(cj)) die(`--pair-blender ${fwd(abs)}: no close.json there (point it at a Blender close set, e.g. <export>/review/<id>/close)`);
+  let bl;
+  try {
+    bl = JSON.parse(fs.readFileSync(cj, "utf8"));
+  } catch (e) {
+    die(`--pair-blender: cannot read ${fwd(cj)}: ${e.message}`);
+  }
+  const tiles = bl.tiles ?? {};
+  const summary = { dir: fwd(abs), pose: bl.pose ?? null, paired: [], unpaired: [], blender_only: [] };
+  const seen = new Set();
+  for (const v of views) {
+    const twin = BLENDER_TWIN[v.view];
+    if (!twin) {
+      summary.unpaired.push({ view: v.view, why: "the Blender close set has no such view" });
+      continue;
+    }
+    const t = tiles[twin];
+    // the tile beside close.json first: the set may have been copied since its paths were written
+    const file = [path.join(abs, `${twin}.png`), t?.file].find((f) => f && fs.existsSync(f));
+    if (!t || !file) {
+      summary.unpaired.push({ view: v.view, why: t ? `${twin}.png is missing` : `this set has no ${twin} tile` });
+      continue;
+    }
+    seen.add(twin);
+    if (!v.explicit && !distanceGiven && t.distance_m > 0 && v.view !== "full") v.distance = t.distance_m;
+    v.pair = { view: twin, file: fwd(file), distance_m: t.distance_m ?? null, frame_m: t.frame_m ?? null };
+    summary.paired.push({ view: v.view, blender: twin, distance_m: v.distance, blender_distance_m: t.distance_m ?? null });
+  }
+  for (const name of Object.keys(tiles)) if (!seen.has(name)) summary.blender_only.push(name);
+  return summary;
 }
 
 function glbPath(glb, project) {
@@ -622,19 +684,35 @@ async function closeShot(args) {
   }
   const size = Number(args.size ?? 640);
   if (!(size >= 128 && size <= 2048)) die("--size is the tile's pixels, 128-2048");
+  const label = String(args.label ?? "above");
+  if (!["above", "inside"].includes(label)) die("--label is above (a band over the picture) or inside (over its top: the control)");
+  const num = (key, dflt, lo, hi) => {
+    const v = Number(args[key] ?? dflt);
+    if (!(v >= lo && v <= hi)) die(`--${key} must be a number from ${lo} to ${hi}`);
+    return v;
+  };
+  const views = closeViews(args.views ?? DEFAULT_CLOSE, Number(args.distance ?? 1.0), Number(args["full-distance"] ?? 4.0));
+  const offsets = aimOffsets(args["aim-offset"]);
+  for (const k of Object.keys(offsets)) {
+    if (!views.some((v) => v.view === k)) die(`--aim-offset names ${k}, which is not among the views`);
+  }
+  for (const v of views) if (offsets[v.view]) v.aim_offset = offsets[v.view];
+  const pair = args["pair-blender"] ? pairBlender(String(args["pair-blender"]), views, args.distance !== undefined) : null;
   const spec = {
     glb: glbPath(args.glb, project),
     out_dir: outDir,
     presets,
-    views: closeViews(args.views ?? DEFAULT_CLOSE, Number(args.distance ?? 1.0), Number(args["full-distance"] ?? 4.0)),
+    views: views.map(({ explicit, ...v }) => v),
     clip: args.clip ?? "",
     time: Number(args.time ?? 0),
     garments: args.garments ? String(args.garments).split(",").map((g) => (g.startsWith("res://") ? g : fwd(g))) : [],
     strands: !args["no-strands"],
     force: !!args.force,
-    min_coverage: Number(args["min-coverage"] ?? 0.03),
+    min_coverage: num("min-coverage", 0.03, 0, 1),
+    min_subject: num("min-subject", 0.08, 0, 1),
+    label,
+    pair_blender: pair ?? {},
     sheet_tile: Number(args["sheet-tile"] ?? 384),
-    columns: Number(args.columns ?? 5),
     warmup_frames: Number(args.warmup ?? 45),
     view_frames: Number(args["view-frames"] ?? 24),
   };
@@ -662,22 +740,30 @@ async function closeShot(args) {
   if (args.json) {
     console.log(JSON.stringify(stats, null, 2));
   } else {
-    console.log(`lookdev close-shot  ${stats.glb}  ${stats.clip || "rest pose"}  tiles ${stats.tile_px.join("x")}`);
+    console.log(`lookdev close-shot  ${stats.glb}  ${stats.clip || "rest pose"}  tiles ${stats.tile_px.join("x")} + a ${stats.band_px} px label band ${stats.label === "inside" ? "(inside the picture)" : "above"}`);
     for (const n of stats.notes) console.log(`  note: ${n}`);
     console.log(`  materials: ${(stats.materials.materials ?? []).join(", ") || "(no lookdev extras)"}`);
     for (const t of stats.tiles) {
       console.log(
         `  ${t.preset.padEnd(14)} ${t.view.padEnd(12)} ${fmt(t.distance_m)} m  fov ${fmt(t.fov_deg, 1).padStart(5)}  ` +
-          `frame ${fmt(t.frame_m, 3)} m  figure ${fmt(100 * t.figure_coverage, 0).padStart(3)}%` +
+          `frame ${fmt(t.frame_m, 3)} m  figure ${fmt(100 * t.figure_coverage, 0).padStart(3)}%  subject ${fmt(100 * t.subject_coverage, 0).padStart(3)}%` +
+          (t.subject_off != null ? `  off ${fmt(t.subject_off, 2)}` : "") +
+          (t.aim_offset?.length ? `  aim offset ${t.aim_offset.join(",")}` : "") +
           (t.failures.length ? `  FAIL ${t.failures.join("; ")}` : ""),
       );
     }
-    console.log(`\nsheet (rows = presets, columns = views; each tile labelled view, distance, preset, fov): ${stats.sheet}`);
+    if (pair) {
+      console.log(`\n  Blender pair: ${pair.dir}${pair.pose ? `  (${pair.pose.action} f${pair.pose.frame})` : ""}`);
+      for (const p of pair.paired) console.log(`    ${p.view.padEnd(12)} beside Blender ${p.blender} (Godot at ${fmt(p.distance_m)} m, Blender at ${fmt(p.blender_distance_m)} m)`);
+      for (const u of pair.unpaired) console.log(`    ${u.view.padEnd(12)} no Blender twin: ${u.why}`);
+      if (pair.blender_only.length) console.log(`    Blender tiles with no Godot view here: ${pair.blender_only.join(", ")}`);
+    }
+    console.log(`\nsheet (${stats.layout}; each tile labelled view, distance, preset, fov): ${stats.sheet}`);
     console.log(`out: ${outDir}`);
     reportEngine(scan);
   }
   if (stats.failures.length) {
-    console.log(`\n${stats.failures.length} tile(s) failed: an empty or off-target tile is not a picture of the subject.`);
+    console.log(`\n${stats.failures.length} tile(s) failed: an empty, small, off-target or cut tile is not a picture of the subject.`);
     process.exitCode = 1;
   }
 }
@@ -816,6 +902,47 @@ async function selftest(args) {
       firstLine(bad.out, /no_such_bone/).slice(0, 160));
     const inter = await runSelf(["close-shot", ...common, "--glb", character, "--views", "face", "--presets", "interior_daylight", "--out", `${dir}/close_interior`]);
     check("close-shot refuses interior_daylight on its open stage", inter.code === 1 && /needs an interior stage/.test(inter.out), firstLine(inter.out, /needs an interior/).slice(0, 160));
+
+    // close-shot's post-render tile checks. First the case that must pass, so each control below is
+    // specific: the same character, views and preset with the camera on its subject. A small fake
+    // Blender close set (one face tile) exercises --pair-blender without a Blender run.
+    const fake = `${dir}/close_fake_blender`;
+    fs.mkdirSync(fake, { recursive: true });
+    const readJson = (p) => { try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return null; } };
+    const good = await runSelf(["close-shot", ...common, "--glb", character, "--views", "face,head_side,hand_palm.L,full", "--presets", "clear_midday", "--out", `${dir}/close_good`]);
+    const gj = readJson(`${dir}/close_good/close.json`);
+    const full = gj?.tiles?.find((t) => t.view === "full");
+    check("close-shot on the character with every camera on its subject passes (the controls below are specific)",
+      good.code === 0 && gj?.failures?.length === 0 && full?.label_clear_of_head === true,
+      `exit ${good.code}, ${gj ? `${gj.tiles.length} tiles, failures ${gj.failures.length}, full head px ${JSON.stringify(full?.head_box_px)} band px ${JSON.stringify(full?.band_px)}` : "no close.json"}`);
+    if (gj) {
+      const faceTile = gj.tiles.find((t) => t.view === "face");
+      fs.copyFileSync(faceTile.file, `${fake}/face.png`);
+      fs.writeFileSync(`${fake}/close.json`, JSON.stringify({ pose: { action: "selftest", frame: 1 }, tiles: { face: { distance_m: 0.6, frame_m: 0.28 }, knees: { distance_m: 0.8 } } }));
+    }
+    const pr = await runSelf(["close-shot", ...common, "--glb", character, "--views", "face,full", "--presets", "clear_midday", "--pair-blender", fake, "--out", `${dir}/close_pair`]);
+    const pj = readJson(`${dir}/close_pair/close.json`);
+    const pb = pj?.pair_blender ?? {};
+    check("close-shot --pair-blender puts the Blender face beside the Godot face at its distance, and names full and knees as unpaired",
+      pr.code === 0 && /one column per preset, the Blender tile/.test(pj?.layout ?? "") && pb.paired?.[0]?.view === "face" &&
+        pj.tiles.find((t) => t.view === "face")?.distance_m === 0.6 && pb.unpaired?.some((u) => u.view === "full") && pb.blender_only?.includes("knees"),
+      `exit ${pr.code}, layout '${pj?.layout}', paired ${JSON.stringify(pb.paired?.map((p) => p.view))}, unpaired ${JSON.stringify(pb.unpaired?.map((u) => u.view))}, Blender only ${JSON.stringify(pb.blender_only)}`);
+    const nopair = await runSelf(["close-shot", ...common, "--glb", character, "--views", "face", "--presets", "clear_midday", "--pair-blender", `${dir}/tone`, "--out", `${dir}/close_nopair`]);
+    check("close-shot --pair-blender on a folder with no close.json is refused", nopair.code === 2 && /no close\.json there/.test(nopair.out), firstLine(nopair.out, /close\.json/).slice(0, 160));
+    const tileFail = (res, out, want, not = []) => {
+      const j = readJson(`${out}/close.json`);
+      const f = (j?.failures ?? []).join(" | ");
+      return [res.code === 1 && want.test(f) && not.every((re) => !re.test(f)), `exit ${res.code}: ${f.slice(0, 200) || "no failures"}`];
+    };
+    const empty = await runSelf(["close-shot", ...common, "--glb", character, "--views", "face", "--presets", "clear_midday", "--aim-offset", "face=0,3,0", "--out", `${dir}/close_empty`]);
+    check("close-shot with the face camera aimed 3 m above the head fails EMPTY_TILE", ...tileFail(empty, `${dir}/close_empty`, /EMPTY_TILE/));
+    const off = await runSelf(["close-shot", ...common, "--glb", character, "--views", "hand_palm.L", "--presets", "clear_midday", "--aim-offset", "hand_palm.L=0,0.12,0", "--out", `${dir}/close_off`]);
+    check("close-shot with the palm camera 12 cm up the forearm fails OFF_TARGET (and only that: the forearm fills the tile)",
+      ...tileFail(off, `${dir}/close_off`, /OFF_TARGET/, [/EMPTY_TILE/, /SUBJECT_SMALL/]));
+    const small = await runSelf(["close-shot", ...common, "--glb", character, "--views", "face", "--presets", "clear_midday", "--min-subject", "0.95", "--out", `${dir}/close_small`]);
+    check("close-shot --min-subject 0.95 fails the face tile SUBJECT_SMALL", ...tileFail(small, `${dir}/close_small`, /SUBJECT_SMALL/, [/EMPTY_TILE/, /OFF_TARGET/]));
+    const inside = await runSelf(["close-shot", ...common, "--glb", character, "--views", "full", "--presets", "clear_midday", "--label", "inside", "--out", `${dir}/close_inside`]);
+    check("close-shot --label inside (the band over the picture) fails full LABEL_OVER_HEAD", ...tileFail(inside, `${dir}/close_inside`, /LABEL_OVER_HEAD/));
   }
   const failed = results.filter((r) => !r).length;
   console.log(`\nlookdev selftest ${failed ? "FAILED" : "PASSED"} (${results.length - failed}/${results.length} controls failed as they must)   out: ${dir}`);
@@ -834,8 +961,10 @@ const USAGE = `lookdev - lighting and shading tools for Godot
            [--out <path> | --in-place] [--stage open|interior] [--force]
   presets  list available presets
   close-shot --project <dir> --glb <res://|path> [--distance 1] [--full-distance 4]
-           [--views face,eyes,hands,feet,bust,full] [--presets clear_midday,overcast] [--clip Idle] [--time 0]
-           [--garments a.glb,b.glb] [--no-strands] [--size 640] [--out dir] [--json]
+           [--views face,face_3q,eyes,head_side,head_back,hands,feet,bust,full] [--presets clear_midday,overcast]
+           [--clip Idle] [--time 0] [--garments a.glb,b.glb] [--no-strands] [--size 640] [--out dir] [--json]
+           [--pair-blender <Blender close dir>] [--min-subject 0.08] [--min-coverage 0.03]
+           [--aim-offset view=x,y,z[;view=x,y,z]] [--label above|inside]
   tone     --project <dir> --glb <res://|path> [--material skin] [--expect r,g,b] [--json]
   selftest --project <dir> [--glb <rigged character>]   run the controls (each must fail)
   compare  --project <dir> --a <png|capture dir> --b <png|capture dir> [--views lit,unshaded] [--out dir]

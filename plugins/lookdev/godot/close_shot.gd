@@ -8,25 +8,40 @@ extends SceneTree
 ## Loads a glb (an imported res:// path, or any file through GLTFDocument), applies LookdevMaterials,
 ## attaches the strands its .moves.json lists and equips any garments given, poses one clip at one time,
 ## then for every preset x view aims a camera from the posed frame's bones - never height fractions -
-## and renders one tile with its label (view, distance, preset, fov) drawn into it. The field of view
-## is chosen so the subject fills the tile at the stated distance: distance sets the perspective, the
-## lens sets the framing, as a photographer would.
+## and renders one tile. The field of view is chosen so the subject fills the tile at the stated
+## distance: distance sets the perspective, the lens sets the framing, as a photographer would.
+##
+## Each tile is the render with a label band *above* it (view, distance, preset, fov, clip), as
+## rig-anything's Blender look set does, so the label never covers the figure; `"label": "inside"` puts it
+## back over the top of the render (the old layout, kept as the control for the head-under-band check).
 ##
 ## Like capture.gd it needs a window (`--headless` has no renderer); the runner parks it off-screen.
 ##
-## Views (spec "views": [{"view": name, "distance": m}]):
+## Views (spec "views": [{"view": name, "distance": m, "aim_offset": [x,y,z]?, "pair": {...}?}]). The head
+## and hand views follow rig-anything `closeups._aim`, so a Blender tile and a Godot tile of a view line up:
 ##   face, eyes                from the eyeballs (the sclera surface carried by the head bone's skin bind),
 ##                             falling back to the head bone when the mesh has no eye surface
+##   face_3q                   three-quarter from the head's front-left: hairline, nose and cheek in relief
+##   head_side, head_back      the whole head from its left and from behind: ear, hairline, nape, a tail
 ##   hand_palm.L/.R, hand_back.L/.R   palm centre from the hand and finger bones; the palm normal from
 ##                             the knuckle line and the hand's length, so it follows the pose
 ##   feet, bust, crotch, full  from foot/toe, upper arm, thigh bones and the whole posed skeleton
 ##   bone:<name>               any bone, from the figure's front (size from the view's "size", default 0.3 m)
+## `aim_offset` moves a view's camera (target and eye) by a world offset while its checks keep the view's
+## own subject: the control that a wrongly aimed camera fails.
 ##
 ## Fails loudly (exit 2, before rendering anything) on: a glb that does not load, no Skeleton3D, a view
 ## whose bone is missing, an unknown clip, a preset the open stage cannot take (interior_daylight) unless
-## "force", an out_dir it cannot write. After rendering it exits 1 when a tile shows too little of the
-## figure (coverage under "min_coverage") or a body view's target is not on the figure, so an empty tile
-## can never pass as a picture.
+## "force", an out_dir it cannot write. After rendering it exits 1 when any tile fails a check, each
+## measured from the tile's own pixels and the posed bones, with the free value reported in close.json:
+##   EMPTY_TILE      the figure covers less than "min_coverage" of the tile
+##   SUBJECT_SMALL   the subject (what lies within `slab` of the target's depth) covers less than
+##                   "min_subject" (body views)
+##   OFF_TARGET      the view's subject points (its own bones: the head, both eyes, wrist/knuckle/tip...)
+##                   project with their centroid more than CENTRAL from the tile's centre, lie behind the
+##                   camera, or (body views) the figure does not cover their centroid
+##   SUBJECT_CUT     full: the top of the head or a foot falls outside the picture
+##   LABEL_OVER_HEAD full: the head's projected box meets the label band
 
 const Common := preload("common.gd")
 
@@ -59,8 +74,11 @@ const ALIASES := {
 	"toe.L": ["toe.L", "mixamorig:LeftToeBase"],
 	"toe.R": ["toe.R", "mixamorig:RightToeBase"],
 }
-const VIEW_NAMES := ["face", "eyes", "hand_palm.L", "hand_back.L", "hand_palm.R", "hand_back.R",
-	"feet", "bust", "crotch", "full"]
+const VIEW_NAMES := ["face", "face_3q", "eyes", "head_side", "head_back", "hand_palm.L", "hand_back.L",
+	"hand_palm.R", "hand_back.R", "feet", "bust", "crotch", "full"]
+const CENTRAL := 0.3          # the subject's centroid within this of the centre (0.5 = the edge), each axis,
+							  # as rig-anything's closeups.CENTRAL
+const CUT_MARGIN := 0.01      # full: every subject point this far inside the picture
 
 var spec: Dictionary
 var out_dir: String
@@ -72,6 +90,9 @@ var sun: DirectionalLight3D
 var cam: Camera3D
 var label: Label
 var label_layer: CanvasLayer
+var band_vp: SubViewport
+var band_label: Label
+var band_px := 0
 var stage_nodes: Array[Node3D] = []
 var presets_mod: Script
 var materials_mod: Script
@@ -185,15 +206,21 @@ func _run() -> void:
 			return
 		for w in rep["warnings"]:
 			Common.emit("warning", {"message": "preset %s: %s" % [pn, w]})
-		for a in aims:
-			var t: Dictionary = await _render_tile(a, pn, int(spec.get("warmup_frames", 45)) if a == aims[0] else 0)
+		for ai in aims.size():
+			var a: Dictionary = aims[ai]
+			var t: Dictionary = await _render_tile(a, pn, int(spec.get("warmup_frames", 45)) if ai == 0 else 0)
+			t["row"] = ai
+			t["column"] = preset_names.find(pn)
 			tiles.append(t)
 			for f in t["failures"]:
 				failures.append("%s %s: %s" % [pn, a["view"], f])
-	var sheet := _sheet(tiles, preset_names.size(), aims.size())
+	var sheet := await _sheet(tiles, aims, preset_names)
 	var result := {
 		"glb": glb, "clip": spec.get("clip_resolved", ""), "time": spec.get("time", 0.0),
-		"presets": preset_names, "sheet": sheet, "tile_px": [root.size.x, root.size.y],
+		"presets": preset_names, "sheet": sheet["path"], "sheet_px": sheet["size"],
+		"layout": "one row per view, one column per preset" + (", the Blender tile of the view first" if sheet["blender"] else ""),
+		"tile_px": [root.size.x, root.size.y], "band_px": band_px, "label": str(spec.get("label", "above")),
+		"pair_blender": spec.get("pair_blender", {}),
 		"materials": look, "notes": notes, "tiles": tiles, "failures": failures,
 		"physical_light_units": Common.physical_units(),
 	}
@@ -203,7 +230,7 @@ func _run() -> void:
 		return
 	f.store_string(JSON.stringify(result, "  ", false))
 	f.close()
-	Common.emit("done", {"sheet": sheet, "stats": out_dir.path_join("close.json"), "failures": failures})
+	Common.emit("done", {"sheet": sheet["path"], "stats": out_dir.path_join("close.json"), "failures": failures})
 	quit(0 if failures.is_empty() else 1)
 
 
@@ -515,7 +542,8 @@ func _aim(v: Dictionary) -> Dictionary:
 		flat.y = 0.0
 	fwd = flat.normalized() if flat.length() > 1e-3 else Vector3.BACK
 	var up := Vector3.UP
-	var a := {"view": view, "distance": dist, "near": 0.05, "body": true, "anchors": {}}
+	var a := {"view": view, "distance": dist, "near": 0.05, "body": true, "anchors": {},
+		"aim_offset": v.get("aim_offset", []), "pair": v.get("pair", {})}
 	if view.begins_with("bone:"):
 		var bn := view.substr(5)
 		if skel.find_bone(bn) < 0:
@@ -528,35 +556,46 @@ func _aim(v: Dictionary) -> Dictionary:
 		a["anchors"][bn] = a["target"]
 		return _finish(a)
 	match view:
-		"face", "eyes":
+		"face", "eyes", "face_3q", "head_side", "head_back":
 			var m := _missing(["head", "neck"])
 			if m != "":
 				return {"error": m}
-			var hf := _carry("head", fwd_rest)
-			var hu := _carry("head", up_rest)
-			var e := _eyes()
-			var centre: Vector3
-			var ipd: float
-			if e.is_empty():
-				# no eye surface: the eyes sit about one neck length above the head bone's head
-				var nl := _p("head").distance_to(_p("neck"))
-				centre = _p("head") + hu * nl * 0.9 + hf * nl * 0.7
-				ipd = 0.063 * _scale()
-				notes.append("%s: no sclera/eye surface in the mesh, eyes placed from the head bone" % view)
-			else:
-				centre = ((e[0] as Vector3) + (e[1] as Vector3)) * 0.5
-				ipd = (e[0] as Vector3).distance_to(e[1])
+			var h := _head(view)
+			var hf: Vector3 = h["hf"]
+			var hu: Vector3 = h["hu"]
+			var hl: Vector3 = h["hl"]
+			var centre: Vector3 = h["centre"]
+			var ipd: float = h["ipd"]
+			var e: Array = h["eyes"]
+			if not e.is_empty():
 				a["anchors"]["eye.L"] = e[0]
 				a["anchors"]["eye.R"] = e[1]
 			a["anchors"]["head"] = _p("head")
+			a["anchors"]["head_mid"] = h["mid"]
+			a["subject"] = {"head": h["mid"]}
 			a["dir"] = hf
 			up = hu
-			if view == "face":
-				a["target"] = centre - hu * ipd * 0.35 + hf * ipd * 0.2
-				a["frame"] = ipd * 4.4
-			else:
-				a["target"] = centre + hf * ipd * 0.2
-				a["frame"] = ipd * 2.4
+			match view:
+				"face":
+					a["target"] = centre - hu * ipd * 0.35 + hf * ipd * 0.2
+					a["frame"] = ipd * 4.4
+				"face_3q":
+					a["target"] = centre - hu * ipd * 0.2
+					a["dir"] = (hf + hl).normalized()
+					a["frame"] = ipd * 4.8
+				"eyes":
+					a["target"] = centre + hf * ipd * 0.2
+					a["frame"] = ipd * 2.4
+					if not e.is_empty():
+						a["subject"] = {"eye.L": e[0], "eye.R": e[1]}
+				_:
+					# the whole head and whatever hangs off it: from the neck's base to a head height above
+					# the eyes (a bun or a tail behind is inside the frame)
+					var top: Vector3 = h["top"]
+					var bottom := _p("neck") - hu * ipd * 0.8
+					a["target"] = (top + bottom) * 0.5 - hf * ipd * 0.6
+					a["frame"] = (top - bottom).length() * 1.25
+					a["dir"] = hl if view == "head_side" else -hf
 		"hand_palm.L", "hand_palm.R", "hand_back.L", "hand_back.R":
 			var s := view.substr(view.length() - 1)
 			var roles := ["hand." + s, "f_index.01." + s, "f_middle.01." + s, "f_middle.03." + s, "f_pinky.01." + s]
@@ -578,6 +617,7 @@ func _aim(v: Dictionary) -> Dictionary:
 			# the hand hangs by the thigh: clip whatever is nearer the camera than the hand itself
 			a["near"] = maxf(0.05, dist - wrist.distance_to(tip) * 0.35)
 			a["anchors"] = {"wrist": wrist, "knuckle": knuckle, "tip": tip}
+			a["subject"] = a["anchors"]
 			a["slab"] = wrist.distance_to(tip) * 0.4
 			up = along * -1.0
 		"feet":
@@ -635,7 +675,23 @@ func _aim(v: Dictionary) -> Dictionary:
 			a["frame"] = (top - bottom) * 1.1
 			a["dir"] = (fwd + Vector3.UP * 0.05).normalized()
 			a["body"] = false
-			a["anchors"] = {"top": Vector3(0, top, 0), "bottom": Vector3(0, bottom, 0)}
+			a["anchors"] = {"top": Vector3(box.get_center().x, top, box.get_center().z),
+				"bottom": Vector3(box.get_center().x, bottom, box.get_center().z)}
+			# the subject is the whole figure: the top of the head and both feet must be in the picture,
+			# and the head's box (checked against the label band) is its eyes, crown, chin and ears
+			a["subject"] = {}
+			if _missing(["neck"]) == "":
+				var h := _head(view)
+				var c: Vector3 = h["centre"]
+				var ipd: float = h["ipd"]
+				var hu: Vector3 = h["hu"]
+				var hl: Vector3 = h["hl"]
+				a["subject"]["head_top"] = h["top"]
+				a["head_box"] = [h["top"], c - hu * ipd * 1.9, c + hl * ipd * 1.3, c - hl * ipd * 1.3]
+			for role in ["toe.L", "toe.R", "foot.L", "foot.R"]:
+				if _bone(role) >= 0:
+					a["subject"][role] = _p(role)
+			a["cut"] = true
 		_:
 			return {"error": "unknown view '%s' (views: %s, or bone:<name>)" % [view, ", ".join(VIEW_NAMES)]}
 	a["up"] = up
@@ -646,11 +702,42 @@ func _finish(a: Dictionary) -> Dictionary:
 	var dist: float = a["distance"]
 	if not a.has("slab"):
 		a["slab"] = float(a["frame"]) * 0.5
+	if not a.has("subject"):
+		a["subject"] = a["anchors"]
+	# the control: the camera moves, the subject the checks look for does not
+	var off: Array = a.get("aim_offset", [])
+	if off.size() == 3:
+		a["target"] = (a["target"] as Vector3) + Vector3(float(off[0]), float(off[1]), float(off[2]))
 	a["fov"] = rad_to_deg(2.0 * atan(float(a["frame"]) * 0.5 / dist))
 	a["eye"] = (a["target"] as Vector3) + (a["dir"] as Vector3) * dist
 	if not a.has("up"):
 		a["up"] = Vector3.UP
 	return a
+
+
+## The head's frame and size: forward, up and left (hu x hf, +X for a glTF figure facing +Z, as
+## closeups._aim's `hl`), the eyes' centre and spacing (from the eyeballs, else placed from the head bone),
+## the crown (a head height above the eyes) and the head's middle, a little above the eye line: where
+## closeups._aim's head-bone midpoint lands on MPFB bodies (Blender face tile subject_off 0.169). The
+## head bone's tail is not in a glb, so it cannot be taken from the bone.
+func _head(view: String) -> Dictionary:
+	var hf := _carry("head", fwd_rest)
+	var hu := _carry("head", up_rest)
+	var e := _eyes()
+	var centre: Vector3
+	var ipd: float
+	if e.is_empty():
+		# no eye surface: the eyes sit about one neck length above the head bone's head
+		var nl := _p("head").distance_to(_p("neck"))
+		centre = _p("head") + hu * nl * 0.9 + hf * nl * 0.7
+		ipd = 0.063 * _scale()
+		notes.append("%s: no sclera/eye surface in the mesh, eyes placed from the head bone" % view)
+	else:
+		centre = ((e[0] as Vector3) + (e[1] as Vector3)) * 0.5
+		ipd = (e[0] as Vector3).distance_to(e[1])
+	var top := centre + hu * ipd * 2.3
+	return {"hf": hf, "hu": hu, "hl": hu.cross(hf).normalized(), "eyes": e, "centre": centre, "ipd": ipd,
+		"top": top, "mid": centre + hu * ipd * 0.4}
 
 
 func _scale() -> float:
@@ -677,18 +764,40 @@ func _render_tile(a: Dictionary, preset: String, warmup: int) -> Dictionary:
 	cam.fov = clampf(float(a["fov"]), 1.0, 120.0)
 	cam.look_at_from_position(a["eye"], a["target"], up)
 	_target = a["target"]
-	label.text = "%s   %.2f m   %s   fov %.1f°\n%s" % [a["view"], a["distance"], preset, cam.fov, spec.get("clip_resolved", "rest pose")]
-	# sized against the visible rect: a project's stretch mode scales the canvas to the window
-	label.add_theme_font_size_override("font_size", maxi(12, int(root.get_visible_rect().size.y * 0.03)))
-	label_layer.visible = true
+	var inside := str(spec.get("label", "above")) == "inside"
+	var text := "Godot  %s   %.2f m   %s   fov %.1f°\n%s" % [a["view"], a["distance"], preset, cam.fov, spec.get("clip_resolved", "rest pose")]
+	if inside:
+		label.text = text
+		# sized against the visible rect: a project's stretch mode scales the canvas to the window
+		label.add_theme_font_size_override("font_size", maxi(12, int(root.get_visible_rect().size.y * 0.03)))
+		label_layer.visible = true
+	else:
+		label_layer.visible = false
+		_band(text, maxi(12, int(root.size.y * 0.03)))
 	for i in warmup + int(spec.get("view_frames", 24)):
 		await process_frame
 	await RenderingServer.frame_post_draw
 	var img := root.get_texture().get_image()
+	img.convert(Image.FORMAT_RGBA8)
+	var pic := Vector2(img.get_width(), img.get_height())
+	var vis := root.get_visible_rect().size
+	var to_px := Vector2(pic.x / vis.x, pic.y / vis.y)       # visible-rect coordinates -> picture pixels
+	# the label band in picture pixels: above the picture (y < 0), or over its top-left corner
+	var band := Rect2(0, -band_px, pic.x, band_px)
+	if inside:
+		var r := label.get_global_rect()
+		band = Rect2(r.position * to_px, r.size * to_px)
+	var tile_img := img
+	if not inside:
+		var bimg := band_vp.get_texture().get_image()
+		bimg.convert(Image.FORMAT_RGBA8)
+		tile_img = Image.create(img.get_width(), img.get_height() + band_px, false, Image.FORMAT_RGBA8)
+		tile_img.blit_rect(bimg, Rect2i(0, 0, mini(bimg.get_width(), img.get_width()), mini(bimg.get_height(), band_px)), Vector2i.ZERO)
+		tile_img.blit_rect(img, Rect2i(Vector2i.ZERO, img.get_size()), Vector2i(0, band_px))
 	var name := "%s_%s" % [preset, str(a["view"]).replace(":", "-")]
 	var path := out_dir.path_join(name + ".png")
 	var failures := PackedStringArray()
-	if img.save_png(path) != OK:
+	if tile_img.save_png(path) != OK:
 		failures.append("cannot save %s" % path)
 	var mask := await _figure_mask()
 	_save_mask(mask, out_dir.path_join(name + "_mask.png"))
@@ -704,12 +813,63 @@ func _render_tile(a: Dictionary, preset: String, warmup: int) -> Dictionary:
 	var min_sub := float(spec.get("min_subject", 0.08))
 	if a["body"] and sub < min_sub:
 		failures.append("SUBJECT_SMALL: the %s covers %.1f%% of its tile (min %.1f%%)" % [a["view"], 100.0 * sub, 100.0 * min_sub])
+
+	# The view's own subject points (not the camera's target, which aim_offset moves): where they land.
+	var uvs := {}
+	var behind := PackedStringArray()
+	var cen := Vector2.ZERO
+	for k in a["subject"]:
+		var p: Vector3 = a["subject"][k]
+		# behind the camera's eye, not its near plane: a hand view's near plane is pulled up to the hand
+		if -(cam.global_transform.affine_inverse() * p).z <= 0.0:
+			behind.append(k)
+			continue
+		var uv := cam.unproject_position(p) / vis
+		uvs[k] = [snappedf(uv.x, 0.001), snappedf(uv.y, 0.001)]
+		cen += uv
+	var n_in := uvs.size()
+	var off := INF
+	if n_in > 0:
+		cen /= n_in
+		off = maxf(absf(cen.x - 0.5), absf(cen.y - 0.5))
 	var on_body := true
-	var target_px := cam.unproject_position(a["target"])
-	if a["body"]:
-		on_body = _mask_at(mask, target_px)
-		if not on_body:
-			failures.append("OFF_TARGET: the tile's centre (%s) is not on the figure" % a["view"])
+	if not behind.is_empty():
+		failures.append("OFF_TARGET: %s behind the camera (%s)" % [", ".join(behind), a["view"]])
+	elif a.get("cut", false):
+		var cut := PackedStringArray()
+		for k in uvs:
+			var u: Array = uvs[k]
+			if u[0] < CUT_MARGIN or u[0] > 1.0 - CUT_MARGIN or u[1] < CUT_MARGIN or u[1] > 1.0 - CUT_MARGIN:
+				cut.append("%s at (%.2f, %.2f)" % [k, u[0], u[1]])
+		if not cut.is_empty():
+			failures.append("SUBJECT_CUT: %s outside the picture" % ", ".join(cut))
+	elif n_in > 0:
+		if off > CENTRAL:
+			failures.append("OFF_TARGET: the %s's subject (%s) centres %.2f from the tile's centre (max %.2f)" % [
+				a["view"], ", ".join(uvs.keys()), off, CENTRAL])
+		elif a["body"]:
+			on_body = _mask_at(mask, cen * vis)
+			if not on_body:
+				failures.append("OFF_TARGET: the figure does not cover the %s's subject at (%.2f, %.2f)" % [a["view"], cen.x, cen.y])
+
+	# The head against the label band (full): its projected box in picture pixels.
+	var head_box := []
+	var clear := true
+	if a.has("head_box"):
+		var hb := Rect2()
+		var first := true
+		for p in a["head_box"]:
+			var q: Vector2 = cam.unproject_position(p) * to_px
+			if first:
+				hb = Rect2(q, Vector2.ZERO)
+				first = false
+			else:
+				hb = hb.expand(q)
+		head_box = [snappedf(hb.position.x, 0.1), snappedf(hb.position.y, 0.1), snappedf(hb.end.x, 0.1), snappedf(hb.end.y, 0.1)]
+		clear = not hb.intersects(band)
+		if not clear:
+			failures.append("LABEL_OVER_HEAD: the head (px %s) is under the label band (px %s)" % [
+				head_box, [band.position.x, band.position.y, band.end.x, band.end.y]])
 	var anchors := {}
 	for k in a["anchors"]:
 		anchors[k] = Common.vec3_json(a["anchors"][k])
@@ -717,10 +877,40 @@ func _render_tile(a: Dictionary, preset: String, warmup: int) -> Dictionary:
 		"view": a["view"], "preset": preset, "distance_m": a["distance"], "fov_deg": snappedf(cam.fov, 0.01),
 		"frame_m": snappedf(float(a["frame"]), 0.001), "near_m": snappedf(cam.near, 0.001),
 		"eye": Common.vec3_json(a["eye"]), "target": Common.vec3_json(a["target"]),
+		"aim_offset": a.get("aim_offset", []),
 		"anchors": anchors, "figure_coverage": snappedf(cov, 0.001), "subject_coverage": snappedf(sub, 0.001),
-		"slab_m": snappedf(float(a["slab"]), 0.001), "target_on_figure": on_body,
+		"min_subject": min_sub, "slab_m": snappedf(float(a["slab"]), 0.001),
+		"subject_uv": uvs, "subject_off": snappedf(off, 0.001) if n_in > 0 else null,
+		"subject_behind": behind, "subject_on_figure": on_body,
+		"label": "inside" if inside else "above",
+		"band_px": [snappedf(band.position.x, 0.1), snappedf(band.position.y, 0.1), snappedf(band.end.x, 0.1), snappedf(band.end.y, 0.1)],
+		"head_box_px": head_box, "label_clear_of_head": clear,
+		"picture_px": [int(pic.x), int(pic.y)],
 		"file": path, "failures": failures,
 	}
+
+
+## The label band above a tile: its text drawn in its own SubViewport, the width of the picture.
+func _band(text: String, font_size: int) -> void:
+	if band_vp == null:
+		band_vp = SubViewport.new()
+		band_vp.disable_3d = true
+		band_vp.transparent_bg = false
+		band_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		var bg := ColorRect.new()
+		bg.color = Color(0.10, 0.11, 0.12)
+		bg.size = Vector2(4096, 512)
+		band_vp.add_child(bg)
+		band_label = Label.new()
+		band_label.position = Vector2(8, 4)
+		band_label.add_theme_color_override("font_color", Color(1, 1, 1))
+		band_vp.add_child(band_label)
+		root.add_child(band_vp)
+	band_label.add_theme_font_size_override("font_size", font_size)
+	band_label.text = text
+	var font := band_label.get_theme_font("font")
+	band_px = int(ceil(font.get_height(font_size) * 2.0 + 10.0))
+	band_vp.size = Vector2i(root.size.x, band_px)
 
 
 const MASK_W := 128
@@ -816,26 +1006,123 @@ func _mask_at(mask: PackedByteArray, px: Vector2) -> bool:
 	return hits >= 5
 
 
-## Rows are presets (wrapped at `columns` views), columns views, each tile labelled in its own pixels.
-func _sheet(tiles: Array, rows: int, per_row: int) -> String:
+## One row per view, one column per preset - and, when the views carry a Blender pair, the Blender tile of
+## the view in a first column - each tile with its own label band, a header over each column and a
+## Blender/Godot tag in each cell. Composed from Controls in a SubViewport, so its text is real text.
+## {path, size, blender (whether there is a Blender column)}.
+func _sheet(tiles: Array, aims: Array, presets: Array) -> Dictionary:
 	var tile := int(spec.get("sheet_tile", 384))
-	var cols := mini(per_row, int(spec.get("columns", 5)))
-	var wraps := int(ceil(per_row / float(cols)))
+	var blender := false
+	for a in aims:
+		if not (a.get("pair", {}) as Dictionary).is_empty():
+			blender = true
+	var cols := presets.size() + (1 if blender else 0)
 	const GAP := 4
-	var sheet := Image.create(cols * (tile + GAP) - GAP, rows * wraps * (tile + GAP) - GAP, false, Image.FORMAT_RGBA8)
-	sheet.fill(Color(0.08, 0.08, 0.08))
-	for k in tiles.size():
-		var img := Image.load_from_file(tiles[k]["file"])
-		if img == null:
-			continue
-		img.convert(Image.FORMAT_RGBA8)
-		img.resize(tile, int(round(tile * float(img.get_height()) / img.get_width())), Image.INTERPOLATE_LANCZOS)
-		var r := k / per_row
-		var c := k % per_row
-		var row := r * wraps + c / cols
-		var col := c % cols
-		sheet.blit_rect(img, Rect2i(0, 0, tile, mini(tile, img.get_height())), Vector2i(col * (tile + GAP), row * (tile + GAP)))
+	var header := 30
+	# the cells: [row][col] -> {image, tag} or {missing}
+	var grid := []
+	for ai in aims.size():
+		var row := []
+		row.resize(cols)
+		grid.append(row)
+	for t in tiles:
+		var img := Image.load_from_file(t["file"])
+		grid[t["row"]][t["column"] + (1 if blender else 0)] = {"image": img, "tag": "Godot"}
+	if blender:
+		for ai in aims.size():
+			var pair: Dictionary = aims[ai].get("pair", {})
+			var cell := {"missing": "no Blender tile\nfor %s" % aims[ai]["view"]}
+			if pair.has("file"):
+				var img := Image.load_from_file(str(pair["file"]))
+				if img != null and not img.is_empty():
+					cell = {"image": img, "tag": "Blender"}
+				else:
+					cell = {"missing": "Blender tile %s\ndid not load" % str(pair["file"]).get_file()}
+					notes.append("pair %s: cannot load %s" % [aims[ai]["view"], pair["file"]])
+			grid[ai][0] = cell
+	# row heights: each image scaled to the column width
+	var heights := []
+	for row in grid:
+		var h := tile
+		for cell in row:
+			if cell != null and cell.has("image") and cell["image"] != null:
+				var im: Image = cell["image"]
+				h = maxi(h, int(round(tile * float(im.get_height()) / im.get_width())))
+		heights.append(h)
+	var total_h := header
+	for h in heights:
+		total_h += h + GAP
+	var size := Vector2i(cols * (tile + GAP) - GAP, total_h - GAP)
+	if size.y > 16384:
+		notes.append("sheet %dx%d is over the 16384 px viewport limit: rendered in parts is not done, cut at 16384" % [size.x, size.y])
+		size.y = 16384
+	var vp := SubViewport.new()
+	vp.disable_3d = true
+	vp.transparent_bg = false
+	vp.size = size
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	var bg := ColorRect.new()
+	bg.color = Color(0.08, 0.08, 0.08)
+	bg.size = Vector2(size)
+	vp.add_child(bg)
+	var titles := []
+	if blender:
+		titles.append("Blender close set (EEVEE, its own light)")
+	for pn in presets:
+		titles.append("Godot  " + str(pn))
+	for c in cols:
+		var hl := _text_label(titles[c], 17, Color(1, 1, 1))
+		hl.position = Vector2(c * (tile + GAP) + 6, 4)
+		vp.add_child(hl)
+	var y := header
+	for r in grid.size():
+		for c in cols:
+			var cell = grid[r][c]
+			var x := c * (tile + GAP)
+			if cell == null or cell.has("missing") or cell.get("image") == null:
+				var box := ColorRect.new()
+				box.color = Color(0.16, 0.16, 0.17)
+				box.position = Vector2(x, y)
+				box.size = Vector2(tile, heights[r])
+				vp.add_child(box)
+				var ml := _text_label(cell["missing"] if cell != null and cell.has("missing") else "no tile", 16, Color(0.75, 0.75, 0.75))
+				ml.position = Vector2(x + 12, y + heights[r] * 0.45)
+				vp.add_child(ml)
+				continue
+			var im: Image = cell["image"]
+			var th := int(round(tile * float(im.get_height()) / im.get_width()))
+			var scaled := im.duplicate() as Image
+			scaled.resize(tile, th, Image.INTERPOLATE_LANCZOS)
+			var tr := TextureRect.new()
+			tr.texture = ImageTexture.create_from_image(scaled)
+			tr.position = Vector2(x, y)
+			tr.size = Vector2(tile, th)
+			vp.add_child(tr)
+			# the tag, bottom-right of the cell: which renderer made this tile
+			var tag := _text_label(cell["tag"], 15, Color(1, 1, 1), Color(0.55, 0.2, 0.1, 0.85) if cell["tag"] == "Blender" else Color(0.1, 0.3, 0.55, 0.85))
+			tag.position = Vector2(x + tile - 8 - tag.get_combined_minimum_size().x, y + th - 8 - tag.get_combined_minimum_size().y)
+			vp.add_child(tag)
+		y += heights[r] + GAP
+	root.add_child(vp)
+	for i in 3:
+		await process_frame
+	await RenderingServer.frame_post_draw
+	var out := vp.get_texture().get_image()
+	vp.queue_free()
 	var path := out_dir.path_join("sheet.png")
-	if sheet.save_png(path) != OK:
-		return ""
-	return path
+	if out == null or out.save_png(path) != OK:
+		return {"path": "", "size": [size.x, size.y], "blender": blender}
+	return {"path": path, "size": [size.x, size.y], "blender": blender}
+
+
+func _text_label(text: String, size: int, color: Color, back := Color(0, 0, 0, 0)) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", color)
+	if back.a > 0.0:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = back
+		sb.set_content_margin_all(4.0)
+		l.add_theme_stylebox_override("normal", sb)
+	return l
