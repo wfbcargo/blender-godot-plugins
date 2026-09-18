@@ -1,6 +1,6 @@
 ---
 name: lookdev
-description: Light and shade Godot 4.7 scenes so they look real, with Blender assets that survive the trip. Renders a scene off-screen and measures it (exposure, clipping, key-to-fill ratio on an 18% grey probe, albedo range, colour cast), lints scenes and Blender materials for the mistakes that make 3D look like CG, applies calibrated lighting presets (clear midday, golden hour, overcast, interior daylight, night), and bakes procedural Blender materials into textures glTF can carry. Use when lighting a scene, choosing sun/sky/exposure/GI/fog settings, judging whether a render looks realistic, fixing flat, washed-out, dark or "plasticky" results, comparing lighting variants, preparing Blender materials for export to Godot, or when an imported asset looks different in Godot than in Blender.
+description: Light and shade Godot 4.7 scenes so they look real, with Blender assets that survive the trip. Renders a scene off-screen and measures it (exposure, clipping, key-to-fill ratio on an 18% grey probe, albedo range, colour cast), lints scenes and Blender materials for the mistakes that make 3D look like CG, applies calibrated lighting presets (clear midday, golden hour, overcast, interior daylight, night) offline or at runtime, renders a labelled close-up sheet of a character in Godot (face, eyes, hands, feet, bust, full body, cameras aimed from its posed bones), probes a glb's albedo tone, and bakes procedural Blender materials into textures glTF can carry. Use when lighting a scene, choosing sun/sky/exposure/GI/fog settings, judging whether a render or a character looks realistic, looking at a character up close in Godot, fixing flat, washed-out, dark or "plasticky" results, comparing lighting variants, preparing Blender materials for export to Godot, or when an imported asset looks different in Godot than in Blender.
 ---
 
 # lookdev
@@ -22,14 +22,68 @@ node <skill>/bin/lookdev.mjs capture --project . --scene res://level.tscn --prob
 node <skill>/bin/lookdev.mjs presets
 node <skill>/bin/lookdev.mjs preset  --project . --scene res://level.tscn --preset golden_hour
 node <skill>/bin/lookdev.mjs compare --project . --a <capture dir> --b <capture dir>
+node <skill>/bin/lookdev.mjs close-shot --project . --glb res://assets/x/x.glb --distance 1 --presets clear_midday,overcast
+node <skill>/bin/lookdev.mjs tone    --project . --glb res://assets/x/x.glb [--material skin] [--expect 0.86,0.68,0.57]
+node <skill>/bin/lookdev.mjs selftest --project .
 ```
 
 | Command | What it gives you |
 |---|---|
 | `lint` | Headless static check of environment, lights, materials, project AA/shadow settings. Each finding has the property to change. |
 | `capture` | Off-screen render → `<shot>_<view>.png`, `sheet.png` (all views in one image), `stats.json`, findings. ~5 s. |
-| `preset` | Writes sun, sky, environment and exposure for a recipe into a **copy** of the scene (temp dir) unless `--out`/`--in-place`. |
+| `preset` | Writes sun, sky, environment and exposure for a recipe into a **copy** of the scene (temp dir) unless `--out`/`--in-place`. Refuses a recipe whose `needs` the stage does not meet (interior_daylight on an open stage); `--stage`, `--force`. |
 | `compare` | `<name>_ab.png` and `_ba.png` side by side, plus stat deltas. |
+| `close-shot` | **Judge a character in Godot with one command.** A labelled sheet of close-ups of one glb, rows = presets, columns = views, ~10 s. Details below. |
+| `tone` | Mean albedo per material over the texels its UVs cover (padding ignored), linear and sRGB; `ok` is 0.01-0.9 linear luminance, so a black albedo fails. Headless, < 1 s. |
+| `selftest` | Runs the controls: every check above fails on a case built to fail (0-material lint and capture, unwritable `--out`, black albedo, no skeleton, a missing bone, interior_daylight on an open stage) and passes its positive twin. Run it after changing any tool. |
+
+Exit codes: `lint` exits 1 on any error finding - including `NO_MATERIALS`, a scene with nothing to check
+(lint does not run scripts, so a stage built in `_ready` is invisible to it; use `capture` or `close-shot`,
+which run the scene). `capture` exits 1 on a scene with 0 materials after it ran or an `--out` it cannot
+write. `close-shot` exits 1 on any failed tile; `tone` exits 1 when a material is not ok.
+
+### close-shot: a character's look set
+
+```bash
+node <skill>/bin/lookdev.mjs close-shot --project . --glb res://assets/figure_study/study_woman/study_woman.glb \
+    --distance 1 --presets clear_midday,overcast            # default views: face,eyes,hands,feet,bust,full
+```
+
+- Loads the glb (the project's import for a `res://` path, else `GLTFDocument`), runs `LookdevMaterials.apply`,
+  attaches the strands its `.moves.json` lists (follow-through addon), equips `--garments a.glb,b.glb`
+  (wardrobe addon), and poses `--clip` (a clip name or a manifest role: Idle, Run...) at `--time` s.
+  Default: the manifest's Idle at 0.
+- Renders on an open stage like figure_study's: an 18% grey floor and a curved backdrop, lit by the
+  addon's runtime applier. interior_daylight is refused there.
+- **Cameras are aimed from the posed frame's bones, never height fractions.** Views: `face`, `eyes` (from
+  the eyeballs: the sclera surface carried through the head bone's skin bind), `hand_palm.L/.R`,
+  `hand_back.L/.R` (palm centre and palm normal from the hand and finger bones; `hands` = all four),
+  `feet`, `bust`, `crotch`, `full`, and `bone:<name>`. `view@metres` overrides a distance; `full` takes
+  `--full-distance` (4 m).
+- **Distance sets the perspective, the lens sets the framing:** each tile's field of view is chosen so the
+  subject fills it at the stated distance. Palm cameras sit toward the front and clip whatever is nearer
+  than the hand (the thigh the palm faces).
+- Each tile carries its label in its pixels: view, distance, preset, fov, clip @ time.
+- Every tile is checked: `figure_coverage` (the figure's share of the tile, from two flat-colour unshaded
+  renders), `subject_coverage` (only geometry within a slab round the target's depth, so the thigh behind a
+  hand does not count as the hand) and whether the target pixel is on the figure. EMPTY_TILE (< 3%),
+  SUBJECT_SMALL (< 8%) and OFF_TARGET fail the run. A missing bone, no skeleton or an unknown clip fail
+  before anything renders. Masks are written beside each tile (`*_mask.png`, `*_subject.png`).
+- Writes `<out>/sheet.png`, one PNG per tile and `close.json` (eye, target, anchors, fov, coverages).
+  Uses the project's copy of the addon (a `class_name` script cannot load twice) and warns when it differs
+  from the plugin's.
+
+### Runtime presets in a game
+
+```gdscript
+const LookdevPresets := preload("res://addons/lookdev/lookdev_presets.gd")   # no class_name, on purpose
+var rep := LookdevPresets.apply("overcast", $WorldEnvironment, $Sun, {"stage": "open"})
+if not rep["ok"]: push_warning(rep["problems"])     # e.g. interior_daylight on an open stage
+```
+
+`presets.json` ships in the addon beside it. Options: `fresh` (a new Environment, default), `stage`
+(`open`/`interior`), `force`, `elevation`, `azimuth`, `energy_scale`. `sky_openness(root, at)` measures a
+stage (share of rays up that reach the sky). Copy the whole `godot/addons/lookdev/` folder into the project.
 
 Capture options worth knowing:
 
@@ -153,6 +207,7 @@ mat, rep = hair.material("Belle_hair", colour=(0.17, 0.10, 0.06), uv_map="UVMap"
 ```gdscript
 var scene = load("res://assets/belle/belle.glb").instantiate()
 LookdevMaterials.apply(scene)    # godot/addons/lookdev/lookdev_materials.gd - copy the addon into the project
+# judge it:  node <skill>/bin/lookdev.mjs close-shot --project . --glb res://assets/belle/belle.glb
 ```
 
 Strand texture with a root-to-tip gradient and alpha that fades toward the roots and thins at the tips
@@ -202,5 +257,8 @@ normal (`lookdev.detail`, seeded cellular noise on UV2 = humanform's `hf_detail`
   the lights do).
 - Don't apply a preset `--in-place` without capturing the copy first.
 - Don't report a lighting change as done without a capture after it.
+- Don't judge a character from a Blender render or a script of your own: `close-shot` it in Godot, at a
+  stated distance, in clear_midday and overcast (lookdev's materials only exist in Godot).
+- Don't write your own preset port in a game: preload `addons/lookdev/lookdev_presets.gd`.
 - Don't chase a threshold against a deliberate look (noir, fog, stylised);
   choose the closest `--kind` and say which numbers you're overriding and why.

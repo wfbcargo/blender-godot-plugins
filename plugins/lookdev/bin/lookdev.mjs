@@ -6,6 +6,9 @@
 //   node lookdev.mjs preset   --project <dir> --scene res://x.tscn --preset golden_hour
 //   node lookdev.mjs compare  --project <dir> --a <png|capture dir> --b <png|capture dir>
 //   node lookdev.mjs presets  (list them)
+//   node lookdev.mjs close-shot --project <dir> --glb res://x.glb [--distance 1] [--presets a,b] [...]
+//   node lookdev.mjs tone     --project <dir> --glb <file.glb> [--material skin]
+//   node lookdev.mjs selftest --project <dir>   (the controls: every check here must be able to fail)
 //
 // Every subcommand runs a GDScript from ../godot against the project, then reads
 // back what it wrote. Godot fails quietly - a broken scene loads with nodes
@@ -23,7 +26,10 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
 const GODOT_DIR = path.join(ROOT, "godot").replaceAll("\\", "/");
-const PRESETS = path.join(ROOT, "presets", "presets.json");
+// presets.json ships inside the Godot addon, so a game applies the same recipes at runtime
+// (addons/lookdev/lookdev_presets.gd) as `preset` writes into a scene.
+const ADDON_DIR = path.join(ROOT, "godot", "addons", "lookdev");
+const PRESETS = path.join(ADDON_DIR, "presets.json");
 const THRESHOLDS = path.join(ROOT, "presets", "thresholds.json");
 
 // ---------------------------------------------------------------- arguments
@@ -170,6 +176,36 @@ function defaultOut(project, what) {
   return path.join(os.tmpdir(), "lookdev", name, `${what}-${stamp()}`);
 }
 
+// An --out that cannot be written must fail before Godot runs, not after, with every image
+// save failing quietly in between.
+function writableDir(dir, what) {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    const probe = path.join(dir, ".lookdev_write_test");
+    fs.writeFileSync(probe, "");
+    fs.rmSync(probe);
+  } catch (e) {
+    die(`${what}: cannot write to --out ${dir} (${e.code ?? e.message})`, 1);
+  }
+  return dir;
+}
+
+// The project runs its own copy of the addon (a class_name script cannot be loaded twice), so a
+// stale copy means the tools run old code. Say so; regress.py's addon_drift does the same.
+function addonDrift(project) {
+  const theirs = path.join(project, "addons", "lookdev");
+  if (!fs.existsSync(theirs)) return [`the project has no addons/lookdev (the plugin's copy is used)`];
+  const drift = [];
+  const norm = (f) => fs.readFileSync(f).toString("utf8").replace(/\r\n/g, "\n");
+  for (const f of fs.readdirSync(ADDON_DIR)) {
+    if (f.endsWith(".uid")) continue;
+    const t = path.join(theirs, f);
+    if (!fs.existsSync(t)) drift.push(`addons/lookdev/${f} missing from the project`);
+    else if (norm(t) !== norm(path.join(ADDON_DIR, f))) drift.push(`addons/lookdev/${f} differs from the plugin's`);
+  }
+  return drift;
+}
+
 function fwd(p) {
   return path.resolve(p).replaceAll("\\", "/");
 }
@@ -191,8 +227,7 @@ function scenePath(scene, project) {
 async function capture(args) {
   const project = findProject(args);
   const godot = findGodot(args, project);
-  const outDir = fwd(args.out ?? defaultOut(project, "capture"));
-  fs.mkdirSync(outDir, { recursive: true });
+  const outDir = fwd(writableDir(args.out ?? defaultOut(project, "capture"), "capture"));
 
   let spec = {};
   if (args.spec) spec = JSON.parse(fs.readFileSync(args.spec, "utf8"));
@@ -402,8 +437,7 @@ function evaluate(stats, kind) {
 async function lint(args) {
   const project = findProject(args);
   const godot = findGodot(args, project);
-  const outDir = fwd(args.out ?? defaultOut(project, "lint"));
-  fs.mkdirSync(outDir, { recursive: true });
+  const outDir = fwd(writableDir(args.out ?? defaultOut(project, "lint"), "lint"));
   const outFile = `${outDir}/lint.json`;
   const res = await runGodot(
     godot,
@@ -416,8 +450,10 @@ async function lint(args) {
     die(`lint failed (exit ${res.code})`, 1);
   }
   const report = JSON.parse(fs.readFileSync(outFile, "utf8"));
+  const errors = report.findings.filter((f) => f.severity === "error").length;
   if (args.json) {
     console.log(JSON.stringify(report, null, 2));
+    if (errors) process.exitCode = 1;
     return;
   }
   const order = { error: 0, warn: 1, info: 2 };
@@ -433,6 +469,8 @@ async function lint(args) {
   }
   console.log(`\nout: ${outFile}`);
   reportEngine(scan);
+  // error = renders wrong or measured nothing (NO_MATERIALS): a lint that exits 0 there is a pass.
+  if (errors) process.exitCode = 1;
 }
 
 // ----------------------------------------------------------------- preset
@@ -440,7 +478,8 @@ async function lint(args) {
 function listPresets() {
   const p = JSON.parse(fs.readFileSync(PRESETS, "utf8"));
   for (const [name, def] of Object.entries(p.presets)) {
-    console.log(`${name.padEnd(18)} kind=${def.kind.padEnd(9)} ${def.description}`);
+    const needs = def.needs ? ` [needs ${def.needs}]` : "";
+    console.log(`${name.padEnd(18)} kind=${def.kind.padEnd(9)} ${def.description}${needs}`);
   }
 }
 
@@ -464,14 +503,16 @@ async function preset(args) {
   }
   const gArgs = ["--headless", "--path", project, "--script", `${GODOT_DIR}/apply_preset.gd`, "--",
     "--scene", scene, "--out", out, "--preset", args.preset, "--presets", fwd(PRESETS)];
-  for (const k of ["elevation", "azimuth", "energy-scale"]) if (args[k] !== undefined) gArgs.push(`--${k}`, String(args[k]));
+  for (const k of ["elevation", "azimuth", "energy-scale", "stage"]) if (args[k] !== undefined) gArgs.push(`--${k}`, String(args[k]));
+  if (args.force) gArgs.push("--force");
   const res = await runGodot(godot, gArgs, Number(args.timeout ?? 120));
   const scan = scanOutput(res.out);
   const done = scan.events.find((e) => e.type === "done");
   for (const e of scan.events.filter((e) => e.type === "change")) console.log(`  ${e.what}`);
   reportEngine(scan);
   if (!done) die(`preset failed (exit ${res.code})`, 1);
-  console.log(`\nwrote ${done.out}  (kind=${done.kind}, physical light units ${done.physical_light_units ? "on" : "off"})`);
+  console.log(`\nwrote ${done.out}  (kind=${done.kind}, physical light units ${done.physical_light_units ? "on" : "off"}` +
+    (done.needs ? `, needs ${done.needs}, stage ${done.stage}` : "") + ")");
   console.log(`capture it:  node ${fwd(path.join(HERE, "lookdev.mjs"))} capture --project ${fwd(project)} --scene ${done.out} --kind ${done.kind} --probes`);
 }
 
@@ -532,6 +573,255 @@ async function compare(args) {
   reportEngine(scan);
 }
 
+// ------------------------------------------------------------- close-shot
+
+const CLOSE_VIEWS = ["face", "eyes", "hand_palm.L", "hand_back.L", "hand_palm.R", "hand_back.R", "feet", "bust", "crotch", "full"];
+const VIEW_GROUPS = { hands: ["hand_palm.L", "hand_back.L", "hand_palm.R", "hand_back.R"] };
+const DEFAULT_CLOSE = "face,eyes,hands,feet,bust,full";
+
+// `face,eyes@0.5,hands,full@4,bone:spine.003` -> [{view, distance}]. A view without @ takes --distance,
+// except `full`, which takes --full-distance.
+function closeViews(spec, distance, fullDistance) {
+  const out = [];
+  for (const raw of String(spec).split(",").map((s) => s.trim()).filter(Boolean)) {
+    const [name, at] = raw.split("@");
+    const d = at !== undefined ? Number(at) : name === "full" ? fullDistance : distance;
+    if (!(d > 0)) die(`view '${raw}': distance must be a positive number of metres`);
+    for (const v of VIEW_GROUPS[name] ?? [name]) {
+      if (!v.startsWith("bone:") && !CLOSE_VIEWS.includes(v)) {
+        die(`unknown view '${v}' (views: ${CLOSE_VIEWS.join(" ")}, hands, or bone:<name>)`);
+      }
+      out.push({ view: v, distance: d });
+    }
+  }
+  return out;
+}
+
+function glbPath(glb, project) {
+  if (!glb) die("--glb is required");
+  if (glb.startsWith("res://")) return glb;
+  const abs = path.resolve(glb);
+  if (!fs.existsSync(abs)) die(`no file ${fwd(abs)}`);
+  const rel = path.relative(project, abs);
+  if (!rel.startsWith("..") && !path.isAbsolute(rel)) return "res://" + rel.replaceAll("\\", "/");
+  return fwd(abs);
+}
+
+async function closeShot(args) {
+  const project = findProject(args);
+  const godot = findGodot(args, project);
+  const outDir = fwd(writableDir(args.out ?? defaultOut(project, "close"), "close-shot"));
+  const presets = String(args.presets ?? args.preset ?? "clear_midday,overcast").split(",").filter(Boolean);
+  const known = JSON.parse(fs.readFileSync(PRESETS, "utf8")).presets;
+  for (const p of presets) {
+    if (!known[p]) die(`unknown preset '${p}' (known: ${Object.keys(known).join(", ")})`);
+    // close-shot's stage is open: a floor and a backdrop under the sky.
+    if (known[p].needs && known[p].needs !== "open" && !args.force) {
+      die(`preset ${p} needs an ${known[p].needs} stage, and close-shot renders on an open one, where it clips everything to white. Pass --force to render it anyway.`, 1);
+    }
+  }
+  const size = Number(args.size ?? 640);
+  if (!(size >= 128 && size <= 2048)) die("--size is the tile's pixels, 128-2048");
+  const spec = {
+    glb: glbPath(args.glb, project),
+    out_dir: outDir,
+    presets,
+    views: closeViews(args.views ?? DEFAULT_CLOSE, Number(args.distance ?? 1.0), Number(args["full-distance"] ?? 4.0)),
+    clip: args.clip ?? "",
+    time: Number(args.time ?? 0),
+    garments: args.garments ? String(args.garments).split(",").map((g) => (g.startsWith("res://") ? g : fwd(g))) : [],
+    strands: !args["no-strands"],
+    force: !!args.force,
+    min_coverage: Number(args["min-coverage"] ?? 0.03),
+    sheet_tile: Number(args["sheet-tile"] ?? 384),
+    columns: Number(args.columns ?? 5),
+    warmup_frames: Number(args.warmup ?? 45),
+    view_frames: Number(args["view-frames"] ?? 24),
+  };
+  const specPath = path.join(outDir, "spec.json");
+  fs.writeFileSync(specPath, JSON.stringify(spec, null, 2));
+  for (const d of addonDrift(project)) console.log(`WARN   ${d} - sync it, or the render uses stale code`);
+  const res = await runGodot(godot, [
+    "--path", project,
+    "--script", `${GODOT_DIR}/close_shot.gd`,
+    "--resolution", `${size}x${size}`,
+    "--position", "-20000,-20000",
+    "--fixed-fps", "60",
+    "--audio-driver", "Dummy",
+    "--", "--spec", fwd(specPath),
+  ], Number(args.timeout ?? 300));
+  const scan = scanOutput(res.out);
+  fs.writeFileSync(path.join(outDir, "godot.log"), res.out);
+  const done = scan.events.find((e) => e.type === "done");
+  const statsPath = path.join(outDir, "close.json");
+  if (!done || !fs.existsSync(statsPath)) {
+    reportEngine(scan);
+    die(`close-shot failed (exit ${res.code}); full log: ${fwd(path.join(outDir, "godot.log"))}`, 1);
+  }
+  const stats = JSON.parse(fs.readFileSync(statsPath, "utf8"));
+  if (args.json) {
+    console.log(JSON.stringify(stats, null, 2));
+  } else {
+    console.log(`lookdev close-shot  ${stats.glb}  ${stats.clip || "rest pose"}  tiles ${stats.tile_px.join("x")}`);
+    for (const n of stats.notes) console.log(`  note: ${n}`);
+    console.log(`  materials: ${(stats.materials.materials ?? []).join(", ") || "(no lookdev extras)"}`);
+    for (const t of stats.tiles) {
+      console.log(
+        `  ${t.preset.padEnd(14)} ${t.view.padEnd(12)} ${fmt(t.distance_m)} m  fov ${fmt(t.fov_deg, 1).padStart(5)}  ` +
+          `frame ${fmt(t.frame_m, 3)} m  figure ${fmt(100 * t.figure_coverage, 0).padStart(3)}%` +
+          (t.failures.length ? `  FAIL ${t.failures.join("; ")}` : ""),
+      );
+    }
+    console.log(`\nsheet (rows = presets, columns = views; each tile labelled view, distance, preset, fov): ${stats.sheet}`);
+    console.log(`out: ${outDir}`);
+    reportEngine(scan);
+  }
+  if (stats.failures.length) {
+    console.log(`\n${stats.failures.length} tile(s) failed: an empty or off-target tile is not a picture of the subject.`);
+    process.exitCode = 1;
+  }
+}
+
+// ------------------------------------------------------------------- tone
+
+async function tone(args) {
+  const project = findProject(args);
+  const godot = findGodot(args, project);
+  const glb = glbPath(args.glb, project);
+  const outDir = fwd(writableDir(args.out ?? defaultOut(project, "tone"), "tone"));
+  const outFile = `${outDir}/tone.json`;
+  const gArgs = ["--headless", "--path", project, "--script", `${GODOT_DIR}/glb_tone.gd`, "--", "--glb", glb, "--out", outFile];
+  for (const k of ["material", "size", "expect"]) if (args[k] !== undefined) gArgs.push(`--${k}`, String(args[k]));
+  const res = await runGodot(godot, gArgs, Number(args.timeout ?? 120));
+  const scan = scanOutput(res.out);
+  if (!scan.events.some((e) => e.type === "done") || !fs.existsSync(outFile)) {
+    reportEngine(scan);
+    die(`tone failed (exit ${res.code})`, 1);
+  }
+  const rep = JSON.parse(fs.readFileSync(outFile, "utf8"));
+  if (args.json) {
+    console.log(JSON.stringify(rep, null, 2));
+  } else {
+    console.log(`lookdev tone  ${rep.glb}   ok = linear luminance ${rep.luma_range.join("-")} over the UV-covered texels`);
+    for (const m of rep.materials) {
+      const srgb = m.mean_srgb ? m.mean_srgb.map((v) => fmt(v, 3)).join(",") : "-";
+      console.log(
+        `  ${m.ok ? "ok  " : "BAD "} ${m.name.padEnd(26)} luma ${fmt(m.luma_linear, 4)} linear  sRGB ${srgb}  covered ${fmt(100 * (m.coverage ?? 0), 1)}%` +
+          (m.delta_srgb ? `  vs expect ${m.delta_srgb.map((v) => fmt(v, 3)).join(",")}` : "") +
+          (m.why ? `  ${m.why}` : "") + (m.note ? `  (${m.note})` : ""),
+      );
+    }
+    console.log(`out: ${outFile}`);
+  }
+  if (!rep.ok) process.exitCode = 1;
+}
+
+// --------------------------------------------------------------- selftest
+
+// The controls: each check here must be able to fail, and fails on a case built to fail.
+function runSelf(argv, timeoutSec = 400) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [fileURLToPath(import.meta.url), ...argv]);
+    let out = "";
+    child.stdout.on("data", (d) => (out += d));
+    child.stderr.on("data", (d) => (out += d));
+    const timer = setTimeout(() => child.kill(), timeoutSec * 1000);
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ code, out });
+    });
+  });
+}
+
+function findCharacter(project) {
+  const stack = [path.join(project, "assets")];
+  while (stack.length) {
+    const d = stack.pop();
+    if (!fs.existsSync(d)) continue;
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) stack.push(p);
+      else if (e.name.endsWith(".moves.json")) {
+        try {
+          const m = JSON.parse(fs.readFileSync(p, "utf8"));
+          if (m.scene && fs.existsSync(path.join(project, m.scene.replace("res://", "")))) return m.scene;
+        } catch {
+          /* not a manifest */
+        }
+      }
+    }
+  }
+  return null;
+}
+
+async function selftest(args) {
+  const project = findProject(args);
+  const godot = findGodot(args, project);
+  const dir = fwd(writableDir(args.out ?? defaultOut(project, "selftest"), "selftest"));
+  const common = ["--project", fwd(project), "--godot", godot];
+  const results = [];
+  const check = (name, passed, detail) => {
+    results.push(passed);
+    console.log(`${passed ? "ok  " : "FAIL"} ${name}: ${detail}`);
+  };
+  const firstLine = (out, re) => (out.split(/\r?\n/).find((l) => re.test(l)) ?? out.trim().split(/\r?\n/).pop() ?? "").trim();
+
+  // tone: a black albedo is not ok, an 18% grey one reads 0.18
+  const tres = await runGodot(godot, ["--headless", "--path", project, "--script", `${GODOT_DIR}/glb_tone.gd`, "--", "--selftest", "--out-dir", `${dir}/tone`], 120);
+  const toneLines = tres.out.split(/\r?\n/).filter((l) => l.startsWith("TONE_SELFTEST"));
+  check("tone control", tres.code === 0 && /PASSED/.test(toneLines.at(-1) ?? ""), toneLines.join(" | ") || `exit ${tres.code}`);
+
+  // a scene with nothing in it
+  const empty = `${dir}/empty_stage.tscn`;
+  fs.writeFileSync(empty, '[gd_scene format=3]\n\n[node name="Empty" type="Node3D"]\n');
+  const lint0 = await runSelf(["lint", ...common, "--scene", empty, "--out", `${dir}/lint`]);
+  check("lint on 0 materials fails", lint0.code === 1 && /NO_MATERIALS/.test(lint0.out), `exit ${lint0.code}, ${firstLine(lint0.out, /NO_MATERIALS/)}`);
+
+  const blocker = `${dir}/not_a_folder.txt`;
+  fs.writeFileSync(blocker, "a file where --out wants a folder");
+  const capOut = await runSelf(["capture", ...common, "--scene", empty, "--out", `${blocker}/capture`]);
+  check("capture with an unopenable --out fails", capOut.code === 1 && /cannot write/.test(capOut.out), `exit ${capOut.code}, ${firstLine(capOut.out, /cannot write/)}`);
+  const lintOut = await runSelf(["lint", ...common, "--scene", empty, "--out", `${blocker}/lint`]);
+  check("lint with an unopenable --out fails", lintOut.code === 1 && /cannot write/.test(lintOut.out), `exit ${lintOut.code}, ${firstLine(lintOut.out, /cannot write/)}`);
+  const cap0 = await runSelf(["capture", ...common, "--scene", empty, "--out", `${dir}/capture0`, "--eye", "0,1.6,3", "--target", "0,1,0"]);
+  check("capture on 0 materials fails", cap0.code === 1 && /0 materials/.test(cap0.out), `exit ${cap0.code}, ${firstLine(cap0.out, /0 materials/)}`);
+
+  // interior_daylight on an open stage
+  const pre = await runSelf(["preset", ...common, "--scene", empty, "--preset", "interior_daylight", "--out", `${dir}/interior.tscn`]);
+  check("preset interior_daylight on an open stage is refused", pre.code === 1 && /needs an interior stage/.test(pre.out), firstLine(pre.out, /needs an interior/));
+  const preOk = await runSelf(["preset", ...common, "--scene", empty, "--preset", "clear_midday", "--out", `${dir}/midday.tscn`]);
+  check("preset clear_midday on the same stage applies (the refusal is specific)", preOk.code === 0 && fs.existsSync(`${dir}/midday.tscn`), `exit ${preOk.code}`);
+  // ... and a closed room is measured as an interior, where interior_daylight applies
+  const room = `${dir}/closed_room.tscn`;
+  fs.writeFileSync(room, [
+    '[gd_scene load_steps=2 format=3]', '',
+    '[sub_resource type="BoxMesh" id="1"]', 'size = Vector3(8, 3, 6)', 'flip_faces = true', '',
+    '[node name="Room" type="Node3D"]', '',
+    '[node name="Walls" type="MeshInstance3D" parent="."]', 'transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)', 'mesh = SubResource("1")', '',
+    '[node name="Camera3D" type="Camera3D" parent="."]', 'transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 2)', '',
+  ].join("\n"));
+  const inRoom = await runSelf(["preset", ...common, "--scene", room, "--preset", "interior_daylight", "--out", `${dir}/room_interior.tscn`]);
+  check("preset interior_daylight in a closed room applies (the stage test can say interior)", inRoom.code === 0 && /stage interior/.test(inRoom.out), firstLine(inRoom.out, /stage measured/));
+
+  // close-shot: no skeleton, a missing bone, an interior preset
+  const quad = `${dir}/tone/tone_control_grey18.glb`;
+  const noSkel = await runSelf(["close-shot", ...common, "--glb", quad, "--views", "face", "--presets", "clear_midday", "--out", `${dir}/close_noskel`]);
+  check("close-shot on a glb with no skeleton fails", noSkel.code === 1 && /no Skeleton3D/.test(noSkel.out), firstLine(noSkel.out, /no Skeleton3D/));
+  const character = args.glb ? glbPath(args.glb, project) : findCharacter(project);
+  if (!character) {
+    check("close-shot on a missing bone fails", false, "no rigged character found (pass --glb)");
+  } else {
+    const bad = await runSelf(["close-shot", ...common, "--glb", character, "--views", "face,bone:no_such_bone", "--presets", "clear_midday", "--out", `${dir}/close_badbone`]);
+    check("close-shot aimed at a nonexistent bone fails before rendering", bad.code === 1 && /no bone 'no_such_bone'/.test(bad.out) && !fs.existsSync(`${dir}/close_badbone/clear_midday_face.png`),
+      firstLine(bad.out, /no_such_bone/).slice(0, 160));
+    const inter = await runSelf(["close-shot", ...common, "--glb", character, "--views", "face", "--presets", "interior_daylight", "--out", `${dir}/close_interior`]);
+    check("close-shot refuses interior_daylight on its open stage", inter.code === 1 && /needs an interior stage/.test(inter.out), firstLine(inter.out, /needs an interior/).slice(0, 160));
+  }
+  const failed = results.filter((r) => !r).length;
+  console.log(`\nlookdev selftest ${failed ? "FAILED" : "PASSED"} (${results.length - failed}/${results.length} controls failed as they must)   out: ${dir}`);
+  if (failed) process.exitCode = 1;
+}
+
 // ------------------------------------------------------------------- main
 
 const USAGE = `lookdev - lighting and shading tools for Godot
@@ -541,8 +831,13 @@ const USAGE = `lookdev - lighting and shading tools for Godot
            [--set "@env:tonemap_mode=4"]... [--size 1280x720] [--spec shots.json] [--out dir] [--json]
   lint     --project <dir> --scene <res://|path> [--json]
   preset   --project <dir> --scene <res://|path> --preset <name> [--elevation deg] [--azimuth deg]
-           [--out <path> | --in-place]
+           [--out <path> | --in-place] [--stage open|interior] [--force]
   presets  list available presets
+  close-shot --project <dir> --glb <res://|path> [--distance 1] [--full-distance 4]
+           [--views face,eyes,hands,feet,bust,full] [--presets clear_midday,overcast] [--clip Idle] [--time 0]
+           [--garments a.glb,b.glb] [--no-strands] [--size 640] [--out dir] [--json]
+  tone     --project <dir> --glb <res://|path> [--material skin] [--expect r,g,b] [--json]
+  selftest --project <dir> [--glb <rigged character>]   run the controls (each must fail)
   compare  --project <dir> --a <png|capture dir> --b <png|capture dir> [--views lit,unshaded] [--out dir]
 
 Views: lit unshaded lighting normal overdraw ssao ssil pssm sdfgi sdfgi_probes gi_buffer voxel_gi_lighting luminance
@@ -551,7 +846,7 @@ Godot binary: --godot <path>, LOOKDEV_GODOT, GODOT_PATH, or the project's .mcp.j
 
 const args = parseArgs(process.argv.slice(2));
 const cmd = args._[0];
-const commands = { capture, lint, preset, compare, presets: listPresets };
+const commands = { capture, lint, preset, compare, presets: listPresets, "close-shot": closeShot, tone, selftest };
 if (!cmd || args.help || !commands[cmd]) {
   console.log(USAGE);
   process.exit(cmd && !args.help ? 2 : 0);

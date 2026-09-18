@@ -60,6 +60,15 @@ func _run() -> void:
 	if out_dir.is_empty() or DirAccess.make_dir_recursive_absolute(out_dir) != OK:
 		Common.fail(self, "cannot create out_dir '%s'" % out_dir)
 		return
+	# make_dir_recursive_absolute says OK for a folder that exists but cannot be written, and every
+	# save_png after it then fails quietly: try a file first.
+	var probe_file := out_dir.path_join(".lookdev_write_test")
+	var pf := FileAccess.open(probe_file, FileAccess.WRITE)
+	if pf == null:
+		Common.fail(self, "cannot write into out_dir '%s': %s" % [out_dir, error_string(FileAccess.get_open_error())])
+		return
+	pf.close()
+	DirAccess.remove_absolute(probe_file)
 
 	var scene_path := str(spec.get("scene", ""))
 	var packed := load(scene_path) as PackedScene
@@ -78,6 +87,10 @@ func _run() -> void:
 
 	# One frame so _ready has run and scene-created cameras exist.
 	await process_frame
+	var mats := _count_materials(scene_root)
+	if mats == 0:
+		Common.fail(self, "the scene has 0 materials after it ran (nothing to light or measure); capture refuses to report numbers for an empty frame")
+		return
 
 	var set_results := []
 	var sets: Dictionary = spec.get("set", {})
@@ -120,6 +133,9 @@ func _run() -> void:
 		"shots": shot_results,
 	}
 	var f := FileAccess.open(out_dir.path_join("stats.json"), FileAccess.WRITE)
+	if f == null:
+		Common.fail(self, "cannot write stats.json in '%s': %s" % [out_dir, error_string(FileAccess.get_open_error())])
+		return
 	f.store_string(JSON.stringify(result, "  ", false))
 	f.close()
 	Common.emit("done", {"stats": out_dir.path_join("stats.json")})
@@ -154,7 +170,10 @@ func _capture_shot(shot: Dictionary, views: Array) -> Variant:
 		_pop_env(saved)
 		var img := root.get_texture().get_image()
 		var path := out_dir.path_join("%s_%s.png" % [shot_name, v])
-		img.save_png(path)
+		var serr := img.save_png(path)
+		if serr != OK:
+			Common.fail(self, "cannot save '%s': %s" % [path, error_string(serr)])
+			return null
 		files[v] = path
 		images[v] = img
 	root.debug_draw = Viewport.DEBUG_DRAW_DISABLED
@@ -191,6 +210,23 @@ func _capture_shot(shot: Dictionary, views: Array) -> Variant:
 		"stats": stats,
 		"probes": probe,
 	}
+
+
+## Surface and override materials under `node` (the probes are added later and are not counted).
+func _count_materials(node: Node) -> int:
+	var n := 0
+	if node is GeometryInstance3D and (node as GeometryInstance3D).material_override != null:
+		n += 1
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+		var mi := node as MeshInstance3D
+		for i in mi.mesh.get_surface_count():
+			if mi.mesh.surface_get_material(i) != null or mi.get_surface_override_material(i) != null:
+				n += 1
+	elif node is CSGShape3D and node.get("material") != null:
+		n += 1
+	for c in node.get_children():
+		n += _count_materials(c)
+	return n
 
 
 func _setup_camera(shot: Dictionary) -> Camera3D:
