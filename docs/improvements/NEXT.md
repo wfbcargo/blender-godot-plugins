@@ -25,7 +25,7 @@ here and nowhere else:
 - animate-anything 0.10.1
 - follow-through 0.6.2
 - humanform 0.10.1
-- character-pipeline 0.10.0
+- character-pipeline 0.11.0
 - wardrobe 0.5.1
 - lookdev 0.4.1
 - godot-lsp 0.1.0
@@ -163,11 +163,21 @@ The round's lab notebooks: [notebooks/realism-step0/](notebooks/realism-step0/) 
 ### Step 0.5 - tooling and plugin items to build first (branches of about 30 min, run in parallel with Step 1)
 
 Suggested after the Step 0 round; each saves agent minutes on every later round.
-- **`tools/scratch_project.py <dir> [--who study_man,...]`:** make the scratch game copy (characters,
-  build scripts, save_guard, addons), set specs' blends into it, write an env file (`PROJECT`, `*_SCRIPTS` at
-  a given checkout, `HUMANFORM_LIBRARY` at a copy) and run `--headless --import`. Every builder and critic did
-  this by hand (1-6 min each, and it is where paths went wrong). Pairs with **06 rank 2** (specs safe to copy:
-  `[export] blend` relative to `PROJECT`/`BLEND_DIR`, refusing to save outside it).
+- **`tools/scratch_project.py <dir> [--who study_man,...]`: done** (branch `tools-scratch-project`,
+  character-pipeline 0.11.0, merged 2026-09-18; the game's specs and `build_human.py` merged to master too).
+  One call copies characters, build scripts, root scenes, addons (the checkout's), the chosen blends and
+  exports and the humanform library, writes `env.sh`/`env.ps1`/`build.sh` and runs `--headless --import`
+  (about 5-9 s). With it, **06 rank 2**: a relative `[export] blend` resolves under `$BLEND_DIR`, else the
+  project; `runner.build` refuses to save outside both unless `save_outside=True`. All 19 game specs are
+  relative; `build_human.py` sets `BLEND_DIR` to `C:/Users/pauli/Code/Blender` only for the game itself.
+  Fixture `pipeline_paths` (control `PIPELINE_PATHS_NO_GUARD=1`), `test_tools.py test_scratch_project`.
+  Critic: pass. Open: the export hash covers the blend string, so each game figure's next build reruns
+  export and review once (outputs match, 0 manifest changes); `make()` prefers `$BLEND_DIR` over the game's
+  folder and `build_human.py` uses `setdefault`, so a sourced scratch env.sh leaks into the next copy or a
+  real build (surprising, never writes the real blends); `rewrite_blend` handles only a double-quoted
+  `blend = "..."` line (fails safe); the committed glbs carry a stale `.001` mesh name from a resumed build
+  (runner/stages, not this seam); crowd humans and creatures are not copied. Notebook:
+  [notebooks/realism-step1/tools-scratch-project.md](notebooks/realism-step1/tools-scratch-project.md).
 - **close-shot views the look critic missed** (lookdev): eyes, face_3q, head_side and head_back in the Godot
   set, like the Blender set; presets side by side per view rather than stacked; the label band never over the
   head in `full`; `--pair-blender <close dir>` putting the Blender tile next to the Godot tile of the same
@@ -366,13 +376,14 @@ round (4 branches, 14 agents, 3 h 14 min, 2.4 M subagent tokens):
 
 Most of this is now in `CLAUDE.md`. The rest:
 
-- **Building the project's characters without touching its assets.** Copy `characters/`,
-  `assets/humans/build_human.py`, `assets/save_guard.py` and `assets/belle/build_belle.py` into a scratch
-  folder with the same layout. Point the specs' `[export] blend` at scratch (a build saves there; check it
-  first) and set `PROJECT` to that folder. Set `RA_SCRIPTS`, `HF_SCRIPTS`, `FT_SCRIPTS`, `WD_SCRIPTS` and
-  `CP_SCRIPTS` to this repo's `plugins/<name>/scripts`, and `HUMANFORM_LIBRARY` to a copy of
-  `~/.claude/humanform/library`. In TOML, write Windows paths with forward slashes.
-  - `who=tomas` needs `C:/Users/pauli/Code/Blender/humanform_hands_feet_demo.blend` opened.
+- **Building the project's characters without touching its assets.** From the plugins checkout you want to
+  test: `python tools/scratch_project.py <scratch dir> [--who study_man,study_woman,belle]`. It copies the specs,
+  build scripts, addons (the checkout's), the chosen characters' blends and exports and the humanform library,
+  writes `env.sh`/`env.ps1`, runs `--headless --import` (fails on an ERROR line) and prints the build command:
+  `bash <dir>/build.sh study_man` (about 50 s from a stale blend, 0.3 s when nothing changed). Specs' `[export]
+  blend` are relative (character-pipeline 0.11.0): under `BLEND_DIR`, else the project; a build refuses to save
+  outside both unless `save_outside=1`. Do not run it with a scratch `env.sh` still sourced (its `BLEND_DIR`
+  wins). `who=tomas` still needs his source blend opened.
 - **Comparing a rebuild with committed assets.** Compare manifests with `regress.compare` at the harness
   tolerance, and glbs by their glTF JSON chunk with `extras` set aside.
 - **Verifying in Godot** (`GODOT` = the `_console` build, path in grungist-creek's CLAUDE.md):
