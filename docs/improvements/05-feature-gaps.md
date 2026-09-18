@@ -162,21 +162,40 @@ in the verifier and reads right in the review strips.
 >   draws it (hidden triangles dropped) and, for a skirt, its colliders as rings of spheres.
 > - Soft-body route: `wardrobe.dress(..., soft=True)` writes a follow-through `draped_tube` spec pinned above
 >   the hips; `Wardrobe.equip` builds the SoftBody3D. Nadia's passes `verify_cloth.gd` at rest, moved and bent.
+> - **The thigh capsule is carried up to the hip.** Fitted from a third of the way down (higher and its skin
+>   is the buttock and the groin, 14 cm out, which shoves the skirt off the hips), it left the top 13 cm of
+>   the thigh with no collider at all, and in a run the raised thigh went through the front panel above it -
+>   the critic's finding. The first capsule now runs up to 0.12 of the thigh at the radius it was measured at.
+> - **A skirt hides nothing below the hem bones' hinge**, not below the hip joints: `hem.prepare` raises the
+>   cut's `cover_floor_z` to the hinge, since it is the bones that move that cloth. SKILL.md already said it
+>   did; it did not, and Rosa's mini failed its run with 4 of 30 hidden vertices open (13%).
 > - **Measured** (Godot, 240 frames sampled every other frame - 119 samples, whole cycles of each clip): all
 >   27 runs pass - three presets on Mei, Nadia and Rosa, built from `characters/*.toml` in scratch, walking,
->   running and crouching. Worst inside a thigh 2/1024 (the knee skirt, Rosa's crouch), 3/704 (the mini,
->   Nadia's), 6/2420 (the dress, Mei's); walks and runs are mostly 0. No holes. Poke at most 0.32%, and in a
->   crouch it is thigh skin past the hem, not through it. Controls: `colliders=false` 97/1152 and
->   `rigid=spine` 95/1152 on the fixture Figure's walk, against 4 with them. That walk crosses the feet over
->   the midline and used to be the knee skirt's failure (48/1152); `regress.py --godot` now wears the knee
->   skirt there with both controls.
-> - Open: a knee skirt in a run still pinches the cloth where the panel meets the band on the hip and lets a
->   patch of hip through it (11 vertices of 14344, ~2 cm across; 21 before the ease went from 15 to 22 mm).
->   A mini in a deep crouch rides up onto the thighs and shows the lap - true of a real mini, but worth
->   a look if crowds squat often. The cloth (soft) route still has no leg colliders. Nothing but the legs
->   collides: an arm swinging into a skirt goes through it. "Reads right in the review strips" was judged on
->   scratch renders of Godot dumps (rest, two frames of each of walk, run and crouch, front/side/three-quarter),
->   since 04b's review strips are not built.
+>   running and crouching. Worst inside a thigh 2/1024 (the knee skirt, Rosa's crouch, 0.20%), 3/704 (the
+>   mini, Nadia's crouch, 0.43%), 6/2420 (the dress, Mei's crouch, 0.25%); every walk is 0 and most runs are
+>   0-1. No holes. Poke at most 44 vertices (0.3%), nearly all of it a crouch's thighs past the hem and a
+>   dress's upper arms at the armholes. Controls: on Rosa's knee skirt crouch `colliders=false` is 182/1024
+>   and `rigid=spine` 154/1024 against 2; on Nadia's mini run `colliders=false` is 90/704 against 1; on the
+>   fixture Figure's walk the mini is 0/704 against 47 and 46; a dress with `cut=0.04` opens 39 of its 3278
+>   hidden vertices.
+> - **`regress.py --godot` wears the mini** on the fixture Figure, not the knee skirt. The parked round had
+>   switched it to the knee skirt on a claim of 4/1152; it is 12/1152 (1.04%) at frame 172 whatever the
+>   colliders do - 8 of them inside a jiggle bone's flesh - so the branch as parked would have failed its
+>   own `--godot` run. That Figure's walk crosses its feet over the midline; the crowd women's walks are 0.
+> - **Open, and honestly.** At the top of a run stride the raised thigh still comes through the front of a
+>   knee skirt and a mini on Nadia and Rosa, cloth to either side of it - one of six frames rendered across
+>   the cycle, and the same shape of failure the critic named, smaller. Neither check sees it: `poke` only
+>   counts skin with cloth within 3 cm behind it, and `thighs` counts cloth inside a leg, so a panel that has
+>   swung clear scores near zero on both. A better measure (skin radially outside the tube, filtered to leg
+>   skin) is worth building into the verifier. Two fixes were tried and put back, both recorded in
+>   `references/garments.md`: giving the bones the band of cloth over the hip (fixes the run, fails a deep
+>   crouch at 7/1088) and folding by the greater of the two thighs (fixes the top of the stride, opens the
+>   trailing side half a cycle later). A deep crouch also reads stiff - 24 bones turning as one panel look
+>   like a plate, not cloth; that is what the soft route is for. The cloth (soft) route still has no leg
+>   colliders, and nothing but the legs collides: an arm swinging into a skirt goes through it. "Reads right
+>   in the review strips" was judged on scratch renders of Godot dumps (six frames of each of walk, run and
+>   crouch, front/side/three-quarter, on all three women in all three presets), since 04b's strips were not
+>   built when this was written.
 
 ---
 

@@ -159,10 +159,12 @@ GODOT_WARDROBE = {
     "dressed_presets": {"body": "figure.glb", "garment": "sports_top.glb,shorts_mid_thigh.glb",
                         "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
     # every=4: a thigh goes through a skirt for a few frames of a stride, and every=8 can step over them.
-    # rigid=spine skins the skirt to the pelvis alone and colliders=false takes the thigh capsules and the
-    # fold off it; the thighs must come through in both (97 and 95 of 1152 vertices on this walk, which
-    # crosses the feet over the midline, against 4 with them)
-    "dressed_skirts": {"body": "figure.glb", "garment": "skirtknee.glb",
+    # The mini, not the knee skirt: this Figure's walk crosses its feet over the midline and a knee-length
+    # hem between the legs is inside a thigh there whatever the colliders do (12 of 1152 vertices, 1.04%,
+    # at frame 172 - 8 of them inside a jiggle bone's flesh). The crowd women's walks are 0. rigid=spine
+    # skins the skirt to the pelvis alone and colliders=false takes the thigh capsules and the fold off it;
+    # the thighs must come through in both.
+    "dressed_skirts": {"body": "figure.glb", "garment": "skirtmini.glb",
                        "args": ["frames=240", "every=4", "hem=true", "jiggle=true"],
                        "controls": [["rigid=spine"], ["colliders=false"]]},
     "pipeline_woman": {"body": "fixwoman.glb", "garment": "fixwoman_sportstop.glb,fixwoman_shorts.glb",

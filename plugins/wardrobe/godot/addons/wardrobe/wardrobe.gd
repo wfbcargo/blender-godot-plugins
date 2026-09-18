@@ -88,6 +88,8 @@ static func body_mesh(body_root: Node, name := "") -> MeshInstance3D:
 ## Put `garment` (a PackedScene, or an instantiated garment scene) on the body under `body_root`.
 ## options:
 ##   hem: bool            build the hem modifier (default true); false is LOD 0, pure skinning
+##   colliders: bool      collide a skirt's or dress's hem ring with the thighs and fold it with them
+##                        (default true; skirts and dresses only). false is the verifier's control
 ##   hide: bool           hide what it covers (default true)
 ##   cloth: bool          build a skirt or dress exported with soft=True as follow-through cloth (default
 ##                        true; needs addons/follow_through). Its `cloth` report entry is the SoftBody3D

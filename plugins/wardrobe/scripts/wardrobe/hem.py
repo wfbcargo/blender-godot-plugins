@@ -18,9 +18,10 @@ Two things keep a hem out of the body, and both are measured here:
   to the body, less a few millimetres): the runtime clamps the spring there. That is a
   per-bone **backstop**, the thing Unreal, Unity and Jolt use to keep cloth off the body.
 
-A skirt or a dress hangs from a ring hinged at the hip joints, and everything below that hinge is
-the bones' outright (see `prepare`). It also carries **colliders**: capsules fitted to the thighs
-and the shins (`_leg_colliders`), which Godot's hem modifier swings the bones out of.
+A skirt or a dress hangs from a ring hinged just above the hip joints, and from the hip joints down
+the cloth is the bones' outright (see `prepare`). It also carries **colliders**: capsules fitted to
+the thighs and the shins (`_leg_colliders`, each carried up to the hip), which Godot's hem modifier
+swings the bones out of.
 
 Bones are named `wd_<garment>_<ring>_<nn>`. Re-running replaces them.
 """
@@ -117,8 +118,8 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
     from the hip joints down (over `skin_band` metres) the cloth is theirs outright: it turns as one panel
     and nothing of it follows a single thigh by weight. Weights that do split the tube round each leg, and
     a stride read as shorts or culottes (the hem between the legs, the legs out through slits - fig224).
-    Above the hip joints the cloth keeps the skin's weights, so the hips carry it and cover can hide the
-    skin under it.
+    Above the hip joints the cloth keeps the skin's weights, so the hips carry it. It also raises the cut's
+    `cover_floor_z` to the hinge, so cover (which runs after this) hides no skin under cloth the bones move.
 
     The block then carries `colliders`: capsules fitted to each thigh and shin (`_leg_colliders`,
     `collider_margin` added for the cloth and for the chord between two bones), and each bone's slack
@@ -167,6 +168,14 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
                 sum(hm["heads"][l["thigh"]].z for l in hm["legs"].values()) / max(1, len(hm["legs"]))
             hinge_z = hip_z + hinge_lift
             ring_hip_z = hip_z
+            if cut is not None:
+                # cover runs after this and hides no skin below `cover_floor_z`. The cut put it at the hip
+                # joints, but the cloth is the hem bones' from the hinge down and they move it: on Rosa's
+                # mini, 4 of the 30 vertices hidden in that band opened in a run (13% of them, a fail).
+                # Nothing under moving cloth is hidden.
+                rec = dict(cut)
+                rec["cover_floor_z"] = round(hinge_z, 5)
+                g["wardrobe_cut"] = rec
         rings.append({"ring": "hem", "loop": tags["hem"], "dir": -up, "centre": Vector((root.x, root.y, 0)),
                       "count": hem_bones, "hinge": hem_hinge, "ref": fwd,
                       "parents": parents, "phase": phase, "hinge_z": hinge_z, "hip_z": ring_hip_z})
@@ -260,6 +269,11 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
                 # inside the thighs in a crouch (14 vertices); by the greater of the two, 10 there and 12
                 # inside a run's forward thigh. The hip crease, half one and half the other either way, is
                 # where a run pinches the cloth and the hip comes through it; ease answers that (0.022).
+                # From the *hinge* down instead - so that the thigh capsules could push the band of cloth
+                # over the hip, which skin weights never let them - a run's raised thigh showed much less
+                # through the front (Nadia's knee skirt, poke 21 -> 10), but a deep crouch then left the
+                # cloth over the hip inside an abducted thigh and failed: 7 of 1088 against 1. The band
+                # stays the skin's, and the collider carried up to the hip is what answers the run.
                 s = (r["hip_z"] - v.co.z) / skin_band
             s = min(max(s, 0.0), 1.0)
             total = (1.0 if rigid else share) * s * s * (3 - 2 * s)
@@ -350,14 +364,21 @@ COLLIDE_AT = (0.125, 0.25, 0.5, 0.75, 1.0)      # hem_modifier.gd's COLLIDE_AT: 
 
 
 def _leg_colliders(body, hm, rig, hem_bones, margin, thigh_knots=(0.35, 0.55, 0.75, 1.0),
-                   shin_knots=(0.0, 0.5, 1.0), band=0.1, pct=0.75, clear=0.004):
+                   shin_knots=(0.0, 0.5, 1.0), band=0.1, pct=0.75, clear=0.004, thigh_top=0.12):
     """Capsules round the thighs and shins (body object space), fitted to the leg's skin: at each knot along a
     bone (fractions of its length) the cross-section of the skin within `band` of it - the vertices skinned
     mostly to that bone and to bones under it that are not the next bone of the leg (jiggle bones) - gives a
     centre (the middle of its extent across the bone) and a radius (the `pct` percentile of the distance to
-    that centre, plus `margin`); a capsule joins each pair of neighbouring knots. The thigh starts a fifth of
-    the way down: above that its skin is the buttock and the groin, round the bone's line 14 cm out, and a
-    collider that big pushed the skirt off the hips in a stride.
+    that centre, plus `margin`); a capsule joins each pair of neighbouring knots. The thigh is only *measured*
+    from a third of the way down: above that its skin is the buttock and the groin, round the bone's line 14 cm
+    out, and a collider fitted that big pushed the skirt off the hips in a stride.
+
+    But it must not *stop* there. Measured from 0.35 down, the top 13 cm of the thigh - from the hip joint to
+    the first knot - had no collider at all, and in a run the raised thigh went straight through the front
+    panel above it (Nadia's knee skirt: 21 poking vertices, a wedge of thigh from the hem to the waistband in
+    a front view, the critic's fig224 finding again). So the first capsule is carried up to `thigh_top` with
+    the radius it was measured at and its centre slid along the bone: conservative where the thigh is widest,
+    and the cloth resting on it at rest is not pushed, because that is what each bone's slack takes off.
 
     And for each hem bone, each capsule's `slack`: how far inside that capsule (plus `clear`) the bone already
     is at rest, at the worst of its test points. The runtime takes it off the radius for that bone alone, so
@@ -395,7 +416,12 @@ def _leg_colliders(body, hm, rig, hem_bones, margin, thigh_knots=(0.35, 0.55, 0.
                 ys = [(co - on).dot(ey) for co in sec]
                 centre = on + ex * ((min(xs) + max(xs)) * 0.5) + ey * ((min(ys) + max(ys)) * 0.5)
                 d = sorted(((co - centre) - axis * (co - centre).dot(axis)).length for co in sec)
-                knots.append((centre, d[int(pct * (len(d) - 1))] + margin))
+                knots.append((k, centre, d[int(pct * (len(d) - 1))] + margin))
+            if i == 0 and knots and thigh_top < knots[0][0]:
+                # carry the top of the thigh up to the hip, at the radius it was measured at
+                k0, c0, r0 = knots[0]
+                knots.insert(0, (thigh_top, c0 - ab * (k0 - thigh_top), r0))
+            knots = [(c, r) for _, c, r in knots]
             for (c0, r0), (c1, r1) in zip(knots, knots[1:]):
                 out.append({"bone": bone, "_head": c0, "_tail": c1, "radii_m": [round(r0, 4), round(r1, 4)]})
     slack = {}

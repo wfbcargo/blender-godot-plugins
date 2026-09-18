@@ -121,9 +121,16 @@ r = wardrobe.dress("Nadia_body", "skirt_knee", out_path=..., soft=True)  # follo
 - **Hem.** For a skirt or dress `hem.prepare` hangs 24 bones from the **pelvis alone**, hinged 5 cm above
   the hip joints (`hinge_lift`), and from the hip joints down (over `skin_band`, 4 cm) the cloth is theirs
   outright - one panel turning about the hip line. Above the hip joints it keeps the skin's weights,
-  because that is where a thigh comes out into the skirt in a crouch or a wide squat. The block also
-  carries **colliders**: capsules fitted to each thigh and shin (a centre and a radius at knots along the
-  bone, the 75th percentile of that leg's skin plus 6 mm) and each bone's slack against them at rest.
+  because that is where a thigh comes out into the skirt in a crouch or a wide squat: given to the bones
+  instead, a run's raised thigh shows much less through the front (Nadia's knee skirt, poke 21 -> 10) but
+  a deep crouch leaves the cloth over the hip inside an abducted thigh and fails (7 of 1088 against 1).
+  The block also carries **colliders**: capsules fitted to each thigh and shin (a centre and a radius at
+  knots along the bone, the 75th percentile of that leg's skin plus 6 mm) and each bone's slack against
+  them at rest. A thigh is *measured* only from a third of the way down - higher up its skin is the
+  buttock and the groin, and a capsule fitted there is 14 cm wide and shoves the skirt off the hips -
+  but the top capsule is then **carried up to the hip** at the radius it was measured at. Stopping at
+  0.35 left the top 13 cm of the thigh with no collider at all, and a raised thigh went straight through
+  the front panel above it in a run.
 - **In Godot** `hem_modifier.gd` then places the ring every frame: a **fold** (what the thighs under a bone
   do - at the front the lesser of the two, at the side the nearer one's, measured as the swing its tail
   needs toward that bone's outward direction) turns the bone's head and tail about the hip line, as skin
@@ -143,9 +150,16 @@ r = wardrobe.dress("Nadia_body", "skirt_knee", out_path=..., soft=True)  # follo
 
 Measured in Godot on three crowd women (Mei, Nadia, Rosa), walk, run and crouch sampled every other frame
 (119 samples a clip, several whole cycles), all 27 runs pass: inside a thigh at most 2 of 1024 for the knee
-skirt, 3 of 704 for the mini, 6 of 2420 for the dress (0.19-0.43%, and 0 in most walks and runs), no holes,
-poke at most 0.32%. Turn the colliders and the fold off (`colliders=false`) and a walk puts 97 of 1152
-inside on the sample Figure, as skinning the whole skirt to the pelvis does (95).
+skirt, 3 of 704 for the mini, 6 of 2420 for the dress (0.20-0.43%, 0 in every walk), no holes, poke at most
+0.3% and nearly all of it a crouch's thighs past the hem. Turn the colliders and the fold off
+(`colliders=false`) and a crouch puts 182 of 1024 inside; skinning the whole skirt to the pelvis
+(`rigid=spine`) puts 154 there.
+
+**What the check does not see.** Passing is not the same as looking right. `poke` counts only skin with
+cloth within 3 cm behind it, and `thighs` counts cloth inside a leg - so a panel that has swung well clear
+of a thigh, leaving it bare in front of the cloth, scores near zero on both. At the top of a run stride the
+raised thigh still comes through the front of a knee skirt and a mini on the two heavier women, with cloth
+to either side of it, while every limit passes. Render frames across the cycle and look.
 
 **Trousers, shorts and briefs** are cut the same way:
 
@@ -261,7 +275,7 @@ normal: it is a hole only if some view reaches it and sees into the body.
 full name (Belle's are `Belle_Walk` and so on); check every clip a character has, because a crouch
 opens what a walk never does. A run that measured nothing fails - an unknown clip (the problem lists
 the clips the body has), a missing body or garment, or `samples: 0` - so a pass always means frames
-were measured. Before wardrobe 0.2.2 an unknown clip and every `still=true` run passed with nothing sampled. `rigid=spine` skins the garment to one bone and must fail `thighs` in a crouch (the crowd's knee skirts: 149-162 vertices inside, against at most 4). `colliders=false` takes the thigh colliders and the fold off a skirt and must fail too (97 of 1152 against 4). `every=2` samples every other frame - whole cycles of a walk, a run and a crouch - and is what the skirt numbers were measured with. `dump=<frame> dump_dir=` writes that sample's skinned body and garments as OBJ, headless. `cut=0.04` removes a
+were measured. Before wardrobe 0.2.2 an unknown clip and every `still=true` run passed with nothing sampled. `rigid=spine` skins the garment to one bone and must fail `thighs` in a crouch (Rosa's knee skirt: 154 of 1024 inside, against 2). `colliders=false` takes the thigh colliders and the fold off a skirt and must fail too (182 there, and 90 of 704 on Nadia's mini in a run against 1). `every=2` samples every other frame - whole cycles of a walk, a run and a crouch - and is what the skirt numbers were measured with. `dump=<frame> dump_dir=` writes that sample's skinned body and garments as OBJ, headless. `cut=0.04` removes a
 4 cm patch of the garment and must fail - the proof that the check still sees a real hole.
 `shot=<frame>` without `--headless` renders that frame's holes from outside (body back faces
 magenta, so magenta means you see in), and `trace=holes` prints each candidate's open views. Measured on Nora (30k
