@@ -19,11 +19,11 @@ Read these first, in this order:
 
 Installed copies in `~/.claude/skills` match the repo. **This is the one list of versions**; update it
 here and nowhere else:
-- rig-anything 0.24.0
+- rig-anything 0.25.0
 - animate-anything 0.10.0
 - follow-through 0.6.1
 - humanform 0.10.0
-- character-pipeline 0.8.0
+- character-pipeline 0.9.0
 - wardrobe 0.5.0
 - lookdev 0.4.0
 - godot-lsp 0.1.0
@@ -65,10 +65,22 @@ built through the pipeline and looked at in Godot, not only in a fixture.
 Last round, at least six agents wrote their own render scripts, framing the hands failed three times,
 and a close-up that would have shown a defect was missing twice. Fix the loop before the looks:
 
-- **06 rank 1 - a close-up look set in the review stage:** lit face, eyes, hands (palm and back), crotch,
-  feet, and bust at 0.4-1 m. Aim the cameras from the posed frame's bone positions, and label the tiles.
-  Done when a build writes `review/<id>/close/*.png` and the look checklist can be answered from them
-  with no script.
+- **06 rank 1 - a close-up look set in the review stage: done** (branch `cp-close-look-set`, rig-anything
+  0.25.0, character-pipeline 0.9.0, merged 2026-09-18). rig-anything `closeups.look_set` renders lit EEVEE
+  tiles of the Idle clip's frame 1 - face, face_3q, eyes, head_side, head_back, palm and back of each hand,
+  bust, crotch, knees, feet, foot_inner.L, foot_outer.L at 0.4-1 m, and a 0.42 m under_bust for a spec
+  wearing a top - with cameras aimed from the posed bones, a label band per tile, `sheet.png` and
+  `close.json`. The review stage writes `review/<id>/close/` and fails on an empty, off-centre or
+  off-body tile (wrong-bone and empty-tile controls in pipeline_woman). All views at final (+2.8 s),
+  6 at preview, face and left hand at draft (0.64 s); `[review] close = false` turns it off. SKILL.md
+  maps each look-checklist question onto its tile; an independent critic answered the checklist from
+  the PNGs alone. Open: the framing check is centroid-only (a palm camera 6 cm up passes with the
+  fingertips cut off - needs every subject point inside the tile, with a control); hand_back looks from
+  the side of the curled hand (thigh fills half the tile, nails not visible); `close = false` leaves a
+  stale close/ folder and still hashes the close part; the preview set was never built on a real spec;
+  only the left foot has side views; a non-human rig needs `close = false`. Defects the set shows
+  (hairline, glossy forehead and lips, sparse lashes, Belle's missing brows and under-bust shelf, smooth
+  crotches, unmodelled ankle bones and arch, a red streak on study_woman's right thigh) belong to later steps.
 - **06 rank 8 - Godot-side look tools in lookdev: done** (branch `lookdev-godot-tools`, lookdev 0.4.0,
   merged 2026-09-18). `lookdev.mjs close-shot` loads a glb, applies lookdev materials, poses a clip and
   writes a labelled sheet (face, eyes, palm and back of each hand, feet, bust, crotch, full body,
