@@ -15,8 +15,16 @@ the copies, and then edits one file at a time (and puts it back):
   the flip must then go unseen at that stage, so the check above is what catches a stage that stops hashing
   an input, and not something else in the hash.
 
+Four flips reach a stage's hash through a part other than `inputs.py`: a plugin version (`version:<plugin>`,
+from `plugins.stage_versions`), the skin map size and the close-up views of a final build (`quality:skin`,
+`quality:close`, from `quality.for_hash`) and a spec section edit (`spec:<section>`, from the stage's sections
+in `stages.STAGES`). `plan(drop=)` only leaves out `inputs.py` labels, so for these the fixture leaves the part
+out itself, by wrapping that function or table for the length of one plan (`_left_out`); their controls then
+work as every other flip's do.
+
 `PIPELINE_HASHES_DROP=<stage>:<label>` leaves that input out of every plan the flips are judged on, as if
-`inputs.py` no longer named it: the fixture must then fail (the harness's control, run by hand).
+`inputs.py` no longer named it: the fixture must then fail (the harness's control, run by hand). It takes the
+`_left_out` labels too: `body:version:wardrobe`, `bake:quality:skin`, `flesh:spec:flesh`, `review:quality:close`.
 
 The golden holds, per flip, the stage expected, the first stage that moved and every stage that moved.
 """
@@ -253,7 +261,9 @@ def build():
         ("rig-anything closeups.py", "full", _edit_code(os.path.join(copies["RA_SCRIPTS"], "rig_analysis",
                                                                      "closeups.py")), "review",
          "code:rig_analysis.closeups"),
-        ("wardrobe version", "full", _edit_version(P("WD_SCRIPTS", ".claude-plugin", "plugin.json")), None, None),
+        # a plugin version moves every stage (body first): the version of each plugin is in every stage's hash
+        ("wardrobe version", "full", _edit_version(P("WD_SCRIPTS", ".claude-plugin", "plugin.json")), "body",
+         "version:wardrobe"),
         # unrelated: nothing this spec reads
         ("unrelated: garments.json, a preset not worn", "full",
          _edit_json(P("WD_SCRIPTS", "presets", "garments.json"), ["garments", "leggings"]), None, None),
@@ -268,9 +278,6 @@ def build():
         ("unrelated: closeups.py with [review] close = false", "noclose",
          _edit_code(os.path.join(copies["RA_SCRIPTS"], "rig_analysis", "closeups.py")), None, None),
     ]
-    # a plugin version moves every stage (body first): the version of each plugin is in every stage's hash
-    expect_first = {"wardrobe version": "body"}
-
     drop_env = os.environ.get("PIPELINE_HASHES_DROP")
     judged_drop = {}
     if drop_env:
@@ -278,7 +285,11 @@ def build():
         judged_drop = {stage: [label]}
 
     def plan(which, drop=None):
-        return runner.plan(specs[which], drop=drop if drop is not None else judged_drop)
+        """`which` is a spec's name or a loaded spec; `drop` ({stage: [labels]}) as `runner.plan`'s, and also
+        the three labels that are not `inputs.py`'s (`_left_out`)."""
+        drop = drop if drop is not None else judged_drop
+        target = specs[which] if isinstance(which, str) else which
+        return _left_out(drop, lambda rest: runner.plan(target, drop=rest))
 
     names = {k: list(plan(k)) for k in specs}
     out, failed = {}, []
@@ -293,7 +304,7 @@ def build():
         finally:
             _restore(touched, user_types)
         moved = [s for s in names[which] if before[s] != after[s]]
-        want = expect_first.get(title, stage)
+        want = stage
         row = {"spec": which, "expect": want, "first": moved[0] if moved else None, "moved": moved}
         row["ok"] = (not moved) if want is None else (bool(moved) and moved[0] == want)
         if label:
@@ -304,43 +315,59 @@ def build():
             failed.append(title)
         out[title] = row
 
-    # the skin map size of a final build is in bake's hash (a final file baked at 1024 must rebake)
+    # the skin map size of a final build is in bake's hash (a final file baked at 1024 must rebake); control: with
+    # the size left out of bake's hash, the same change goes unseen at bake
+    skin_drop = {"bake": ["quality:skin"]}
     before = plan("full")
+    control_before = plan("full", drop=skin_drop)
     saved = quality.LEVELS["final"]["skin"]["size"]
     quality.LEVELS["final"]["skin"]["size"] = 1024
     try:
         old = plan("full")
+        control = plan("full", drop=skin_drop)
     finally:
         quality.LEVELS["final"]["skin"]["size"] = saved
     moved = [s for s in names["full"] if before[s] != old[s]]
-    out["final skin map size 2048 -> 1024"] = {"spec": "full", "expect": "bake", "first": moved[0] if moved else None,
-                                               "moved": moved, "ok": bool(moved) and moved[0] == "bake"}
-    if not out["final skin map size 2048 -> 1024"]["ok"]:
-        failed.append("final skin map size")
+    row = {"spec": "full", "expect": "bake", "first": moved[0] if moved else None, "moved": moved,
+           "ok": bool(moved) and moved[0] == "bake", "label": "quality:skin",
+           "control_unseen": control["bake"] == control_before["bake"]}
+    out["final skin map size 2048 -> 1024"] = row
+    if not row["ok"] or not row["control_unseen"]:
+        failed.append("final skin map size 2048 -> 1024")
 
     # the close-up set of a final build is in review's hash (a final file reviewed before the set existed must
     # review again and write it): the final views changed to the draft's move review and nothing before it
     saved = quality.LEVELS["final"]["close"]
     quality.LEVELS["final"]["close"] = dict(saved, views=quality.CLOSE_DRAFT)
+    close_drop = {"review": ["quality:close"]}
+    control_before = plan("full", drop=close_drop)
     try:
         other = plan("full")
+        control = plan("full", drop=close_drop)
     finally:
         quality.LEVELS["final"]["close"] = saved
     moved = [s for s in names["full"] if before[s] != other[s]]
-    out["final close-up views"] = {"spec": "full", "expect": "review", "first": moved[0] if moved else None,
-                                   "moved": moved, "ok": moved == ["review"]}
-    if not out["final close-up views"]["ok"]:
+    row = {"spec": "full", "expect": "review", "first": moved[0] if moved else None, "moved": moved,
+           "ok": moved == ["review"], "label": "quality:close",
+           "control_unseen": control["review"] == control_before["review"]}
+    out["final close-up views"] = row
+    if not row["ok"] or not row["control_unseen"]:
         failed.append("final close-up views")
 
     # a spec edit moves its own stage on: [flesh] reruns flesh and after, never body, muscle, bake or hair
     import dataclasses
     ch = spec.load(specs["full"])
     edited = dataclasses.replace(ch, flesh=dataclasses.replace(ch.flesh, limit_share={"butt": 0.5}))
-    base, flesh_edit = runner.plan(ch), runner.plan(edited)
+    base, flesh_edit = plan(ch), plan(edited)
+    # control: with [flesh] left out of flesh's spec digest, the edit goes unseen at flesh
+    flesh_drop = {"flesh": ["spec:flesh"]}
+    control_base, control_edit = plan(ch, drop=flesh_drop), plan(edited, drop=flesh_drop)
     moved = [s for s in names["full"] if base[s] != flesh_edit[s]]
-    out["spec [flesh] edit"] = {"spec": "full", "expect": "flesh", "first": moved[0] if moved else None,
-                                "moved": moved, "ok": bool(moved) and moved[0] == "flesh"}
-    if not out["spec [flesh] edit"]["ok"]:
+    row = {"spec": "full", "expect": "flesh", "first": moved[0] if moved else None, "moved": moved,
+           "ok": bool(moved) and moved[0] == "flesh", "label": "spec:flesh",
+           "control_unseen": control_edit["flesh"] == control_base["flesh"]}
+    out["spec [flesh] edit"] = row
+    if not row["ok"] or not row["control_unseen"]:
         failed.append("spec [flesh] edit")
 
     # what each stage of the full spec reads, by label (the digests themselves move with every plugin edit)
@@ -353,6 +380,52 @@ def build():
         raise AssertionError(f"pipeline_hashes: flips not caught or unrelated edits that moved a stage: {failed}; "
                              + json.dumps({k: out[k] for k in failed if k in out}))
     return report
+
+
+LEFT_OUT = ("version:", "quality:", "spec:")
+
+
+def _left_out(drop, run):
+    """Run `run(rest)` with the labels of `drop` ({stage: [labels]}) that are not `inputs.py`'s left out of their
+    stage's hash, and the rest passed on as `runner.plan`'s own `drop`:
+
+    - `version:<plugin>`: that plugin's version, out of the versions `plugins.stage_versions` gives the stage;
+    - `quality:<part>`: that quality part, out of what `quality.for_hash` gives the stage;
+    - `spec:<section>`: that spec section, out of the sections the stage digests (`stages.STAGES`).
+
+    Each is patched for the length of this one plan and put back, whatever happens."""
+    from character_pipeline import plugins, quality, stages
+    rest, own = {}, {}
+    for stage, labels in (drop or {}).items():
+        for label in labels:
+            (own if label.startswith(LEFT_OUT) else rest).setdefault(stage, []).append(label)
+    if not own:
+        return run(rest)
+
+    def gone(stage, kind):
+        return [label.split(":", 1)[1] for label in own.get(stage, ()) if label.startswith(kind)]
+
+    real_versions, real_for_hash, real_stages = plugins.stage_versions, quality.for_hash, stages.STAGES
+
+    def stage_versions(ch, stage):
+        out = dict(real_versions(ch, stage))
+        for plugin in gone(stage, "version:"):
+            out.pop(plugin, None)
+        return out
+
+    def for_hash(q, stage):
+        out = real_for_hash(q, stage)
+        if isinstance(out, dict):
+            out = {k: v for k, v in out.items() if k not in gone(stage, "quality:")} or None
+        return out
+
+    table = [(name, needs, tuple(s for s in sections if s not in gone(name, "spec:")), *more)
+             for name, needs, sections, *more in real_stages]
+    plugins.stage_versions, quality.for_hash, stages.STAGES = stage_versions, for_hash, table
+    try:
+        return run(rest)
+    finally:
+        plugins.stage_versions, quality.for_hash, stages.STAGES = real_versions, real_for_hash, real_stages
 
 
 def _snapshot(copies, user_types):

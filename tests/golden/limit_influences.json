@@ -1,0 +1,43 @@
+{
+ "fixture": "limit_influences",
+ "plugins": {
+  "follow-through": "0.6.1"
+ },
+ "report": {
+  "control": {
+   "changed": 32,
+   "expected_changed": 32,
+   "max_total_gained": 0.0,
+   "max_total_lost": 0.311731,
+   "not_strongest": 0,
+   "ok": false,
+   "other_groups_moved": 0,
+   "over_four": 0,
+   "ratio_spread": 0.0,
+   "untouched_moved": 0
+  },
+  "fixed": {
+   "changed": 32,
+   "expected_changed": 32,
+   "max_total_gained": 0.0,
+   "max_total_lost": 0.0,
+   "not_strongest": 0,
+   "ok": true,
+   "other_groups_moved": 0,
+   "over_four": 0,
+   "ratio_spread": 0.0,
+   "untouched_moved": 0
+  },
+  "influences_before": {
+   "1": 8,
+   "2": 8,
+   "3": 8,
+   "4": 8,
+   "5": 8,
+   "6": 8,
+   "7": 8,
+   "8": 8
+  },
+  "vertices": 64
+ }
+}
