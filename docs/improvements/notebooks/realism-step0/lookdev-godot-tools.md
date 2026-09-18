@@ -80,3 +80,22 @@ Scratch: `C:/Users/pauli/AppData/Local/Temp/rw/lookdev-godot-tools/`.
 - Docs: SKILL.md (tools table, exit codes, close-shot section, runtime presets, two Don'ts), README,
   references/recipes.md (presets.json's new home and `needs`), lookdev 0.4.0 with a "Since 0.4.0" sentence.
   `regress.py` GODOT_ADDONS gains lookdev, so `--godot` warns on a stale addons/lookdev like the others.
+
+## Open (added at merge, from the author's report and the critic)
+
+- No selftest control for close-shot's post-render tile checks (EMPTY_TILE, SUBJECT_SMALL, OFF_TARGET).
+  `--min-coverage 0.95` does make EMPTY_TILE fail (critic, exit 1); `--min-subject` is spec-only, not on the CLI.
+- `tone --expect` only reports: `--expect 0.2,0.2,0.2` on study_woman's skin exits 0 and says ok. Its
+  "vs expect" output prints the difference, which reads like the target.
+- `tone` with no `--material` exits 1 on study_woman: StudyWoman_lashes reads 0.0073 linear, under the
+  0.01 floor. Needs a per-kind floor (lashes, hair, pupils) or a warning band.
+- `LookdevPresets.apply` says nothing changes when ok is false; a problem found in _apply_sky, _apply_sun
+  or _apply_exposure comes after the Environment was edited.
+- `sky_openness` calls a scene built at runtime open (figure_study.tscn is empty until _ready); the
+  refusal should name `--stage interior` and `--force`.
+- The lookdev selftest and close-shot are not in `regress --godot` (they need a window).
+- close-shot's bone aliases cover Rigify/rig-anything and Mixamo only; other rigs need `bone:<name>`.
+- Defects the close-ups show: stipple on fingertips and the neck under the ear (clear_midday); orange palms
+  and fingertips on study_man; stair-step sun shadow edges on the floor at 1 m; lashes as black clumps.
+- Regress: the author's run was killed when the agent ended. The critic's `--twice --jobs 2 --godot` passed
+  (09:31), and the merge step's `--quick --jobs 4 --godot` after merging main is recorded in the merge commit.
