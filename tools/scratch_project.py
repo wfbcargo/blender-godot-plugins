@@ -123,7 +123,8 @@ def make(out, who=DEFAULT_WHO, checkout=REPO, game=GAME, game_blend_dir=None, li
     # the project's files: project.godot, the root scenes and scripts, characters/, the build scripts, addons
     for pattern in ROOT_FILES:
         for f in game.glob(pattern):
-            _copy(f, out / f.name)
+            if f.is_file():                     # "*.godot" also matches the .godot/ import cache
+                _copy(f, out / f.name)
     _copytree(game / "characters", out / "characters")
     for rel in BUILD_SCRIPTS:
         if (game / rel).is_file():

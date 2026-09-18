@@ -194,6 +194,7 @@ def _fake_game(tmp):
         "assets/save_guard.py": "# guard\n", "assets/humans/build_human.py": "# human\n",
         "assets/belle/build_belle.py": "# belle\n", "assets/fig/fig.glb": "glb", "assets/fig/review/sheet.png": "png",
         "assets/other/other.glb": "glb", "addons/lookdev/x.gd": "# the game's copy\n", "addons/mine/y.gd": "# y\n",
+        ".godot/imported/cache.bin": "x",
     }
     for rel, text in files.items():
         (game / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -246,6 +247,7 @@ def test_scratch_project():
                                                 "assets/humans/build_human.py", "assets/belle/build_belle.py",
                                                 "assets/fig/fig.glb", "addons/mine/y.gd", "figure.tscn", "figure.gd")))
         check("review/ folders are not copied", not (out / "assets/fig/review").exists())
+        check("the game's .godot/ cache is not copied (\"*.godot\" matches it)", not (out / ".godot").exists())
         check("a character not chosen: its export is not copied", not (out / "assets/other").exists())
         check("the chosen blends copied into blends/, the other not",
               sorted(p.name for p in (out / "blends").glob("*.blend")) == ["abs.blend", "fig.blend"])
