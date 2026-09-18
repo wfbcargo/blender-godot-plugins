@@ -95,11 +95,15 @@ Blender's linear Base Color (and glTF's). `c ** 2.2` is 2% off at mid-grey but a
 value at 0.05, where dark irises and deep skin tones sit. `look.skin(human, srgb)` gives a body real skin (`humanform.skin`): on
 the MPFB human it marks regions as point attributes (lips, areolae and nipples, genital skin, knees, elbows,
 knuckles darker and redder; palms and soles paler; cheeks, nose tip and ears flushed; an oily T-zone, drier
-limbs) and builds a procedural Principled skin with seeded mottling, a fine bump and subsurface (Jensen skin
-radii in mm, scale 0.001); on a game mesh (after rig-anything's `bake_for_game`, which keeps the marks) it bakes
+limbs) and gives it a FLAT Principled skin (the tone as Base Color, subsurface with Jensen skin radii in mm,
+scale 0.001), so a body exported without a bake still arrives in its colour; on a game mesh (after rig-anything's
+`bake_for_game`, which keeps the marks) it bakes a procedural skin with seeded mottling and a fine bump into
 albedo, ORM and normal maps with lookdev (`look.SKIN_MAP_PX`, 1024; the albedo's covered mean is held to the
 brief's `skin` within 0.03 sRGB) and adds the `hf_detail` UV map lookdev's Godot pores tile on. The report is
-the material's `humanform_skin`. `look.skin(..., realistic=False)` is the old flat material.
+the material's `humanform_skin` (with each region's baked tone under `regions`). If lookdev cannot be imported the
+material stays flat (`stage` "flat", `error` set) - never procedural, which the glTF exporter writes as white. The
+marks are not colour attributes (`hf_skin_tint` is a vector, `hf_skin_region` an int), because the exporter writes
+every colour attribute out as COLOR_n. `look.skin(..., realistic=False)` is the old flat material.
 
 **How it resolves.** ANSUR II per sex is a multivariate normal over 65 variables. What the sheet
 fixes is conditioned on, and a build's leanings are applied in conditional standard deviations,

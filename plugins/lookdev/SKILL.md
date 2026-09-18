@@ -167,7 +167,9 @@ for the exporter to write tangents. See `references/hair.md`.
 baked by `bake.bake_material(obj, material, out_dir, size)` - one material rebuilt in place from albedo, ORM
 and normal maps, keeping its name, custom properties and subsurface inputs, with an `adjust` hook that sees the
 covered texels (humanform holds the albedo's mean to the brief's tone with it). Its `lookdev` extras have preset
-`skin`: `LookdevMaterials.apply` sets `subsurf_scatter` (skin mode, transmittance) and a tiling pore detail
+`skin`: `LookdevMaterials.apply` sets `subsurf_scatter` (skin mode, transmittance with a 1 cm depth - at 8 cm a
+whole palm glowed orange under a sun behind it; judge transmittance with a key light behind thin parts, overcast
+hides it) and a tiling pore detail
 normal (`lookdev.detail`, seeded cellular noise on UV2 = humanform's `hf_detail`). `lint` warns
 `SKIN_PLASTIC` on a skin with a flat albedo, one roughness, no normal/pore detail or no subsurface.
 

@@ -12,7 +12,8 @@ flush. MPFB's own region groups (`nipple`, `nippleTip`, `lips`, `ears`, `fingern
 MPFB for its skin materials) give the first set; the rest come from MPFB's joint groups and the surface
 normal (a palm faces away from the back of the hand, found from the thumb; a sole faces down; a knee cap
 forwards, an elbow back). Each region is a soft per-vertex weight, and they are written once, on the MPFB
-human, as two point attributes: `hf_skin_tint` (a linear RGB multiplier of the brief's tone) and
+human, as two point attributes: `hf_skin_tint` (a linear RGB multiplier of the brief's tone, stored as a
+vector because the glTF exporter writes every colour attribute out as COLOR_n) and
 `hf_skin_oil` (a roughness). rig-anything's `bake_for_game` keeps every data layer, so they reach the
 game mesh even though the groups do not.
 
@@ -45,6 +46,7 @@ from . import delta, look
 
 TINT = "hf_skin_tint"
 OIL = "hf_skin_oil"
+REGION = "hf_skin_region"      # int per vertex: 1 + index in REGIONS of the region it is mostly in, 0 for plain skin
 DETAIL_UV = "hf_detail"
 TONE_TOLERANCE = 0.03          # sRGB, per channel: the baked mean against the brief's colour
 
@@ -75,7 +77,7 @@ GODOT = {                      # StandardMaterial3D properties glTF drops (lookd
     "subsurf_scatter_skin_mode": True,
     "subsurf_scatter_transmittance_enabled": True,
     "subsurf_scatter_transmittance_color": [0.92, 0.42, 0.30, 1.0],
-    "subsurf_scatter_transmittance_depth": 0.08,
+    "subsurf_scatter_transmittance_depth": 0.01,   # m: ears, finger edges glow; a whole palm (2-3 cm) must not
     "subsurf_scatter_transmittance_boost": 0.0,
     "metallic_specular": 0.42,
 }
@@ -132,10 +134,13 @@ def regions(ob):
             m = np.zeros(n)
             m[idx] = 1.0
             if g == "lips":
-                # MPFB's lips group reaches well into the skin round the mouth (a clown's mouth when tinted):
-                # keep its core, the vertices still inside after the membership is smoothed
+                # MPFB's lips group reaches past the vermilion into the skin round the mouth and the corners (a
+                # soft clown's oval when tinted): keep its core, the vertices still well inside after the
+                # membership is smoothed, and taper it to nothing at the mouth corners. It is not smoothed
+                # again below: the vermilion border is a sharp edge on a real mouth.
                 core = delta.smooth(m, faces, iterations=3, share=0.5)[:n]
-                m = _smooth(0.55, 0.85, core) * m
+                hw = float(np.abs(p[idx, 0]).max())
+                m = _smooth(0.70, 0.95, core) * m * (1.0 - _smooth(0.78 * hw, 0.97 * hw, np.abs(p[:, 0])))
             w[region] = np.maximum(w[region], m)
         else:
             notes.append(f"no {g} group")
@@ -211,7 +216,7 @@ def regions(ob):
     strip = np.exp(-(p[:, 0] ** 2) / (2 * (0.012 * s) ** 2))
     extra["t_zone"] = face * np.maximum(forehead * (np.abs(p[:, 0]) < 0.06 * s), strip * (p[:, 2] < eye_z + 0.03 * s))
     for k in w:
-        w[k] = delta.smooth(np.clip(w[k], 0, 1), faces, iterations=1, share=0.5)[:n]
+        w[k] = np.clip(w[k], 0, 1) if k == "lips" else delta.smooth(np.clip(w[k], 0, 1), faces, iterations=1, share=0.5)[:n]
     return w, extra, notes
 
 
@@ -229,10 +234,15 @@ def mark(ob):
         tint[:n, :3] = tint[:n, :3] * (1 - a) + np.asarray(spec["tint"]) * a
         rough[:n] = rough[:n] * (1 - w[k]) + spec["rough"] * w[k]
     me = ob.data
-    for name in (TINT, OIL):
+    for name in (TINT, OIL, REGION):
         if name in me.attributes:
             me.attributes.remove(me.attributes[name])
-    me.attributes.new(TINT, "FLOAT_COLOR", "POINT").data.foreach_set("color", tint.astype(np.float32).ravel())
+    rid = np.zeros(n_all, np.int32)
+    for i, k in enumerate(REGIONS):
+        rid[:n][w[k] > 0.5] = i + 1
+    me.attributes.new(REGION, "INT", "POINT").data.foreach_set("value", rid)
+    # a vector, not a colour attribute: the glTF exporter writes every colour attribute as COLOR_n
+    me.attributes.new(TINT, "FLOAT_VECTOR", "POINT").data.foreach_set("vector", tint[:, :3].astype(np.float32).ravel())
     me.attributes.new(OIL, "FLOAT", "POINT").data.foreach_set("value", rough.astype(np.float32))
     return {"regions": {k: round(float((v > 0.5).sum()), 0) for k, v in w.items()},
             "t_zone": int((extra["t_zone"] > 0.5).sum()), "limb": int((extra["limb"] > 0.5).sum()), "notes": notes}
@@ -242,9 +252,28 @@ def seed_of(name):
     return zlib.crc32(name.encode("utf-8")) % 997
 
 
-def material(name, srgb, seed=None, roughness=BASE_ROUGH):
-    """The procedural skin: the brief's tone (linear) times `hf_skin_tint` times mottling, roughness from
-    `hf_skin_oil`, a fine bump, and subsurface. Reused by name, rebuilt every call."""
+def _principled_skin(bsdf, lin, roughness):
+    """What every skin material has, flat or procedural: the tone, a roughness, subsurface and skin's F0."""
+    bsdf.inputs["Base Color"].default_value = (*lin, 1.0)
+    bsdf.inputs["Roughness"].default_value = roughness
+    bsdf.subsurface_method = "RANDOM_WALK"
+    bsdf.inputs["Subsurface Weight"].default_value = SUBSURFACE["weight"]
+    bsdf.inputs["Subsurface Radius"].default_value = SUBSURFACE["radius"]
+    bsdf.inputs["Subsurface Scale"].default_value = SUBSURFACE["scale"]
+    if "Subsurface IOR" in bsdf.inputs:
+        bsdf.inputs["Subsurface IOR"].default_value = SUBSURFACE["ior"]
+    bsdf.inputs["Specular IOR Level"].default_value = SPECULAR_IOR_LEVEL
+    bsdf.inputs["IOR"].default_value = SUBSURFACE["ior"]
+
+
+def material(name, srgb, seed=None, roughness=BASE_ROUGH, procedural=False):
+    """The skin material, reused by name and rebuilt every call.
+
+    By default it is FLAT: the brief's tone as an unlinked Base Color, one roughness, subsurface - what the glTF
+    exporter can read (a linked Base Color it cannot trace to an image is exported as nothing, which Godot draws
+    white) and it references no mesh attribute (so `hf_skin_*` are never exported as COLOR_n). A body exported
+    without a bake gets this. `procedural=True` is what `bake` bakes and then replaces: the tone (linear) times
+    `hf_skin_tint` times mottling, roughness from `hf_skin_oil`, a fine bump."""
     seed = seed_of(name) if seed is None else seed
     lin = look.srgb_to_linear(srgb)[:3]
     mat = bpy.data.materials.get(name) or bpy.data.materials.new(name)
@@ -256,6 +285,15 @@ def material(name, srgb, seed=None, roughness=BASE_ROUGH):
     out = N("ShaderNodeOutputMaterial")
     bsdf = N("ShaderNodeBsdfPrincipled")
     L(bsdf.outputs["BSDF"], out.inputs["Surface"])
+    _principled_skin(bsdf, lin, roughness)
+    mat.diffuse_color = (*lin, 1.0)
+    mat["lookdev"] = {"preset": "skin", "godot": dict(GODOT), "detail": dict(DETAIL, seed=int(seed)),
+                      "tone_srgb": [round(float(c), 4) for c in tuple(srgb)[:3]]}
+    mat["humanform_skin"] = {"seed": int(seed), "tone_srgb": [round(float(c), 4) for c in tuple(srgb)[:3]],
+                             "stage": "flat"}
+    if not procedural:
+        return mat
+    mat["humanform_skin"] = dict(mat["humanform_skin"], stage="procedural")
     coord = N("ShaderNodeTexCoord")
     tint = N("ShaderNodeAttribute")
     tint.attribute_type = "GEOMETRY"
@@ -324,18 +362,6 @@ def material(name, srgb, seed=None, roughness=BASE_ROUGH):
     bump.inputs["Distance"].default_value = BUMP["distance"]
     L(bump_tex.outputs["Fac"], bump.inputs["Height"])
     L(bump.outputs["Normal"], bsdf.inputs["Normal"])
-    bsdf.subsurface_method = "RANDOM_WALK"
-    bsdf.inputs["Subsurface Weight"].default_value = SUBSURFACE["weight"]
-    bsdf.inputs["Subsurface Radius"].default_value = SUBSURFACE["radius"]
-    bsdf.inputs["Subsurface Scale"].default_value = SUBSURFACE["scale"]
-    if "Subsurface IOR" in bsdf.inputs:
-        bsdf.inputs["Subsurface IOR"].default_value = SUBSURFACE["ior"]
-    bsdf.inputs["Specular IOR Level"].default_value = SPECULAR_IOR_LEVEL
-    bsdf.inputs["IOR"].default_value = SUBSURFACE["ior"]
-    mat.diffuse_color = (*lin, 1.0)
-    mat["lookdev"] = {"preset": "skin", "godot": dict(GODOT), "detail": dict(DETAIL, seed=int(seed)),
-                      "tone_srgb": [round(float(c), 4) for c in tuple(srgb)[:3]]}
-    mat["humanform_skin"] = {"seed": int(seed), "tone_srgb": [round(float(c), 4) for c in tuple(srgb)[:3]]}
     return mat
 
 
@@ -382,8 +408,22 @@ def bake(ob, mat, size=1024, out_dir=None):
     ob = bpy.data.objects[ob] if isinstance(ob, str) else ob
     ld = _lookdev()
     if ld is None:
-        return {"error": "lookdev_blender is not importable (set LD_SCRIPTS or install lookdev): skin left procedural"}
-    target = np.asarray(mat["humanform_skin"]["tone_srgb"], np.float64)
+        return {"error": "lookdev_blender is not importable (set LD_SCRIPTS or install lookdev): skin left flat"}
+    # copies, not views: np.asarray of an ID property array shares its memory, and rebuilding the material
+    # below replaces that property (the view then reads freed memory - a black albedo "held" to 0,0,0)
+    held = mat["humanform_skin"].to_dict()
+    target = np.array([float(v) for v in held["tone_srgb"]], np.float64)
+    seed = int(held.get("seed", seed_of(mat.name)))
+
+    def flat():
+        # the bake failed: back to the flat material the exporter reads (never a procedural one it cannot)
+        material(mat.name, target, seed=seed)
+        mat["humanform_skin"] = dict(held, stage="flat")
+
+    if TINT not in ob.data.attributes:
+        unmarked(ob)
+    material(mat.name, target, seed=seed, procedural=True)
+    mat["humanform_skin"] = dict(held, stage="procedural")
     means = {}
 
     class Adjust:
@@ -407,12 +447,36 @@ def bake(ob, mat, size=1024, out_dir=None):
             means["gain"] = [round(float(g), 4) for g in gain]
             means["baked"] = [round(float(v), 4) for v in out[cov, :3].astype(np.float64).mean(axis=0)]
             means["p05_p95"] = [[round(float(v), 3) for v in np.percentile(out[cov, :3], q, axis=0)] for q in (5, 95)]
+            if loop_region is not None:
+                # each region's tone in the map (sRGB), sampled at its vertices' UVs
+                side = int(round(np.sqrt(len(out))))
+                xy = np.clip((loop_uv * side).astype(np.int64), 0, side - 1)
+                texel = xy[:, 1] * side + xy[:, 0]
+                means["regions"] = {k: [round(float(v), 3) for v in out[texel[loop_region == i + 1], :3].mean(axis=0)]
+                                    for i, k in enumerate(REGIONS) if (loop_region == i + 1).any()}
+                means["regions"]["skin"] = [round(float(v), 3) for v in out[texel[loop_region == 0], :3].mean(axis=0)]
             return out.ravel()
 
+    me = ob.data
+    loop_uv = loop_region = None
+    if REGION in me.attributes and me.uv_layers.active is not None:
+        loop_uv = np.empty(len(me.loops) * 2, np.float32)
+        me.uv_layers.active.data.foreach_get("uv", loop_uv)
+        loop_uv = np.mod(loop_uv.reshape(-1, 2), 1.0)
+        lv = np.empty(len(me.loops), np.int64)
+        me.loops.foreach_get("vertex_index", lv)
+        vr = np.empty(len(me.vertices), np.int32)
+        me.attributes[REGION].data.foreach_get("value", vr)
+        loop_region = vr[lv]
     out_dir = out_dir or tempfile.mkdtemp(prefix="hf_skin_")
-    res = ld.bake_material(ob, mat, out_dir, size=size, maps=("base_color", "roughness", "normal"), adjust=Adjust())
+    try:
+        res = ld.bake_material(ob, mat, out_dir, size=size, maps=("base_color", "roughness", "normal"),
+                               adjust=Adjust())
+    except Exception as e:                          # noqa: BLE001 - any failure must still leave a readable material
+        res = {"error": f"bake_material raised {type(e).__name__}: {e}"}
     if "error" in res:
-        return res
+        flat()
+        return dict(res, error=res["error"] + ": skin left flat")
     me = ob.data
     if DETAIL_UV not in me.uv_layers:
         active = me.uv_layers.active
@@ -423,9 +487,7 @@ def bake(ob, mat, size=1024, out_dir=None):
         uv.data.foreach_set("uv", data)
         me.uv_layers.active = me.uv_layers[src]
         me.uv_layers[src].active_render = True
-    for name in (TINT, OIL):                        # baked: the exporter must not carry them as COLOR_0
-        if name in me.attributes:
-            me.attributes.remove(me.attributes[name])
+    # the marks stay (a rebake from this file needs them); none is a colour attribute, so the exporter skips them
     err = float(np.abs(np.asarray(means.get("baked", [9, 9, 9])) - target).max())
     return {"size": size, "maps": res["maps"], "images": res["images"], "timings_s": res["timings_s"],
             "tone_target": [round(float(v), 4) for v in target], **means,
@@ -437,5 +499,5 @@ def unmarked(ob):
     gets the tone, the mottling and the relief."""
     me = ob.data
     n = len(me.vertices)
-    me.attributes.new(TINT, "FLOAT_COLOR", "POINT").data.foreach_set("color", np.ones(n * 4, np.float32))
+    me.attributes.new(TINT, "FLOAT_VECTOR", "POINT").data.foreach_set("vector", np.ones(n * 3, np.float32))
     me.attributes.new(OIL, "FLOAT", "POINT").data.foreach_set("value", np.full(n, BASE_ROUGH, np.float32))
