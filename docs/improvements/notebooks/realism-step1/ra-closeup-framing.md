@@ -63,3 +63,20 @@ First try, both CHANGED only in the new/close keys (diff read, nothing outside c
   unchanged; close_off: had the folder, review with close = false removed it and reported it, no close in the
   report; its control (clear_close a no-op) leaves the folder, so the check sees it. hand_back coverage 0.80 -> 0.29
   (the hand alone). Timing: pipeline_woman review 5.6 s.
+
+## 13:15 goldens | kind=win
+`regress --only pipeline_hashes pipeline_woman --update --twice --jobs 2`: 2 ok, both builds agree. Diff read:
+only the close block of pipeline_woman (new controls, close_off, right-foot tiles, subject_margin, the first
+reason of the wrong-bone control now `cut`, subject_off of face/face_3q/feet/foot sides moved because their
+subjects now include the eyes and heels) and pipeline_hashes' new row and final_hash_part_review; plus stamps.
+
+## 13:15-13:18 real specs through the pipeline (scratch, final) | kind=win
+study_man 41.7 s, study_woman 55.6 s (every stage reran: the rig-anything version is in every stage's hash),
+review 10.0 / 10.2 s, 19 files each in close/, every tile ok. Opened hand_back.L/.R of both: the back of the hand,
+knuckles, and the thumb, index and middle nails; no thigh at all (the hand alone covers 0.29-0.30 of the tile,
+against 0.66-0.80 before). The right-foot tiles mirror the left. Seen, not this branch's: a pale rectangular
+patch at the thumb's base on the back of every hand (skin bake or mesh seam) -> skin step.
+close = false on the real study_man (spec edited in scratch, resumed): only review reran (7.9 s), close/ removed,
+the review sheet kept. runner.plan: review's final quality part {close: ...} with the set on, None with it off
+(hash 08398051e1a5a6fa vs 0d7ffa7a3b35e187); with PART_ON emptied (the control) the off spec hashes the close part
+again. Restored close = true and rebuilt: review only, 8.2 s, 19 files back.
