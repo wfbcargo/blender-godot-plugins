@@ -181,7 +181,9 @@ don't hide it in the next stage.
 
 ## Judging images
 
-Read `references/judging.md` before choosing between variants. The short form:
+Read `references/judging.md` before choosing between variants. To judge a character's look (a round's
+done-when, a look critic), pick the questions from `references/critic-look.md`: each names the Godot
+close-shot view, Blender close-set tile or number (`tone`, `capture`) that answers it. The short form:
 
 - **Compare, don't score.** Asking "is this 7/10?" is unreliable. Asking "which
   of these two is more realistic, and why?" is much better, provided you judge

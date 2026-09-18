@@ -152,6 +152,9 @@ for rep in FollowThrough.apply(body, {"routes": ["jiggle_bones"]}):
 `jiggle.kick(Vector3(0, 1.5, 0))` knocks every region (a landing, a punch);
 `jiggle.paused = true` holds them at rest; `jiggle.region_offsets()` reads them.
 
+A round's done-when or a critic picks its flesh questions from `${CLAUDE_PLUGIN_ROOT}/references/critic-flesh.md`:
+each names the `verify_flesh` course and key, manifest field, heat render or fixture that answers it.
+
 **Verify - always:**
 
 ```bash

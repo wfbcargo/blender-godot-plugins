@@ -441,7 +441,8 @@ rig = HumanService.add_builtin_rig(human, "game_engine")          # 0.09 s, 53 b
 problems to every garment, jiggle zone and animation built on it; face detail does not help.
 
 **Numbers outrank pictures, pictures outrank intentions.** What the builder meant to make is not
-evidence. Measure, render, then ask a critic that did not build it.
+evidence. Measure, render, then ask a critic that did not build it. A round's questions come from
+`${CLAUDE_PLUGIN_ROOT}/references/critic-body.md` (each names the finding or tile that answers it).
 
 **Keep the rest pose games rig in:** arms about 45 deg down, legs apart below the crotch (wardrobe
 measured shirts folding into spikes at a T-posed armpit).
