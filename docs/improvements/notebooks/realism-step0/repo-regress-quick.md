@@ -112,8 +112,8 @@ here (renaming the key adds keys to a golden, which is a fixture change for a re
 - `mpfb_woman_curvy` `export.file`: rename (e.g. `export.glb`) so the readback is compared; records new
   golden keys.
 - Stage times are the last build each manifest records; pipeline_woman's full build is overwritten by
-  its second-Blender export. A fixture could report `build.stage_seconds` of its first build under a
-  non-volatile-free name - but seconds are volatile by design, so it would be a regress side channel,
+  its second-Blender export. A fixture could hand its first build's `stage_seconds` to regress
+  through a side file - seconds are volatile by design, so they belong in a side channel,
   not a report key.
 - DURATIONS is a static table. regress could keep the last run's times in a user cache and schedule
   from that; not done, since the order barely changes and a table is reviewable.
