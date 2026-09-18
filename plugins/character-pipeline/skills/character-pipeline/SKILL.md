@@ -91,11 +91,12 @@ that no plugin owns yet. Tuned numbers live with their owners, and a spec only n
 |---|---|---|
 | `body` | - | a `blend` source's object is in the open file |
 | `bake` | body | the rig and the humanform mesh exist |
-| `hair` | bake | baked; no garment bound; **no hair in the file already**. Runs humanform's `hair.add` and joins the hair (and a strand, after checking its follow-through contract) into the body |
+| `hair` | bake | baked; no garment bound; **no hair in the file already**. Runs humanform's `hair.add` and joins the hair into the body; a strand part the strand stage will chain stays its own object (its follow-through contract checked either way) |
 | `flesh` | bake, hair | baked; no garment bound - cut first, a garment carries no jiggle weights |
 | `moves` | bake, hair, flesh | baked; no garment bound - rig-anything measures arm hang against every mesh on the rig |
-| `garments` | moves, flesh | every role has a stored clip; jiggle bones present if the spec has flesh |
-| `export` | moves, garments | every role has a stored clip; an outfit is bound if the spec has one |
+| `strand` | hair, moves | only where the hair preset grows a strand that is a line (`ponytail`): a strand mesh is in the file and the move set is stored. Runs follow-through's `strand.prepare` |
+| `garments` | moves, flesh, strand | every role has a stored clip; jiggle bones present if the spec has flesh |
+| `export` | moves, garments, strand | every role has a stored clip; an outfit is bound if the spec has one; every strand mesh has its chain |
 | `review` | export | the glb and every role's clip exist |
 
 **`review`** writes rig-anything's review sheet of the character as the game shows it - the body with
@@ -151,10 +152,32 @@ What the stages write that is the pipeline's own convention rather than a plugin
   to the head bone) as scalp, so the crown rose 7.8 mm and the head unit `h` grew 6.8%, moving the whole
   hairline. On a rebuild where only `[hair]` changed, bake's hash is unchanged and bake is skipped, so
   nothing else stood in the way.
-- **The strand contract survives the join.** For ponytail and long_loose the strand object's
-  follow-through contract (humanform SKILL.md, *Hair*) is checked before the join and reported as
-  `strand_contract`; its `ft_strand` vertex group and fallback weights survive it. The hair material
-  comes from lookdev (`LD_SCRIPTS`, else the installed `lookdev/blender`); in Godot call
+- **Hair that swings is its own object and its own file.** For `ponytail` humanform makes the moving
+  part as `<name>_hair_strand`, and the hair stage does **not** join it: the join drops
+  the object properties follow-through builds a chain from (`ft_centreline`, `ft_root_bone`), and a mesh
+  can carry one follow-through spec, which on a fleshed body is its jiggle. The hair stage checks the
+  strand contract (humanform SKILL.md, *Hair*) and reports it as `strand_contract`; the **`strand`
+  stage** then hands the object to `follow_through.strand.prepare`, which hangs 3-8 sprung bones off the
+  head bone, weights the mesh along them and measures head and neck colliders from the body's own skin.
+  The export writes it as `<id>_hair.glb` beside the body and names it in the manifest's `strands`, so a
+  controller can do:
+
+  ```gdscript
+  var body := (load(manifest.scene) as PackedScene).instantiate()
+  FollowThrough.attach(body, load(manifest.strands[0]))      # the chain bones are already on the body's rig
+  FollowThrough.apply(body, {"routes": ["spring_bones"]})    # strand_modifier.gd springs them
+  ```
+
+  The order is **moves before strand before garments**: rig-anything reads a rig's structure to find its
+  limbs and neck, so the move set is authored before chain bones hang off the head; and the chain's
+  colliders are measured from every other mesh on the rig, so a top's cloth round the neck must not be
+  there yet. Nothing about this is in a build script - the spec's preset is what says there is a strand
+  (`stages.hair_strand_kind` asks humanform for the shape of the part, and `CHAINED_STRAND_KINDS` says
+  which shapes get a chain). **`long_loose` is not one of them**: its strand is a curtain 16 cm wide and a
+  chain is a line, so one chain down its middle twists it into a wedge while running (2.9 cm into the head
+  in `verify_strands.gd`, against 1.2 mm for a ponytail). A curtain is joined into the body and rides the
+  head rigidly, exactly as it did before this stage existed, until follow-through can build a sheet.
+- **The hair material** comes from lookdev (`LD_SCRIPTS`, else the installed `lookdev/blender`); in Godot call
   `LookdevMaterials.apply` on the instanced character (soft hairline, anisotropy, per-face hair tangents).
   **lookdev is optional**: `plugins.use()` imports it only if its folder is there (hair then gets a flat
   material), and its version is in the input hash of the hair stage only, and only for a preset spec

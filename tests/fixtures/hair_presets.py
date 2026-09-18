@@ -11,8 +11,9 @@ A curvy MPFB woman from a spec is built through character-pipeline's body and ba
 - the lookdev hair material is exported to a glb with the body (rig-anything's `export_glb`) and the glTF
   JSON read back: alpha MASK, a base colour and a normal texture, the `lookdev` extras Godot re-applies,
   and a hash of the strand texture's pixels;
-- the spec's `[hair] preset = "ponytail"` runs the hair stage, which joins the hair and its strand into
-  the body: the stage report, and the joined body's `ft_strand` group;
+- the spec's `[hair] preset = "ponytail"` runs the hair stage, which joins the cap and the tie into the
+  body and leaves the tail its own object for the strand stage (`pipeline_ponytail`): the stage report,
+  the body it joined into, and the `ft_strand` group on the object left behind;
 - changing `[hair]` and rerunning the stage on the built body is refused rather than joining a second hair
   layer on top of the first, the body is left exactly as it was, and another character's hair object in the
   same file is not counted as hers;
@@ -189,10 +190,13 @@ def build():
     staged = runner.build(ch, from_stage="hair", to_stage="hair", save=False, log=lambda m: None)
     hr = staged["hair"]["report"]
     body = bpy.data.objects[ch.mesh]
-    g = body.vertex_groups.get("ft_strand")
-    in_group = sum(1 for v in body.data.vertices if g is not None and any(e.group == g.index for e in v.groups))
+    tail = bpy.data.objects.get(hr.get("strand_object") or "")
+    g = tail.vertex_groups.get("ft_strand") if tail else None
+    in_group = sum(1 for v in tail.data.vertices if g is not None and any(e.group == g.index for e in v.groups)) if tail else 0
     stage = H.stable({"status": staged["hair"]["status"], "joined": hr["joined"], "strand_contract": hr["strand_contract"],
-                      "body_verts": len(body.data.vertices), "ft_strand_verts": in_group,
+                      "body_verts": len(body.data.vertices), "strand_object": hr.get("strand_object"),
+                      "strand_ft_strand_verts": in_group,
+                      "body_has_ft_strand": body.vertex_groups.get("ft_strand") is not None,
                       "materials": [m.name for m in body.data.materials if m],
                       "leftover_hair_objects": sorted(o.name for o in bpy.data.objects if o.name.startswith(ch.name + "_hair"))})
 
