@@ -5,7 +5,7 @@
   "follow-through": "0.6.2",
   "humanform": "0.10.1",
   "lookdev": "0.4.1",
-  "rig-anything": "0.25.0",
+  "rig-anything": "0.26.0",
   "wardrobe": "0.5.1"
  },
  "report": {
@@ -14,6 +14,15 @@
    "skin": {
     "size": 2048
    }
+  },
+  "final_hash_part_review": {
+   "full": {
+    "close": {
+     "under_bust": true,
+     "views": null
+    }
+   },
+   "noclose": null
   },
   "flips": {
    "face_regions.json": {
@@ -42,6 +51,15 @@
     ],
     "ok": true,
     "spec": "full"
+   },
+   "final close-up views, [review] close = false": {
+    "control_seen": true,
+    "expect": null,
+    "first": null,
+    "label": "part_on:close",
+    "moved": [],
+    "ok": true,
+    "spec": "noclose"
    },
    "final skin map size 2048 -> 1024": {
     "control_unseen": true,

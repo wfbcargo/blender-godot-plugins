@@ -117,7 +117,7 @@ def stage_hash(ch, name, needs, sections, done, q, drop=()):
     files it reads (`inputs.stage_inputs`)."""
     versions = plugins.stage_versions(ch, name)
     reads = inputs.stage_inputs(ch, name, drop=drop)
-    return _hash(ch, name, needs, sections, done, versions, quality_mod.for_hash(q, name), reads), versions, reads
+    return _hash(ch, name, needs, sections, done, versions, quality_mod.for_hash(q, name, ch), reads), versions, reads
 
 
 def view_hash(ch, name, needs, sections, done, outs, q, versions, reads, drop=()):

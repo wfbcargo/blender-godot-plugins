@@ -21,11 +21,11 @@ Read these first, in this order:
 
 Installed copies in `~/.claude/skills` match the repo. **This is the one list of versions**; update it
 here and nowhere else:
-- rig-anything 0.25.0
+- rig-anything 0.26.0
 - animate-anything 0.10.1
 - follow-through 0.6.2
 - humanform 0.10.1
-- character-pipeline 0.9.0
+- character-pipeline 0.9.1
 - wardrobe 0.5.1
 - lookdev 0.4.1
 - godot-lsp 0.1.0
@@ -174,8 +174,19 @@ Suggested after the Step 0 round; each saves agent minutes on every later round.
   view (it would have shown the hair and brow loss at once); and a stipple/dither detector (a
   high-frequency periodic pattern in shadowed skin) with a control. Plus the open items listed under Step 0
   (tile-check control, `--min-subject`, close-shot in `regress --godot`).
-- **The look set's framing:** every subject point (wrist, knuckles, tips; both eyes; both feet) inside the
-  tile with a margin, with a shifted-camera control; hand_back from the front and above the knuckles.
+- **The look set's framing: done** (branch `ra-closeup-framing`, rig-anything 0.26.0, character-pipeline
+  0.9.1, merged 2026-09-18). Every subject point (wrist, knuckles, fingertips; both eyes; ankle, heel, toe
+  tip) must project 0.04 inside the tile, next to the centroid check. A failure is `cut`, and the free
+  `subject_margin` goes in close.json. A palm camera 6 cm up fails [cut, off_centre]; at 3 cm only cut
+  fails (pipeline_woman controls). hand_back looks from the front, a little below the knuckles (from above,
+  the curled tips hid the nails). A far clip keeps the thigh out, so coverage is 0.30, down from 0.66-0.80.
+  New foot_inner.R and foot_outer.R views. `[review] close = false` clears close/ and drops the close part
+  from review's hash (pipeline_woman close_off, pipeline_hashes row, each with a control). Open: ring and
+  pinky nails are hidden; the thigh's shadow still falls on the hand; humanform critic-body.md and lookdev
+  critic-look.md still list only the left foot's side views; runner.stage_hash passes `ch` to for_hash, a
+  one-line change outside the seam that cp-cascade-stop should keep; non-human rigs need close = false; a
+  pale patch at the thumb base belongs to the skin step. Notebook:
+  [notebooks/realism-step1/ra-closeup-framing.md](notebooks/realism-step1/ra-closeup-framing.md).
 - **Rebuilds that skip what did not change downstream:** after a flesh edit, moves/export/review rerun
   (17 s) although moves never read flesh; hash stage *outputs* where the next stage reads them, so an
   unchanged output stops the cascade (target: the 12 s of 06). On a dressed spec, unbind and rebind
