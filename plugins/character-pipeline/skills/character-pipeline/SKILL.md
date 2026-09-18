@@ -188,7 +188,7 @@ Blender materials; judge the Godot look with lookdev's `close-shot`.
 | Hairline reads as hair, not a cap edge; follows the forehead, temples, round the ear, down to the nape | `face_3q`, `head_side`, `head_back` |
 | At 1 m, hair reads as hair on a head, not a helmet | `head_side`, `head_back` (1.0 m) |
 | Bun, tie or tail attached, clear of ears, neck and shoulders, shaped like what it is; no seam at the cap | `head_back`, `head_side` |
-| Four fingers and a thumb, separate, with knuckles; nails; no orange web creases; hand about the face's length (compare the widths in the labels) | `hand_back.L/.R`, `hand_palm.L/.R` |
+| Four fingers and a thumb, separate, with knuckles; no orange web creases (nails are not visible on the hanging, curled hand in any tile yet); hand about the face's length (compare the widths in the labels) | `hand_back.L/.R`, `hand_palm.L/.R` |
 | Deltoid cap at the shoulder; clavicles and sternum notch readable; breasts or chest plausible | `bust` |
 | A top's lower edge: no shelf bridging under the bust | `under_bust` |
 | Crotch anatomy (genitals present or smooth); inner thighs | `crotch` |

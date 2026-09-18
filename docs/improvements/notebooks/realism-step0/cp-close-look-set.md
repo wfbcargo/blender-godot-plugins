@@ -82,7 +82,7 @@ Scratch final builds, review/<id>/close/*.png, Idle f1.
 - Top's lower edge, shelf under the bust (Belle under_bust, bust): the top spans flat from the breast underside to the
   ribcage - a shelf is visible from below. -> wardrobe.
 - Crotch anatomy (crotch): smooth on both; a short cleft only (genital branch parked).
-- Kneecaps (knees): faint on the woman; a thin red line on her left thigh's outer edge (SSS rim?) -> skin step.
+- Kneecaps (knees): faint on the woman; a thin red line on her right thigh's outer edge (image left in a front view; corrected at merge after the critic; SSS rim?) -> skin step.
 - Heel, arch, toes; big toe largest; ankle bones (feet, foot_inner/outer): heel and toes yes, toes in order;
   arch faint; malleoli not modelled (inner vs outer height cannot be said to differ) -> no.
 - Faceting/seams (all): none seen.
@@ -100,3 +100,9 @@ Not answerable from the set: the Godot neck stipple and pore detail past 1 m (lo
 - Only the left foot has side views; the right foot is seen in `feet` only.
 - The pipeline does not run the set on a non-human rig (missing bones raise); `[review] close = false` for those.
 - Preview quality's set (6 tiles) was not built on a real spec, only recorded in the quality table.
+
+## Merge step (Fri Sep 18 11:30:59 CDT 2026)
+
+- main had not moved since the branch was cut (merge-base 5fda318 = main), so no merge of main was needed; no game worktree.
+- Independent critic: pass, mergeable. Fixed at merge from its list: the marketplace "Since 0.9.0" wording (draft is face and the LEFT hand), the SKILL.md hands row no longer claims nails (not visible on the curled hand), and the red streak is on the right thigh, not the left.
+- Left open from the critic: framing check is centroid-only (a palm camera 6 cm up passes with fingertips cut off: needs an all-points-inside-tile check with a control); hand_back tiles look from the lateral side with the thigh filling half the tile; [review] close = false leaves a stale close/ folder; STAGE_PARTS review hashes the close part even when close = false; the preview set was never built on a real spec.
