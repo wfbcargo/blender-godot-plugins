@@ -183,7 +183,7 @@ Mistake: stopping sweep 1 I ran `taskkill //IM Godot_..._console.exe`, which kil
 machine. ps showed only my own processes afterwards and the one killed PID was my run's (it exited 1
 at that moment), but the right tool is the PID. Not repeated.
 
-## 15:14-15:40 fix round 2 regress | kind=win
+## 15:14-15:29 fix round 2 regress | kind=win
 `regress.py --quick --jobs 2 --keep %TEMP%/rw/strand/k3 --godot <game worktree>`, log
 `%TEMP%/rw/strand/fix2_quick.log`: 22 fixtures ok, no change, `REGRESS DONE exit=0, 22 fixtures ok`.
 verify_strands pipeline_ponytail 1.035 / 1.095 PASSED (48.9-53.5 deg); legacy control 1.308 / 1.385
