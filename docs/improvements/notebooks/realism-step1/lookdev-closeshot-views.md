@@ -86,3 +86,20 @@ the Blender close-set tile first and one column per preset, in about 15 s." And 
 close-shot item: done except the stipple detector (hair-godot-transfer); the Step 0 open items "no control
 for close-shot's post-render tile checks and no `--min-subject` flag" and "close-shot and the selftest are
 not in `regress --godot`" are done.
+
+## 13:15-13:20 regress --godot | kind=win (first time), then the break control
+`GODOT_LOOKDEV` in regress.py: pipeline_woman's fixwoman.glb gets `close-shot --views
+face,eyes,face_3q,head_side,head_back,hand_palm.L,hand_back.L,full --presets clear_midday` paired with the
+fixture's own Blender close set (`review/<id>/close/`, not `close_control/`), must pass; a control
+`--views face --aim-offset face=0,-0.12,0` must fail; then `lookdev.mjs selftest --glb <that glb>`.
+First control choice `face=0,0.12,0` would have *passed*: the head's subject sits 0.17 above the face tile's
+centre, so moving the camera up brings it to -0.26. Down instead: OFF_TARGET at 0.60.
+`regress --only pipeline_woman --godot <game worktree>` (13:15, ~5 min): `close-shot pipeline_woman: exit 0,
+8 tiles, 0 failed, Blender pair 3 view(s)` (the fixture's close folder ends with its draft set: face,
+hand_palm.L, and one more), control failed as it must (OFF_TARGET 0.60), `lookdev selftest PASSED (18/18)`,
+`REGRESS DONE exit=0, 1 fixtures ok`.
+
+**Break control** (13:18): face target typo `ipd * 0.35` -> `ipd * 3.5` in close_shot.gd, same command:
+`FAILED close-shot pipeline_woman: exit 1, 8 tiles, 1 failed`, `FAILED lookdev selftest (15/18)` (the
+positive twin, the pairing check and the min-subject check each saw the extra OFF_TARGET), `REGRESS DONE
+exit=1`. Reverted with `git checkout -- close_shot.gd`. Log: scratch `rg_break.log`.
