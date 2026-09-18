@@ -1,18 +1,115 @@
 {
  "fixture": "hair_presets",
  "plugins": {
-  "character-pipeline": "0.9.0",
+  "character-pipeline": "0.12.0",
   "follow-through": "0.6.2",
-  "humanform": "0.11.0",
-  "lookdev": "0.5.0",
-  "rig-anything": "0.25.0",
+  "humanform": "0.12.0",
+  "lookdev": "0.7.0",
+  "rig-anything": "0.26.0",
   "wardrobe": "0.5.1"
  },
  "report": {
   "brief_refusal": [
-   "hair must be {'preset': one of ('short_crop', 'bob', 'bun', 'ponytail', 'long_loose'), 'colour': (r, g, b)}"
+   "hair must be {'preset': one of ('short_crop', 'bob', 'bun', 'ponytail', 'long_loose'), 'colour': (r, g, b)}",
+   "hair brow_shape 'bushy' is not one of ('natural', 'straight', 'arched', 'soft')"
   ],
   "face": {
+   "brow_shapes": {
+    "arched_outer_lift_mm": 2.05,
+    "control_arched_flat_lift_mm": -0.01,
+    "control_fails": true,
+    "min_mm": 1.0,
+    "natural_unchanged": true,
+    "ok": true,
+    "shapes": {
+     "arched": {
+      "moved_max_mm": 2.622,
+      "moved_mm": [
+       0.23,
+       0.78,
+       1.87,
+       2.05,
+       0.18
+      ],
+      "natural_profile_mm": [
+       0.0,
+       1.76,
+       1.59,
+       0.04,
+       -2.72
+      ],
+      "shape": "arched",
+      "shape_profile_mm": [
+       0.0,
+       2.31,
+       3.24,
+       1.87,
+       -2.77
+      ]
+     },
+     "natural": {
+      "moved_max_mm": 0.0,
+      "shape": "natural",
+      "shape_profile_mm": [
+       0.0,
+       1.76,
+       1.59,
+       0.04,
+       -2.72
+      ]
+     },
+     "soft": {
+      "moved_max_mm": 0.893,
+      "moved_mm": [
+       0.17,
+       0.55,
+       0.76,
+       0.2,
+       -0.32
+      ],
+      "natural_profile_mm": [
+       0.0,
+       1.76,
+       1.59,
+       0.04,
+       -2.72
+      ],
+      "shape": "soft",
+      "shape_profile_mm": [
+       0.0,
+       2.14,
+       2.18,
+       0.07,
+       -3.21
+      ]
+     },
+     "straight": {
+      "moved_max_mm": 1.829,
+      "moved_mm": [
+       -0.29,
+       -0.89,
+       -1.58,
+       -1.53,
+       -0.23
+      ],
+      "natural_profile_mm": [
+       0.0,
+       1.76,
+       1.59,
+       0.04,
+       -2.72
+      ],
+      "shape": "straight",
+      "shape_profile_mm": [
+       0.0,
+       1.16,
+       0.31,
+       -1.19,
+       -2.66
+      ]
+     }
+    }
+   },
    "ear_covered_verts": 0,
    "ear_covered_verts_without_ear_cut": 430,
    "face_order": {
@@ -73,8 +170,46 @@
      "godot_transparency": 1,
      "lookdev_preset": "hair",
      "normal_texture": true,
-     "texture_hash": "fce9ae7828c1"
+     "texture_hash": "e83eb3e907e8"
     }
+   },
+   "hairline_feather": {
+    "bob": {
+     "edge_wander_mm": 0.0,
+     "feather_mm": 9.18,
+     "ok": false,
+     "v_10_90": [
+      0.0278,
+      0.0737
+     ]
+    },
+    "control_fails": true,
+    "control_short_crop_without_look": {
+     "edge_wander_mm": 0.0,
+     "feather_mm": 9.18,
+     "ok": false,
+     "v_10_90": [
+      0.0278,
+      0.0737
+     ]
+    },
+    "min_wander_mm": 1.0,
+    "short_crop": {
+     "edge_wander_mm": 2.21,
+     "feather_mm": 10.55,
+     "ok": true,
+     "v_10_90": [
+      0.0425,
+      0.0952
+     ]
+    }
+   },
+   "lash_root": {
+    "control_fails": true,
+    "control_step0_share": 0.5134,
+    "min": 0.65,
+    "ok": true,
+    "upper_root_share": 0.7362
    },
    "objects": [
     "body_hair",
@@ -125,7 +260,7 @@
       "upper": 2
      },
      "texture": {
-      "coverage": 0.1236,
+      "coverage": 0.1437,
       "seed": 5,
       "texture_px": [
        1024,
@@ -153,6 +288,15 @@
   },
   "face_spec": {
    "bad_value": "hair.brows must be bool, not str",
+   "brow_shape": {
+    "bad_value": "hair.brow_shape 'bushy' is not one of ('natural', 'straight', 'arched', 'soft')",
+    "face": {
+     "brow_shape": "arched",
+     "brows": true
+    },
+    "natural_same_digest": true,
+    "parsed": "arched"
+   },
    "parsed": {
     "body_hair": false,
     "brows": true,
