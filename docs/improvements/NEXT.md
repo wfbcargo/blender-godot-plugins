@@ -45,12 +45,14 @@ frame) and both its controls fail as they must (`rigid=spine`: 46 skirt vertices
 
 **Then `fig-flesh-reporting-and-godot-proof` was merged on its own** (follow-through 0.6.0, character-pipeline 0.6.0): flesh returns a `missed` list with reasons and numbers and no longer warns on all-NaN columns, a spec's `[flesh] may_miss` lets a named type go missing (otherwise the flesh stage fails), `.moves.json` gains a `flesh` block, and `verify_flesh.gd` takes `course=walk|run|jump` and `require=` (on main, a refused argument now quits cleanly); `regress --godot` springs `pipeline_woman`'s flesh on the full, walk and run courses with a 2 x peak_m control that fails. `regress.py --twice --jobs 4 --godot` on the merged `main`: 19 fixtures agreeing, no change, every verifier passing and every control failing (13.4 min); `verify_flesh.gd` synced into `grungist-creek` (`e108495`). Open: study_woman needs `may_miss = ["belly"]` (her breast regions take the belly zone), study_man needs `[flesh] limit_share = { belly = 1.0 }` until the registry gives belly a limit_share (item 8), on_limit on the jump course is 10.6-17% and only advisory, the control run does not check why it fails, `_miss` wording should say "of the unclaimed vertices". Not pushed.
 
+**Then `fig-brows-lashes-hairline` was merged on its own** (humanform 0.9.0, character-pipeline 0.7.0): `humanform.brows` adds brow cards (850 fine hairs) and upper/lower lash cards (170/45) with their own tapering-hair texture, alpha scissor, transparent shadows and no Godot rim/backlight/anisotropy, in the hair colour darkened, plus optional body hair; every hair cap is now cut round the ears (ear-covered verts 0, was ~430); `[hair] brows/lashes/body_hair` switches default false and a false switch hashes as before. `regress.py --twice --jobs 4 --godot` on the merged `main`: 19 fixtures agreeing, no change, every verifier passing and every control failing (13.5 min). No Godot addon changed, nothing synced. Open: the ear cut changes every preset's cap but not the hair stage's input hash, so already-built characters (Belle) keep the old ear-covering cap until rebuilt from body (`force=1`); short_crop cap clearance -0.18 mm at the ear crease; lashes read sparse beyond 1 m and brows near-black/hard in shadowed Godot shots (tune `brows.LOOK`, `LOWER_LASH`; consider alpha-to-coverage/mip bias in lookdev_materials.gd); body hair is a stipple grid, keep it off; `brows.is_mpfb` only checks the vertex count; one brow shape for every body; lookdev `hair.strand_texture` has no fine-card mode; stale docs (derive_face_regions.py EAR_OUT_M, '16 x 4 card', the Belle cap figure in SKILL.md). Not pushed.
+
 Installed copies in `~/.claude/skills` match the repo:
 - rig-anything 0.23.0
 - animate-anything 0.10.0
 - follow-through 0.6.0
-- humanform 0.8.0
-- character-pipeline 0.6.0
+- humanform 0.9.0
+- character-pipeline 0.7.0
 - wardrobe 0.5.0
 - lookdev 0.2.0
 - godot-lsp 0.1.0
