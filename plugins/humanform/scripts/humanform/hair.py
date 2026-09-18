@@ -74,6 +74,7 @@ from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
 
 from . import body as _body
+from . import brows as _brows
 from . import eyes as _eyes
 from . import look
 from .sheet import HAIR_PRESETS as PRESETS
@@ -191,11 +192,21 @@ def landmarks(ob):
     front = hp[hp[:, 1] < cy - 0.4 * h]
     chin = float(front[:, 2].min()) if len(front) else ez - 1.0 * h
     centre = np.array([0.0, cy, ez + 0.1 * h])
+    # the ears themselves, on an MPFB body: every vertex MPFB's ear targets bend (humanform.brows)
+    ear_idx = _brows.ear_vertices(ob)
+    ear_all = np.array(sorted(ear_idx["L"] + ear_idx["R"]), np.int64) if ear_idx else np.zeros(0, np.int64)
+    ear_kd = None
+    if len(ear_all):
+        from mathutils.kdtree import KDTree
+        ear_kd = KDTree(len(ear_all))
+        for k, i in enumerate(ear_all):
+            ear_kd.insert(Vector(co[i]), k)
+        ear_kd.balance()
     return {"head_bone": head, "rig": rig.name if rig else None, "top": top, "eye": [0.0, float(eye[1]), ez],
             "eye_source": eye_source, "h": h, "cy": cy, "ear_L": ears["L"].tolist(), "ear_R": ears["R"].tolist(),
-            "ear_half_m": ear_boxes,
+            "ear_half_m": ear_boxes, "ear_vertices": int(len(ear_all)),
             "chin": chin, "centre": centre.tolist(), "back_y": float(hp[:, 1].max()),
-            "_co": co, "_eye_vertices": eyes_idx}
+            "_co": co, "_eye_vertices": eyes_idx, "_ear_vertices": ear_all, "_ear_kd": ear_kd}
 
 
 # ------------------------------------------------------------------------------------------ hairline
@@ -241,6 +252,12 @@ def signed_distance(p, lm, hp):
         lateral = (p[sel, 0] * sign) > (abs(ear[0]) - 0.035)
         ear_d = (q - 1.0) * min(ry, rz)
         d[sel] = np.where(lateral, np.minimum(dz, ear_d), dz)
+    kd = lm.get("_ear_kd")
+    if kd is not None:
+        # the ear itself: no hair within `ear_clear_m` of any ear vertex, the feather running out from there
+        clear = hp.get("ear_clear_m", 0.004)
+        near = np.array([kd.find(Vector(q))[2] for q in p])
+        d = np.minimum(d, near - clear)
     return d
 
 
@@ -315,10 +332,13 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
     bm.from_mesh(ob.data)
     bm.verts.ensure_lookup_table()
     feather = p["feather_m"]
+    ear = np.zeros(len(co), bool)
+    if p.get("ear_cut", True):
+        ear[lm.get("_ear_vertices", np.zeros(0, np.int64))] = True
     keep = []
     for f in bm.faces:
         idx = [v.index for v in f.verts]
-        if all(near[i] for i in idx) and float(np.mean(d_all[idx])) > -feather:
+        if all(near[i] for i in idx) and not any(ear[i] for i in idx) and float(np.mean(d_all[idx])) > -feather:
             keep.append(f)
     faces_from_body = len(keep)
     keep_set = set(keep)
@@ -485,8 +505,34 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
            if boundary.any() else None,
            "boundary_v_max": round(float(v_of[boundary].max()), 4) if boundary.any() else None,
            "thick_mm": [round(float(thick.min()) * 1000, 2), round(float(thick.max()) * 1000, 2)],
-           "strand_turns": turns, "uv_handedness": _handedness(bm, uv, d, 0.03)}
+           "strand_turns": turns, "uv_handedness": _handedness(bm, uv, d, 0.03),
+           "ear_covered_verts": ear_coverage(bm, lm, ob)}
     return bm, rep, (pts, d, v_of, boundary)
+
+
+def ear_coverage(bm, lm, ob, within=0.02):
+    """How many of the body's ear vertices the cap lies over: an ear vertex facing out of the head (its normal
+    within 78 degrees of the direction from the head's centre) whose normal, followed out for `within` metres,
+    meets the cap. The back of the ear faces the scalp, which is hair, so it is not counted. 0 is the goal;
+    None on a body with no known ears."""
+    idx = lm.get("_ear_vertices")
+    if idx is None or not len(idx):
+        return None
+    bm.verts.ensure_lookup_table()
+    bm.faces.ensure_lookup_table()
+    tree = BVHTree.FromBMesh(bm)
+    centre = Vector(lm["centre"])
+    rot = ob.matrix_world.to_3x3()
+    covered = 0
+    for i in idx:
+        p = Vector(lm["_co"][i])
+        n = (rot @ ob.data.vertices[int(i)].normal).normalized()
+        if n.dot((p - centre).normalized()) < 0.2:
+            continue
+        hit = tree.ray_cast(p + n * 0.0003, n, within)
+        if hit[0] is not None:
+            covered += 1
+    return covered
 
 
 def _handedness(bm, uv, d, beyond):
@@ -954,9 +1000,14 @@ def _clearance(bvh, verts, samples=400):
     return round(worst, 5)
 
 
-def add(body, preset=None, colour=None, sheet=None, name=None, **overrides):
+def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lashes=False, body_hair=False, sex=None,
+        **overrides):
     """Hair on a baked body. `preset` and `colour` (a screen sRGB colour) default to `sheet["hair"]`, then
-    `bun`-less `short_crop` and the preset's colour. Returns a report with the objects made."""
+    `bun`-less `short_crop` and the preset's colour. Returns a report with the objects made.
+
+    `brows`, `lashes` and `body_hair` add `humanform.brows`' layers in the hair colour darkened (off by default,
+    so a build that does not ask is unchanged); `sex` ("male" / "female", else the sheet's) picks the body hair
+    regions."""
     ob = _body.obj(body)
     brief = (sheet or {}).get("hair") or {}
     preset = preset or brief.get("preset") or "short_crop"
@@ -964,6 +1015,9 @@ def add(body, preset=None, colour=None, sheet=None, name=None, **overrides):
     colour = tuple(colour if colour is not None else brief.get("colour") or p["colour"])
     base = name or (ob.name[:-5] if ob.name.endswith("_body") else ob.name)
     lm = landmarks(ob)
+    if not p.get("ear_cut", True):
+        # measured but not cut round (a control: what the cap did before it knew where the ears were)
+        lm["_ear_kd"] = None
     rig = _body.rig_of(ob)
     bvh = _bvh(lm["_co"], ob, lm["_eye_vertices"])
     uv_name = ob.data.uv_layers.active.name if ob.data.uv_layers.active else "UVMap"
@@ -1013,6 +1067,11 @@ def add(body, preset=None, colour=None, sheet=None, name=None, **overrides):
     hair_ob.data.materials.append(mat)
     hair_ob["humanform_hair"] = {"preset": preset, "part": "rigid"}
     objects = {"hair": hair_ob.name}
+    if brows or lashes or body_hair:
+        face = _brows.add(ob, lm, colour, base, rig=rig, uv_name=uv_name, brows=brows, lashes=lashes,
+                          body_hair=body_hair, sex=sex or (sheet or {}).get("sex"))
+        objects.update(face["objects"])
+        report["face"] = {"parts": face["parts"], "skipped": face["skipped"]}
     # the cap's clearance: a fall's inner sheet and the underside of a bun or tie are tucked under the cap and
     # into the scalp on purpose, so only the cap is measured here
     report["hair"] = {"verts": len(hair_ob.data.vertices), "faces": len(hair_ob.data.polygons),

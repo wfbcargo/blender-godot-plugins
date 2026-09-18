@@ -400,8 +400,11 @@ def run_hair(ch, ctx):
         return out
     from humanform import hair as hf_hair
     _rest(ch)
+    face = ch.hair.face()
+    if face.get("body_hair"):
+        face["sex"] = ch.body.brief.get("sex") if ch.body.source == "brief" else None
     rep = hf_hair.add(ch.mesh, preset=ch.hair.preset, colour=ch.hair.colour, name=ch.name,
-                      **quality_mod.settings(ctx["quality"], "hair"))
+                      **face, **quality_mod.settings(ctx["quality"], "hair"))
     ob = _obj(ch.mesh)
     made = dict(rep["objects"])
     strand = made.pop("strand") if "strand" in made and hair_has_chain(ch) else None
@@ -413,6 +416,8 @@ def run_hair(ch, ctx):
     out = {"preset": rep["preset"], "colour": rep["colour"], "joined": sorted(made.values()),
            "head": rep["landmarks"]["head_bone"], "cap": rep["cap"], "hair": rep["hair"],
            "parts": rep["parts"], "material": {k: rep["material"].get(k) for k in ("material", "source", "gltf")}}
+    if "face" in rep:
+        out["face"] = rep["face"]
     out["strand_object"] = strand                   # None: there is none, or it was joined like the rest
     out["strand_kind"] = hair_strand_kind(ch)
     if "contract" in rep:

@@ -42,6 +42,9 @@ that belong to a plugin.
                                  # a ponytail swings: the strand stage hangs a follow-through
                                  # spring-bone chain on the tail and exports it as
                                  # <id>_hair.glb beside the body
+    brows = true                 # optional, default false: humanform.brows' brow cards, lash cards
+    lashes = true                #   and a light body hair shell, in the hair colour darkened
+    body_hair = false
     [flesh]                      # optional: follow-through
     types = ["breast", "butt"]
     [[flesh.zones]]              # optional: marked on the flesh sheet when the measure is wrong
@@ -125,6 +128,15 @@ class Hair:
     preset: str | None = None                   # a humanform hair preset
     colour: list | None = None                  # screen (sRGB); None takes the preset's
     params: dict = field(default_factory=dict)  # shell_bun only
+    brows: bool = False                         # humanform.brows layers, joined with the hair
+    lashes: bool = False
+    body_hair: bool = False
+
+    FACE = ("brows", "lashes", "body_hair")
+
+    def face(self):
+        """The humanform.brows switches that are on, as hair.add keywords."""
+        return {k: True for k in self.FACE if getattr(self, k)}
 
 
 @dataclass
@@ -208,6 +220,13 @@ class Character:
         if name == "hair" and value is not None and value.kind == "shell_bun":
             # the shape this section had before presets, so a shell_bun build's stored records stay valid
             return {"kind": value.kind, "params": dict(value.params)}
+        if name == "hair" and value is not None:
+            # a switch left off hashes as it did before the switches existed, so no existing build restarts
+            out = asdict(value)
+            for k in Hair.FACE:
+                if not out.get(k):
+                    out.pop(k, None)
+            return out
         if isinstance(value, list):
             return [asdict(v) if hasattr(v, "__dataclass_fields__") else v for v in value]
         return asdict(value) if hasattr(value, "__dataclass_fields__") else value
@@ -287,7 +306,7 @@ def parse(data, path=None):
     if "hair" in data:
         h = dict(_take(data, "hair", dict))
         if "preset" in h:
-            _unknown(h, ("preset", "colour"), "[hair]")
+            _unknown(h, ("preset", "colour") + Hair.FACE, "[hair]")
             preset = _take(h, "preset", str, where="hair.")
             if preset not in HAIR_PRESETS:
                 raise SpecError(f"hair.preset {preset!r} is not one of {HAIR_PRESETS}")
@@ -295,7 +314,13 @@ def parse(data, path=None):
             if colour is not None and (len(colour) != 3 or not all(isinstance(c, (int, float)) and 0 <= c <= 1
                                                                    for c in colour)):
                 raise SpecError("hair.colour must be [r, g, b], screen (sRGB) channels 0..1")
-            hair = Hair(kind="preset", preset=preset, colour=[float(c) for c in colour] if colour else None)
+            switches = {}
+            for k in Hair.FACE:
+                v = _take(h, k, bool, where="hair.")
+                if v is not None:
+                    switches[k] = v
+            hair = Hair(kind="preset", preset=preset, colour=[float(c) for c in colour] if colour else None,
+                        **switches)
         else:
             kind = h.pop("kind", None)
             if kind != "shell_bun":
