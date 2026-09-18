@@ -22,12 +22,12 @@ Read these first, in this order:
 Installed copies in `~/.claude/skills` match the repo. **This is the one list of versions**; update it
 here and nowhere else:
 - rig-anything 0.25.0
-- animate-anything 0.10.0
-- follow-through 0.6.1
-- humanform 0.10.0
+- animate-anything 0.10.1
+- follow-through 0.6.2
+- humanform 0.10.1
 - character-pipeline 0.9.0
-- wardrobe 0.5.0
-- lookdev 0.4.0
+- wardrobe 0.5.1
+- lookdev 0.4.1
 - godot-lsp 0.1.0
 
 ---
@@ -134,7 +134,8 @@ and a close-up that would have shown a defect was missing twice. Fix the loop be
   rerun is within 0.074 of a fresh build's weights; moves/export/review (17 s) still rerun after a flesh
   edit; body, moves, strand, export and review name no code files (rig-anything's covered only by its
   version); from=bake on a haired body refuses; a dressed spec's flesh edit rebuilds everything; no
-  dedicated control for the limit_influences fix; three pipeline_hashes flips lack drop-controls.
+  dedicated control for the limit_influences fix; three pipeline_hashes flips lack drop-controls (both done
+  in Step 0.5, critic-checklists-controls).
 - **06 rank 12 - bake at final size: done** (same branch). Final bakes skin at 2048 px, preview and draft
   at 1024; the size is in the bake hash, and the manifest has a `skin` block (map_px, tone_ok, region
   tones). It adds about 7 s to a final bake. The game's study_man, study_woman and Belle were rebuilt at
@@ -179,11 +180,19 @@ Suggested after the Step 0 round; each saves agent minutes on every later round.
   (17 s) although moves never read flesh; hash stage *outputs* where the next stage reads them, so an
   unchanged output stops the cascade (target: the 12 s of 06). On a dressed spec, unbind and rebind
   garments instead of restarting from body.
-- **Critic checklists shipped with the plugins:** `references/critic-*.md` per plugin (look, motion, fit,
-  flesh), each question naming the tile or verifier that answers it, so a round's done-when questions are
-  picked, not written from scratch.
-- **Controls still missing from Step 0:** follow-through's limit_influences weight-total fix; three
-  `pipeline_hashes` flips (skin size, spec `[flesh]`, wardrobe version).
+- **Critic checklists shipped with the plugins: done** (branch `critic-checklists-controls`, merged
+  2026-09-18; lookdev 0.4.1, animate-anything 0.10.1, wardrobe 0.5.1, follow-through 0.6.2, humanform
+  0.10.1, docs only). `references/critic-look.md`, `critic-motion.md`, `critic-fit.md`, `critic-flesh.md`,
+  `critic-body.md`; see "How to judge \"realistic\"" for how to use them. Open: the Godot close-shot lacks
+  face_3q, head_side, head_back and a stipple detector, so critic-look sends those to the Blender tiles; no
+  tool renders flesh jiggle in motion, a posed thigh through a skirt or limb clearance in a pose (listed as
+  not answerable).
+- **Controls still missing from Step 0: done** (same branch). `limit_influences` fixture with the
+  stale-write control (fixed 0.0 lost, stale write 0.311731); `pipeline_hashes` drop-controls for wardrobe
+  version, final skin size, spec `[flesh]` and final close-up views. Open: limit_influences is not in
+  regress.py DURATIONS; `--quick` treats a .md-only plugin change as a plugin change and runs all its
+  fixtures (a docs-only rule belongs in regress.py). Notebook:
+  [notebooks/realism-step1/critic-checklists-controls.md](notebooks/realism-step1/critic-checklists-controls.md).
 
 ### Step 1 - hair
 
@@ -259,6 +268,11 @@ checklist. This round:
 - Judge from Godot renders at stated distances (1 m and full body), in clear_midday and overcast, not
   from Blender alone: lookdev materials differ between the two.
 - For each step, write the critic's questions into the step's done-when before starting it.
+- Pick done-when and look questions from the shipped banks, by id: lookdev
+  `references/critic-look.md` (LOOK-*), animate-anything `references/critic-motion.md` (MOT-*), wardrobe
+  `references/critic-fit.md` (FIT-*), follow-through `references/critic-flesh.md` (FLESH-*), humanform
+  `references/critic-body.md` (BODY-*). Each question names the tile, view or verifier that answers it; a
+  question the banks lack is added to the bank in the same round.
 
 ---
 
