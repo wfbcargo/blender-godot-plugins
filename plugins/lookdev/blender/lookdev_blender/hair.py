@@ -179,6 +179,46 @@ def strand_texture(colour_linear, p, seed=0):
         cover[:, wrapped] = np.where(better, c, cover[:, wrapped])
         shade[:, wrapped] = np.where(better, (p["gap_mult"] + (1 - p["gap_mult"]) * c) * 1.2, shade[:, wrapped])
 
+    # edge hairs (`edge_hairs` per tile, off at the defaults): short, thin hairs scattered in front of the dense
+    # start, more of them the nearer it is (`edge_power`), each leaning its own way off a slowly turning
+    # direction (`edge_lean`, texels of lean over its length), so the hairline is a thinning scatter of hairs
+    # rather than a comb of parallel spikes. Their own random stream, so nothing else moves.
+    ne = int(p.get("edge_hairs", 0))
+    if ne > 0 and p.get("mode", "shell") != "card":
+        erng = np.random.RandomState(seed + 15485)
+        depth = float(p.get("edge_depth", 0.05))
+        epow = float(p.get("edge_power", 2.0))
+        elean = float(p.get("edge_lean", 6.0))
+        l0, l1 = p.get("edge_len", [0.01, 0.03])
+        dir_ph = erng.uniform(0, 2 * math.pi, 3)
+        deep_ph = erng.uniform(0, 2 * math.pi, 3)
+        for j in range(ne):
+            cx = erng.uniform(0, W)
+            start = float(body_start[int(cx) % W])
+            u = erng.uniform(0.0, 1.0) ** epow                      # 0 at the dense start, 1 at `edge_depth`
+            # how deep the scatter reaches wanders too (0.4..1.6 x), so its front is not a second ruled line
+            deep = 1 + 0.6 * sum(math.sin(2 * math.pi * (k + 2) * cx / W + deep_ph[k]) / (k + 1) for k in range(3)) / 1.83
+            root = max(start - depth * deep * u, r0)
+            tip = root + erng.uniform(l0, l1)
+            field = sum(math.sin(2 * math.pi * (k + 1) * cx / W + dir_ph[k]) / (k + 1) for k in range(3))
+            lean = elean * (0.6 * field + erng.normal(0.0, 0.6))
+            half = pitch * erng.uniform(*p.get("edge_width", [0.3, 0.55]))
+            shade_j = 1 + p.get("edge_tone", 0.0) * u               # lighter toward the front: finer hairs
+            tt = _smooth(root, tip, v)
+            centre = cx + lean * (1 - tt)                           # leans off at its root end, into the line
+            alive = (v > root) & (v < tip)
+            width = half * (0.4 + 0.6 * _smooth(root, root + 0.4 * (tip - root), v)) * (1 - 0.5 * tt)
+            reach = int(abs(lean)) + 3
+            cols = np.arange(int(cx) - reach, int(cx) + reach + 1)
+            wrapped = cols % W
+            dx = np.abs(x[wrapped][None, :] - centre[:, None])
+            dx = np.minimum(dx, W - dx)
+            c = np.sqrt(np.clip(1 - dx / np.maximum(width[:, None], 1e-6), 0, 1)) * alive[:, None]
+            better = c > cover[:, wrapped]
+            cover[:, wrapped] = np.where(better, c, cover[:, wrapped])
+            shade[:, wrapped] = np.where(better, (p["gap_mult"] + (1 - p["gap_mult"]) * c) * shade_j,
+                                         shade[:, wrapped])
+
     if p.get("mode", "shell") == "card":
         body = np.zeros((H, 1))
     elif ragged > 0:

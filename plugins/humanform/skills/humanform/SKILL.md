@@ -253,6 +253,18 @@ own ragged edge does not repeat every tile. Other presets keep lookdev's default
 measures it (`face.hairline_feather`: where the hair turns dense wanders 0 mm on a default texture, several mm on
 the short crop; the control, short_crop without its `look`, must fail).
 
+That first pass still read as a comb at 1 m, and from the side as a helmet with a spiky rim. Two more changes,
+still in humanform 0.12.0. **Edge hairs:** the `look` block now roots the long strands close to the dense start
+(`root_power` 0.15) and scatters 900 short, thin, leaning hairs per tile in front of it instead (lookdev's
+`edge_hairs`, `edge_depth`, `edge_power`, `edge_lean`, `edge_len`, `edge_width`, `edge_tone`), with a little
+more lock and strand variation on the dome. **`line_u_m` (3 cm, off at the defaults; short_crop only):** U around
+the strand axis meets V at a slant where the hairline runs steeply (the temples, the sideburns: a median 26
+degrees on study_man's sides), so the thinning root zone sheared into long diagonal spikes. Within `line_u_m`
+of the line, U is now the axis's angle at the point of the line the vertex lies across from, relaxed over the
+mesh (`line_u_relax` passes) and eased back to the axis's U further in. The fixture reports both
+(`face.hairline_feather.fringe_ratio` against the round-1 comb look as control, and `face.hairline_feather.line_u`
+with `line_u_m` 0 as control, plus `edge_wobble`, which checks `edge_wobble_m` moves the cap's V near the line).
+
 **The ears are cut round, not covered.** On an MPFB body (`brows.is_mpfb`: at least 13380 vertices, which a
 baked body keeps in base-mesh order) the hairline also knows the ears themselves: `data/face_regions.json`
 lists the vertices MPFB's ear flap, wing and lobe targets bend (259 a side), the cap drops every face that

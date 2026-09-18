@@ -49,14 +49,25 @@
       "feather_m": 0.009,
       "feather_in_m": 0.012,
       "edge_wobble_m": 0.003,
+      "line_u_m": 0.03,
       "look": {
         "root_zone": [0.004, 0.075],
         "root_ragged": 0.03,
-        "root_power": 0.8,
+        "root_power": 0.15,
         "root_width": 0.45,
-        "root_fade": [0.0, 0.1],
+        "root_fade": [0.0, 0.06],
         "root_fade_power": 0.8,
-        "fine_per_tile": 60
+        "fine_per_tile": 60,
+        "edge_hairs": 900,
+        "edge_depth": 0.06,
+        "edge_power": 2.5,
+        "edge_lean": 9.0,
+        "edge_len": [0.01, 0.03],
+        "edge_width": [0.2, 0.4],
+        "edge_tone": 0.7,
+        "lock_jitter": 0.5,
+        "strand_jitter": 0.25,
+        "gap_mult": 0.6
       },
       "parts": []
     },

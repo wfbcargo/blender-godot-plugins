@@ -66,6 +66,13 @@ middle's start wanders across U past `root_zone[1]`, a slow wave plus a value pe
 before the dense hair starts). They draw from their own random stream, so a preset without them gets exactly
 the texture it always did.
 
+Also in 0.7.0, **edge hairs** (off at the defaults: `edge_hairs` 0): `edge_hairs` short hairs per tile scattered in
+front of the dense start, more of them nearer it (`edge_power`), reaching up to `edge_depth` of V in front of it
+(the reach itself wandering 0.4-1.6 x across U), each `edge_len` long and `edge_width` of the strand pitch wide,
+leaning `edge_lean` texels off a slowly turning direction, and lighter toward the front by `edge_tone`. With the
+long strands rooted close to the dense start (`root_power` well under 1), the hairline is a thinning scatter of
+hairs instead of a comb of parallel spikes. Their own random stream (seed + 15485), so nothing else moves.
+
 **The alpha in Godot (lookdev 0.6.0).** The Blender close set drew fine strands at the hairline and Godot a
 smeared shell; brows came out harder and darker. Measured on study_man and study_woman at 1 m (notebook
 `realism-step1/hair-godot-transfer`), the causes:

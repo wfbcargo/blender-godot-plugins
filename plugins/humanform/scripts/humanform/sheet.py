@@ -132,7 +132,8 @@ def validate(s):
         elif hair.get("colour") is not None and (len(hair["colour"]) != 3
                                                or not all(0.0 <= c <= 1.0 for c in hair["colour"])):
             p.append("hair colour must be an (r, g, b) screen colour with channels 0..1")
-        elif hair.get("brow_shape") is not None and hair["brow_shape"] not in BROW_SHAPES:
+        # its own check, so a brief with a bad colour and a bad brow shape hears about both
+        if isinstance(hair, dict) and hair.get("brow_shape") is not None and hair["brow_shape"] not in BROW_SHAPES:
             p.append(f"hair brow_shape {hair['brow_shape']!r} is not one of {BROW_SHAPES}")
     names = set(anthropometry()["variables"])
     for k in s.get("measurements", {}):

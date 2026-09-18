@@ -499,10 +499,52 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
         q = Vector(pt) - centre
         return math.atan2(q.dot(r1), q.dot(r0))
 
+    angles = np.array([ang(q) for q in pts])
+    line_u = p.get("line_u_m", 0.0)
+    line_rep = None
+    if line_u:
+        # U carried straight off the hairline (off at the defaults): within `line_u_m` of the line, U is the
+        # strand axis's angle at the point of the line the vertex lies across from (a Newton step down the
+        # gradient of `d` over the skin), so U runs along the line and V straight across it. Around the axis alone,
+        # U and V meet at a slant where the line runs steeply (the temples, a sideburn) and the texture's
+        # thinning root zone shears into long diagonal spikes. Past `line_u_m` it eases back to the axis's U.
+        sel = np.nonzero(d < line_u)[0]
+        bm.verts.ensure_lookup_table()
+        bm.normal_update()
+        if len(sel):
+            nrm = np.array([tuple(bm.verts[i].normal) for i in sel])
+            eps = 0.001
+            grad = np.zeros((len(sel), 3))
+            for k in range(3):
+                e = np.zeros(3)
+                e[k] = eps
+                grad[:, k] = (signed_distance(pts[sel] + e, lm, hp) - signed_distance(pts[sel] - e, lm, hp)) / (2 * eps)
+            grad -= nrm * np.sum(grad * nrm, axis=1)[:, None]          # along the skin
+            g2 = np.maximum(np.sum(grad * grad, axis=1), 0.25)          # |grad d| is ~1; never a long jump
+            foot = pts[sel] - (d[sel] / g2)[:, None] * grad
+            a_foot = np.array([ang(q) for q in foot])
+            diff = (angles[sel] - a_foot + math.pi) % (2 * math.pi) - math.pi
+            w = _smooth(0.3 * line_u, line_u, d[sel])
+            # the turn, relaxed over the mesh: `d`'s gradient jumps where the ear's distance takes over, and a
+            # foot that jumps between neighbours folds the UVs into facets
+            turn = np.zeros(len(pts))
+            turn[sel] = -(1 - w) * diff
+            inside = np.zeros(len(pts), bool)
+            inside[sel] = True
+            nbrs = [[e.other_vert(bm.verts[i]).index for e in bm.verts[i].link_edges] for i in sel]
+            # held at the line itself (where U must run along it), free from 0.3 `line_u_m` in
+            hold = 0.5 * _smooth(0.0, 0.3 * line_u, d[sel])
+            for _ in range(int(p.get("line_u_relax", 16))):
+                avg = np.array([turn[nb].mean() if nb else turn[i] for i, nb in zip(sel, nbrs)])
+                turn[sel] = (1 - hold) * turn[sel] + hold * avg
+            angles[sel] = angles[sel] + turn[sel]
+            line_rep = {"verts": int(len(sel)), "line_u_m": line_u,
+                        "turned_deg_max": round(float(np.degrees(np.abs(turn[sel])).max()), 2)}
+
     for f in bm.faces:
         base = None
         for loop in f.loops:
-            t = ang(pts[loop.vert.index])
+            t = float(angles[loop.vert.index])
             if base is None:
                 base = t
             while t - base > math.pi:
@@ -517,7 +559,7 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
            if boundary.any() else None,
            "boundary_v_max": round(float(v_of[boundary].max()), 4) if boundary.any() else None,
            "thick_mm": [round(float(thick.min()) * 1000, 2), round(float(thick.max()) * 1000, 2)],
-           "strand_turns": turns, "uv_handedness": _handedness(bm, uv, d, 0.03),
+           "strand_turns": turns, "uv_handedness": _handedness(bm, uv, d, 0.03), "line_u": line_rep,
            "ear_covered_verts": ear_coverage(bm, lm, ob)}
     return bm, rep, (pts, d, v_of, boundary)
 

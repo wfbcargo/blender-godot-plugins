@@ -29,6 +29,13 @@
       "root_power": 1.0,
       "root_width": 0.35,
       "fine_per_tile": 0,
+      "edge_hairs": 0,
+      "edge_depth": 0.05,
+      "edge_power": 2.0,
+      "edge_lean": 6.0,
+      "edge_len": [0.01, 0.03],
+      "edge_tone": 0.0,
+      "edge_width": [0.3, 0.55],
       "mesh": {
         "tangents": "per_face"
       },
