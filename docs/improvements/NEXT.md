@@ -4,9 +4,10 @@ A handoff for a fresh conversation. Start with:
 
 > Read `docs/improvements/NEXT.md`, then plan the first step of "The realism work" below.
 
-State as of 2026-09-18. Everything is pushed: this repo at `6dc9962` plus this handoff, `grungist-creek`
-at `afe71f3`. The parked branch `fig-genital-anatomy` (`94ac682`) is pushed too and still has its
-worktree at `.worktrees/fig-genital-anatomy`. There are no other worktrees or open branches.
+State as of 2026-09-18, after realism Step 0 shipped. Committed locally and **not pushed**: this repo's
+`main` and `grungist-creek`'s `master` (the rebuilt figures and Belle). The parked branch
+`fig-genital-anatomy` (`94ac682`) is pushed and still has its worktree at `.worktrees/fig-genital-anatomy`.
+There are no other worktrees or open branches. Step 1 (hair) is next.
 
 Read these first, in this order:
 1. The repo's `CLAUDE.md`: worktrees, scratch folders, the regression harness, install and version rules, gotchas.
@@ -33,11 +34,21 @@ here and nowhere else:
 ## Where the figures are
 
 `grungist-creek/characters/study_man.toml` and `study_woman.toml` build through character-pipeline at
-`quality = "final"` in about 25 s each, into `assets/figure_study/`. `figure_study.tscn` shows both on
+`quality = "final"` in about 32 s each from nothing (a resumed rebuild skips unchanged stages), into
+`assets/figure_study/`, with skin baked at 2048 px. They and Belle were rebuilt on 2026-09-18 by the Step 0
+ship step on rig-anything 0.25.0 / character-pipeline 0.9.0 / lookdev 0.4.0. `figure_study.tscn` shows both on
 turntables: keys 1-7 clips (Idle, Walk, Run, Crouch, Jump, TurnL, TurnR), F/S/B/Q/C views (C is a 1 m
 close-up, Tab picks the figure), L lighting presets, T turntables, J flesh, H hair strands. Its
-`--selftest` passes, as do `belle_demo`, `people_demo`, `verify_moves` and `verify_flesh` (walk, run and
-jump courses). Open the scene and look before planning; the scratch screenshots from the last round are gone.
+`--selftest` passes, as do `belle_demo`, `people_demo`, `verify_moves` and `verify_flesh` (full, walk, run and
+jump courses).
+
+To look at them: each build writes the Blender close-up set to
+`assets/figure_study/<id>/review/<id>/close/` (`sheet.png`, 16 tiles, `close.json`; the folder is git-ignored).
+In Godot, `node ~/.claude/skills/lookdev/bin/lookdev.mjs close-shot --project . --glb
+res://assets/figure_study/study_woman/study_woman.glb --distance 1 --views face,hands,full --presets
+clear_midday,overcast --out <scratch>` writes a labelled sheet in about 10 s. The ship step's sheets are in
+`%TEMP%/rw/ship/look/<id>/sheet.png` (a scratch folder; regenerate rather than rely on it). They show every
+defect in the table below, plus a vertical specular band on both foreheads under overcast.
 
 **Judged honestly: clean, well-proportioned CG figures that move properly, not yet realistic.**
 
@@ -49,7 +60,6 @@ jump courses). Open the scene and look before planning; the scratch screenshots 
 | The ponytail swings 45 deg on the run | Skin reads smooth at viewing distance: the pore detail is in the material but does not show past about 1 m |
 | Flesh bounded on every course | Lashes read sparse (cards seen edge-on, alpha mip erosion) |
 | | **No genital anatomy:** both crotches are smooth; the branch that adds it is parked (below) |
-| | The game's real assets still carry 1024 px skin: final bakes at 2048 since character-pipeline 0.8.0, but they have not been rebuilt |
 | | golden_hour overexposes the pale woman and stripes the floor; interior_daylight was dropped from the demo |
 
 ---
@@ -110,7 +120,8 @@ and a close-up that would have shown a defect was missing twice. Fix the loop be
   dedicated control for the limit_influences fix; three pipeline_hashes flips lack drop-controls.
 - **06 rank 12 - bake at final size: done** (same branch). Final bakes skin at 2048 px, preview and draft
   at 1024; the size is in the bake hash, and the manifest has a `skin` block (map_px, tone_ok, region
-  tones). It adds about 7 s to a final bake. Open: the game's real assets have not been rebuilt.
+  tones). It adds about 7 s to a final bake. The game's study_man, study_woman and Belle were rebuilt at
+  2048 px by the ship step (below).
 - **06 section 5 - repo tooling: done** (branch `repo-regress-quick`, merged 2026-09-18). `regress.py`
   runs longest first, prints results as they finish, ends with `REGRESS DONE exit=N, K fixtures ok`,
   always writes a diff file, and has `--quick` (fixtures selected from the git diff; `--dry-run` shows why).
@@ -118,6 +129,18 @@ and a close-up that would have shown a defect was missing twice. Fix the loop be
   about 3.5 min. Open: mpfb_woman_curvy's glb readback sits under the VOLATILE key `export.file` and is
   never compared (renaming it moves goldens); `--restamp` and refusing `--update` off main are not done;
   DURATIONS is a static table; addon sync and `.gitattributes` from the same list are not done.
+
+**Step 0 status: done and shipped (2026-09-18).** All four branches merged; `~/.claude/skills` and the
+game's addons match `main`. The ship step rebuilt study_man, study_woman and Belle in the game at final
+quality (skin at 2048 px, close sets written) and they pass `--import`, the figure_study, belle_demo and
+people_demo selftests, verify_moves (3 manifests) and verify_flesh (full, walk, run, jump on both figures).
+`regress.py --twice --jobs 4 --godot` on `main`: `REGRESS DONE exit=0, 21 fixtures ok`, no change, 14 min.
+One stale check fixed in the game: belle_demo's HAIR line wanted lookdev to set exactly one material, and
+the baked skin is now a second one. What stays open is listed under each item above; the ones that bear
+on the look loop first are close-shot's missing tile-check control and `--min-subject`, the look set's
+centroid-only framing check and side-on hand_back, and neither close set being in `regress --godot`.
+The round's lab notebooks: [notebooks/realism-step0/](notebooks/realism-step0/) (`repo-regress-quick`,
+`lookdev-godot-tools`, `cp-resume-hashes`, `cp-close-look-set`, `ship`).
 
 ### Step 1 - hair
 
@@ -262,10 +285,11 @@ Most of this is now in `CLAUDE.md`. The rest:
 ## Loose ends outside the code
 
 - `C:/Users/pauli/Code/Blender/belle_demo_before_rebuild.blend` (100 MB) is still there.
-- The `.blend` backups from the last three rounds were in session scratch folders, which are gone. The
-  real blends in `C:/Users/pauli/Code/Blender/` are current; the figure study's are
-  `figure_study_man.blend` and `figure_study_woman.blend`.
-- `grungist-creek/tomas_demo.tscn` is untracked and refers to a `tomas_demo.gd` that does not exist; Godot
-  logs an error for it on every import. Delete it or finish it.
+- The real blends in `C:/Users/pauli/Code/Blender/` are current; the figure study's are
+  `figure_study_man.blend` and `figure_study_woman.blend`, and they now carry character-pipeline's stage
+  records, so a rebuild resumes from them. The ship step backed up the pre-rebuild copies (and
+  `belle_realistic.blend`) to `%TEMP%/rw/ship/backup/`, a scratch folder: do not count on it.
+- `grungist-creek/tomas_demo.tscn` is gone (nothing referred to it; its stale editor-state files were
+  removed), and `--import` is clean.
 - This repo is public, and `plugins/humanform/data/` (ANSUR II public CSVs and the seed contact sheets) is
   published with it, a deliberate choice recorded here in case it is revisited.
