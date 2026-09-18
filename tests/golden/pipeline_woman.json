@@ -1,16 +1,28 @@
 {
  "fixture": "pipeline_woman",
  "plugins": {
-  "character-pipeline": "0.9.0",
-  "follow-through": "0.6.1",
-  "humanform": "0.10.0",
-  "rig-anything": "0.25.0",
-  "wardrobe": "0.5.0"
+  "character-pipeline": "0.9.1",
+  "follow-through": "0.6.2",
+  "humanform": "0.10.1",
+  "rig-anything": "0.26.0",
+  "wardrobe": "0.5.1"
  },
  "report": {
   "body_stature": 1.6985,
   "close": {
    "close_json": true,
+   "close_off": {
+    "close_in_report": false,
+    "control_no_clear": {
+     "close_in_report": false,
+     "folder_left": true
+    },
+    "control_seen": true,
+    "folder_left": false,
+    "had_folder": true,
+    "ok": true,
+    "reported_removed": true
+   },
    "control_empty": {
     "face": [
      "empty",
@@ -24,15 +36,30 @@
      "off_body"
     ]
    },
+   "control_palm_up_3cm": {
+    "fail": [
+     "cut"
+    ],
+    "subject_margin": 0.02,
+    "subject_off": 0.27
+   },
+   "control_palm_up_6cm": {
+    "fail": [
+     "cut",
+     "off_centre"
+    ],
+    "subject_margin": -0.13,
+    "subject_off": 0.4
+   },
    "control_wrong_bone": {
     "raised": [
      [
       "hand_palm.L",
-      "off_centre"
+      "cut"
      ]
     ]
    },
-   "count": 17,
+   "count": 19,
    "draft": {
     "failed": [],
     "table": {
@@ -76,7 +103,9 @@
     "face_3q.png",
     "feet.png",
     "foot_inner.L.png",
+    "foot_inner.R.png",
     "foot_outer.L.png",
+    "foot_outer.R.png",
     "hand_back.L.png",
     "hand_back.R.png",
     "hand_palm.L.png",
@@ -97,6 +126,7 @@
      "distance_m": 0.8,
      "ok": true,
      "on_body": true,
+     "subject_margin": 0.2,
      "subject_off": 0.14
     },
     "crotch": {
@@ -104,6 +134,7 @@
      "distance_m": 0.8,
      "ok": true,
      "on_body": true,
+     "subject_margin": 0.32,
      "subject_off": 0.14
     },
     "eyes": {
@@ -111,6 +142,7 @@
      "distance_m": 0.4,
      "ok": true,
      "on_body": true,
+     "subject_margin": 0.3,
      "subject_off": 0.0
     },
     "face": {
@@ -118,69 +150,95 @@
      "distance_m": 0.6,
      "ok": true,
      "on_body": true,
-     "subject_off": 0.17
+     "subject_margin": 0.33,
+     "subject_off": 0.11
     },
     "face_3q": {
      "coverage": 0.39,
      "distance_m": 0.6,
      "ok": true,
      "on_body": true,
-     "subject_off": 0.19
+     "subject_margin": 0.31,
+     "subject_off": 0.07
     },
     "feet": {
      "coverage": 0.24,
      "distance_m": 1.0,
      "ok": true,
      "on_body": false,
-     "subject_off": 0.0
+     "subject_margin": 0.23,
+     "subject_off": 0.01
     },
     "foot_inner.L": {
      "coverage": 0.17,
      "distance_m": 0.6,
      "ok": true,
      "on_body": true,
-     "subject_off": 0.09
+     "subject_margin": 0.12,
+     "subject_off": 0.13
+    },
+    "foot_inner.R": {
+     "coverage": 0.17,
+     "distance_m": 0.6,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.12,
+     "subject_off": 0.13
     },
     "foot_outer.L": {
      "coverage": 0.21,
      "distance_m": 0.6,
      "ok": true,
      "on_body": true,
-     "subject_off": 0.09
+     "subject_margin": 0.12,
+     "subject_off": 0.13
+    },
+    "foot_outer.R": {
+     "coverage": 0.21,
+     "distance_m": 0.6,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.12,
+     "subject_off": 0.13
     },
     "hand_back.L": {
-     "coverage": 0.8,
+     "coverage": 0.29,
      "distance_m": 0.5,
      "ok": true,
      "on_body": true,
-     "subject_off": 0.02
+     "subject_margin": 0.12,
+     "subject_off": 0.1
     },
     "hand_back.R": {
-     "coverage": 0.8,
+     "coverage": 0.29,
      "distance_m": 0.5,
      "ok": true,
      "on_body": true,
-     "subject_off": 0.02
+     "subject_margin": 0.12,
+     "subject_off": 0.1
     },
     "hand_palm.L": {
-     "coverage": 0.48,
+     "coverage": 0.52,
      "distance_m": 0.5,
      "ok": true,
      "on_body": true,
-     "subject_off": 0.06
+     "subject_margin": 0.16,
+     "subject_off": 0.14
     },
     "hand_palm.R": {
-     "coverage": 0.48,
+     "coverage": 0.52,
      "distance_m": 0.5,
      "ok": true,
      "on_body": true,
-     "subject_off": 0.06
+     "subject_margin": 0.16,
+     "subject_off": 0.14
     },
     "head_back": {
      "coverage": 0.32,
      "distance_m": 1.0,
      "ok": true,
      "on_body": true,
+     "subject_margin": 0.35,
      "subject_off": 0.15
     },
     "head_side": {
@@ -188,6 +246,7 @@
      "distance_m": 1.0,
      "ok": true,
      "on_body": true,
+     "subject_margin": 0.35,
      "subject_off": 0.15
     },
     "knees": {
@@ -195,6 +254,7 @@
      "distance_m": 0.8,
      "ok": true,
      "on_body": false,
+     "subject_margin": 0.32,
      "subject_off": 0.0
     },
     "under_bust": {
@@ -202,6 +262,7 @@
      "distance_m": 0.42,
      "ok": true,
      "on_body": true,
+     "subject_margin": 0.5,
      "subject_off": 0.0
     }
    },
@@ -221,6 +282,8 @@
     "feet",
     "foot_inner.L",
     "foot_outer.L",
+    "foot_inner.R",
+    "foot_outer.R",
     "under_bust"
    ],
    "wears_top": true

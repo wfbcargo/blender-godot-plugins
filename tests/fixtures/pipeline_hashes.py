@@ -26,6 +26,9 @@ work as every other flip's do.
 `inputs.py` no longer named it: the fixture must then fail (the harness's control, run by hand). It takes the
 `_left_out` labels too: `body:version:wardrobe`, `bake:quality:skin`, `flesh:spec:flesh`, `review:quality:close`.
 
+A spec with `[review] close = false` renders no close-up set, so the final close-up views change must move
+nothing there (`quality.PART_ON` leaves the part out); its control empties `PART_ON` and must see review move.
+
 The golden holds, per flip, the stage expected, the first stage that moved and every stage that moved.
 """
 import json
@@ -356,6 +359,34 @@ def build():
     if not row["ok"] or not row["control_unseen"]:
         failed.append("final close-up views")
 
+    # ...but not with `[review] close = false`: that spec renders no set, so the same change must move nothing
+    # (quality.PART_ON leaves the close part out of its review hash). Control: with PART_ON emptied - review
+    # hashing the close part whether or not the spec renders the set, as before - the change moves review
+    before_off = plan("noclose")
+    saved_on = dict(quality.PART_ON)
+    quality.PART_ON.clear()
+    try:
+        control_before = plan("noclose")
+    finally:
+        quality.PART_ON.update(saved_on)
+    quality.LEVELS["final"]["close"] = dict(saved, views=quality.CLOSE_DRAFT)
+    try:
+        after_off = plan("noclose")
+        quality.PART_ON.clear()
+        try:
+            control = plan("noclose")
+        finally:
+            quality.PART_ON.update(saved_on)
+    finally:
+        quality.LEVELS["final"]["close"] = saved
+    moved = [s_ for s_ in names["noclose"] if before_off[s_] != after_off[s_]]
+    row = {"spec": "noclose", "expect": None, "first": moved[0] if moved else None, "moved": moved,
+           "ok": not moved, "label": "part_on:close",
+           "control_seen": [s_ for s_ in names["noclose"] if control_before[s_] != control[s_]] == ["review"]}
+    out["final close-up views, [review] close = false"] = row
+    if not row["ok"] or not row["control_seen"]:
+        failed.append("final close-up views, [review] close = false")
+
     # a spec edit moves its own stage on: [flesh] reruns flesh and after, never body, muscle, bake or hair
     import dataclasses
     ch = spec.load(specs["full"])
@@ -377,7 +408,9 @@ def build():
     reads = {s: sorted(inputs.stage_inputs(ch, s)) for s in names["full"]}
     report = {"stages": names, "flips": out, "reads": reads, "failed": failed,
               "quality_skin": {q: quality.settings(q, "skin") for q in quality.QUALITIES},
-              "final_hash_part_bake": quality.for_hash("final", "bake")}
+              "final_hash_part_bake": quality.for_hash("final", "bake"),
+              "final_hash_part_review": {k: quality.for_hash("final", "review", spec.load(specs[k]))
+                                         for k in ("full", "noclose")}}
     if failed:
         raise AssertionError(f"pipeline_hashes: flips not caught or unrelated edits that moved a stage: {failed}; "
                              + json.dumps({k: out[k] for k in failed if k in out}))
@@ -415,8 +448,8 @@ def _left_out(drop, run):
             out.pop(plugin, None)
         return out
 
-    def for_hash(q, stage):
-        out = real_for_hash(q, stage)
+    def for_hash(q, stage, ch=None):
+        out = real_for_hash(q, stage, ch)
         if isinstance(out, dict):
             out = {k: v for k, v in out.items() if k not in gone(stage, "quality:")} or None
         return out

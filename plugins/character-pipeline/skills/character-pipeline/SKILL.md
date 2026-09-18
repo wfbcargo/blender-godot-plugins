@@ -160,9 +160,11 @@ close = true                       # false: no close-up look set
 `<view>.png` each with a label band (view, distance, the tile's width in metres, clip and frame), `sheet.png`
 (all of them at half size) and `close.json`. The pose is the **Idle clip's first frame** (else the first
 role's), frozen, and every camera is aimed from that posed frame's bones - never height fractions. The stage
-raises if a tile shows no body (`empty`, figure under 5% of the tile), if the view's own bones project off
-the tile's centre (`off_centre`, beyond 0.3 of the tile), or if no figure is drawn where they project
-(`off_body`). The quality picks the views (`quality.py` `close`, in the review hash at every quality):
+raises if a tile shows no body (`empty`, figure under 5% of the tile), if the view's own points project off
+the tile's centre (`off_centre`, beyond 0.3 of the tile), if any one of them - the wrist, each knuckle and
+fingertip; both eyes; each foot's heel, ankle and toe - is cut by or near the tile's edge (`cut`, within 0.04),
+or if no figure is drawn where they project (`off_body`). The quality picks the views (`quality.py` `close`, in
+the review hash at every quality unless `close = false`):
 
 | view | distance | final | preview | draft |
 |---|---|---|---|---|
@@ -170,11 +172,14 @@ the tile's centre (`off_centre`, beyond 0.3 of the tile), or if no figure is dra
 | `face_3q`, `head_side`, `head_back` | 0.6, 1.0, 1.0 m | yes | | |
 | `hand_palm.L/.R`, `hand_back.L/.R` | 0.5 m | yes | yes | the left hand |
 | `bust`, `crotch`, `knees` | 0.8 m | yes | | |
-| `feet`, `foot_inner.L`, `foot_outer.L` | 1.0, 0.6, 0.6 m | yes | | |
+| `feet`, `foot_inner.L/.R`, `foot_outer.L/.R` | 1.0, 0.6, 0.6 m | yes | | |
 | `under_bust` | 0.42 m | a spec wearing a top (a shirt or dress cut) | | |
 
-It adds about 2.8 s to a final review (study_man: review 4.1-4.8 s without it, 6.8-7.6 s with 15 tiles) and 0.6-0.8 s to a draft one (3 tiles). The pictures show the file's
-Blender materials; judge the Godot look with lookdev's `close-shot`.
+It adds about 2.8 s to a final review (study_man: review 4.1-4.8 s without it, 6.8-7.6 s with 15 tiles; the right
+foot's two side views since 0.9.1 add about 0.3 s) and 0.6-0.8 s to a draft one (3 tiles). The pictures show the file's
+Blender materials; judge the Godot look with lookdev's `close-shot`. `[review] close = false` renders no set, removes
+a `close/` folder an earlier build wrote (the report names it, `close_removed`) and leaves the close part out of
+review's hash.
 
 **Answering the look checklist from the set.** The look questions critics ask are humanform's
 `references/critic-checklist.md` (L4 parts, L6 hair, L5-L6 surface) plus the realism list in
@@ -188,12 +193,12 @@ Blender materials; judge the Godot look with lookdev's `close-shot`.
 | Hairline reads as hair, not a cap edge; follows the forehead, temples, round the ear, down to the nape | `face_3q`, `head_side`, `head_back` |
 | At 1 m, hair reads as hair on a head, not a helmet | `head_side`, `head_back` (1.0 m) |
 | Bun, tie or tail attached, clear of ears, neck and shoulders, shaped like what it is; no seam at the cap | `head_back`, `head_side` |
-| Four fingers and a thumb, separate, with knuckles; no orange web creases (nails are not visible on the hanging, curled hand in any tile yet); hand about the face's length (compare the widths in the labels) | `hand_back.L/.R`, `hand_palm.L/.R` |
+| Four fingers and a thumb, separate, with knuckles; nails on the thumb, index and middle finger (`hand_back`, from the front a little below the knuckles; ring and pinky nails are behind them); no orange web creases; hand about the face's length (compare the widths in the labels) | `hand_back.L/.R`, `hand_palm.L/.R` |
 | Deltoid cap at the shoulder; clavicles and sternum notch readable; breasts or chest plausible | `bust` |
 | A top's lower edge: no shelf bridging under the bust | `under_bust` |
 | Crotch anatomy (genitals present or smooth); inner thighs | `crotch` |
 | Kneecaps readable | `knees` |
-| Heel, arch and toes; toes in order, big toe largest; inner ankle bone higher than the outer | `feet`, `foot_inner.L`, `foot_outer.L` |
+| Heel, arch and toes; toes in order, big toe largest; inner ankle bone higher than the outer; the two feet alike | `feet`, `foot_inner.L/.R`, `foot_outer.L/.R` |
 | Surface free of faceting, lumps and seams | every tile |
 
 Not answerable here, and why: the dithered neck shadow and pore detail past 1 m are Godot effects (lookdev

@@ -888,7 +888,26 @@ def run_review(ch, ctx):
         t0 = time.time()
         out["close"] = run_close(ch, ctx, meshes)
         out["close"]["stage_seconds"] = round(time.time() - t0, 2)
+    else:
+        removed = clear_close(ch)
+        if removed:
+            out["close_removed"] = removed
     return out
+
+
+def clear_close(ch):
+    """`[review] close = false`: take away a close-up set an earlier build wrote, so nothing reads a stale
+    one as this build's. Only what `closeups.look_set` writes (pngs, close.json, .gdignore) is removed, then the
+    folder if that left it empty. Returns the folder removed, or None when there was none."""
+    d = close_dir(ch)
+    if not os.path.isdir(d):
+        return None
+    for f in os.listdir(d):
+        if f.endswith(".png") or f in ("close.json", ".gdignore"):
+            os.remove(os.path.join(d, f))
+    if not os.listdir(d):
+        os.rmdir(d)
+    return d
 
 
 # (name, needs, spec sections its hash covers, precondition check, run, applies to this spec)
