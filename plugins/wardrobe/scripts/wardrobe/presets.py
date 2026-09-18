@@ -88,7 +88,9 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
             tris = cover.drawn_over_cloth(g, body, cr, reach=behind)
             if not tris:
                 break
-            lifted.append({"tris": len(tris), "verts_moved": fit.lift_over(g, body, tris, (p.get("ease") or {}).get("base", 0.006))})
+            lift = p.get("lift") or {}
+            gap = lift.get("gap", (p.get("ease") or {}).get("base", 0.006))
+            lifted.append({"tris": len(tris), "verts_moved": fit.lift_over(g, body, tris, gap, smooth=lift.get("smooth", 0.0))})
             cr = cover.compute(g, body, **_args(p.get("cover")))
         if lifted:
             er["detail"] = fit.detail(g, body, limit=(p.get("ease") or {}).get("detail_limit"))   # of the cloth as lifted

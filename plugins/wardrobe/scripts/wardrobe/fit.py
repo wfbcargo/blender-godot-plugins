@@ -427,6 +427,15 @@ def _membrane(X, ed, fill):
     return M
 
 
+def _vertex_normals(X, tris):
+    """Area-weighted unit vertex normals of positions `X` over triangles `tris`."""
+    fn = np.cross(X[tris[:, 1]] - X[tris[:, 0]], X[tris[:, 2]] - X[tris[:, 0]])
+    N = np.zeros_like(X)
+    for c in range(3):
+        N[:, c] = np.bincount(tris.ravel(), weights=np.repeat(fn[:, c], 3), minlength=len(X))
+    return N / np.maximum(np.linalg.norm(N, axis=1), 1e-12)[:, None]
+
+
 def compress(garment, body, smooth=0.0, flatten=None, fade=COMPRESS_FADE):
     """The body as a compression garment squeezes it, to ease the cloth off (improvements 05 5.3).
 
@@ -822,7 +831,7 @@ def _settle(bm, floor, reach):
     return {"reach_m": reach, "passes": passes, "moved_max_m": round(float(moved.max()), 4)}
 
 
-def lift_over(garment, body, tris, gap, radius=0.02, spread=12, keep=0.8, reach=0.03):
+def lift_over(garment, body, tris, gap, radius=0.02, spread=12, keep=0.8, reach=0.03, smooth=0.0):
     """Lift the garment over the corners of these body triangles (vertex index triples) that lie
     over its face - the skin `cover.drawn_over_cloth` found showing through a compression garment -
     until it is `gap` outside them. Each such corner asks the cloth within `radius` to rise by what
@@ -833,6 +842,8 @@ def lift_over(garment, body, tris, gap, radius=0.02, spread=12, keep=0.8, reach=
     b = rigmap._obj(body)
     if not tris:
         return 0
+    if smooth and smooth > 0:
+        return _lift_smooth(g, b, tris, gap, smooth, reach)
     me = g.data
     gbvh = BVHTree.FromPolygons([v.co.copy() for v in me.vertices], canonical_tris(me), all_triangles=True)
     kd = KDTree(len(me.vertices))
@@ -865,6 +876,60 @@ def lift_over(garment, body, tris, gap, radius=0.02, spread=12, keep=0.8, reach=
     bm.free()
     me.update()
     return sum(1 for x in need if x > 0)
+
+
+def _lift_smooth(g, b, tris, gap, reach_m, near=0.03, relax=4):
+    """`lift_over` as one smooth swell. Per corner over the cloth, the three corners of the cloth
+    triangle under it must rise by what it lacks (so that face clears, not only its nearest vertex);
+    the cloth within `reach_m` rises by that times (1 - (d / reach_m)^2)^2, the largest ask winning;
+    the lift is then relaxed `relax` passes as displacement vectors and every asked vertex given at
+    least its ask. Per-corner cones of 2 cm, repeated over four passes, left a faceted, pointed
+    shelf under Belle's bust (improvements NEXT 9)."""
+    from mathutils.kdtree import KDTree
+    me = g.data
+    ctris = canonical_tris(me)
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    gbvh = BVHTree.FromPolygons([Vector(p) for p in co], ctris, all_triangles=True)
+    kd = KDTree(len(co))
+    for i, p in enumerate(co):
+        kd.insert(Vector(p), i)
+    kd.balance()
+    ask = np.zeros(len(co))
+    for i in sorted({i for t in tris for i in t}):
+        p = b.data.vertices[i].co
+        h = gbvh.find_nearest(p, near)
+        if h[0] is None or h[3] <= 1e-9:
+            continue
+        side = (p - h[0]).dot(h[1])
+        if side <= 0.0 or side < 0.7 * h[3]:
+            continue
+        for j in ctris[h[2]]:
+            ask[j] = max(ask[j], side + gap)
+    seeds = np.flatnonzero(ask > 0)
+    if not len(seeds):
+        return 0
+    lift = np.zeros(len(co))
+    for s in seeds:
+        for _p, j, d in kd.find_range(Vector(co[s]), reach_m):
+            lift[j] = max(lift[j], ask[s] * (1.0 - (d / reach_m) ** 2) ** 2)
+    _, t_np, ed, _ = _np_mesh(g)
+    deg = np.bincount(ed.ravel(), minlength=len(co)).astype(float)
+    N = _vertex_normals(co, t_np)
+    D = lift[:, None] * N
+    moving = lift > 0
+    for _ in range(relax):
+        A = _umbrella(D, ed, deg)
+        D[moving] = 0.5 * (D[moving] + A[moving])
+    # the asked vertices still clear what they were asked to
+    along = (D * N).sum(axis=1)
+    short = seeds[along[seeds] < ask[seeds]]
+    D[short] += (ask[short] - along[short])[:, None] * N[short]
+    new = co + D
+    me.vertices.foreach_set("co", new.ravel())
+    me.update()
+    return int(moving.sum())
 
 
 def _clear_unders(bm, unders, gap, spread=12, keep=0.8):
