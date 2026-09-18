@@ -103,3 +103,18 @@ hand_palm.L, and one more), control failed as it must (OFF_TARGET 0.60), `lookde
 `FAILED close-shot pipeline_woman: exit 1, 8 tiles, 1 failed`, `FAILED lookdev selftest (15/18)` (the
 positive twin, the pairing check and the min-subject check each saw the extra OFF_TARGET), `REGRESS DONE
 exit=1`. Reverted with `git checkout -- close_shot.gd`. Log: scratch `rg_break.log`.
+
+## 13:20-13:47 final checks | kind=win
+- Default views on study_woman, `--presets clear_midday,overcast --pair-blender <scratch copy>`: 14 s, exit
+  0, 24 tiles; 11 views paired at Blender's distances, `full` unpaired, Blender-only crotch, knees,
+  foot_inner.L, foot_outer.L (crotch is not a default Godot view). Subject off (clear_midday): face 0.167,
+  face_3q 0.125, eyes 0.0, head_side 0.204, head_back 0.113, hands 0.02-0.06, feet 0.003, bust 0.208, full
+  0.25; full's head box px [291,19,349,114] clear of the band [0,-64,640,0]. Log: scratch `final_woman.log`.
+- `regress.py --quick --jobs 2 --godot <game worktree>` (regress.py changed, so all 22 fixtures): 26.5 min,
+  `REGRESS DONE exit=0, 22 fixtures ok`, no change; Godot stage: close-shot pipeline_woman ok, its control
+  failed as it must, lookdev selftest PASSED 18/18. Full log: scratch `final_quick.log`.
+
+Open: the tile checks are centroid-only (a camera cutting the fingertips passes; the look-set framing branch
+owns the every-point version); `full` has no Blender twin; pipeline_woman's fixture close folder holds only
+its draft set, so regress pairs 3 views; a sheet taller than 16384 px is cut, not split; `lookdev.mjs`'s
+`--columns` option (wrap) is gone with the one-row-per-view layout.
