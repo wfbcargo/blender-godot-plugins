@@ -24,10 +24,10 @@ here and nowhere else:
 - rig-anything 0.26.0
 - animate-anything 0.10.1
 - follow-through 0.6.2
-- humanform 0.10.1
+- humanform 0.11.0
 - character-pipeline 0.11.0
 - wardrobe 0.5.1
-- lookdev 0.5.0
+- lookdev 0.6.0
 - godot-lsp 0.1.0
 
 ---
@@ -181,7 +181,8 @@ Suggested after the Step 0 round; each saves agent minutes on every later round.
   `blend = "..."` line (fails safe); the committed glbs carry a stale `.001` mesh name from a resumed build
   (runner/stages, not this seam); crowd humans and creatures are not copied. Notebook:
   [notebooks/realism-step1/tools-scratch-project.md](notebooks/realism-step1/tools-scratch-project.md).
-- **close-shot views the look critic missed: done except the stipple detector** (branch
+- **close-shot views the look critic missed: done** (the stipple detector came with `hair-godot-transfer`,
+  lookdev 0.6.0; branch
   `lookdev-closeshot-views`, lookdev 0.5.0, merged 2026-09-18; the stipple/dither detector belongs to
   `hair-godot-transfer`). New Godot views face_3q, head_side and head_back (a `head` group, in the default
   list), aimed with closeups._aim's formulas so frame widths match the Blender set. One row per view, one
@@ -243,6 +244,23 @@ Suggested after the Step 0 round; each saves agent minutes on every later round.
 
 ### Step 1 - hair
 
+- **Blender to Godot, and the neck stipple: done** (branch `hair-godot-transfer`, lookdev 0.6.0, humanform
+  0.11.0, merged 2026-09-18). The stipple was Godot's default directional soft-shadow filter (soft low), not
+  the hair: every lighting preset now sets `sun.soft_shadow_filter_quality` 4 through `LookdevPresets.apply`
+  (apply_preset warns when the project setting is lower). The hairline smear was the depth pre-pass blending
+  mip-averaged strand alpha plus box mips eroding coverage: `LookdevMaterials.coverage_mips` keeps level 0's
+  coverage per mip (read from the source PNG, since BC3 moves alpha) and ramps alpha over 0.5 +- 0.25, asked
+  for by the hair preset's alpha extras. Brows and lashes blend instead of scissor (darkest 2% of brow over
+  skin: study_man Blender 0.158, Step 0 0.078, now 0.133; study_woman 0.285, 0.154, 0.251).
+  `strand_texture` card mode, `hair.material(pixels=)`, humanform's brows and lashes go through lookdev.
+  New `lookdev.mjs stipple <png> --region` with three selftest controls (selftest 21). Critic: pass. Open:
+  study_man's overcast neck keeps a faint stipple (0.399 -> 0.570; ultra does not clear it; likely overcast's
+  20 deg angular distance); the filter is set on every preset and its GPU cost is unmeasured; coverage_mips
+  makes 1-2 MB uncompressed runtime textures, load cost unverified, no must-fail control; stipple needs a
+  skin `--region` and is not in `regress --godot`; the game's committed glbs are not rebuilt (the ship step
+  must rebuild study_man, study_woman and Belle to get the alpha changes); no MSAA/TAA, so alpha to coverage
+  is unused; Blender's reddish hairline fringe. Notebook:
+  [notebooks/realism-step1/hair-godot-transfer.md](notebooks/realism-step1/hair-godot-transfer.md).
 - **Blender to Godot first.** The critic found fine strands at the hairline in Blender and a smeared shell in
   Godot, and brows darker and harder in Godot than in Blender. Find where it is lost (strand texture
   resolution or mips, alpha mode, lookdev's hair material, card export) before touching the hair layer.
