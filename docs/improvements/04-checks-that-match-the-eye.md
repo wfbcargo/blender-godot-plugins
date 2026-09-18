@@ -171,12 +171,20 @@ flagged-twice-becomes-a-check rule. What the checklist adds beyond the questions
 
 - **Severities that aim a fix**: `gross` (floor, skating, a limb through the torso), `carriage`
   (arms, head, spine held wrong), `timing` (contacts, swing, flight), `outfit`, `brief`.
-- **Locked numbers for keep-or-revert** are the manifest's `clip_checks` and the build report's
-  `arm_pose`, and a critic that prefers B while a check that passed now fails does not carry.
+- **Locked numbers for keep-or-revert** are the manifest's `clip_checks` and `arm_pose`, and a
+  critic that prefers B while a check that passed now fails does not carry. The rule is pairwise, so
+  everything it locks has to outlive the run that produced it: `export_character` now writes
+  `arm_pose` (per clip, per arm) into `.moves.json` beside `clip_checks`, where it previously
+  reached only the in-memory build report and died with it. Nothing outside those two files is
+  lockable, and the checklist says so.
 - **Three blind spots written down**, because each produces a confident wrong answer: a side view
-  cannot tell the near arm from the far one (arm *alternation* is a front-view or an `arm_pose`
-  question), 8 samples alias against a 24-frame run's flight phase, and `centred: true` makes travel
-  unreadable from cell positions.
+  cannot tell the near arm from the far one, 8 samples alias against a 24-frame run's flight phase,
+  and `centred: true` makes travel unreadable from cell positions. Alternation is a front-view
+  question with **no** numeric fallback - `arm_pose` keeps each arm's range over the whole clip, not
+  per-frame angles, and two arms in opposite phase sweep the same range (the export fixtures'
+  `arm_carry_deg` comes out identical for L and R on `mpfb_woman_curvy`'s three clips and within
+  1.1 degrees on `rigify_human`'s four, all of them alternating) - so the checklist says answer it
+  from `front` or answer `unclear`.
 - **Pairwise only when the sheets line up**: same `ortho_scale_m`, `cell_px` and `frames`.
 
 **Validated on the four sheets, questions first.** This session had no Agent tool, so the protocol
@@ -263,6 +271,14 @@ already known:
    pass, the pre-fix Walter walk, a run, an idle, and the limit itself either side), so the failing
    branch is exercised without a body built wrong. `rigify_human` and `mpfb_woman_curvy` goldens
    gain `arm_carry_deg` and `arm_swing_deg` per arm; no number already in them moved.
+
+   Round 2, from review: `export_character` writes `arm_pose` into `.moves.json` beside
+   `clip_checks`, because the keep-or-revert rule is pairwise and every export fixture's golden now
+   carries `moves_json.arm_pose_on_disk`, read back from the written file rather than from the
+   returned dict - the one thing that would have caught the field never reaching disk. The guard's
+   own population was stated as 20 walks in three shipped files against the 17 this table measured;
+   it is 17 everywhere now (16 of `assets/humans/*` plus Belle - the other six shipped walks are
+   armless creatures).
 5. **Garment detail check** in wardrobe. Compare mean-curvature variance of the cloth against the
    skin under it, per region. Add a `smooth` option to `fit.ease` (Laplacian smoothing of the cloth
    offset over the bust and seat) so a sports top reads compressed. Presets opt in (see 05).

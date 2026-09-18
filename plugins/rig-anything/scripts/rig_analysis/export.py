@@ -1039,6 +1039,10 @@ def export_character(mesh_name, rig_name, glb_path, name=None, reports=None, res
         "clip_checks": {k: {"passed": c.get("passed"), "lowest_foot": c.get("lowest_foot"),
                             "loop_seam": c.get("loop_seam"), "failures": c.get("failures", [])}
                         for k, c in checks.items()},
+        # how each arm was carried, per clip that has arms (`verify.arm_pose`, keyed like
+        # clip_checks). Written because the motion critic's keep-or-revert rule compares this
+        # round's ranges against the previous version's, and the build report dies with the run.
+        "arm_pose": {clip[r]: reports[r]["arm_pose"] for r in kept if reports[r].get("arm_pose")},
         # clips that failed their playback checks and were shipped only because force was passed
         "forced_clips": e.get("forced_clips", {}),
         # what each role's authoring reported failing

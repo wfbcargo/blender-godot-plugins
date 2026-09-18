@@ -840,6 +840,7 @@
    }
   },
   "moves_json": {
+   "arm_pose_on_disk": {},
    "clips": {
     "Crouch": "Dog_Crouch",
     "Idle": "Dog_Idle",
@@ -853,6 +854,7 @@
    },
    "dropped_clips": [],
    "fields": [
+    "arm_pose",
     "clip_checks",
     "clips",
     "collider",

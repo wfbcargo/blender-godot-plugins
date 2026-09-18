@@ -1,8 +1,9 @@
 # Motion critic checklist
 
 The motion critic is a subagent that did **not** author the clips. It judges a character's motion
-from the review strips every export writes - `<glb folder>/review/<glb name>/` - never from the
-builder's account of what the clip was meant to do. It is humancheck's critic
+from the review strips every export writes - `<glb folder>/review/<glb name>/` - and the numbers
+shipped beside them in `.moves.json`, never from the builder's account of what the clip was meant
+to do. It is humancheck's critic
 (`humanform/references/critic-checklist.md`) pointed at motion instead of anatomy, and it exists for
 the same reason: floor, slide, balance and clearance all passed on Walter's walk reaching forward
 with straight elbows and on Tomas' run carrying his hand at his neck. Nothing numeric objected until
@@ -23,7 +24,7 @@ open-ended "does this look good".
    observation, not a test, and is not allowed to count.
 
    Each clip's `clip_checks` failure in the manifest becomes a question of its own, and so does each
-   `arm_pose` number the build report carries.
+   `arm_pose` number beside it in the same `.moves.json`.
 2. **Answer from the evidence.** For each question: `yes` / `no` / `unclear`, the strip and the
    cell, and one sentence saying what is visible. A number outranks an impression - if `arm_pose`
    reads `hand_rise` 0.44 and the hand looks high, say the number and say the strip disagrees. Cite
@@ -164,9 +165,17 @@ walk/run bank's arm questions do not apply to a rig with no arms; say `unclear` 
 ## Keep or revert
 
 **Locked numbers** are the clip's `clip_checks` in the manifest (`lowest_foot`, `loop_seam`, the
-slide and balance failures) and the build report's `arm_pose` per arm (`hand_rise`,
-`elbow_flex_deg`, `upper_arm_deg`, `arm_carry_deg`, `arm_swing_deg`). A new version holds them if
-every check still passes and no `arm_pose` range has moved toward its limit.
+slide and balance failures) and, beside them in the same `.moves.json`, `arm_pose` per clip per arm
+(`hand_rise`, `elbow_flex_deg`, `upper_arm_deg`, `arm_carry_deg`, `arm_swing_deg`). A new version
+holds them if every check still passes and no `arm_pose` range has moved toward its limit.
+`arm_pose` is written only for clips whose arms were authored (idles and gaits), so a crouch or a
+jump has none and its arm questions are judged from the strips alone.
+
+Both live in the shipped manifest on purpose: the previous round's build log is gone, so anything
+the rule compares across versions has to be on disk. **Lock nothing else.** If a number you want to
+compare is not in the two `.moves.json` files, say so and drop the question - do not reconstruct it
+from the pictures. A manifest written before `arm_pose` was persisted has no such field: compare
+`clip_checks` only, and record `"unclear"` for the arm questions' `compare` rather than guessing.
 
 **Keep the new version only if the locked numbers held and the critic prefers it**, or calls it
 `same` with fewer `gross` and `carriage` issues. Otherwise revert and try a different fix. A critic
@@ -186,8 +195,13 @@ idle half is still a proposal, because there the two populations are 2 degrees a
 ## Known blind spots of the strips
 
 - **A side view cannot tell the near arm from the far one.** A far arm forward reads exactly like a
-  near arm forward, so arm *alternation* is a `front`-view question, or a numeric one
-  (`arm_pose`'s per-frame upper-arm angles). Never answer it from two cells of `_right.png`.
+  near arm forward, so arm *alternation* is a `front`-view question. There is no numeric fallback:
+  `arm_pose` names each arm but reports only its range over the whole clip (`arm_carry_deg` is
+  `[min, max]`), and no per-frame angles are kept anywhere, so the numbers cannot say which arm was
+  forward on a given frame. Two arms swinging in *opposite* phase sweep the same range: in the
+  export fixtures the left and right ranges come out identical (`mpfb_woman_curvy`, every clip) or
+  within 1.1 degrees (`rigify_human`), on clips whose arms do alternate. Answer alternation from
+  `front`, or answer `unclear`. Never answer it from two cells of `_right.png`.
 - **Eight frames alias.** A 24-frame run sampled every 3 frames can land on the same phase of both
   legs. A clip that looks like it has no flight phase may only have been sampled past it; check
   `frames` in `review.json` against the clip's length before calling it `timing`.

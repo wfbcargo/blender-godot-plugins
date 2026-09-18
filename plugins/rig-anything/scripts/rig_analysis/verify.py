@@ -762,11 +762,13 @@ def arm_swing(carry, running):
     arms in front (every shipped run comes no nearer hanging than 1.2 degrees)
     and is guarded by `hand_rise` and the elbow instead.
 
-    The line: across the 20 walks shipped in grungist-creek the arm passes
-    behind hanging every cycle, by 3.9 degrees (Margaret, an elderly shuffle)
-    to 17.5 (Lily). The pre-fix Walter walk that review strips caught - both
-    arms held out in front, bobbing - comes no nearer than 8.8 degrees in
-    front. SWING_RETURN_DEG sits between them."""
+    The line: across the 17 walks shipped in grungist-creek that have arms -
+    the 16 characters of `assets/humans/*` and Belle; the other six walks
+    there are creatures with no arms - the arm passes behind hanging every
+    cycle, by 3.9 degrees (Margaret, an elderly shuffle) to 17.5 (Lily). The
+    pre-fix Walter walk that review strips caught - both arms held out in
+    front, bobbing - comes no nearer than 8.8 degrees in front.
+    SWING_RETURN_DEG sits between them."""
     lo, hi = min(carry), max(carry)
     out = {"carry_deg": [round(lo, 1), round(hi, 1)], "swing_deg": round(hi - lo, 1),
            "checked": (not running) and (hi - lo) >= SWING_MIN_DEG}
