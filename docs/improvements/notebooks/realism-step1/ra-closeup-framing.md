@@ -45,3 +45,21 @@ palm camera moved 6 cm up (the Step 0 critic's case): fails `cut` (index/middle/
 and now also `off_centre` (0.388: the centroid includes every tip and knuckle, so it sits lower in the tile).
 3 cm up: `cut` only (middle tip 0.022 inside the edge), centroid still central - the every-point check alone sees it.
 The correct palm: margin 0.158, ok. 3 cm is about where the margin runs out ((0.158-0.04) x 0.23 m = 2.7 cm).
+
+## 13:10 close = false in the pipeline | kind=win
+stages.run_review: with `[review] close = false` it calls `clear_close` (removes only what look_set writes - pngs,
+close.json, .gdignore - then the folder if empty) and reports `close_removed`. quality: `PART_ON = {"close": spec's
+review.close}`, `stage_parts(stage, ch)`, `for_hash(q, stage, ch=None)` leaves an off part out. The one line
+outside the seam: runner.stage_hash passes `ch` to `for_hash` (no other runner change; note for cp-cascade-stop's
+merge). A spec with close on hashes exactly as before (pipeline_hashes: no existing flip or stage list moved).
+
+## 13:10-13:13 fixtures (regress --only pipeline_hashes pipeline_woman) | kind=win
+First try, both CHANGED only in the new/close keys (diff read, nothing outside close.* / the new row):
+- pipeline_hashes: new row "final close-up views, [review] close = false": moved [] (ok); control (PART_ON
+  emptied, the old behaviour) sees review move. final_hash_part_review: full {close: ...}, noclose null.
+- pipeline_woman (fixwoman, sports top): 19 files (17 views + under_bust + sheet), every tile ok, margins
+  0.12-0.5; control_palm_up_6cm -> [cut, off_centre] (margin -0.13, off 0.40); control_palm_up_3cm -> [cut] only
+  (margin 0.02, off 0.27); control_wrong_bone still raises on hand_palm.L (first reason now `cut`); speck control
+  unchanged; close_off: had the folder, review with close = false removed it and reported it, no close in the
+  report; its control (clear_close a no-op) leaves the folder, so the check sees it. hand_back coverage 0.80 -> 0.29
+  (the hand alone). Timing: pipeline_woman review 5.6 s.

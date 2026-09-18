@@ -27,24 +27,28 @@ lens the framing: each tile's field of view is chosen so the subject fills it at
     head_side       1.0 m     the whole head from its left: the ear, the hairline round it, the nape
     head_back       1.0 m     the whole head from behind: the nape hairline, a bun or tail and how it attaches
     hand_palm.L/.R  0.5 m     the palm; whatever is nearer the camera than the hand (the thigh) is clipped
-    hand_back.L/.R  0.5 m     the back of the hand: knuckles, nails
+    hand_back.L/.R  0.5 m     the back of the hand, knuckles and nails: from the front and the hand's outer side,
+                              a little below the knuckles; nothing further than the hand (the thigh) is drawn
     bust            0.8 m     the chest from the front, collarbones to under the breasts
     under_bust      0.42 m    from below the bust, looking up: the fold under a breast and a top's lower edge
                               (only when asked, `under_bust=True`: the pipeline asks for any spec wearing a top)
     crotch          0.8 m     the pelvis from the front, hips to upper thighs
     knees           0.8 m     both knees from the front: the kneecaps
     feet            1.0 m     both feet from the front and above
-    foot_inner.L    0.6 m     the left foot's inner side: the arch and the inner ankle bone
-    foot_outer.L    0.6 m     the left foot's outer side: the outer ankle bone and the heel
+    foot_inner.L/.R 0.6 m     a foot's inner side: the arch and the inner ankle bone
+    foot_outer.L/.R 0.6 m     a foot's outer side: the outer ankle bone and the heel
 
 **Checked, and it fails.** Every tile is measured from its own pixels and the posed bones, with the free
 values reported (`tiles[view]`):
 - `coverage` - the share of the tile the figure covers (the render's alpha); under `MIN_COVERAGE` the tile
   shows no body and fails (`empty`);
-- `subject_uv` / `subject_off` - where the view's own bones (`subject`, e.g. the wrist, knuckle and
-  fingertip of the hand it is named after) project in the tile, and how far their centroid is from the
-  centre (0 centre, 0.5 the edge); past `CENTRAL` the camera is not on the part it names (`off_centre`),
-  and a subject behind the camera fails the same way;
+- `subject_uv` / `subject_off` - where the view's own points (`subject`: the hand's wrist, each knuckle and
+  each fingertip; both eyes; each foot's ankle, heel and toe tip; the head, shoulders, hips or knees) project
+  in the tile, and how far their centroid is from the centre (0 centre, 0.5 the edge); past `CENTRAL` the
+  camera is not on the part it names (`off_centre`), and a subject behind the camera fails the same way;
+- `subject_margin` - how far the worst of those points is inside the tile's nearest edge (negative outside);
+  under `MARGIN` the tile cuts off part of what it is for (`cut`, naming the points) - a palm camera 3 cm up
+  the arm keeps the centroid central and puts the fingertips on the edge;
 - `on_body` - whether the figure covers the tile at that projected centroid, for views whose subject is
   on the body (not the gap between the feet or the thighs) (`off_body`).
 A failed tile is still written and labelled; `failed` lists `view: reason` and the caller decides (the
