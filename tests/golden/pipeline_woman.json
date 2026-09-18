@@ -9,6 +9,20 @@
  },
  "report": {
   "body_stature": 1.6985,
+  "dressed_flesh_edit": {
+   "bound_after": [],
+   "bound_before": [
+    "Shorts",
+    "SportsTop"
+   ],
+   "control": "refused: names garments True, names fresh=1 True",
+   "restarted": "flesh changed and garments are bound to the rig (Shorts, SportsTop): rebuilding from body",
+   "statuses": {
+    "bake": "ran",
+    "body": "ran",
+    "flesh": "ran"
+   }
+  },
   "flesh_found": {
    "breast": [
     "breast.L",
@@ -369,7 +383,7 @@
     "passed": true
    }
   },
-  "refused": "[fixwoman] garments are bound to the rig (Shorts, SportsTop) - run moves before garments: rig-anything measures arm hang against every mesh on the rig",
+  "refused": "[fixwoman] garments are bound to the rig (Shorts, SportsTop) - run moves before garments, or build from body (a whole build restarts there by itself; fresh=1 builds from nothing): rig-anything measures arm hang against every mesh on the rig",
   "rerun": {
    "bake": "unchanged",
    "body": "unchanged",

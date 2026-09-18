@@ -165,3 +165,23 @@ review only changed clips) are what would cut it further.
 `python tools/regress.py --twice --jobs 2 --godot <game worktree cp-resume-hashes> --keep rw/.../rk3`:
 21 fixtures ok twice, "no change" against the goldens; verify_moves (12 manifests) passed, every
 verify_wardrobe and verify_flesh run ok, and each must-fail control failed. 20 min wall.
+
+## 10:17-10:36 merge step | kind=fix
+Merged main (repo-regress-quick, lookdev 0.4.0) into the branch: no conflicts, both repos. The critic
+(independent) passed all 7 questions but held the merge on one regression: with builds resuming by default,
+a `[flesh]` edit on dressed Belle reached flesh with the garments bound and refused. Fixed first time:
+flesh and moves are in `RESTARTS_FROM_BODY` when `garments_bound`, so a whole build starts over from body
+(as it did before resume); a build started later still refuses, and the refusal now names fresh=1.
+pipeline_woman gains `dressed_flesh_edit` (limit_share edit, to_stage=flesh, save=False) with its control
+first: flesh popped from `RESTARTS_FROM_BODY` must refuse, and does. SKILL.md, run.sh, build.py and
+build_belle.py now give 18 s against 31 s and say dressed specs restart from body.
+`regress.py --quick --twice --jobs 4 --update --godot <game worktree>` (10:20-10:34): 16 of 21 selected, all
+ok twice; only pipeline_woman's golden moved (the new block, the refusal text). pipeline_hashes stayed within
+tolerance after lookdev 0.4.0. verify_moves, verify_wardrobe and verify_flesh ok, each must-fail control failed.
+
+## Open (added at merge)
+- The limit_influences fix (follow-through 0.6.1) has no dedicated check with a control that each vertex
+  keeps its total weight; reverting it would show only as golden drift.
+- pipeline_hashes: the skin-size, spec [flesh] and wardrobe-version flips have no drop-control of their own.
+- A dressed spec's [flesh] or [moves] edit rebuilds everything (about a whole build); unbinding the garments
+  instead of restarting from body would be faster.
