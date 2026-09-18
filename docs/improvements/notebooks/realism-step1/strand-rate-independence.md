@@ -134,3 +134,16 @@ angle at its first bone's head from where it hangs at rest, not clamped by any b
 bone peak, so "about 45" was never a free measure; 36-40 deg is what the smoothed run gives with the
 shipped preset. More swing is a preset change (response/frequency), which means rebuilding the game's
 characters: not done here.
+
+Cost: the filter adds 17-43 us a frame (study_woman run 114-275 us at 240-30 fps, against 72-226).
+
+## 14:29-14:55 fix-round regress | kind=win
+`regress.py --quick --jobs 2 --keep %TEMP%/rw/strand/kr --godot <game worktree>` on 82b6833 / f4ca262,
+log `%TEMP%/rw/strand/fix1_quick.log`: 22 fixtures ok, no change, every Godot row ok, including
+`verify_strands pipeline_ponytail` swing_spread=1.065 start_spread=1.030 PASSED and its
+`legacy_integration=true (must fail)` 1.308 / 1.385 FAILED on both spread lines.
+`REGRESS DONE exit=0, 22 fixtures ok`. figure_study `--selftest` PASSED (0 failures), r2/selftest.log.
+
+Open: jiggle_modifier.gd (flesh) still steps per frame on the raw interpolated motion and likely has
+the same rate dependence; below 30 fps is not covered; more swing needs a preset change and a rebuild;
+verify_strands' kick_peak_deg still sits on the 60 deg limit; long_loose not built.
