@@ -113,3 +113,14 @@ And in Step 0.5, the scratch_project bullet: done (branch `tools-scratch-project
 `python tools/regress.py --quick --jobs 2` (tools/ changed, so every fixture): `REGRESS DONE exit=0, 23 fixtures ok`,
 no change, 15.5 min. Full log: `%TEMP%/rw/tsp/regress_quick_final.log`. `python tools/test_tools.py`: all passed.
 Wall time for the branch about 36 min.
+
+## 13:46-13:55 merge step
+
+main had moved (cp-cascade-stop took character-pipeline 0.10.0, ra-closeup-framing 0.9.1). Merged main into the
+branch: marketplace.json and plugin.json taken from main, then `tools/bump.py character-pipeline 0.11.0` with this
+branch's Since sentence; runner.build keeps `UNDRESS_FOR_FLESH` and `save_outside`; tests/README keeps main's
+pipeline_hashes row and adds pipeline_paths. References to "0.10.0" in this branch's code and docs
+(scratch_project.py docstring, tests/README, the game's build_human.py comment) now say 0.11.0; the sections above
+keep 0.10.0 as written at the time. `python tools/regress.py --quick --jobs 4` on the merge: REGRESS DONE exit=0,
+23 fixtures ok, no change (13:48-13:54, log `%TEMP%/rw/merge-tsp/regress_quick.log`); test_tools all passed.
+Master had not moved, so the game branch needed no merge.
