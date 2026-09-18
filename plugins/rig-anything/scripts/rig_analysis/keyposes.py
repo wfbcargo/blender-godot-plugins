@@ -43,12 +43,24 @@ STEP_SHARE = 0.15
 STEP_LIFT = 0.1
 
 # A relaxed hand: degrees each finger joint curls toward the palm, by its place
-# along the finger from the hand (knuckle, middle joint, end joint, further),
-# and the thumb's, which also turns in toward the palm at its base. A hand at
-# rest hangs this way; MPFB's rest pose holds the fingers straight and apart,
-# which reads as a hand held up flat. `Key.hands` scales it per arm.
-FINGER_CURL_DEG = (14.0, 22.0, 16.0, 10.0)
-THUMB_CURL_DEG = (18.0, 12.0, 10.0, 8.0)
+# along the finger from the hand (knuckle, middle joint, end joint, further).
+# Most of it at the knuckles, least at the tips: a curl held at the tips reads
+# as a claw (the first pass, 14/22/16, did). The fingers cascade - the index
+# curls least, each finger further from the thumb FINGER_CASCADE more - and
+# close toward the middle of the hand by FINGER_CLOSE of the angle between
+# them (at most FINGER_CLOSE_MAX_DEG each), since a hanging hand's fingers
+# touch. The thumb does not oppose: its base swings in toward the side of the
+# index finger's middle joint by THUMB_IN of the way (at most
+# THUMB_IN_MAX_DEG), its end joints curl a little. A hand at rest hangs this
+# way; MPFB's rest pose holds the fingers straight and apart, which reads as a
+# hand held up flat. `Key.hands` scales it per arm.
+FINGER_CURL_DEG = (22.0, 20.0, 12.0, 8.0)
+FINGER_CASCADE = 0.1
+FINGER_CLOSE = 0.85
+FINGER_CLOSE_MAX_DEG = 14.0
+THUMB_CURL_DEG = (0.0, 10.0, 8.0, 6.0)
+THUMB_IN = 0.7
+THUMB_IN_MAX_DEG = 30.0
 
 
 def hand_digits(rig, limb):
@@ -103,9 +115,28 @@ def hand_digits(rig, limb):
     for p in paths:
         for b in p:
             count[b.name] = count.get(b.name, 0) + 1
+    # fingers ranked from the thumb: the index is the one whose root lies nearest it
+    t_root = paths[thumb][0].head_local
+    order = sorted(range(len(paths)), key=lambda i: (paths[i][0].head_local - t_root).length)
+    rank = {i: r for r, i in enumerate(j for j in order if j != thumb)}
+    index = next(j for j in order if j != thumb)
+
+    def flat(v):
+        return (v - palm * v.dot(palm)).normalized()
+    mid_dir = flat(sum((dirs[i] for i in rank), Vector()))
+    # where the thumb tip rests: beside the index finger's middle joint, a
+    # finger's width toward the thumb and half one toward the palm
+    ip = paths[index]
+    width = min(((paths[j][0].head_local - ip[0].head_local).length for j in rank if j != index),
+                default=0.02)
+    joint = ip[1].head_local if len(ip) > 1 else ip[0].tail_local
+    toward = flat(t_root - ip[0].head_local)
+    rest_spot = joint + toward * width + palm * 0.5 * width
     out, seen = [], set()
     for i, p in enumerate(paths):
-        table = THUMB_CURL_DEG if i == thumb else FINGER_CURL_DEG
+        is_thumb = i == thumb
+        table = THUMB_CURL_DEG if is_thumb else FINGER_CURL_DEG
+        scale = 1.0 if is_thumb else 1.0 + FINGER_CASCADE * (rank[i] - 1)
         k = 0
         for b in p:
             if count[b.name] > 1:
@@ -116,7 +147,27 @@ def hand_digits(rig, limb):
                 k += 1
                 continue
             seen.add(b.name)
-            out.append((b.name, axis.normalized(), table[min(k, len(table) - 1)]))
+            rot = Matrix.Rotation(math.radians(table[min(k, len(table) - 1)] * scale), 3,
+                                  axis.normalized())
+            if k == 0 and is_thumb:
+                # swing the thumb in toward the index's side instead of across the palm
+                tip = p[-1].tail_local - b.head_local
+                want = rest_spot - b.head_local
+                sw = tip.cross(want)
+                if sw.length > 1e-9:
+                    ang = min(THUMB_IN * tip.angle(want), math.radians(THUMB_IN_MAX_DEG))
+                    rot = Matrix.Rotation(ang, 3, sw.normalized()) @ rot
+            elif k == 0:
+                # close the finger toward the middle of the hand, in the palm's plane
+                f = flat(d)
+                ang = math.atan2(f.cross(mid_dir).dot(palm), f.dot(mid_dir))
+                cap = math.radians(FINGER_CLOSE_MAX_DEG)
+                ang = max(-cap, min(cap, FINGER_CLOSE * ang))
+                rot = Matrix.Rotation(ang, 3, palm) @ rot
+            q = rot.to_quaternion()
+            ax, ang = q.to_axis_angle()
+            if ang > 1e-6:
+                out.append((b.name, ax.normalized(), round(math.degrees(ang), 2)))
             k += 1
     depth = {b.name: len(b.parent_recursive) for b in hand.children_recursive}
     out.sort(key=lambda e: depth[e[0]])

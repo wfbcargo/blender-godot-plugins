@@ -122,8 +122,10 @@ GAIT_STYLES = {
     # step length -10-20%, double support 25-35% vs ~20%)
     "elderly_shuffle": {
         "posture": {"pelvis": 2.0, "flex": 12.0, "neck": -8.0},
+        # no vault: a shuffle does not ride over a straight leg, its knees stay soft all
+        # through stance (25-27 degrees at mid-stance on StudyMan, 11.5 when it vaulted)
         "walk": {"duty": 0.74, "stride_scale": 0.8, "lift_scale": 0.8, "bounce_scale": 0.5,
-                 "sway": 0.012, "extension": 0.94, "max_drop": 0.06,
+                 "sway": 0.012, "extension": 0.94, "max_drop": 0.06, "vault": False,
                  "upper": {"arm_swing": 5.0, "arm_forward": -8.0, "elbow": 20.0, "elbow_swing": 3.0,
                            "hand_in": 3.0, "pelvis_turn": 1.5, "thorax_turn": 2.0, "side_bend": 2.0,
                            "lean": 0.0, "lean_bob": 0.5, "head_hold": 0.9}},
@@ -134,8 +136,10 @@ GAIT_STYLES = {
     # body rocking over each stance leg, arms held out from the hips
     "heavy": {
         "stance_width": 1.4,
+        # no vault: the body sinks into each stance leg rather than riding over it
+        # straight (35 degrees of knee at mid-stance on StudyMan, 12 when it vaulted)
         "walk": {"stride_scale": 1.08, "lift_scale": 0.8, "bounce_scale": 0.6, "sway": 0.03,
-                 "max_drop": 0.045,
+                 "max_drop": 0.045, "vault": False,
                  "upper": {"arm_swing": 12.0, "side_bend": 4.0, "pelvis_list": 2.5, "lean": 1.0,
                            "hand_clearance": 0.04}},
         "run": {"stride_scale": 1.05, "lift_scale": 0.85, "bounce_scale": 0.8, "max_drop": 0.07,
@@ -168,7 +172,8 @@ GAIT_STYLES = {
 }
 
 STYLE_KEYS = ("duty", "stride_scale", "lift_scale", "bounce_scale", "sway", "min_knee",
-              "extension", "max_drop", "centre_weight", "stance_width", "posture", "upper")
+              "extension", "max_drop", "centre_weight", "stance_width", "posture", "upper",
+              "vault")
 
 
 def style_args(style, section, explicit):
@@ -718,7 +723,7 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
                    the speed alone gives
     sway           side-to-side hip sway, amplitude as a share of leg length;
                    None is 0.01 on an upright walk, 0 otherwise
-    vault          an upright biped's walk rides over a near-straight stance
+    vault          (a style key too) an upright biped's walk rides over a near-straight stance
                    leg: the hips are as high as the stance legs reach at every
                    moment, lowest in double support and back at standing
                    height as a foot passes under them. None does it on a
@@ -740,7 +745,7 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         duty=duty, stride_scale=stride_scale, lift_scale=lift_scale, bounce_scale=bounce_scale,
         sway=sway, min_knee=min_knee, extension=extension, max_drop=max_drop,
         centre_weight=centre_weight, stance_width=stance_width, posture=posture,
-        upper=upper).items() if v is not None}
+        upper=upper, vault=vault).items() if v is not None}
     asked = GAITS[froude] if isinstance(froude, str) else froude
     running_asked = (speed > 2.0) if speed is not None else (asked is not None and asked >= 0.5)
     try:
@@ -752,6 +757,7 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
     extension = a.get("extension", 0.97)
     max_drop, centre_weight = a.get("max_drop"), a.get("centre_weight")
     stance_width, posture, upper = a.get("stance_width"), a.get("posture"), a.get("upper")
+    vault = a.get("vault")
 
     bm = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
     if "error" in bm:
@@ -878,6 +884,15 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
             k = VAULT_CURVE * P.leg_len
             prof = [max(need[j] - k * (min(abs(i - j), n - abs(i - j)) / float(n)) ** 2
                         for j in range(n)) for i in range(n)]
+            # bounce_scale scales the rise and fall. Under 1 the hips stay near
+            # the lowest they must go (softer knees through stance), over 1 they
+            # sink further between the high points; never higher than a leg
+            # reaches, never lower than the drop limit.
+            bs = 1.0 if bounce_scale is None else float(bounce_scale)
+            if abs(bs - 1.0) > 1e-9:
+                lo_p, hi_p = min(prof), max(prof)
+                anchor = hi_p if bs < 1.0 else lo_p
+                prof = [min(cap, anchor + bs * (v - anchor)) for v in prof]
             vault_cache[S] = prof
             state["vault_range"] = (min(prof), max(prof))
         t = (p0 % 1.0) * n

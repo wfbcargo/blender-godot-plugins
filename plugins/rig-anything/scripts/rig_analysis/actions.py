@@ -1096,7 +1096,8 @@ def turn(rig_name, direction="L", degrees=90.0, frames=24, forward="-Y", up="Z",
     idle's.
 
     The clip is not a loop and does not end where it began: it ends turned.
-    Its report carries `turn` = {yaw_deg, pivot_leg, pivot_m, end_offset_m}:
+    Its report carries `turn` = {yaw_deg, pivot_leg, pivot_m, end_offset_m,
+    floor_skid_m, skid_tolerance_m}:
     the yaw (positive to the body's left) and where the rig's origin went, in
     the rig's space. That is what an engine applies to the character when the
     clip ends, before it plays Idle. Checked like every clip (floor, skin,
@@ -1204,7 +1205,12 @@ def turn(rig_name, direction="L", degrees=90.0, frames=24, forward="-Y", up="Z",
                    "turn": {"yaw_deg": round(yaw_sign * degrees, 3),
                             "pivot_leg": inside["name"],
                             "pivot_m": [round(x * scale, 4) for x in pivot],
-                            "end_offset_m": [round(x * scale, 4) for x in origin_end]}})
+                            "end_offset_m": [round(x * scale, 4) for x in origin_end],
+                            # how far each foot slid along the floor while on it, the pivot
+                            # included, against the check's tolerance - the planted-pivot proof
+                            # the manifest carries once the build report is gone
+                            "floor_skid_m": report.get("floor_skid"),
+                            "skid_tolerance_m": report.get("tolerance")}})
     return report
 
 

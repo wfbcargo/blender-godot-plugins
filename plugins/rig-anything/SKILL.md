@@ -176,11 +176,20 @@ used to drop them by one amount for the whole cycle and every stance knee stayed
 of the way back from the standing toe towards under the hip, because a person lands on the heel
 ahead and leaves on the toe behind. Each report gives `stance_knee_flex_deg` per leg (half-way
 through stance; a walk 5-15, a run 35-50) and `vault`, and both reach `.moves.json` `gaits`.
+A vaulting walk reads 11.5 there on every MPFB body: that is `Reach`'s straight-leg cap
+(extension 0.995), not a free measurement. A style keeps its character under the vault:
+`bounce_scale` scales the vault's rise and fall (under 1 the hips stay near their lowest, so the
+knees stay softer; over 1 they sink further in double support), and `vault` is a style key -
+`elderly_shuffle` and `heavy` set it False, so a shuffle keeps soft knees (about 25 degrees at
+mid-stance) and a heavy body sinks into each stance leg (about 35).
 
 **Hands hang relaxed in every clip** of an upright body (`keyposes.hand_digits`): the fingers
-curl 10-22 degrees a joint towards the palm and the thumb turns in, from the skeleton's shape -
-the arm's end bone is the hand, its paths to leaves the digits, the one pointing furthest from
-the rest the thumb, the palm side where the thumb and the fingers' own rest bend lie. It is the
+curl towards the palm most at the knuckle and least at the tip (22, 20, 12 degrees; a tip-heavy
+curl reads as a claw), each finger further from the thumb a tenth more than the last, and close
+together in the palm's plane; the thumb does not oppose but swings in beside the index finger's
+middle joint. All from the skeleton's shape - the arm's end bone is the hand, its paths to leaves
+the digits, the one pointing furthest from the rest the thumb, the finger whose root is nearest
+it the index, the palm side where the thumb and the fingers' own rest bend lie. It is the
 body's ground rest (like folded wings), so "frame one is rest" still holds. A gait's fingers
 trail the arm swing a little (`upper.HAND_LAG`, `HAND_SWING`); `Key.hands` scales the curl per arm.
 An idle's chest lifts 1.5 degrees with each breath (`actions.BREATH_CHEST_DEG`).
@@ -190,7 +199,7 @@ An idle's chest lifts 1.5 degrees with each breath (`actions.BREATH_CHEST_DEG`).
 and carried round, the turn only while it is off the floor. The floor-skid check follows both
 contacts through every frame. A turn takes the Idle's stance, posture and style unless given its
 own. It is not a loop and ends turned: the report's `turn` = `{yaw_deg, pivot_leg, pivot_m,
-end_offset_m}` goes into `.moves.json` `turns`, for the engine to apply to the character when
+end_offset_m, floor_skid_m, skid_tolerance_m}` goes into `.moves.json` `turns`, for the engine to apply to the character when
 the clip ends. MovesController does not play turns yet.
 
 See `animate-anything`'s `references/contact-locomotion.md`.

@@ -2102,6 +2102,50 @@
    "warnings": [
     "limb bones with no skin: hand.L, hand.R"
    ]
+  },
+  "styled_walks": {
+   "child": {
+    "drop_m": 0.029,
+    "duty_factor": 0.55,
+    "failures": [],
+    "passed": true,
+    "stance_knee_flex_deg": {
+     "thigh.L": 11.5,
+     "thigh.R": 11.5
+    },
+    "stride_m": 0.9142,
+    "vault": true,
+    "vault_drop_m": [
+     0.0,
+     0.029
+    ]
+   },
+   "elderly_shuffle": {
+    "drop_m": 0.0495,
+    "duty_factor": 0.696,
+    "failures": [],
+    "passed": true,
+    "stance_knee_flex_deg": {
+     "thigh.L": 41.0,
+     "thigh.R": 41.0
+    },
+    "stride_m": 0.9369,
+    "vault": false,
+    "vault_drop_m": null
+   },
+   "heavy": {
+    "drop_m": 0.0372,
+    "duty_factor": 0.55,
+    "failures": [],
+    "passed": true,
+    "stance_knee_flex_deg": {
+     "thigh.L": 33.3,
+     "thigh.R": 33.3
+    },
+    "stride_m": 1.0396,
+    "vault": false,
+    "vault_drop_m": null
+   }
   }
  }
 }
