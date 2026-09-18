@@ -27,7 +27,7 @@ here and nowhere else:
 - humanform 0.10.1
 - character-pipeline 0.11.0
 - wardrobe 0.5.1
-- lookdev 0.4.1
+- lookdev 0.5.0
 - godot-lsp 0.1.0
 
 ---
@@ -45,9 +45,12 @@ jump courses).
 
 To look at them: each build writes the Blender close-up set to
 `assets/figure_study/<id>/review/<id>/close/` (`sheet.png`, 16 tiles, `close.json`; the folder is git-ignored).
-In Godot, `node ~/.claude/skills/lookdev/bin/lookdev.mjs close-shot --project . --glb
-res://assets/figure_study/study_woman/study_woman.glb --distance 1 --views face,hands,full --presets
-clear_midday,overcast --out <scratch>` writes a labelled sheet in about 10 s. The ship step's sheets are in
+In Godot,
+
+    node ~/.claude/skills/lookdev/bin/lookdev.mjs close-shot --project .       --glb res://assets/figure_study/study_woman/study_woman.glb --views head,hands,full       --presets clear_midday,overcast --pair-blender assets/figure_study/study_woman/review/study_woman/close       --out <scratch>
+
+writes a sheet with one row per view (face, face_3q, eyes, head_side, head_back, the four hand views, full),
+the Blender close-set tile first and one column per preset, in about 15 s. The ship step's sheets are in
 `%TEMP%/rw/ship/look/<id>/sheet.png` (a scratch folder; regenerate rather than rely on it). They show every
 defect in the table below, plus a vertical specular band on both foreheads under overcast.
 
@@ -178,12 +181,24 @@ Suggested after the Step 0 round; each saves agent minutes on every later round.
   `blend = "..."` line (fails safe); the committed glbs carry a stale `.001` mesh name from a resumed build
   (runner/stages, not this seam); crowd humans and creatures are not copied. Notebook:
   [notebooks/realism-step1/tools-scratch-project.md](notebooks/realism-step1/tools-scratch-project.md).
-- **close-shot views the look critic missed** (lookdev): eyes, face_3q, head_side and head_back in the Godot
-  set, like the Blender set; presets side by side per view rather than stacked; the label band never over the
-  head in `full`; `--pair-blender <close dir>` putting the Blender tile next to the Godot tile of the same
-  view (it would have shown the hair and brow loss at once); and a stipple/dither detector (a
-  high-frequency periodic pattern in shadowed skin) with a control. Plus the open items listed under Step 0
-  (tile-check control, `--min-subject`, close-shot in `regress --godot`).
+- **close-shot views the look critic missed: done except the stipple detector** (branch
+  `lookdev-closeshot-views`, lookdev 0.5.0, merged 2026-09-18; the stipple/dither detector belongs to
+  `hair-godot-transfer`). New Godot views face_3q, head_side and head_back (a `head` group, in the default
+  list), aimed with closeups._aim's formulas so frame widths match the Blender set. One row per view, one
+  column per preset; each label sits in a band above its picture, and `full` checks the head's box against
+  the band (LABEL_OVER_HEAD, control `--label inside`). Tile checks use each view's subject points
+  (OFF_TARGET, SUBJECT_CUT in full; free values in close.json); `--aim-offset view=x,y,z` and `--min-subject`.
+  `--pair-blender <close dir>` puts the Blender tile first in each row at its distance and lists unpaired
+  views. selftest 11 -> 18 controls. `regress --godot` runs close-shot on pipeline_woman's glb (must pass), a
+  camera-offset control (must fail) and the selftest. This also closes the Step 0 open items (tile-check
+  control, `--min-subject`, close-shot and the selftest in `regress --godot`). Critic: pass. Open: SUBJECT_CUT
+  has no committed selftest control; regress counts the must-fail control ok on any failure, not only
+  OFF_TARGET; tile checks are centroid-only (the Blender set's every-point margin is not ported); since
+  ra-closeup-framing's `close_off` case removes pipeline_woman's close/, regress's close-shot row runs
+  unpaired (`--pair-blender` is still covered by the selftest's fake set; regress should keep a close set
+  and fail when an expected pair is missing); `full` never pairs and Blender's crotch, knees, under_bust and
+  foot side views have no Godot twin; a sheet over 16384 px is cut, not split; `--columns` is gone. Notebook:
+  [notebooks/realism-step1/lookdev-closeshot-views.md](notebooks/realism-step1/lookdev-closeshot-views.md).
 - **The look set's framing: done** (branch `ra-closeup-framing`, rig-anything 0.26.0, character-pipeline
   0.9.1, merged 2026-09-18). Every subject point (wrist, knuckles, fingertips; both eyes; ankle, heel, toe
   tip) must project 0.04 inside the tile, next to the centroid check. A failure is `cut`, and the free
@@ -216,7 +231,7 @@ Suggested after the Step 0 round; each saves agent minutes on every later round.
   2026-09-18; lookdev 0.4.1, animate-anything 0.10.1, wardrobe 0.5.1, follow-through 0.6.2, humanform
   0.10.1, docs only). `references/critic-look.md`, `critic-motion.md`, `critic-fit.md`, `critic-flesh.md`,
   `critic-body.md`; see "How to judge \"realistic\"" for how to use them. Open: the Godot close-shot lacks
-  face_3q, head_side, head_back and a stipple detector, so critic-look sends those to the Blender tiles; no
+  a stipple detector (face_3q, head_side and head_back came in lookdev 0.5.0, and critic-look names them); no
   tool renders flesh jiggle in motion, a posed thigh through a skirt or limb clearance in a pose (listed as
   not answerable).
 - **Controls still missing from Step 0: done** (same branch). `limit_influences` fixture with the
