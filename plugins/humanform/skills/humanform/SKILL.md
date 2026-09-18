@@ -23,6 +23,7 @@ been **measured**. The research behind this plugin, and the full plan, are in
 | L4 | hands-and-feet stage (ANSUR hand and foot sizes), hand and foot design parts | **built** (0.5.0) - `scaffold.fit_extremities`, `parts.design` / `screen` - see `humanlib` |
 | L6 | hair from a preset: feathered scalp cap, bun / tie / fall volumes, strand objects for follow-through | **built** - `hair`, see *Hair* |
 | L3-L4 | muscle definition: sculpted delta parts weighted by muscle and body fat, as geometry or a baked normal map | **built** - `muscle`, `delta`, `sdf` - see "Muscle definition" below and `humanlib` |
+| L4 | genitals for figure study (off by default): MPFB's male shell kept and fused, a female relief delta | **built** - `genitals`, see "Genitals" below |
 | L3-L4 | stylized exaggeration (SDF forms) | next |
 | L5-L6 | reproject onto base topology, micro-detail, bake, skin | Phase 5 |
 | L7 | rig from landmarks, flesh regions, export | Phase 6 |
@@ -351,6 +352,43 @@ rep["fitted_muscle"], rep["applied_bulk"]                # the macro the fit lef
   from the same mesh carries no finer detail than the geometry.
 
 Verify: `python tools/regress.py --only muscle_definition` (repo), renders in its design doc (05 5.5).
+
+## Genitals (figure-study anatomy)
+
+Neutral adult anatomy for figure study - relaxed, at rest - off unless asked for (`[body] genitals = true` in a
+character-pipeline spec, which calls these in its body and bake stages):
+
+```python
+from humanform import genitals
+genitals.add(human, "male", shape={"length": 0.4})   # unbaked body, after the fit: keep MPFB's shell
+b = ra_export.bake_for_game(...)                     # the mask applied; the shell survives it
+genitals.fuse(baked_body)                            # before the eyes or hair join the baked mesh
+genitals.add(human, "female", strength=1.0)          # a relief delta key, hfd:genital, the bake folds in
+```
+
+- **Male: MPFB's own shell.** `helper-genital` (200 vertices, 182 quads) is open only where it meets the
+  crotch - one 34-vertex loop within 3 mm of the skin - and MPFB weights it ~91% to the pelvis. `keep` puts it
+  in the mask's `body` group, marks it with the point attribute `hf_genital`, and loads MPFB's
+  `penis-{length,circ,testicles}-{incr,decr}` targets for a `shape` (0..1, 0.5 neutral) as `hfg:` keys.
+  `fuse` subdivides it once (11 mm quads read faceted lit), cuts the body faces under its footprint, zips the
+  20-vertex rim to the 68-vertex loop by angle (bmesh `bridge_loops` leaves holes on unequal loops), relaxes
+  the seam, caps each thigh's weight at 0.06, and moves the shell 6 mm clear of where the thighs sweep with the
+  pelvis still (126 poses, capped 15 mm). The body stays one closed piece; the study man's open edges were
+  34 (the loop) before and 0 after.
+- **The fuse deletes a few hm08 body vertices,** so a fused mesh is not hm08-indexed: run `delta`/`muscle`
+  before the bake, never `delta.apply(mode="mesh")` on a fused man.
+- **Female: a delta, not geometry.** A mons pad (~4 mm), two labia majora pads (~3 mm) and a midline cleft
+  (~1 mm), placed from the body's own crotch and front midline. At hm08's ~2 cm crotch edges they read as soft
+  forms; the labia barely.
+- **Open: the thighs still pass into the scrotum in motion.** Skinning only, worst frames: Idle 0, Walk 70
+  vertices / 15 mm, Run 102 / 16 mm, Crouch 26 / 10 mm (against the pubic skin), Jump 4 / 7 mm. Thigh weight
+  on the scrotum (up to 0.8 by contact) halved the walk's but tore spikes at the join in a crouch. The fix
+  wants a runtime collider or hip-driven correctives, not static geometry.
+- On a body carrying the shell (`hf_genital`), humancheck's crotch scan needs the midline section to be as
+  wide as two thighs (> 0.08 H), or it takes the scrotum for the crotch (6.7 cm low, and a hip-above-crotch
+  fail). Only there: applied to every body it moved MPFB fits (a curvy woman's stature by 2.8 mm).
+
+Verify: `python tools/regress.py --only pipeline_genitals` (repo).
 
 ## MPFB2 from a script
 

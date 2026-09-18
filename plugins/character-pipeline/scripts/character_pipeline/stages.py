@@ -4,7 +4,8 @@
     muscle    humanform's muscle definition on the unbaked body: delta-part shape keys weighted by the brief,
               as geometry, or (output = "normal") a high copy the bake stage bakes into the skin's normal
               map (optional: `[muscle]`)
-    bake      one skinned mesh: shape keys and helpers baked, skin material, eyes joined
+    bake      one skinned mesh: shape keys and helpers baked, skin material, eyes joined; with `[body] genitals`
+              a man's kept genital shell is fused to the body first (humanform.genitals.fuse)
     hair      humanform's hair layer from a preset, joined into the body - except a strand part the
               strand stage will chain, which stays its own object (optional)
     flesh     follow-through jiggle bones (optional)
@@ -210,6 +211,11 @@ def run_body(ch, ctx):
                         hand_part=parts.get("hands"), foot_part=parts.get("feet"),
                         **quality_mod.settings(ctx["quality"], "body"))
     out = {k: res.get(k) for k in ("ansur", "check", "notes", "macros")}
+    if ch.body.genitals:
+        from humanform import genitals
+        sex = ch.body.brief.get("sex")
+        out["genitals"] = genitals.add(_obj(ch.name), sex, shape=ch.body.genital_shape or None,
+                                       strength=ch.body.genital_strength)
     out["stature"] = _stature(res)
     out["library"] = res.get("path")                # reuse | warm | fresh: where the body's seconds went
     out["timing"] = res.get("timing")
@@ -325,6 +331,11 @@ def run_bake(ch, ctx):
         b = {"note": "already baked"}
     ob = _obj(ch.mesh)
     _obj(ch.rig).data.pose_position = "POSE"
+    fused = None
+    if ch.body.genitals and ch.body.brief.get("sex") == "male":
+        # the shell the body stage kept, fused on the baked mesh before the eyes join it (humanform.genitals)
+        from humanform import genitals
+        fused = genitals.fuse(ob)
     skin = ch.body.brief.get("skin") if ch.body.source == "brief" else ch.body.skin
     if skin is not None:
         look.skin(ob, skin, name=f"{ch.name}_skin")
@@ -336,6 +347,8 @@ def run_bake(ch, ctx):
     unweighted = sum(1 for v in ob.data.vertices if not any(g.weight > 1e-4 for g in v.groups))
     out = {"verts": len(ob.data.vertices), "groups": len(ob.vertex_groups), "unweighted": unweighted,
            "materials": [m.name for m in ob.data.materials if m], "baked": b}
+    if fused is not None:
+        out["genitals"] = fused
     if ch.muscle is not None:
         if ch.muscle.output == "normal":
             out["muscle_normal"] = _bake_muscle_normal(ch, ctx)

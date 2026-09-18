@@ -1,0 +1,173 @@
+{
+ "fixture": "pipeline_genitals",
+ "plugins": {
+  "character-pipeline": "0.5.0",
+  "follow-through": "0.5.2",
+  "humanform": "0.8.0",
+  "lookdev": "0.2.0",
+  "rig-anything": "0.23.0",
+  "wardrobe": "0.4.0"
+ },
+ "report": {
+  "hashing": {
+   "body_section_keys": [
+    "brief",
+    "object",
+    "parts",
+    "skin",
+    "source"
+   ],
+   "explicit_false_same_digest": true,
+   "on_differs": true
+  },
+  "man": {
+   "bake": {
+    "cut_faces": 22,
+    "cut_vertices": 13,
+    "open_edges_after": 0,
+    "open_edges_before": 34,
+    "rim": 20,
+    "seam_faces": 64,
+    "seam_quads": 24,
+    "shell_faces": 728,
+    "shell_loop": 68
+   },
+   "body": {
+    "sex": "male",
+    "shell_vertices": 200,
+    "targets": {
+     "penis-length-decr": 0.2
+    }
+   },
+   "clearance": {
+    "max_mm": 14.9,
+    "poses": 126,
+    "pushed": 403
+   },
+   "flesh_regions": {
+    "genital": {
+     "bone_parent": "spine",
+     "material": "firm_flesh",
+     "max_offset_m": 0.0195,
+     "peak_m": 0.065,
+     "type": "genital"
+    }
+   },
+   "glb": {
+    "jiggle_nodes": [
+     "ft_jiggle_genital"
+    ],
+    "meshes": [
+     "FixStudyMan_body"
+    ],
+    "skins": 1
+   },
+   "pelvis_dominant": true,
+   "shares": {
+    "spine": 0.934,
+    "thigh.L": 0.033,
+    "thigh.R": 0.033
+   },
+   "stages": {
+    "bake": "ran",
+    "body": "ran",
+    "export": "ran",
+    "flesh": "ran",
+    "moves": "ran"
+   },
+   "surface": {
+    "largest": 14130,
+    "open_edges": 0,
+    "pieces": 1
+   },
+   "unweighted": 0,
+   "walk_in_thighs": [
+    {
+     "deepest_mm": 5.6,
+     "frame": 1,
+     "inside": 7
+    },
+    {
+     "deepest_mm": 14.7,
+     "frame": 7,
+     "inside": 74
+    },
+    {
+     "deepest_mm": 11.5,
+     "frame": 13,
+     "inside": 19
+    },
+    {
+     "deepest_mm": 10.9,
+     "frame": 20,
+     "inside": 38
+    },
+    {
+     "deepest_mm": 12.1,
+     "frame": 26,
+     "inside": 60
+    },
+    {
+     "deepest_mm": 5.6,
+     "frame": 33,
+     "inside": 7
+    }
+   ]
+  },
+  "refusals": {
+   "bad_shape_key": "body.genital_shape.girth = 0.4: length, circ or testicles, 0..1 (0.5 neutral)",
+   "blend_source": "body.genitals needs body.source = \"brief\": the part is MPFB's, put on the unbaked humanform body",
+   "not_bool": "body.genitals must be bool, not str",
+   "shape_on_woman": "body.genital_shape is MPFB's male targets; a woman's relief takes genital_strength",
+   "shape_range": "body.genital_shape.length = 1.4: length, circ or testicles, 0..1 (0.5 neutral)",
+   "shape_without_genitals": "body.genital_shape / genital_strength need body.genitals = true"
+  },
+  "woman": {
+   "bake_has_genitals": false,
+   "body": {
+    "groups": {
+     "cleft": {
+      "max_mm": 1.09,
+      "vertices": 23,
+      "weight": 1.0
+     },
+     "labia": {
+      "max_mm": 2.94,
+      "vertices": 81,
+      "weight": 1.0
+     },
+     "mons": {
+      "max_mm": 4.22,
+      "vertices": 141,
+      "weight": 1.0
+     }
+    },
+    "key": "hfd:genital",
+    "landmarks": {
+     "crotch": [
+      0.0,
+      -0.0851,
+      0.7968
+     ],
+     "mons": [
+      0.0,
+      -0.1511,
+      0.8729
+     ]
+    },
+    "max_mm": 4.82,
+    "sex": "female",
+    "strength": 1.0
+   },
+   "stages": {
+    "bake": "ran",
+    "body": "ran"
+   },
+   "surface": {
+    "largest": 13380,
+    "open_edges": 0,
+    "pieces": 1
+   }
+  }
+ }
+}

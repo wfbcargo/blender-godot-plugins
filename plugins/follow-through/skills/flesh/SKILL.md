@@ -94,10 +94,15 @@ influences a vertex), and writes the `jiggle` block. Re-running replaces them.
 | material | Hz | damping | squash | translate | gravity | used by |
 |---|---|---|---|---|---|---|
 | soft_fat | 2.7 | 0.25 | 0.5 | 0.35 | 1.0 | breast, belly, butt, love_handle, arm_flab |
-| firm_flesh | 6 | 0.6 | 0.2 | 0.15 | 0.5 | thigh |
+| firm_flesh | 6 | 0.6 | 0.2 | 0.15 | 0.5 | thigh, genital |
 | bloated | 1.8 | 0.18 | 0.75 | 0.6 | 1.2 | bloater_belly |
 
 soft_fat's 2.7 Hz is breast adipose tissue (E 3.25 kPa, Samani 2007) as a dome of 10 cm.
+`genital` (humanform's kept male shell, anchored on the pelvis, zone on the midline below the hips) is
+firm_flesh, not soft_fat: a small mass hung at 2.7 Hz sags g/(2 pi f)^2 = 3.4 cm under gravity, and
+verify_flesh held the study man's on its 1.7 cm limit (0.3 x peak) 16.7% of the course; at 6 Hz 0.5%, with
+within_body true on walk and run. It is `opt_in`: `find_regions` looks for it only when `types` names it
+(a search for every type on the sample Figure found a crotch bulge and moved ten fixtures).
 `aim` swings the bone toward the sprung tail, `translate` moves its head that share of the
 offset, `squash` stretches it along its length with the cross-section at 1/sqrt so the
 mass keeps its volume, `max_offset_m` caps the swing, `response` scales how hard the body's

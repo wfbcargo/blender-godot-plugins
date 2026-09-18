@@ -679,6 +679,10 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
     order = [x for x in ORDER if x in flesh_types] + sorted(x for x in flesh_types if x not in ORDER)
     if types is not None:
         order = [x for x in order if x in types]
+    else:
+        # an `opt_in` type (genital) is looked for only when asked for by name: a search for every kind of
+        # flesh on a body built without it must find what it found before the type existed
+        order = [x for x in order if not flesh_types[x].get("opt_in")]
     claimed = np.zeros(n, dtype=bool)
     name_toks = set(registry.name_tokens(obj.name))
     min_size = max(8, int(MIN_REGION_FRACTION * n))

@@ -41,6 +41,10 @@ cupsize = 1.0
 measurements = { chestcircumference = 1.02, waistcircumference = 0.72, buttockcircumference = 1.07 }
 skin = [0.78, 0.58, 0.47]
 iris = [0.36, 0.45, 0.30]
+# genitals = true                  # optional, default false: humanform.genitals, neutral figure-study anatomy -
+                                   # a man keeps MPFB's shell (fused in bake), a woman a relief delta
+# genital_shape = { length = 0.5 } # men only: MPFB's penis-{length,circ,testicles} targets, 0..1, 0.5 neutral
+# genital_strength = 1.0           # women only: scales the relief
 [body.parts]                       # humanform library parts
 face = "face-female-11-1-49f17892"
 
@@ -98,9 +102,9 @@ that no plugin owns yet. Tuned numbers live with their owners, and a spec only n
 
 | Stage | Needs | Checks in the file before it runs |
 |---|---|---|
-| `body` | - | a `blend` source's object is in the open file |
+| `body` | - | a `blend` source's object is in the open file. With `genitals = true` it calls `humanform.genitals.add` on the unbaked body (a man's shell kept past the helper mask, a woman's `hfd:genital` relief key) |
 | `muscle` | body | only with `[muscle]` (a `brief` body): the rig and the **unbaked** humanform mesh exist, no definition on it yet. Runs `humanform.muscle.define` (`hfd:muscle` at 1 for geometry, at 0 plus a `<name>_muscle_high` copy for a normal map; `hfd:muscle-bulk` always at 1) |
-| `bake` | body, muscle | the rig and the humanform mesh exist. With `output = "normal"` it bakes the high copy into the skin's normal map (lookdev `detail.bake_normal_from_high`, matched), packs the image and removes the copy; the glb carries it as the skin's `normalTexture` |
+| `bake` | body, muscle | the rig and the humanform mesh exist. A man with `genitals = true` has his shell fused to the baked body (`genitals.fuse`) before the eyes join it; the report's `genitals` block has the seam, the open edges before and after and the shell's bone shares. With `output = "normal"` it bakes the high copy into the skin's normal map (lookdev `detail.bake_normal_from_high`, matched), packs the image and removes the copy; the glb carries it as the skin's `normalTexture` |
 | `hair` | bake | baked; no garment bound; **no hair in the file already**. Runs humanform's `hair.add` and joins the hair into the body; a strand part the strand stage will chain stays its own object (its follow-through contract checked either way) |
 | `flesh` | bake, hair | baked; no garment bound - cut first, a garment carries no jiggle weights |
 | `moves` | bake, hair, flesh | baked; no garment bound - rig-anything measures arm hang against every mesh on the rig |
