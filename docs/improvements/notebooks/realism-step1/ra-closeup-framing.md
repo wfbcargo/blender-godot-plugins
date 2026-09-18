@@ -80,3 +80,18 @@ close = false on the real study_man (spec edited in scratch, resumed): only revi
 the review sheet kept. runner.plan: review's final quality part {close: ...} with the set on, None with it off
 (hash 08398051e1a5a6fa vs 0d7ffa7a3b35e187); with PART_ON emptied (the control) the off spec hashes the close part
 again. Restored close = true and rebuilt: review only, 8.2 s, 19 files back.
+
+## 13:19-13:31 final regress --quick --jobs 2 | kind=win
+`REGRESS DONE exit=0, 22 fixtures ok`, "no change", 12 min (full log: scratch final_quick.log). No --godot: no
+Godot addon or export changed.
+
+## Open
+- The seam: runner.stage_hash now passes `ch` to `quality.for_hash` (one line); cp-cascade-stop owns runner.
+- hand_back looks from a little *below* the knuckles, not above as the task proposed: from above the curled
+  fingertips hide the nails and the thigh fills the tile. Ring and pinky nails sit behind the middle finger.
+- A far clip removes the thigh from hand_back; it still casts its shadow (clipping is camera-only).
+- humanform `references/critic-body.md` and lookdev `references/critic-look.md` list the Blender views with the
+  left foot's side views only; the .R views are new here (those plugins were not bumped on this branch).
+- A non-human rig still needs `close = false` (missing bones raise); the preview set was still not built on a
+  real spec.
+- Pale rectangular patch at the thumb's base on the back of both figures' hands (Blender material) -> skin step.
