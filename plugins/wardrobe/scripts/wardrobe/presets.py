@@ -96,7 +96,9 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
             tris = cover.drawn_over_cloth(g, body, cr, reach=behind)
             if not tris:
                 break
-            lifted.append({"tris": len(tris), "verts_moved": fit.lift_over(g, body, tris, (p.get("ease") or {}).get("base", 0.006))})
+            lift = p.get("lift") or {}
+            gap = lift.get("gap", (p.get("ease") or {}).get("base", 0.006))
+            lifted.append({"tris": len(tris), "verts_moved": fit.lift_over(g, body, tris, gap, smooth=lift.get("smooth", 0.0))})
             cr = cover.compute(g, body, **_args(p.get("cover")))
         if lifted and er is not None:
             er["detail"] = fit.detail(g, body, limit=(p.get("ease") or {}).get("detail_limit"))   # of the cloth as lifted
@@ -109,6 +111,9 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
         "verts": len(g.data.vertices), "groups": len(g.vertex_groups),
         "cut": dict(g["wardrobe_cut_report"]), "painted": painted, "ease": er, "skin": sk,
         **({"lifted": lifted} if lifted is not None else {}),
+        # folds in the cloth (see fit.folds): lift_over's per-corner cones and the cloth tucked into
+        # the fold under Belle's bust made a faceted, pointed shelf there (improvements NEXT 9)
+        **fit.folds(g),
         "hem": hr["rings"] if hr else None, "hem_bones": len(hr["block"]["bones"]) if hr else 0,
         "cover": cover.summarize(cr), "cover_report": {k: v for k, v in cr.items() if not k.startswith("_")},
         "layers": {o.name: {"hidden": r["hidden"], "tris_hidden": r["tris_hidden"]} for o, r in layers.items()},

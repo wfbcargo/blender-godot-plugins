@@ -90,6 +90,38 @@ then lifts the cloth over any skin the engine would still draw lying over it
 (`cover.drawn_over_cloth`, `fit.lift_over`; `lifted` in the report) and fails a preset whose
 `detail_limit` is exceeded.
 
+Four more knobs came out of the sports top on Belle's real body (a heavier bust than any fixture:
+0.171 mm carried against the 0.060 limit, a faceted pointed shelf under each breast and a dark
+wedge between them; improvements NEXT 9). `sports_top` ships all four:
+
+- `ease(span=0.8, span_radius=0.1)`: stretch the cloth taut across the body's hollows - 80% of the way out to the
+  convex hull of the cloth itself, each vertex by its compression weight, relaxed between pushes
+  so it slides along the hull, and never inward. The cloth then runs from the bust to the band and
+  across the cleavage instead of following each breast's underside back up into the fold: that
+  was the shelf, and settle and a smooth lift only rounded it. All the way (1.0) is a barrel with
+  no bust left. `span_radius=0.1` spans only around hollows a 10 cm ball rolled over the cloth
+  cannot reach into (the fold, the cleavage), fading over 4 cm: the hull alone also spanned the
+  sample figure's taper to the waist and left that top 2-5 cm off the body. Belle: 16 cloth edges bent 35-146 degrees under the bust -> 0, detail 0.000 mm, no
+  lift runs.
+
+- `ease(settle=0.14)`: after spanning, Taubin-smooth the **cloth itself** over 14 cm, weighted by its
+  compression (none at the openings). Push-out held the cloth on the compressed surface, which
+  kept the rim where the breast meets the fold as a ledge; settled, the cloth rounds it and passes a
+  few millimetres inside the skin there, which cover hides. Belle: 0.171 -> 0.044 mm.
+- `cover.compute(crease=0.03)`: covered skin whose normal meets other skin within 3 cm (the fold
+  under a breast) stays drawn - it lies inside the cloth - and seeds no margin. Hidden, Godot's
+  verifier saw into it from grazing views along the fold: 0.52-0.73% holes on five of seven clips.
+- `lift={"smooth": 0.12, "gap": 0.002}` in a preset (`fit.lift_over(smooth=)`): lift the cloth over
+  still-drawn skin as one smooth swell - the cloth triangle under each corner rises by what it
+  lacks, the cloth within 12 cm by (1 - (d/R)^2)^2 of that, then relaxed - instead of per-corner
+  2 cm cones, which folded six cloth faces under Belle's bust into the pointed shelf. Spanned,
+  Belle's top needs no lift; the knob stays for skin that still comes through.
+
+`dress` reports `folded_faces` (faces turned against their neighbours) and `sharp_edges` (cloth
+edges bent more than 35 degrees, `fit.folds`). Both should be 0 on a compression top. Judge the
+top at a close camera under the bust (0.4 m, elevations 8, -20, -35): from 0.8 m or the 2.9 m
+outfit renders a shelf is hard to see.
+
 `flatten` needs the body's region to be where the region is. On a body built through
 character-pipeline follow-through's breast search lands on the jaw (its zone reaches to 1.45 of
 shoulder height), so `flatten={"breast": ...}` moves nothing there and says nothing - which is why
@@ -254,6 +286,8 @@ weights shared a median 98% (5th percentile 82%) with the body's own.
 | | `hang`, `hang_window` | 1.0, 15 cm | how fully cloth hangs straight down, and how far |
 | | `smooth`, `flatten` | 0, - | compression: smoothing strength 0..1; {region: share} moved toward its membrane |
 | | `fade`, `detail_limit` | 5 cm, - | compression fades to the skin over this from the edges; {region: most mm of the skin's relief carried} |
+| | `settle` | 0 | compression: Taubin-smooth the eased cloth itself over this much surface (sports_top 10 cm) |
+| `fit.lift_over` | `smooth`, `gap` | 0, `ease.base` | one smooth swell of this radius instead of 2 cm cones; the clearance kept (preset `lift`) |
 | `hem.prepare` | `fabric` | cotton_jersey | silk, cotton_jersey, cotton_poplin, wool, denim, leather |
 | | `share` | 0.8 | the edge's weight the hem bones take |
 | | `hem_hinge`, `cuff_hinge` | 14 cm, 6 cm | hinge line above the edge |
@@ -262,6 +296,7 @@ weights shared a median 98% (5th percentile 82%) with the body's own.
 | `cover.compute` | `agree` | 0.7 | weight in common for skin to be hidden under cloth |
 | | `margin` | 3 cm | covered skin next to uncovered skin stays drawn |
 | | `behind` | 0 | how far under the skin cloth may lie and still cover it (compression: 3 cm) |
+| | `crease` | 0 | covered skin facing other skin within this stays drawn, seeding no margin (sports_top 3 cm) |
 
 A hem bone's frequency is a pendulum on its hinge stiffened by the fabric,
 f = sqrt((sqrt(g/L)/2pi)^2 + stiff_hz^2).
