@@ -430,6 +430,48 @@
    "Shorts",
    "SportsTop"
   ],
+  "skin": {
+   "body_tone": [
+    0.62,
+    0.45,
+    0.36
+   ],
+   "detail": "pores",
+   "godot_sss": true,
+   "lips_tone": [
+    0.59,
+    0.37,
+    0.3
+   ],
+   "lookdev_preset": "skin",
+   "nipple_tone": [
+    0.53,
+    0.33,
+    0.25
+   ],
+   "size": 1024,
+   "stage": "baked",
+   "textures": {
+    "base_color": true,
+    "normal": true,
+    "roughness": true
+   },
+   "tone_baked": [
+    0.62,
+    0.45,
+    0.36
+   ],
+   "tone_ok": true,
+   "tone_target": [
+    0.62,
+    0.45,
+    0.36
+   ],
+   "uv_sets": [
+    "TEXCOORD_0",
+    "TEXCOORD_1"
+   ]
+  },
   "stages": {
    "bake": "ran",
    "body": "ran",

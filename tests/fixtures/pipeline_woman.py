@@ -85,6 +85,53 @@ def _second_blender(blend, spec_path, out_json):
     return proc.returncode, "\n".join((proc.stdout or "").splitlines()[-8:])
 
 
+def _skin(ch, glb):
+    """humanform's realistic skin through the pipeline: the glb's skin material carries base colour, roughness
+    and normal maps and the lookdev extras Godot needs; the baked albedo's mean is the spec's tone; lips and
+    areolae sample darker and redder than the body."""
+    import struct
+    import bpy
+    import numpy as np
+    from humanform import skin
+    with open(glb, "rb") as fh:
+        b = fh.read()
+    g = json.loads(b[20:20 + struct.unpack_from("<I", b, 12)[0]])
+    m = next(x for x in g["materials"] if x["name"] == f"{ch.name}_skin")
+    pbr = m.get("pbrMetallicRoughness", {})
+    look = (m.get("extras") or {}).get("lookdev", {})
+    mat = bpy.data.materials[f"{ch.name}_skin"]
+    rep = mat["humanform_skin"].to_dict()
+    ob = bpy.data.objects[ch.mesh]
+    img = bpy.data.images[f"{ch.name}_skin_base_color"]
+    w, h = img.size
+    px = np.empty(w * h * 4, np.float32)
+    img.pixels.foreach_get(px)
+    px = px.reshape(h, w, 4)
+    me = ob.data
+    uv = np.empty(len(me.loops) * 2, np.float32)
+    me.uv_layers["UVMap"].data.foreach_get("uv", uv)
+    uv = uv.reshape(-1, 2)
+    lv = np.empty(len(me.loops), np.int64)
+    me.loops.foreach_get("vertex_index", lv)
+
+    def tone(idx):
+        sel = np.isin(lv, idx)
+        xy = np.clip((uv[sel] * [w, h]).astype(int), 0, [w - 1, h - 1])
+        return [round(float(v), 2) for v in px[xy[:, 1], xy[:, 0], :3].mean(axis=0)]
+    n = min(len(me.vertices), 13380)
+    return {"textures": {"base_color": "baseColorTexture" in pbr, "roughness": "metallicRoughnessTexture" in pbr,
+                         "normal": "normalTexture" in m},
+            "uv_sets": sorted({k for mm in g["meshes"] for p in mm["primitives"] for k in p["attributes"]
+                               if k.startswith("TEXCOORD")}),
+            "lookdev_preset": look.get("preset"), "godot_sss": (look.get("godot") or {}).get("subsurf_scatter_enabled"),
+            "detail": (look.get("detail") or {}).get("normal"),
+            "stage": rep.get("stage"), "size": rep.get("size"), "tone_ok": rep.get("tone_ok"),
+            "tone_target": rep.get("tone_target"), "tone_baked": [round(v, 2) for v in rep.get("baked", [])],
+            "body_tone": tone(np.arange(n)),
+            "lips_tone": tone(skin._mpfb_group_indices(ob, "lips", n)),
+            "nipple_tone": tone(skin._mpfb_group_indices(ob, "nipple", n))}
+
+
 def build():
     import bpy
     H.clear_scene()
@@ -158,6 +205,7 @@ def build():
         "fresh_session": fresh,
         "review": H.review_sheet(first["review"]["report"]),
         "review_meshes": first["review"]["report"]["meshes"],
+        "skin": _skin(ch, first["export"]["report"]["glb"]),
     }
 
 

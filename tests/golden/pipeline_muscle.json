@@ -45,7 +45,10 @@
    "muscled": true,
    "skin_textures": [
     "FixDante_hair_strands",
-    "FixDante_hair_strands_normal"
+    "FixDante_hair_strands_normal",
+    "FixDante_skin_base_color",
+    "FixDante_skin_normal",
+    "FixDante_skin_orm"
    ],
    "verts": 16323
   },
@@ -70,7 +73,10 @@
    "restarted": "hair changed and the body already carries it (it cannot be taken off): rebuilding from body",
    "skin_textures": [
     "FixDante_hair_strands",
-    "FixDante_hair_strands_normal"
+    "FixDante_hair_strands_normal",
+    "FixDante_skin_base_color",
+    "FixDante_skin_normal",
+    "FixDante_skin_orm"
    ],
    "statuses": {
     "bake": "ran",
@@ -138,7 +144,10 @@
    "restarted": "the spec has no [muscle] now but the body carries it: rebuilding from body",
    "skin_textures": [
     "FixDante_hair_strands",
-    "FixDante_hair_strands_normal"
+    "FixDante_hair_strands_normal",
+    "FixDante_skin_base_color",
+    "FixDante_skin_normal",
+    "FixDante_skin_orm"
    ],
    "statuses": {
     "bake": "ran",
@@ -175,7 +184,9 @@
    "skin_textures": [
     "FixDante_hair_strands",
     "FixDante_hair_strands_normal",
-    "FixDante_muscle_normal"
+    "FixDante_muscle_normal",
+    "FixDante_skin_base_color",
+    "FixDante_skin_orm"
    ],
    "statuses": {
     "bake": "ran",

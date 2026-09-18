@@ -381,6 +381,7 @@ func _check_material(mat: Material, where: String, node: Node) -> void:
 			add("info", "UNIFORM_SURFACE", label,
 				"a %.0f m surface with constant roughness and no normal map. Real surfaces vary (±0.05-0.15 roughness from wear and dust); uniform ones read as plastic." % maxf(size.x, maxf(size.y, size.z)),
 				"add roughness_texture / normal_texture, or detail_enabled with a tiling detail map; uv1_triplanar for untextured terrain")
+	_check_skin(m, label)
 	if not is_equal_approx(m.metallic_specular, 0.5):
 		if m.metallic_specular > 0.8 or m.metallic_specular < 0.2:
 			add("info", "SPECULAR_UNUSUAL", label,
@@ -391,6 +392,36 @@ func _check_material(mat: Material, where: String, node: Node) -> void:
 			"transparency = Disabled")
 	if m.emission_enabled and m.emission_energy_multiplier > 16.0 and not physical:
 		add("info", "EMISSION_HOT", label, "emission energy %.1f will clip and bloom regardless of exposure." % m.emission_energy_multiplier)
+
+
+## Skin that reads as clay or plastic: a material named `*skin*` or carrying lookdev's `skin` preset with a flat
+## albedo (lips, areolae, palms and knees all one colour), one roughness everywhere, no normal or pore detail, or
+## no subsurface scattering. A preset material counts what `LookdevMaterials.apply` will set from its extras
+## (glTF cannot carry subsurface), since lint never runs the scene's scripts.
+func _check_skin(m: BaseMaterial3D, label: String) -> void:
+	var spec := {}
+	if m.has_meta("extras") and typeof(m.get_meta("extras")) == TYPE_DICTIONARY:
+		var e: Dictionary = m.get_meta("extras")
+		if typeof(e.get("lookdev")) == TYPE_DICTIONARY:
+			spec = e["lookdev"]
+	var preset := str(spec.get("preset", ""))
+	if preset != "skin" and not m.resource_name.to_lower().contains("skin"):
+		return
+	var g = spec.get("godot", {})
+	var asks_sss: bool = typeof(g) == TYPE_DICTIONARY and bool(g.get("subsurf_scatter_enabled", false))
+	var problems := []
+	if m.albedo_texture == null:
+		problems.append("a flat albedo (lips, areolae, palms, soles and knees all one colour)")
+	if m.roughness_texture == null:
+		problems.append("one roughness everywhere")
+	if m.normal_texture == null and not m.detail_enabled and not spec.has("detail"):
+		problems.append("no normal map or pore detail")
+	if not m.subsurf_scatter_enabled and not asks_sss:
+		problems.append("no subsurface scattering")
+	if not problems.is_empty():
+		add("warn", "SKIN_PLASTIC", label,
+			"skin with %s: it reads as clay or plastic under any light." % ", ".join(problems),
+			"humanform look.skin (realistic, the default) bakes regional tone, roughness and normal maps; LookdevMaterials.apply sets subsurf_scatter and pores from the material's extras")
 
 
 func _col(c: Color) -> String:
