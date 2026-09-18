@@ -1,0 +1,54 @@
+# repo-regress-quick - lab notebook
+
+Branch `repo-regress-quick`, plugins repo only. 06 section 5 "Repo tooling" items 1 and 2:
+`tools/regress.py` scheduling, `--quick`, output, and `tools/bump.py`.
+
+## 08:44 start
+
+- Worktree `.worktrees/repo-regress-quick` from `main` at `5a218d3`. Scratch `C:/Users/pauli/AppData/Local/Temp/rw/repo-regress-quick/`.
+- Read regress.py (500 lines), tests/README.md, _harness.py, 06 section 5.
+- Findings before writing code:
+  - regress keeps no durations anywhere, and no notebook of the last round recorded per-fixture times
+    in a greppable form. So the longest-first order has to be measured: started a baseline
+    `regress.py --jobs 2 --keep <scratch>/base` on the unchanged branch at 08:47.
+  - The old loop waits on fixtures in name order, so `cricket` (one of the longest) holds every later
+    result back even when they finished first. The baseline log showed only the `plugins:` line for
+    minutes.
+  - The pipeline fixtures silence `runner.build`'s log (`log=lambda m: None`), so stage times are not
+    on stdout. They are in each exported `.moves.json`'s `build.stage_seconds` block, which regress
+    can read from the fixture's output folder before the temp dir goes.
+  - Fixture -> plugin: `H.use("RA_SCRIPTS", ...)` in each fixture. But plugins import each other
+    (humanform imports wardrobe and lookdev_blender; wardrobe imports follow_through and rig_analysis),
+    so `--quick` takes the import closure, scanned from the plugin sources at run time.
+  - Version stamps: goldens carry `plugins: {name: version}` from `_harness._version`, which
+    `compare` never reads (it compares `report` only). There is no restamp mechanism.
+  - The "Since" sentence lives in marketplace.json only; plugin.json carries the version (three
+    plugin.json descriptions have old Since sentences that stopped being updated at 0.5.0-0.14.0).
+
+(Correction: the baseline started at about 08:45, not 08:47.)
+
+## 08:47-08:55 regress.py, bump.py, test_tools.py
+
+- regress.py: `schedule` (DURATIONS, unmeasured first), results judged in `as_completed` order once
+  every build of a fixture is in, `_print` flushes every line, `main` wraps `_main` so every exit -
+  argparse errors (exit 2) and crashes (exit 3) included - ends with `REGRESS DONE exit=N, K fixtures ok`.
+  `--quick` / `--base` / `--changed` / `--dry-run`; `--diff FILE` (default in `--keep` or
+  `<temp>/regress-diffs/`); `volatile_blocks` warning; `stage_times` from exported manifests;
+  `path_warning` before (from DEEPEST_OUTPUT) and after (from what the run wrote); `--update` keeps a
+  golden within tolerance.
+- First failure: my splice script replaced every `started = time.time()` in the file, including
+  `run_fixture`'s, so every fixture died with `NameError: name 'started' is not defined` inside the
+  pool. The new `main` caught it and still printed `REGRESS DONE exit=3, 0 fixtures ok`, which is the
+  point of the wrapper. Found by the fake-Blender end-to-end test, not by a real run.
+- bump.py worked first time on a scratch copy (only the two version lines and the description line
+  change; CR count 214/214 and 13/13 before and after). Refuses `0.6`, `v0.6.0`, `0.06.0`, `0.6.0.1`,
+  a non-increasing version, an unknown plugin and a "Since 0.8.0" sentence on 0.7.0.
+- tools/test_tools.py: selection, schedule, done line, VOLATILE warning, path warning, bump, and an
+  end-to-end regress run against a fake Blender (`blender.cmd` calling back into test_tools.py with the
+  golden as the report, `FAKE_DELAYS` to control finish order, `FAKE_BREAK` to move a key). Two of my own
+  test mistakes on the first run: `timing_s` *is* volatile (`s` is not in UNITS), and a tuple unpack
+  that read the wrong column. Fixed the tests, not the code. All pass in ~10 s.
+- --quick on a wardrobe-only change selects 11 of 20: the 8 that use wardrobe plus mpfb_woman_curvy,
+  muscle_definition and skin_detail, because humanform imports wardrobe (the import closure). Skips
+  rabbit, cricket, starfish, quadruped, review_sheet, mixamo_names, rigify_human, flesh_figure,
+  strand_ponytail.

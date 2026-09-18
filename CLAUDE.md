@@ -15,6 +15,8 @@ project they are exercised on is `C:/Users/pauli/Code/GoDot/grungist-creek`. Pla
 - **Run the fixtures before calling a change done**, and before changing shared code:
 
   ```
+  python tools/regress.py --quick --jobs 2                                  # while iterating: only the
+                                                                            # fixtures the change reaches
   python tools/regress.py --jobs 2                                          # every edit that matters
   python tools/regress.py --twice --jobs 2                                  # before merging
   python tools/regress.py --twice --jobs 2 --godot C:/Users/pauli/Code/GoDot/grungist-creek
@@ -24,13 +26,17 @@ project they are exercised on is `C:/Users/pauli/Code/GoDot/grungist-creek`. Pla
 
   A golden moves only in a reviewed commit (`--update`, then read `git diff tests/golden`), and a
   new golden is recorded with `--twice`. Never widen a tolerance to make a change pass: find why it
-  moved. A full `--twice --godot` run takes about 10 minutes. See `tests/README.md`.
+  moved. A full `--twice --godot` run takes about 10 minutes. Every run ends with the line
+  `REGRESS DONE exit=N, K fixtures ok` (wait on it), and prints the path of a file with the full diff.
+  `--quick --dry-run` says what `--quick` would run and skip, and why. See `tests/README.md`.
 - **Install only with `tools/install.py <plugin>` or `--all`.** It is the only path into
   `~/.claude/skills`, which is what Claude Code loads. It refuses to overwrite a copy that was edited
   in place: move that edit into the repo first. Other machines get a change by push and
   `/plugin marketplace update blender-godot-plugins`.
-- **Bump a plugin's version** in its `.claude-plugin/plugin.json` and in `.claude-plugin/marketplace.json`,
-  and add a "Since x.y.z" sentence to the marketplace description, since that is what other machines read.
+- **Bump a plugin's version** with `python tools/bump.py <plugin> <x.y.z> "<what changed>"`: it sets the
+  version in its `.claude-plugin/plugin.json` and in `.claude-plugin/marketplace.json`, and appends the
+  "Since x.y.z" sentence to the marketplace description, since that is what other machines read. It
+  refuses a malformed or non-increasing version and an unknown plugin.
 
 ## Running Blender and Godot headless
 
