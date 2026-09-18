@@ -86,7 +86,13 @@ DEFAULT_TOLERANCE = 1e-3
 # the pool is fed longest first so the two slowest builds never start last and leave one Blender
 # idle at the end. Only the order matters. A fixture not listed here is assumed long, so a new one
 # starts early rather than at the tail.
-DURATIONS = {}
+DURATIONS = {  # 2026-09-18, `--jobs 2` on main at 5a218d3
+    "rabbit": 193, "cricket": 182, "pipeline_muscle": 130, "dressed_presets": 69, "pipeline_woman": 67,
+    "dressed_skirts": 55, "flesh_figure": 54, "traced_detail": 53, "rigify_human": 53, "quadruped": 49,
+    "mpfb_woman_curvy": 49, "pipeline_ponytail": 40, "dressed_figure": 38, "hair_presets": 36,
+    "strand_ponytail": 32, "muscle_definition": 31, "mixamo_names": 21, "skin_detail": 18,
+    "review_sheet": 9, "starfish": 6,
+}
 UNKNOWN_DURATION = 10 ** 6
 
 # Windows MAX_PATH. A --keep folder whose deepest output nears it breaks renders and glb writes in
@@ -95,7 +101,7 @@ UNKNOWN_DURATION = 10 ** 6
 # from what the run actually wrote.
 MAX_PATH = 260
 PATH_MARGIN = 20
-DEEPEST_OUTPUT = 0
+DEEPEST_OUTPUT = 95   # pipeline_woman's review png, 93, plus `a/` under --twice
 
 
 def _print(*args, **kw):
@@ -687,6 +693,11 @@ def _main(argv, state):
         names = list(selected)
     names = schedule(names)
     _print("order (longest first): %s" % " ".join(names))
+    if args.keep:
+        keep_root = Path(args.keep).resolve()
+        warn = path_warning(keep_root, DEEPEST_OUTPUT if args.twice else DEEPEST_OUTPUT - 2)
+        if warn:
+            _print(warn)
     if args.dry_run or not names:
         if not names:
             _print("nothing to run")
@@ -720,11 +731,6 @@ def _main(argv, state):
         _print("plugins: %s (this checkout)" % REPO)
     GOLDEN.mkdir(parents=True, exist_ok=True)
 
-    if args.keep:
-        keep_root = Path(args.keep).resolve()
-        warn = path_warning(keep_root, DEEPEST_OUTPUT)
-        if warn:
-            _print(warn)
     diff_path = Path(args.diff) if args.diff else default_diff_path(args.keep)
     diff_path.parent.mkdir(parents=True, exist_ok=True)
     diff_chunks = []

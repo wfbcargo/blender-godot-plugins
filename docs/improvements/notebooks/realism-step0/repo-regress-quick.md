@@ -52,3 +52,32 @@ Branch `repo-regress-quick`, plugins repo only. 06 section 5 "Repo tooling" item
   muscle_definition and skin_detail, because humanform imports wardrobe (the import closure). Skips
   rabbit, cricket, starfish, quadruped, review_sheet, mixamo_names, rigify_human, flesh_figure,
   strand_ponytail.
+
+## 08:55 baseline in; DURATIONS and DEEPEST_OUTPUT measured
+
+Baseline `--jobs 2` on the unchanged branch: 20 ok, "no change", 08:44-08:55 (11 min). One build each:
+rabbit 193 s, cricket 182, pipeline_muscle 130, dressed_presets 69, pipeline_woman 67, dressed_skirts 55,
+flesh_figure 54, traced_detail 53, rigify_human 53, quadruped 49, mpfb_woman_curvy 49, pipeline_ponytail 40,
+dressed_figure 38, hair_presets 36, strand_ponytail 32, muscle_definition 31, mixamo_names 21,
+skin_detail 18, review_sheet 9, starfish 6. Under the old name order `rabbit` was 14th of 20 to start,
+so at `--jobs 2` its 193 s ran after most of the rest: that is the tail the new order removes.
+
+Deepest output under a fixture folder: 93 characters (pipeline_woman's
+`pipeline_woman/pipeline_woman/assets/fixwoman/review/fixwoman/FixWoman_Idle_three_quarter.png`),
+95 under `--twice` (`a/`). So a `--keep` root longer than about 140 characters warns.
+
+Stage times the manifests carry: pipeline_muscle `draft, 25.2 s: body 8.4, bake 3.8, hair 0.8, moves 8.0,
+export 4.0`; pipeline_ponytail `final, 4.6 s: strand 0.2, export 4.2`; pipeline_woman `final, 11.6 s:
+export 5.8, review 5.2`. These are the last build recorded in each manifest (a fixture that rebuilds or
+re-exports overwrites it), so for pipeline_woman they are its second-Blender export, not the full build.
+The full build's stages would need the fixture to report them, which is a fixture change (open).
+
+Deliberately failing run with real Blender (`RA_SCRIPTS=C:/nonexistent`, three fixtures): each printed
+`ERROR ... ModuleNotFoundError: No module named 'rig_analysis'`, then `full diff: ...fail.diff`, and the
+last line `REGRESS DONE exit=1, 0 fixtures ok`. The mixed case (one CHANGED, two ok -> `exit=1, 2 fixtures
+ok`) is covered by test_tools.py's fake Blender.
+
+--quick control on a real branch: worktree `rrq-wardrobe-probe` off this branch with one commit that
+appends a comment to `plugins/wardrobe/scripts/wardrobe/__init__.py`;
+`regress.py --quick --base repo-regress-quick --dry-run` selected 11, skipped rabbit, cricket and 7
+others. With `tests/fixtures/_harness.py` also touched (uncommitted) it selected 20 of 20.
