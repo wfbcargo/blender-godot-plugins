@@ -1043,9 +1043,11 @@ def add_jiggle_bones(obj_name, regions, rig_name=None, weight_scale=1.0):
     """One bone per region, parented to its anchor bone, its vertices weighted to it.
 
     The jiggle weight is taken out of the vertex's other weights in proportion, so each
-    vertex keeps its total. Re-running replaces the jiggle bones made before."""
+    vertex keeps its total. Re-running replaces the jiggle bones made before, giving their weight
+    back first (`remove_jiggle_weights`), so a second run weights the body as the first did."""
     obj = bpy.data.objects[obj_name]
     rig = bpy.data.objects[rig_name] if rig_name else armature_of(obj)
+    restored = remove_jiggle_weights(obj, rig)
     inv = rig.matrix_world.inverted()
     win = bpy.context.window
     prev_scene = win.scene
@@ -1081,8 +1083,6 @@ def add_jiggle_bones(obj_name, regions, rig_name=None, weight_scale=1.0):
         win.scene = prev_scene
         if prev_active is not None and prev_active.name in bpy.context.view_layer.objects:
             bpy.context.view_layer.objects.active = prev_active
-    for g in [g for g in obj.vertex_groups if g.name.startswith(JIGGLE_PREFIX)]:
-        obj.vertex_groups.remove(g)
     groups = {r["name"]: obj.vertex_groups.new(name=JIGGLE_PREFIX + r["name"]) for r in regions}
     jiggle_index = {g.index for g in groups.values()}
     for r in regions:
@@ -1098,7 +1098,52 @@ def add_jiggle_bones(obj_name, regions, rig_name=None, weight_scale=1.0):
                 x.weight = x.weight * (1.0 - w)
             g.add([int(v)], w * total, "REPLACE")
     limited = limit_influences(obj, rig)
-    return {"rig": rig.name, "bones": made, "vertices_limited_to_4": limited}
+    return {"rig": rig.name, "bones": made, "vertices_limited_to_4": limited, "weights_restored": restored}
+
+
+def remove_jiggle_weights(obj, rig=None):
+    """Take the jiggle groups off `obj`, giving each vertex's jiggle weight back to the weights it came from.
+
+    `add_jiggle_bones` takes a jiggle weight `w * T` out of a vertex's other weights in proportion (each
+    scaled by `1 - w`, `T` their total), so scaling them back by `T / (T - jiggle)` restores them. Removing
+    the groups alone lost that share: a second `prepare` on a fleshed body (a pipeline rebuild from its
+    saved .blend after a `[flesh]` edit) left the vertices at a mass's heart with almost no weight - 5 of
+    study_man's with none at all, which the glTF exporter hangs on a `neutral_bone` - and measured the
+    masses on those thinned weights. A vertex whose other weights were all taken (w = 1) has no proportion
+    left: its weight goes to the jiggle bone's parent. The bones themselves stay (`add_jiggle_bones`
+    replaces them). Returns the number of vertices given weight back."""
+    jig = {g.index: g.name for g in obj.vertex_groups if g.name.startswith(JIGGLE_PREFIX)}
+    if not jig:
+        return 0
+    parent_of = {}
+    if rig is not None:
+        for idx, name in jig.items():
+            b = rig.data.bones.get(name)
+            if b is not None and b.parent is not None:
+                parent_of[idx] = b.parent.name
+    restored = 0
+    for v in obj.data.vertices:
+        mine = [(x.group, x.weight) for x in v.groups if x.group in jig]
+        j = sum(w for _g, w in mine)
+        if j <= 0.0:
+            continue
+        others = [x for x in v.groups if x.group not in jig]
+        rest = sum(x.weight for x in others)
+        if rest > 1e-6:
+            scale = (rest + j) / rest
+            for x in others:
+                x.weight = x.weight * scale
+        else:
+            for gi, w in mine:
+                parent = parent_of.get(gi)
+                if parent is None:
+                    continue
+                g = obj.vertex_groups.get(parent) or obj.vertex_groups.new(name=parent)
+                g.add([v.index], w, "ADD")
+        restored += 1
+    for name in sorted(jig.values()):
+        obj.vertex_groups.remove(obj.vertex_groups[name])
+    return restored
 
 
 def limit_influences(obj, rig, most=4):
@@ -1113,14 +1158,17 @@ def limit_influences(obj, rig, most=4):
         deform = [x for x in v.groups if obj.vertex_groups[x.group].name in bones and x.weight > 0.0]
         if len(deform) <= most:
             continue
-        deform.sort(key=lambda x: x.weight, reverse=True)
-        keep = deform[:most]
-        total = sum(x.weight for x in deform)
-        kept = sum(x.weight for x in keep) or 1.0
-        for x in deform[most:]:
-            obj.vertex_groups[x.group].remove([v.index])
-        for x in keep:
-            x.weight = x.weight / kept * total
+        # plain (group, weight) pairs: removing a group from the vertex compacts `v.groups`, and an element
+        # read before that then writes its weight to the wrong group or nowhere - the kept weights were never
+        # scaled back up, and a vertex lost the dropped share of its total (up to 22 % on the sample Figure)
+        pairs = sorted(((x.group, x.weight) for x in deform), key=lambda gw: gw[1], reverse=True)
+        keep = pairs[:most]
+        total = sum(w for _g, w in pairs)
+        kept = sum(w for _g, w in keep) or 1.0
+        for g, _w in pairs[most:]:
+            obj.vertex_groups[g].remove([v.index])
+        for g, w in keep:
+            obj.vertex_groups[g].add([v.index], w / kept * total, "REPLACE")
         changed += 1
     return changed
 
@@ -1184,6 +1232,8 @@ def prepare(obj_name, rig_name=None, types=None, overrides=None, weight_scale=1.
     if rig is None:
         return {"error": f"{obj_name} is not skinned to an armature: flesh needs a skeleton "
                          "(rig it with rig-anything first)"}
+    # a body fleshed before is measured, and weighted, as it was before its first jiggle bones
+    remove_jiggle_weights(obj, rig)
     if regions is None:
         found = find_regions(obj_name, rig.name, types)
         if "error" in found:

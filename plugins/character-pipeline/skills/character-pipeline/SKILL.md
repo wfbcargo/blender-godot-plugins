@@ -21,6 +21,21 @@ report = runner.build(r"C:/.../project/characters/belle.toml")
 It finds the four plugins it drives through `RA_SCRIPTS`, `HF_SCRIPTS`, `FT_SCRIPTS` and
 `WD_SCRIPTS` (else the installed copies under `~/.claude/skills`).
 
+From the command line, use the thin caller `scripts/build.py` (or the `scripts/run.sh` template, which sets
+the paths and calls it):
+
+```
+blender -b --factory-startup --python-exit-code 1 --python <cp>/scripts/build.py -- spec=<spec.toml>     [from=<stage>] [to=<stage>] [force=1] [quality=draft] [fresh=1]
+```
+
+**A command-line build resumes from the spec's saved `[export] blend`.** `runner.build(spec, resume=True)`
+(what `build.py`, `run.sh` and a project's own build scripts call) first opens that file when it exists and
+Blender was started with no file of its own (`runner.open_saved`), so the stage records in it are used: a
+`[flesh]`-only edit reruns flesh, moves, export and review - study_man 30 s against 64 s for the whole build
+on the same loaded machine. Without it every call started from an empty scene and rebuilt from body.
+`fresh=1` (`resume=False`) builds from nothing. A Blender started on a .blend of your own keeps it (a
+`body.source = "blend"` spec's source file).
+
 ## The spec
 
 TOML, because Blender's Python reads it with no add-on. Belle, as the project builds her:
@@ -140,7 +155,24 @@ frame_height_m = 2.1               # default: 2.1 m upright, a size rung for a c
 
 Each stage that runs stores an input hash and its report in a Text datablock,
 `character_pipeline:<id>`. A text saves with the .blend and never reaches a glb. The hash covers the
-spec sections the stage reads, the hashes of the stages it needs, and the plugin versions:
+spec sections the stage reads, the hashes of the stages it needs, the plugin versions, the quality settings
+it reads, and **the data and code files it reads** (`inputs.py`; the record keeps them as `inputs`, and a
+rerun logs `<stage>: what it reads changed: <labels>`):
+
+| Stage | Reads, besides the spec |
+|---|---|
+| `bake` | humanform `skin.py` and `look.py`, lookdev `bake.py` (and `detail.py` for a muscle normal map); the skin map size at every quality |
+| `hair` | the hair preset as humanform resolves it (`hair_presets.json`: the preset, defaults, hairline), humanform `hair.py` and `brows.py`, `face_regions.json` when brows, lashes or body hair are on, lookdev `hair.py` and its `hair` material preset; a `shell_bun` reads the pipeline's own `hair.py` instead |
+| `flesh` | follow-through's type registry, built-in and user (`FOLLOW_THROUGH_TYPES`), merged |
+| `garments` | the contents of each preset the outfit wears (`wardrobe/presets/garments.json`) |
+
+So editing a worn garment preset reruns garments, export and review with no `force`; editing humanform's
+hair code reruns hair (which restarts from body: hair cannot come off); editing a preset the spec does not
+wear, or a hair preset it does not use, reruns nothing. Data is hashed as parsed JSON, code with its line
+endings normalised, so a CRLF and an LF checkout agree. A stage that starts reading a new file must add it to
+`inputs.READS`, and `tests/fixtures/pipeline_hashes.py` must flip it (the fixture edits each input on a copy
+of the plugins and checks that its stage, and nothing before it, moves; `runner.plan(spec)` gives the hashes
+without building).
 
 ```python
 runner.build(spec)                                        # runs what changed, skips the rest
@@ -157,11 +189,18 @@ runner.build(spec, from_stage="moves", to_stage="moves", force=True)   # rerun o
   this build (plus `restarted` when it rebuilt from body). The same record goes into the .blend (Text
   `character_pipeline:<id>:build`, `runner.build_record(ch)`) and, when export ran, the manifest's `build`
   block, rewritten after review so it covers the whole build.
-- **Quality** (`quality.py`): "final" is every plugin's default and hashes exactly as before the knob
-  existed. "preview"/"draft" pass cheaper settings - body fit iterations (draft also skips the face and
-  hands-and-feet fits and is never stored in the library), review frames/views/cell size, the muscle
-  normal map size, the hair cap's subdivision - and put them in those stages' hashes, so a final build of a
-  draft file reruns them. Dante: final 27.8 s, draft 17.3 s (0.62). What is left is rig-anything's (moves
+- **Quality** (`quality.py`): "final" is every plugin's default and hashes as before the knob existed,
+  except the skin map size. "preview"/"draft" pass cheaper settings - body fit iterations (draft also skips
+  the face and hands-and-feet fits and is never stored in the library), review frames/views/cell size, the
+  muscle normal map size, the hair cap's subdivision - and put them in those stages' hashes, so a final build
+  of a draft file reruns them.
+- **The skin maps are 2048 px at final, 1024 at preview and draft** (`quality.py` `skin`, passed to humanform's
+  `look.skin(size=)`). Final builds baked at humanform's 1024 default until 0.8.0, so the size is in the bake
+  hash at every quality: a final build of a file baked then rebakes (and, since the body carries hair, restarts
+  from body - a bake that has to run again on a haired body is in `RESTARTS_FROM_BODY`). The bake report and
+  the manifest carry a **`skin` block** read from the skin material: `{stage, map_px, tone_ok, tone_error,
+  regions}`, `regions` being each marked region's tone in the baked albedo (lips, nipple, palm, sole, knee...:
+  a bake that lost its marks has them all equal to `skin`). Dante: final 27.8 s, draft 17.3 s (0.62). What is left is rig-anything's (moves
   6.5 s, export 3.1 s), which has no cheaper setting yet.
 - With `save` (the default) the .blend goes to `export.blend`, refusing to overwrite a file holding a
   scene this session lacks.
@@ -225,7 +264,8 @@ What the stages write that is the pipeline's own convention rather than a plugin
   the fit's `stature` residual row, `fit.aged.stature` or `fit.stature` (aged and child bodies), or
   measured with `scaffold.stature` for a body reused from the library.
 
-The `pipeline_woman` regression fixture builds a spec end to end and resumes it in a second Blender.
+The `pipeline_woman` regression fixture builds a spec end to end and resumes it in a second Blender;
+`pipeline_hashes` flips every file a stage reads and checks which stage moves.
 
 ## Rules
 
