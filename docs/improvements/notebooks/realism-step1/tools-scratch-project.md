@@ -107,3 +107,9 @@ time to learn" with:
 >   outside both unless `save_outside=1`. `who=tomas` still needs his source blend opened.
 
 And in Step 0.5, the scratch_project bullet: done (branch `tools-scratch-project`, character-pipeline 0.10.0).
+
+## 13:21-13:37 final regress
+
+`python tools/regress.py --quick --jobs 2` (tools/ changed, so every fixture): `REGRESS DONE exit=0, 23 fixtures ok`,
+no change, 15.5 min. Full log: `%TEMP%/rw/tsp/regress_quick_final.log`. `python tools/test_tools.py`: all passed.
+Wall time for the branch about 36 min.
