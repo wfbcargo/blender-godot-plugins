@@ -39,6 +39,8 @@ minutes at `--jobs 4`); the new `dressed_skirts` passes in Godot (holes 0.000%, 
 frame) and both its controls fail as they must (`rigid=spine`: 46 skirt vertices inside a thigh, 6.53%;
 `colliders=false`: 47, 6.68%). Not pushed.
 
+**Then `figure-prereqs` was merged on its own** (character-pipeline 0.5.0, humanform 0.8.0): a `[muscle]` spec section and a `muscle` stage between body and bake, `[build] quality` draft/preview/final (Dante draft 17.3 s vs final 27.8 s), per-stage timing in the report, the .blend and the manifest's `build` block, and a whole build whose `[hair]` or `[muscle]` changed restarting from body instead of refusing; new fixture `pipeline_muscle`. `regress.py --twice --jobs 4` on the merged `main`: 19 fixtures, both builds agreeing, no change (10 minutes; no Godot addon changed, so no `--godot`). Open: `grungist-creek/characters/dante.toml` still forces `muscle = 1.0` (swap for `[muscle] output = "geometry"`) and its Run fails `verify.arm_swing` (item 9); the muscle stage stores a composite `spike_um` ~2% over its limit without a warning; the restart message for a newly added `[muscle]` on a baked file is misleading; a draft review leaves stale final views in the review dir; a restarted build's `stage_seconds` omit the aborted attempt; draft is only 0.62 of final because moves and export (rig-anything) have no cheaper setting. Not pushed.
+
 Installed copies in `~/.claude/skills` match the repo:
 - rig-anything 0.23.0
 - animate-anything 0.10.0

@@ -22,7 +22,7 @@ on every fixture rather than on one character, and that accepting it is a review
 ## Fixtures
 
 Each is a script Blender runs in its own process, building from nothing — no `.blend`, no stored
-asset — and writing a report of what it got. There are seventeen of them, and a `--twice --jobs 2` run
+asset — and writing a report of what it got. There are nineteen of them, and a `--twice --jobs 2` run
 takes about half an hour; the rabbit and the cricket are the biggest single builds (over two minutes
 each alone), because a voxel remesh is slow, and since rig-anything 0.22.0 every export renders a
 review sheet as well (4-12 s a character).
@@ -47,6 +47,7 @@ review sheet as well (4-12 s a character).
 | `strand_ponytail` | a tapering tube grown from the back of the `Figure`'s head, chained, exported beside the walking body | follow-through's `strand`: `classify` routing to `spring_bones`, the chain's per-bone frequencies and colliders, a centreline derived from the mesh against the given one, the glb read back — and a degenerate centreline returning an error that leaves the object's bones, spec and vertex groups alone |
 | `pipeline_ponytail` | a woman from a TOML spec with `[hair] preset = "ponytail"` through every stage, Run included | character-pipeline's `strand` stage between moves and garments: the tail left loose by the hair stage, `follow_through.strand.prepare` hanging its chain on the head bone, `<id>_hair.glb` and the manifest's `strands`, both glbs read back; export refused before the strand stage and the strand stage refused before the moves. The swing itself is Godot's (`verify_strands.gd`, run by hand - see follow-through's strands reference) |
 | `muscle_definition` | the definition delta authored from nothing on MPFB's default male, weighted onto Dante, a soft body and Freya, as geometry and as a baked map | humanform's `sdf` / `delta` / `muscle`: per-group and composite `spike_um` (the guard runs on the sum the mesh carries), `muscle.weights` falling away with body fat, humancheck before and after, and lookdev's `detail.bake_normal_from_high` on the baked mesh with the eyes joined in |
+| `pipeline_muscle` | a lean muscular man (Dante's brief, no forced muscle macro) from a TOML spec with `[muscle] output = "geometry"`, `[hair] preset = "bun"` and `[build] quality = "draft"`, then edited as a person would: hair to `short_crop`, muscle to `"normal"`, muscle dropped | character-pipeline's `muscle` stage (per-group weights, body fat, the composite `spike_um`, the baked `hfd:muscle` keys), the `build` record in the report, the manifest and the .blend, a whole build restarting from body when `[hair]` or `[muscle]` changes (one hair layer: the vertex count equals a fresh build's), the normal-map bake and its removal, and the quality table |
 
 ## In the engine: `--godot <project>`
 
@@ -130,7 +131,7 @@ plugin on this checkout's copy.
 
 Keys holding a path, a duration or a date are skipped (`VOLATILE`), matched as whole words of the key -
 substrings once skipped `profile`, `direction_model` and `path_m` - and a key ending in a unit (`_m`, `_deg`) is
-always compared. Reports are flattened to dotted keys and compared one by one: numbers within a relative tolerance
+always compared. Because the match is on whole words of the key, a report key such as `build_timing` or `stage_seconds` drops the whole value under it, block and all: name a report block that holds more than durations with no volatile word in it, or check the golden holds what you meant. Reports are flattened to dotted keys and compared one by one: numbers within a relative tolerance
 (`DEFAULT_TOLERANCE`, 1e-3, with per-pattern overrides in `TOLERANCES`), everything else exactly.
 Keys that appear or vanish are changes too — a report that stops carrying `balance` is a
 regression that a value comparison alone would miss.

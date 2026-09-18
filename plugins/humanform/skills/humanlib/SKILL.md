@@ -34,7 +34,7 @@ The brief is the whole description: firmness, proportions and muscle go to MPFB'
 | `fresh` | otherwise | 3.5-7.5 s |
 
 `store=True` saves the result as a body card when humancheck has no fails and the body was measured
-against ANSUR (aged and child bodies are never stored). Eyes are added (`eyes=False` to skip).
+against ANSUR (aged and child bodies are never stored). Eyes are added (`eyes=False` to skip). `fit_iterations` (default 10, the solver's iterations) and `fit_detail` (default True; False skips the face and hands-and-feet fits and the settle after them) buy a cheaper, looser fit for a draft - character-pipeline's `[build] quality = "draft"` uses them - and a body fitted with less than the defaults is never stored (Since 0.8.0).
 `res["start_macros"]` are the macros the fit began from, `res["macros"]` the finished body's. A part forces a fit so its measurements are re-solved for this body; a hand
 or foot part's size offsets move the targets first.
 
