@@ -39,7 +39,7 @@ NONDETERMINISTIC and fails the run, and no golden is written from a build that d
 every manifest through rig-anything's `verify_moves.gd`, each fixture in GODOT_WARDROBE dressed
 and walked by wardrobe's `verify_wardrobe.gd`, and each fixture in GODOT_FLESH's body driven round
 follow-through's `verify_flesh.gd` courses, and each fixture in GODOT_STRANDS's strands swung at
-30/60/120/240 fps by `verify_strands.gd` (with a control that must fail). The folder is removed afterwards whatever happens.
+30/60/120/240 fps by `verify_strands.gd` (with controls that must fail). The folder is removed afterwards whatever happens.
 It warns first when the project's addons differ from this repo's, since those are what run.
 
 Blender is found at $BLENDER, or the newest under Program Files, or `blender` on PATH; Godot at
@@ -430,16 +430,21 @@ GODOT_FLESH = {
 # A fixture whose export carries a strand chain has it swung by follow-through's `verify_strands.gd` at
 # 30/60/120/240 fps: rest drift, a kick that settles, a fling at the head and the run kept out of the
 # head's skin, a stalled frame capped, and the run's swing within 1.25x across the rates, both as it
-# gets going and once settled. `control` steps the strands as before follow-through 0.6.3
+# gets going and once settled. The first control steps the strands as before follow-through 0.6.3
 # (`legacy_integration=true`: the body's motion not low-passed), whose run swung 68/73/53/53 deg at
-# the start and 65/69/53/53 settled here: it must fail, and fail on every line in `control_fails`
+# the start and 65/69/53/53 settled here: it must fail, and fail on every FAIL line listed with it
 # (a control that failed for something else - a strand in the head - would prove nothing), so a
-# verifier that stops telling rates apart in either window fails the harness.
+# verifier that stops telling rates apart in either window fails the harness. The second control keeps
+# every other 0.6.3 fix and turns only the low-pass off (`mod=smooth_hz:0`): its run swung 67/52/53/53
+# deg at the start (1.28, a thin margin over 1.25) and passes settled (1.21), so it must fail on the
+# starting swing only. Each control is (its arguments, the FAIL lines it must print).
 GODOT_STRANDS = {
     "pipeline_ponytail": {"body": "ponywoman.glb", "strands": "ponywoman_hair.glb", "args": [],
-                          "control": ["legacy_integration=true"],
-                          "control_fails": ["starting swing differs across frame rates",
-                                            "settled swing differs across frame rates"]},
+                          "controls": [(["legacy_integration=true"],
+                                        ["starting swing differs across frame rates",
+                                         "settled swing differs across frame rates"]),
+                                       (["mod=smooth_hz:0"],
+                                        ["starting swing differs across frame rates"])]},
 }
 # The Godot addons the verifiers load from the project, and where this repo keeps each one.
 GODOT_ADDONS = {"rig_anything": "rig-anything", "wardrobe": "wardrobe", "follow_through": "follow-through",
@@ -622,7 +627,7 @@ def _run_flesh(godot, project, where, name):
 
 
 def _run_strands(godot, project, where, name):
-    """GODOT_STRANDS' run on one fixture's exports and its must-fail control: [(check, passed, detail)]."""
+    """GODOT_STRANDS' run on one fixture's exports and its must-fail controls: [(check, passed, detail)]."""
     spec = GODOT_STRANDS[name]
     body = sorted(where.rglob(spec["body"]))
     hair = sorted(where.rglob(spec["strands"]))
@@ -630,9 +635,10 @@ def _run_strands(godot, project, where, name):
         return [("verify_strands %s" % name, False, "the fixture did not export %s and %s" % (spec["body"], spec["strands"]))]
     res = ["scene=res://" + body[0].relative_to(project).as_posix(), "strands=res://" + hair[0].relative_to(project).as_posix()]
     rows = []
-    for label, args, should_pass in [("verify_strands %s" % name, spec["args"], True),
-                                     ("verify_strands %s %s (must fail)" % (name, " ".join(spec["control"])),
-                                      spec["args"] + spec["control"], False)]:
+    runs = [("verify_strands %s" % name, spec["args"], True, [])]
+    runs += [("verify_strands %s %s (must fail)" % (name, " ".join(ctl)), spec["args"] + ctl, False, must)
+             for ctl, must in spec["controls"]]
+    for label, args, should_pass, must in runs:
         code, out = _godot(godot, project, "-s", "res://addons/follow_through/verify_strands.gd", "--", *res, *args)
         verdict = [l for l in out.splitlines() if l.startswith("FT_SUMMARY")]
         per_rate = [json.loads(l[len("FT_STRAND "):]) for l in out.splitlines() if l.startswith("FT_STRAND ")]
@@ -642,7 +648,7 @@ def _run_strands(godot, project, where, name):
         passed = code == 0 and "PASSED" in verdict[-1]
         fails = [l.strip() for l in out.splitlines() if l.strip().startswith("FAIL ")]
         if not should_pass:
-            missing = [w for w in spec.get("control_fails", []) if not any(w in f for f in fails)]
+            missing = [w for w in must if not any(w in f for f in fails)]
             if missing:
                 # failed, but not for the reason the control exists for: that is not the control failing
                 passed = True

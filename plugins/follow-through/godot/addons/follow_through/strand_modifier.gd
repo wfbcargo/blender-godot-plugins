@@ -49,6 +49,9 @@ var peak_steps := 0
 var dropped_steps := 0
 var accel_clamps := 0               # steps whose target moved faster than MAX_ACCEL explains
 var smooth_hz := SMOOTH_HZ          # the low-pass on the body's motion the strands simulate against; 0 = off
+var smooth_gain := SMOOTH_GAIN      # multiplies every bone's response while the low-pass is on; 1 = the
+                                    # preset's response as built (0.6.3's first fix round: ~37 deg on the run)
+var _gain_mul := 1.0                # this frame's smooth_gain, or 1 when not smoothing
 var _caps_prev: Array = []
 var _caps_filt: Array = []          # per collider: the low-passed [a, b, rotation] filter states
 var _left := 0.0                    # time since the last step, carried between frames
@@ -70,11 +73,18 @@ const MAX_ACCEL := 400.0
 ## alone over a 30 fps frame (0.6.3's first attempt) still settled at 36/31/28/28 once the run had
 ## run 3 s. Everything above ~10 Hz is what a 30 fps frame cannot carry (its Nyquist is 15 Hz), so the
 ## strand is simulated against the body's motion below it, which every rate from 30 fps up
-## reconstructs alike: study_woman 36-39 deg and pipeline_ponytail 37-45 at 30-240 fps, spread
+## reconstructs alike (with SMOOTH_GAIN at 1): study_woman 36-39 deg and pipeline_ponytail 37-45 at 30-240 fps, spread
 ## 1.02-1.07 at the run's start and once settled. A strand's own swing (1-3 Hz) passes at 92-99%;
 ## 15 Hz kept more (40-42 deg) but spread 1.07, 20 Hz 1.21. The filter lags the body by 2/(2 pi
 ## SMOOTH_HZ) s (32 ms) in the simulation only: the bones are posed relative to the body as animated.
 const SMOOTH_HZ := 10.0
+## The response every bone's preset is multiplied by while the body's motion is low-passed. The
+## presets were tuned against 0.6.2's drive, which carried the footfalls' above-10 Hz jolts the filter
+## now removes (and which only 120-240 fps fed in full): with the filter alone study_woman's ponytail
+## swung 36-37 deg on the run, against 45 at 1.1. Measured on study_woman (30-240 fps): 1.0 36 deg,
+## 1.1 44-46, 1.15 56-58, 1.2 70-82, 1.3 107-120 - rate independent throughout (spread 1.02-1.17), but
+## steep: past ~1.15 the swing climbs onto the bone limits. pipeline_ponytail at 1.1 swings 49-54.
+const SMOOTH_GAIN := 1.1
 const PASSES := 2                   # collision passes over every collider per bone
 const STEP := 1.0 / 120.0           # the simulation's fixed step; a frame takes as many as fit in it
 const MAX_STEPS := 16               # the most one frame may simulate: a stall drops time, never spirals
@@ -270,6 +280,7 @@ func _process_modification_with_delta(delta: float) -> void:
 		seed_f = maxf(float(steps[0]) - STEP / delta, 0.0)
 	peak_steps = maxi(peak_steps, steps.size())
 	var smooth := smooth_hz > 0.0 and not legacy_integration
+	_gain_mul = smooth_gain if smooth else 1.0
 	var w := TAU * smooth_hz
 	# the colliders at each step's moment, low-passed like the parents when smoothing
 	var caps_at: Array = []
@@ -459,7 +470,7 @@ func _step(parent_xf: Transform3D, g: Vector3, caps: Array, b: Dictionary, dt: f
 		b["started"] = true
 	var vt: Vector3 = (target - b["target"]) / dt
 	var at: Vector3 = (vt - b["target_v"]) / dt
-	var gain := float(b["response"]) * response_scale
+	var gain := float(b["response"]) * response_scale * _gain_mul
 	var e0: Vector3 = b["e"]
 	if at.length() > MAX_ACCEL:
 		accel_clamps += 1

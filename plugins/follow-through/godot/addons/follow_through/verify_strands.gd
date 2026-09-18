@@ -41,7 +41,7 @@ extends SceneTree
 ## legacy_integration=true steps the strands as before follow-through 0.6.3 (StrandModifier's
 ## legacy_integration): the run swings differently at each rate. It is regress's control and must fail
 ## a spread, on pipeline_ponytail (1.39 at the start, 1.31 settled) as on study_woman (1.26 at the start).
-## mod=key:value,... sets StrandModifier properties (smooth_hz) on every modifier, for tuning.
+## mod=key:value,... sets StrandModifier properties (smooth_hz, smooth_gain, response_scale) on every modifier, for tuning.
 ## set=key:value,... overrides spring values on every bone (damping_ratio, frequency_hz, max_angle_deg,
 ## gravity_scale, response, collision_margin_m) for tuning without re-exporting.
 ## dump=<file.json> writes, for the first rate, every chain's joints (skeleton space, glTF axes) each

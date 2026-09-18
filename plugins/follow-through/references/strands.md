@@ -92,7 +92,8 @@ stalled frame drops the time it cannot afford instead of costing 90 steps and st
 the remainder carried, the animated parent and colliders interpolated to each step's moment and
 low-passed at `SMOOTH_HZ`, 10 Hz, by an exact critically damped filter - the strands simulate against
 the body's motion below 10 Hz, which every frame rate from 30 fps up reconstructs alike, and their
-poses, relative to their parents, are applied to the body as animated):
+poses, relative to their parents, are applied to the body as animated; while it filters, every bone's
+`response` is multiplied by `SMOOTH_GAIN`, 1.1, the `smooth_gain` property):
 
 1. the tail's offset from where its parent (animated for the first bone, sprung for the rest) puts it
    is a damped spring solved exactly over the step, loaded by that target's acceleration and the
@@ -185,6 +186,7 @@ run measures 1.1-1.2 mm and the collisions-off control still reports 11.9 cm.
 | a 0.75 s frame, steps capped | the first kept step read the whole stall's motion of the body as one 1/120 s step: the MPFB strand hit its 60 deg root limit and went 6.0-6.2 mm into the head | the skipped time seeds each bone's target (`_seed`) instead of pushing it: 32-33 deg, 3.8-3.9 mm |
 | 24 Hz clip keys between frames, 0.6.2 | the parent is interpolated in a straight line between frames, so a 30 fps frame fed the spring each footfall's velocity change as one sharp step and 120 fps as four at the keys; the projections are not linear and a run has more than one stable swing: study_woman 53 / 49 / 62 / 62 deg at 30 / 60 / 120 / 240 fps (1.26), pipeline_ponytail 68 / 73 / 53 / 53 (1.39) | the body's motion low-passed at 10 Hz: study_woman 38-39 deg starting, 36-37 settled (1.03 / 1.02); pipeline_ponytail 44-45 / 37-39 (1.03 / 1.07); 29-200 fps 1.03-1.04 |
 | the load alone averaged over a 30 fps frame (0.6.3's first attempt) | passed 1.13 over the run's first 4 s, but settled 36 / 31 / 28 / 28 (1.29): the collisions and limits still read the straight-line path | the whole motion filtered, not the load; `verify_strands` measures the settled run as well as the start |
+| the whole motion filtered, the presets' response as built | rate independent, but the run swung 36-39 deg (study_woman), a fifth less than 0.6.2's 30-60 fps: the presets were tuned against a drive that carried each footfall's above-10 Hz jolt | `SMOOTH_GAIN` 1.1: 44-46 deg at 25-240 fps (1.04 / 1.04 at 30-240), pipeline_ponytail 49-54 (1.04 / 1.10). Steep: 1.15 swings 56-58, 1.2 70-82, 1.3 107-120 |
 | the hair layer's own ponytail, run | 8.6 mm "into the head", unmoved by any collider or radius change: the head's surface was read from the nearest cell of a map that includes the hair tie, and the root sits on the 2 cm step between the tie's cell and the skull's | the surface is read between the four cells round the direction: 1.1-1.2 mm |
 
 ## Limits
