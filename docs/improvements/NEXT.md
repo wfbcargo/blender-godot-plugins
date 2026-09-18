@@ -25,7 +25,7 @@ here and nowhere else:
 - animate-anything 0.10.1
 - follow-through 0.6.2
 - humanform 0.10.1
-- character-pipeline 0.9.1
+- character-pipeline 0.10.0
 - wardrobe 0.5.1
 - lookdev 0.4.1
 - godot-lsp 0.1.0
@@ -187,10 +187,21 @@ Suggested after the Step 0 round; each saves agent minutes on every later round.
   one-line change outside the seam that cp-cascade-stop should keep; non-human rigs need close = false; a
   pale patch at the thumb base belongs to the skin step. Notebook:
   [notebooks/realism-step1/ra-closeup-framing.md](notebooks/realism-step1/ra-closeup-framing.md).
-- **Rebuilds that skip what did not change downstream:** after a flesh edit, moves/export/review rerun
-  (17 s) although moves never read flesh; hash stage *outputs* where the next stage reads them, so an
-  unchanged output stops the cascade (target: the 12 s of 06). On a dressed spec, unbind and rebind
-  garments instead of restarting from body.
+- **Rebuilds that skip what did not change downstream: done** (branch `cp-cascade-stop`,
+  character-pipeline 0.10.0, merged 2026-09-18). Flesh saves a digest of what moves reads of its output
+  (`inputs.READS_OUTPUT`), and moves keeps a view hash, so a [flesh] edit that leaves rig and weights alone
+  skips moves: study_man limit_share edit 12.1 s (flesh, export, review) against 18.1 s. A flesh rerun
+  restores the kept unfleshed mesh (`<mesh>:preflesh`), so a resumed glb is byte-identical to a fresh one.
+  On a dressed spec, flesh takes the garments off (`stages.undress`) instead of restarting: Belle 24.3 s
+  against 46-47 s, identical to fresh. pipeline_hashes: 15 output flips with drop-controls; pipeline_woman
+  dressed_flesh_edit with restart and refusal controls. Open: the hem-bone undress path (tee_man) gives
+  garment weights up to 6e-8 off fresh and no fixture covers it; marketplace's Since 0.10.0 omits undress;
+  `_preflesh` swaps the whole mesh back after a count/geometry/prefix check, so a bake rerun without a body
+  restart could lose new UVs or slots (speculative); a chained strand (study_woman) still reruns moves;
+  export and review rerun on every flesh edit (review is now the cost); files built before 0.10.0 rerun
+  moves once; a [moves] edit on a dressed spec restarts from body; the game's `build_belle.py` docstring
+  still says a dressed flesh edit restarts. Notebook:
+  [notebooks/realism-step1/cp-cascade-stop.md](notebooks/realism-step1/cp-cascade-stop.md).
 - **Critic checklists shipped with the plugins: done** (branch `critic-checklists-controls`, merged
   2026-09-18; lookdev 0.4.1, animate-anything 0.10.1, wardrobe 0.5.1, follow-through 0.6.2, humanform
   0.10.1, docs only). `references/critic-look.md`, `critic-motion.md`, `critic-fit.md`, `critic-flesh.md`,
