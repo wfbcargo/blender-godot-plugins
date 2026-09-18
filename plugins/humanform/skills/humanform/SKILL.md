@@ -249,15 +249,21 @@ Ponytail and long_loose put their moving part on its own mesh object, `<base>_ha
 | `ft_centreline` | flat `[x, y, z, x, y, z, ...]`, 12 points, object-local, **root first**, evenly spaced by arc length |
 | `ft_length_m` | the centreline's length |
 | `ft_radius_m` | per centreline point: the tube's half width, the curtain's half thickness |
+| `ft_strand_type` | the follow-through type the preset is: `ponytail`, `long_hair` - so the registry types it from the preset rather than from the object's name |
 | vertex group `ft_strand` | each vertex's share of the length, 0 at the root to 1 at the tip - the order survives a join |
 | `humanform_hair` | `{"preset", "part": "strand", "kind": "tube" or "curtain"}` |
 
 Object custom properties export as glTF node extras when the object is exported on its own. Until
 follow-through builds a chain from it the strand is skinned as a rigid fallback: head bone at the root,
 blending to its parent (neck) and grandparent (chest) toward the tip. `hair.contract(obj)` checks all of it,
-including that the `ft_strand` weights run from the first centreline point to the last. The pipeline joins the
-strand into the body (rig-anything exports one mesh), after checking the contract; the `ft_strand` group and
-weights survive the join, the object properties do not.
+including that the `ft_strand` weights run from the first centreline point to the last.
+
+character-pipeline's hair stage checks the contract and, for the ponytail, **leaves the strand object
+alone**: a join would drop exactly the properties above, so the tail is what its `strand` stage hands
+`follow_through.strand.prepare`, and the export writes it as its own glb beside the body. long_loose's
+curtain it still joins into the body, rigidly skinned - a 16 cm-wide sheet on one bone chain twists into a
+wedge while running - so for that preset the `ft_strand` group and the rigid weights surviving the join
+are what matters.
 
 The bun's coil starts almost on its axis, a quarter of its tube's width, and sinks below the first turn, so
 the middle of the coil shows no tube end (an open end there read as a dark hole with a glint in it).

@@ -109,6 +109,7 @@
       },
       "strand": {
         "kind": "tube",
+        "type": "ponytail",
         "length_m": 0.32,
         "points": 12,
         "radius_m": [0.014, 0.03, 0.008],
@@ -143,6 +144,7 @@
       },
       "strand": {
         "kind": "curtain",
+        "type": "long_hair",
         "length_m": 0.3,
         "points": 12,
         "root_h": -0.9,

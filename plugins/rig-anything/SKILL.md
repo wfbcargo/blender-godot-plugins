@@ -304,7 +304,10 @@ r = export.export_character("MyMesh", rig, r"C:/proj/assets/humans/ann/ann.glb",
 - **What it writes.** `creature` (the glb's base name unless given), `name`, `rig`, `scene`,
   `clips` and `loops` (by role), `implied_speed_mps` (by role), `height_m` (`stand` is the mesh
   top, plus `crouch` and `crouch_walk` when those roles are exported), `gaits`, `contacts`,
-  `verified`, `clip_checks`, `forced_clips`, `known_failures` (each role's authoring failures),
+  `verified`, `clip_checks`, `arm_pose` (per clip with arms, per arm: `hand_rise`,
+  `elbow_flex_deg`, `upper_arm_deg`, `arm_carry_deg`, `arm_swing_deg` - shipped so the motion
+  critic's keep-or-revert rule can compare a rebuild against the previous version after the build
+  log is gone), `forced_clips`, `known_failures` (each role's authoring failures),
   `collider`, and `dropped_clips` if any. `extra` is merged in last, so a project's own fields
   (`style`, `posture`, `stance_width`, `upper_body`, `note`) go there and can replace any of
   these.

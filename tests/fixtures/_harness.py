@@ -102,12 +102,20 @@ def roles(rig_name, meshes=None):
 def moves_manifest(result):
     """What `export.export_character` wrote to `.moves.json`, as a golden holds it: which fields,
     the clips and loops, heights, gaits and collider. Contacts and clip checks are left out (the
-    export's own report carries the checks)."""
+    export's own report carries the checks).
+
+    `arm_pose` is read back from the file on disk, not from the returned dict, because the point of
+    that field is that the next round's critic can still read it when this run's report is gone."""
     if "error" in result:
         return {"error": result["error"]}
     m = result["manifest"]
+    on_disk = m
+    if result.get("moves") and os.path.isfile(result["moves"]):
+        with open(result["moves"], encoding="utf-8") as fh:
+            on_disk = json.load(fh)
     return stable({"fields": sorted(m), "clips": m["clips"], "loops": m["loops"],
                    "height_m": m["height_m"], "gaits": m["gaits"], "collider": m["collider"],
+                   "arm_pose_on_disk": on_disk.get("arm_pose", {}),
                    "dropped_clips": sorted(m.get("dropped_clips", {})), "problems": result["problems"]})
 
 

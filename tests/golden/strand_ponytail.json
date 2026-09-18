@@ -106,6 +106,88 @@
    "2": 400
   },
   "moves_json": {
+   "arm_pose_on_disk": {
+    "Figure_Idle": {
+     "upper_arm.L": {
+      "arm_carry_deg": [
+       8.3,
+       10.3
+      ],
+      "arm_swing_deg": 2.0,
+      "elbow_flex_deg": [
+       12.0,
+       12.0
+      ],
+      "hand_rise": [
+       -0.363,
+       -0.348
+      ],
+      "upper_arm_deg": [
+       3.0,
+       5.0
+      ]
+     },
+     "upper_arm.R": {
+      "arm_carry_deg": [
+       8.1,
+       10.1
+      ],
+      "arm_swing_deg": 2.0,
+      "elbow_flex_deg": [
+       12.0,
+       12.0
+      ],
+      "hand_rise": [
+       -0.381,
+       -0.366
+      ],
+      "upper_arm_deg": [
+       3.0,
+       5.0
+      ]
+     }
+    },
+    "Figure_Run": {
+     "upper_arm.L": {
+      "arm_carry_deg": [
+       -3.9,
+       49.4
+      ],
+      "arm_swing_deg": 53.3,
+      "elbow_flex_deg": [
+       85.0,
+       85.0
+      ],
+      "hand_rise": [
+       -0.023,
+       0.333
+      ],
+      "upper_arm_deg": [
+       -40.0,
+       13.7
+      ]
+     },
+     "upper_arm.R": {
+      "arm_carry_deg": [
+       -5.0,
+       48.3
+      ],
+      "arm_swing_deg": 53.3,
+      "elbow_flex_deg": [
+       85.0,
+       85.0
+      ],
+      "hand_rise": [
+       -0.04,
+       0.307
+      ],
+      "upper_arm_deg": [
+       -40.0,
+       13.7
+      ]
+     }
+    }
+   },
    "clips": {
     "Idle": "Figure_Idle",
     "Run": "Figure_Run"
@@ -116,6 +198,7 @@
    },
    "dropped_clips": [],
    "fields": [
+    "arm_pose",
     "clip_checks",
     "clips",
     "collider",

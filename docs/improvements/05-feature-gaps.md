@@ -269,6 +269,77 @@ copy's 5 bones, its spec and its vertex groups, and a good line afterwards rebui
 Open: `regress.py --godot` does not run `verify_strands.gd`; the sample figure's curled root reads as a
 kink when it lifts; the modifier is GDScript at roughly 0.2-0.8 ms a chain a frame.
 
+**Step 3 in the pipeline - built (branch `hair-strands-integration`, character-pipeline + humanform +
+follow-through, versions not bumped, not merged).** A spec whose `[hair] preset` is `ponytail` now routes
+the hair layer's strand through follow-through's chain with no build-script code:
+
+- **The hair stage stops joining the strand.** It joins the cap and the rigid parts as before and leaves
+  `<name>_hair_strand` its own object: the join drops the very properties the chain is built from
+  (`ft_centreline`, `ft_root_bone`), and a mesh carries one follow-through spec, which on a fleshed body
+  is its jiggle. It still checks the contract and reports it (`strand_contract`, `strand_object`).
+- **A `strand` stage** (`stages.check_strand` / `run_strand`), between `moves` and `garments`, runs
+  `strand.prepare` on every strand mesh of the character and refuses if it leaves no collider. It exists
+  only where the preset grows a strand that is a *line* (`stages.hair_strand_kind` asks humanform's own
+  preset data for the shape, `CHAINED_STRAND_KINDS` says which shapes get a chain), so a `bun` spec's
+  stage list is unchanged and so is `long_loose`'s - see below.
+  Moves first, because rig-anything reads a rig's structure to find its limbs and neck and the move set
+  is authored before 3-8 bones hang off the head; garments after, because the chain's colliders are
+  measured from every other mesh on the rig and a top's cloth round the neck would widen the neck capsule.
+- **The export** writes `<id>_hair.glb` through `strand.export` beside the body and names it in the
+  manifest as `strands: ["res://.../<id>_hair.glb"]`, for `FollowThrough.attach` then `apply`. `check_export`
+  refuses while a strand mesh has no chain, naming the stage - otherwise the hair would ship weighted
+  rigidly to the head and never swing.
+- **humanform writes `ft_strand_type`** from the preset (`ponytail`, `long_hair`), so the registry types
+  the part from what it is rather than from the object's name (it had been reading `long_hair` off
+  `<name>_hair_strand`).
+- **Evidence.** Nadia (`grungist-creek/characters/nadia.toml`, a crowd woman) rebuilt in scratch with
+  `preset = "ponytail"` and a Run, every stage from the spec alone in 24 s: 5 bones over 0.32 m,
+  1.08-2.42 Hz, damping 0.5, an ellipsoid head and a neck capsule. `verify_strands.gd` on the pipeline's
+  own two glbs **passes** at 30/60/120/240 fps: rest drift 0.02 deg, a knock settled in 1.87 s, head
+  penetration 0.2 mm thrown, 1.1-1.2 mm running, 0.4-0.5 mm after a stalled frame, swing 32.6-35.2 deg
+  peak and 19.4-21.6 mean, spread 1.079, 85-354 us a frame. The three lines the SKILL gives a controller
+  were run against that manifest on its own in the scratch project: `attach` adds 0 bones (the body's own
+  rig already carries the chain) and `apply` builds 1 chain of 5 bones with 2 colliders, no problems.
+  Side-view strips of 8 frames of one stride,
+  rendered in Blender from the joints Godot ran (`dump=`), show the tail swinging; the same frames with
+  the chain at rest show it hanging dead straight.
+- **What it caught (the verifier, not the runtime).** That run first failed at 8.6 mm into the head. The
+  runtime turned out to have nothing to do with it: a collider margin from 0 to 30 mm and the strand's own
+  radius from 2 to 60 mm all left the number at 8.6 mm to four decimals. `verify_strands.gd` reads the
+  head's surface as a radius per direction in 24 x 48 cells and took the *nearest* cell; the map is built
+  from everything weighted to the head bone, which on a haired character includes the tie a ponytail is
+  gathered in, so one cell holds the tie at 15.3 cm and the next the bare skull at 13.3 cm. The ponytail's
+  root sits on that step: it moved 3 mm in the head's frame and the verdict moved 20 mm. The surface is now
+  read between the four cells round the direction; the run measures 1.1-1.2 mm and the control with
+  collisions off still reports 11.9 cm into the head. Two fixes tried before that (an ellipsoid grown to
+  hold the skin, an allowance that recovers as the strand slides) were both reverted: they moved the
+  number by a millimetre or two and one threw the swing to 77 deg.
+- **Fixture `pipeline_ponytail`**: the spec built through every stage, its stage list against a `bun`
+  spec's and a `long_loose` one's, what the hair stage left loose and its contract, the chain, both glbs read back (the chain
+  bones in the body's skeleton and in the strand file's skin, heads within 1e-5 m), the manifest's
+  `strands`, and the two refusals. `hair_presets` moved with it: the body is 434 vertices lighter (the
+  tail is not joined), `ft_strand` is on the loose object, `stage_names` has `strand`, and the glTF
+  node extras carry `ft_strand_type`.
+- **Owed by the merge**: the three plugin versions and their `marketplace.json` entries, the NEXT.md
+  line, and a `tests/README.md` row for `pipeline_ponytail` (this run was told not to touch those files).
+- **`long_loose` keeps its old rigid hair.** Its strand is a curtain 16 cm wide, and a chain is a line:
+  one chain down the middle of a sheet turns it, running, into a twisted wedge standing out of the
+  shoulder (`renders/loose_sprung.png`), and `verify_strands.gd` measures 2.9 cm of it inside the head
+  against 1.2 mm for the ponytail. So the hair stage joins a curtain into the body as it always did and
+  no strand stage is created for it: that preset exports exactly as it did before this branch (built and
+  checked in scratch - one glb, no `strands` in the manifest). What it needs is follow-through building a
+  sheet of chains, or typing the curtain as the shell it is and routing it to cloth; either is its own
+  piece of work.
+- **Found / open.** The verifier's 3 m/s knock throws the chain onto its 60 deg root limit, where the
+  first bone stands almost straight out of the tie and the hair reads as a wire with a gap under it; no
+  animation gets near that, but a hard-whipped head in a cut scene would show it. `regress.py --godot`
+  still does not run `verify_strands.gd`, so this pass is a scratch-project run by hand. A strand mesh on
+  the rig counts as the body's own skin when rig-anything measures arm hang and limb clearance
+  (`verify.not_body_reason` excludes garments and follow-through's simulated routes, not `spring_bones`);
+  it did before this branch too, joined into the body, so nothing moved, but a ponytail hanging down the
+  back is measured as if it were her back. Belle and the crowd still carry `kind = "shell_bun"` and
+  are untouched here.
+
 ---
 
 ## 5.3 Compression garments - DONE (Belle's own top not rebuilt)

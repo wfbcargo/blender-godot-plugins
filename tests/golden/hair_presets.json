@@ -54,6 +54,7 @@
     "ft_length_m",
     "ft_radius_m",
     "ft_root_bone",
+    "ft_strand_type",
     "ft_type",
     "humanform_hair"
    ],
@@ -657,12 +658,14 @@
   "rebuild_refused": {
    "body_unchanged": true,
    "found": [
-    "HairWoman_body"
+    "HairWoman_body",
+    "HairWoman_hair_strand"
    ],
-   "refused": "[hairwoman] hair is already in this file (HairWoman_body) and the hair stage joins a layer on rather than replacing it - rebuild from body (from_stage=\"body\") to change [hair]",
-   "verts": 19845,
+   "refused": "[hairwoman] hair is already in this file (HairWoman_body, HairWoman_hair_strand) and the hair stage joins a layer on rather than replacing it - rebuild from body (from_stage=\"body\") to change [hair]",
+   "verts": 19411,
    "with_another_character": [
-    "HairWoman_body"
+    "HairWoman_body",
+    "HairWoman_hair_strand"
    ]
   },
   "spec": {
@@ -685,13 +688,14 @@
    }
   },
   "stage": {
-   "body_verts": 19845,
-   "ft_strand_verts": 434,
+   "body_has_ft_strand": false,
+   "body_verts": 19411,
    "joined": [
-    "HairWoman_hair",
+    "HairWoman_hair"
+   ],
+   "leftover_hair_objects": [
     "HairWoman_hair_strand"
    ],
-   "leftover_hair_objects": [],
    "materials": [
     "HairWoman_skin",
     "HF_sclera",
@@ -715,7 +719,9 @@
      0.0274,
      0.0291
     ]
-   }
+   },
+   "strand_ft_strand_verts": 434,
+   "strand_object": "HairWoman_hair_strand"
   },
   "stage_names": [
    "body",
@@ -723,6 +729,7 @@
    "hair",
    "flesh",
    "moves",
+   "strand",
    "garments",
    "export",
    "review"

@@ -17,7 +17,7 @@ A strand is a separate mesh object marked by whoever made it (humanform's hair l
 | `ft_centreline` | optional: root-to-tip points, object-local |
 | `ft_centreline_world` | the same in world space |
 | `ft_centrelines` | several chains in one mesh (object-local lists) |
-| `ft_strand_type` | optional type (`ponytail`, `long_hair`); else the name, else `ponytail` |
+| `ft_strand_type` | optional type (`ponytail`, `long_hair`) - humanform writes the preset's; else the name, else `ponytail` |
 
 Without a centreline, each loose part of the mesh is one chain, and its line is derived: surface
 (edge) distance from the part's vertices nearest the root bone, and the centroid of each 1.5 cm band
@@ -82,6 +82,11 @@ for rep in FollowThrough.apply(body, {"routes": ["spring_bones"]}):
     var strands = rep["body"]          # a SkeletonModifier3D; strands.kick(Vector3(0, 2, 0))
 ```
 
+A character built by character-pipeline names its strand file in its `.moves.json`, so a controller
+needs no path of its own: `FollowThrough.attach(body, load(manifest["strands"][0]))`. Its chain bones
+are already on the body's rig (`bones_added` 0), because the body was exported from the rig that
+carries them.
+
 Per chain, root to tip, in fixed steps of 1/120 s (as many as fit in a frame - at most 16, so a
 stalled frame drops the time it cannot afford instead of costing 90 steps and stalling the next one -
 the remainder carried, the animated parent and colliders interpolated to each step's moment):
@@ -131,13 +136,30 @@ Measured (follow-through strands, Godot 4.7.2):
 |---|---|---|---|---|---|---|---|---|
 | Figure (Rigify fit) | 30-240 | 0.02 deg | 1.47-1.50 s | 1.3 mm | 1.3 mm | 1.3 mm / 22 deg | 13.2-13.4 / 8.5-9.0 deg | 1.014 |
 | MPFB woman | 30-240 | 0.02 deg | 2.23-2.25 s | 1.7-1.9 mm | 3.6-3.7 mm | 3.8-3.9 mm / 32-33 deg | 35.0-36.7 / 18.8-20.0 deg | 1.050 |
+| Nadia, `preset = "ponytail"` | 30-240 | 0.02 deg | 1.87-1.88 s | 0.2 mm | 1.1-1.2 mm | 0.4-0.5 mm / 24-25 deg | 32.6-35.2 / 19.4-21.6 deg | 1.079 |
+
+The last row is the first ponytail the *hair layer* grew rather than `samples.add_ponytail`: a crowd
+woman from `grungist-creek/characters/nadia.toml` given `[hair] preset = "ponytail"` and a Run, built
+through character-pipeline in scratch (0.32 m, 5 bones, 1.08-2.42 Hz) and played from the pipeline's
+own two glbs. It costs 85-354 us a frame (240 down to 30 fps).
 
 The 0.75 s hitch frame is 90 steps' worth of time; 16 are simulated and 74 dropped on both bodies, and
 no other number moves, because the cap only engages on a frame longer than 0.13 s.
 
 The checks fail when they should: with collisions off (`set=collision_margin_m:-1`) the fling puts a
-strand 15-16 cm into the head on both bodies; with `max_angle_deg:0` the knock moves nothing; without
-the seed the hitch frame puts the MPFB strand 6.0-6.2 mm into the head (below).
+strand 15-16 cm into the head on both bodies (11.9 cm on Nadia); with `max_angle_deg:0` the knock moves
+nothing; without the seed the hitch frame puts the MPFB strand 6.0-6.2 mm into the head (below).
+
+**The head's surface is read between cells.** `_depths` compares each strand vertex with the head
+skin's radius in its own direction, and that radius used to be the nearest cell's. The map is built
+from everything weighted to the head bone, which on a haired character includes the hair - and where
+the tie a ponytail is gathered in stands off the skull, one cell holds the tie (15.3 cm from the head's
+centre) and the next the bare skull (13.3 cm). The ponytail's own root sits on that step: running,
+Nadia's worst vertex moved 3 mm in the head's frame and the verdict moved 20 mm, from 12 mm outside her
+head to 8.6 mm inside it, and the run failed. That is the step, not a penetration - nothing about the
+runtime changed the number (a collider margin from 0 to 30 mm, and the strand's own radius from 2 to
+60 mm, left it at 8.6 mm to four decimals). Read between the four cells round the direction, the same
+run measures 1.1-1.2 mm and the collisions-off control still reports 11.9 cm.
 
 ## What the verifier found
 
@@ -155,11 +177,21 @@ the seed the hitch frame puts the MPFB strand 6.0-6.2 mm into the head (below).
 | a script error in the verifier | `FT_SUMMARY ... PASSED` with nothing measured | a rate without a measured run fails |
 | a 0.75 s frame, steps uncapped | 90 substeps in one frame: a stall pays for itself twice | at most `MAX_STEPS` (16), the rest dropped |
 | a 0.75 s frame, steps capped | the first kept step read the whole stall's motion of the body as one 1/120 s step: the MPFB strand hit its 60 deg root limit and went 6.0-6.2 mm into the head | the skipped time seeds each bone's target (`_seed`) instead of pushing it: 32-33 deg, 3.8-3.9 mm |
+| the hair layer's own ponytail, run | 8.6 mm "into the head", unmoved by any collider or radius change: the head's surface was read from the nearest cell of a map that includes the hair tie, and the root sits on the 2 cm step between the tie's cell and the skull's | the surface is read between the four cells round the direction: 1.1-1.2 mm |
 
 ## Limits
 
 - The sample figure's ponytail curls 49 deg between its first two bones at rest; running, the root
   bone lifts and the curl reads as a kink in side view. The MPFB ponytail reads smoothly.
+- **A chain is a line.** humanform's `long_loose` curtain is a sheet 16 cm wide, and one chain down its
+  middle twists it, running, into a wedge standing out of the shoulder: 2.9 cm into the head on the same
+  woman whose ponytail measures 1.2 mm (`renders/loose_sprung.png` on the `hair-strands-integration`
+  hand-off). character-pipeline therefore does not chain a curtain at all; it wants several chains across
+  the sheet, or typing as the shell it is and routing to cloth.
+- The verifier's 3 m/s knock throws the chain to its 60 deg root limit, where the first bone stands
+  almost straight out of the tie and the hair reads as a wire with a gap under it. Nothing an animation
+  does gets near it, and the run frames read as hair (`renders` on the `hair-strands-integration`
+  hand-off), but a cut scene that whips a head that hard would show it.
 - The modifier costs roughly 0.2-0.8 ms a frame per 5-6 bone chain in GDScript (noisy on a shared
   machine); a crowd needs fewer steps or native code.
 - Colliders are the head and neck only; long hair over the shoulders and back is held off them only by

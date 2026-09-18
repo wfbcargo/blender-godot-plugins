@@ -164,8 +164,26 @@ run above 0.65 or with an elbow opened past 140 degrees. The shipped run read
 0.72; with the swing about -15 deg and the elbow held at 85 it reads 0.44-0.55
 (hand from hip to lower chest). `elderly_shuffle` hangs its arms 8 degrees
 behind vertical, so a stooped body's hands fall at the front of the thighs.
-In a side view a far arm forward looks like the near arm forward: check the
-alternation on numbers (`arm_pose`, per-frame upper-arm angles), not two stills.
+
+**And the arms that reached without rising.** `hand_rise` caught Tomas' run and
+missed Walter's walk: his pre-fix hands were carried out in front of his thighs
+at hip height, `hand_rise` -0.20, nowhere near the 0.7 line. The motion critic
+flagged it on the strips (04 c), so `arm_pose` also reports `arm_carry_deg` -
+the whole arm's angle from gravity, the palm seen from the shoulder, which reads
+the same on a stooped body as on an upright one - and `verify.arm_swing` fails a
+non-running clip whose arm swings 8 degrees or more and still never comes back
+within 2 degrees of hanging. Across the 17 walks shipped in grungist-creek that
+have arms - the 16 characters of `assets/humans/*` and Belle; the other six
+walks there are armless creatures - the
+arm passes behind hanging every cycle, by 3.9 degrees (Margaret's shuffle) to
+17.5 (Lily); the pre-fix Walter walk comes no nearer than 8.8 degrees in front.
+Idles are left out by the swing gate (every shipped idle moves 2.0-2.1 degrees)
+and runs by `running` (every shipped run keeps both arms in front, 1.2-6.7
+degrees at the back of the stroke) - a run is held by `hand_rise` and the elbow.
+In a side view a far arm forward looks like the near arm forward, and no
+per-frame angles are kept - `arm_pose` reports each arm's range over the whole
+clip - so alternation is a front-view question, not one to settle from two
+stills of `_right.png`.
 
 Measured on the 16 humanform people (Phase 1-2 layered arms -> `upper`), legs
 unchanged to the millimetre:
