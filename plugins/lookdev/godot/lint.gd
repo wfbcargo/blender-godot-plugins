@@ -32,6 +32,13 @@ func _initialize() -> void:
 
 	# Materials first: the lights check asks whether anything is emissive.
 	_walk_materials(scene_root)
+	if material_count == 0:
+		# A lint that looked at nothing must not read as a clean bill of health. The usual cause is a
+		# scene whose script builds the stage and loads the characters in _ready (figure_study.tscn):
+		# lint instantiates without running scripts, so it sees none of that.
+		add("error", "NO_MATERIALS", "scene",
+			"the scene has 0 materials to check: it is empty, or its geometry is made at runtime by a script (lint instantiates the scene without running scripts). Nothing was measured.",
+			"lint a scene that holds the geometry (an imported glb, a saved stage), or use `capture`/`close-shot`, which run the scene")
 	_check_project()
 	_check_environment()
 	_check_lights()
@@ -49,6 +56,10 @@ func _initialize() -> void:
 		print(text)
 	else:
 		var f := FileAccess.open(out, FileAccess.WRITE)
+		if f == null:
+			Common.fail(self, "cannot write '%s': %s" % [out, error_string(FileAccess.get_open_error())])
+			scene_root.free()
+			return
 		f.store_string(text)
 		f.close()
 	Common.emit("done", {"findings": findings.size()})

@@ -17,6 +17,10 @@ cost hours, each verified rather than recalled.
 | `lint` | Headless static checks on a scene: tonemapper, ambient that erases form, missing GI/AO/fog, sun below the horizon, shadow bias, ignored properties, implausible albedo and metal values, uniform surfaces, unbaked GI nodes. Every finding names the property to change. |
 | `preset` | Five lighting recipes (clear midday, golden hour, overcast, interior daylight, night), applied to a copy of the scene. Calibrated by measurement in both relative and physical light-unit modes. |
 | `compare` | Side-by-side images in both orders plus stat deltas, for position-bias-free A/B judging. |
+| `close-shot` | One command to judge a character in Godot: a labelled sheet of face, eyes, palms and backs of the hands, feet, bust and full body under named presets, cameras aimed from the posed frame's bones, the lens chosen so each subject fills its tile; empty or off-target tiles, missing bones and skeleton-less glbs fail. |
+| `tone` | A glb's mean albedo per material over the texels its UVs cover; a black albedo is not ok. |
+| `selftest` | The controls: every check is shown failing on a case built to fail. |
+| Godot addon | `lookdev_materials.gd` (material presets back from glTF extras), `lookdev_presets.gd` + `presets.json` (the lighting recipes applied at runtime, the same code `preset` uses). |
 | Blender `material_lint` | Finds inputs the glTF exporter silently drops (procedural textures, ramps, bump, mix shaders), features Godot ignores on import (clearcoat, sheen, transmission, IOR), colour-space mistakes, missing UVs. |
 | Blender `bake` | Bakes base colour, roughness, metallic, normal, emission and AO to textures, packs ORM, and builds the material layout glTF and Godot read, on a duplicate. |
 | Blender `export` | glTF export with Godot-safe settings (COMPAT light units, active scene only, tangents), read back and checked. |
@@ -47,6 +51,8 @@ The runner finds Godot from `--godot`, `LOOKDEV_GODOT`, `GODOT_PATH`, or a
 node bin/lookdev.mjs lint    --project path/to/game --scene res://level.tscn
 node bin/lookdev.mjs capture --project path/to/game --scene res://level.tscn --probes --kind day
 node bin/lookdev.mjs preset  --project path/to/game --scene res://level.tscn --preset golden_hour
+node bin/lookdev.mjs close-shot --project path/to/game --glb res://assets/hero/hero.glb --distance 1 --presets clear_midday,overcast
+node bin/lookdev.mjs tone    --project path/to/game --glb res://assets/hero/hero.glb --material skin
 ```
 
 Captures and preset copies go to the system temp directory

@@ -1,5 +1,5 @@
 {
-  "_comment": "Lighting recipes. 'environment' applies in both light-unit modes; 'environment_physical'/'environment_relative' and sun lux/energy apply per the project's rendering/lights_and_shadows/use_physical_light_units. Physical values follow real-world measurements (Filament, Unity HDRP, Godot docs). Relative energies are calibrated with lookdev capture against an 18% grey probe - see references/recipes.md for how, and re-check with a capture after applying.",
+  "_comment": "Lighting recipes. 'environment' applies in both light-unit modes; 'environment_physical'/'environment_relative' and sun lux/energy apply per the project's rendering/lights_and_shadows/use_physical_light_units. Physical values follow real-world measurements (Filament, Unity HDRP, Godot docs). Relative energies are calibrated with lookdev capture against an 18% grey probe - see references/recipes.md for how, and re-check with a capture after applying. Shipped inside the Godot addon: lookdev_presets.gd applies these at runtime and apply_preset.gd (lookdev.mjs preset) calls it. 'needs' names the stage a recipe requires; tools refuse it elsewhere unless forced.",
   "presets": {
     "clear_midday": {
       "kind": "day",
@@ -162,6 +162,8 @@
     },
     "interior_daylight": {
       "kind": "interior",
+      "needs": "interior",
+      "_needs": "Opens exposure about 4.5 stops for light entering a room through openings. On an open stage (sky overhead) everything clips to white, so the tools refuse it there unless forced.",
       "description": "Sun and sky entering through openings. GI does the work; exposure opens up ~4.5 stops over exterior and windows are allowed to clip.",
       "sun": {
         "elevation": 40,
