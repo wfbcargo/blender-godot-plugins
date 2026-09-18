@@ -427,15 +427,15 @@ def _membrane(X, ed, fill):
     return M
 
 
-def _vertex_normals(X, tris):
-    """Area-weighted unit vertex normals of positions `X` over triangles `tris`."""
-    fn = np.cross(X[tris[:, 1]] - X[tris[:, 0]], X[tris[:, 2]] - X[tris[:, 0]])
-    N = np.zeros_like(X)
-    for c in range(3):
-        N[:, c] = np.bincount(tris.ravel(), weights=np.repeat(fn[:, c], 3), minlength=len(X))
-    return N / np.maximum(np.linalg.norm(N, axis=1), 1e-12)[:, None]
-
-
+def _vertex_normals(X, tris):
+    """Area-weighted unit vertex normals of positions `X` over triangles `tris`."""
+    fn = np.cross(X[tris[:, 1]] - X[tris[:, 0]], X[tris[:, 2]] - X[tris[:, 0]])
+    N = np.zeros_like(X)
+    for c in range(3):
+        N[:, c] = np.bincount(tris.ravel(), weights=np.repeat(fn[:, c], 3), minlength=len(X))
+    return N / np.maximum(np.linalg.norm(N, axis=1), 1e-12)[:, None]
+
+
 def compress(garment, body, smooth=0.0, flatten=None, fade=COMPRESS_FADE):
     """The body as a compression garment squeezes it, to ease the cloth off (improvements 05 5.3).
 
