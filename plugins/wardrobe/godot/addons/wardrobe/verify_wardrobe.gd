@@ -23,24 +23,37 @@ extends SceneTree
 ##                within 3 cm behind it and none in front. A thigh through a hem, a breast's edge
 ##                through a shirt. Skin that was never under cloth - a hand swinging against a
 ##                shirt - is not counted: touching the outside of cloth is not coming through it.
+##   thighs       garment vertices inside a leg: a skirt the thighs pass through in a crouch or a
+##                stride. A vertex is inside when lines from it inward along its normal, outward
+##                and both ways sideways all first meet skin from inside (the skin's normal along
+##                the line) more than 5 mm off, and the inward line leaves through leg skin: cloth on
+##                the belly is not inside a thigh folded up behind the belly skin in a crouch. Leg
+##                skin is the body triangles whose three corners are skinned
+##                mostly to a thigh or shin (bones named thigh*/shin*/upperleg*/lowerleg* and their
+##                children). Checked on skirts and dresses (spec kind), or every garment with
+##                thighs=all; thighs=off skips it.
 ##   match        every hidden position in the spec found a body vertex
 ##   hem          peak swing, backstop hits, finite, microseconds per frame
 ##
-## Limits: holes and poke each at most 0.5% of the vertices they are counted over, in the worst
-## sampled frame; every hidden position matched; hem offsets finite and within their limits.
-## occluded and coincident are reported, not limited. A run that measured nothing fails: a body,
-## garment or clip= that does not exist, setup that did not finish (a script error in it leaves no
-## pose hooked up), or no frame sampled.
+## Limits: holes and poke each at most 0.5% of the vertices they are counted over, thighs 0.5% of
+## the checked garment vertices, in the worst sampled frame; every hidden position matched; hem
+## offsets finite and within their limits. occluded and coincident are reported, not limited. A run
+## that measured nothing fails: a body, garment or clip= that does not exist, setup that did not
+## finish (a script error in it leaves no pose hooked up), or no frame sampled.
 ##
-## Controls and evidence: cut=<m> removes a patch of the garment and must fail; shot=<frame>, run
-## with a window, renders that frame's holes (see _plan_shots). trace=true prints every sample,
-## trace=holes every hole candidate with how many of its views see in.
+## Controls and evidence: cut=<m> removes a patch of the garment and must fail; rigid=<bone> skins
+## every garment vertex to that one bone (a skirt that ignores the thighs) and must fail the thighs
+## check in a crouch; shot=<frame>, run with a window, renders that frame's holes (see _plan_shots).
+## trace=true prints every sample, trace=holes every hole candidate with how many of its views see in.
 ##
 ## Prints `WD_RESULT ` followed by JSON.
 
 const Wardrobe = preload("res://addons/wardrobe/wardrobe.gd")
 
-const LIMITS := {"holes_frac": 0.005, "poke_frac": 0.005}
+const LIMITS := {"holes_frac": 0.005, "poke_frac": 0.005, "thigh_frac": 0.005}
+const THIGH_KINDS := ["skirt", "dress"]
+const THIGH_REACH := 0.25          # m: a line from inside a thigh leaves it within this
+const THIGH_DEPTH := 0.005         # m: cloth pressed this close to leg skin, either side, is on it
 const UP_REACH := 0.12
 const BEHIND := 0.03
 const BEHIND_HIDDEN := 0.06
@@ -87,6 +100,9 @@ var setup_problems := PackedStringArray()
 var setup_done := false             # set last in _setup: a script error part-way leaves it false
 var still := false                  # nothing plays, so the skeleton never updates: sample from _process
 var sampled_frame := -1
+var leg_vertex := PackedByteArray()  # body vertex -> 1 when skinned mostly to a leg bone
+var thigh_checked := 0              # garment vertices the thigh check looks at
+var thigh_where := {}
 
 
 func _initialize() -> void:
@@ -153,7 +169,8 @@ func _setup() -> void:
 		for rep in ft.apply(body_root, {"routes": ["jiggle_bones"]}):
 			if rep.get("built", false):
 				rep["body"].response_scale = float(args.get("response", "2.5"))
-	var opts := {"hem": args.get("hem", "true") == "true"}
+	# cloth is off: what is measured is the skinned garment; follow-through's verify_cloth.gd measures cloth
+	var opts := {"hem": args.get("hem", "true") == "true", "cloth": false, "colliders": args.get("colliders", "true") == "true"}
 	for path in args.get("garment", "res://assets/wardrobe/nora_tshirt.glb").split(","):
 		for rep in Wardrobe.equip(body_root, load(path), opts):
 			equip_reports.append(rep)
@@ -165,13 +182,22 @@ func _setup() -> void:
 	var src: Mesh = body.get_meta(Wardrobe.META_SOURCE, body.mesh)
 	body_arrays = src.surface_get_arrays(0)
 	body_bind = _binds(body)
+	var thighs_mode: String = args.get("thighs", "auto")
 	for gm in Wardrobe.worn(body):
-		garments.append({"mesh": gm, "arrays": gm.mesh.surface_get_arrays(0), "bind": _binds(gm)})
+		var kind := String(Wardrobe.spec_of(gm).get("kind", ""))
+		var check := thighs_mode == "all" or (thighs_mode == "auto" and THIGH_KINDS.has(kind))
+		garments.append({"mesh": gm, "arrays": gm.mesh.surface_get_arrays(0), "bind": _binds(gm), "kind": kind,
+			"thighs": check})
 		for i in gm.get_meta(Wardrobe.META_HIDE, PackedInt32Array()):
 			hidden_set[i] = true
 	hidden_idx = PackedInt32Array(hidden_set.keys())
+	_leg_vertices()
 	if args.has("cut"):
 		_cut(float(args["cut"]))
+	if args.has("rigid"):
+		_rigid(String(args["rigid"]))
+		if not setup_problems.is_empty():
+			return
 	var players := body_root.find_children("*", "AnimationPlayer", true, false)
 	if players.is_empty():
 		setup_problems.append("the body has no AnimationPlayer")
@@ -236,6 +262,158 @@ func _cut(radius: float) -> void:
 	print("WD_CUT %d garment triangles within %.3f m of %s" % [removed, radius, at])
 
 
+## rigid=<bone>: a control that must fail the thighs check. Skins every garment vertex wholly to one bone
+## (the pelvis: a skirt that does not follow the thighs), in what is measured and in what is drawn; the
+## hem modifier still runs but no vertex follows it.
+func _rigid(bone_name: String) -> void:
+	var changed := 0
+	for g in garments:
+		var mi: MeshInstance3D = g["mesh"]
+		var bind := -1
+		for b in mi.skin.get_bind_count():
+			if mi.skin.get_bind_name(b) == bone_name:
+				bind = b
+		if bind < 0:
+			setup_problems.append("rigid=%s: no such bone in %s's skin" % [bone_name, mi.name])
+			return
+		var arrays: Array = g["arrays"]
+		var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
+		var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
+		var per: int = bones.size() / (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+		for i in bones.size():
+			var first := i % per == 0
+			bones[i] = bind if first else 0
+			weights[i] = 1.0 if first else 0.0
+		arrays[Mesh.ARRAY_BONES] = bones
+		arrays[Mesh.ARRAY_WEIGHTS] = weights
+		changed += bones.size() / per
+		var flags := Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS if per == 8 else 0
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, flags)
+		mesh.surface_set_material(0, mi.mesh.surface_get_material(0))
+		mi.mesh = mesh
+	print("WD_RIGID %d garment vertices skinned to %s only" % [changed, bone_name])
+
+
+## Which body vertices are leg skin: most of their weight on a thigh or shin bone or a bone under one.
+func _leg_vertices() -> void:
+	var legs := {}
+	for b in skel.get_bone_count():
+		var n := skel.get_bone_name(b).to_lower()
+		if n.begins_with("thigh") or n.begins_with("shin") or n.begins_with("upperleg") or n.begins_with("lowerleg") \
+				or n.begins_with("def-thigh") or n.begins_with("def-shin"):
+			legs[b] = true
+	for b in skel.get_bone_count():
+		var p := skel.get_bone_parent(b)
+		while p >= 0:
+			if legs.has(p) and not skel.get_bone_name(b).begins_with("wd_"):
+				legs[b] = true
+				break
+			p = skel.get_bone_parent(p)
+	var bones: PackedInt32Array = body_arrays[Mesh.ARRAY_BONES]
+	var weights: PackedFloat32Array = body_arrays[Mesh.ARRAY_WEIGHTS]
+	var n_verts: int = (body_arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+	var per: int = bones.size() / n_verts
+	leg_vertex.resize(n_verts)
+	for i in n_verts:
+		var on_leg := 0.0
+		for k in per:
+			var bone := body_bind[bones[i * per + k]]
+			if bone >= 0 and legs.has(bone):
+				on_leg += weights[i * per + k]
+		leg_vertex[i] = 1 if on_leg > 0.5 else 0
+
+
+## Garment vertices inside a leg this sample (see the header), counted into `where` by the leg bone of the
+## skin the inward line leaves through. Every body triangle near the checked garments blocks a line, so
+## cloth outside the belly is not taken for inside a thigh folded up under it in a crouch.
+func _thighs(pos: PackedVector3Array, nor: PackedVector3Array, skinned: Array, where: Dictionary) -> int:
+	var box := AABB()
+	var first := true
+	for gi in garments.size():
+		if garments[gi]["thighs"]:
+			for p in (skinned[gi][0] as PackedVector3Array):
+				if first:
+					box = AABB(p, Vector3.ZERO)
+					first = false
+				else:
+					box = box.expand(p)
+	if first:
+		return 0
+	box = box.grow(THIGH_REACH)
+	var btris := []
+	var ltris := []
+	var bidx: PackedInt32Array = body_arrays[Mesh.ARRAY_INDEX]
+	for t in range(0, bidx.size(), 3):
+		var a := bidx[t]
+		var b := bidx[t + 1]
+		var c := bidx[t + 2]
+		if not (box.has_point(pos[a]) or box.has_point(pos[b]) or box.has_point(pos[c])):
+			continue
+		var leg := leg_vertex[a] == 1 and leg_vertex[b] == 1 and leg_vertex[c] == 1
+		var tri := [pos[a], pos[b], pos[c], (nor[a] + nor[b] + nor[c]).normalized(), a, leg]
+		btris.append(tri)
+		if leg:
+			ltris.append(tri)
+	if ltris.is_empty():
+		return 0
+	var lgrid := _grid(ltris)
+	var bgrid := _grid(btris)
+	var inside := 0
+	var checked := 0
+	for gi in garments.size():
+		if not garments[gi]["thighs"]:
+			continue
+		var gp: PackedVector3Array = skinned[gi][0]
+		var gn: PackedVector3Array = skinned[gi][1]
+		checked += gp.size()
+		for i in gp.size():
+			var p := gp[i]
+			var c := Vector3i(floori(p.x / CELL), floori(p.y / CELL), floori(p.z / CELL))
+			var near := false
+			for dx in [-1, 0, 1]:
+				for dy in [-1, 0, 1]:
+					for dz in [-1, 0, 1]:
+						if lgrid.has(c + Vector3i(dx, dy, dz)):
+							near = true
+			if not near:
+				continue
+			var n := gn[i].normalized()
+			var side := n.cross(Vector3.UP)
+			if side.length() < 0.1:
+				side = n.cross(Vector3.RIGHT)
+			side = side.normalized()
+			var exit := _body_exit(bgrid, btris, p, -n)
+			if exit < 0 or not btris[exit][5]:
+				continue
+			if _body_exit(bgrid, btris, p, n) < 0 or _body_exit(bgrid, btris, p, side) < 0 					or _body_exit(bgrid, btris, p, -side) < 0:
+				continue
+			inside += 1
+			var bn := _dominant_bone(btris[exit][4])
+			where[bn] = where.get(bn, 0) + 1
+			if args.get("trace", "") == "thighs":
+				print("WD_THIGH frame %d garment %s v%d rest %s in %s" % [frame, garments[gi]["mesh"].name, i,
+					(garments[gi]["arrays"][Mesh.ARRAY_VERTEX] as PackedVector3Array)[i], bn])
+	thigh_checked = maxi(thigh_checked, checked)
+	return inside
+
+
+## Index of the body triangle a line from p along d first meets, when it meets it from inside the body (the
+## triangle's normal along d) more than THIGH_DEPTH off; -1 otherwise.
+func _body_exit(grid: Dictionary, tris: Array, p: Vector3, d: Vector3) -> int:
+	var best := INF
+	var best_ti := -1
+	for ti in _cells_along(grid, p + d * (THIGH_REACH * 0.5), d, THIGH_REACH * 0.5):
+		var t: Array = tris[ti]
+		var hit := _tri(p, d, t[0], t[1], t[2])
+		if not is_nan(hit) and hit >= 0.0 and hit <= THIGH_REACH and hit < best:
+			best = hit
+			best_ti = ti
+	if best_ti < 0 or best <= THIGH_DEPTH or (tris[best_ti][3] as Vector3).dot(d) <= 0.0:
+		return -1
+	return best_ti
+
+
 ## Body vertices under a garment at rest: the line along the normal meets it from just behind the
 ## skin (COINCIDENT_MAX) to UP_REACH in front.
 func _rest_under() -> void:
@@ -296,8 +474,10 @@ func _on_pose() -> void:
 			peak_by_bone[b["name"]] = maxf(peak_by_bone.get(b["name"], 0.0), e.length())
 	var bpos := _skin(body, body_arrays, body_bind)
 	var tris := []                     # [a, b, c, n]
+	var skinned := []                  # per garment: [positions, normals]
 	for g in garments:
 		var gp := _skin(g["mesh"], g["arrays"], g["bind"])
+		skinned.append(gp)
 		var idx: PackedInt32Array = g["arrays"][Mesh.ARRAY_INDEX]
 		var pts: PackedVector3Array = gp[0]
 		for t in range(0, idx.size(), 3):
@@ -385,10 +565,24 @@ func _on_pose() -> void:
 			var hb := _dominant_bone(i)
 			hole_at[hb] = hole_at.get(hb, 0) + 1
 	samples += 1
+	var thigh_at := {}
+	var thighs := 0
+	if garments.any(func(g): return g["thighs"]):
+		thighs = _thighs(pos, nor, skinned, thigh_at)
+	if thighs > worst.get("thighs", 0):
+		worst["thighs"] = thighs
+		worst["thighs_frame"] = frame
+		thigh_where = thigh_at
 	if args.has("shot") and frame == int(args["shot"]) and shots.is_empty():
 		_plan_shots(hole_list, pos, nor)
+	if args.has("dump") and Array(args["dump"].split(",")).map(func(x): return int(x)).has(frame):
+		_dump(pos, skinned)
+		if args.get("trace", "") == "hem":
+			for h in hems:
+				for hb in h.bones:
+					print("WD_HEM frame %d %s fold %.0f swing %.0f deg offset %.3f m" % [frame, hb["name"], hb.get("fold_deg", 0.0), hb.get("swing_deg", 0.0), (hb["offset"] as Vector3).length()])
 	if args.get("trace", "false") == "true":
-		print("WD_TRACE frame %d holes %d occluded %d coincident %d poke %d %s" % [frame, holes, occluded, coincident, pokes, hole_at])
+		print("WD_TRACE frame %d holes %d occluded %d coincident %d poke %d thighs %d %s %s" % [frame, holes, occluded, coincident, pokes, thighs, hole_at, thigh_at])
 	if holes > worst["holes"]:
 		worst["holes"] = holes
 		worst["holes_frame"] = frame
@@ -566,6 +760,65 @@ func _dominant_bone(i: int) -> String:
 	return body.skin.get_bind_name(bones[i * per + best])
 
 
+## dump=<frame[,frame...]> dump_dir=<folder>: the skinned body and garments of those sampled frames as OBJ
+## files in skeleton space (Y up, as Godot has them), for looking at a measured frame anywhere - headless
+## too. The body is the one the game draws: without the triangles the garments hide. A garment with hem
+## colliders also writes them, as rings of spheres along each capsule.
+func _dump(pos: PackedVector3Array, skinned: Array) -> void:
+	var dir: String = args.get("dump_dir", OS.get_user_data_dir())
+	# the body as the game draws it: the triangles the garments hide are not in it
+	var drawn := PackedInt32Array()
+	var bidx: PackedInt32Array = body_arrays[Mesh.ARRAY_INDEX]
+	for t in range(0, bidx.size(), 3):
+		if hidden_set.has(bidx[t]) and hidden_set.has(bidx[t + 1]) and hidden_set.has(bidx[t + 2]):
+			continue
+		drawn.append_array([bidx[t], bidx[t + 1], bidx[t + 2]])
+	var meshes := [["body", pos, drawn]]
+	for gi in garments.size():
+		meshes.append([String(garments[gi]["mesh"].name), skinned[gi][0], garments[gi]["arrays"][Mesh.ARRAY_INDEX]])
+	for m in meshes:
+		var path := "%s/f%d_%s.obj" % [dir, frame, m[0]]
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		if f == null:
+			print("WD_DUMP cannot write " + path)
+			continue
+		for v in (m[1] as PackedVector3Array):
+			f.store_line("v %f %f %f" % [v.x, v.y, v.z])
+		var idx: PackedInt32Array = m[2]
+		for t in range(0, idx.size(), 3):
+			f.store_line("f %d %d %d" % [idx[t] + 1, idx[t + 1] + 1, idx[t + 2] + 1])
+		f.close()
+		print("WD_DUMP " + path)
+	# the hem colliders, as rings of spheres along each capsule, in the same space
+	var cf: FileAccess = null
+	var base := 0
+	for h in hems:
+		for c in h.colliders:
+			if cf == null:
+				cf = FileAccess.open("%s/f%d_colliders.obj" % [dir, frame], FileAccess.WRITE)
+			var xf := skel.get_bone_global_pose(c["bone"])
+			var a: Vector3 = xf * (c["head_local"] as Vector3)
+			var ab: Vector3 = xf * (c["tail_local"] as Vector3) - a
+			for k in 9:
+				var s := k / 8.0
+				var r: float = h.radius_at(c["radii"], s)
+				var o := a + ab * s
+				for lat in 5:
+					for lon in 8:
+						var th := PI * (lat + 1) / 6.0
+						var ph := TAU * lon / 8.0
+						var q := o + Vector3(sin(th) * cos(ph), cos(th), sin(th) * sin(ph)) * r
+						cf.store_line("v %f %f %f" % [q.x, q.y, q.z])
+				for lat in 4:
+					for lon in 8:
+						var i0 := base + lat * 8 + lon + 1
+						var i1 := base + lat * 8 + (lon + 1) % 8 + 1
+						cf.store_line("f %d %d %d %d" % [i0, i1, i1 + 8, i0 + 8])
+				base += 40
+	if cf != null:
+		cf.close()
+
+
 ## Skinned positions and normals in skeleton space.
 func _skin(mi: MeshInstance3D, arrays: Array, bind_bone: PackedInt32Array) -> Array:
 	var xf: Array[Transform3D] = []
@@ -689,6 +942,9 @@ func _finish() -> void:
 		problems.append("holes: %d hidden verts uncovered (%.2f%%) at frame %d" % [worst["holes"], holes_frac * 100, worst["holes_frame"]])
 	if poke_frac > LIMITS["poke_frac"]:
 		problems.append("poke: %d drawn verts through the garment (%.2f%%) at frame %d" % [worst["poke"], poke_frac * 100, worst["poke_frame"]])
+	var thigh_frac := float(worst.get("thighs", 0)) / maxf(thigh_checked, 1)
+	if thigh_frac > LIMITS["thigh_frac"]:
+		problems.append("thighs: %d garment verts inside a leg (%.2f%%) at frame %d" % [worst["thighs"], thigh_frac * 100, worst["thighs_frame"]])
 	if not finite:
 		problems.append("a hem offset went non-finite")
 	if over > 0:
@@ -700,6 +956,8 @@ func _finish() -> void:
 		"poke_worst": worst["poke"], "poke_frac": snappedf(poke_frac, 0.00001), "poke_candidates": worst.get("candidates", 0),
 		"poke_by_bone": poke_where, "holes_by_bone": holes_where, "holes_frame": worst["holes_frame"],
 		"occluded_worst": worst.get("occluded", 0), "coincident_worst": worst.get("coincident", 0), "hem_stats": hem_stats, "equip": equip,
+		"thighs_checked": thigh_checked, "thighs_worst": worst.get("thighs", 0), "thighs_frac": snappedf(thigh_frac, 0.00001),
+		"thighs_frame": worst.get("thighs_frame", -1), "thighs_by_bone": thigh_where,
 		"passed": problems.is_empty(), "problems": problems,
 	}
 	if not shot_results.is_empty():

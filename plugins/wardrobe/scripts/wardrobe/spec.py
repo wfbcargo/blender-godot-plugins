@@ -99,7 +99,9 @@ def validate(s):
         if len(_b.b64decode(blk.get("positions_f32", ""))) // 12 != blk.get("count"):
             p.append(f"hide_layers.{name}: positions do not match count")
     cov = s.get("cover", {})
-    if cov.get("covered", 0) > 0 and s.get("hide", {}).get("count", 0) == 0:
+    # a skirt covers a thin band of hip above its hinge and every vertex of it is within the hem's edge
+    # margin, so it hides nothing and that is right; covered skin that the margin does not explain is not
+    if cov.get("covered", 0) > 0 and s.get("hide", {}).get("count", 0) == 0             and cov.get("edge", 0) < cov.get("covered", 0):
         p.append("the garment covers skin but hides none: its weights do not agree with the body's "
                  "(a non-bone vertex group taken for a weight?)")
     hem = s.get("hem")

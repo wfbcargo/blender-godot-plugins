@@ -446,6 +446,71 @@ crouch (a crouch must not show the skirt passing through thighs - add a thigh-in
 **Done when** a skirt preset walks, runs and crouches on the crowd women without thigh intersection
 in the verifier and reads right in the review strips.
 
+> **Shipped** (September 2026, wardrobe, branch skirts-dresses; version bump left to the merge).
+>
+> - `tailor.skirt(body, waist, length, flare)` and `tailor.dress(body, neck, sleeve, length, flare)` in
+>   `wardrobe/skirts.py`: a tube built round the body (rays to its surface without arms and fingers, hanging
+>   from the widest point, 15 mm ease, a 5 mm waistband, the hem `flare` x the widest hip girth, 2 cm off the
+>   legs); a dress is a shirt cut to the natural waist, eased, zipped to a skirt.
+> - **Nothing follows one thigh by weight** (the presets pass `thigh=0`). Weighted to the thighs by distance
+>   the counts were low (4 of 1088 inside) and it still read wrong: the cloth split round each leg and a
+>   mid-stride front view was shorts or culottes, the fig224 failure. Instead `hem.prepare` hangs 24 hem bones
+>   from the pelvis, hinged 5 cm above the hip joints; from the hip joints down (over 4 cm) the cloth is
+>   theirs outright, above them it keeps the skin's weights, and cover hides that band (33 verts on Rosa's
+>   knee skirt, 8 triangles).
+> - **Leg colliders and a fold, in Godot** (`hem_modifier.gd`). The block carries a capsule fitted to each
+>   thigh and shin - a centre and a radius at knots along the bone, the 75th percentile of that leg's skin
+>   plus 6 mm - and each hem bone's slack against them at rest. Every frame the ring is placed: a **fold**
+>   (what the thighs under a bone do: at the front the lesser of the two swings toward it, at the side the
+>   nearer thigh's, measured as the arcsine of how far its tail moved that way) turns the bone's head and
+>   tail about the hip line as skin on the thigh would; then a **swing** outward, the least angle that takes
+>   its test points out of every capsule, spread to its neighbours (30 degrees a bone) and raised while the
+>   cloth between two neighbours is still inside one. Both are outside the spring: not limited by
+>   `max_offset_m`, not fed back, so the cloth drops as the thigh leaves.
+> - Presets `skirt_knee` (0.85 of the way to the knee, flare 1.3), `skirt_mini` (0.45, flare 1.4),
+>   `dress_sleeveless`, through `wardrobe.dress` and a spec's `[[outfit]]` (Mei built with
+>   `preset = "skirt_knee"` exported `mei_skirt.glb` and listed it in her manifest).
+> - `verify_wardrobe.gd` `thighs`: garment vertices inside a leg (all four lines leave skin from inside, the
+>   inward one through leg skin), limit 0.5%, on skirts and dresses by default; controls `rigid=<bone>` and
+>   `colliders=false`; `dump=<frame[,frame...]>` writes the measured frames as OBJ - the body as the game
+>   draws it (hidden triangles dropped) and, for a skirt, its colliders as rings of spheres.
+> - Soft-body route: `wardrobe.dress(..., soft=True)` writes a follow-through `draped_tube` spec pinned above
+>   the hips; `Wardrobe.equip` builds the SoftBody3D. Nadia's passes `verify_cloth.gd` at rest, moved and bent.
+> - **The thigh capsule is carried up to the hip.** Fitted from a third of the way down (higher and its skin
+>   is the buttock and the groin, 14 cm out, which shoves the skirt off the hips), it left the top 13 cm of
+>   the thigh with no collider at all, and in a run the raised thigh went through the front panel above it -
+>   the critic's finding. The first capsule now runs up to 0.12 of the thigh at the radius it was measured at.
+> - **A skirt hides nothing below the hem bones' hinge**, not below the hip joints: `hem.prepare` raises the
+>   cut's `cover_floor_z` to the hinge, since it is the bones that move that cloth. SKILL.md already said it
+>   did; it did not, and Rosa's mini failed its run with 4 of 30 hidden vertices open (13%).
+> - **Measured** (Godot, 240 frames sampled every other frame - 119 samples, whole cycles of each clip): all
+>   27 runs pass - three presets on Mei, Nadia and Rosa, built from `characters/*.toml` in scratch, walking,
+>   running and crouching. Worst inside a thigh 2/1024 (the knee skirt, Rosa's crouch, 0.20%), 3/704 (the
+>   mini, Nadia's crouch, 0.43%), 6/2420 (the dress, Mei's crouch, 0.25%); every walk is 0 and most runs are
+>   0-1. No holes. Poke at most 44 vertices (0.3%), nearly all of it a crouch's thighs past the hem and a
+>   dress's upper arms at the armholes. Controls: on Rosa's knee skirt crouch `colliders=false` is 182/1024
+>   and `rigid=spine` 154/1024 against 2; on Nadia's mini run `colliders=false` is 90/704 against 1; on the
+>   fixture Figure's walk the mini is 0/704 against 47 and 46; a dress with `cut=0.04` opens 39 of its 3278
+>   hidden vertices.
+> - **`regress.py --godot` wears the mini** on the fixture Figure, not the knee skirt. The parked round had
+>   switched it to the knee skirt on a claim of 4/1152; it is 12/1152 (1.04%) at frame 172 whatever the
+>   colliders do - 8 of them inside a jiggle bone's flesh - so the branch as parked would have failed its
+>   own `--godot` run. That Figure's walk crosses its feet over the midline; the crowd women's walks are 0.
+> - **Open, and honestly.** At the top of a run stride the raised thigh still comes through the front of a
+>   knee skirt and a mini on Nadia and Rosa, cloth to either side of it - one of six frames rendered across
+>   the cycle, and the same shape of failure the critic named, smaller. Neither check sees it: `poke` only
+>   counts skin with cloth within 3 cm behind it, and `thighs` counts cloth inside a leg, so a panel that has
+>   swung clear scores near zero on both. A better measure (skin radially outside the tube, filtered to leg
+>   skin) is worth building into the verifier. Two fixes were tried and put back, both recorded in
+>   `references/garments.md`: giving the bones the band of cloth over the hip (fixes the run, fails a deep
+>   crouch at 7/1088) and folding by the greater of the two thighs (fixes the top of the stride, opens the
+>   trailing side half a cycle later). A deep crouch also reads stiff - 24 bones turning as one panel look
+>   like a plate, not cloth; that is what the soft route is for. The cloth (soft) route still has no leg
+>   colliders, and nothing but the legs collides: an arm swinging into a skirt goes through it. "Reads right
+>   in the review strips" was judged on scratch renders of Godot dumps (six frames of each of walk, run and
+>   crouch, front/side/three-quarter, on all three women in all three presets), since 04b's strips were not
+>   built when this was written.
+
 ---
 
 ## 5.5 Muscle definition

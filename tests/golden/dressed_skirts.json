@@ -1,0 +1,686 @@
+{
+ "fixture": "dressed_skirts",
+ "plugins": {
+  "follow-through": "0.5.1",
+  "rig-anything": "0.23.0",
+  "wardrobe": "0.3.0"
+ },
+ "report": {
+  "body": {
+   "flesh_regions": 9,
+   "vertices": 17112
+  },
+  "body_export": {
+   "durations_match": true,
+   "exported": true
+  },
+  "garments": {
+   "Dress": {
+    "cloth": null,
+    "cover": {
+     "body": "Figure",
+     "body_verts": 17112,
+     "covered": 3920,
+     "disagree": 3,
+     "edge": 642,
+     "floor_z": 0.89134,
+     "garment": "Dress",
+     "hidden": 3278,
+     "hidden_gap_max_m": 0.0285,
+     "hidden_gap_median_m": 0.0083,
+     "margin": 0.05,
+     "max_front": 0.5,
+     "max_gap": 0.1,
+     "tris_hidden": 6322,
+     "tris_total": 34220
+    },
+    "cut": {
+     "bodice_gap_median_m": 0.008,
+     "bodice_verts": 3678,
+     "flare_measured": 1.274,
+     "girth_hem_m": 1.2256,
+     "girth_wide_m": 0.9622,
+     "outward_faces": 0.9965,
+     "rings": 19,
+     "segments": 64,
+     "wide_z": 0.9103,
+     "zip_triangles": 179
+    },
+    "cut_record": {
+     "axis": [
+      -0.000395,
+      0.026192
+     ],
+     "bodice_ease": 0.008,
+     "clearance": 0.02,
+     "cover_floor_z": 0.89134,
+     "cover_front_top_z": 0.96669,
+     "cover_max_front": 0.5,
+     "crotch_z": 0.79185,
+     "ease": 0.022,
+     "flare": 1.3,
+     "hem_z": 0.48502,
+     "hip_z": 0.84134,
+     "kind": "dress",
+     "length": 0.85,
+     "neck": [
+      -0.1,
+      0.08
+     ],
+     "sleeve": -0.1,
+     "thigh": 0.0,
+     "thigh_back": 0.0,
+     "thigh_fade": 0.1,
+     "thigh_lift": 0.08,
+     "top_z": 0.96669,
+     "torso_m": 0.41786,
+     "waist": 0.3,
+     "wide_z": 0.91029
+    },
+    "export": {
+     "edge": 642,
+     "exported": true,
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-niqhjx6d\\a\\dressed_skirts\\dressed_skirts\\dress.glb",
+     "garment": "Dress",
+     "hem_bones": 24,
+     "hem_head_error_m": 1e-06,
+     "hidden": 3278,
+     "joints": 110,
+     "passed": true,
+     "problems": [],
+     "size_bytes": 386340,
+     "weight_sum_min": 1.0
+    },
+    "exported": true,
+    "face_order": {
+     "faces": 4846,
+     "order": "c7f45822c116",
+     "set": "8c89591fef87"
+    },
+    "hem_rings": [
+     {
+      "bones": 24,
+      "collider_slack_max_m": 0.0,
+      "colliders": [
+       {
+        "bone": "thigh.L",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.L",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.L",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.L",
+        "radii_m": [
+         0.0835,
+         0.0781
+        ]
+       },
+       {
+        "bone": "shin.L",
+        "radii_m": [
+         0.0563,
+         0.0546
+        ]
+       },
+       {
+        "bone": "shin.L",
+        "radii_m": [
+         0.0546,
+         0.0543
+        ]
+       },
+       {
+        "bone": "thigh.R",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.R",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.R",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.R",
+        "radii_m": [
+         0.0835,
+         0.0782
+        ]
+       },
+       {
+        "bone": "shin.R",
+        "radii_m": [
+         0.0563,
+         0.0546
+        ]
+       },
+       {
+        "bone": "shin.R",
+        "radii_m": [
+         0.0546,
+         0.0543
+        ]
+       }
+      ],
+      "frequency_hz": 1.78,
+      "gap_min_m": 0.0301,
+      "hinge_m": 0.406,
+      "parents": [
+       "spine"
+      ],
+      "ring": "hem",
+      "weighted_verts": 960
+     }
+    ],
+    "passed": true,
+    "preset": "dress_sleeveless",
+    "problems": [],
+    "shares": {
+     "hem_bones": 0.180348,
+     "pelvis": 0.01795,
+     "thighs": 0.017883
+    },
+    "soft": false,
+    "vertices": 4894
+   },
+   "SkirtKnee": {
+    "cloth": null,
+    "cover": {
+     "body": "Figure",
+     "body_verts": 17112,
+     "covered": 108,
+     "disagree": 0,
+     "edge": 108,
+     "floor_z": 0.89134,
+     "garment": "SkirtKnee",
+     "hidden": 0,
+     "hidden_gap_max_m": null,
+     "hidden_gap_median_m": null,
+     "margin": 0.05,
+     "max_front": 0.5,
+     "max_gap": 0.1,
+     "tris_hidden": 0,
+     "tris_total": 34220
+    },
+    "cut": {
+     "flare_measured": 1.265,
+     "girth_hem_m": 1.2179,
+     "girth_wide_m": 0.9625,
+     "outward_faces": 1.0,
+     "rings": 18,
+     "segments": 64,
+     "wide_z": 0.9082
+    },
+    "cut_record": {
+     "axis": [
+      -0.000395,
+      0.028084
+     ],
+     "clearance": 0.02,
+     "cover_floor_z": 0.89134,
+     "cover_front_top_z": 0.90819,
+     "cover_max_front": 0.5,
+     "crotch_z": 0.79185,
+     "ease": 0.022,
+     "flare": 1.3,
+     "hem_z": 0.48502,
+     "hip_z": 0.84134,
+     "kind": "skirt",
+     "length": 0.85,
+     "thigh": 0.0,
+     "thigh_back": 0.0,
+     "thigh_fade": 0.1,
+     "thigh_lift": 0.08,
+     "top_z": 0.90819,
+     "torso_m": 0.41786,
+     "waist": 0.16,
+     "waist_ease": 0.005,
+     "wide_z": 0.90819
+    },
+    "export": {
+     "edge": 108,
+     "exported": true,
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-niqhjx6d\\a\\dressed_skirts\\dressed_skirts\\skirtknee.glb",
+     "garment": "SkirtKnee",
+     "hem_bones": 24,
+     "hem_head_error_m": 1e-06,
+     "hidden": 0,
+     "joints": 62,
+     "passed": true,
+     "problems": [],
+     "size_bytes": 100040,
+     "weight_sum_min": 1.0
+    },
+    "exported": true,
+    "face_order": {
+     "faces": 1088,
+     "order": "74c5ff32ee3a",
+     "set": "74c5ff32ee3a"
+    },
+    "hem_rings": [
+     {
+      "bones": 24,
+      "collider_slack_max_m": 0.0,
+      "colliders": [
+       {
+        "bone": "thigh.L",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.L",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.L",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.L",
+        "radii_m": [
+         0.0835,
+         0.0781
+        ]
+       },
+       {
+        "bone": "shin.L",
+        "radii_m": [
+         0.0563,
+         0.0546
+        ]
+       },
+       {
+        "bone": "shin.L",
+        "radii_m": [
+         0.0546,
+         0.0543
+        ]
+       },
+       {
+        "bone": "thigh.R",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.R",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.R",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.R",
+        "radii_m": [
+         0.0835,
+         0.0782
+        ]
+       },
+       {
+        "bone": "shin.R",
+        "radii_m": [
+         0.0563,
+         0.0546
+        ]
+       },
+       {
+        "bone": "shin.R",
+        "radii_m": [
+         0.0546,
+         0.0543
+        ]
+       }
+      ],
+      "frequency_hz": 1.78,
+      "gap_min_m": 0.0285,
+      "hinge_m": 0.406,
+      "parents": [
+       "spine"
+      ],
+      "ring": "hem",
+      "weighted_verts": 960
+     }
+    ],
+    "passed": true,
+    "preset": "skirt_knee",
+    "problems": [],
+    "shares": {
+     "hem_bones": 0.778142,
+     "pelvis": 0.036342,
+     "thighs": 0.048784
+    },
+    "soft": false,
+    "vertices": 1152
+   },
+   "SkirtMini": {
+    "cloth": null,
+    "cover": {
+     "body": "Figure",
+     "body_verts": 17112,
+     "covered": 66,
+     "disagree": 0,
+     "edge": 66,
+     "floor_z": 0.89134,
+     "garment": "SkirtMini",
+     "hidden": 0,
+     "hidden_gap_max_m": null,
+     "hidden_gap_median_m": null,
+     "margin": 0.05,
+     "max_front": 0.5,
+     "max_gap": 0.1,
+     "tris_hidden": 0,
+     "tris_total": 34220
+    },
+    "cut": {
+     "flare_measured": 1.344,
+     "girth_hem_m": 1.2916,
+     "girth_wide_m": 0.9613,
+     "outward_faces": 1.0,
+     "rings": 11,
+     "segments": 64,
+     "wide_z": 0.8998
+    },
+    "cut_record": {
+     "axis": [
+      -0.000395,
+      0.028945
+     ],
+     "clearance": 0.02,
+     "cover_floor_z": 0.89134,
+     "cover_front_top_z": 0.89984,
+     "cover_max_front": 0.5,
+     "crotch_z": 0.79185,
+     "ease": 0.015,
+     "flare": 1.4,
+     "hem_z": 0.6527,
+     "hip_z": 0.84134,
+     "kind": "skirt",
+     "length": 0.45,
+     "thigh": 0.0,
+     "thigh_back": 0.0,
+     "thigh_fade": 0.1,
+     "thigh_lift": 0.08,
+     "top_z": 0.89984,
+     "torso_m": 0.41786,
+     "waist": 0.14,
+     "waist_ease": 0.005,
+     "wide_z": 0.89984
+    },
+    "export": {
+     "edge": 66,
+     "exported": true,
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-niqhjx6d\\a\\dressed_skirts\\dressed_skirts\\skirtmini.glb",
+     "garment": "SkirtMini",
+     "hem_bones": 24,
+     "hem_head_error_m": 1e-06,
+     "hidden": 0,
+     "joints": 86,
+     "passed": true,
+     "problems": [],
+     "size_bytes": 82548,
+     "weight_sum_min": 1.0
+    },
+    "exported": true,
+    "face_order": {
+     "faces": 640,
+     "order": "5364645c9e34",
+     "set": "5364645c9e34"
+    },
+    "hem_rings": [
+     {
+      "bones": 24,
+      "collider_slack_max_m": 0.0,
+      "colliders": [
+       {
+        "bone": "thigh.L",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.L",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.L",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.L",
+        "radii_m": [
+         0.0835,
+         0.0781
+        ]
+       },
+       {
+        "bone": "shin.L",
+        "radii_m": [
+         0.0563,
+         0.0546
+        ]
+       },
+       {
+        "bone": "shin.L",
+        "radii_m": [
+         0.0546,
+         0.0543
+        ]
+       },
+       {
+        "bone": "thigh.R",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.R",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.R",
+        "radii_m": [
+         0.0835,
+         0.0835
+        ]
+       },
+       {
+        "bone": "thigh.R",
+        "radii_m": [
+         0.0835,
+         0.0782
+        ]
+       },
+       {
+        "bone": "shin.R",
+        "radii_m": [
+         0.0563,
+         0.0546
+        ]
+       },
+       {
+        "bone": "shin.R",
+        "radii_m": [
+         0.0546,
+         0.0543
+        ]
+       }
+      ],
+      "frequency_hz": 3.17,
+      "gap_min_m": 0.0478,
+      "hinge_m": 0.238,
+      "parents": [
+       "spine"
+      ],
+      "ring": "hem",
+      "weighted_verts": 512
+     }
+    ],
+    "passed": true,
+    "preset": "skirt_mini",
+    "problems": [],
+    "shares": {
+     "hem_bones": 0.667213,
+     "pelvis": 0.053429,
+     "thighs": 0.075251
+    },
+    "soft": false,
+    "vertices": 704
+   },
+   "SkirtSoft": {
+    "cloth": {
+     "anchor": "bone",
+     "class": "draped_tube",
+     "declined": null,
+     "error": null,
+     "fabric": "cotton",
+     "hops_from_pins": 17,
+     "pins": 64,
+     "soft_body": {
+      "damping_coefficient": 1.0,
+      "drag_coefficient": 0.01,
+      "linear_stiffness": 0.75,
+      "pressure_coefficient": 0.0,
+      "shrinking_factor": 0.0,
+      "simulation_precision": 9,
+      "total_mass": 0.0685
+     }
+    },
+    "cover": {
+     "body": "Figure",
+     "body_verts": 17112,
+     "covered": 415,
+     "disagree": 93,
+     "edge": 381,
+     "floor_z": 0.84134,
+     "garment": "SkirtSoft",
+     "hidden": 34,
+     "hidden_gap_max_m": 0.032,
+     "hidden_gap_median_m": 0.0271,
+     "margin": 0.05,
+     "max_front": 0.5,
+     "max_gap": 0.1,
+     "tris_hidden": 27,
+     "tris_total": 34220
+    },
+    "cut": {
+     "flare_measured": 1.265,
+     "girth_hem_m": 1.2179,
+     "girth_wide_m": 0.9625,
+     "outward_faces": 1.0,
+     "rings": 18,
+     "segments": 64,
+     "wide_z": 0.9082
+    },
+    "cut_record": {
+     "axis": [
+      -0.000395,
+      0.028084
+     ],
+     "clearance": 0.02,
+     "cover_floor_z": 0.84134,
+     "cover_front_top_z": 0.90819,
+     "cover_max_front": 0.5,
+     "crotch_z": 0.79185,
+     "ease": 0.022,
+     "flare": 1.3,
+     "hem_z": 0.48502,
+     "hip_z": 0.84134,
+     "kind": "skirt",
+     "length": 0.85,
+     "thigh": 0.0,
+     "thigh_back": 0.0,
+     "thigh_fade": 0.1,
+     "thigh_lift": 0.08,
+     "top_z": 0.90819,
+     "torso_m": 0.41786,
+     "waist": 0.16,
+     "waist_ease": 0.005,
+     "wide_z": 0.90819
+    },
+    "export": {
+     "edge": 381,
+     "exported": true,
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-niqhjx6d\\a\\dressed_skirts\\dressed_skirts\\skirtsoft.glb",
+     "garment": "SkirtSoft",
+     "hem_bones": 0,
+     "hem_head_error_m": 0.0,
+     "hidden": 34,
+     "joints": 110,
+     "passed": true,
+     "problems": [],
+     "size_bytes": 113752,
+     "weight_sum_min": 1.0
+    },
+    "exported": true,
+    "face_order": {
+     "faces": 1088,
+     "order": "74c5ff32ee3a",
+     "set": "74c5ff32ee3a"
+    },
+    "hem_rings": null,
+    "passed": true,
+    "preset": "skirt_knee",
+    "problems": [],
+    "shares": {
+     "hem_bones": 0.0,
+     "pelvis": 0.531149,
+     "thighs": 0.197214
+    },
+    "soft": true,
+    "vertices": 1152
+   }
+  }
+ }
+}

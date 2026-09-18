@@ -23,6 +23,7 @@ extends RefCounted
 
 const SCHEMA := "wardrobe/1"
 const HemModifier := preload("res://addons/wardrobe/hem_modifier.gd")
+const FOLLOW_THROUGH := "res://addons/follow_through/follow_through.gd"
 
 const META_SOURCE := "wardrobe_source_mesh"     # on any worn surface: its mesh as imported
 const META_WORN := "wardrobe_worn"              # on the body mesh: Array of garment MeshInstance3D
@@ -87,7 +88,11 @@ static func body_mesh(body_root: Node, name := "") -> MeshInstance3D:
 ## Put `garment` (a PackedScene, or an instantiated garment scene) on the body under `body_root`.
 ## options:
 ##   hem: bool            build the hem modifier (default true); false is LOD 0, pure skinning
+##   colliders: bool      collide a skirt's or dress's hem ring with the thighs and fold it with them
+##                        (default true; skirts and dresses only). false is the verifier's control
 ##   hide: bool           hide what it covers (default true)
+##   cloth: bool          build a skirt or dress exported with soft=True as follow-through cloth (default
+##                        true; needs addons/follow_through). Its `cloth` report entry is the SoftBody3D
 ##   overrides: Dict      hem bone parameter -> value for every bone
 ## Returns one report per garment mesh found; a built one carries `mesh` and `hem`.
 static func equip(body_root: Node, garment, options := {}) -> Array[Dictionary]:
@@ -190,6 +195,22 @@ static func _equip_one(body_root: Node, gm: MeshInstance3D, spec: Dictionary, op
 		rep["hem"] = hem
 		rep["hem_report"] = hem.report
 		problems.append_array(hem.report.get("problems", PackedStringArray()))
+	# 5. cloth: a skirt or dress routed to follow-through (wardrobe.dress(..., soft=True)) carries a soft_body
+	# spec beside its wardrobe one; built here it is a SoftBody3D pinned at the hips to the body's bones
+	var ft_spec: Dictionary = gm.get_meta("extras", {}).get("follow_through", {}) if gm.has_meta("extras") else {}
+	if options.get("cloth", true) and String(ft_spec.get("route", "")) == "soft_body":
+		if ResourceLoader.exists(FOLLOW_THROUGH):
+			var ft = load(FOLLOW_THROUGH)
+			var problems_ft: PackedStringArray = ft.validate(ft_spec)
+			if problems_ft.is_empty():
+				var cloth = ft.ClothBody.build(gm, ft_spec, options)
+				cloth.set_meta("wardrobe_hem_for", gm)       # unequip removes it with the garment
+				rep["cloth"] = cloth
+				rep["cloth_report"] = cloth.report
+			else:
+				problems.append_array(problems_ft)
+		else:
+			problems.append("%s is routed to cloth but %s is not in the project" % [rep["garment"], FOLLOW_THROUGH])
 	rep["problems"] = problems
 	rep["built"] = true
 	return rep
