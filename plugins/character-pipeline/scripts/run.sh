@@ -4,7 +4,8 @@
 #   ./run.sh <spec.toml> [from=<stage>] [to=<stage>] [force=1] [quality=draft] [fresh=1]
 #
 # The build opens the spec's saved [export] blend when it exists, so only the stages whose inputs changed run
-# (a [flesh] edit: flesh to review, about half a build; on a dressed spec it restarts from body).
+# (a [flesh] limit edit: flesh, export and review, about a third of a build; on a dressed spec the garments
+# come off and are cut again).
 # fresh=1 builds from nothing.
 #
 # Point the *_SCRIPTS variables at a checkout to build against it; unset, the installed skills are used.

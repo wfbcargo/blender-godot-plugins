@@ -8,8 +8,9 @@ takes it through body, bake, flesh, moves, garments and export, and saves the .b
 - a spec that still names the removed `export.height` is rejected;
 - a second Blender opens the saved .blend and runs the export stage alone (`from_stage="export"`,
   forced): the manifest it writes must equal the first one - the fresh-session resume 01 asks for;
-- last, a `[flesh]` edit on the dressed file restarts the whole build from body (flesh refuses while
-  garments are bound), and with flesh taken out of `RESTARTS_FROM_BODY` (the control) it refuses.
+- last, a `[flesh]` edit on the dressed file takes the garments off and reruns flesh alone, and moves is skipped
+  because what it reads of flesh came out the same; without the undress (the control) it restarts from body, and
+  without the undress and with flesh taken out of `RESTARTS_FROM_BODY` it refuses.
 
 The golden holds the stage statuses, what each stage reports that a person would check (the body's
 stature, moves passed, flesh regions, garments passed and what they hide), the flesh stage's found
@@ -302,16 +303,24 @@ def _close(ch, review):
     return out
 
 
+class _Stop(Exception):
+    pass
+
+
 def _dressed_flesh_edit(ch):
-    """A whole build whose [flesh] changed on a file with the garments bound restarts from body (flesh refuses
-    while garments are bound). Control first, while the file is still dressed: without flesh in
-    `RESTARTS_FROM_BODY` the same build must refuse. to_stage=flesh and save=False, so nothing this fixture
-    exported or saved is rewritten."""
+    """A whole build whose [flesh] changed on a file with the garments bound takes the garments off
+    (`stages.undress`) and reruns flesh on the body, not the whole build from body; flesh is restored from the
+    unfleshed copy, so what moves reads of it comes out the same and moves is skipped. Controls first, while the
+    file is still dressed: without the undress (`runner.UNDRESS_FOR_FLESH = False`) the build restarts from body
+    (stopped at the restart, before it rebuilds anything), and without the undress and without flesh in
+    `RESTARTS_FROM_BODY` it refuses. to_stage=moves and save=False, so nothing this fixture exported or saved is
+    rewritten."""
     import dataclasses
     from character_pipeline import runner, stages
     edited = dataclasses.replace(ch, flesh=dataclasses.replace(ch.flesh, limit_share={"butt": 0.85}))
     out = {"bound_before": stages.garments_bound(edited)}
     kept = stages.RESTARTS_FROM_BODY.pop("flesh")
+    runner.UNDRESS_FOR_FLESH = False
     try:
         runner.build(edited, to_stage="flesh", save=False, log=lambda m: None)
         out["control"] = "built (it must refuse)"
@@ -320,10 +329,25 @@ def _dressed_flesh_edit(ch):
                                                                            "fresh=1" in str(exc))
     finally:
         stages.RESTARTS_FROM_BODY["flesh"] = kept
+
+    def stop_at_restart(message):
+        if "rebuilding from body" in message:
+            raise _Stop(message.split("] ", 1)[-1])
     try:
-        r = runner.build(edited, to_stage="flesh", save=False, log=lambda m: None)
+        runner.build(edited, to_stage="flesh", save=False, log=stop_at_restart)
+        out["control_restart"] = "no restart (without the undress it must restart from body)"
+    except _Stop as exc:
+        out["control_restart"] = str(exc)
+    finally:
+        runner.UNDRESS_FOR_FLESH = True
+    try:
+        r = runner.build(edited, to_stage="moves", save=False, log=lambda m: None)
         out["statuses"] = _statuses(r)
         out["restarted"] = r["build"].get("restarted")
+        flesh = (r.get("flesh") or {}).get("report") or {}
+        out["undressed"] = flesh.get("undressed")
+        out["unfleshed"] = flesh.get("unfleshed")
+        out["moves_why"] = (r.get("moves") or {}).get("why")
     except stages.StageRefused as exc:
         out["refused"] = str(exc)
     out["bound_after"] = stages.garments_bound(edited)

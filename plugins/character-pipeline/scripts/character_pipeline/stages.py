@@ -510,6 +510,49 @@ def judge_flesh(ch, r, asked=None):
     return out
 
 
+def undress(ch):
+    """Take this character's garments off, so flesh can run again on a dressed body instead of the build restarting
+    from body: every garment bound to the rig (`garments_bound`) with its mesh and the materials only it used, the
+    hem bones wardrobe hung on the rig (`wd_role`), and the groups wardrobe's cover wrote on the body
+    (`wd_hide_*`, `wd_edge_*`). The garments stage cuts them again from the new flesh. Returns what went, and
+    `left`: anything of wardrobe's still in the file (then the caller restarts from body instead)."""
+    rig = _obj(ch.rig)
+    body = _obj(ch.mesh)
+    worn = garments_bound(ch)
+    meshes, mats = [], set()
+    for name in worn:
+        o = _obj(name)
+        meshes.append(o.data)
+        mats |= {m for m in o.data.materials if m is not None}
+        bpy.data.objects.remove(o, do_unlink=True)
+    for me in meshes:
+        if me.users == 0:
+            bpy.data.meshes.remove(me)
+    for m in mats:
+        if m.users == 0:
+            bpy.data.materials.remove(m)
+    hem = [b.name for b in rig.data.bones if b.get("wd_role") is not None]
+    if hem:
+        prev = bpy.context.view_layer.objects.active
+        bpy.context.view_layer.objects.active = rig
+        bpy.ops.object.mode_set(mode="EDIT")
+        try:
+            for n in hem:
+                eb = rig.data.edit_bones.get(n)
+                if eb is not None:
+                    rig.data.edit_bones.remove(eb)
+        finally:
+            bpy.ops.object.mode_set(mode="OBJECT")
+            if prev is not None and prev.name in bpy.context.view_layer.objects:
+                bpy.context.view_layer.objects.active = prev
+    groups = [g.name for g in body.vertex_groups if g.name.startswith(("wd_hide_", "wd_edge_"))]
+    for n in groups:
+        body.vertex_groups.remove(body.vertex_groups[n])
+    left = garments_bound(ch) + [b.name for b in rig.data.bones if b.get("wd_role") is not None] + \
+        [g.name for g in body.vertex_groups if g.name.startswith("wd_")]
+    return {"garments": worn, "hem_bones": len(hem), "body_groups": groups, "left": left}
+
+
 def preflesh_name(ch):
     """The mesh datablock that keeps the body as it was before its first jiggle bones (`_preflesh`)."""
     return f"{ch.mesh}:preflesh"
@@ -579,6 +622,8 @@ def run_flesh(ch, ctx):
     _rest(ch)
     regions = None
     out = {"unfleshed": _preflesh(ch)}
+    if ctx.get("undressed"):
+        out["undressed"] = ctx.pop("undressed")
     if ch.flesh.zones:
         sheet_dir = os.path.join(ctx["scratch"], "flesh_sheet")
         sheet = marks.render(ch.mesh, sheet_dir, views=("front", "right", "back"), focus="torso")
@@ -984,7 +1029,8 @@ RESTARTS_FROM_BODY = {"hair": CARRIED["hair"],
                       "bake": CARRIED["hair"],
                       # flesh and moves on a dressed body: the garments were cut from (and weighted by) the body
                       # before, and flesh/moves refuse while they are bound - a resumed build of a dressed spec
-                      # whose [flesh] or [moves] (or flesh's code or registry) changed starts over from body, as
-                      # the build did before builds resumed from the saved blend
+                      # whose [moves] changed starts over from body, as the build did before builds resumed from
+                      # the saved blend; flesh's garments are taken off first (runner.UNDRESS_FOR_FLESH,
+                      # `undress`), so flesh restarts from body only when that is turned off or leaves something
                       "flesh": lambda ch: bool(garments_bound(ch)),
                       "moves": lambda ch: bool(garments_bound(ch))}

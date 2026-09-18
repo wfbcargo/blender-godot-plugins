@@ -28,9 +28,16 @@ stage ran, the manifest's `build` block (rewritten once review has run, so it is
 Stages that put something on the body nothing takes off (hair, muscle: `stages.RESTARTS_FROM_BODY`) are not
 run a second time on a body that has it: a whole build (no `from_stage`, or `from_stage="body"`) whose
 `[hair]` or `[muscle]` changed rebuilds from body, forced, and says so in `report["build"]["restarted"]`; a
-build started later than body still refuses (the stage's own check). Flesh and moves are there too for a
-dressed body: they refuse while garments are bound, so a whole build whose `[flesh]` or `[moves]` changed on
-a dressed file restarts from body.
+build started later than body still refuses (the stage's own check). Moves is there too for a dressed body: it
+refuses while garments are bound, so a whole build whose `[moves]` changed on a dressed file restarts from body.
+A whole build whose flesh must rerun on a dressed file takes the garments off instead (`stages.undress`,
+`UNDRESS_FOR_FLESH`) and the garments stage cuts them again; it restarts from body only if something of
+wardrobe's could not be taken off.
+
+The cascade stops where an output did not change: a stage that reads an earlier one only through what it left
+in the file (`inputs.READS_OUTPUT`: moves of flesh) keeps a view hash with the digest of that output
+(`inputs.outputs`) in place of the earlier stage's input hash (`view_hash`), and is skipped when its input
+hash moved but its view did not.
 """
 
 from __future__ import annotations
@@ -204,6 +211,11 @@ class _Restart(Exception):
     pass
 
 
+# A whole build whose flesh must rerun on a dressed body takes the garments off (`stages.undress`) instead of
+# restarting from body. False restores the restart (the control in pipeline_woman's dressed flesh edit).
+UNDRESS_FOR_FLESH = True
+
+
 def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=print, quality=None, resume=False):
     """Run the spec's stages. `spec` is a path or a `spec.Character`. `quality` overrides the spec's
     `[build] quality` ("draft", "preview", "final"). `resume` first opens the spec's saved .blend when no
@@ -338,6 +350,16 @@ def _build(ch, from_stage, to_stage, force, log, q, forced):
             if moved and "inputs" in rec:
                 log(f"[{ch.id}] {name}: what it reads changed: {', '.join(moved)}")
         again = stages.RESTARTS_FROM_BODY.get(name)
+        if name == "flesh" and restartable and UNDRESS_FOR_FLESH and stages.garments_bound(ch):
+            # a dressed body's flesh: the garments come off (they are cut again from the new flesh by the garments
+            # stage) rather than the whole build starting over from body; if anything of wardrobe's is left, restart
+            took_off = stages.undress(ch)
+            log(f"[{ch.id}] flesh changed on a dressed body: took off {', '.join(took_off['garments'])} "
+                f"({took_off['hem_bones']} hem bones, {len(took_off['body_groups'])} cover groups on the body)")
+            if took_off["left"]:
+                raise _Restart(f"flesh changed and garments could not all be taken off ({took_off['left']}): "
+                               "rebuilding from body")
+            ctx["undressed"] = took_off
         if again is not None and restartable and again(ch):
             if name in ("flesh", "moves"):
                 raise _Restart(f"{name} changed and garments are bound to the rig ({', '.join(stages.garments_bound(ch))}): "

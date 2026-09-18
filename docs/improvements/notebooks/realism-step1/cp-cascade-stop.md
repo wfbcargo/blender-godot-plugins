@@ -59,7 +59,7 @@ Resumed: "flesh: what later stages read of it changed: mesh:groups, mesh:weights
 "moves: what it reads of flesh changed", moves 8.4 s ran, export, review; 25.7 s. The cascade still flows
 when the rig or the weights move.
 
-## 13:16-13:24 pipeline_hashes output flips | kind=win (first run; one bash heredoc failed on quoting, so the
+## 13:14-13:17 pipeline_hashes output flips | kind=win (first run; one bash heredoc failed on quoting, so the
 patch went through a file)
 `_output_scene` builds a small rig (hips, spine, a tagged ft_jiggle bone) and a skinned cube under the spec's
 names; `_output_flips` flips one thing at a time and judges `inputs.outputs(ch, "flesh")` and
@@ -71,3 +71,34 @@ nothing (a jiggle swing limit, a body bone's rotation mode, a pose, an action on
 recorded" gives no view. All ok first run.
 Harness controls by hand, `PIPELINE_HASHES_DROP=flesh:output:<label>`: rig:bones (3 flips missed),
 mesh:weights (2), rig:pose (3) each exit 1 with an AssertionError naming the flips.
+
+## 13:18-13:21 Belle: a [flesh] edit on a dressed spec without restarting from body | kind=win, first attempt
+`stages.undress`: remove every garment bound to the rig (object, its mesh, materials only it used), the hem
+bones wardrobe hung (`wd_role`) and the cover groups on the body (`wd_hide_*`, `wd_edge_*`); if anything of
+wardrobe's is left, restart from body as before. The runner calls it for flesh in a whole build
+(`UNDRESS_FOR_FLESH`); `[moves]` on a dressed spec still restarts from body (not attempted: moves' view would need
+garments' effect on arm hang reasoned about, and the task asked for flesh).
+Fresh Belle 46.9 s. Edit `limit_share = { butt = 0.8 }`, resumed: "took off Shorts, SportsTop (0 hem bones, 4
+cover groups on the body)", flesh 0.7 "what later stages read of it came out the same" - so the undressed and
+restored body is, for everything moves reads, the pre-garment body of the fresh build - moves unchanged,
+garments 4.8, export 6.6, review 11.8 = **24.3 s build** (13:19:36 -> 13:20:04 wall 28 s) against a 46-47 s
+restart. Fresh build of the edited spec (proj2, 46.0 s) against the resumed one: manifest 0 changes (control v1
+vs resumed: the two butt regions' max_offset_m 0.0733 -> 0.0651, 0.0732 -> 0.065); belle.glb JSON without extras
+identical and BIN byte-identical; belle_sportstop.glb and belle_shorts.glb identical including extras and BIN.
+(belle.glb's extras show the same reopened-blend `humanform_skin` material extras as study_man.)
+
+## 13:22 pipeline_woman dressed_flesh_edit rewritten | kind=build
+Was: a dressed flesh edit restarts from body; control without flesh in RESTARTS_FROM_BODY refuses. Now, in
+order on the dressed file: (1) no undress and no restart -> refuses (old control, kept); (2) no undress -> the
+build restarts from body (stopped by a log hook at the restart line, before anything is rebuilt, so the file
+stays dressed); (3) the real build, to_stage=moves, save=False: statuses, `undressed`, `unfleshed`, moves' why.
+Docs: SKILL.md (resume paragraph, a "cascade stops" paragraph), build.py, run.sh, runner docstring, the
+RESTARTS_FROM_BODY comment, tests/README rows.
+
+## 13:21-13:25 goldens | kind=win
+`regress.py --only pipeline_woman pipeline_hashes --jobs 2` (13:21-13:23): both CHANGED, only in the new blocks
+(pipeline_hashes `outputs`; pipeline_woman `dressed_flesh_edit`: body and bake unchanged instead of ran, flesh
+ran, moves unchanged "what it reads of flesh came out the same", unfleshed "restored", 2 garments and 4 cover
+groups taken off, nothing left, control_restart = the old restart line, control = the old refusal). Recorded
+with `--only ... --twice --update` (13:23:19-13:25:21): both agree twice; `git diff tests/golden` read: those
+blocks and version stamps only.

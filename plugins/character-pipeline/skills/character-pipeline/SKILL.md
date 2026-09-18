@@ -31,9 +31,12 @@ blender -b --factory-startup --python-exit-code 1 --python <cp>/scripts/build.py
 **A command-line build resumes from the spec's saved `[export] blend`.** `runner.build(spec, resume=True)`
 (what `build.py`, `run.sh` and a project's own build scripts call) first opens that file when it exists and
 Blender was started with no file of its own (`runner.open_saved`), so the stage records in it are used: a
-`[flesh]`-only edit reruns flesh, moves, export and review - study_man 18 s against 31 s for the whole build
-on the same loaded machine. On a dressed spec (an `[outfit]`) a `[flesh]` or `[moves]` change restarts from
-body instead, since flesh and moves refuse while garments are bound (`RESTARTS_FROM_BODY`). Without it every call started from an empty scene and rebuilt from body.
+`[flesh]`-only edit reruns flesh, export and review, and skips moves when the rig and the weights came out the
+same (a swing limit, `limit_share`) - study_man 12.1 s against 18 s before 0.10.0 and about 40 s for the whole
+build (see "The cascade stops" below). On a dressed spec (an `[outfit]`) a `[flesh]` change takes the garments
+off (`stages.undress`), reruns flesh and cuts them again (Belle 24 s against 47 s, the same files as a fresh
+build); a `[moves]` change there still restarts from body, since moves refuses while garments are bound
+(`RESTARTS_FROM_BODY`). Without resuming every call started from an empty scene and rebuilt from body.
 `fresh=1` (`resume=False`) builds from nothing. A Blender started on a .blend of your own keeps it (a
 `body.source = "blend"` spec's source file).
 
@@ -219,6 +222,23 @@ endings normalised, so a CRLF and an LF checkout agree. A stage that starts read
 `inputs.READS`, and `tests/fixtures/pipeline_hashes.py` must flip it (the fixture edits each input on a copy
 of the plugins and checks that its stage, and nothing before it, moves; `runner.plan(spec)` gives the hashes
 without building).
+
+**The cascade stops where an output did not change (0.10.0).** A stage's input hash covers the hashes of
+the stages it needs, so any rerun upstream reruns it. Where a stage reads an earlier one only through what it
+left in the file, the earlier stage digests that output when it runs (`inputs.outputs`, kept in its record
+as `output`) and the later stage's record keeps a *view* hash with the digest in place of the need's input
+hash (`runner.view_hash`). A stage whose input hash moved but whose view did not is skipped - `unchanged`
+with a `why` - and takes the new input hash, so the stages after it still rerun. Today that is moves after
+flesh (`inputs.READS_OUTPUT`): the flesh stage digests the rig (object, bones with their tags, pose
+constraints and locks, the rotation mode of the bones follow-through added), which meshes are bound to it,
+and per bound mesh its geometry, vertex groups, weights, modifiers, materials, shape keys and skin/cloth marks.
+What flesh writes that moves never reads - the jiggle block of the `follow_through` spec - is left out, so a
+`limit_share` edit skips moves; a `[flesh] types` edit moves the bones and weights and reruns it (logged as
+`flesh: what later stages read of it changed: <labels>`). A record from before 0.10.0 has no view and reruns.
+For the weights to come out the same, the first flesh run keeps the unfleshed body (`<mesh>:preflesh`, a mesh
+with a fake user and no object, so no exporter sees it) and a rerun swaps it back in before `prepare`
+(`stages._preflesh`): a resumed rebuild's glb is byte-identical to a fresh build's. `pipeline_hashes` flips
+each part of the digest with a drop-control (`PIPELINE_HASHES_DROP=flesh:output:<label>` must fail it).
 
 ```python
 runner.build(spec)                                        # runs what changed, skips the rest
