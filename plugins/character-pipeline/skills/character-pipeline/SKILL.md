@@ -163,7 +163,7 @@ rerun logs `<stage>: what it reads changed: <labels>`):
 |---|---|
 | `bake` | humanform `skin.py` and `look.py`, lookdev `bake.py` (and `detail.py` for a muscle normal map); the skin map size at every quality |
 | `hair` | the hair preset as humanform resolves it (`hair_presets.json`: the preset, defaults, hairline), humanform `hair.py` and `brows.py`, `face_regions.json` when brows, lashes or body hair are on, lookdev `hair.py` and its `hair` material preset; a `shell_bun` reads the pipeline's own `hair.py` instead |
-| `flesh` | follow-through's type registry, built-in and user (`FOLLOW_THROUGH_TYPES`), merged |
+| `flesh` | follow-through's type registry, built-in and user (`FOLLOW_THROUGH_TYPES`), merged; follow-through `flesh.py` |
 | `garments` | the contents of each preset the outfit wears (`wardrobe/presets/garments.json`) |
 
 So editing a worn garment preset reruns garments, export and review with no `force`; editing humanform's

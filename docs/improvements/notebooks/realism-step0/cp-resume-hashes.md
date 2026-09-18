@@ -74,3 +74,59 @@ wasted bake. An explicit `from=bake` (not restartable) still reskins the hair fa
 Bumped character-pipeline 0.8.0 and follow-through 0.6.1 after the first builds, which moves every stage
 hash (versions are in all of them): belle, study_man and study_woman rebuilt from scratch again (~2.5 min
 of machine time). Bump before the first real build next time.
+
+## ~09:03 belle, garments.json edit through a scratch wardrobe copy | kind=win, first time
+`WD_SCRIPTS` at a copy of wardrobe with `sports_top/tailor/sleeve` -0.15 -> -0.149, no force: log says
+`garments: what it reads changed: preset:sports_top`; body..moves unchanged; garments 3.1, export 5.0,
+review 4.5; build 12.9 s, wall 15 s (the full belle build: 34-37 s).
+
+## ~09:03-09:06 flesh_figure prepare_again | kind=fail x2, then win (3 attempts)
+Added a check to flesh_figure: `flesh.prepare` twice on the fleshed Figure, and a control rerunning the
+old way (jiggle groups deleted). 1st: my criterion `min_total >= 0.99` was wrong - the sample Figure's
+weights are not normalised (min total 0.62 before anything). 2nd, measured as weight lost per vertex against
+the first run: 0.1156 lost on vertex 3746 with no jiggle group on it at all. Cause, pre-existing in
+follow-through `limit_influences`: it removed the weakest group from the vertex and then wrote the kept
+weights through `VertexGroupElement`s read before the removal, which point at the wrong slot after
+`v.groups` compacts - the kept weights were never scaled back up (up to 22 % of a vertex's weight lost on
+the first run too; the second run lost more because the jiggle had been the dropped fifth influence).
+Fixed with (group, weight) pairs and `vertex_groups[g].add(..., "REPLACE")`. 3rd: 0 weight lost, 0
+unweighted, same regions; weights differ from the first run by up to 0.074 where a fifth influence was
+dropped the first time (cannot be put back). Control: 25 unweighted, 0.9999 lost -> fails as it must.
+This moves every fleshed golden (the first run now keeps each vertex's total).
+
+## 09:06 study_man [flesh]-only edit, after the fixes | kind=win
+Fresh final build 35.3 s (body 5.4, muscle 0.6, bake 8.8, hair 0.8, flesh 0.7, moves 7.6, export 6.2,
+review 4.9). `limit_share belly 0.38 -> 0.4`, resumed: flesh 0.8, moves 7.9, export 4.1, review 5.3 =
+build 18.4 s, wall 20.7 s. The resumed glb has the same node names as the fresh one (no neutral_bone).
+The skin at 2048 costs bake about +7 s (8-9 s against 1.9 s at 1024 in 06's table), so a final build is
+now ~33-35 s here, not 25.
+
+## ~09:07 hair code change on the saved blend | kind=win
+`HF_SCRIPTS` at a humanform copy with a line appended to hair.py: `hair: what it reads changed:
+code:humanform.hair`, then "hair changed and the body already carries it: rebuilding from body", all
+stages, 37.4 s.
+
+## ~09:08 draft and final skin sizes | kind=win
+study_woman final manifest `skin`: baked, map_px 2048, tone_ok. study_man_draft (scratch spec, quality
+draft, own blend and export dir): map_px 1024, build 23.5 s (bake 3.4).
+
+## 09:08-09:11 from=bake | kind=fail, then 2 fixes (3 attempts)
+1st, study_woman's saved (haired) file, from=bake to=bake force=1: albedo near black - tone_error 0.787,
+every region grey (lips 0.026...). The marks were kept (hf_skin_tint/region/oil present), but `look.skin`
+gave every face - hair cards and eyes - the skin material and the bake read their UVs. `check_bake` now
+refuses a bake on a haired body (the whole-build path restarts from body before it, above).
+2nd, a file saved after bake (to=bake from body, then from=bake to=bake force=1): every marked region's
+tone identical, but the unmarked "skin" sample moved 0.858 -> 0.772 and the eyes had lost their materials:
+the eyes joined by the first bake were re-skinned and baked into the maps. `stages._separate_joined` takes
+the non-skin faces off as the eyes object again before `look.skin` (first try with `bpy.ops.mesh.separate`
+failed: "Selection not supported in object mode" - the view layer's active object was not the body; done
+with a copy and two bmesh deletes instead). 3rd: every region, "skin" included, unchanged to 3 decimals
+(max change 0.0), tone_ok, eye materials back (HF_iris, HF_pupil, HF_sclera), 1024 faces separated.
+(Heading times marked ~ were reconstructed from the order of runs after the fact; the rest were read from date.)
+
+## 09:12 flesh code into the flesh hash | kind=design
+`runner.plan` on study_woman's saved file matched every stored hash - after 0.6.1 changed how `flesh.py`
+weights the jiggle bones. Exactly the staleness rank 3 is about, so `code:follow_through.flesh` joined the
+flesh stage's reads (and a flip in pipeline_hashes: moves flesh first, control unseen). The plugin's
+`scripts/run.sh` template on study_woman's saved file then logged `flesh: what it reads changed:
+code:follow_through.flesh` and ran flesh, moves, strand, export, review: 21.2 s.

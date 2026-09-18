@@ -239,6 +239,8 @@ def build():
         ("follow-through builtin.json: a type", "full", _edit_json(P("FT_SCRIPTS", "types", "builtin.json"),
                                                                    ["types", "butt"]), "flesh",
          "data:follow_through.registry"),
+        ("follow-through flesh.py", "full", _edit_code(os.path.join(copies["FT_SCRIPTS"], "follow_through", "flesh.py")),
+         "flesh", "code:follow_through.flesh"),
         ("follow-through user registry", "full", _write(user_types, {
             "schema": "follow-through-types/1", "materials": {}, "examples": [],
             "types": {"butt": {"limit_share": 0.5}}}), "flesh", "data:follow_through.registry"),

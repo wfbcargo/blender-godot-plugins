@@ -7,7 +7,8 @@ versions. That missed everything a plugin reads that a version bump does not fol
   shipped until someone ran `force=1` (belle-top, about 10 min);
 - the ear cut in humanform's `hair.py` left Belle's old cap "unchanged";
 - flesh read follow-through's type registry (limit shares, zones, materials), and the user registry
-  (`~/.claude/follow-through/types.json`) has no version at all.
+  (`~/.claude/follow-through/types.json`) has no version at all; and a fix to how `flesh.py` weights the
+  jiggle bones (0.6.1's `limit_influences`) left every saved study figure's flesh "unchanged".
 
 So each stage names what it reads here, as `{label: digest}`, and the runner puts that into its hash and
 into the stage's record in the .blend (so a rerun can say which input moved - `changed()`):
@@ -21,6 +22,7 @@ into the stage's record in the .blend (so a rerun can say which input moved - `c
               code:lookdev_blender.hair, data:lookdev.hair    the hair material and its preset (materials.json)
               code:character_pipeline.hair                    instead of all that for a deprecated shell_bun
     flesh     data:follow_through.registry                    the merged type registry: built-in and user
+              code:follow_through.flesh                       finding the masses and weighting the jiggle bones
     garments  preset:<name>                                   each worn wardrobe preset's contents (garments.json)
 
 Data is hashed as parsed JSON (so a CRLF checkout and an LF one agree, and key order does not matter); code
@@ -101,7 +103,7 @@ def _hair(ch):
 
 def _flesh(ch):
     from follow_through import registry
-    return {"data:follow_through.registry": data(registry.load())}
+    return {"data:follow_through.registry": data(registry.load()), "code:follow_through.flesh": code("follow_through.flesh")}
 
 
 def _garments(ch):
