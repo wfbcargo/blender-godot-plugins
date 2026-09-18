@@ -45,6 +45,7 @@ that belong to a plugin.
     brows = true                 # optional, default false: humanform.brows' brow cards, lash cards
     lashes = true                #   and a light body hair shell, in the hair colour darkened
     body_hair = false
+    brow_shape = "arched"        # optional: natural (default, MPFB's brow as fitted), straight, arched, soft
     [flesh]                      # optional: follow-through
     types = ["breast", "butt"]
     may_miss = []                # types the stage may come back without; any other type in `types`
@@ -99,6 +100,7 @@ DEPRECATED = {
                  "still builds; use preset = \"<humanform hair preset>\" and colour (improvements 05 5.2)",
 }
 HAIR_PRESETS = ("short_crop", "bob", "bun", "ponytail", "long_loose")   # humanform.sheet.HAIR_PRESETS
+BROW_SHAPES = ("natural", "straight", "arched", "soft")                   # humanform.sheet.BROW_SHAPES
 MUSCLE_GROUPS = ("deltoids", "upper_arms", "pectorals", "abdominals", "obliques", "quadriceps", "calves",
                  "forearms", "relief", "bulk")                           # humanform.muscle.GROUPS
 MUSCLE_OUTPUTS = ("geometry", "normal")
@@ -141,12 +143,17 @@ class Hair:
     brows: bool = False                         # humanform.brows layers, joined with the hair
     lashes: bool = False
     body_hair: bool = False
+    brow_shape: str | None = None               # humanform.brows BROW_SHAPES; None: "natural"
 
     FACE = ("brows", "lashes", "body_hair")
 
     def face(self):
-        """The humanform.brows switches that are on, as hair.add keywords."""
-        return {k: True for k in self.FACE if getattr(self, k)}
+        """The humanform.brows switches that are on, and a brow shape other than the default, as hair.add
+        keywords."""
+        out = {k: True for k in self.FACE if getattr(self, k)}
+        if self.brow_shape and self.brow_shape != "natural":
+            out["brow_shape"] = self.brow_shape
+        return out
 
 
 @dataclass
@@ -246,6 +253,8 @@ class Character:
             for k in Hair.FACE:
                 if not out.get(k):
                     out.pop(k, None)
+            if out.get("brow_shape") in (None, "natural"):
+                out.pop("brow_shape", None)         # the default hashes as before the field existed
             return out
         if isinstance(value, list):
             return [asdict(v) if hasattr(v, "__dataclass_fields__") else v for v in value]
@@ -367,7 +376,7 @@ def parse(data, path=None):
     if "hair" in data:
         h = dict(_take(data, "hair", dict))
         if "preset" in h:
-            _unknown(h, ("preset", "colour") + Hair.FACE, "[hair]")
+            _unknown(h, ("preset", "colour", "brow_shape") + Hair.FACE, "[hair]")
             preset = _take(h, "preset", str, where="hair.")
             if preset not in HAIR_PRESETS:
                 raise SpecError(f"hair.preset {preset!r} is not one of {HAIR_PRESETS}")
@@ -380,8 +389,11 @@ def parse(data, path=None):
                 v = _take(h, k, bool, where="hair.")
                 if v is not None:
                     switches[k] = v
+            brow_shape = _take(h, "brow_shape", str, where="hair.")
+            if brow_shape is not None and brow_shape not in BROW_SHAPES:
+                raise SpecError(f"hair.brow_shape {brow_shape!r} is not one of {BROW_SHAPES}")
             hair = Hair(kind="preset", preset=preset, colour=[float(c) for c in colour] if colour else None,
-                        **switches)
+                        brow_shape=brow_shape, **switches)
         else:
             kind = h.pop("kind", None)
             if kind != "shell_bun":

@@ -479,6 +479,18 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
     far = max(float(g.max()), d1 + 1e-3)
     slope2 = max((v_max - v1) / (far - d1), 0.0)
     v_of = np.where(g <= d1, v_h + g / span, v1 + (g - d1) * slope2)
+    wobble = p.get("edge_wobble_m", 0.0)
+    if wobble:
+        # the hairline wanders: V near the line moves by up to `edge_wobble_m` (as distance) with a sum of sines
+        # round the head whose shortest wavelength is about a texture tile, so the texture's own ragged edge,
+        # which repeats every tile, does not show as a repeat
+        wrng = np.random.RandomState(p.get("edge_seed", 3))
+        az = np.radians(_azimuth(pts, lm["cy"]))
+        wav = np.zeros(len(pts))
+        for k in range(3, 15):
+            wav += wrng.normal() / k * np.sin(k * az + wrng.uniform(0, 2 * math.pi))
+        wav /= max(float(np.abs(wav).max()), 1e-9)
+        v_of = v_of + wobble * wav * (1 - _smooth(0.01, 0.035, d)) / span
     v_of = np.maximum(v_of, 0.001)
     v_of = np.where(boundary, np.minimum(v_of, 0.003), v_of)
     uv = bm.loops.layers.uv.new(uv_name)
@@ -973,13 +985,15 @@ def _object(name, bm, body, rig, weights):
     return ob
 
 
-def _material(name, colour, uv_name):
+def _material(name, colour, uv_name, look=None):
+    """lookdev's hair material; `look` is the preset's overrides of lookdev's `hair` strand settings (short_crop's
+    feathered hairline)."""
     try:
         from lookdev_blender import hair as ld_hair
     except ImportError:
         ld_hair = None
     if ld_hair is not None:
-        mat, rep = ld_hair.material(name, colour, uv_map=uv_name)
+        mat, rep = ld_hair.material(name, colour, uv_map=uv_name, **(look or {}))
         return mat, dict(rep, source="lookdev"), rep["tile_m"]
     mat = look.material(name, srgb=colour, roughness=0.45)
     return mat, {"material": mat.name, "source": "flat (lookdev_blender not importable)"}, TILE_M
@@ -1001,15 +1015,17 @@ def _clearance(bvh, verts, samples=400):
 
 
 def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lashes=False, body_hair=False, sex=None,
-        **overrides):
+        brow_shape=None, **overrides):
     """Hair on a baked body. `preset` and `colour` (a screen sRGB colour) default to `sheet["hair"]`, then
     `bun`-less `short_crop` and the preset's colour. Returns a report with the objects made.
 
     `brows`, `lashes` and `body_hair` add `humanform.brows`' layers in the hair colour darkened (off by default,
     so a build that does not ask is unchanged); `sex` ("male" / "female", else the sheet's) picks the body hair
-    regions."""
+    regions. `brow_shape` (else the brief's `hair.brow_shape`, else "natural": the brow card as MPFB fits it) is
+    one of `brows.BROW_SHAPES`."""
     ob = _body.obj(body)
     brief = (sheet or {}).get("hair") or {}
+    brow_shape = brow_shape or brief.get("brow_shape")
     preset = preset or brief.get("preset") or "short_crop"
     p = params(preset, **overrides)
     colour = tuple(colour if colour is not None else brief.get("colour") or p["colour"])
@@ -1021,7 +1037,7 @@ def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lash
     rig = _body.rig_of(ob)
     bvh = _bvh(lm["_co"], ob, lm["_eye_vertices"])
     uv_name = ob.data.uv_layers.active.name if ob.data.uv_layers.active else "UVMap"
-    mat, mat_rep, tile = _material(f"{base}_hair", colour, uv_name)
+    mat, mat_rep, tile = _material(f"{base}_hair", colour, uv_name, p.get("look"))
 
     centre = Vector(lm["centre"])
     targets = {}
@@ -1069,7 +1085,7 @@ def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lash
     objects = {"hair": hair_ob.name}
     if brows or lashes or body_hair:
         face = _brows.add(ob, lm, colour, base, rig=rig, uv_name=uv_name, brows=brows, lashes=lashes,
-                          body_hair=body_hair, sex=sex or (sheet or {}).get("sex"))
+                          body_hair=body_hair, sex=sex or (sheet or {}).get("sex"), brow_shape=brow_shape)
         objects.update(face["objects"])
         report["face"] = {"parts": face["parts"], "skipped": face["skipped"]}
     # the cap's clearance: a fall's inner sheet and the underside of a bun or tie are tucked under the cap and

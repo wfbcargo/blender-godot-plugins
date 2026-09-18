@@ -242,6 +242,17 @@ of a hole; Godot's `LookdevMaterials.apply` gives hair tangents from U alone for
 averaged mod 180 degrees over the faces meeting at each position, which is what keeps the strands running to
 the bun's axis from faceting into dark polygons.
 
+**short_crop's feathered hairline (humanform 0.12.0).** At 1 m in Godot the short crop read as a helmet with a
+hard, spiky fringe: every strand rooted in the same 13 mm band of V and the opaque middle started on one straight
+line of V, so the hairline was a ruled edge with a comb of dark spikes hanging from it. The preset now carries a
+`look` block (overrides of lookdev's `hair` strand settings, passed to `hair.material`) - roots spread to
+`root_zone` [0.004, 0.075] and skewed away from the edge (`root_power` 0.8), the dense hair starting up to 6 mm
+further in, strand by strand (`root_ragged` 0.03), blunter roots, a stronger root fade and 60 fine short hairs
+per tile - and `edge_wobble_m` (3 mm) moves V near the line with a sum of sines round the head, so the texture's
+own ragged edge does not repeat every tile. Other presets keep lookdev's defaults. The `hair_presets` fixture
+measures it (`face.hairline_feather`: where the hair turns dense wanders 0 mm on a default texture, several mm on
+the short crop; the control, short_crop without its `look`, must fail).
+
 **The ears are cut round, not covered.** On an MPFB body (`brows.is_mpfb`: at least 13380 vertices, which a
 baked body keeps in base-mesh order) the hairline also knows the ears themselves: `data/face_regions.json`
 lists the vertices MPFB's ear flap, wing and lobe targets bend (259 a side), the cap drops every face that
@@ -273,6 +284,17 @@ the hair stage joins them into the body with the rest of the hair.
   shape targets but no brow geometry) and stored the same way: 10.5 mm tall at the head, 2 mm at the tail,
   6 cm long. Its strands lean along it - V across from the lower edge (roots) to the upper (tips), U
   sheared from upright at the head to 14 degrees by the tail.
+- **Brow shape** (`hair.add(brow_shape=)`, a brief's `hair.brow_shape`, a spec's `[hair] brow_shape`): one of
+  `brows.BROW_SHAPES` - `natural` (the default: the card as fitted, untouched, so a spec that does not ask is
+  unchanged), `straight` (the rise taken out, the tail lifted), `arched` (the outer third lifted about 2.5 mm,
+  the tail dropped), `soft` (a low, round arch). Each vertex moves along the skin by the shape's offset at its
+  place along the brow and keeps its height over the skin. The report's `face.parts.brows.shape.<side>` has the
+  card's height profile along the brow and `moved_mm` against the natural brow.
+- **Lash density (humanform 0.12.0).** Seen from the front the upper card is steep to the eye (its tips rise
+  about 16 degrees; turning it further up runs it into the lid), so a lash is a few screen pixels long, and 170
+  lashes gathered into clumps read as a few dark streaks on the lid. `brows.LASHES` now draws 260 long lashes
+  gathered less (0.25) and 160 short ones packed at the root, which make the dark lash line; the cards filter
+  anisotropically in Godot (`texture_filter` 5), since the upper card is seen at a grazing angle.
 - **Body hair** (off unless asked) is a shell 0.3 mm off the skin cut by bone weight (and facing, on the
   torso), with the hair texture thinned to 22% of its strand bands, each staggered, repeating every 14 mm
   along the limb so it reads as short hairs.

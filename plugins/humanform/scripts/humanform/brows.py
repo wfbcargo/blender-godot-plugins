@@ -67,6 +67,7 @@ BODY_HAIR_LIFT_M = 0.0003
 TILE_M = 0.04
 GODOT_SCISSOR = 2           # BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 GODOT_BLEND = 1             # BaseMaterial3D.TRANSPARENCY_ALPHA
+GODOT_FILTER_ANISOTROPIC = 5    # BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 
 # lookdev hair preset overrides per part (keys of lookdev's `hair` material preset). Brows and lashes then
 # get their own pixels (`card_pixels`): U runs once along each brow / lid (0..1, not tiled), so the strands
@@ -80,13 +81,36 @@ LOOK = {
 # Godot: no rim, backlight or anisotropic sheen on hairs this fine - at a grazing angle (a brow's tail round
 # the temple) they light a whole card's strands into a grey sliver
 CARD_GODOT = {"transparency": GODOT_BLEND, "rim_enabled": False, "backlight_enabled": False,
-              "anisotropy_enabled": False, "roughness": 0.75, "metallic_specular": 0.2}
+              "anisotropy_enabled": False, "roughness": 0.75, "metallic_specular": 0.2,
+              "texture_filter": GODOT_FILTER_ANISOTROPIC}
 # blended cards: mips that keep level 0's coverage (lashes lost 60% of it by the fifth mip, and a blended
 # card's mean alpha is its coverage) and alpha ramped over 0.5 +- 0.25, so a hair is dark in its core and soft
 # at its sides - what Blender's supersampled alpha test looks like. edge 0.5 left brows a grey haze, 0.15 too dark.
 CARD_ALPHA = {"coverage_mips": 0.5, "edge": 0.25}
 # the lash texture's two halves: upper lid in U 0.02..0.48, lower lid in 0.52..0.98 (outer corner at 0.02 / 0.98)
 LASH_U = {"upper": (0.02, 0.48), "lower": (0.52, 0.98)}
+# per lid: `n` lashes `lengths` of the card long (before the corner's reach), `width` texels at the root, leaning
+# `gather` of the way to their clump's centre; then `short` lashes `short_lengths` long packed at the root. Seen
+# from the front the upper card is steep to the eye (its tips rise only about 16 deg), so a lash is a few
+# screen pixels long: 170 lashes gathered 0.6 read as a few dark streaks on the lid; the lash line needs
+# density at the root.
+LASHES = {"upper": {"n": 260, "lengths": (0.55, 0.97), "width": (1.3, 1.9), "gather": 0.25,
+                    "short": 160, "short_lengths": (0.1, 0.3)},
+          "lower": {"n": 45, "lengths": (0.35, 0.7), "width": (1.1, 1.6), "gather": 0.6,
+                    "short": 0, "short_lengths": (0.1, 0.2)}}
+
+# brow shapes (`add(brow_shape=)`, a brief's `hair.brow_shape`): how far each brow card is moved along the skin,
+# up (+) or down, in metres, against t = 0 at the brow's head (by the nose) .. 1 at its tail, as [t, metres]
+# keys. "natural" is MPFB's card as fitted, untouched - the default, so a spec that does not ask is unchanged.
+# "straight" takes most of the natural rise out and lifts the tail, "arched" lifts the peak over the outer third
+# and drops the tail, "soft" is a low, round arch peaking mid-brow. The report's `shape_profile_mm` measures it.
+BROW_SHAPES = {
+    "natural": None,
+    "straight": [[0.0, 0.0], [0.25, -0.0008], [0.55, -0.0018], [0.75, -0.0015], [1.0, 0.0008]],
+    "arched": [[0.0, 0.0], [0.3, 0.0008], [0.62, 0.0026], [0.8, 0.0014], [1.0, -0.0014]],
+    "soft": [[0.0, 0.0], [0.3, 0.0006], [0.5, 0.0009], [0.75, 0.0], [1.0, -0.0006]],
+}
+BROW_SHAPE_T = (0.1, 0.3, 0.5, 0.7, 0.9)     # where `shape_profile_mm` reports the brow's height
 
 _DATA = None
 
@@ -230,27 +254,33 @@ def _brow_hairs(W, H, rng):
 
 def _lash_hairs(W, H, rng):
     """(cover, tone): upper lid in U LASH_U["upper"], lower lid in LASH_U["lower"], both with the outer corner at
-    their outer ends (0.02 and 0.98); V 0 at the lid, 1 at the card's far edge."""
+    their outer ends (0.02 and 0.98); V 0 at the lid, 1 at the card's far edge. Per lid, `LASHES`: long lashes,
+    then short ones packed at the root, which make the dark lash line a lid reads by from the front."""
     cover, tone = np.zeros((H, W)), np.ones((H, W))
-    for lid, n, lengths, width in (("upper", 170, (0.6, 0.97), (1.6, 2.3)), ("lower", 45, (0.35, 0.7), (1.1, 1.6))):
+    for lid in ("upper", "lower"):
+        spec = LASHES[lid]
         a, b = LASH_U[lid]
-        # s: 0 at the outer corner, 1 at the inner; lashes are longest and densest over the outer middle
-        ss = rng.uniform(0.0, 1.0, n * 3)
-        dens = np.interp(ss, [0.0, 0.08, 0.3, 0.7, 0.9, 1.0], [0.3, 0.9, 1.0, 0.8, 0.35, 0.1])
-        ss = ss[rng.uniform(0, 1, len(ss)) < dens][:n]
-        # lashes gather in small clumps whose tips meet: each lash leans toward its clump's centre
-        clumps = np.sort(rng.uniform(0.0, 1.0, max(3, n // 4)))
-        for s_ in ss:
-            u = a + (b - a) * (s_ if lid == "upper" else 1.0 - s_)
-            reach = float(np.interp(s_, [0.0, 0.35, 0.75, 1.0], [0.75, 1.0, 0.85, 0.5]))
-            v1 = 0.03 + reach * rng.uniform(*lengths)
-            # outer lashes sweep out toward the corner, inner ones toward the nose
-            out = (0.5 - s_) * 2.0 * (1 if lid == "upper" else -1)
-            c = clumps[np.argmin(np.abs(clumps - s_))]
-            gather = (c - s_) * (b - a) * W * (1 if lid == "upper" else -1) * 0.6
-            _strand(cover, tone, rng, u * W, 0.02, min(0.99, v1), rng.uniform(*width), 0.35,
-                    -out * rng.uniform(8.0, 18.0) + gather + rng.normal(0.0, 2.5),
-                    float(np.clip(rng.normal(1.0, 0.12), 0.7, 1.35)))
+        for n, lengths, width, gather_k in ((spec["n"], spec["lengths"], spec["width"], spec["gather"]),
+                                            (spec["short"], spec["short_lengths"], spec["width"], 0.0)):
+            if not n:
+                continue
+            # s: 0 at the outer corner, 1 at the inner; lashes are longest and densest over the outer middle
+            ss = rng.uniform(0.0, 1.0, n * 3)
+            dens = np.interp(ss, [0.0, 0.08, 0.3, 0.7, 0.9, 1.0], [0.3, 0.9, 1.0, 0.8, 0.35, 0.1])
+            ss = ss[rng.uniform(0, 1, len(ss)) < dens][:n]
+            # lashes gather in small clumps whose tips meet: each lash leans toward its clump's centre
+            clumps = np.sort(rng.uniform(0.0, 1.0, max(3, n // 4)))
+            for s_ in ss:
+                u = a + (b - a) * (s_ if lid == "upper" else 1.0 - s_)
+                reach = float(np.interp(s_, [0.0, 0.35, 0.75, 1.0], [0.75, 1.0, 0.85, 0.5]))
+                v1 = 0.03 + reach * rng.uniform(*lengths)
+                # outer lashes sweep out toward the corner, inner ones toward the nose
+                out = (0.5 - s_) * 2.0 * (1 if lid == "upper" else -1)
+                c = clumps[np.argmin(np.abs(clumps - s_))]
+                gather = (c - s_) * (b - a) * W * (1 if lid == "upper" else -1) * gather_k
+                _strand(cover, tone, rng, u * W, 0.02, min(0.99, v1), rng.uniform(*width), 0.35,
+                        -out * rng.uniform(8.0, 18.0) * v1 + gather + rng.normal(0.0, 2.5) * v1,
+                        float(np.clip(rng.normal(1.0, 0.12), 0.7, 1.35)))
     return cover, tone
 
 
@@ -319,6 +349,58 @@ def _card_uv(part, pts, faces, uv):
     return out.tolist(), counts
 
 
+def _brow_heights(p, t):
+    """Mean height (z, metres) of a brow card's vertices near each `BROW_SHAPE_T` along it (t 0 head .. 1 tail)."""
+    out = []
+    for tt in BROW_SHAPE_T:
+        near = np.abs(t - tt) < 0.08
+        out.append(float(p[near, 2].mean()) if near.any() else float("nan"))
+    return np.array(out)
+
+
+def _shape_brow(p, uv, shape, bvh):
+    """Move one brow card along the skin to `shape` (a `BROW_SHAPES` name): each vertex goes up the skin (world +Z
+    turned into the skin's tangent plane) by the shape's offset at its t, then back onto the skin at the height
+    over it it had. Returns (points, report); the report's `shape_profile_mm` is the card's height at
+    `BROW_SHAPE_T` relative to its first point, and `moved_mm` how far each moved from the natural brow, so a
+    shape is measured, not assumed."""
+    p = np.array(p, np.float64)
+    u = np.asarray(uv, np.float64)[:, 0]
+    t = np.clip((u - 0.01) / 0.98, 0.0, 1.0)
+    before = _brow_heights(p, t)
+    keys = BROW_SHAPES[shape]
+    if keys is None:
+        return p, {"shape": shape, "shape_profile_mm": [round(float(x), 2) for x in (before - before[0]) * 1000]}
+    k = np.array(keys, np.float64)
+    delta = np.interp(t, k[:, 0], k[:, 1])
+    q = p.copy()
+    up = np.array([0.0, 0.0, 1.0])
+    for i in range(len(p)):
+        loc, nrm, _f, _d = bvh.find_nearest(Vector(p[i]))
+        if loc is None:
+            continue
+        n = np.array(nrm)
+        height = float(np.dot(p[i] - np.array(loc), n))
+        tang = up - n * np.dot(up, n)
+        tang /= max(np.linalg.norm(tang), 1e-9)
+        moved = p[i] + tang * delta[i]
+        loc2, nrm2, _f, _d = bvh.find_nearest(Vector(moved))
+        q[i] = np.array(loc2) + np.array(nrm2) * height if loc2 is not None else moved
+    after = _brow_heights(q, t)
+    return q, {"shape": shape,
+               "shape_profile_mm": [round(float(x), 2) for x in (after - after[0]) * 1000],
+               "natural_profile_mm": [round(float(x), 2) for x in (before - before[0]) * 1000],
+               "moved_mm": [round(float((a - b) * 1000), 2) for a, b in zip(after, before)]}
+
+
+def _body_bvh(ob, co):
+    """The body's surface in world space: the faces of its first n_body vertices (MPFB's body, no helpers)."""
+    from mathutils.bvhtree import BVHTree
+    n = regions()["n_body"]
+    polys = [tuple(p.vertices) for p in ob.data.polygons if max(p.vertices) < n]
+    return BVHTree.FromPolygons([Vector(c) for c in co[:n]], polys)
+
+
 def _card_object(name, body, rig, pts_world, faces, uvs, weights, uv_name, tile):
     """A mesh from world points, quads and per-vertex UVs (U in metres, divided by `tile`)."""
     from .hair import _object
@@ -354,8 +436,10 @@ def _interp_weights(ob, tris, bary, fallback):
     return {g: np.clip(w / total, 0.0, 1.0) for g, w in out.items() if w.max() > 1e-3}
 
 
-def _cards(ob, co, part, base, rig, colour, uv_name, head):
+def _cards(ob, co, part, base, rig, colour, uv_name, head, brow_shape="natural"):
     d = regions()[part]
+    shaped = {}
+    bvh = _body_bvh(ob, co) if part == "brows" and BROW_SHAPES[brow_shape] is not None else None
     mat, mat_rep, tile = _material(f"{base}_{part}", colour, uv_name, part, double_sided=(part == "lashes"))
     pts, faces, uvs, tris, bary = [], [], [], ([], [], []), []
     lids = {}
@@ -363,14 +447,16 @@ def _cards(ob, co, part, base, rig, colour, uv_name, head):
         card = d[side]
         p, (ia, ib, ic), w = _rebuild(co, card["fit"])
         off = len(pts)
-        pts.extend(p.tolist())
-        faces.extend([[off + i for i in q] for q in card["faces"]])
         if tile == 1.0:
             uv, side_lids = _card_uv(part, p, card["faces"], card["uv"])
             for k, n in side_lids.items():
                 lids[k] = lids.get(k, 0) + n
         else:
             uv = card["uv"]
+        if part == "brows" and tile == 1.0:
+            p, shaped[side] = _shape_brow(p, uv, brow_shape, bvh)
+        pts.extend(p.tolist())
+        faces.extend([[off + i for i in q] for q in card["faces"]])
         uvs.extend(uv)
         tris[0].extend(ia.tolist())
         tris[1].extend(ib.tolist())
@@ -384,7 +470,8 @@ def _cards(ob, co, part, base, rig, colour, uv_name, head):
     # the lash roots and the brow must lie on the skin: the distance of each card's root row from the body
     return card, {"faces": len(faces), "verts": len(pts), "weights": sorted(weights),
                   "material": {k: mat_rep.get(k) for k in ("material", "source", "gltf", "double_sided", "texture")},
-                  "colour": [round(c, 4) for c in colour], **({"lid_cards": lids} if lids else {})}
+                  "colour": [round(c, 4) for c in colour], **({"lid_cards": lids} if lids else {}),
+                  **({"shape": shaped} if shaped else {})}
 
 
 # ------------------------------------------------------------------------------------------ body hair
@@ -530,9 +617,14 @@ def _body_hair(ob, co, base, rig, colour, uv_name, sex):
 
 # ------------------------------------------------------------------------------------------ entry
 
-def add(body, lm, colour, base, rig=None, uv_name="UVMap", brows=True, lashes=True, body_hair=False, sex=None):
+def add(body, lm, colour, base, rig=None, uv_name="UVMap", brows=True, lashes=True, body_hair=False, sex=None,
+        brow_shape=None):
     """Brows, lashes and (optionally) body hair on a baked MPFB body. `lm` is `hair.landmarks(body)`;
-    `colour` the scalp hair's screen (sRGB) colour. Returns {objects, parts, skipped}."""
+    `colour` the scalp hair's screen (sRGB) colour; `brow_shape` one of `BROW_SHAPES` (None: "natural").
+    Returns {objects, parts, skipped}."""
+    brow_shape = brow_shape or "natural"
+    if brow_shape not in BROW_SHAPES:
+        raise ValueError(f"brow_shape {brow_shape!r} is not one of {tuple(BROW_SHAPES)}")
     from . import body as _body
     ob = _body.obj(body)
     out = {"objects": {}, "parts": {}, "skipped": None}
@@ -547,7 +639,7 @@ def add(body, lm, colour, base, rig=None, uv_name="UVMap", brows=True, lashes=Tr
     for part, on, k in (("brows", brows, BROW_DARKEN), ("lashes", lashes, LASH_DARKEN)):
         if not on:
             continue
-        card, rep = _cards(ob, co, part, base, rig, _darken(colour, k), uv_name, head)
+        card, rep = _cards(ob, co, part, base, rig, _darken(colour, k), uv_name, head, brow_shape=brow_shape)
         out["objects"][part] = card.name
         out["parts"][part] = rep
     if body_hair:

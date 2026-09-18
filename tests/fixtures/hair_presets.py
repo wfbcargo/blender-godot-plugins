@@ -23,6 +23,16 @@ A curvy MPFB woman from a spec is built through character-pipeline's body and ba
   counts and weights, the body hair's regions, their face order, and in the exported glTF their materials -
   alpha MASK, textures, the lookdev extras (scissor in Godot), lashes double-sided; `[hair] brows / lashes /
   body_hair` parse, a bad value is refused, and a spec without them hashes its hair section as before;
+- the man's hairline, the lashes and the brow shape (hair-hairline-lashes): `hairline_feather` measures the
+  cap texture near the hairline - its 10-90% coverage ramp and how far (mm on the cap, p10..p90 across U) the
+  line where the hair turns dense wanders - for short_crop, bob, and short_crop with its `look` overrides
+  dropped (the control, a hard hairline, which must fail the 1 mm floor);
+  `lash_root` is the upper lid's lash coverage in the band at the root (the lash line), against the Step 0 lash
+  counts (the control, which must fail the floor); `brow_shapes` moves each brow card to each shape and
+  reports its height profile and how far it moved, `natural` must leave every brow vertex where the default
+  puts it (0.0 mm), `arched` must lift the outer third at least 1 mm, and the control (arched with its keys
+  removed) must fail that; `[hair] brow_shape` parses, a bad one is refused, and "natural" hashes as a spec
+  without the field;
 - `spec.GAPS` no longer lists hair, the deprecated `kind = "shell_bun"` still parses, and a bad preset or
   colour in a spec or a brief is refused;
 - lookdev is optional to the pipeline: with `LD_SCRIPTS` pointing at nothing, `plugins.use()` still imports
@@ -221,6 +231,7 @@ def build():
             refusals[label] = str(exc)
     old = spec.parse(dict(base, hair={"kind": "shell_bun", "back": 0.185}))
     brief = sheet.validate(sheet.new(sex="female", hair={"preset": "dreadlocks"}))
+    brief += sheet.validate(sheet.new(sex="female", hair={"preset": "bun", "brow_shape": "bushy"}))
     return {
         "presets": presets,
         "gltf": H.stable(glb),
@@ -294,7 +305,114 @@ def _face(ch, root):
     out["gltf"] = H.stable(mats)
     for o in made:
         bpy.data.objects.remove(o, do_unlink=True)
+    out["hairline_feather"] = _hairline_feather(ch)
+    out["lash_root"] = _lash_root()
+    out["brow_shapes"] = _brow_shapes(ch)
     return out
+
+
+WANDER_MIN_MM = 1.0         # where the short crop's hair turns dense must wander at least this far (p10..p90)
+LASH_ROOT_MIN = 0.65        # share of the upper lid's root band (V 0.02..0.1) that lashes cover at alpha >= 0.5
+ARCH_MIN_MM = 1.0           # "arched" must lift the brow's outer third at least this far
+
+
+def _feather_mm(ch, preset, **overrides):
+    """(feather mm, [V at 10%, 90%], edge wander mm) of the cap texture near the hairline, as distance on the cap
+    (V runs 1 / cap_v_span_m per metre near the line). Feather: the V over which the mean alpha across U rises
+    from 10% to 90% of its value at V 0.3. Edge wander: across U, in windows of 16 texels (about three strands),
+    the V where the window's mean alpha first reaches 0.9 - where the hair turns dense - its p90 less its p10.
+    A hard hairline starts dense on one line of V (0 mm), whatever its strand tips do."""
+    import bpy
+    import numpy as np
+    from humanform import hair
+    rep = hair.add(ch.mesh, preset=preset, colour=(0.35, 0.22, 0.12), name=ch.name, **overrides)
+    img = bpy.data.images[f"{ch.name}_hair_strands"]
+    W, Hh = img.size
+    px = np.empty(W * Hh * 4, np.float32)
+    img.pixels.foreach_get(px)
+    alpha = px.reshape(Hh, W, 4)[:, :, 3].mean(axis=1)          # rows bottom-up: row 0 is V = 0
+    v = (np.arange(Hh) + 0.5) / Hh
+    full = float(alpha[np.searchsorted(v, 0.3)])
+    lo = float(v[np.argmax(alpha >= 0.1 * full)])
+    hi = float(v[np.argmax(alpha >= 0.9 * full)])
+    span = hair.params(preset, **overrides)["cap_v_span_m"]
+    a = px.reshape(Hh, W, 4)[:, :, 3]
+    win = 16
+    starts = []
+    for x0 in range(0, W, 4):
+        cols = (np.arange(win) + x0) % W
+        m = a[:, cols].mean(axis=1)
+        k = int(np.argmax(m >= 0.9))
+        starts.append(float(v[k]))
+    wander = float(np.percentile(starts, 90) - np.percentile(starts, 10))
+    for n in rep["objects"].values():
+        bpy.data.objects.remove(bpy.data.objects[n], do_unlink=True)
+    return round((hi - lo) * span * 1000, 2), [round(lo, 4), round(hi, 4)], round(wander * span * 1000, 2)
+
+
+def _hairline_feather(ch):
+    out = {}
+    for label, preset, over in (("short_crop", "short_crop", {}), ("bob", "bob", {}),
+                                ("control_short_crop_without_look", "short_crop", {"look": {}, "edge_wobble_m": 0.0})):
+        mm, v, wander = _feather_mm(ch, preset, **over)
+        out[label] = {"feather_mm": mm, "v_10_90": v, "edge_wander_mm": wander, "ok": wander >= WANDER_MIN_MM}
+    out["min_wander_mm"] = WANDER_MIN_MM
+    out["control_fails"] = not out["control_short_crop_without_look"]["ok"]
+    return out
+
+
+def _lash_root():
+    """Upper-lid lash coverage in the root band of the lash card texture, now and with the Step 0 counts."""
+    import numpy as np
+    from humanform import brows
+    def share(lashes):
+        saved = brows.LASHES
+        brows.LASHES = lashes
+        try:
+            px, _n, _r = brows.card_pixels("lashes", (0.1, 0.07, 0.05), 1024, 256)
+        finally:
+            brows.LASHES = saved
+        a, b = brows.LASH_U["upper"]
+        band = px[int(0.02 * 256):int(0.1 * 256), int(a * 1024):int(b * 1024), 3]
+        return round(float((band >= 0.5).mean()), 4)
+    step0 = {"upper": dict(brows.LASHES["upper"], n=170, width=(1.6, 2.3), gather=0.6, short=0),
+             "lower": brows.LASHES["lower"]}
+    now, before = share(brows.LASHES), share(step0)
+    return {"upper_root_share": now, "ok": now >= LASH_ROOT_MIN, "control_step0_share": before,
+            "control_fails": before < LASH_ROOT_MIN, "min": LASH_ROOT_MIN}
+
+
+def _brow_shapes(ch):
+    import bpy
+    import numpy as np
+    from humanform import brows, hair
+
+    def brow_points(**kw):
+        rep = hair.add(ch.mesh, preset="short_crop", colour=(0.35, 0.22, 0.12), name=ch.name, brows=True, **kw)
+        ob = bpy.data.objects[rep["objects"]["brows"]]
+        pts = np.array([tuple(ob.matrix_world @ v.co) for v in ob.data.vertices])
+        shape = rep["face"]["parts"]["brows"].get("shape")
+        for n in rep["objects"].values():
+            bpy.data.objects.remove(bpy.data.objects[n], do_unlink=True)
+        return pts, shape
+
+    default, _ = brow_points()
+    out = {}
+    for name in brows.BROW_SHAPES:
+        pts, shape = brow_points(brow_shape=name)
+        out[name] = dict(shape["L"], moved_max_mm=round(float(np.linalg.norm(pts - default, axis=1).max()) * 1000, 3))
+    arch = out["arched"]["moved_mm"][3]           # t = 0.7, the outer third
+    saved = brows.BROW_SHAPES["arched"]
+    brows.BROW_SHAPES["arched"] = [[0.0, 0.0], [1.0, 0.0]]
+    try:
+        _pts, shape = brow_points(brow_shape="arched")
+    finally:
+        brows.BROW_SHAPES["arched"] = saved
+    control = shape["L"]["moved_mm"][3]
+    return {"shapes": out, "natural_unchanged": out["natural"]["moved_max_mm"] == 0.0,
+            "arched_outer_lift_mm": arch, "ok": arch >= ARCH_MIN_MM and out["natural"]["moved_max_mm"] == 0.0,
+            "control_arched_flat_lift_mm": control, "control_fails": not control >= ARCH_MIN_MM,
+            "min_mm": ARCH_MIN_MM}
 
 
 def _face_spec(spec, base):
@@ -307,7 +425,16 @@ def _face_spec(spec, base):
         out["bad_value"] = None
     except spec.SpecError as exc:
         out["bad_value"] = str(exc)
+    shaped = spec.parse(dict(base, hair={"preset": "bun", "brows": True, "brow_shape": "arched"}))
+    out["brow_shape"] = {"parsed": shaped.hair.brow_shape, "face": shaped.hair.face()}
+    try:
+        spec.parse(dict(base, hair={"preset": "bun", "brows": True, "brow_shape": "bushy"}))
+        out["brow_shape"]["bad_value"] = None
+    except spec.SpecError as exc:
+        out["brow_shape"]["bad_value"] = str(exc)
     plain = spec.parse(dict(base, hair={"preset": "bun", "colour": [0.1, 0.1, 0.1]}))
+    out["brow_shape"]["natural_same_digest"] = spec.parse(dict(base, hair={
+        "preset": "bun", "colour": [0.1, 0.1, 0.1], "brow_shape": "natural"})).digest("hair") == plain.digest("hair")
     # the section a spec without the switches hashes: exactly the fields it had before they existed
     out["plain_section"] = plain.section("hair")
     out["switch_off_same_digest"] = spec.parse(dict(base, hair={"preset": "bun", "colour": [0.1, 0.1, 0.1],

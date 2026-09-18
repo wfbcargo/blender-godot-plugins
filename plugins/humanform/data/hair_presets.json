@@ -43,11 +43,21 @@
   },
   "presets": {
     "short_crop": {
-      "description": "Close-cropped: the feathered cap alone, thin, a little fuller at the crown.",
+      "description": "Close-cropped: the feathered cap alone, thin, a little fuller at the crown, its hairline thinning out over about 1.5 cm.",
       "cap_thick_m": 0.0035,
       "crown_extra_m": 0.003,
       "feather_m": 0.009,
       "feather_in_m": 0.012,
+      "edge_wobble_m": 0.003,
+      "look": {
+        "root_zone": [0.004, 0.075],
+        "root_ragged": 0.03,
+        "root_power": 0.8,
+        "root_width": 0.45,
+        "root_fade": [0.0, 0.1],
+        "root_fade_power": 0.8,
+        "fine_per_tile": 60
+      },
       "parts": []
     },
     "bob": {

@@ -25,6 +25,10 @@
       "alpha_cutoff": 0.5,
       "root_fade": [0.0, 0.11],
       "root_fade_power": 0.25,
+      "root_ragged": 0.0,
+      "root_power": 1.0,
+      "root_width": 0.35,
+      "fine_per_tile": 0,
       "mesh": {
         "tangents": "per_face"
       },

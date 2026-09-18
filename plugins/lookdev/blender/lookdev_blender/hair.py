@@ -96,6 +96,32 @@ def strand_texture(colour_linear, p, seed=0):
     lock = 1 + p.get("lock_jitter", 0.0) * lock / nl
     r0, r1 = p["root_zone"]
     t0, t1 = p["tip_zone"]
+    # a feathered hairline (off at the defaults): where the opaque middle starts wanders across U by up to
+    # `root_ragged` of V past root_zone[1], and each strand's root lies between root_zone[0] and that start,
+    # skewed toward it by `root_power` (< 1: fewer strands reach the edge, so coverage thins out toward it). Its
+    # own random stream, so a preset without it draws exactly the strands it always did.
+    ragged = float(p.get("root_ragged", 0.0))
+    rpow = float(p.get("root_power", 1.0))
+    if ragged > 0:
+        frng = np.random.RandomState(seed + 7919)
+        uu0 = (np.arange(W) + 0.5) / W
+        low = np.zeros(W)
+        for k in range(1, 5):
+            low += frng.normal() / k * np.sin(2 * math.pi * (k + 1) * uu0 + frng.uniform(0, 2 * math.pi))
+        # and strand by strand: a value per strand's pitch, eased between strands and blurred over three,
+        # so the edge is uneven at the scale of a few hairs, not a row of scallops
+        cells = frng.uniform(0.0, 1.0, n)
+        cells = (np.roll(cells, 1) + 2 * cells + np.roll(cells, -1)) / 4
+        pos = uu0 * n - 0.5
+        i0 = np.floor(pos).astype(int)
+        fr = _smooth(0.0, 1.0, pos - i0)
+        high = cells[i0 % n] * (1 - fr) + cells[(i0 + 1) % n] * fr
+        norm = lambda a: (a - a.min()) / max(float(a.max() - a.min()), 1e-9)
+        wob = 0.35 * norm(low) + 0.65 * norm(high)
+        body_start = r1 + ragged * wob                               # (W,)
+    else:
+        frng = None
+        body_start = np.full(W, float(r1))
 
     cover = np.zeros((H, W))                                        # strand coverage, 0..1
     shade = np.full((H, W), p["gap_mult"])                          # brightness of what shows there
@@ -107,9 +133,13 @@ def strand_texture(colour_linear, p, seed=0):
         root = rng.uniform(r0, r1)
         tip = rng.uniform(t0, t1)
         freq, phase = rng.uniform(1.0, 3.0), rng.uniform(0, 2 * math.pi)
+        if ragged > 0 or rpow != 1.0:
+            start = float(body_start[int(cx) % W])
+            root = r0 + (start - r0) * ((root - r0) / max(r1 - r0, 1e-9)) ** rpow
         centre = cx + p["wave_px"] * np.sin(2 * math.pi * (v * freq) + phase)     # (H,)
         # thinner near its own ends
-        width = half * (0.35 + 0.65 * _smooth(root, root + 0.03, v) * (1 - _smooth(tip - 0.04, tip, v)))
+        rw = p.get("root_width", 0.35)
+        width = half * (rw + (1 - rw) * _smooth(root, root + 0.03, v) * (1 - _smooth(tip - 0.04, tip, v)))
         alive = (v > root) & (v < tip)
         lo = int(math.floor(cx - half - p["wave_px"] - 1))
         hi = int(math.ceil(cx + half + p["wave_px"] + 1))
@@ -126,11 +156,36 @@ def strand_texture(colour_linear, p, seed=0):
 
     # a shell has an opaque middle between the thinned roots and tips (it hides the scalp); a card has none -
     # its strands with gaps between them all the way along, so a card over skin shows skin between the hairs
+    # fine hairs (`fine_per_tile`, off at the defaults): short, thin and lighter, rooted over the root zone
+    # before the opaque middle starts - the vellus a real hairline fades out through
+    for j in range(int(p.get("fine_per_tile", 0))):
+        cx = frng.uniform(0, W) if frng is not None else rng.uniform(0, W)
+        g = frng if frng is not None else rng
+        start = float(body_start[int(cx) % W])
+        root = g.uniform(r0, start)
+        tip = min(root + g.uniform(0.015, 0.05), start + 0.02)
+        half = pitch * g.uniform(0.2, 0.35)
+        lean = g.normal(0.0, 1.5)
+        centre = cx + lean * _smooth(root, tip, v)
+        alive = (v > root) & (v < tip)
+        width = half * (1 - 0.6 * _smooth(root, tip, v))
+        lo, hi = int(math.floor(cx - 4)), int(math.ceil(cx + 4))
+        cols = np.arange(lo, hi)
+        wrapped = cols % W
+        dx = np.abs(x[wrapped][None, :] - centre[:, None])
+        dx = np.minimum(dx, W - dx)
+        c = np.clip(1 - dx / np.maximum(width[:, None], 1e-6), 0, 1) * alive[:, None] * 0.75
+        better = c > cover[:, wrapped]
+        cover[:, wrapped] = np.where(better, c, cover[:, wrapped])
+        shade[:, wrapped] = np.where(better, (p["gap_mult"] + (1 - p["gap_mult"]) * c) * 1.2, shade[:, wrapped])
+
     if p.get("mode", "shell") == "card":
-        body = np.zeros(H)
+        body = np.zeros((H, 1))
+    elif ragged > 0:
+        body = _smooth(0.0, 1.0, (v[:, None] - body_start[None, :] + 0.02) / 0.03)             * (1 - _smooth(t0 - 0.005, t0 + 0.01, v))[:, None]
     else:
-        body = _smooth(r1 - 0.01, r1 + 0.005, v) * (1 - _smooth(t0 - 0.005, t0 + 0.01, v))   # opaque middle
-    alpha = np.maximum(body[:, None], cover)
+        body = (_smooth(r1 - 0.01, r1 + 0.005, v) * (1 - _smooth(t0 - 0.005, t0 + 0.01, v)))[:, None]   # opaque middle
+    alpha = np.maximum(body, cover)
     # toward the root, coverage fades rather than stopping: Blender and glTF's MASK cut it at 0.5, so strands
     # thin out toward the hairline; Godot's depth pre-pass blends the rest, so the hairline is a soft fade
     f0, f1 = p.get("root_fade", [r0, r0])

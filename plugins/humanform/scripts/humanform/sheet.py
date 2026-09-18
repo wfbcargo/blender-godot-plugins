@@ -46,6 +46,8 @@ MACRO_FIELDS = ("firmness", "proportions", "muscle", "cupsize")
 COLOUR_FIELDS = ("skin", "iris")
 # humanform.hair presets a brief may name (data/hair_presets.json)
 HAIR_PRESETS = ("short_crop", "bob", "bun", "ponytail", "long_loose")
+# humanform.brows brow shapes a brief may name (`hair.brow_shape`); "natural" is MPFB's brow card as fitted
+BROW_SHAPES = ("natural", "straight", "arched", "soft")
 
 
 def ansur_path(age):
@@ -81,15 +83,17 @@ def new(name="Human", sex="female", age=None, stature=None, weight=None, bmi=Non
     girth around it) are MPFB macros; None leaves MPFB's 0.5, or for muscle the build's value. An adult's muscle is where
     the fit starts and what its build prior holds it near. `skin` and `iris` are screen (sRGB) colours;
     None leaves the body clay and the eyes a mid brown. `hair` is `{"preset": ..., "colour": (r, g, b)}` -
-    a `HAIR_PRESETS` name and a screen colour - read by `hair.add(body, sheet=s)` after the body is baked;
-    `pipeline.make` does not build it."""
+    a `HAIR_PRESETS` name and a screen colour, and optionally `"brow_shape"`, one of `BROW_SHAPES` - read by
+    `hair.add(body, sheet=s)` after the body is baked; `pipeline.make` does not build it."""
     return {"schema": SCHEMA, "name": name, "sex": sex, "age": age, "stature": stature, "weight": weight,
             "bmi": bmi, "build": build, "style": style, "measurements": dict(measurements or {}),
             "seed": seed, "variation": variation, "budget_tris": budget_tris, "notes": notes,
             "firmness": firmness, "proportions": proportions, "muscle": muscle, "cupsize": cupsize,
             "skin": None if skin is None else list(skin), "iris": None if iris is None else list(iris),
-            "hair": None if hair is None else {"preset": hair.get("preset"),
-                                                "colour": None if hair.get("colour") is None else list(hair["colour"])}}
+            "hair": None if hair is None else dict({"preset": hair.get("preset"),
+                                                     "colour": None if hair.get("colour") is None else list(hair["colour"])},
+                                                    **({"brow_shape": hair["brow_shape"]} if hair.get("brow_shape")
+                                                       else {}))}
 
 
 def validate(s):
@@ -128,6 +132,8 @@ def validate(s):
         elif hair.get("colour") is not None and (len(hair["colour"]) != 3
                                                or not all(0.0 <= c <= 1.0 for c in hair["colour"])):
             p.append("hair colour must be an (r, g, b) screen colour with channels 0..1")
+        elif hair.get("brow_shape") is not None and hair["brow_shape"] not in BROW_SHAPES:
+            p.append(f"hair brow_shape {hair['brow_shape']!r} is not one of {BROW_SHAPES}")
     names = set(anthropometry()["variables"])
     for k in s.get("measurements", {}):
         if k not in names:
