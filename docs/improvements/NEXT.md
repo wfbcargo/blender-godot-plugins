@@ -28,19 +28,24 @@ through `verify_moves` (the starfish's has no gaits and is skipped); `verify_war
 (0.000% / 0.145%) and `traced_detail` (0.000% / 0.000%), with the `cut=0.04` control failing at 1.129%
 as it must. The project's addons matched the repo's (no drift warning).
 
-**One branch is parked, not merged: `skirts-dresses` (05 5.4).** Its fix round is unfinished (the WIP
-commit `bfc55f7`, "hem collision ring, dressed_skirts fixture", and follow-ups; another agent was still
-working in `.worktrees/skirts-dresses` and merging `main` into it during this round). It had no
-finished code review and no critic pass, so merging it would have put half a fix on `main`. Its
-worktree and branch are deliberately left in place: finish it there and merge it on its own.
+**Then `skirts-dresses` (05 5.4) was finished on its branch and merged on its own** (wardrobe 0.4.0,
+follow-through 0.5.2 for a cloth SKILL.md note). Skirts and dresses are opt-in presets - `skirt_knee`,
+`skirt_mini`, `dress_sleeveless` - so no garment a character already wears changes: every existing golden
+and every existing `verify_wardrobe` number came out identical. The wardrobe addon is synced into
+`grungist-creek` (its commit "wardrobe addon 0.4.0"). The worktree and branch are removed. Its open items
+are in item 6. `python tools/regress.py --twice --jobs 4 --godot C:/Users/pauli/Code/GoDot/grungist-creek`
+on the merged `main`: 18 fixtures, each built twice and agreeing, no change against the goldens (17
+minutes at `--jobs 4`); the new `dressed_skirts` passes in Godot (holes 0.000%, poke 0.018%, every other
+frame) and both its controls fail as they must (`rigid=spine`: 46 skirt vertices inside a thigh, 6.53%;
+`colliders=false`: 47, 6.68%). Not pushed.
 
 Installed copies in `~/.claude/skills` match the repo:
 - rig-anything 0.23.0
 - animate-anything 0.10.0
-- follow-through 0.5.1
+- follow-through 0.5.2
 - humanform 0.7.1
 - character-pipeline 0.4.0
-- wardrobe 0.3.0
+- wardrobe 0.4.0
 - lookdev 0.2.0
 - godot-lsp 0.1.0
 
@@ -57,19 +62,19 @@ and the gotchas are there.
 | [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | **Done.** Belle's hand-marked flesh zones retired with 05 · 5.9. |
 | [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | **Done.** Belle and the 16 people build from `grungist-creek/characters/*.toml`. Its loose ends are settled (character-pipeline 0.2.0) and the committed characters are rebuilt on them (grungist-creek `ed654b0`). |
 | [04 Checks that match the eye](04-checks-that-match-the-eye.md) | **a done** (wardrobe 0.2.1), **b done** (rig-anything 0.22.0, character-pipeline 0.3.0: every export writes a review sheet), **c done** (animate-anything 0.10.0: a motion critic reading the strips; rig-anything 0.23.0: `arm_pose` in `.moves.json`), **d part done** for flesh limits, garment relief and arm carry (follow-through 0.5.0, wardrobe 0.3.0, rig-anything 0.23.0 `verify.arm_swing`). |
-| [05 Feature gaps](05-feature-gaps.md) | 5.1, 5.6, 5.7, 5.8, 5.9 done. **5.2 hair done** (humanform 0.7.0, lookdev 0.2.0, character-pipeline 0.3.0; strand motion follow-through 0.5.0; a spec's ponytail swings through the pipeline since character-pipeline 0.4.0). `long_loose` is still rigid. **5.3 compression garments done** (wardrobe 0.3.0). **5.5 muscle done** (humanform 0.7.0, lookdev 0.2.0). Open: **5.4 skirts and dresses**, parked mid-fix on the `skirts-dresses` branch. |
+| [05 Feature gaps](05-feature-gaps.md) | 5.1, 5.6, 5.7, 5.8, 5.9 done. **5.2 hair done** (humanform 0.7.0, lookdev 0.2.0, character-pipeline 0.3.0; strand motion follow-through 0.5.0; a spec's ponytail swings through the pipeline since character-pipeline 0.4.0). `long_loose` is still rigid. **5.3 compression garments done** (wardrobe 0.3.0). **5.5 muscle done** (humanform 0.7.0, lookdev 0.2.0). **5.4 skirts and dresses merged** (wardrobe 0.4.0) with three open items: a run's raised thigh through the front panel, a stiff deep crouch, and no check that counts the first. |
 | Old project notes | Not triaged (item 7 below). |
 
 What exists now, and is worth knowing before starting anything:
 
-- **`python tools/regress.py --jobs 2`** rebuilds 17 fixtures headless and compares them to `tests/golden/`:
+- **`python tools/regress.py --jobs 2`** rebuilds 18 fixtures headless and compares them to `tests/golden/`:
   `mpfb_woman_curvy`, `rigify_human`, `mixamo_names`, `quadruped`, `rabbit`, `cricket`, `starfish`,
   `flesh_figure`, `dressed_figure`, `dressed_presets`, `pipeline_woman`, and this round's
-  `review_sheet`, `traced_detail`, `hair_presets`, `strand_ponytail`, `muscle_definition`, and the
-  second round's `pipeline_ponytail`.
+  `review_sheet`, `traced_detail`, `hair_presets`, `strand_ponytail`, `muscle_definition`, the
+  second round's `pipeline_ponytail`, and `dressed_skirts` (18 in all).
   - `--twice` fails a build that doesn't reproduce.
   - `--godot C:/Users/pauli/Code/GoDot/grungist-creek` plays the exports in the engine's verifiers -
-    now four wardrobe fixtures, not two.
+    now five wardrobe fixtures; `dressed_skirts` has two controls that must fail.
   - `--plugins <checkout>` routes all six plugin variables, lookdev included (its Blender package is
     `plugins/lookdev/blender`, not `scripts`).
   - A full `--twice --godot` run takes about 40 minutes. See `tests/README.md`.
@@ -180,7 +185,7 @@ chain, not a cap) is wall-filtered; her regions do not move.
   `within_body` check (0.5.0), wardrobe's millimetres-of-relief `detail_limit` (0.3.0) and rig-anything's
   `arm_swing` (0.23.0). More should come out of running the critic on real characters.
 
-### 6. 05 · 5.2-5.5 - the look of a character: three done, skirts parked
+### 6. 05 · 5.2-5.5 - the look of a character: all four merged, skirts with open items
 
 - **5.2 hair - done** (humanform 0.7.0, lookdev 0.2.0, character-pipeline 0.3.0, and the strand motion in
   follow-through 0.5.0). A spec says `[hair] preset = "bun"`; the cap is cut from the body's own faces
@@ -200,11 +205,20 @@ chain, not a cap) is wall-filtered; her regions do not move.
   weighted by the brief's muscle and estimated body fat, applied as geometry or baked into a normal map.
   Dante reads muscular with the forced macro dropped, and a soft body at the same brief muscle gains bulk
   without abdominals.
-- **5.4 skirts and dresses - open, and parked mid-fix.** The `skirts-dresses` branch (WIP commit
-  `bfc55f7` and follow-ups, worktree `.worktrees/skirts-dresses`) has a hem collision ring and a
-  `dressed_skirts` fixture in progress. It was not merged in either round because its fix was
-  unfinished and it had no completed review or critic pass; the worktree and branch are left as they
-  were. Finish it there.
+- **5.4 skirts and dresses - merged, three items open** (wardrobe 0.4.0). `wardrobe.dress(body,
+  "skirt_knee" | "skirt_mini" | "dress_sleeveless")` builds a skirt round the body instead of cutting it,
+  hangs 24 hem bones from the pelvis hinged 5 cm above the hip joints, and in Godot folds them with the
+  thighs and swings them out of thigh and shin capsules carried up to the hip; `soft=True` routes one to
+  follow-through cloth instead. The presets' `note`s carry the measurements (Mei, Nadia, Rosa; walk, run,
+  crouch). The fixture wears the mini, because the Figure's walk crosses its feet and a knee hem between
+  the legs is inside a thigh whatever the colliders do. Open, recorded at merge, not fixed:
+  - **At the top of a run stride the raised thigh shows through the front panel** on Nadia and Rosa. It
+    is reduced to hip level (the thigh capsules now reach the hip) but not gone.
+  - **The deep crouch looks stiff**: the panel folds as one with the thighs rather than draping.
+  - **The checks cannot count the first failure.** Neither `verify_wardrobe`'s thighs count nor its poke
+    count sees the run's thigh through the front panel, so the suite passes a skirt the eye rejects. A
+    check that does (a front-view render, or cloth-inside-capsule on the panel's inner face) should come
+    before another tuning round.
 
 Still to do on the characters themselves: Belle's top and hair (Belle and the crowd still use
 `kind = "shell_bun"`), and Dante's `muscle = 1.0`, are still built the old way in `grungist-creek`,
@@ -286,7 +300,8 @@ anything was worth committing. `grungist-creek` is still at `f7a039b` with its a
 does not save). The plan was Belle's hair and top, muscle definition on Dante and Freya, and a skirt or
 dress on one or two adult crowd women. What happened to each:
 
-- **Skirts and dresses: skipped.** 5.4 is not merged (item 6).
+- **Skirts and dresses: skipped.** 5.4 was not merged then; it is now (wardrobe 0.4.0, item 6), so a
+  skirt on one or two adult crowd women is unblocked.
 - **Dante and Freya: skipped.** There is no spec field for muscle definition. Nothing in
   character-pipeline calls `muscle.define` (item 8). So rebuilding them would change nothing but
   `arm_pose`, and Dante's `muscle = 1.0` is still the only thing making him read muscular. To unblock
@@ -385,7 +400,10 @@ Most of this is now in `CLAUDE.md`. The rest:
     gained `arm_pose_on_disk` on the re-record - so re-record once after all merges, not per branch.
   - A parked branch is worth stating out loud. `skirts-dresses` was mid-fix when the round ended, so it
     was left with its worktree and branch in place and this file says why; without that a later merge
-    agent sees an unmerged branch and has to guess.
+    agent sees an unmerged branch and has to guess. It was later finished there and merged alone with no
+    conflict at all, because it had kept merging `main` in and never touched NEXT.md.
+  - A version bump need not re-record goldens: the comparison reads only `report`, so editing the
+    `plugins` stamps in place keeps the goldens free of `--update`'s temp paths and timings.
 
 ## Loose ends outside the code
 

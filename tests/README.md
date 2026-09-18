@@ -42,6 +42,7 @@ review sheet as well (4-12 s a character).
 | `mixamo_names` | the Rigify `Figure`, fitted and bound, then every bone renamed to `mixamorig:` | `bodymap` roles come from structure: the same root, pelvis, chest, head, hands, feet and controls under Mixamo names (`same`) |
 | `review_sheet` | a box on a one-bone rig with four clips (`Static`, `Tilt`, `Travel`, `Dip`), rendered as review sheets | rig-anything's `review`: `distinct_cells` on identical and on moving poses, `edge_cells` counting a body against any edge, and `bands_px` growing above and below the cell from the evaluated poses — `Dip` sinks 0.35 m through the floor and rises 0.9 m above it and is still wholly in frame |
 | `traced_detail` | the sample `Figure` embossed with a 12 mm bump on each breast and buttock, dressed six ways | wardrobe's `fit.relief` / `fit.detail`: a `detail_limit` that passes for a reason, one that **fails**, one that goes unmeasured and therefore fails, and `cover.drawn_over_cloth` + `fit.lift_over` lifting cloth back over skin pressed through it |
+| `dressed_skirts` | `skirt_knee`, `skirt_mini` and `dress_sleeveless` on the fleshed `Figure`, and `skirt_knee` again with `soft=True` | wardrobe's `tailor.skirt` / `tailor.dress` (a tube built round the body, not cut from it): rings, girths, weight shares, hem bones hinged above the hip joints with thigh colliders, covered-skin counts, the export, and the follow-through cloth spec of the soft one |
 | `hair_presets` | a spec-built MPFB woman given each of `short_crop`, `bob`, `bun`, `ponytail`, `long_loose` | humanform's `hair`: the cap's feathered boundary (thickness and texture V), part sizes and skin clearance, the follow-through strand contract, lookdev's hair material read back out of the glb (MASK, textures, extras), the pipeline's hair stage — and its refusal to join a second hair layer onto a body that already has one |
 | `strand_ponytail` | a tapering tube grown from the back of the `Figure`'s head, chained, exported beside the walking body | follow-through's `strand`: `classify` routing to `spring_bones`, the chain's per-bone frequencies and colliders, a centreline derived from the mesh against the given one, the glb read back — and a degenerate centreline returning an error that leaves the object's bones, spec and vertex groups alone |
 | `pipeline_ponytail` | a woman from a TOML spec with `[hair] preset = "ponytail"` through every stage, Run included | character-pipeline's `strand` stage between moves and garments: the tail left loose by the hair stage, `follow_through.strand.prepare` hanging its chain on the head bone, `<id>_hair.glb` and the manifest's `strands`, both glbs read back; export refused before the strand stage and the strand stage refused before the moves. The swing itself is Godot's (`verify_strands.gd`, run by hand - see follow-through's strands reference) |
@@ -60,10 +61,13 @@ and runs the project's copies of the verifiers:
   shirt put on the body it was cut from, walked for 240 frames, and counted for holes and skin
   through the cloth. The limits are 0.5% each. A fixture's `controls` run again with extra
   arguments and must fail: `dressed_figure` with `cut=0.04`, a 4 cm patch removed from the shirt, so
-  a hole check that stops seeing real holes fails the harness. `dressed_presets`, `pipeline_woman`
-  and `traced_detail` are walked the same way; `traced_detail` is the compression pair on the
+  a hole check that stops seeing real holes fails the harness. `dressed_presets`, `pipeline_woman`,
+  `traced_detail` and `dressed_skirts` are walked the same way; `traced_detail` is the compression pair on the
   embossed body, where the cloth is eased inside 12 mm of relief and lifted back over the skin that
   stood through it, and must still leave no hole and no skin showing.
+  `dressed_skirts` wears the mini every 4th frame (a thigh goes through a skirt for only a few frames
+  of a stride) and adds a count of skirt vertices inside a thigh; its controls `rigid=spine` (the skirt
+  skinned to the pelvis alone) and `colliders=false` (no thigh capsules, no fold) must fail on it.
 
 `_regress/` is removed afterwards whatever happens (and grungist-creek ignores it). Before
 anything runs, the project's `addons/{rig_anything,wardrobe,follow_through}` are compared with this
