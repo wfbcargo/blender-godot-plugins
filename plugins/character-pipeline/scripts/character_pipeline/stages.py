@@ -308,10 +308,50 @@ def _bake_muscle_normal(ch, ctx):
             "over_5deg": round(nm["stats"]["over_5deg"], 3)}
 
 
+def _separate_joined(ch):
+    """Before a rebake of an already baked mesh: take off the faces an earlier bake joined in (the eyes: every
+    face whose material is not the skin's) as the `ch.eyes` object again, so `look.skin` - which gives every face
+    the skin material - skins the body alone, and the join below puts them back with their own materials, as a
+    first bake does. Without it a from=bake rerun gave the eyes the skin material and baked their UVs into the
+    skin maps (study_woman's unmarked skin tone moved 0.858 -> 0.772). Returns the face count taken off."""
+    ob = _obj(ch.mesh)
+    if ob is None or _obj(ch.eyes) is not None:
+        return 0
+    skin = f"{ch.name}_skin"
+    other = {i for i, m in enumerate(ob.data.materials) if m is None or m.name != skin}
+    me = ob.data
+    faces = [p.material_index in other for p in me.polygons]
+    if not any(faces) or all(faces):
+        return 0
+    # a copy keeps the joined faces, the body keeps the rest: bmesh deletes carry vertex groups and attributes
+    import bmesh
+    part = ob.copy()
+    part.data = me.copy()
+    for c in ob.users_collection:
+        c.objects.link(part)
+    for target, drop in ((me, [i for i, f in enumerate(faces) if f]), (part.data, [i for i, f in enumerate(faces) if not f])):
+        bm = bmesh.new()
+        bm.from_mesh(target)
+        bm.faces.ensure_lookup_table()
+        bmesh.ops.delete(bm, geom=[bm.faces[i] for i in drop], context="FACES")
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+        bm.to_mesh(target)
+        bm.free()
+        target.update()
+    part.name = ch.eyes
+    return sum(faces)
+
+
 def check_bake(ch):
-    if _obj(ch.rig) is not None and (_obj(ch.name) is not None or baked(ch)):
-        return None
-    return "bake needs body: no %s with its %s in the file - run body first" % (ch.name, ch.rig)
+    if _obj(ch.rig) is None or (_obj(ch.name) is None and not baked(ch)):
+        return "bake needs body: no %s with its %s in the file - run body first" % (ch.name, ch.rig)
+    already = haired(ch)
+    if already:
+        # measured on study_woman: a from=bake on her haired body baked a near-black albedo (tone error 0.79, every
+        # region grey) - look.skin gives the hair and eye faces the skin material and the bake reads their UVs
+        return ("bake on a body that already has hair joined (%s) would re-skin the hair and eyes and bake a broken "
+                "albedo - rebuild from body (a whole build does this by itself)" % ", ".join(already))
+    return None
 
 
 def run_bake(ch, ctx):
@@ -323,11 +363,16 @@ def run_bake(ch, ctx):
             raise RuntimeError(f"bake: {b['error']}")
     else:
         b = {"note": "already baked"}
+        split = _separate_joined(ch)
+        if split:
+            b["separated_for_rebake"] = split
     ob = _obj(ch.mesh)
     _obj(ch.rig).data.pose_position = "POSE"
     skin = ch.body.brief.get("skin") if ch.body.source == "brief" else ch.body.skin
     if skin is not None:
-        look.skin(ob, skin, name=f"{ch.name}_skin")
+        # the maps' size is the build quality's (2048 px final, 1024 preview and draft): humanform's own
+        # default is 1024, which every final build shipped until this was passed (06 rank 12)
+        look.skin(ob, skin, name=f"{ch.name}_skin", size=quality_mod.settings(ctx["quality"], "skin")["size"])
     eyes = _obj(ch.eyes)
     if eyes is not None:
         with bpy.context.temp_override(active_object=ob, selected_editable_objects=[ob, eyes], object=ob,
@@ -336,6 +381,9 @@ def run_bake(ch, ctx):
     unweighted = sum(1 for v in ob.data.vertices if not any(g.weight > 1e-4 for g in v.groups))
     out = {"verts": len(ob.data.vertices), "groups": len(ob.vertex_groups), "unweighted": unweighted,
            "materials": [m.name for m in ob.data.materials if m], "baked": b}
+    sk = skin_manifest(ch)
+    if sk is not None:
+        out["skin"] = sk
     if ch.muscle is not None:
         if ch.muscle.output == "normal":
             out["muscle_normal"] = _bake_muscle_normal(ch, ctx)
@@ -349,7 +397,8 @@ def check_not_dressed(stage):
             return f"{stage} needs bake: {ch.mesh} is not a baked mesh - run bake first"
         worn = garments_bound(ch)
         if worn:
-            return (f"garments are bound to the rig ({', '.join(worn)}) - run {stage} before garments"
+            return (f"garments are bound to the rig ({', '.join(worn)}) - run {stage} before garments, or build "
+                    "from body (a whole build restarts there by itself; fresh=1 builds from nothing)"
                     + (": rig-anything measures arm hang against every mesh on the rig" if stage == "moves"
                        else ": a garment cut first carries no jiggle weights" if stage == "flesh" else ""))
         return None
@@ -671,14 +720,19 @@ def run_export(ch, ctx):
         json.dump(manifest, fh, indent=2)
     e["manifest"]["height_m"]["stand"] = stand
     fl = flesh_manifest(ch)
-    if fl is not None:
-        manifest["flesh"] = fl
+    sk = skin_manifest(ch)
+    for key, block in (("flesh", fl), ("skin", sk)):
+        if block is not None:
+            manifest[key] = block
+            e["manifest"][key] = block
+    if fl is not None or sk is not None:
         with open(e["moves"], "w", encoding="utf-8") as fh:
             json.dump(manifest, fh, indent=2)
-        e["manifest"]["flesh"] = fl
     out = {k: e.get(k) for k in ("glb", "moves", "verified", "clips", "bones", "problems")}
     if fl is not None:
         out["flesh"] = fl
+    if sk is not None:
+        out["skin"] = sk
     if strands:
         from follow_through import strand as ft_strand
         s = ft_strand.export(strand_glb, strands, ch.rig)
@@ -723,6 +777,30 @@ def flesh_manifest(ch):
     missed = [{"type": t, "reason": why.get(t), "allowed": t in ch.flesh.may_miss}
               for t in ch.flesh.types if t not in have]
     return {"types": list(ch.flesh.types), "regions": regions, "missed": missed}
+
+
+def skin_manifest(ch):
+    """The manifest's `skin` block: how the skin shipped, read from the skin material in the file (humanform's
+    `humanform_skin` record), not from a stage report - `{stage, map_px, tone_ok, tone_error, regions}`.
+    `stage` is "baked" (maps of `map_px` square), "flat" (no maps: the bake failed or lookdev was absent, with
+    its `error`) or "marked" (an unbaked MPFB body). None when the body has no skin material of humanform's."""
+    mat = bpy.data.materials.get(f"{ch.name}_skin")
+    rec = mat.get("humanform_skin") if mat is not None else None
+    if rec is None:
+        return None
+    rec = rec.to_dict() if hasattr(rec, "to_dict") else dict(rec)
+    stage = str(rec.get("stage", ""))
+    out = {"stage": "marked" if stage == "flat" and rec.get("marked") and "size" not in rec else stage,
+           "map_px": int(rec["size"]) if stage == "baked" and rec.get("size") is not None else None}
+    if rec.get("tone_ok") is not None:
+        out["tone_ok"] = bool(rec["tone_ok"])
+        out["tone_error"] = round(float(rec.get("tone_error", 0.0)), 4)
+    if rec.get("regions"):
+        # each marked region's tone in the baked albedo (sRGB): a bake that lost the marks has them all equal
+        out["regions"] = {str(k): [round(float(x), 3) for x in v] for k, v in dict(rec["regions"]).items()}
+    if rec.get("error"):
+        out["error"] = str(rec["error"])
+    return out
 
 
 def review_dir(ch):
@@ -791,4 +869,14 @@ ORDER = [s[0] for s in STAGES]
 # - is no longer in the spec and the body still carries it.
 CARRIED = {"hair": lambda ch: bool(haired(ch)), "muscle": muscled}
 RESTARTS_FROM_BODY = {"hair": CARRIED["hair"],
-                      "muscle": lambda ch: muscled(ch) or (_obj(ch.name) is None and baked(ch))}
+                      "muscle": lambda ch: muscled(ch) or (_obj(ch.name) is None and baked(ch)),
+                      # a bake that has to run again on a body that already has hair joined: humanform's look.skin
+                      # gives every face the skin material (the hair's and eyes' too), and hair must follow it anyway
+                      # and cannot go on twice - so start from body rather than bake, re-skin, then restart at hair
+                      "bake": CARRIED["hair"],
+                      # flesh and moves on a dressed body: the garments were cut from (and weighted by) the body
+                      # before, and flesh/moves refuse while they are bound - a resumed build of a dressed spec
+                      # whose [flesh] or [moves] (or flesh's code or registry) changed starts over from body, as
+                      # the build did before builds resumed from the saved blend
+                      "flesh": lambda ch: bool(garments_bound(ch)),
+                      "moves": lambda ch: bool(garments_bound(ch))}

@@ -8,7 +8,8 @@
 
 Each stage that runs stores an input hash and its report in the file (a Text datablock,
 `character_pipeline:<id>`, so nothing of it reaches an exported glb). The hash covers the spec sections the stage reads, the hashes of the stages it needs and the
-plugin versions, so:
+plugin versions, and the data and code files the stage reads (`inputs.py`: garment presets, the hair
+preset and hair code, follow-through's registry, the skin bake's code), so:
 
 - a stage whose inputs have not changed since it last ran in this file is skipped ("unchanged"),
   unless `force`;
@@ -27,7 +28,9 @@ stage ran, the manifest's `build` block (rewritten once review has run, so it is
 Stages that put something on the body nothing takes off (hair, muscle: `stages.RESTARTS_FROM_BODY`) are not
 run a second time on a body that has it: a whole build (no `from_stage`, or `from_stage="body"`) whose
 `[hair]` or `[muscle]` changed rebuilds from body, forced, and says so in `report["build"]["restarted"]`; a
-build started later than body still refuses (the stage's own check).
+build started later than body still refuses (the stage's own check). Flesh and moves are there too for a
+dressed body: they refuse while garments are bound, so a whole build whose `[flesh]` or `[moves]` changed on
+a dressed file restarts from body.
 """
 
 from __future__ import annotations
@@ -40,7 +43,7 @@ import time
 
 import bpy
 
-from . import plugins, quality as quality_mod, spec as spec_mod, stages
+from . import inputs, plugins, quality as quality_mod, spec as spec_mod, stages
 
 KEY = "character_pipeline"
 
@@ -91,12 +94,63 @@ def _forget(ch, stage_names):
     text.write(json.dumps(data, indent=1, default=str))
 
 
-def _hash(ch, name, needs, sections, done, versions, quality=None):
+def _hash(ch, name, needs, sections, done, versions, quality=None, reads=None):
     parts = {"stage": name, "spec": ch.digest(*sections), "needs": {n: done.get(n) for n in needs},
              "versions": versions}
     if quality is not None:                     # a "final" build hashes as it did before quality existed
         parts["quality"] = quality
+    if reads:                                   # the data and code the stage reads (inputs.py)
+        parts["reads"] = reads
     return hashlib.sha1(json.dumps(parts, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def stage_hash(ch, name, needs, sections, done, q, drop=()):
+    """(input hash, plugin versions, reads) of one stage: the spec sections it reads, the hashes of the stages
+    it needs (`done`), the plugin versions it builds with, the quality settings it reads, and the data and code
+    files it reads (`inputs.stage_inputs`)."""
+    versions = plugins.stage_versions(ch, name)
+    reads = inputs.stage_inputs(ch, name, drop=drop)
+    return _hash(ch, name, needs, sections, done, versions, quality_mod.for_hash(q, name), reads), versions, reads
+
+
+def plan(spec, quality=None, drop=None):
+    """{stage: input hash} this spec builds with now, from the spec and the plugins alone - nothing is run and
+    the open file is not read. A stage whose hash differs from its record in a file reruns there.
+    `drop` ({stage: [labels]}) leaves inputs out of a stage's hash: the hash test's control only."""
+    ch = spec_mod.load(spec) if isinstance(spec, (str, os.PathLike)) else spec
+    q = quality_mod.check(quality or ch.build.quality)
+    plugins.use()
+    wanted = [s for s in stages.STAGES if s[5](ch)]
+    names = [s[0] for s in wanted]
+    done = {}
+    for name, needs, sections, _check, _run, _applies in wanted:
+        needs = [n for n in needs if n in names]
+        done[name] = stage_hash(ch, name, needs, sections, done, q, drop=(drop or {}).get(name, ()))[0]
+    return done
+
+
+def open_saved(spec, log=print):
+    """Open the spec's saved `[export] blend` when it exists and no other file is open, so its stage records
+    are used: a `[flesh]` edit then reruns flesh to review, not the whole build from body.
+
+    - nothing opened yet (Blender started with no file, `bpy.data.filepath` empty): the saved file is opened;
+    - the saved file is already the open one: nothing to do;
+    - another file is open: left open - the caller chose it (a `body.source = "blend"` spec's source file).
+
+    Returns the path opened, or None. Opening replaces everything in this session, so a build script calls
+    this before anything else touches the scene."""
+    ch = spec_mod.load(spec) if isinstance(spec, (str, os.PathLike)) else spec
+    path = ch.export.blend
+    if not path or not os.path.isfile(path):
+        return None
+    current = bpy.data.filepath or ""
+    if current:
+        if os.path.normcase(os.path.abspath(current)) != os.path.normcase(os.path.abspath(path)):
+            log(f"[{ch.id}] {current} is open, so the saved {path} is not: its stage records are not used")
+        return None
+    bpy.ops.wm.open_mainfile(filepath=path)
+    log(f"[{ch.id}] opened the saved {path}: stages whose inputs have not changed are skipped")
+    return path
 
 
 def _save(ch, path):
@@ -118,10 +172,14 @@ class _Restart(Exception):
     pass
 
 
-def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=print, quality=None):
+def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=print, quality=None, resume=False):
     """Run the spec's stages. `spec` is a path or a `spec.Character`. `quality` overrides the spec's
-    `[build] quality` ("draft", "preview", "final"). Returns {stage: {status, report}, "build": {...}}."""
+    `[build] quality` ("draft", "preview", "final"). `resume` first opens the spec's saved .blend when no
+    file is open (`open_saved`), which is what a build script run from the command line wants.
+    Returns {stage: {status, report}, "build": {...}}."""
     ch = spec_mod.load(spec) if isinstance(spec, (str, os.PathLike)) else spec
+    if resume:
+        open_saved(ch, log=log)
     q = quality_mod.check(quality or ch.build.quality)
     t_build = time.time()
     try:
@@ -199,9 +257,9 @@ def _build(ch, from_stage, to_stage, force, log, q, forced):
                 raise _Restart(f"the spec has no [{gone}] now but the body carries it: rebuilding from body")
     for i, (name, needs, sections, check, run, _applies) in enumerate(wanted):
         needs = [n for n in needs if n in names]
-        # the four plugins every stage builds with, and an optional one (lookdev) only where the stage reads it
-        stage_versions = plugins.stage_versions(ch, name)
-        h = _hash(ch, name, needs, sections, done, stage_versions, quality_mod.for_hash(q, name))
+        # the four plugins every stage builds with, an optional one (lookdev) only where the stage reads it,
+        # and the data and code files it reads
+        h, stage_versions, reads = stage_hash(ch, name, needs, sections, done, q)
         if i < start:
             rec = stored.get(name)
             if rec is None:
@@ -223,8 +281,15 @@ def _build(ch, from_stage, to_stage, force, log, q, forced):
             report[name] = {"status": "unchanged", "report": rec.get("report")}
             log(f"[{ch.id}] {name}: unchanged")
             continue
+        if rec is not None and not force and name not in forced:
+            moved = inputs.changed(rec.get("inputs"), reads)
+            if moved and "inputs" in rec:
+                log(f"[{ch.id}] {name}: what it reads changed: {', '.join(moved)}")
         again = stages.RESTARTS_FROM_BODY.get(name)
         if again is not None and restartable and again(ch):
+            if name in ("flesh", "moves"):
+                raise _Restart(f"{name} changed and garments are bound to the rig ({', '.join(stages.garments_bound(ch))}): "
+                               "rebuilding from body")
             raise _Restart(f"{name} changed and the body already carries it (it cannot be taken off): "
                            "rebuilding from body")
         problem = check(ch)
@@ -237,7 +302,8 @@ def _build(ch, from_stage, to_stage, force, log, q, forced):
         done[name] = h
         # what came after this stage was built on what it just replaced
         _forget(ch, names[i + 1:])
-        _store(ch, name, {"hash": h, "report": _small(out), "versions": stage_versions, "seconds": took})
+        _store(ch, name, {"hash": h, "report": _small(out), "versions": stage_versions, "inputs": reads,
+                          "seconds": took})
         stored = records(ch)
         report[name] = {"status": "ran", "seconds": took, "report": out}
         log(f"[{ch.id}] {name}: done in {took}s")

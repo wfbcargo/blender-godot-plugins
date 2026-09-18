@@ -1,0 +1,447 @@
+{
+ "fixture": "pipeline_hashes",
+ "plugins": {
+  "character-pipeline": "0.8.0",
+  "follow-through": "0.6.1",
+  "humanform": "0.10.0",
+  "lookdev": "0.3.0",
+  "rig-anything": "0.24.0",
+  "wardrobe": "0.5.0"
+ },
+ "report": {
+  "failed": [],
+  "final_hash_part_bake": {
+   "skin": {
+    "size": 2048
+   }
+  },
+  "flips": {
+   "face_regions.json": {
+    "control_unseen": true,
+    "expect": "hair",
+    "first": "hair",
+    "label": "data:humanform.face_regions",
+    "moved": [
+     "hair",
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "final skin map size 2048 -> 1024": {
+    "expect": "bake",
+    "first": "bake",
+    "moved": [
+     "bake",
+     "hair",
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "follow-through builtin.json: a type": {
+    "control_unseen": true,
+    "expect": "flesh",
+    "first": "flesh",
+    "label": "data:follow_through.registry",
+    "moved": [
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "follow-through flesh.py": {
+    "control_unseen": true,
+    "expect": "flesh",
+    "first": "flesh",
+    "label": "code:follow_through.flesh",
+    "moved": [
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "follow-through user registry": {
+    "control_unseen": true,
+    "expect": "flesh",
+    "first": "flesh",
+    "label": "data:follow_through.registry",
+    "moved": [
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "garments.json: a worn preset": {
+    "control_unseen": true,
+    "expect": "garments",
+    "first": "garments",
+    "label": "preset:sports_top",
+    "moved": [
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "garments.json: the second worn preset": {
+    "control_unseen": true,
+    "expect": "garments",
+    "first": "garments",
+    "label": "preset:shorts_mid_thigh",
+    "moved": [
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "hair_presets.json: the defaults": {
+    "control_unseen": true,
+    "expect": "hair",
+    "first": "hair",
+    "label": "preset:bun",
+    "moved": [
+     "hair",
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "hair_presets.json: the hairline": {
+    "control_unseen": true,
+    "expect": "hair",
+    "first": "hair",
+    "label": "preset:bun",
+    "moved": [
+     "hair",
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "hair_presets.json: the preset in use": {
+    "control_unseen": true,
+    "expect": "hair",
+    "first": "hair",
+    "label": "preset:bun",
+    "moved": [
+     "hair",
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "humanform brows.py": {
+    "control_unseen": true,
+    "expect": "hair",
+    "first": "hair",
+    "label": "code:humanform.brows",
+    "moved": [
+     "hair",
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "humanform hair.py": {
+    "control_unseen": true,
+    "expect": "hair",
+    "first": "hair",
+    "label": "code:humanform.hair",
+    "moved": [
+     "hair",
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "humanform look.py": {
+    "control_unseen": true,
+    "expect": "bake",
+    "first": "bake",
+    "label": "code:humanform.look",
+    "moved": [
+     "bake",
+     "hair",
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "humanform skin.py": {
+    "control_unseen": true,
+    "expect": "bake",
+    "first": "bake",
+    "label": "code:humanform.skin",
+    "moved": [
+     "bake",
+     "hair",
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "lookdev bake.py": {
+    "control_unseen": true,
+    "expect": "bake",
+    "first": "bake",
+    "label": "code:lookdev_blender.bake",
+    "moved": [
+     "bake",
+     "hair",
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "lookdev detail.py (muscle normal map)": {
+    "control_unseen": true,
+    "expect": "bake",
+    "first": "bake",
+    "label": "code:lookdev_blender.detail",
+    "moved": [
+     "bake",
+     "moves",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "normal"
+   },
+   "lookdev hair.py": {
+    "control_unseen": true,
+    "expect": "hair",
+    "first": "hair",
+    "label": "code:lookdev_blender.hair",
+    "moved": [
+     "hair",
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "lookdev materials.json: hair": {
+    "control_unseen": true,
+    "expect": "hair",
+    "first": "hair",
+    "label": "data:lookdev.hair",
+    "moved": [
+     "hair",
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "pipeline hair.py (shell_bun)": {
+    "control_unseen": true,
+    "expect": "hair",
+    "first": "hair",
+    "label": "code:character_pipeline.hair",
+    "moved": [
+     "hair",
+     "moves",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "shell"
+   },
+   "spec [flesh] edit": {
+    "expect": "flesh",
+    "first": "flesh",
+    "moved": [
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   },
+   "unrelated: face_regions.json without brows or lashes": {
+    "expect": null,
+    "first": null,
+    "moved": [],
+    "ok": true,
+    "spec": "normal"
+   },
+   "unrelated: follow-through cloth.py": {
+    "expect": null,
+    "first": null,
+    "moved": [],
+    "ok": true,
+    "spec": "full"
+   },
+   "unrelated: garments.json, a preset not worn": {
+    "expect": null,
+    "first": null,
+    "moved": [],
+    "ok": true,
+    "spec": "full"
+   },
+   "unrelated: hair_presets.json, a preset not used": {
+    "expect": null,
+    "first": null,
+    "moved": [],
+    "ok": true,
+    "spec": "full"
+   },
+   "unrelated: lookdev thresholds.json": {
+    "expect": null,
+    "first": null,
+    "moved": [],
+    "ok": true,
+    "spec": "full"
+   },
+   "wardrobe version": {
+    "expect": "body",
+    "first": "body",
+    "moved": [
+     "body",
+     "muscle",
+     "bake",
+     "hair",
+     "flesh",
+     "moves",
+     "garments",
+     "export",
+     "review"
+    ],
+    "ok": true,
+    "spec": "full"
+   }
+  },
+  "quality_skin": {
+   "draft": {
+    "size": 1024
+   },
+   "final": {
+    "size": 2048
+   },
+   "preview": {
+    "size": 1024
+   }
+  },
+  "reads": {
+   "bake": [
+    "code:humanform.look",
+    "code:humanform.skin",
+    "code:lookdev_blender.bake"
+   ],
+   "body": [],
+   "export": [],
+   "flesh": [
+    "code:follow_through.flesh",
+    "data:follow_through.registry"
+   ],
+   "garments": [
+    "preset:shorts_mid_thigh",
+    "preset:sports_top"
+   ],
+   "hair": [
+    "code:humanform.brows",
+    "code:humanform.hair",
+    "code:lookdev_blender.hair",
+    "data:humanform.face_regions",
+    "data:lookdev.hair",
+    "preset:bun"
+   ],
+   "moves": [],
+   "muscle": [],
+   "review": []
+  },
+  "stages": {
+   "full": [
+    "body",
+    "muscle",
+    "bake",
+    "hair",
+    "flesh",
+    "moves",
+    "garments",
+    "export",
+    "review"
+   ],
+   "normal": [
+    "body",
+    "muscle",
+    "bake",
+    "moves",
+    "export",
+    "review"
+   ],
+   "shell": [
+    "body",
+    "bake",
+    "hair",
+    "moves",
+    "export",
+    "review"
+   ]
+  }
+ }
+}

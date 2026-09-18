@@ -1,14 +1,28 @@
 {
  "fixture": "pipeline_woman",
  "plugins": {
-  "character-pipeline": "0.7.1",
-  "follow-through": "0.6.0",
+  "character-pipeline": "0.8.0",
+  "follow-through": "0.6.1",
   "humanform": "0.10.0",
   "rig-anything": "0.24.0",
   "wardrobe": "0.5.0"
  },
  "report": {
   "body_stature": 1.6985,
+  "dressed_flesh_edit": {
+   "bound_after": [],
+   "bound_before": [
+    "Shorts",
+    "SportsTop"
+   ],
+   "control": "refused: names garments True, names fresh=1 True",
+   "restarted": "flesh changed and garments are bound to the rig (Shorts, SportsTop): rebuilding from body",
+   "statuses": {
+    "bake": "ran",
+    "body": "ran",
+    "flesh": "ran"
+   }
+  },
   "flesh_found": {
    "breast": [
     "breast.L",
@@ -249,6 +263,7 @@
     "posture",
     "rig",
     "scene",
+    "skin",
     "stance_width",
     "style",
     "verified"
@@ -368,7 +383,7 @@
     "passed": true
    }
   },
-  "refused": "[fixwoman] garments are bound to the rig (Shorts, SportsTop) - run moves before garments: rig-anything measures arm hang against every mesh on the rig",
+  "refused": "[fixwoman] garments are bound to the rig (Shorts, SportsTop) - run moves before garments, or build from body (a whole build restarts there by itself; fresh=1 builds from nothing): rig-anything measures arm hang against every mesh on the rig",
   "rerun": {
    "bake": "unchanged",
    "body": "unchanged",
@@ -568,7 +583,7 @@
     0.33,
     0.25
    ],
-   "size": 1024,
+   "size": 2048,
    "stage": "baked",
    "textures": {
     "base_color": true,
