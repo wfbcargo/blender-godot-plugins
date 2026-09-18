@@ -24,10 +24,10 @@ here and nowhere else:
 - rig-anything 0.26.0
 - animate-anything 0.10.1
 - follow-through 0.6.2
-- humanform 0.11.0
-- character-pipeline 0.11.0
+- humanform 0.12.0
+- character-pipeline 0.12.0
 - wardrobe 0.5.1
-- lookdev 0.6.0
+- lookdev 0.7.0
 - godot-lsp 0.1.0
 
 ---
@@ -261,6 +261,22 @@ Suggested after the Step 0 round; each saves agent minutes on every later round.
   must rebuild study_man, study_woman and Belle to get the alpha changes); no MSAA/TAA, so alpha to coverage
   is unused; Blender's reddish hairline fringe. Notebook:
   [notebooks/realism-step1/hair-godot-transfer.md](notebooks/realism-step1/hair-godot-transfer.md).
+- **The man's hairline, lashes and brow shape: done** (branch `hair-hairline-lashes`, humanform 0.12.0,
+  lookdev 0.7.0, character-pipeline 0.12.0, merged 2026-09-18). lookdev's strand texture has `edge_*` settings
+  (off by default, own random stream): short, thin, leaning edge hairs in front of the dense start; short_crop
+  uses 900 per tile and `root_power` 0.15. humanform's `line_u_m` (off by default, 3 cm for short_crop) carries U
+  along the hairline so V crosses it squarely at the temples and sideburns (median U-V angle near the line
+  26 -> 61 deg on study_man). Denser lashes (upper-lid root coverage 0.736 against Step 0's 0.513), a brief/spec
+  `brow_shape` field (natural is the default and unchanged; arched lifts the outer third 2.05 mm), and Belle has
+  brows and lashes (`belle.toml`). New hair_presets checks with must-fail controls: fringe ratio (0.161 vs 0.050,
+  floor 0.1), line-U angle (57.7 vs 35.5, floor 50), edge wobble, lash root coverage, brow shapes. Critic: pass,
+  after one fix round. Open: the short cap is still a smooth, dark, slicked shell at 1 m (needs volume and colour
+  variation); short_crop's `uv_tangent_turn` over 35 deg rose 83 -> 246; crossing hairs just above the ear; the
+  pale temple line is unremeasured; the fringe floor does not catch losing the edge hairs alone (0.107; the
+  golden's hash does) and the edge_wobble control is tautological; the "Since" sentences omit `edge_*` and
+  `line_u_m`; humanform SKILL.md's brow/lash colour factors are stale; the game's glbs are not rebuilt (the ship
+  step must rebuild study_man, study_woman and Belle). Notebook:
+  [notebooks/realism-step1/hair-hairline-lashes.md](notebooks/realism-step1/hair-hairline-lashes.md).
 - **Blender to Godot first.** The critic found fine strands at the hairline in Blender and a smeared shell in
   Godot, and brows darker and harder in Godot than in Blender. Find where it is lost (strand texture
   resolution or mips, alpha mode, lookdev's hair material, card export) before touching the hair layer.
