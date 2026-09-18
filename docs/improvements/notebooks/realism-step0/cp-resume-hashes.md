@@ -142,3 +142,21 @@ seconds and version stamps (by `regress.compare`) and were put back with `git ch
   0.0180 -> 0.0179, Dress face_order hash): the garments are cut from the fleshed skin and take its
   weights, which now keep each vertex's total where limit_influences dropped a fifth influence (0.6.1).
 - pipeline_hashes: new (re-recorded with --twice after flesh.py joined the flesh reads).
+
+## 09:28 study_man [flesh]-only edit on the final code (regress running beside it) | kind=win
+Whole build from the saved file (the previous one had the scratch humanform's hair): 31.6 s build, 34 s wall.
+`limit_share belly 0.4 -> 0.39`: body, muscle, bake, hair unchanged; flesh 0.7, moves 8.0, export 4.3,
+review 4.9 = 18.1 s build, 20 s wall; no neutral_bone. 06 estimated 12 s against 25 s; here 18 s against
+32 s (0.57 of a whole build). What is left is moves + export + review (17 s), which follow flesh by
+design: 06's other rows (cache clips across a flesh edit, skip export's re-check of unchanged clips,
+review only changed clips) are what would cut it further.
+
+## Open
+- A resumed flesh rerun weights the body within 0.074 of a fresh build (flesh_figure), 0.020 on study_man:
+  where the first run's `limit_influences` dropped a fifth influence that share cannot be restored. Exact
+  would need the pre-jiggle weights kept somewhere the exporter ignores.
+- Moves, strand, export, review and body name no files of their own: rig-anything's gait styles live in
+  its code and are covered only by its version. A code edit there without a bump is still "unchanged".
+- An explicit `from=bake` on a haired body now refuses (it cannot be done without taking the hair off);
+  a whole build restarts from body instead.
+- The skin at 2048 px adds about 7 s to a final bake (8-9 s against 1.9 s at 1024).
