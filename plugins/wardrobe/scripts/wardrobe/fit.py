@@ -664,7 +664,7 @@ def detail(garment, body, regions=None, limit=None, band=DETAIL_BAND, min_verts=
 
 def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, inflate=True,
          hang=1.0, hang_window=0.15, hang_bins=64, over=(), over_gap=0.003,
-         smooth=0.0, flatten=None, fade=COMPRESS_FADE, detail_limit=None):
+         smooth=0.0, flatten=None, fade=COMPRESS_FADE, detail_limit=None, settle=0.0):
     """Push the garment off the body to its ease, bridging hollows, and let it hang. `over`:
     garments worn under this one - it is kept `over_gap` outside each of them too.
 
@@ -672,7 +672,9 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
     copy of the body instead of the skin - smoothed over the garment's region and with the named
     regions' projection reduced - fading back to the skin over `fade` from the garment's edges
     (see `compress`). `detail_limit` {region: mm}: the most of the skin's own relief the cloth may
-    carry over each region (see `detail`); the report says whether it held.
+    carry over each region (see `detail`); the report says whether it held. `settle` (m, compression
+    only): the eased cloth is then smoothed over that much of its own surface, rounding corners the
+    compressed body kept and passing inside the skin there (see `_settle`).
 
     Returns gap statistics (against the skin), `detail`, and `compression` when it was asked for."""
     g = rigmap._obj(garment)
@@ -759,6 +761,8 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
         _clear_unders(bm, unders, over_gap)
         push_out()
 
+    settled = _settle(bm, floor, settle) if compressing and settle and settle > 0 else None
+
     skin_bvh = body_bvh(body)[0] if compressing else bvh
     gaps, from_compressed = [], []
     for v in bm.verts:
@@ -780,9 +784,42 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
         rep = {k: v for k, v in comp.items() if not k.startswith("_")}
         rep["gap_min_from_compressed_m"] = round(from_compressed[0], 4)
         rep["inside_skin_verts"] = sum(1 for x in gaps if x < 0.0)
+        if settled is not None:
+            rep["settle"] = settled
         out["compression"] = rep
     out["detail"] = detail(g, body, limit=detail_limit)
     return out
+
+
+def _settle(bm, floor, reach):
+    """Let a compression garment settle as stretched fabric does: Taubin passes (shrink, then
+    inflate) over the cloth itself, (reach / mean edge)^2 of them as `compress` counts its own,
+    each vertex moving by its compression weight - 1 - `floor`, so none where compression fades out
+    at a neckline, hem or armhole, and none on the boundary.
+
+    Push-out holds the cloth on the compressed surface, and that surface keeps the body's corners:
+    under a heavy bust (Belle, improvements NEXT 9) the rim where the breast meets the fold stayed a
+    ledge, the fold's skin stood in front of the cloth tucked into it, and the lift over that skin
+    pushed the cloth into a faceted, pointed shelf with a dark wedge between the breasts - 2% of the
+    cloth carried the whole relief the detail check measured. Settled over 10 cm the cloth rounds
+    the rim and spans the fold, passing a few millimetres inside the skin at the rim; that skin is
+    hidden by `cover`, which follows compression cloth `behind` the skin."""
+    bm.verts.ensure_lookup_table()
+    n = len(bm.verts)
+    X = np.array([tuple(v.co) for v in bm.verts])
+    ed = np.array([(e.verts[0].index, e.verts[1].index) for e in bm.edges], dtype=np.int64)
+    deg = np.bincount(ed.ravel(), minlength=n).astype(float)
+    w = np.array([0.0 if v.is_boundary else 1.0 - floor[v.index] for v in bm.verts])
+    edge = float(np.linalg.norm(X[ed[:, 0]] - X[ed[:, 1]], axis=1).mean())
+    passes = int(round((reach / max(edge, 1e-4)) ** 2))
+    start = X.copy()
+    for _ in range(passes):
+        for lam in TAUBIN:
+            X += (lam * w)[:, None] * (_umbrella(X, ed, deg) - X)
+    for v in bm.verts:
+        v.co = Vector(X[v.index])
+    moved = np.linalg.norm(X - start, axis=1)
+    return {"reach_m": reach, "passes": passes, "moved_max_m": round(float(moved.max()), 4)}
 
 
 def lift_over(garment, body, tris, gap, radius=0.02, spread=12, keep=0.8, reach=0.03):
