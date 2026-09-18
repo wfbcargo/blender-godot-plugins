@@ -753,12 +753,11 @@ def _main(argv, state):
                 name, b = runs[fut]
                 results[(name, b)] = fut.result()
                 if all((name, x) in results for x in builds):
-                    ok = judge(name, [results[(name, x)] for x in builds], args, failures, updated,
-                               built, diff_chunks)
                     for fresh, _ in (results[(name, x)] for x in builds):
                         if fresh.get("_deepest", (0,))[0] > deepest[0]:
                             deepest = tuple(fresh["_deepest"])
-                    state["ok"] += ok
+                    state["ok"] += judge(name, [results[(name, x)] for x in builds], args, failures,
+                                         updated, built, diff_chunks)
         if project and built:
             # A fixture whose golden moved still exported something worth playing; one that
             # errored or did not reproduce did not.
@@ -771,16 +770,18 @@ def _main(argv, state):
     finally:
         if temp:
             temp.cleanup()
+        # Written whatever happened, even when the run died part-way: what it had seen is in it.
+        with open(diff_path, "w", encoding="utf-8") as fh:
+            fh.write("regress %s, %s\n\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), " ".join(sys.argv[1:])))
+            fh.write("".join(diff_chunks) if diff_chunks else "no key changed in any fixture\n")
 
-    if deepest[0]:
-        rel = deepest[0] - len(str(out_root.resolve())) - 1 if args.keep else 0
-        if args.keep:
-            warn = path_warning(Path(args.keep).resolve(), rel)
-            if warn:
-                _print(warn)
-    with open(diff_path, "w", encoding="utf-8") as fh:
-        fh.write("regress %s, %s\n\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), " ".join(sys.argv[1:])))
-        fh.write("".join(diff_chunks) if diff_chunks else "no key changed in any fixture\n")
+    if args.keep and deepest[0]:
+        # the free value: what this run wrote, not the DEEPEST_OUTPUT estimate
+        rel = deepest[0] - len(str(out_root)) - 1
+        _print("deepest output: %d characters (%s)" % (deepest[0], deepest[1]))
+        warn = path_warning(Path(args.keep), rel)
+        if warn:
+            _print(warn)
     if updated:
         _print("\ngoldens written for %s - review the diff before committing" % ", ".join(updated))
     _print("\nfull diff: %s" % diff_path)

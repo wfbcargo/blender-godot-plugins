@@ -219,6 +219,19 @@ def test_end_to_end():
               "exit %s, last %r" % (proc.returncode, lines[-1:]))
         text = diff.read_text(encoding="utf-8") if diff.is_file() else ""
         check("control: the diff file holds the moved key", "starfish" in text and "fake_moved" in text, text[:300])
+        # --keep: the deepest path this run wrote is measured afterwards and warned on near MAX_PATH
+        for label, width, want in (("long", 0, True), ("control: short", 10, False)):
+            keep = Path(tmp) / "k"
+            if not width:
+                width = 232 - len(str(keep))          # + "\starfish\starfish.json" = 255 characters
+            keep = Path(str(keep) + "x" * max(1, width))
+            proc, _ = _run_fake(tmp, ["starfish"], {"FAKE_DELAYS": "{}"}, ["--keep", str(keep)])
+            lines = proc.stdout.splitlines()
+            at = [i for i, l in enumerate(lines) if l.startswith("deepest output:")]
+            warned = bool(at) and at[0] + 1 < len(lines) and lines[at[0] + 1].startswith("WARNING: --keep")
+            check("%s --keep: deepest output measured, warned=%s" % (label, want), bool(at) and warned == want,
+                  proc.stdout[-600:])
+            shutil.rmtree("\\\\?\\" + str(keep) if os.name == "nt" else keep, ignore_errors=True)
         # an argparse error still ends with the line
         proc = subprocess.run([sys.executable, str(HERE / "regress.py"), "--only", "no_such_fixture"],
                               capture_output=True, text=True)

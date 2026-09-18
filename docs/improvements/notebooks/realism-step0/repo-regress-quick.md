@@ -81,3 +81,12 @@ ok`) is covered by test_tools.py's fake Blender.
 appends a comment to `plugins/wardrobe/scripts/wardrobe/__init__.py`;
 `regress.py --quick --base repo-regress-quick --dry-run` selected 11, skipped rabbit, cricket and 7
 others. With `tests/fixtures/_harness.py` also touched (uncommitted) it selected 20 of 20.
+
+## 08:57 a bug of my own, caught in review before the final run
+
+Reading `_main` again: `judge` pops `_deepest` from the report before the loop that measured the deepest
+path read it, so the after-run path warning could never fire. Moved the measurement before `judge`,
+measure against `out_root` as given (not resolved), print `deepest output: N characters (path)` - the
+free value - and write the diff file in `finally`, so a run that dies part-way still leaves one.
+test_tools.py gained a `--keep` case: a 255-character output path must warn after the run, and a short
+`--keep` (the control) must not. Stopped the `--twice` run started at 08:57 on the old code and restarted.
