@@ -41,13 +41,15 @@ frame) and both its controls fail as they must (`rigid=spine`: 46 skirt vertices
 
 **Then `figure-prereqs` was merged on its own** (character-pipeline 0.5.0, humanform 0.8.0): a `[muscle]` spec section and a `muscle` stage between body and bake, `[build] quality` draft/preview/final (Dante draft 17.3 s vs final 27.8 s), per-stage timing in the report, the .blend and the manifest's `build` block, and a whole build whose `[hair]` or `[muscle]` changed restarting from body instead of refusing; new fixture `pipeline_muscle`. `regress.py --twice --jobs 4` on the merged `main`: 19 fixtures, both builds agreeing, no change (10 minutes; no Godot addon changed, so no `--godot`). Open: `grungist-creek/characters/dante.toml` still forces `muscle = 1.0` (swap for `[muscle] output = "geometry"`) and its Run fails `verify.arm_swing` (item 9); the muscle stage stores a composite `spike_um` ~2% over its limit without a warning; the restart message for a newly added `[muscle]` on a baked file is misleading; a draft review leaves stale final views in the review dir; a restarted build's `stage_seconds` omit the aborted attempt; draft is only 0.62 of final because moves and export (rig-anything) have no cheaper setting. Not pushed.
 
+**Then `compression-on-belle` was merged on its own** (wardrobe 0.5.0): `sports_top` now spans the hollows under and between the breasts (`fit._span`, ease `span` 0.8 within `span_radius` 0.1, never moving cloth inward), settles over 14 cm, keeps creased skin drawn (cover `crease`) and lifts smoothly; `dress` reports `sharp_edges` and counts folds against neighbours; `*.py` is pinned to LF in `.gitattributes`. On Belle, built in scratch from `belle.toml` with `belle_spec_ready.patch`, the top carries 0.000 mm against the 0.060 mm limit (breast 0.012), with no lift, no fold, no cloth edge bent over 35 degrees and 0 drawn triangles over the cloth; `verify_wardrobe` passes 21 of 21 (worst holes 0.39%, poke 0.30%). Close renders show the cloth running from bust to band and across the cleavage; a faint facet remains at the outer-lower corner of each breast. The sample figure's top sits looser in the cleavage and under the bust (gap p95 13 -> 34 mm), and the embossed figure's spanned top needs one 4-triangle lift with 6 sharp edges. Conflicts with main in `cover.py` (kept `floor_z`/`max_front` beside `crease`) and `garments.json`. `python tools/regress.py --twice --jobs 4 --godot C:/Users/pauli/Code/GoDot/grungist-creek` on the merged `main`: 19 fixtures, both builds agreeing, no change against the goldens, every Godot verifier passing and every control failing as it must (18 minutes). No Godot addon changed, so nothing was synced into `grungist-creek`. The worktree and branch are removed. Belle is not rebuilt in `grungist-creek` yet (item 9); the garments-stage hash ignores preset contents, so her rebuild needs `force=1`. Not pushed.
+
 Installed copies in `~/.claude/skills` match the repo:
 - rig-anything 0.23.0
 - animate-anything 0.10.0
 - follow-through 0.5.2
-- humanform 0.7.1
-- character-pipeline 0.4.0
-- wardrobe 0.4.0
+- humanform 0.8.0
+- character-pipeline 0.5.0
+- wardrobe 0.5.0
 - lookdev 0.2.0
 - godot-lsp 0.1.0
 
@@ -64,7 +66,7 @@ and the gotchas are there.
 | [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | **Done.** Belle's hand-marked flesh zones retired with 05 · 5.9. |
 | [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | **Done.** Belle and the 16 people build from `grungist-creek/characters/*.toml`. Its loose ends are settled (character-pipeline 0.2.0) and the committed characters are rebuilt on them (grungist-creek `ed654b0`). |
 | [04 Checks that match the eye](04-checks-that-match-the-eye.md) | **a done** (wardrobe 0.2.1), **b done** (rig-anything 0.22.0, character-pipeline 0.3.0: every export writes a review sheet), **c done** (animate-anything 0.10.0: a motion critic reading the strips; rig-anything 0.23.0: `arm_pose` in `.moves.json`), **d part done** for flesh limits, garment relief and arm carry (follow-through 0.5.0, wardrobe 0.3.0, rig-anything 0.23.0 `verify.arm_swing`). |
-| [05 Feature gaps](05-feature-gaps.md) | 5.1, 5.6, 5.7, 5.8, 5.9 done. **5.2 hair done** (humanform 0.7.0, lookdev 0.2.0, character-pipeline 0.3.0; strand motion follow-through 0.5.0; a spec's ponytail swings through the pipeline since character-pipeline 0.4.0). `long_loose` is still rigid. **5.3 compression garments done** (wardrobe 0.3.0). **5.5 muscle done** (humanform 0.7.0, lookdev 0.2.0). **5.4 skirts and dresses merged** (wardrobe 0.4.0) with three open items: a run's raised thigh through the front panel, a stiff deep crouch, and no check that counts the first. |
+| [05 Feature gaps](05-feature-gaps.md) | 5.1, 5.6, 5.7, 5.8, 5.9 done. **5.2 hair done** (humanform 0.7.0, lookdev 0.2.0, character-pipeline 0.3.0; strand motion follow-through 0.5.0; a spec's ponytail swings through the pipeline since character-pipeline 0.4.0). `long_loose` is still rigid. **5.3 compression garments done** (wardrobe 0.3.0; on a heavy bust since 0.5.0). **5.5 muscle done** (humanform 0.7.0, lookdev 0.2.0). **5.4 skirts and dresses merged** (wardrobe 0.4.0) with three open items: a run's raised thigh through the front panel, a stiff deep crouch, and no check that counts the first. |
 | Old project notes | Not triaged (item 7 below). |
 
 What exists now, and is worth knowing before starting anything:
@@ -309,7 +311,7 @@ dress on one or two adult crowd women. What happened to each:
   `arm_pose`, and Dante's `muscle = 1.0` is still the only thing making him read muscular. To unblock
   them, the pipeline needs a `[body] definition` field and a stage (or a bake step) that calls
   `muscle.define`.
-- **Belle: blocked by wardrobe's `sports_top` on her own body.** The spec edits are ready: `[hair]
+- **Belle: was blocked by wardrobe's `sports_top` on her own body - unblocked by wardrobe 0.5.0** (top of this file): the top passes on her in a scratch build; rebuild her with `force=1`. The spec edits are ready: `[hair]
   preset = "bun"` with the old colour replacing the `shell_bun` block, and one moves change (below). With
   them, and every stage forced, body, bake, hair (0.9 s), flesh and moves all pass. Then garments
   raises:
