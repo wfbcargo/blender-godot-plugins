@@ -56,8 +56,9 @@ Ruth with the game's hand-marked zones (the committed spec) passes: marked regio
 - Belly is still claimed by the breast's grown zone on study_woman and Ruth (Step 4).
 - Marco's belly stays off in the game (item F).
 - (Resolved) the regress fixture `pipeline_woman` turned out to have the bug itself: its golden recorded breast
-  bones at 1.45 m with 84 % of their weight on the face and 0.05 at the bust point (probe_top.py, legacy vs new
-  on its blend). With this branch they sit at 1.27 m, 0.92 at the bust, peak_m 8.56 -> 8.21 cm. The fixture now
+  bones at about 1.45 m on the face and 0.05 at the bust point (probe_top.py on its blend after taking the jiggle
+  weights off: 84 % face weight; the fixture's own control, measured on the fleshed body, records 0.757). With this branch they sit at 1.27 m, 0.92 at the bust, peak_m 8.56 -> 8.21 cm (max_offset_m follows it), and
+  since the body's weights change under it, SportsTop.verts 1182 -> 1203 and collider.radius 0.2229 -> 0.2223. The fixture now
   records `flesh_placement` and a `control_legacy` (FT_FLESH_LEGACY_PLACEMENT=1) that must fail check_placement
   and judge_flesh: it fails on face weight (0.757); its legacy tail (1.436 m) sits under its chin line (1.473 m),
   so the chin test alone does not fire on this body (it does on Mei and Ruth). Goldens pipeline_woman and
@@ -70,3 +71,18 @@ control ok; pipeline_woman and flesh_figure changed as above, then re-recorded (
 REGRESS DONE exit=0). Logs: `%TEMP%/rw/fzp/regress2.log`, `update.log`.
 - The game's cast specs still carry the hand-marked zones; they can drop them once this ships (checked in
   scratch: stripped specs build and place correctly).
+
+## Critic (independent, 2026-09-18): pass, mergeable
+
+Problems it raised, recorded open (no code changed after the pass):
+- The position tests are weak: on pipeline_woman the legacy bone (tail 1.436 m) sits under the chin line
+  (1.473 m) and inside the grown zone, so only head_share catches it. On a rig with no `head` role and no bone
+  named exactly `head` (`mixamorig:Head`, Rigify without rig-anything) the face set is empty and every region
+  passes silently: fall back on name tokens and warn when no head is found. Research G's "above the fold"
+  bound is only the zone's lower height.
+- judge_flesh has no escape hatch: a deliberate hand mark outside a type's grown zone stops the build (Marco's,
+  Mei's and Ruth's marks pass).
+- Ruth's margin: find_regions on her saved final (dressed, fleshed) blend gives 201 vertices and 0.78 at the
+  bust against the built region's 269 and 0.99. What ships is the built region; the margin is thin if the
+  flesh stage ever sees a different mesh state.
+- Tail within 4 cm of the bust point: unmet, item C.

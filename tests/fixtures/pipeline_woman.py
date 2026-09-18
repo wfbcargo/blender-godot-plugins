@@ -199,7 +199,7 @@ def build():
 
     # where the breast bones land (follow-through check_placement). This body's chin stands out of the neck's
     # lean envelope inside the breast zone: before face vertices were kept out of regions its breast bones went
-    # on it (1.45 m, 84 % of their weight on the face, 0.05 at the bust). The control puts that back and must
+    # on it (about 1.45 m, most of their weight on the face, 0.05 at the bust). The control puts that back and must
     # fail the check, and the stage's judgment must fail on it.
     def placed(found):
         p = ft_flesh.check_placement(found["tissue"], [r for r in found["regions"] if r["type"] == "breast"],
