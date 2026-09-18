@@ -65,3 +65,24 @@ of NEXT.md's baseline is visible at once in the pair (Blender's hairline strands
 - `--label inside`: LABEL_OVER_HEAD, head px [291,19,349,114] under band [0,0,407,61]; default band
   [0,-64,640,0] is clear.
 Selftest now 18 controls (was 11), 49.5 s on study_woman, PASSED.
+
+## 13:16 docs, bump | kind=setup
+SKILL.md: close-shot section rewritten (views, band, sheet layout, --pair-blender, every check with its
+free value and flag, the centroid-only limit), command table and selftest row, description line.
+critic-look.md: G:<view> row gains the head views and --pair-blender; LOOK-H3 and LOOK-H5 now name
+G:head_side/G:head_back (G+B); the two "not answerable" lines about missing Godot head views and pairing
+are gone (the stipple detector line stays: hair-godot-transfer's). lookdev 0.4.1 -> 0.5.0 (tools/bump.py).
+
+**For the merge step - NEXT.md's close-shot example** ("Where the figures are", the paragraph starting "In
+Godot, `node ~/.claude/skills/lookdev/bin/lookdev.mjs close-shot`") should read:
+
+    node ~/.claude/skills/lookdev/bin/lookdev.mjs close-shot --project . \
+      --glb res://assets/figure_study/study_woman/study_woman.glb --views head,hands,full \
+      --presets clear_midday,overcast --pair-blender assets/figure_study/study_woman/review/study_woman/close \
+      --out <scratch>
+
+"writes a sheet with one row per view (face, face_3q, eyes, head_side, head_back, the four hand views, full),
+the Blender close-set tile first and one column per preset, in about 15 s." And under Step 0.5, the
+close-shot item: done except the stipple detector (hair-godot-transfer); the Step 0 open items "no control
+for close-shot's post-render tile checks and no `--min-subject` flag" and "close-shot and the selftest are
+not in `regress --godot`" are done.

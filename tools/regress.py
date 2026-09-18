@@ -37,8 +37,9 @@ NONDETERMINISTIC and fails the run, and no golden is written from a build that d
 `--godot <project>` then copies each fixture's `.glb` and `.moves.json` into
 `<project>/_regress/`, imports them, and runs the engine-side verifiers the project's addons carry:
 every manifest through rig-anything's `verify_moves.gd`, each fixture in GODOT_WARDROBE dressed
-and walked by wardrobe's `verify_wardrobe.gd`, and each fixture in GODOT_FLESH's body driven round
-follow-through's `verify_flesh.gd` courses. The folder is removed afterwards whatever happens.
+and walked by wardrobe's `verify_wardrobe.gd`, each fixture in GODOT_FLESH's body driven round
+follow-through's `verify_flesh.gd` courses, and each fixture in GODOT_LOOKDEV's body looked at by
+lookdev's `close-shot` (beside its Blender close set, with a must-fail control) and lookdev's `selftest`. The folder is removed afterwards whatever happens.
 It warns first when the project's addons differ from this repo's, since those are what run.
 
 Blender is found at $BLENDER, or the newest under Program Files, or `blender` on PATH; Godot at
@@ -426,6 +427,74 @@ GODOT_FLESH = {
                                 ("run", ["course=run", "require=within_body"])],
                        "control": ["require=within_body"]},
 }
+# A fixture named here has its body looked at in Godot by lookdev's `close-shot` (the head, eye and hand
+# views and full, under one preset, beside the fixture's own Blender close set from the review stage when
+# it wrote one), and must pass every tile check; each of `controls` is the same run with its own args and
+# must fail - a camera moved off its subject - so a tile check that stops measuring fails the harness. The
+# first fixture here also runs `lookdev.mjs selftest` on its body: lookdev's own controls.
+GODOT_LOOKDEV = {
+    "pipeline_woman": {"body": "fixwoman.glb",
+                       "views": "face,eyes,face_3q,head_side,head_back,hand_palm.L,hand_back.L,full",
+                       "presets": "clear_midday",
+                       "controls": [["--views", "face", "--aim-offset", "face=0,-0.12,0"]]},
+}
+LOOKDEV_MJS = REPO / "plugins" / "lookdev" / "bin" / "lookdev.mjs"
+
+
+def _node(args, timeout=900):
+    node = shutil.which("node") or "node"
+    try:
+        proc = subprocess.run([node, str(LOOKDEV_MJS), *args], capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return 99, "cannot run node %s: %s" % (LOOKDEV_MJS.name, exc)
+    return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+
+
+def _run_lookdev(godot, project, where, src, out, name, selftest):
+    """GODOT_LOOKDEV's close-shot runs on one fixture's body, and lookdev's selftest: [(check, passed, detail)]."""
+    spec = GODOT_LOOKDEV[name]
+    body = sorted(where.rglob(spec["body"]))
+    if not body:
+        return [("close-shot %s" % name, False, "the fixture did not export %s" % spec["body"])]
+    glb = "res://" + body[0].relative_to(project).as_posix()
+    # the fixture's own Blender close set (review/<id>/close/, not the stage test's close_control/)
+    blender = sorted(p.parent for p in src.rglob("close.json") if p.parent.name == "close")
+    base = ["close-shot", "--project", str(project), "--godot", str(godot), "--glb", glb,
+            "--presets", spec["presets"]]
+    rows = []
+    runs = [("close-shot %s" % name, ["--views", spec["views"]] + (["--pair-blender", str(blender[0])] if blender else []), True)]
+    runs += [("close-shot %s %s (must fail)" % (name, " ".join(c[2:] if c[0] == "--views" else c)), c, False)
+             for c in spec.get("controls", [])]
+    for k, (label, args, should_pass) in enumerate(runs):
+        o = out / ("close_%d" % k)
+        code, text = _node(base + args + ["--out", str(o)])
+        try:
+            with open(o / "close.json", encoding="utf-8") as fh:
+                rep = json.load(fh)
+        except (OSError, ValueError):
+            rows.append((label, False, "no close.json, exit %s: %s" % (code, " | ".join(text.strip().splitlines()[-3:]))))
+            continue
+        passed = code == 0 and not rep.get("failures")
+        pair = rep.get("pair_blender") or {}
+        detail = "exit %s, %d tiles, %d failed%s; sheet %s" % (
+            code, len(rep.get("tiles", [])), len(rep.get("failures", [])),
+            (", Blender pair %d view(s), none for %s" % (len(pair.get("paired", [])),
+                                                         ",".join(u["view"] for u in pair.get("unpaired", [])) or "-"))
+            if pair else ", no Blender close set to pair", rep.get("sheet"))
+        detail += "".join("\n            " + f for f in rep.get("failures", [])[:8])
+        rows.append((label, passed == should_pass, detail))
+    if selftest:
+        code, text = _node(["selftest", "--project", str(project), "--godot", str(godot), "--glb", glb,
+                            "--out", str(out / "selftest")])
+        verdict = [l for l in text.splitlines() if l.startswith("lookdev selftest")]
+        bad = [l for l in text.splitlines() if l.startswith("FAIL ")]
+        rows.append(("lookdev selftest", code == 0 and bool(verdict) and "PASSED" in verdict[-1],
+                     (verdict[-1] if verdict else "no verdict, exit %s" % code)
+                     + "".join("\n            " + b[:200] for b in bad[:8])))
+    return rows
+
+
 # The Godot addons the verifiers load from the project, and where this repo keeps each one.
 GODOT_ADDONS = {"rig_anything": "rig-anything", "wardrobe": "wardrobe", "follow_through": "follow-through",
                 "lookdev": "lookdev"}
@@ -477,7 +546,7 @@ def run_godot(godot, project, out_root, names):
     Returns [(fixture or check, passed, one-line detail)]."""
     stage = project / GODOT_STAGE
     shutil.rmtree(stage, ignore_errors=True)
-    results, manifests, wardrobe, flesh = [], [], [], []
+    results, manifests, wardrobe, flesh, lookdev = [], [], [], [], []
     try:
         for name in names:
             src = out_root / name
@@ -513,7 +582,9 @@ def run_godot(godot, project, out_root, names):
                 wardrobe.append(name)
             if name in GODOT_FLESH:
                 flesh.append(name)
-        if not manifests and not wardrobe and not flesh:
+            if name in GODOT_LOOKDEV:
+                lookdev.append(name)
+        if not manifests and not wardrobe and not flesh and not lookdev:
             return results or [("godot", True, "no fixture in this run exports anything Godot checks")]
 
         code, out = _godot(godot, project, "--import")
@@ -558,6 +629,9 @@ def run_godot(godot, project, out_root, names):
                                     "".join("\n            " + p for p in r.get("problems", [])))))
         for name in flesh:
             results += _run_flesh(godot, project, stage / name, name)
+        for k, name in enumerate(lookdev):
+            results += _run_lookdev(godot, project, stage / name, out_root / name, out_root / "_lookdev" / name,
+                                    name, selftest=k == 0)
     finally:
         shutil.rmtree(stage, ignore_errors=True)
     return results
