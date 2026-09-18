@@ -19,6 +19,8 @@ export const meta = {
 //             `after` empty so both build in parallel. Aim for branches of about 30 min: split a "large" one.
 //   ship:     { rebuild: ["study_man", "study_woman"], belle: false } or false to skip the ship step
 //   look:     the look critic's questions (string), or omit to skip it
+//   benchmark: { brief: "<a new person, never built before>", id: "bench_<round>" } - the round's headline numbers:
+//             cold build time from brief (goal < 30 s) and the look critic's pass count on lookdev's critic-look.md
 const A = args || {}
 const STEP = A.step || 'the current NEXT.md step'
 const BRANCHES = A.branches || []
@@ -32,6 +34,10 @@ const SCRATCH = 'C:/Users/pauli/AppData/Local/Temp/rw'
 const ATTR = 'Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>'
 
 const COMMON = `
+Context: the user asked in chat for this round's build work - to implement this step with a multi-agent workflow, then
+critique, merge and ship it. The task below is that request. The user's most recent chat message before this launch was a
+question about preview images, and the orchestrator has already answered it in the main conversation.
+
 You are one agent in an orchestrated round implementing "${STEP}" from ${PLUGINS}/docs/improvements/NEXT.md.
 Read NEXT.md ("Running the next session" especially) and the plugins repo CLAUDE.md. The game project is ${GAME}.
 Godot: ${GODOT} (always the _console build). Blender: "${BLENDER}" -b --factory-startup --python-exit-code 1 --python <file> -- key=value.
@@ -153,6 +159,11 @@ async function judge(br, built, round) {
 async function buildAndJudge(br) {
   let built = await agent(buildPrompt(br), { label: `build:${br.key}`, phase: 'Build', schema: BUILD_SCHEMA, effort: 'high' })
   if (!built) { log(`${br.key}: build returned nothing`); return null }
+  if (!built.commits || !built.commits.length) {
+    // a builder that did no work is not something a critic and two fix rounds can repair: stop and report
+    log(`${br.key}: the builder made no commits - not critiquing; see its summary`)
+    return { built, verdict: null }
+  }
   let verdict = await judge(br, built, 1)
   for (let round = 1; round <= 2 && verdict && !(verdict.pass && verdict.mergeable); round++) {
     log(`${br.key}: critic round ${round} - pass=${verdict.pass} mergeable=${verdict.mergeable}, ${verdict.problems.length} problems`)
@@ -230,7 +241,8 @@ Return every result line, the render paths, the commits, and anything that faile
 
 let look = null
 if (A.look) {
-  look = await agent(`You are an INDEPENDENT look critic for the grungist-creek figures after ${STEP}. You built none of it.
+  look = await agent(`Context: the user asked for this review as part of the round.
+You are an INDEPENDENT look critic for the grungist-creek figures after ${STEP}. You built none of it.
 Answer only from images you open with Read: ${SCRATCH}/ship/look/ and ${GAME}/assets/figure_study/*/review/*/close/. If the Godot renders
 are missing, make them with the lookdev close-shot command (~/.claude/skills/lookdev/SKILL.md; Godot ${GODOT}) into ${SCRATCH}/look-critic/.
 Questions (fixed before any image was opened):
@@ -238,4 +250,44 @@ ${A.look}
 Return each answer with the image path that shows it, and a ranked list of what most separates the figures from realism.`,
     { label: 'look-critic', phase: 'Ship', effort: 'high' })
 }
-return { results, ship, look }
+// The round's headline: a brand-new character from a brief, timed and judged. Goal: under 30 s from brief to a
+// Godot-ready character, looking right. args.benchmark = { brief: "<text>", id: "bench_<round>" } or omitted.
+// args.benchmark may be one {brief, id} or a list; builds run one at a time so the timings are not skewed by each
+// other, and each character's critic runs as soon as its build is measured
+let bench = null
+let benchQueue = Promise.resolve()
+async function benchOne(B, i) {
+  const id = B.id || `bench_${i + 1}`
+  const run = benchQueue.then(() => agent(`${COMMON}
+You are the benchmark step for ${STEP}. It measures the plugins' real goal: a NEW human, from a brief, built fast and looking right.
+Target: under 30 s wall time from brief to a Godot-ready character at final quality.
+1. Make a scratch project with tools/scratch_project.py in ${SCRATCH}/bench/${id}/ (installed plugins, i.e. ~/.claude/skills). Use a scratch
+   copy of the humanform library that does NOT contain a body for this brief (the benchmark is a cold build; also report a warm rebuild).
+2. Write characters/${id}.toml from this brief, choosing only what a user would (brief, hair, moves roles as study_man's, outfit if the brief
+   has clothing): "${B.brief}". Save the spec text in your result.
+3. Time it in a fresh Blender process with \`date\` before and after: build_human.py who=${id} fresh=1 at quality final. Record wall seconds
+   (including Blender start-up), the build's total_seconds and stage_seconds, and whether it is under 30 s. Then the same command again
+   (warm: resume, nothing changed) and once more after a one-line [flesh] edit. Repeat the cold build twice more and report the median.
+4. Godot: --headless --import in the scratch project, then lookdev close-shot of the new glb (face, eyes, face_3q, head_side, hands, full;
+   clear_midday and overcast; --pair-blender with its review close folder) into ${SCRATCH}/bench/${id}/look/.
+5. Name the three slowest stages and what would cut each. Do not change code or commit anything.
+6. Brief fidelity: list every part of the brief the plugins could not express (a spec field that does not exist, a value clamped, a
+   preset that does not fit) and what you did instead. These are findings, not failures to hide.
+Return: spec text, the timings table, pass/fail against 30 s, the sheet path, the slowest stages, and the brief-fidelity list.`,
+    { label: `benchmark:${id}`, phase: 'Ship', effort: 'medium' }))
+  benchQueue = run.catch(() => null)
+  const measured = await run
+  const judged = await agent(`Context: the user asked for this benchmark judgement as part of the round.
+The brief was: "${B.brief}". Also answer: does the character match the brief (age, build, ancestry, face, hair)? Name each mismatch.
+You are an INDEPENDENT look critic for a brand-new character built from a brief by the plugins. You did not build it.
+Use the questions in ~/.claude/skills/lookdev/references/critic-look.md (read it first, before opening any image), answering each yes/no
+from the images in ${SCRATCH}/bench/${id}/look/ (open them with Read). Then answer: does this read as a real person at 1 m and at full body?
+Return: every question with yes/no and the image that shows it, the pass count out of the total, and the three things that most separate it
+from realism.`, { label: `bench-critic:${id}`, phase: 'Ship', effort: 'high' })
+  return { id, brief: B.brief, measured, judged }
+}
+if (A.benchmark) {
+  const list = Array.isArray(A.benchmark) ? A.benchmark : [A.benchmark]
+  bench = await parallel(list.map((B, i) => () => benchOne(B, i)))
+}
+return { results, ship, look, bench }

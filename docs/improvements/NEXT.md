@@ -5,8 +5,13 @@ A handoff for a fresh conversation. Start with:
 > Read `docs/improvements/NEXT.md`, then plan the next step of "The realism work" below and run it with
 > the `plugin-round` workflow (see "Running the next session").
 
-State as of 2026-09-18, after realism Step 0.5 and Step 1 (hair) shipped. Committed locally and **not
-pushed**: this repo's `main` and `grungist-creek`'s `master` (the rebuilt figures and Belle). The parked branch
+**The goal of all this work:** tools that make a new human asset from a brief **in under 30 seconds** and
+have it **look great** in Godot. The study figures are the test bench; the scoreboard is the benchmark
+(below): three brand-new characters built cold from their briefs, timed, and judged by an independent critic.
+Every round's ship step runs it, and every plan should say which of the two numbers it moves.
+
+State as of 2026-09-18, after realism Step 0.5 and Step 1 (hair) shipped. Everything is pushed: this
+repo's `main` and `grungist-creek`'s `master` (the rebuilt figures and Belle). The parked branch
 `fig-genital-anatomy` (`94ac682`) is pushed and still has its worktree at `.worktrees/fig-genital-anatomy`.
 There are no other worktrees or open branches. Step 2 (skin) is next; Step 1's leftovers (the short cap's
 volume and colour, `long_loose`) are listed under it.
@@ -88,13 +93,56 @@ overcast; notebook `notebooks/realism-step0/ship.md`). Ranked, what most separat
    at the fingertips (overcast).
 7. **Overcast exposure**: study_man goes dark and muddy (reads as a different skin tone); study_woman grey.
 
+**After Step 1** (independent look critic on study_man, study_woman and Belle; notebook
+`notebooks/realism-step1/ship.md`). Fixed: the neck and finger stipple (study_woman keeps an orange glow between
+the fingers), brows made of hairs instead of cut-outs, a feathered hairline on all three. Still **clean CG at
+1 m and full body**. Ranked, what now most separates them from real people:
+1. **Hair volume:** above the hairline every head is a smooth glossy shell with painted streaks; the nape and
+   sideburns end in a hard cut (on Belle a vertical flap in front of the ear); the ponytail is a flat, banded ribbon.
+2. **Skin:** plastic and uniform - no pores, redness or micro-detail - and waxy under overcast.
+3. **Eyes:** flat irises, oversized black pupils, no limbal ring or wet line, a dark ring around the socket.
+4. **Pose and body:** stiff A-pose/rest pose with rubbery fingers; mannequin-smooth at full length.
+5. **Lashes and hairline edge:** too even and comb-like, no clumping or scatter.
+6. **Leftover shading:** the orange glow between study_woman's fingers; the man's orange thumb-web fleck.
+
+Close-shot gaps the critic hit: no Blender tile for `full`, no neck view, and the Blender pairs are shot at
+0.4-0.6 m against Godot's 1 m, so a pair is not like for like.
+
+---
+
+## The benchmark: a new human in under 30 s that looks great
+
+The `plugin-round` workflow runs it after the ship step when given `benchmark` (the briefs are in
+`.claude/workflows/benchmark-briefs.json`; keep them fixed so rounds compare):
+
+| id | brief |
+|---|---|
+| `bench_marco` | A stocky Hispanic man in his 40s with a strong jaw. |
+| `bench_mei` | A skinny, tall Asian woman in her 20s: slim figure, athletic build, long hair. |
+| `bench_ruth` | An older Caucasian woman in her 60s: a little heavier in build but fit and healthy, cropped grey hair. |
+
+For each, one at a time so the timings are clean: a scratch project (`tools/scratch_project.py`) with a library
+copy that holds no body for the brief; a spec written from the brief with only what a user would choose; three
+cold `fresh=1` builds at final quality in a fresh Blender process (median wall time, Blender start-up included,
+against **30 s**), a warm rebuild and a one-line `[flesh]` edit; a Godot close-shot sheet paired with Blender;
+the three slowest stages; and a **brief-fidelity** list - every part of the brief the tools could not express.
+An independent critic then scores the sheet on `lookdev/references/critic-look.md` (pass count), says whether it
+reads as a real person, and names each mismatch with the brief.
+
+Where it starts: the study figures build from nothing in 34-38 s with every stage rerun (Step 1 ship), and a
+fresh body fit alone took 11-14 s in the figure study round. Gaps the briefs will likely hit, from reading
+humanform: age is capped at 58 for a fitted adult (ANSUR II has no older adults), so Ruth's 60s need handling
+past the fit; MPFB's ancestry macros are asian/caucasian/african only, so "Hispanic" needs a mapping to a mix
+plus skin tone; no confirmed jaw-shape control in the brief; `long_loose` hair is still rigid (Mei); Ruth's
+cropped grey hair is `short_crop`, whose shell is the critic's first complaint.
+
 ---
 
 ## The realism work, in order
 
-The goal: the two study figures read as real people in `figure_study.tscn` at 1 m and at full body, in
-at least clear_midday and overcast, and move like people. Every step is proven on those two specs,
-built through the pipeline and looked at in Godot, not only in a fixture.
+The goal: new characters read as real people at 1 m and at full body, in at least clear_midday and overcast,
+and move like people - proven on the two study specs and on the benchmark, built through the pipeline and
+looked at in Godot, not only in a fixture.
 
 ### Step 0 - make the look loop fast (do first; everything after is a look loop)
 
@@ -398,8 +446,24 @@ another by `scriptPath`). Give it the step and its branches as args:
 { "step": "Step 1 - hair",
   "branches": [ { "key": "...", "title": "...", "task": "...", "done": "1. ...?\n2. ...?", "after": "<key, optional>" } ],
   "ship": { "rebuild": ["study_man", "study_woman"], "belle": false },
-  "look": "1. ...?\n2. ...?" }
+  "look": "1. ...?\n2. ...?",
+  "benchmark": <the contents of .claude/workflows/benchmark-briefs.json> }
 ```
+
+The Workflow tool only runs a script it can read from the session's working directory or one it returned
+itself, so from another project copy `plugin-round.js` into the session scratchpad and pass that path.
+
+From the Step 1 round (8 branches; first attempt 45 agents with 1 branch built, second attempt 29 agents,
+3 h 24 min, 4.4 M subagent tokens, every branch merged, 5 of 7 on the first critic pass):
+
+- **A chat message sent while a round runs reaches its agents.** In the first Step 1 attempt a question about
+  previews was relayed to every agent as the user's request, and 6 of 7 builders declined to build; their
+  critics and fixers repeated it for two more rounds. The script now states the round's task as the user's
+  request and names the last chat message as answered, and a builder with no commits ends its branch at once.
+  Keep questions to the orchestrator separate from a running round's task.
+- **The permission classifier refuses some ship-step actions:** `regress --godot` on the real game project
+  and a Monitor tail of the regress log. The ship step ran regress on a full scratch copy of the game with the
+  rebuilt assets instead, which is what the round's rules ask anyway.
 
 It builds each branch in its own worktrees, has an independent critic answer the branch's `done` questions,
 fixes at most twice, merges one branch at a time, then installs, rebuilds the real figures, runs the round's
