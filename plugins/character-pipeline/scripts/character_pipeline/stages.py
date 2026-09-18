@@ -1,6 +1,9 @@
 """The stages a character is built in, what each needs, and how it knows.
 
     body      humanform body and rig from the brief (or an object already in the file)
+    muscle    humanform's muscle definition on the unbaked body: delta-part shape keys weighted by the brief,
+              as geometry, or (output = "normal") a high copy the bake stage bakes into the skin's normal
+              map (optional: `[muscle]`)
     bake      one skinned mesh: shape keys and helpers baked, skin material, eyes joined
     hair      humanform's hair layer from a preset, joined into the body - except a strand part the
               strand stage will chain, which stays its own object (optional)
@@ -22,6 +25,9 @@ by breaking them on a real character:
 - flesh before garments: a garment is cut from the skin and takes its weights, and cut first it
   carries no jiggle bones;
 - bake before moves;
+- muscle before bake: `humanform.muscle.define` reads the fitted MPFB macros and writes shape keys, which
+  `bake_for_game` then bakes; on a baked mesh there are neither. Like hair it cannot be taken off again, so a
+  changed `[muscle]` rebuilds from body (the runner restarts there by itself, `RESTARTS_FROM_BODY`);
 - hair once: the stage joins the hair into the body and cannot take it off again, so a body that already
   has hair refuses (`check_hair`) and changing `[hair]` means rebuilding from `body`;
 - moves before strand: the chain hangs 3-8 new bones off the head bone, and rig-anything reads a rig's
@@ -38,6 +44,7 @@ import os
 
 import bpy
 
+from . import quality as quality_mod
 from . import spec as spec_mod
 
 
@@ -181,6 +188,14 @@ def _clear_for(ch):
     for o in list(bpy.data.objects):
         if o.name in ("Cube", "Light", "Camera") or o.name == ch.name or o.name.startswith(ch.name + "_"):
             bpy.data.objects.remove(o, do_unlink=True)
+    # the skin material is reused by name (humanform `look.material`), so a normal map an earlier build wired into
+    # it would ride along onto a body whose spec no longer asks for one
+    mat = bpy.data.materials.get(f"{ch.name}_skin")
+    if mat is not None:
+        bpy.data.materials.remove(mat)
+    img = bpy.data.images.get(f"{ch.name}_muscle_normal")
+    if img is not None:
+        bpy.data.images.remove(img)
 
 
 def run_body(ch, ctx):
@@ -192,9 +207,12 @@ def run_body(ch, ctx):
     from humanform import pipeline, sheet
     parts = ch.body.parts
     res = pipeline.make(sheet.new(**ch.body.brief), use_library=True, face_part=parts.get("face"),
-                        hand_part=parts.get("hands"), foot_part=parts.get("feet"))
+                        hand_part=parts.get("hands"), foot_part=parts.get("feet"),
+                        **quality_mod.settings(ctx["quality"], "body"))
     out = {k: res.get(k) for k in ("ansur", "check", "notes", "macros")}
     out["stature"] = _stature(res)
+    out["library"] = res.get("path")                # reuse | warm | fresh: where the body's seconds went
+    out["timing"] = res.get("timing")
     return out
 
 
@@ -218,6 +236,76 @@ def _stature(res):
         return None
     from humanform import scaffold
     return round(scaffold.stature(human), 4)
+
+
+def muscled(ch):
+    """Whether this character's body already carries muscle definition: humanform's `hfd:muscle` key on the
+    unbaked body, or the mark the bake stage leaves on the baked mesh (`cp_muscle`)."""
+    human = _obj(ch.name)
+    if human is not None and human.type == "MESH" and human.data.shape_keys is not None:
+        if any(k.name.startswith("hfd:muscle") for k in human.data.shape_keys.key_blocks):
+            return True
+    ob = _obj(ch.mesh)
+    return ob is not None and ob.get("cp_muscle") is not None
+
+
+def check_muscle(ch):
+    if _obj(ch.rig) is None or _obj(ch.name) is None:
+        if baked(ch):
+            return ("muscle needs the unbaked body: %s is already baked - rebuild from body (definition is shape "
+                    "keys on the humanform body, which bake bakes)" % ch.mesh)
+        return "muscle needs body: no %s with its %s in the file - run body first" % (ch.name, ch.rig)
+    if muscled(ch):
+        return "muscle is already on %s - rebuild from body to change [muscle]" % ch.name
+    return None
+
+
+def run_muscle(ch, ctx):
+    """`humanform.muscle.define` on the unbaked body for the brief: the definition groups on `hfd:muscle`
+    (at 1 for geometry, at 0 for a normal map) and the limbs' missing bulk on `hfd:muscle-bulk` (always at 1,
+    it is silhouette). Groups the spec leaves out are weighted 0. For a normal map the high copy is made
+    here and kept (hidden) for the bake stage, which bakes it onto the game mesh and removes it."""
+    from humanform import delta, muscle, sheet
+    human = _obj(ch.name)
+    brief = sheet.new(**ch.body.brief)
+    off = {g: 0.0 for g in spec_mod.MUSCLE_GROUPS if g not in ch.muscle.groups}
+    geometry = ch.muscle.output == "geometry"
+    rep = muscle.define(human, brief, geometry=geometry, strength=ch.muscle.strength, weights_override=off or None)
+    out = {"output": ch.muscle.output, "strength": ch.muscle.strength, "groups": list(ch.muscle.groups),
+           "weights": rep["weights"], "body_fat_pct": rep["body_fat_pct"], "muscle_term": rep["muscle_term"],
+           "definition_total": rep["definition_total"], "fitted_muscle": rep["fitted_muscle"],
+           "spike_um": rep["spike_um"], "spike_limit_um": rep["spike_limit_um"], "card": rep["card"],
+           "max_mm": (rep.get("applied") or {}).get("max_mm")}
+    if not geometry:
+        high = delta.high_copy(human, muscle.KEY, name=f"{ch.name}_muscle_high")
+        high.hide_render = True
+        out["high"] = high.name
+    return out
+
+
+def _bake_muscle_normal(ch, ctx):
+    """The bake stage's half of `[muscle] output = "normal"`: the high copy baked into the skin's normal map
+    on the game mesh (lookdev's matched bake), the image packed into the .blend, the high copy removed."""
+    high = _obj(f"{ch.name}_muscle_high")
+    if high is None:
+        raise RuntimeError(f"bake: [muscle] output = \"normal\" but there is no {ch.name}_muscle_high - rebuild "
+                           "from body")
+    from . import plugins
+    plugins.use("lookdev_blender")
+    from lookdev_blender import detail
+    size = ch.muscle.normal_size or quality_mod.settings(ctx["quality"], "muscle")["normal_size"]
+    tex_dir = os.path.join(ctx["scratch"], "muscle_normal")
+    nm = detail.bake_normal_from_high(_obj(ch.mesh), high, tex_dir, size=size, material=f"{ch.name}_skin",
+                                      name=f"{ch.name}_muscle_normal")
+    bpy.data.objects.remove(high, do_unlink=True)
+    if "error" in nm:
+        raise RuntimeError(f"bake: muscle normal map: {nm['error']}")
+    img = nm.get("image")
+    img = bpy.data.images.get(img) if isinstance(img, str) else img
+    if img is not None and not img.packed_file:
+        img.pack()
+    return {"size": size, "method": nm["method"], "materials": nm["materials"], "warnings": nm["warnings"],
+            "over_5deg": round(nm["stats"]["over_5deg"], 3)}
 
 
 def check_bake(ch):
@@ -246,8 +334,13 @@ def run_bake(ch, ctx):
                                        selected_objects=[ob, eyes]):
             bpy.ops.object.join()
     unweighted = sum(1 for v in ob.data.vertices if not any(g.weight > 1e-4 for g in v.groups))
-    return {"verts": len(ob.data.vertices), "groups": len(ob.vertex_groups), "unweighted": unweighted,
-            "materials": [m.name for m in ob.data.materials if m], "baked": b}
+    out = {"verts": len(ob.data.vertices), "groups": len(ob.vertex_groups), "unweighted": unweighted,
+           "materials": [m.name for m in ob.data.materials if m], "baked": b}
+    if ch.muscle is not None:
+        if ch.muscle.output == "normal":
+            out["muscle_normal"] = _bake_muscle_normal(ch, ctx)
+        ob["cp_muscle"] = ch.muscle.output          # `muscled`: the baked body carries it now
+    return out
 
 
 def check_not_dressed(stage):
@@ -307,7 +400,8 @@ def run_hair(ch, ctx):
         return out
     from humanform import hair as hf_hair
     _rest(ch)
-    rep = hf_hair.add(ch.mesh, preset=ch.hair.preset, colour=ch.hair.colour, name=ch.name)
+    rep = hf_hair.add(ch.mesh, preset=ch.hair.preset, colour=ch.hair.colour, name=ch.name,
+                      **quality_mod.settings(ctx["quality"], "hair"))
     ob = _obj(ch.mesh)
     made = dict(rep["objects"])
     strand = made.pop("strand") if "strand" in made and hair_has_chain(ch) else None
@@ -578,7 +672,8 @@ def run_review(ch, ctx):
     clips = [manifest["clips"][r] for r in ch.moves.roles if r in manifest["clips"]]
     meshes = review.bound_meshes(ch.rig, first=ch.mesh)
     r = review.sheet(meshes, ch.rig, clips, review_dir(ch), loops=manifest.get("loops", []),
-                     frame_height_m=ch.review.frame_height_m, title=ch.name)
+                     frame_height_m=ch.review.frame_height_m, title=ch.name,
+                     **quality_mod.settings(ctx["quality"], "review"))
     if "error" in r:
         raise RuntimeError(f"review: {r['error']}")
     empty = sorted(f"{c} {v}" for c, vs in r["strips"].items() for v, s in vs.items()
@@ -598,7 +693,8 @@ def run_review(ch, ctx):
 # (name, needs, spec sections its hash covers, precondition check, run, applies to this spec)
 STAGES = [
     ("body", (), ("character", "body"), lambda ch: None, run_body, lambda ch: True),
-    ("bake", ("body",), ("character", "body"), check_bake, run_bake, lambda ch: True),
+    ("muscle", ("body",), ("muscle",), check_muscle, run_muscle, lambda ch: ch.muscle is not None),
+    ("bake", ("body", "muscle"), ("character", "body"), check_bake, run_bake, lambda ch: True),
     ("hair", ("bake",), ("hair",), check_hair, run_hair, lambda ch: ch.hair is not None),
     ("flesh", ("bake", "hair"), ("flesh",), check_not_dressed("flesh"), run_flesh, lambda ch: ch.flesh is not None),
     ("moves", ("bake", "hair", "flesh"), ("moves",), check_not_dressed("moves"), run_moves, lambda ch: True),
@@ -608,3 +704,13 @@ STAGES = [
     ("review", ("export",), ("review",), check_review, run_review, lambda ch: ch.review.enabled),
 ]
 ORDER = [s[0] for s in STAGES]
+
+# Stages that put something on the body that nothing takes off again (hair joins into the mesh, muscle is baked
+# into it): {stage: does the body carry it?}. A whole build restarts from body (forced) instead of stacking a
+# second layer, refusing, or shipping a layer the spec dropped, when one of them
+# - has to run (its section is new or changed) and the body carries it already, or cannot take it any more
+#   (`RESTARTS_FROM_BODY`: muscle on a body already baked), or
+# - is no longer in the spec and the body still carries it.
+CARRIED = {"hair": lambda ch: bool(haired(ch)), "muscle": muscled}
+RESTARTS_FROM_BODY = {"hair": CARRIED["hair"],
+                      "muscle": lambda ch: muscled(ch) or (_obj(ch.name) is None and baked(ch))}

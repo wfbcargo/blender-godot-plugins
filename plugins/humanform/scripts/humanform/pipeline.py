@@ -88,10 +88,13 @@ def _make_child(s, r, t, t0, eyes, store, face_part, hand_part, foot_part):
 
 
 def make(s, out_dir=None, store=False, use_library=True, contact_sheet=False, tags=(), verbose=False, eyes=True,
-         face_part=None, hand_part=None, foot_part=None):
+         face_part=None, hand_part=None, foot_part=None, fit_iterations=10, fit_detail=True):
     """`face_part`, `hand_part`, `foot_part`: library parts (card or id) applied before the fit, so their
     look is kept and the measurements - moved by a hand or foot part's offsets - are solved for this body.
-    The brief's `iris` and `skin` screen colours go on the eyes and body."""
+    The brief's `iris` and `skin` screen colours go on the eyes and body. `fit_iterations`: the body fit's
+    solver iterations (`scaffold.fit_all`); `fit_detail` False skips the face and hands-and-feet fits (and
+    the settle pass after them). Both are a cheaper, looser fit for a draft, and a body fitted either way is
+    never stored in the library."""
     t = {}
     t0 = time.time()
     r = sheet.resolve(s)
@@ -167,7 +170,8 @@ def make(s, out_dir=None, store=False, use_library=True, contact_sheet=False, ta
     t2 = time.time()
     if rep is None:
         hold = ("muscle",) if s.get("muscle") is not None else ()
-        rep = scaffold.fit_all(human, lm, build=build, start=start, jacobians=jac, verbose=verbose, hold=hold)
+        rep = scaffold.fit_all(human, lm, build=build, start=start, jacobians=jac, verbose=verbose, hold=hold,
+                               iterations=fit_iterations, face=fit_detail, extremities=fit_detail)
     notes = list(r["notes"])
     if r["ansur"] == "aged":
         # past ANSUR: age the fitted body with MPFB, then give it back the stature it was fitted to
@@ -198,6 +202,8 @@ def make(s, out_dir=None, store=False, use_library=True, contact_sheet=False, ta
     card = None
     if store and r["ansur"] != "measured":
         notes.append("not stored: the library holds bodies measured against ANSUR")
+    elif store and (fit_iterations < 10 or not fit_detail):
+        notes.append("not stored: a draft fit (%d iterations, detail %s)" % (fit_iterations, fit_detail))
     elif store and hc["counts"]["fail"] == 0:
         card = library.save_body(human, r, rep, hc, tags=tags, thumb=thumb)
     t["total"] = time.time() - t0

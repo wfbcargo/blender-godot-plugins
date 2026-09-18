@@ -4,6 +4,7 @@
     report = runner.build("C:/.../characters/belle.toml")                   # everything
     report = runner.build(spec, from_stage="garments")                         # in a .blend saved after moves
     report = runner.build(spec, to_stage="moves", save=False)
+    report = runner.build(spec, quality="draft")                               # over the spec's [build] quality
 
 Each stage that runs stores an input hash and its report in the file (a Text datablock,
 `character_pipeline:<id>`, so nothing of it reaches an exported glb). The hash covers the spec sections the stage reads, the hashes of the stages it needs and the
@@ -17,6 +18,16 @@ plugin versions, so:
 
 With `save` (default) the .blend goes to the spec's `export.blend` after the last stage, refusing to
 overwrite a file holding a scene this session does not have.
+
+Where the minutes went: every stage that runs records its wall time, and the build's own record - the
+quality, `stage_seconds` for the stages this build ran, what it skipped, and `total_seconds` - goes into the
+returned report (`report["build"]`), the .blend (Text `character_pipeline:<id>:build`) and, when the export
+stage ran, the manifest's `build` block (rewritten once review has run, so it is the whole build's).
+
+Stages that put something on the body nothing takes off (hair, muscle: `stages.RESTARTS_FROM_BODY`) are not
+run a second time on a body that has it: a whole build (no `from_stage`, or `from_stage="body"`) whose
+`[hair]` or `[muscle]` changed rebuilds from body, forced, and says so in `report["build"]["restarted"]`; a
+build started later than body still refuses (the stage's own check).
 """
 
 from __future__ import annotations
@@ -29,7 +40,7 @@ import time
 
 import bpy
 
-from . import plugins, spec as spec_mod, stages
+from . import plugins, quality as quality_mod, spec as spec_mod, stages
 
 KEY = "character_pipeline"
 
@@ -80,9 +91,11 @@ def _forget(ch, stage_names):
     text.write(json.dumps(data, indent=1, default=str))
 
 
-def _hash(ch, name, needs, sections, done, versions):
+def _hash(ch, name, needs, sections, done, versions, quality=None):
     parts = {"stage": name, "spec": ch.digest(*sections), "needs": {n: done.get(n) for n in needs},
              "versions": versions}
+    if quality is not None:                     # a "final" build hashes as it did before quality existed
+        parts["quality"] = quality
     return hashlib.sha1(json.dumps(parts, sort_keys=True).encode()).hexdigest()[:16]
 
 
@@ -101,9 +114,69 @@ def _save(ch, path):
     return path
 
 
-def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=print):
-    """Run the spec's stages. `spec` is a path or a `spec.Character`. Returns {stage: {status, report}}."""
+class _Restart(Exception):
+    pass
+
+
+def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=print, quality=None):
+    """Run the spec's stages. `spec` is a path or a `spec.Character`. `quality` overrides the spec's
+    `[build] quality` ("draft", "preview", "final"). Returns {stage: {status, report}, "build": {...}}."""
     ch = spec_mod.load(spec) if isinstance(spec, (str, os.PathLike)) else spec
+    q = quality_mod.check(quality or ch.build.quality)
+    t_build = time.time()
+    try:
+        report = _build(ch, from_stage, to_stage, force, log, q, forced=())
+        restarted = None
+    except _Restart as why:
+        restarted = str(why)
+        log(f"[{ch.id}] {restarted}")
+        report = _build(ch, from_stage, to_stage, force, log, q, forced=("body",))
+    ran = {k: v["seconds"] for k, v in report.items() if v.get("status") == "ran"}
+    summary = {"quality": q, "stage_seconds": ran,
+               "skipped": sorted(k for k, v in report.items() if v.get("status") != "ran"),
+               "total_seconds": round(time.time() - t_build, 1)}
+    if restarted:
+        summary["restarted"] = restarted
+    if ran:
+        _store_build(ch, summary)
+        if "export" in ran:
+            _manifest_build(ch, summary)
+    report["build"] = summary
+    log(f"[{ch.id}] {q} build: {summary['total_seconds']}s ({', '.join(f'{k} {v}' for k, v in ran.items()) or 'nothing ran'})")
+    if save and ch.export.blend and any(v.get("status") for v in report.values() if isinstance(v, dict)):
+        report["saved"] = _save(ch, ch.export.blend)
+    return report
+
+
+def build_record(ch):
+    """The last build's record in the open file: {quality, stage_seconds, skipped, total_seconds}, or None."""
+    text = bpy.data.texts.get(_text_name(ch) + ":build")
+    try:
+        return json.loads(text.as_string()) if text is not None else None
+    except ValueError:
+        return None
+
+
+def _store_build(ch, summary):
+    name = _text_name(ch) + ":build"
+    text = bpy.data.texts.get(name) or bpy.data.texts.new(name)
+    text.clear()
+    text.write(json.dumps(summary, indent=1))
+
+
+def _manifest_build(ch, summary):
+    """The build block of the manifest export wrote: where this build's minutes went."""
+    path = os.path.join(ch.out_dir(), f"{ch.id}.moves.json")
+    if not os.path.isfile(path):
+        return
+    with open(path, encoding="utf-8") as fh:
+        manifest = json.load(fh)
+    manifest["build"] = summary
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(manifest, fh, indent=2)
+
+
+def _build(ch, from_stage, to_stage, force, log, q, forced):
     plugins.use()
     versions = plugins.versions()
     wanted = [s for s in stages.STAGES if s[5](ch)]
@@ -117,12 +190,18 @@ def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=prin
     stored = records(ch)
     done = {}                                   # stage -> input hash, as the file holds it or this run made it
     report = {}
-    ctx = {"scratch": tempfile.mkdtemp(prefix=f"pipeline_{ch.id}_"), "versions": versions}
+    ctx = {"scratch": tempfile.mkdtemp(prefix=f"pipeline_{ch.id}_"), "versions": versions, "quality": q}
+    # a whole build of a brief body can start over from body; one started later cannot
+    restartable = not forced and ch.body.source == "brief" and start <= names.index("body")
+    if restartable:
+        for gone, again in stages.CARRIED.items():
+            if gone not in names and again(ch):
+                raise _Restart(f"the spec has no [{gone}] now but the body carries it: rebuilding from body")
     for i, (name, needs, sections, check, run, _applies) in enumerate(wanted):
         needs = [n for n in needs if n in names]
         # the four plugins every stage builds with, and an optional one (lookdev) only where the stage reads it
         stage_versions = plugins.stage_versions(ch, name)
-        h = _hash(ch, name, needs, sections, done, stage_versions)
+        h = _hash(ch, name, needs, sections, done, stage_versions, quality_mod.for_hash(q, name))
         if i < start:
             rec = stored.get(name)
             if rec is None:
@@ -139,11 +218,15 @@ def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=prin
         rec = stored.get(name)
         # preconditions guard running a stage, not skipping one: once garments are on, flesh's "no
         # garments bound" can never hold again, and a finished build must still rerun as unchanged
-        if not force and rec is not None and rec.get("hash") == h:
+        if not force and name not in forced and rec is not None and rec.get("hash") == h:
             done[name] = h
             report[name] = {"status": "unchanged", "report": rec.get("report")}
             log(f"[{ch.id}] {name}: unchanged")
             continue
+        again = stages.RESTARTS_FROM_BODY.get(name)
+        if again is not None and restartable and again(ch):
+            raise _Restart(f"{name} changed and the body already carries it (it cannot be taken off): "
+                           "rebuilding from body")
         problem = check(ch)
         if problem:
             raise stages.StageRefused(f"[{ch.id}] {problem}")
@@ -158,8 +241,6 @@ def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=prin
         stored = records(ch)
         report[name] = {"status": "ran", "seconds": took, "report": out}
         log(f"[{ch.id}] {name}: done in {took}s")
-    if save and ch.export.blend and report:
-        report["saved"] = _save(ch, ch.export.blend)
     return report
 
 

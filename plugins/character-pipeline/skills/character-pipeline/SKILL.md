@@ -56,6 +56,15 @@ clearance_check = ["Crouch", "CrouchWalk", "Jump"]
 max_drop = 0.07
 upper = { lean = 9.0, arm_swing = 25.0, elbow = 85.0 }
 
+[muscle]                           # humanform's muscle definition, weighted by the brief's muscle and body fat
+output = "geometry"                # or "normal": baked into the skin's normal map (bulk stays geometry)
+strength = 1.0                     # 0..2, scales every definition group
+groups = ["pectorals", "abdominals", "deltoids"]   # default: all of humanform.muscle.GROUPS
+# normal_size = 2048               # output = "normal" only; default by quality
+
+[build]
+quality = "final"                  # "draft" | "preview" | "final"; runner.build(quality=) overrides it
+
 [hair]                             # humanform's hair layer: the brief's hair = {preset, colour}
 preset = "bun"                     # short_crop, bob, bun, ponytail, long_loose
 colour = [0.17, 0.10, 0.06]        # screen (sRGB)
@@ -90,7 +99,8 @@ that no plugin owns yet. Tuned numbers live with their owners, and a spec only n
 | Stage | Needs | Checks in the file before it runs |
 |---|---|---|
 | `body` | - | a `blend` source's object is in the open file |
-| `bake` | body | the rig and the humanform mesh exist |
+| `muscle` | body | only with `[muscle]` (a `brief` body): the rig and the **unbaked** humanform mesh exist, no definition on it yet. Runs `humanform.muscle.define` (`hfd:muscle` at 1 for geometry, at 0 plus a `<name>_muscle_high` copy for a normal map; `hfd:muscle-bulk` always at 1) |
+| `bake` | body, muscle | the rig and the humanform mesh exist. With `output = "normal"` it bakes the high copy into the skin's normal map (lookdev `detail.bake_normal_from_high`, matched), packs the image and removes the copy; the glb carries it as the skin's `normalTexture` |
 | `hair` | bake | baked; no garment bound; **no hair in the file already**. Runs humanform's `hair.add` and joins the hair into the body; a strand part the strand stage will chain stays its own object (its follow-through contract checked either way) |
 | `flesh` | bake, hair | baked; no garment bound - cut first, a garment carries no jiggle weights |
 | `moves` | bake, hair, flesh | baked; no garment bound - rig-anything measures arm hang against every mesh on the rig |
@@ -130,6 +140,16 @@ runner.build(spec, from_stage="moves", to_stage="moves", force=True)   # rerun o
   forgets the records of every stage after it.
 - `from_stage` refuses when an earlier stage never ran in the file, or ran from another spec.
 - A stage whose checks fail raises `stages.StageRefused` naming what to run first.
+- **Where the minutes went:** `report["build"]` is `{quality, stage_seconds, skipped, total_seconds}` for
+  this build (plus `restarted` when it rebuilt from body). The same record goes into the .blend (Text
+  `character_pipeline:<id>:build`, `runner.build_record(ch)`) and, when export ran, the manifest's `build`
+  block, rewritten after review so it covers the whole build.
+- **Quality** (`quality.py`): "final" is every plugin's default and hashes exactly as before the knob
+  existed. "preview"/"draft" pass cheaper settings - body fit iterations (draft also skips the face and
+  hands-and-feet fits and is never stored in the library), review frames/views/cell size, the muscle
+  normal map size, the hair cap's subdivision - and put them in those stages' hashes, so a final build of a
+  draft file reruns them. Dante: final 27.8 s, draft 17.3 s (0.62). What is left is rig-anything's (moves
+  6.5 s, export 3.1 s), which has no cheaper setting yet.
 - With `save` (the default) the .blend goes to `export.blend`, refusing to overwrite a file holding a
   scene this session lacks.
 
@@ -143,11 +163,15 @@ What the stages write that is the pipeline's own convention rather than a plugin
   to be rerun, rather than falling back to the mesh top.
 - **The manifest has no `upper_body`.** The clips' upper-body parameters are in the move reports
   stored on the actions; nothing in Godot read the copy.
-- **Hair goes on once.** It is joined into the body, because rig-anything exports one mesh, and a join
-  cannot be undone - so the stage refuses when the body already has hair (`stages.haired`, humanform's
-  `views.hair_objects`: a hair material on a slot, or a loose `humanform_hair` object). **To change
-  `[hair]`, rebuild from `body`**, the one stage that clears the character out of the file:
-  `runner.build(spec, from_stage="body")`. Rerunning hair alone used to stack a second layer on the
+- **Hair and muscle go on once.** Hair is joined into the body, because rig-anything exports one mesh,
+  and a join cannot be undone; muscle is shape keys `bake` bakes in. So the hair stage refuses when the
+  body already has hair (`stages.haired`, humanform's `views.hair_objects`: a hair material on a slot, or
+  a loose `humanform_hair` object), and muscle when it has definition or is baked. **A whole build whose
+  `[hair]` or `[muscle]` changed, appeared or was dropped rebuilds from `body` by itself**
+  (`stages.RESTARTS_FROM_BODY`, `CARRIED`; body is forced, since its own hash did not change) and says so in
+  `report["build"]["restarted"]`. Before this a changed preset refused, and its advice -
+  `from_stage="body"` - skipped body as unchanged and refused again. A build started at `hair` still refuses.
+  Rerunning hair alone used to stack a second layer on the
   first - the old bun stayed in the mesh, and humanform's landmarks read the previous cap (weighted 1.0
   to the head bone) as scalp, so the crown rose 7.8 mm and the head unit `h` grew 6.8%, moving the whole
   hairline. On a rebuild where only `[hair]` changed, bake's hash is unchanged and bake is skipped, so

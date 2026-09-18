@@ -725,6 +725,7 @@
   },
   "stage_names": [
    "body",
+   "muscle",
    "bake",
    "hair",
    "flesh",

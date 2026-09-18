@@ -22,7 +22,8 @@ VARS = {"rig_analysis": ("RA_SCRIPTS", "rig-anything"), "humanform": ("HF_SCRIPT
 # Plugins a build uses when they are there: package -> (variable, plugin, its folder under the plugin)
 OPTIONAL = {"lookdev_blender": ("LD_SCRIPTS", "lookdev", "blender")}
 # The optional packages a stage reads, by stage name, as a function of the spec
-STAGE_READS = {"hair": lambda ch: ("lookdev_blender",) if ch.hair is not None and ch.hair.kind != "shell_bun" else ()}
+STAGE_READS = {"hair": lambda ch: ("lookdev_blender",) if ch.hair is not None and ch.hair.kind != "shell_bun" else (),
+               "bake": lambda ch: ("lookdev_blender",) if ch.muscle is not None and ch.muscle.output == "normal" else ()}
 
 
 def scripts(package):
