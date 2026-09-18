@@ -116,6 +116,7 @@ var walk_clip := ""
 var idle_clip := ""
 var mods: Array = []                # {name, mod, finite}
 var started := false
+var refused := false  # bad arguments: _initialize has asked to quit, so _process must not start
 var t := 0.0
 var seg := -1
 var seg_t := 0.0
@@ -140,16 +141,22 @@ func _initialize() -> void:
 		for k in String(args["require"]).split(","):
 			if not k in ["finite", "within_limit", "moved", "on_limit", "within_body"]:
 				printerr("verify_flesh: require=%s: no check %s" % [args["require"], k])
+				refused = true
 				quit(2)
+				return
 			required.append(k)
 	if args.get("scene", "") == "":
 		printerr("verify_flesh: pass scene=res://...")
+		refused = true
 		quit(2)
+		return
 	course_name = String(args.get("course", "full"))
 	if course_name != "full":
 		if not COURSES.has(course_name):
 			printerr("verify_flesh: course=%s is not one of full, %s" % [course_name, ", ".join(COURSES.keys())])
+			refused = true
 			quit(2)
+			return
 		course = COURSES[course_name]
 
 
@@ -250,6 +257,8 @@ func _play(clip: String, rate: float) -> void:
 
 
 func _process(delta: float) -> bool:
+	if refused:
+		return true
 	if not started:
 		started = true
 		if not _start():
