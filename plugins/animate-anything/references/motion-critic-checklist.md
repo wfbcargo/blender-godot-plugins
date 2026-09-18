@@ -178,6 +178,11 @@ same character across two rounds, it stops being a judgement and becomes a numbe
 `verify` as `arm_pose` was written (04 d). The strip has to justify the threshold - measure the
 flagged clips and the passing ones, and put the line between them, not at a round number.
 
+`verify.arm_swing` came out of this loop and is what that looks like: the reach was flagged on
+Walter's walk and again on his idle, `hand_rise` read it as passing, and the line - a swinging arm
+comes back within 2 degrees of hanging - was set from 49 shipped clips against the flagged one. The
+idle half is still a proposal, because there the two populations are 2 degrees apart.
+
 ## Known blind spots of the strips
 
 - **A side view cannot tell the near arm from the far one.** A far arm forward reads exactly like a
