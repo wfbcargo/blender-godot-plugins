@@ -147,6 +147,14 @@ static func _apply_sun(sun: DirectionalLight3D, sun_def: Dictionary, physical: b
 			rep["warnings"].append("the recipe has a sun but no DirectionalLight3D was given")
 		return
 	sun.visible = not sun_def.is_empty()
+	if sun_def.has("soft_shadow_filter_quality"):
+		# Project-wide (RenderingServer), not the light's: rendering/lights_and_shadows/directional_shadow/
+		# soft_shadow_filter_quality. Godot's default, soft low, filters a sun of 0.5 deg with too few taps, and on
+		# skin that faces away from the sun (the front of the neck, the sides of the fingers) the taps alias against
+		# the shadow map's texels into a regular lattice of lit dots. High (4) is the lowest that is clean at 1 m.
+		var q := int(sun_def["soft_shadow_filter_quality"])
+		RenderingServer.directional_soft_shadow_filter_set_quality(q)
+		rep["changes"].append("directional soft shadow filter quality %d (project-wide)" % q)
 	if sun_def.is_empty():
 		rep["changes"].append("sun hidden (the recipe has none)")
 		return

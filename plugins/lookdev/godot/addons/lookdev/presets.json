@@ -5,6 +5,7 @@
       "kind": "day",
       "description": "Clear sky, high sun. Hard shadows, cool blue fill, warm-white key.",
       "sun": {
+        "soft_shadow_filter_quality": 4,
         "elevation": 58,
         "kelvin": 5600,
         "lux": 100000,
@@ -59,6 +60,7 @@
       "kind": "golden",
       "description": "Low warm sun, long soft-edged shadows, strong warm/cool contrast, light haze.",
       "sun": {
+        "soft_shadow_filter_quality": 4,
         "elevation": 7,
         "kelvin": 3000,
         "lux": 25000,
@@ -113,6 +115,7 @@
       "kind": "overcast",
       "description": "Uniform grey sky, no hard shadows. Shape comes from AO and GI; low contrast, denser haze.",
       "sun": {
+        "soft_shadow_filter_quality": 4,
         "elevation": 55,
         "kelvin": 6800,
         "lux": 300,
@@ -166,6 +169,7 @@
       "_needs": "Opens exposure about 4.5 stops for light entering a room through openings. On an open stage (sky overhead) everything clips to white, so the tools refuse it there unless forced.",
       "description": "Sun and sky entering through openings. GI does the work; exposure opens up ~4.5 stops over exterior and windows are allowed to clip.",
       "sun": {
+        "soft_shadow_filter_quality": 4,
         "elevation": 40,
         "kelvin": 5600,
         "lux": 100000,
@@ -210,6 +214,7 @@
       "kind": "night",
       "description": "Moonlight as a dim cool key over a near-black sky. Expects practical lights (lumens at 2000-3000 K) to be placed by hand.",
       "sun": {
+        "soft_shadow_filter_quality": 4,
         "elevation": 35,
         "kelvin": 7500,
         "lux": 0.3,

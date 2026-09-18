@@ -26,13 +26,16 @@ lashes by `LASH_DARKEN`; lashes are two-sided (glTF doubleSided). Brow strands l
 across it from the lower edge (roots) to the upper edge (tips), U is sheared so a strand runs up and
 toward the temple, upright at the brow's head and nearly along it by its tail.
 
-Brows and lashes replace lookdev's tiled strand pixels with `card_texture`: separate hairs two or three
-texels wide tapering to under one, skin between them (the hair texture's opaque middle band made the brow an
-ink stroke and the lashes an eyeliner ring). U runs once along each brow and along each lid's card (upper lid
+Brows and lashes draw their own pixels (`card_pixels`) and hand them to lookdev's material (`pixels=`, card
+mode) rather than overwriting the images lookdev made: separate hairs two or three texels wide tapering to under
+one, skin between them (the hair texture's opaque middle band made the brow an ink stroke and the lashes an
+eyeliner ring). U runs once along each brow and along each lid's card (upper lid
 in the texture's left half, lower in its right), so the brow feathers in at its head and thins into its tail
-and the lower lashes are fewer and finer. In Godot the cards take scissor and no rim, backlight or
-anisotropy (`CARD_GODOT`: at a grazing angle they lit a brow's tail into a grey sliver); in Blender their
-shadows are transparent (an opaque lash card shadowed a streak onto the cheek).
+and the lower lashes are fewer and finer. In Godot the cards are alpha-blended with no rim, backlight or
+anisotropy (`CARD_GODOT`: at a grazing angle they lit a brow's tail into a grey sliver), and their alpha extras
+(`CARD_ALPHA`) have lookdev rebuild the mips to keep each level's coverage and ramp alpha over 0.5 +- 0.25:
+scissor drew them as hard, pixelated black cut-outs, twice as dark in their darkest pixels as Blender's close
+set. In Blender their shadows are transparent (an opaque lash card shadowed a streak onto the cheek).
 
 **Body hair** (off unless asked): a shell 0.3 mm off the skin over the regions, cut from the body's faces
 by bone weight (and facing, for the torso), with a sparse strand texture - the hair texture with most of
@@ -63,20 +66,25 @@ BODY_HAIR_KEEP = 0.22       # share of the texture's strand bands kept
 BODY_HAIR_LIFT_M = 0.0003
 TILE_M = 0.04
 GODOT_SCISSOR = 2           # BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+GODOT_BLEND = 1             # BaseMaterial3D.TRANSPARENCY_ALPHA
 
 # lookdev hair preset overrides per part (keys of lookdev's `hair` material preset). Brows and lashes then
-# get their own texture (`card_texture`): U runs once along each brow / lid (0..1, not tiled), so the strands
+# get their own pixels (`card_pixels`): U runs once along each brow / lid (0..1, not tiled), so the strands
 # can thin toward the brow's tail and the lid's corners, and every strand is a hair's width with skin between.
 LOOK = {
-    "brows": {"texture_px": [1024, 256]},
-    "lashes": {"texture_px": [1024, 256]},
+    "brows": {"texture_px": [1024, 256], "mode": "card"},
+    "lashes": {"texture_px": [1024, 256], "mode": "card"},
     "body_hair": {"texture_px": [256, 512], "strands_per_tile": 48, "root_zone": [0.05, 0.4], "tip_zone": [0.6, 0.95],
                   "root_fade": [0.0, 0.2], "tip_mult": 1.15, "gap_mult": 0.5, "wave_px": 1.2},
 }
 # Godot: no rim, backlight or anisotropic sheen on hairs this fine - at a grazing angle (a brow's tail round
 # the temple) they light a whole card's strands into a grey sliver
-CARD_GODOT = {"transparency": GODOT_SCISSOR, "rim_enabled": False, "backlight_enabled": False,
+CARD_GODOT = {"transparency": GODOT_BLEND, "rim_enabled": False, "backlight_enabled": False,
               "anisotropy_enabled": False, "roughness": 0.75, "metallic_specular": 0.2}
+# blended cards: mips that keep level 0's coverage (lashes lost 60% of it by the fifth mip, and a blended
+# card's mean alpha is its coverage) and alpha ramped over 0.5 +- 0.25, so a hair is dark in its core and soft
+# at its sides - what Blender's supersampled alpha test looks like. edge 0.5 left brows a grey haze, 0.15 too dark.
+CARD_ALPHA = {"coverage_mips": 0.5, "edge": 0.25}
 # the lash texture's two halves: upper lid in U 0.02..0.48, lower lid in 0.52..0.98 (outer corner at 0.02 / 0.98)
 LASH_U = {"upper": (0.02, 0.48), "lower": (0.52, 0.98)}
 
@@ -138,18 +146,26 @@ def _material(name, colour, uv_name, part, double_sided=False):
         mat = look.material(name, srgb=colour, roughness=0.5)
         return mat, {"material": mat.name, "source": "flat (lookdev_blender not importable)"},             (1.0 if part in ("brows", "lashes") else TILE_M)
     over = dict(LOOK[part])
-    # in Godot, scissor rather than the hair preset's depth pre-pass: a card this fine and this close to the
-    # skin blends its many sub-cutoff strand fringes into a grey haze (eyeshadow round the lashes, a smudge under
-    # the brow); cut at the same 0.5 the exporter writes, it is strands with skin between them
+    # in Godot, not the hair preset's depth pre-pass: a card this fine and this close to the skin blended its
+    # many sub-cutoff strand fringes into a grey haze (eyeshadow round the lashes, a smudge under the brow).
+    # Body hair takes scissor at the 0.5 the exporter writes; brows and lashes blend with CARD_ALPHA's ramp,
+    # which is what removed the haze (coverage-kept mips, alpha 0 below 0.25).
     godot = dict(ld_hair.preset("hair")["godot"], transparency=GODOT_SCISSOR)
+    pixels, card_rep = None, None
     if part in ("brows", "lashes"):
         godot.update(CARD_GODOT)
         godot.pop("backlight_share", None)
+        over["alpha"] = dict(CARD_ALPHA)
+        W, H = over["texture_px"]
+        *pixels, card_rep = card_pixels(part, colour, W, H)
+    elif part == "body_hair":
+        p = ld_hair.preset("hair", **over)
+        lin = _srgb_to_linear(np.asarray(colour[:3], np.float64))
+        pixels = _sparse(*ld_hair.strand_texture(lin, p, seed=0))
     over["godot"] = godot
-    mat, rep = ld_hair.material(name, colour, uv_map=uv_name, **over)
-    if part in ("brows", "lashes"):
-        rep = dict(rep, texture=card_texture(part, colour, bpy.data.images[rep["image"]],
-                                             bpy.data.images.get(rep["gltf"]["normalTexture"])))
+    mat, rep = ld_hair.material(name, colour, uv_map=uv_name, pixels=pixels, **over)
+    if card_rep is not None:
+        rep = dict(rep, texture=card_rep)
     if hasattr(mat, "use_transparent_shadow"):
         mat.use_transparent_shadow = True       # a card's shadow is its strands', not the whole card's
     if double_sided:
@@ -238,11 +254,11 @@ def _lash_hairs(W, H, rng):
     return cover, tone
 
 
-def card_texture(part, colour, img, nimg=None, seed=5):
-    """Overwrite a lookdev hair material's strand texture with separate hairs for a brow or lash card: each
-    hair two or three texels wide at the root tapering to under one, skin (alpha 0) between them, colour the
-    part's colour with a little per-hair variation and lighter toward the tip. Returns a small report."""
-    W, H = img.size
+def card_pixels(part, colour, W, H, seed=5):
+    """(colour, normal, report) for a brow or lash card, for lookdev's `hair.material(pixels=...)`: separate
+    hairs two or three texels wide at the root tapering to under one, skin (alpha 0) between them, colour the
+    part's colour with a little per-hair variation and lighter toward the tip. Arrays are (H, W, 4), rows
+    bottom-up (row 0 is V = 0), colour sRGB with straight alpha, normal a tangent-space map."""
     rng = np.random.RandomState(seed)
     cover, tone = (_brow_hairs if part == "brows" else _lash_hairs)(W, H, rng)
     lin = _srgb_to_linear(np.asarray(colour[:3], np.float64))
@@ -250,18 +266,13 @@ def card_texture(part, colour, img, nimg=None, seed=5):
     px = np.empty((H, W, 4), np.float32)
     px[:, :, :3] = np.where(rgb <= 0.0031308, rgb * 12.92, 1.055 * np.power(rgb, 1 / 2.4) - 0.055)
     px[:, :, 3] = np.clip(cover * 1.15, 0.0, 1.0)
-    img.pixels.foreach_set(px.ravel())
-    img.pack()
-    if nimg is not None and tuple(nimg.size) == (W, H):
-        # each hair a rounded ridge across U
-        slope = (np.roll(cover, -1, axis=1) - np.roll(cover, 1, axis=1)) * 0.5
-        nrm = np.stack([-slope, np.zeros_like(slope), np.ones_like(slope)], axis=2)
-        nrm /= np.linalg.norm(nrm, axis=2, keepdims=True)
-        npx = np.ones((H, W, 4), np.float32)
-        npx[:, :, :3] = nrm * 0.5 + 0.5
-        nimg.pixels.foreach_set(npx.ravel())
-        nimg.pack()
-    return {"texture_px": [W, H], "coverage": round(float((px[:, :, 3] >= 0.5).mean()), 4), "seed": seed}
+    # each hair a rounded ridge across U
+    slope = (np.roll(cover, -1, axis=1) - np.roll(cover, 1, axis=1)) * 0.5
+    nrm = np.stack([-slope, np.zeros_like(slope), np.ones_like(slope)], axis=2)
+    nrm /= np.linalg.norm(nrm, axis=2, keepdims=True)
+    npx = np.ones((H, W, 4), np.float32)
+    npx[:, :, :3] = nrm * 0.5 + 0.5
+    return px, npx, {"texture_px": [W, H], "coverage": round(float((px[:, :, 3] >= 0.5).mean()), 4), "seed": seed}
 
 
 def _components(n, faces):
@@ -378,20 +389,12 @@ def _cards(ob, co, part, base, rig, colour, uv_name, head):
 
 # ------------------------------------------------------------------------------------------ body hair
 
-def _sparse(mat_rep, seed=3):
-    """Thin the body hair texture: keep BODY_HAIR_KEEP of its strand bands, each rolled along V at random so
-    the kept strands do not start on one row."""
-    img = bpy.data.images[mat_rep["image"]]
-    nimg = bpy.data.images.get(mat_rep["gltf"]["normalTexture"]) if mat_rep.get("gltf") else None
-    W, H = img.size
-    px = np.empty(W * H * 4, np.float32)
-    img.pixels.foreach_get(px)
-    px = px.reshape(H, W, 4)
-    npx = None
-    if nimg is not None:
-        npx = np.empty(W * H * 4, np.float32)
-        nimg.pixels.foreach_get(npx)
-        npx = npx.reshape(H, W, 4)
+def _sparse(px, npx, seed=3):
+    """Thin the body hair's strand pixels (lookdev's, as `strand_texture` returns them) before they become the
+    material's images: keep BODY_HAIR_KEEP of its strand bands, each rolled along V at random so the kept
+    strands do not start on one row. Returns (colour, normal)."""
+    px, npx = np.array(px, np.float64), np.array(npx, np.float64)
+    H, W = px.shape[:2]
     rng = np.random.RandomState(seed)
     band = max(2, W // LOOK["body_hair"]["strands_per_tile"])
     for x0 in range(0, W, band):
@@ -401,13 +404,8 @@ def _sparse(mat_rep, seed=3):
             continue
         shift = int(rng.randint(0, H))
         px[:, cols] = np.roll(px[:, cols], shift, axis=0)
-        if npx is not None:
-            npx[:, cols] = np.roll(npx[:, cols], shift, axis=0)
-    img.pixels.foreach_set(px.ravel())
-    img.pack()
-    if npx is not None:
-        nimg.pixels.foreach_set(npx.ravel())
-        nimg.pack()
+        npx[:, cols] = np.roll(npx[:, cols], shift, axis=0)
+    return px, npx
 
 
 def _weights_array(ob, name):
@@ -456,8 +454,6 @@ def _body_hair(ob, co, base, rig, colour, uv_name, sex):
     nrm /= np.maximum(np.linalg.norm(nrm, axis=1), 1e-9)[:, None]
     masks = body_hair_regions(ob, co, nrm, sex)
     mat, mat_rep, tile = _material(f"{base}_body_hair", colour, uv_name, "body_hair")
-    if mat_rep.get("source") == "lookdev":
-        _sparse(mat_rep)
     region_of = np.full(len(co), -1)
     names = sorted(masks)
     for k, name in enumerate(names):
