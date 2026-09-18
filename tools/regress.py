@@ -617,7 +617,7 @@ def diff_text(name, changes, was="was", now="now", heading=""):
 
 def done_line(code, ok):
     """The last line of every run, exactly: a background wait matches on it."""
-    return "REGRESS DONE exit=%d, %d fixture%s ok" % (code, ok, "" if ok == 1 else "s")
+    return "REGRESS DONE exit=%d, %d fixtures ok" % (code, ok)  # never singular: waits match this literal
 
 
 def default_diff_path(keep):

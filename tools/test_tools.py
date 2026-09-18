@@ -83,7 +83,7 @@ def test_pieces():
         regress.DURATIONS.clear()
         regress.DURATIONS.update(saved)
     check("done line", regress.done_line(1, 18) == "REGRESS DONE exit=1, 18 fixtures ok")
-    check("done line, one", regress.done_line(0, 1) == "REGRESS DONE exit=0, 1 fixture ok")
+    check("done line, one", regress.done_line(0, 1) == "REGRESS DONE exit=0, 1 fixtures ok")
     warn = regress.volatile_blocks({"build_timing": {"stage": 1, "result": 2}, "a": [{"when": {"x": 1}}]})
     check("VOLATILE dict warned", [k for k, _ in warn] == ["build_timing", "a[0].when"], str(warn))
     quiet = regress.volatile_blocks({"record": {"stages_timed": ["a"]}, "paths": ["C:/x"], "build": {"stage_count": {"x": 1}},

@@ -120,3 +120,8 @@ here (renaming the key adds keys to a golden, which is a fixture change for a re
 - Not done from 06's list: `--restamp` and refusing `--update` when HEAD is not a descendant of main.
   bump.py says it does not restamp goldens (no mechanism exists; the stamp is never compared).
 - `--update` keeps a within-tolerance golden, so its `plugins` version stamp stays at the old version.
+
+## Merge step (Fri Sep 18 09:30:35 CDT 2026)
+
+- Main had not moved since the cut; no merge needed.
+- Critic found `done_line` printed "1 fixture ok" (singular) for K=1, so a wait on the documented literal `fixtures ok` missed one-fixture runs. Fixed: always "fixtures". test_tools.py "done line, one" now asserts the plural (the old code fails it).
