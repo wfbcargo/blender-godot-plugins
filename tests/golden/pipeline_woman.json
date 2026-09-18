@@ -1,14 +1,230 @@
 {
  "fixture": "pipeline_woman",
  "plugins": {
-  "character-pipeline": "0.8.0",
+  "character-pipeline": "0.9.0",
   "follow-through": "0.6.1",
   "humanform": "0.10.0",
-  "rig-anything": "0.24.0",
+  "rig-anything": "0.25.0",
   "wardrobe": "0.5.0"
  },
  "report": {
   "body_stature": 1.6985,
+  "close": {
+   "close_json": true,
+   "control_empty": {
+    "face": [
+     "empty",
+     "off_body"
+    ],
+    "feet": [
+     "empty"
+    ],
+    "hand_palm.L": [
+     "empty",
+     "off_body"
+    ]
+   },
+   "control_wrong_bone": {
+    "raised": [
+     [
+      "hand_palm.L",
+      "off_centre"
+     ]
+    ]
+   },
+   "count": 17,
+   "draft": {
+    "failed": [],
+    "table": {
+     "draft": {
+      "under_bust": false,
+      "views": [
+       "face",
+       "hand_palm.L",
+       "hand_back.L"
+      ]
+     },
+     "final": {
+      "under_bust": true,
+      "views": null
+     },
+     "preview": {
+      "under_bust": false,
+      "views": [
+       "face",
+       "eyes",
+       "hand_palm.L",
+       "hand_back.L",
+       "hand_palm.R",
+       "hand_back.R"
+      ]
+     }
+    },
+    "views": [
+     "face",
+     "hand_palm.L",
+     "hand_back.L"
+    ]
+   },
+   "failed": [],
+   "gdignore": true,
+   "pngs": [
+    "bust.png",
+    "crotch.png",
+    "eyes.png",
+    "face.png",
+    "face_3q.png",
+    "feet.png",
+    "foot_inner.L.png",
+    "foot_outer.L.png",
+    "hand_back.L.png",
+    "hand_back.R.png",
+    "hand_palm.L.png",
+    "hand_palm.R.png",
+    "head_back.png",
+    "head_side.png",
+    "knees.png",
+    "sheet.png",
+    "under_bust.png"
+   ],
+   "pose": {
+    "action": "FixWoman_Idle",
+    "frame": 1
+   },
+   "tiles": {
+    "bust": {
+     "coverage": 0.76,
+     "distance_m": 0.8,
+     "ok": true,
+     "on_body": true,
+     "subject_off": 0.14
+    },
+    "crotch": {
+     "coverage": 0.74,
+     "distance_m": 0.8,
+     "ok": true,
+     "on_body": true,
+     "subject_off": 0.14
+    },
+    "eyes": {
+     "coverage": 0.78,
+     "distance_m": 0.4,
+     "ok": true,
+     "on_body": true,
+     "subject_off": 0.0
+    },
+    "face": {
+     "coverage": 0.38,
+     "distance_m": 0.6,
+     "ok": true,
+     "on_body": true,
+     "subject_off": 0.17
+    },
+    "face_3q": {
+     "coverage": 0.39,
+     "distance_m": 0.6,
+     "ok": true,
+     "on_body": true,
+     "subject_off": 0.19
+    },
+    "feet": {
+     "coverage": 0.24,
+     "distance_m": 1.0,
+     "ok": true,
+     "on_body": false,
+     "subject_off": 0.0
+    },
+    "foot_inner.L": {
+     "coverage": 0.17,
+     "distance_m": 0.6,
+     "ok": true,
+     "on_body": true,
+     "subject_off": 0.09
+    },
+    "foot_outer.L": {
+     "coverage": 0.21,
+     "distance_m": 0.6,
+     "ok": true,
+     "on_body": true,
+     "subject_off": 0.09
+    },
+    "hand_back.L": {
+     "coverage": 0.8,
+     "distance_m": 0.5,
+     "ok": true,
+     "on_body": true,
+     "subject_off": 0.02
+    },
+    "hand_back.R": {
+     "coverage": 0.8,
+     "distance_m": 0.5,
+     "ok": true,
+     "on_body": true,
+     "subject_off": 0.02
+    },
+    "hand_palm.L": {
+     "coverage": 0.48,
+     "distance_m": 0.5,
+     "ok": true,
+     "on_body": true,
+     "subject_off": 0.06
+    },
+    "hand_palm.R": {
+     "coverage": 0.48,
+     "distance_m": 0.5,
+     "ok": true,
+     "on_body": true,
+     "subject_off": 0.06
+    },
+    "head_back": {
+     "coverage": 0.32,
+     "distance_m": 1.0,
+     "ok": true,
+     "on_body": true,
+     "subject_off": 0.15
+    },
+    "head_side": {
+     "coverage": 0.27,
+     "distance_m": 1.0,
+     "ok": true,
+     "on_body": true,
+     "subject_off": 0.15
+    },
+    "knees": {
+     "coverage": 0.45,
+     "distance_m": 0.8,
+     "ok": true,
+     "on_body": false,
+     "subject_off": 0.0
+    },
+    "under_bust": {
+     "coverage": 0.75,
+     "distance_m": 0.42,
+     "ok": true,
+     "on_body": true,
+     "subject_off": 0.0
+    }
+   },
+   "views": [
+    "face",
+    "face_3q",
+    "eyes",
+    "head_side",
+    "head_back",
+    "hand_palm.L",
+    "hand_back.L",
+    "hand_palm.R",
+    "hand_back.R",
+    "bust",
+    "crotch",
+    "knees",
+    "feet",
+    "foot_inner.L",
+    "foot_outer.L",
+    "under_bust"
+   ],
+   "wears_top": true
+  },
   "dressed_flesh_edit": {
    "bound_after": [],
    "bound_before": [

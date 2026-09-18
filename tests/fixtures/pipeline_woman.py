@@ -248,11 +248,58 @@ def build():
         "fresh_session": fresh,
         "review": H.review_sheet(first["review"]["report"]),
         "review_meshes": first["review"]["report"]["meshes"],
+        "close": _close(ch, first["review"]["report"]),
         "skin": _skin(ch, first["export"]["report"]["glb"]),
     }
     # last, as it rebuilds the body: a [flesh] edit on this dressed file (what a resumed build of Belle meets)
     result["dressed_flesh_edit"] = _dressed_flesh_edit(ch)
     return result
+
+
+def _close(ch, review):
+    """The review stage's close-up look set (rig-anything `closeups`, 06 rank 1): at final every view and, since
+    she wears a sports top, the 0.42 m under-bust view, each tile on disk and passing its checks (coverage and
+    how far the view's own bones sit from the tile's centre are kept to 2 places: the pose is exact, the pixels
+    are EEVEE's). Then the controls, which must fail: a palm camera aimed from the other hand's bone
+    (`off_centre`), and a set of a speck under the floor instead of the body (`empty` on every tile). Last the
+    draft set, face and the left hand. The set on disk is rewritten by these, so it is read first."""
+    import bpy
+    from rig_analysis import closeups
+    from character_pipeline import quality, stages
+    c = review.get("close") or {}
+    d = stages.close_dir(ch)
+    out = {"pngs": sorted(f for f in os.listdir(d) if f.endswith(".png")) if os.path.isdir(d) else [],
+           "close_json": os.path.isfile(os.path.join(d, "close.json")),
+           "gdignore": os.path.isfile(os.path.join(d, ".gdignore")),
+           "count": c.get("count"), "pose": c.get("pose"), "views": c.get("views"), "failed": c.get("failed"),
+           "wears_top": stages.wears_top(ch),
+           "tiles": {v: {"ok": t["ok"], "coverage": round(t["coverage"], 2),
+                         "subject_off": None if t["subject_off"] is None else round(t["subject_off"], 2),
+                         "on_body": t["on_body"], "distance_m": t["distance_m"]}
+                     for v, t in (c.get("tiles") or {}).items()}}
+    meshes = review["meshes"]
+    try:
+        stages.run_close(ch, {"quality": "final"}, meshes, aim_override={"hand_palm.L": "hand.R"})
+        out["control_wrong_bone"] = "passed (it must fail)"
+    except RuntimeError as exc:
+        import re
+        # each failed tile is "<view>: <reason> (...)[; <reason> (...)]", quoted either way by the list's repr
+        out["control_wrong_bone"] = {"raised": sorted(set(re.findall(r"""["']([\w.]+): (\w+)""", str(exc))))}
+    me = bpy.data.meshes.new("close_speck")
+    me.from_pydata([(0, 0, -5.0), (0.001, 0, -5.0), (0, 0.001, -5.0)], [], [(0, 1, 2)])
+    speck = bpy.data.objects.new("close_speck", me)
+    bpy.context.scene.collection.objects.link(speck)
+    try:
+        r = closeups.look_set([speck.name], ch.rig, os.path.join(os.path.dirname(d), "close_control"),
+                              views=("face", "hand_palm.L", "feet"), action=stages.close_pose(ch))
+        out["control_empty"] = {v: [f.split(" ")[0] for f in t["fail"]] for v, t in r["tiles"].items()}
+    finally:
+        bpy.data.objects.remove(speck, do_unlink=True)
+        bpy.data.meshes.remove(me)
+    draft = stages.run_close(ch, {"quality": "draft"}, meshes)
+    out["draft"] = {"views": draft["views"], "failed": draft["failed"],
+                    "table": {q: quality.settings(q, "close") for q in quality.QUALITIES}}
+    return out
 
 
 def _dressed_flesh_edit(ch):

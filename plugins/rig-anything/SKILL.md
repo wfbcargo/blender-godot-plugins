@@ -421,6 +421,26 @@ the glb is written and verified:
   `frames`, `cell_px`, `title`, `centre_poses`). `review.sheet(meshes, rig, actions, out_dir, ...)` renders any
   meshes on a rig - several, e.g. a body with its garments - without exporting.
 
+**A close-up look set of a person** (`closeups.look_set`, improvements 06 rank 1): lit EEVEE close-ups of
+the face (front and three-quarter), eyes, the head from the side and behind, each hand's palm and back,
+the bust, the crotch, the knees, both feet and the left foot's inner and outer side, at 0.4-1 m, plus a
+0.42 m under-bust view on request (`under_bust=True`). One frame of one clip is frozen (`action`, `frame`,
+default the first) and every camera is aimed from that posed frame's bones - the head's facing, the
+knuckle line and the hand's length, the shoulders, the hip and knee joints, the foot and toe bones; the eyes
+from the sclera faces - with the lens chosen so the part fills the tile at the stated distance (the view
+math of lookdev's Godot `close_shot.gd`). Each `<view>.png` carries a label band (view, distance, width of
+the tile in metres, clip and frame); `sheet.png` has them all at half size, `close.json` the numbers. A tile
+fails (`failed`, the pipeline's review stage raises) when the figure covers under 5% of it (`empty`), when the
+centroid of the view's own bones projects more than 0.3 of the tile from its centre (`off_centre`), or when
+no figure is drawn there (`off_body`, body views). `aim_override={view: bone}` is the control: a camera aimed
+from the wrong bone fails. About 2.8 s for the full set of a person, 0.6-0.8 s for three tiles.
+
+```python
+from rig_analysis import closeups, review
+r = closeups.look_set(review.bound_meshes("Walter_rig", first="Walter_body"), "Walter_rig",
+                      "C:/.../review/walter/close", action="Walter_Idle", under_bust=True)
+```
+
 **In Godot, drive it with `MovesController`.** Copy
 `${CLAUDE_PLUGIN_ROOT}/godot/addons/rig_anything` to `<project>/addons/` once. It is a
 `CharacterBody3D` (`class_name MovesController`) that reads any `.moves.json`: set

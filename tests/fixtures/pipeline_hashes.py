@@ -82,6 +82,12 @@ SHELL = BODY + '''
 kind = "shell_bun"
 '''
 
+# no close-up set: the review stage reads nothing of rig-anything's closeups.py
+NOCLOSE = BODY + '''
+[review]
+close = false
+'''
+
 # a muscle normal map, which the bake stage bakes with lookdev's detail.py
 NORMAL = BODY + '''
 [muscle]
@@ -190,7 +196,7 @@ def build():
     from character_pipeline import quality, spec
 
     specs = {}
-    for name, text in (("full", FULL), ("shell", SHELL), ("normal", NORMAL)):
+    for name, text in (("full", FULL), ("shell", SHELL), ("normal", NORMAL), ("noclose", NOCLOSE)):
         path = os.path.join(root, "characters", f"fixhash_{name}.toml")
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(text)
@@ -244,6 +250,9 @@ def build():
         ("follow-through user registry", "full", _write(user_types, {
             "schema": "follow-through-types/1", "materials": {}, "examples": [],
             "types": {"butt": {"limit_share": 0.5}}}), "flesh", "data:follow_through.registry"),
+        ("rig-anything closeups.py", "full", _edit_code(os.path.join(copies["RA_SCRIPTS"], "rig_analysis",
+                                                                     "closeups.py")), "review",
+         "code:rig_analysis.closeups"),
         ("wardrobe version", "full", _edit_version(P("WD_SCRIPTS", ".claude-plugin", "plugin.json")), None, None),
         # unrelated: nothing this spec reads
         ("unrelated: garments.json, a preset not worn", "full",
@@ -256,6 +265,8 @@ def build():
          _edit_code(os.path.join(copies["FT_SCRIPTS"], "follow_through", "cloth.py")), None, None),
         ("unrelated: face_regions.json without brows or lashes", "normal",
          _edit_json(P("HF_SCRIPTS", "data", "face_regions.json"), []), None, None),
+        ("unrelated: closeups.py with [review] close = false", "noclose",
+         _edit_code(os.path.join(copies["RA_SCRIPTS"], "rig_analysis", "closeups.py")), None, None),
     ]
     # a plugin version moves every stage (body first): the version of each plugin is in every stage's hash
     expect_first = {"wardrobe version": "body"}
@@ -306,6 +317,20 @@ def build():
                                                "moved": moved, "ok": bool(moved) and moved[0] == "bake"}
     if not out["final skin map size 2048 -> 1024"]["ok"]:
         failed.append("final skin map size")
+
+    # the close-up set of a final build is in review's hash (a final file reviewed before the set existed must
+    # review again and write it): the final views changed to the draft's move review and nothing before it
+    saved = quality.LEVELS["final"]["close"]
+    quality.LEVELS["final"]["close"] = dict(saved, views=quality.CLOSE_DRAFT)
+    try:
+        other = plan("full")
+    finally:
+        quality.LEVELS["final"]["close"] = saved
+    moved = [s for s in names["full"] if before[s] != other[s]]
+    out["final close-up views"] = {"spec": "full", "expect": "review", "first": moved[0] if moved else None,
+                                   "moved": moved, "ok": moved == ["review"]}
+    if not out["final close-up views"]["ok"]:
+        failed.append("final close-up views")
 
     # a spec edit moves its own stage on: [flesh] reruns flesh and after, never body, muscle, bake or hair
     import dataclasses

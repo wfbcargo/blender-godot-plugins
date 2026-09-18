@@ -14,7 +14,9 @@
     garments  wardrobe presets, cut from the fleshed skin (optional)
     export    the glb, .moves.json, the hair strand's own glb and the garment glbs, and the .blend
     review    the review sheet: every clip as 8-frame strips of the dressed character (on unless the spec
-              says `[review] enabled = false`)
+              says `[review] enabled = false`), and the close-up look set: lit EEVEE close-ups of the face,
+              eyes, head, hands, bust, crotch and feet in `review/<id>/close/` (`[review] close = false`
+              leaves it out; the quality picks the views)
 
 Each stage names the stages it needs and checks the file itself before it runs, so a stage run out of
 order refuses with the order rather than producing a wrong result. The orders below were each found
@@ -818,10 +820,49 @@ def check_review(ch):
     return None
 
 
+def close_dir(ch):
+    """Where the close-up look set goes: `<export dir>/review/<id>/close/`."""
+    return os.path.join(review_dir(ch), "close")
+
+
+def wears_top(ch):
+    """Whether the outfit has a garment over the bust: a wardrobe preset cut as a shirt or a dress."""
+    if not ch.outfit:
+        return False
+    from wardrobe import presets
+    return any(presets.get(g.preset).get("cut") in ("shirt", "dress")
+               for g in ch.outfit)
+
+
+def close_pose(ch):
+    """The clip and frame the close-up set is posed on: the Idle's first frame, else the first role's."""
+    roles = list(ch.moves.roles)
+    role = "Idle" if "Idle" in roles else (roles[0] if roles else None)
+    return f"{ch.name}_{role}" if role else None
+
+
+def run_close(ch, ctx, meshes, aim_override=None):
+    """rig-anything's close-up look set of the dressed character (`closeups.look_set`), at this quality's views;
+    raises when a tile shows no body or its camera is not on the part it names. `aim_override` is the stage
+    test's control only (a camera aimed from the wrong bone must fail)."""
+    from rig_analysis import closeups
+    q = quality_mod.settings(ctx["quality"], "close")
+    r = closeups.look_set(meshes, ch.rig, close_dir(ch), views=q["views"], action=close_pose(ch),
+                          under_bust=bool(q["under_bust"]) and wears_top(ch), title=ch.name,
+                          aim_override=aim_override)
+    if "error" in r:
+        raise RuntimeError(f"review: close-up set: {r['error']}")
+    if r["failed"]:
+        raise RuntimeError(f"review: close-up tiles that do not show their part: {r['failed']}")
+    return closeups.summary(r)
+
+
 def run_review(ch, ctx):
     """rig-anything's review sheet of the character as the game shows it: the body with its hair and every
-    garment bound to the rig, each clip the export shipped, at the shared scale (2.1 m for a person)."""
+    garment bound to the rig, each clip the export shipped, at the shared scale (2.1 m for a person) - then
+    the close-up look set (`run_close`), unless `[review] close = false`."""
     import json
+    import time
     from rig_analysis import review
     with open(os.path.join(ch.out_dir(), f"{ch.id}.moves.json"), encoding="utf-8") as fh:
         manifest = json.load(fh)
@@ -843,6 +884,10 @@ def run_review(ch, ctx):
         raise RuntimeError(f"review: strips whose body reaches the edge of the picture: {cut}")
     out = review.summary(r)
     out["meshes"] = meshes
+    if ch.review.close:
+        t0 = time.time()
+        out["close"] = run_close(ch, ctx, meshes)
+        out["close"]["stage_seconds"] = round(time.time() - t0, 2)
     return out
 
 

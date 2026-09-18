@@ -56,6 +56,7 @@ that belong to a plugin.
     [review]                     # optional: the review sheet written after export (default on)
     enabled = true
     frame_height_m = 2.1         # default: 2.1 m for an upright body, a size rung for a creature
+    close = true                 # the close-up look set in review/<id>/close/ (quality.py says which views)
 
     [export]
     dir = "assets/belle"         # under the project
@@ -182,6 +183,7 @@ class Export:
 class Review:
     enabled: bool = True
     frame_height_m: float | None = None       # None: rig-anything's review.frame_height picks it
+    close: bool = True                        # rig-anything's close-up look set, lit, in review/<id>/close/
 
 
 @dataclass
@@ -361,9 +363,10 @@ def parse(data, path=None):
                     blend=_take(e, "blend", str), note=_take(e, "note", str, default=""))
 
     r = _take(data, "review", dict, default={})
-    _unknown(r, ("enabled", "frame_height_m"), "[review]")
+    _unknown(r, ("enabled", "frame_height_m", "close"), "[review]")
     review = Review(enabled=_take(r, "enabled", bool, default=True, where="review."),
-                    frame_height_m=_take(r, "frame_height_m", float, where="review."))
+                    frame_height_m=_take(r, "frame_height_m", float, where="review."),
+                    close=_take(r, "close", bool, default=True, where="review."))
 
     muscle = None
     if "muscle" in data:

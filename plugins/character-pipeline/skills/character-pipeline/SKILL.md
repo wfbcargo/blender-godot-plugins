@@ -136,7 +136,7 @@ that no plugin owns yet. Tuned numbers live with their owners, and a spec only n
 | `strand` | hair, moves | only where the hair preset grows a strand that is a line (`ponytail`): a strand mesh is in the file and the move set is stored. Runs follow-through's `strand.prepare` |
 | `garments` | moves, flesh, strand | every role has a stored clip; jiggle bones present if the spec has flesh |
 | `export` | moves, garments, strand | every role has a stored clip; an outfit is bound if the spec has one; every strand mesh has its chain |
-| `review` | export | the glb and every role's clip exist |
+| `review` | export | the glb and every role's clip exist; the close-up set's bones (head, neck, shoulders, hands and fingers, thighs, shins, feet, toes) are found at run time |
 
 **`review`** writes rig-anything's review sheet of the character as the game shows it - the body with
 its hair and every garment bound to the rig, garments in their own colours - to `<export dir>/review/<id>/`: `<clip>_<view>.png`
@@ -152,7 +152,52 @@ exactly what the sheet exists to show. It is on unless the spec says so, and its
 [review]                           # optional
 enabled = true                     # false: no review stage
 frame_height_m = 2.1               # default: 2.1 m upright, a size rung for a creature
+close = true                       # false: no close-up look set
 ```
+
+**The close-up look set** (06 rank 1). After the sheet, the review stage writes rig-anything's
+`closeups.look_set` of the dressed character to `<export dir>/review/<id>/close/`: lit EEVEE close-ups, one
+`<view>.png` each with a label band (view, distance, the tile's width in metres, clip and frame), `sheet.png`
+(all of them at half size) and `close.json`. The pose is the **Idle clip's first frame** (else the first
+role's), frozen, and every camera is aimed from that posed frame's bones - never height fractions. The stage
+raises if a tile shows no body (`empty`, figure under 5% of the tile), if the view's own bones project off
+the tile's centre (`off_centre`, beyond 0.3 of the tile), or if no figure is drawn where they project
+(`off_body`). The quality picks the views (`quality.py` `close`, in the review hash at every quality):
+
+| view | distance | final | preview | draft |
+|---|---|---|---|---|
+| `face`, `eyes` | 0.6, 0.4 m | yes | yes | face |
+| `face_3q`, `head_side`, `head_back` | 0.6, 1.0, 1.0 m | yes | | |
+| `hand_palm.L/.R`, `hand_back.L/.R` | 0.5 m | yes | yes | the left hand |
+| `bust`, `crotch`, `knees` | 0.8 m | yes | | |
+| `feet`, `foot_inner.L`, `foot_outer.L` | 1.0, 0.6, 0.6 m | yes | | |
+| `under_bust` | 0.42 m | a spec wearing a top (a shirt or dress cut) | | |
+
+It adds about 2.8 s to a final review (study_man: review 4.1-4.8 s without it, 6.8-7.6 s with 15 tiles) and 0.6-0.8 s to a draft one (3 tiles). The pictures show the file's
+Blender materials; judge the Godot look with lookdev's `close-shot`.
+
+**Answering the look checklist from the set.** The look questions critics ask are humanform's
+`references/critic-checklist.md` (L4 parts, L6 hair, L5-L6 surface) plus the realism list in
+`docs/improvements/NEXT.md`. Each is answered from these tiles, with no script:
+
+| question | tiles |
+|---|---|
+| Nose, lips, eye sockets and brow readable; eyes at about half the head's height; ears between brow and nose base | `face`, `face_3q`, `head_side` |
+| Face free of mirror-perfect symmetry; forehead and lips not glossy | `face`, `eyes` |
+| Brows and lashes read; iris and sclera look like eyes | `eyes` |
+| Hairline reads as hair, not a cap edge; follows the forehead, temples, round the ear, down to the nape | `face_3q`, `head_side`, `head_back` |
+| At 1 m, hair reads as hair on a head, not a helmet | `head_side`, `head_back` (1.0 m) |
+| Bun, tie or tail attached, clear of ears, neck and shoulders, shaped like what it is; no seam at the cap | `head_back`, `head_side` |
+| Four fingers and a thumb, separate, with knuckles; nails; no orange web creases; hand about the face's length (compare the widths in the labels) | `hand_back.L/.R`, `hand_palm.L/.R` |
+| Deltoid cap at the shoulder; clavicles and sternum notch readable; breasts or chest plausible | `bust` |
+| A top's lower edge: no shelf bridging under the bust | `under_bust` |
+| Crotch anatomy (genitals present or smooth); inner thighs | `crotch` |
+| Kneecaps readable | `knees` |
+| Heel, arch and toes; toes in order, big toe largest; inner ankle bone higher than the outer | `feet`, `foot_inner.L`, `foot_outer.L` |
+| Surface free of faceting, lumps and seams | every tile |
+
+Not answerable here, and why: the dithered neck shadow and pore detail past 1 m are Godot effects (lookdev
+`close-shot`); proportions and silhouette are humancheck's `body.png`; motion is the strips above.
 
 Each stage that runs stores an input hash and its report in a Text datablock,
 `character_pipeline:<id>`. A text saves with the .blend and never reaches a glb. The hash covers the
