@@ -165,8 +165,8 @@ walk/run bank's arm questions do not apply to a rig with no arms; say `unclear` 
 
 **Locked numbers** are the clip's `clip_checks` in the manifest (`lowest_foot`, `loop_seam`, the
 slide and balance failures) and the build report's `arm_pose` per arm (`hand_rise`,
-`elbow_flex_deg`, `upper_arm_deg`). A new version holds them if every check still passes and no
-`arm_pose` range has moved toward its limit.
+`elbow_flex_deg`, `upper_arm_deg`, `arm_carry_deg`, `arm_swing_deg`). A new version holds them if
+every check still passes and no `arm_pose` range has moved toward its limit.
 
 **Keep the new version only if the locked numbers held and the critic prefers it**, or calls it
 `same` with fewer `gross` and `carriage` issues. Otherwise revert and try a different fix. A critic

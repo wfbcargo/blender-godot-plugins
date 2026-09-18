@@ -469,7 +469,7 @@
      "FixWoman_body",
      "FixWoman_rig"
     ],
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-bjmk9_o2\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "morph_targets": false,
     "options_dropped_by_this_blender": [],
     "skipped": [],
@@ -493,7 +493,7 @@
      "FixWoman_Run": 1.041667,
      "FixWoman_Walk": 1.375
     },
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-bjmk9_o2\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "generator": "Khronos glTF Blender I/O v5.2.40",
     "gltf_version": 2,
     "joints": 53,
@@ -559,7 +559,7 @@
      1162
     ],
     "count": 19,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-bjmk9_o2\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
     "frame_height_m": 2.1,
     "frames": {
      "FixWoman_Crouch": [
@@ -623,7 +623,7 @@
       29
      ]
     },
-    "seconds": 6.03,
+    "seconds": 5.34,
     "strips": {
      "FixWoman_Crouch": {
       "front": {
@@ -824,7 +824,7 @@
      "three_quarter"
     ]
    },
-   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
+   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-bjmk9_o2\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
    "stage": "done",
    "verified": {
     "durations_match": true,
@@ -955,6 +955,11 @@
     "arm_clearance_m": 0.019,
     "arm_pose": {
      "upper_arm.L": {
+      "arm_carry_deg": [
+       9.1,
+       11.1
+      ],
+      "arm_swing_deg": 2.0,
       "elbow_flex_deg": [
        12.0,
        12.0
@@ -969,6 +974,11 @@
       ]
      },
      "upper_arm.R": {
+      "arm_carry_deg": [
+       9.1,
+       11.1
+      ],
+      "arm_swing_deg": 2.0,
       "elbow_flex_deg": [
        12.0,
        12.0
@@ -1094,6 +1104,11 @@
     "arm_clearance_m": 0.0241,
     "arm_pose": {
      "upper_arm.L": {
+      "arm_carry_deg": [
+       0.5,
+       53.2
+      ],
+      "arm_swing_deg": 52.7,
       "elbow_flex_deg": [
        85.0,
        85.0
@@ -1108,6 +1123,11 @@
       ]
      },
      "upper_arm.R": {
+      "arm_carry_deg": [
+       0.5,
+       53.2
+      ],
+      "arm_swing_deg": 52.7,
       "elbow_flex_deg": [
        85.0,
        85.0
@@ -1259,6 +1279,11 @@
     "arm_clearance_m": 0.0215,
     "arm_pose": {
      "upper_arm.L": {
+      "arm_carry_deg": [
+       -9.1,
+       30.4
+      ],
+      "arm_swing_deg": 39.6,
       "elbow_flex_deg": [
        7.0,
        23.0
@@ -1273,6 +1298,11 @@
       ]
      },
      "upper_arm.R": {
+      "arm_carry_deg": [
+       -9.1,
+       30.4
+      ],
+      "arm_swing_deg": 39.6,
       "elbow_flex_deg": [
        7.0,
        23.0

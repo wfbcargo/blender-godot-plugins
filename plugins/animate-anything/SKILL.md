@@ -157,8 +157,12 @@ that used to pass now fails is not a reason to keep it.
 **When it flags the same thing twice**, on two characters or across two rounds, it stops being a
 judgement and becomes a check. `verify.arm_pose` is the worked example: `hand_rise` (the palm from
 hip 0 to shoulder 1), elbow flexion and the upper arm's angle from gravity, with a walk failing
-above 0.7 and a run above 0.65 or an elbow opened past 140 degrees. The strips have to justify the
-line - measure the flagged clips and the passing ones and put it between them.
+above 0.7 and a run above 0.65 or an elbow opened past 140 degrees. `verify.arm_swing` is the
+second, from this loop's own findings: a non-running clip whose arm swings 8 degrees or more and
+never comes back within 2 degrees of hanging is carried out in front, not swung. The strips have to
+justify the line - measure the flagged clips and the passing ones and put it between them. Here the
+20 shipped walks pass behind hanging by 3.9 to 17.5 degrees and the pre-fix Walter walk stops 8.8
+degrees in front of it.
 
 
 ## Rules

@@ -164,12 +164,82 @@ questions per clip type.
 The critic compares against the previous version's sheet. Keep a change only if the numeric checks
 held and the critic prefers it.
 
+**Done (animate-anything, branch `motion-critic`).**
+`animate-anything/references/motion-critic-checklist.md` is humancheck's protocol pointed at motion,
+and SKILL.md's "The motion critic" has the Agent call, the keep-or-revert rule and the
+flagged-twice-becomes-a-check rule. What the checklist adds beyond the questions above:
+
+- **Severities that aim a fix**: `gross` (floor, skating, a limb through the torso), `carriage`
+  (arms, head, spine held wrong), `timing` (contacts, swing, flight), `outfit`, `brief`.
+- **Locked numbers for keep-or-revert** are the manifest's `clip_checks` and the build report's
+  `arm_pose`, and a critic that prefers B while a check that passed now fails does not carry.
+- **Three blind spots written down**, because each produces a confident wrong answer: a side view
+  cannot tell the near arm from the far one (arm *alternation* is a front-view or an `arm_pose`
+  question), 8 samples alias against a 24-frame run's flight phase, and `centred: true` makes travel
+  unreadable from cell positions.
+- **Pairwise only when the sheets line up**: same `ortho_scale_m`, `cell_px` and `frames`.
+
+**Validated on the four sheets, questions first.** This session had no Agent tool, so the protocol
+was run by hand in its own order: the 32 questions were written from the two character specs and
+`review.json` alone and saved to disk before a single png was opened
+(`scratchpad/wf2/critic/questions.md`), then the strips were read in the recorded order. Verdicts in
+`scratchpad/wf2/critic/verdicts.json`.
+
+- **Pre-fix Walter walk and idle: flagged.** Five `carriage` answers - the arms are held out in
+  front through all 8 cells, on near-straight elbows, hands past the leading knee, at rest too.
+  Worth noting for step d: the critic *also* read `hand_rise` (-0.35 to -0.20, nothing like the 0.7
+  limit) and reported it as passing. The eye and the number disagreed, and the eye was right.
+- **Pre-fix Tomas run: flagged.** The forward hand at armpit height at f10 and f13, `hand_rise`
+  0.715 against the 0.65 limit agreeing.
+- **Both fixed versions: passed**, `preferred: B` on both pairs, no `gross` or `carriage` answers
+  left. The committed `ed654b0` glbs match their arm-fix rebuilds cell for cell.
+- The elbow question came back `yes` on the pre-fix run (flexion 67-83 degrees): the arm was raised,
+  not thrown straight, so `RUN_ELBOW_OPEN` is not what that clip trips. The protocol reporting a
+  number that passes is the point, not a miss.
+
+Comparison images at the fixed camera, pre-fix over fixed:
+`scratchpad/wf2/critic/renders/{walter_walk_right,walter_idle_right,walter_walk_front,tomas_run_right,tomas_run_front,tomas_walk_right}_prefix_over_fix.png`,
+plus `{walter_walk_right,tomas_run_right}_fix_over_current.png`.
+
 ### d. Numeric guards distilled from critic findings
 
 Whenever the critic catches something twice, turn it into a check, as `arm_pose` was. Candidates
 already known:
 
 - `hand_rise` above the chest during a walk. **Done.**
+- **An arm carried out in front instead of swung. Done (`verify.arm_swing`, branch
+  `motion-critic`).** This is the one the critic found twice - Walter's pre-fix walk and his idle -
+  and the one `hand_rise` cannot see, because those hands were at hip height, not chest height.
+  `arm_pose` now also reports `arm_carry_deg`, the whole arm's angle from gravity (the palm seen
+  from the shoulder), which reads the same on a stooped body as on an upright one; the upper arm's
+  own angle does not. `verify.arm_swing(carry, running)` fails a **non-running** clip whose arm
+  swings `SWING_MIN_DEG` = 8 degrees or more and still never comes back within
+  `SWING_RETURN_DEG` = 2 degrees of hanging.
+
+  Both lines were measured, not chosen. Over the 49 clips of the 17 committed characters
+  (`assets/humans/*`, Belle), with `running` taken from each gait's `duty_factor`:
+
+  | | swing (degrees) | nearest hanging |
+  |---|---|---|
+  | 17 idles | 2.0 - 2.1 | +0.1 to +11.8 |
+  | 17 walks (checked) | 13.6 - 63.5 | **-17.5 to -3.9** |
+  | 11 runs and Belle's trot (not checked) | 46.7 - 53.7 | +1.2 to +6.7 |
+  | pre-fix Walter walk (flagged) | 16.7 | **+8.8** |
+
+  So the swing gate at 8 sits between an idle's 2.1 and the tightest walk's 13.6, and the return
+  line at 2 sits between the tightest shipped walk (Margaret's elderly shuffle, -3.9) and the
+  pre-fix walk (+8.8) - 5.9 and 6.8 degrees of margin. Every shipped walk passes; the pre-fix walk
+  fails on both arms. A run keeps both arms in front by design (1.2 at the back of the stroke) and
+  is guarded by `hand_rise` and the elbow instead, which is why `running` clips are left out.
+
+  `arm_pose` is reached only from `upper.author_clear`, so only idles and gait clips are ever
+  checked: a crouch or a jump, whose arms legitimately come forward, is never seen by it.
+- **Proposed, not added: an idle's forward carry.** The critic flagged Walter's pre-fix *idle* too,
+  and the swing gate leaves it out (2.0 degrees of motion). The numbers do not support a line yet:
+  the 17 shipped idles sit in two tight clusters - 0.1-2.6 degrees (the three stooped elderly) and
+  9.2-11.8 (everyone else) - against the pre-fix idle's 13.8-15.8. A threshold would have 2 degrees
+  of margin and would be fitted to one generator's output. What would settle it: idles from a
+  character whose arms were authored some other way, or a hand-posed reach at a known angle.
 - Garment *detail*: the curvature of cloth over a region against the curvature of the skin under
   it. A compression garment should smooth, not trace.
 - Flesh limits from self-test time-on-limit. Feed the Godot self-test's per-region
@@ -188,6 +258,11 @@ already known:
    body size for creatures.
 4. **Motion critic checklist** in animate-anything's `references/`, plus a SKILL.md section on how
    to invoke it, copying humancheck's protocol (questions first, JSON verdict, keep-or-revert).
+   **Done - see c.** Regression: `rigify_human` drives `verify.arm_swing` over carry angles taken
+   from real clips (`ARM_SWING_CASES` - a walk through hanging, Margaret's shuffle as the tightest
+   pass, the pre-fix Walter walk, a run, an idle, and the limit itself either side), so the failing
+   branch is exercised without a body built wrong. `rigify_human` and `mpfb_woman_curvy` goldens
+   gain `arm_carry_deg` and `arm_swing_deg` per arm; no number already in them moved.
 5. **Garment detail check** in wardrobe. Compare mean-curvature variance of the cloth against the
    skin under it, per region. Add a `smooth` option to `fit.ease` (Laplacian smoothing of the cloth
    offset over the bust and seat) so a sports top reads compressed. Presets opt in (see 05).
@@ -315,5 +390,5 @@ already known:
   render shows as visible skin.
 - Every character export writes a review sheet at a shared scale, with no extra calls.
 - The motion critic, run on the pre-fix Walter and Tomas-run strips, flags the reaching arms and
-  the neck-height hand. On the fixed versions it passes them.
+  the neck-height hand. On the fixed versions it passes them. **Met** - see c.
 - The sports top reads as compressed in close renders, and a detail check reports it.

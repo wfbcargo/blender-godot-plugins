@@ -743,6 +743,38 @@ def _line_fit(points):
 WALK_HAND_RISE = 0.7     # a walk's hand no higher than chest: 70% of hip -> shoulder
 RUN_HAND_RISE = 0.65     # a run's hand no higher than the chest
 RUN_ELBOW_OPEN = 140.0   # a run's elbow never opens past this included angle
+SWING_MIN_DEG = 8.0      # a carry range this wide makes the clip a swing, not a stand
+SWING_RETURN_DEG = 2.0   # and a swinging arm comes back at least this near hanging
+
+
+def arm_swing(carry, running):
+    """Whether a clip's arm swings through hanging or is carried out in front.
+
+    `carry` is the whole arm's angle from gravity per frame - the palm seen
+    from the shoulder, positive forward of hanging - so it reads the same on a
+    stooped body as on an upright one, which the upper arm's own angle does
+    not. Returns the range, the nearest the arm came to hanging, whether the
+    clip was checked, and a failure when it was not.
+
+    Only a non-running clip that swings at all is checked. An idle's arms move
+    about 2 degrees over the whole clip, a walk's 14 to 64, so SWING_MIN_DEG
+    between them separates a gait from a stand; a run legitimately keeps both
+    arms in front (every shipped run comes no nearer hanging than 1.2 degrees)
+    and is guarded by `hand_rise` and the elbow instead.
+
+    The line: across the 20 walks shipped in grungist-creek the arm passes
+    behind hanging every cycle, by 3.9 degrees (Margaret, an elderly shuffle)
+    to 17.5 (Lily). The pre-fix Walter walk that review strips caught - both
+    arms held out in front, bobbing - comes no nearer than 8.8 degrees in
+    front. SWING_RETURN_DEG sits between them."""
+    lo, hi = min(carry), max(carry)
+    out = {"carry_deg": [round(lo, 1), round(hi, 1)], "swing_deg": round(hi - lo, 1),
+           "checked": (not running) and (hi - lo) >= SWING_MIN_DEG}
+    if out["checked"] and lo > SWING_RETURN_DEG:
+        out["failure"] = ("the arm swings %.0f degrees but never comes back to hanging - "
+                          "nearest %.0f degrees in front (limit %.0f) - carried out in front, "
+                          "not swung" % (hi - lo, lo, SWING_RETURN_DEG))
+    return out
 
 
 def arm_pose(rig_name, action_name, running=False, forward="-Y", up="Z", floor=0.0,
@@ -751,16 +783,19 @@ def arm_pose(rig_name, action_name, running=False, forward="-Y", up="Z", floor=0
     whether it reads as carried or as reaching.
 
     Per arm: the upper arm's angle from gravity (degrees, positive forward of
-    hanging, about the body map's `lat`), elbow flexion (0 straight), and the
+    hanging, about the body map's `lat`), elbow flexion (0 straight), the
     palm's height as a share of the way from the hips to the shoulder -
-    `hand_rise` 0 at hip joint height, 1 at the shoulder joint. Hips are the
-    legs' upper joints, the shoulder the arm's own root, both posed.
+    `hand_rise` 0 at hip joint height, 1 at the shoulder joint - and
+    `arm_carry_deg`, the whole arm's angle from gravity (the palm seen from the
+    shoulder). Hips are the legs' upper joints, the shoulder the arm's own
+    root, both posed.
 
     Failures: a walk (or an idle) whose hand rises past WALK_HAND_RISE - chest
     height, a hand held out in front; a run whose hand rises past
     RUN_HAND_RISE, or whose elbow opens past RUN_ELBOW_OPEN included - an arm
-    thrown straight out. Floor, skin and clearance checks all passed on arms
-    that read as reaching; this is what measures that."""
+    thrown straight out; and a swinging arm that never comes back to hanging
+    (`arm_swing`). Floor, skin and clearance checks all passed on arms that
+    read as reaching; this is what measures that."""
     from . import bodymap
     rig = bpy.data.objects.get(rig_name)
     action = bpy.data.actions.get(action_name)
@@ -781,7 +816,7 @@ def arm_pose(rig_name, action_name, running=False, forward="-Y", up="Z", floor=0
     bones = rig.data.bones
     out = {"running": running, "arms": {}, "failures": []}
     for l in arms:
-        ua, fl, rise = [], [], []
+        ua, fl, rise, carry = [], [], [], []
         for f, m in mats.items():
             sh = m[l["upper"]].translation
             el = m[l["lower"]].translation
@@ -793,10 +828,16 @@ def arm_pose(rig_name, action_name, running=False, forward="-Y", up="Z", floor=0
             fl.append(math.degrees(d.angle(e)) if d.length and e.length else 0.0)
             span = (sh - hip).dot(upv)
             rise.append((palm - hip).dot(upv) / span if span > 1e-9 else 0.0)
+            v = palm - sh
+            carry.append(math.degrees(math.atan2(v.dot(fwd), -v.dot(upv))))
+        swing = arm_swing(carry, running)
         r = {"upper_arm_deg": [round(min(ua), 1), round(max(ua), 1)],
              "elbow_flex_deg": [round(min(fl), 1), round(max(fl), 1)],
-             "hand_rise": [round(min(rise), 3), round(max(rise), 3)]}
+             "hand_rise": [round(min(rise), 3), round(max(rise), 3)],
+             "arm_carry_deg": swing["carry_deg"], "arm_swing_deg": swing["swing_deg"]}
         out["arms"][l["name"]] = r
+        if "failure" in swing:
+            out["failures"].append("%s: %s" % (l["name"], swing["failure"]))
         if not running and max(rise) > WALK_HAND_RISE:
             out["failures"].append("%s: the hand rises to %.0f%% of hip-to-shoulder, above the "
                                    "chest (%.0f%%) - reaching, not walking"
