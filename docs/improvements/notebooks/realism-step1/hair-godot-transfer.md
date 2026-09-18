@@ -165,3 +165,22 @@ Ended 13:55 (54 min).
 - Cost: the stipple detector's false positives (25 min, three attempts); a shell loop that reused `$@` after
   `set --` (3 min) - use a Node script for tables; a bash heredoc with nested quotes failed to parse, so longer
   Python edits went into files.
+
+## Merge step
+
+- Main had moved: lookdev-closeshot-views took lookdev 0.5.0, so this branch's lookdev release is **0.6.0**
+  (tools/bump.py; the "lookdev 0.5.0" heading in references/hair.md follows). marketplace.json took main's entries
+  plus this branch's humanform 0.11.0 sentence (the sentence exists; the critic's "no Since 0.11.0" was wrong).
+  SKILL.md's table keeps the stipple row and main's selftest row, which now also names the stipple controls.
+  lookdev.mjs merged cleanly (stipple command, import and selftest controls beside close-shot's changes).
+  The golden's `plugins` stamp still says lookdev 0.5.0; regress never compares it.
+- Game worktree: master merged cleanly (build_human.py and spec `blend` changes); the addon is identical to the
+  merged plugins addon.
+- Correction from the critic: the 0.152 brow figure above is the experiment render. On the committed final tile
+  `new/study_man/clear_midday_face.png`, region.mjs gives **0.133** (0.143 overcast; Blender 0.158); study_woman
+  0.251 (0.220 overcast; Blender 0.285). Both far above Step 0 (0.078, 0.154), slightly lighter than Blender.
+- Merged quick regress, `--quick --jobs 4 --godot <game worktree>` after `--import` (14:14-14:17):
+  `REGRESS DONE exit=0, 9 fixtures ok` (pipeline_paths is new from main), no change; verify_moves, verify_wardrobe,
+  verify_flesh ok and the flesh control failed as it must; close-shot on pipeline_woman ok and its aim-offset control
+  failed (OFF_TARGET); lookdev selftest 21/21 (main's 18 plus the three stipple controls). Log:
+  `%TEMP%/rw/merge-hgt/regress.log`.
