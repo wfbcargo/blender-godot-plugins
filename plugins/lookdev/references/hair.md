@@ -58,7 +58,7 @@ turns fast, without bringing the glints back.
 MASK at 0.5) turns that into strands that start a little later and thinner; Godot's depth pre-pass blends
 it, so what was an alpha-scissor comb with a crisp boundary is a fade of strand tips.
 
-**The alpha in Godot (lookdev 0.5.0).** The Blender close set drew fine strands at the hairline and Godot a
+**The alpha in Godot (lookdev 0.6.0).** The Blender close set drew fine strands at the hairline and Godot a
 smeared shell; brows came out harder and darker. Measured on study_man and study_woman at 1 m (notebook
 `realism-step1/hair-godot-transfer`), the causes:
 

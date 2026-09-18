@@ -31,9 +31,12 @@ blender -b --factory-startup --python-exit-code 1 --python <cp>/scripts/build.py
 **A command-line build resumes from the spec's saved `[export] blend`.** `runner.build(spec, resume=True)`
 (what `build.py`, `run.sh` and a project's own build scripts call) first opens that file when it exists and
 Blender was started with no file of its own (`runner.open_saved`), so the stage records in it are used: a
-`[flesh]`-only edit reruns flesh, moves, export and review - study_man 18 s against 31 s for the whole build
-on the same loaded machine. On a dressed spec (an `[outfit]`) a `[flesh]` or `[moves]` change restarts from
-body instead, since flesh and moves refuse while garments are bound (`RESTARTS_FROM_BODY`). Without it every call started from an empty scene and rebuilt from body.
+`[flesh]`-only edit reruns flesh, export and review, and skips moves when the rig and the weights came out the
+same (a swing limit, `limit_share`) - study_man 12.1 s against 18 s before 0.10.0 and about 40 s for the whole
+build (see "The cascade stops" below). On a dressed spec (an `[outfit]`) a `[flesh]` change takes the garments
+off (`stages.undress`), reruns flesh and cuts them again (Belle 24 s against 47 s, the same files as a fresh
+build); a `[moves]` change there still restarts from body, since moves refuses while garments are bound
+(`RESTARTS_FROM_BODY`). Without resuming every call started from an empty scene and rebuilt from body.
 `fresh=1` (`resume=False`) builds from nothing. A Blender started on a .blend of your own keeps it (a
 `body.source = "blend"` spec's source file).
 
@@ -105,7 +108,7 @@ colour = [0.035, 0.16, 0.20]
 [export]
 dir = "assets/belle"               # under the project (characters/ sits in it)
 res_dir = "res://assets/belle"
-blend = "C:/Users/pauli/Code/Blender/belle_realistic.blend"
+blend = "belle_realistic.blend"    # relative: under $BLEND_DIR when set, else the project
 ```
 
 **The flesh stage says what it found.** The build log gets `flesh: found <type>: <regions>` and
@@ -160,9 +163,11 @@ close = true                       # false: no close-up look set
 `<view>.png` each with a label band (view, distance, the tile's width in metres, clip and frame), `sheet.png`
 (all of them at half size) and `close.json`. The pose is the **Idle clip's first frame** (else the first
 role's), frozen, and every camera is aimed from that posed frame's bones - never height fractions. The stage
-raises if a tile shows no body (`empty`, figure under 5% of the tile), if the view's own bones project off
-the tile's centre (`off_centre`, beyond 0.3 of the tile), or if no figure is drawn where they project
-(`off_body`). The quality picks the views (`quality.py` `close`, in the review hash at every quality):
+raises if a tile shows no body (`empty`, figure under 5% of the tile), if the view's own points project off
+the tile's centre (`off_centre`, beyond 0.3 of the tile), if any one of them - the wrist, each knuckle and
+fingertip; both eyes; each foot's heel, ankle and toe - is cut by or near the tile's edge (`cut`, within 0.04),
+or if no figure is drawn where they project (`off_body`). The quality picks the views (`quality.py` `close`, in
+the review hash at every quality unless `close = false`):
 
 | view | distance | final | preview | draft |
 |---|---|---|---|---|
@@ -170,11 +175,14 @@ the tile's centre (`off_centre`, beyond 0.3 of the tile), or if no figure is dra
 | `face_3q`, `head_side`, `head_back` | 0.6, 1.0, 1.0 m | yes | | |
 | `hand_palm.L/.R`, `hand_back.L/.R` | 0.5 m | yes | yes | the left hand |
 | `bust`, `crotch`, `knees` | 0.8 m | yes | | |
-| `feet`, `foot_inner.L`, `foot_outer.L` | 1.0, 0.6, 0.6 m | yes | | |
+| `feet`, `foot_inner.L/.R`, `foot_outer.L/.R` | 1.0, 0.6, 0.6 m | yes | | |
 | `under_bust` | 0.42 m | a spec wearing a top (a shirt or dress cut) | | |
 
-It adds about 2.8 s to a final review (study_man: review 4.1-4.8 s without it, 6.8-7.6 s with 15 tiles) and 0.6-0.8 s to a draft one (3 tiles). The pictures show the file's
-Blender materials; judge the Godot look with lookdev's `close-shot`.
+It adds about 2.8 s to a final review (study_man: review 4.1-4.8 s without it, 6.8-7.6 s with 15 tiles; the right
+foot's two side views since 0.9.1 add about 0.3 s) and 0.6-0.8 s to a draft one (3 tiles). The pictures show the file's
+Blender materials; judge the Godot look with lookdev's `close-shot`. `[review] close = false` renders no set, removes
+a `close/` folder an earlier build wrote (the report names it, `close_removed`) and leaves the close part out of
+review's hash.
 
 **Answering the look checklist from the set.** The look questions critics ask are humanform's
 `references/critic-checklist.md` (L4 parts, L6 hair, L5-L6 surface) plus the realism list in
@@ -188,12 +196,12 @@ Blender materials; judge the Godot look with lookdev's `close-shot`.
 | Hairline reads as hair, not a cap edge; follows the forehead, temples, round the ear, down to the nape | `face_3q`, `head_side`, `head_back` |
 | At 1 m, hair reads as hair on a head, not a helmet | `head_side`, `head_back` (1.0 m) |
 | Bun, tie or tail attached, clear of ears, neck and shoulders, shaped like what it is; no seam at the cap | `head_back`, `head_side` |
-| Four fingers and a thumb, separate, with knuckles; no orange web creases (nails are not visible on the hanging, curled hand in any tile yet); hand about the face's length (compare the widths in the labels) | `hand_back.L/.R`, `hand_palm.L/.R` |
+| Four fingers and a thumb, separate, with knuckles; nails on the thumb, index and middle finger (`hand_back`, from the front a little below the knuckles; ring and pinky nails are behind them); no orange web creases; hand about the face's length (compare the widths in the labels) | `hand_back.L/.R`, `hand_palm.L/.R` |
 | Deltoid cap at the shoulder; clavicles and sternum notch readable; breasts or chest plausible | `bust` |
 | A top's lower edge: no shelf bridging under the bust | `under_bust` |
 | Crotch anatomy (genitals present or smooth); inner thighs | `crotch` |
 | Kneecaps readable | `knees` |
-| Heel, arch and toes; toes in order, big toe largest; inner ankle bone higher than the outer | `feet`, `foot_inner.L`, `foot_outer.L` |
+| Heel, arch and toes; toes in order, big toe largest; inner ankle bone higher than the outer; the two feet alike | `feet`, `foot_inner.L/.R`, `foot_outer.L/.R` |
 | Surface free of faceting, lumps and seams | every tile |
 
 Not answerable here, and why: the dithered neck shadow and pore detail past 1 m are Godot effects (lookdev
@@ -219,6 +227,23 @@ endings normalised, so a CRLF and an LF checkout agree. A stage that starts read
 `inputs.READS`, and `tests/fixtures/pipeline_hashes.py` must flip it (the fixture edits each input on a copy
 of the plugins and checks that its stage, and nothing before it, moves; `runner.plan(spec)` gives the hashes
 without building).
+
+**The cascade stops where an output did not change (0.10.0).** A stage's input hash covers the hashes of
+the stages it needs, so any rerun upstream reruns it. Where a stage reads an earlier one only through what it
+left in the file, the earlier stage digests that output when it runs (`inputs.outputs`, kept in its record
+as `output`) and the later stage's record keeps a *view* hash with the digest in place of the need's input
+hash (`runner.view_hash`). A stage whose input hash moved but whose view did not is skipped - `unchanged`
+with a `why` - and takes the new input hash, so the stages after it still rerun. Today that is moves after
+flesh (`inputs.READS_OUTPUT`): the flesh stage digests the rig (object, bones with their tags, pose
+constraints and locks, the rotation mode of the bones follow-through added), which meshes are bound to it,
+and per bound mesh its geometry, vertex groups, weights, modifiers, materials, shape keys and skin/cloth marks.
+What flesh writes that moves never reads - the jiggle block of the `follow_through` spec - is left out, so a
+`limit_share` edit skips moves; a `[flesh] types` edit moves the bones and weights and reruns it (logged as
+`flesh: what later stages read of it changed: <labels>`). A record from before 0.10.0 has no view and reruns.
+For the weights to come out the same, the first flesh run keeps the unfleshed body (`<mesh>:preflesh`, a mesh
+with a fake user and no object, so no exporter sees it) and a rerun swaps it back in before `prepare`
+(`stages._preflesh`): a resumed rebuild's glb is byte-identical to a fresh build's. `pipeline_hashes` flips
+each part of the digest with a drop-control (`PIPELINE_HASHES_DROP=flesh:output:<label>` must fail it).
 
 ```python
 runner.build(spec)                                        # runs what changed, skips the rest
@@ -250,6 +275,13 @@ runner.build(spec, from_stage="moves", to_stage="moves", force=True)   # rerun o
   6.5 s, export 3.1 s), which has no cheaper setting yet.
 - With `save` (the default) the .blend goes to `export.blend`, refusing to overwrite a file holding a
   scene this session lacks.
+- **Specs are safe to copy.** A relative `export.blend` resolves under `$BLEND_DIR` when it is set, else under
+  the spec's project (the folder holding `characters/`); an absolute one is still accepted
+  (`spec.resolve_blend`, `Character.blend_path()`). `runner.build` refuses, before any stage runs, to save
+  outside the project and `$BLEND_DIR` unless `save_outside=True` (`build.py ... save_outside=1`), so a spec
+  copied into a scratch project cannot save over the real blend. The string is hashed as written, so a spec
+  copied unedited, with its saved .blend copied beside it, resumes there with every stage unchanged. To make
+  such a copy of a project, use the plugins repo's `tools/scratch_project.py`.
 
 What the stages write that is the pipeline's own convention rather than a plugin's:
 

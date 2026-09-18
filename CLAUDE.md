@@ -49,10 +49,12 @@ project they are exercised on is `C:/Users/pauli/Code/GoDot/grungist-creek`. Pla
   points elsewhere. Fixtures redirect it; ad-hoc scripts must do the same.
 - A background command's output file stays empty until the command ends. Run long builds in the
   foreground with a generous timeout.
-- To build grungist-creek's characters against a checkout without touching its assets, copy
-  `assets/humans/`, `assets/save_guard.py` and `assets/belle/` into a scratch folder with the same
-  layout. Set `PROJECT` and `BLEND_DIR` to that folder, and `RA_SCRIPTS`, `HF_SCRIPTS`,
-  `FT_SCRIPTS`, `WD_SCRIPTS` to this repo's `plugins/<name>/scripts`.
+- To build grungist-creek's characters against a checkout without touching its assets:
+  `python tools/scratch_project.py <scratch dir> [--who study_man,...]` (run from that checkout). It copies
+  the specs, build scripts, addons and the chosen characters' blends and exports, writes `env.sh`/`env.ps1`
+  (`PROJECT`, `BLEND_DIR`, `*_SCRIPTS` at the checkout, `HUMANFORM_LIBRARY` at a copy), imports it in Godot
+  and prints the one command that builds a figure (`bash <dir>/build.sh study_man`). Specs' `[export] blend`
+  are relative (under `BLEND_DIR`, else the project), and a build refuses to save outside both.
 
 ## Gotchas
 

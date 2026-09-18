@@ -11,7 +11,7 @@ never from another picture.
 
 | name | what | how to make it |
 |---|---|---|
-| **G:`<view>`** | lookdev's Godot close-shot tile, lookdev materials, a preset's sky | `node <skill>/bin/lookdev.mjs close-shot --project . --glb res://.../x.glb --distance 1 --presets clear_midday,overcast --views face,eyes,hands,feet,bust,crotch,full --out <scratch>` -> `<preset>_<view>.png`, `sheet.png` (rows presets, columns views), `close.json`. Views today: `face`, `eyes`, `hand_palm.L/.R`, `hand_back.L/.R` (`hands` = all four), `feet`, `bust`, `crotch`, `full` (at `--full-distance`, 4 m), `bone:<name>`. `--garments a.glb,b.glb` dresses it, `--clip Run --time 0.3` poses it |
+| **G:`<view>`** | lookdev's Godot close-shot tile, lookdev materials, a preset's sky | `node <skill>/bin/lookdev.mjs close-shot --project . --glb res://.../x.glb --presets clear_midday,overcast --views head,hands,feet,bust,crotch,full --pair-blender <export dir>/review/<id>/close --out <scratch>` -> `<preset>_<view>.png`, `sheet.png` (one row per view, one column per preset, the Blender tile first with `--pair-blender`), `close.json`. Views: `face`, `face_3q`, `eyes`, `head_side`, `head_back` (`head` = these five), `hand_palm.L/.R`, `hand_back.L/.R` (`hands` = all four), `feet`, `bust`, `crotch`, `full` (at `--full-distance`, 4 m), `bone:<name>`; with `--pair-blender` a paired view is shot at the Blender tile's distance. `--garments a.glb,b.glb` dresses it, `--clip Run --time 0.3` poses it |
 | **B:`<view>`** | the Blender close set, the file's own materials, EEVEE | written by character-pipeline's review stage to `<export dir>/review/<id>/close/<view>.png` (+ `sheet.png`, `close.json`); rig-anything `closeups.look_set` elsewhere. Views: `face`, `face_3q`, `eyes`, `head_side`, `head_back`, `hand_palm.L/.R`, `hand_back.L/.R`, `bust`, `under_bust` (a spec wearing a top), `crotch`, `knees`, `feet`, `foot_inner.L`, `foot_outer.L` |
 | **hair.png** | humancheck's lit head sheet (1 m row, close row) | humanform `views.hair_sheet(body, out_dir)`, or `humancheck_cli.py ... views=1` on a haired body |
 | **tone** | mean albedo per material, `ok` 0.01-0.9 linear | `lookdev.mjs tone --project . --glb res://.../x.glb --material skin` (study_woman's lashes read 0.0073 with no `--material`: name the skin) |
@@ -28,11 +28,11 @@ in B was lost between Blender and Godot (the Step 0 baseline found the hair and 
   change of tone, not one smooth shell? *G:face* at 1 m, *G:full*; the Blender side *hair.png* top row. G+B.
 - **LOOK-H2** Does the hairline read as hair, not a cap edge - tips of uneven length with skin between them,
   no hard cut, spiky fringe or smeared radial gradient? *G:eyes*, *G:face*; *B:face_3q*, *B:eyes*. G+B.
-- **LOOK-H3** Is there no hard dark band in front of each ear? *G:face*; *B:head_side*.
+- **LOOK-H3** Is there no hard dark band in front of each ear? *G:face*, *G:head_side*; *B:head_side*. G+B.
 - **LOOK-H4** Is the neck under the ear free of a dithered, stippled shadow under clear_midday? *G:face* and
   *G:bust*, clear_midday row (absent under overcast is expected).
-- **LOOK-H5** Is a bun, tie or tail attached and shaped like what it is, with no seam at the cap? *B:head_back*,
-  *B:head_side* (no Godot view of the back of the head yet: `bone:<head bone>` is the nearest).
+- **LOOK-H5** Is a bun, tie or tail attached and shaped like what it is, with no seam at the cap? *G:head_back*,
+  *G:head_side*; *B:head_back*, *B:head_side*. G+B.
 
 ### Brows, lashes, eyes (rank 2)
 - **LOOK-E1** Do the brows read as hair - soft-edged, not hard pixelated black cut-outs - and no darker or
@@ -76,9 +76,6 @@ in B was lost between Blender and Godot (the Step 0 baseline found the hair and 
 
 ## Not answerable from these today
 
-- The back and side of the head **in Godot**: close-shot has no `head_side`/`head_back`/`face_3q` views yet
-  (Step 0.5 adds them); use *B* and say the Godot side is `unclear`.
-- A per-view Blender/Godot pair in one picture (`--pair-blender`, Step 0.5): open both tiles.
 - An automatic stipple detector (Step 0.5): LOOK-H4 and LOOK-S5 are eye questions until then.
 - Motion (`animate-anything/references/critic-motion.md`), fit (`wardrobe/references/critic-fit.md`), flesh
   (`follow-through/references/critic-flesh.md`), body proportions (`humanform/references/critic-body.md`).
