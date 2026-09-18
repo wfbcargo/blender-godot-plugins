@@ -499,6 +499,17 @@ def judge_flesh(ch, r, asked=None):
     out = {"found": {t: sorted(v) for t, v in sorted(found.items())}, "missed": missed}
     for t, names in out["found"].items():
         print(f"[{ch.id}] flesh: found {t}: {', '.join(names)}")
+    # where each region's bone and weight landed on the body (follow-through's check_placement): a breast
+    # bone on the chin passed every other check in the cast builds
+    placement = r.get("placement") or {}
+    misplaced = [p for row in placement.get("regions", []) for p in row["problems"]]
+    if placement.get("regions"):
+        out["placement"] = [{k: row[k] for k in ("name", "tail_height", "centre_height", "head_share", "ok")}
+                            for row in placement["regions"]]
+    if misplaced:
+        for p in misplaced:
+            print(f"[{ch.id}] flesh: MISPLACED {p}")
+        raise RuntimeError("flesh: regions outside their anatomical zone: %s" % "; ".join(misplaced))
     for m in missed:
         allowed = m["type"] in ch.flesh.may_miss
         print(f"[{ch.id}] flesh: MISSED {m['message']}" + (" (allowed: [flesh] may_miss)" if allowed else ""))

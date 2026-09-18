@@ -106,7 +106,7 @@
 
     "breast":        {"family": "volume", "classes": ["flesh"], "material": "soft_fat", "paired": true,
                       "names": ["breast", "boob", "bust", "moob", "pec", "chest"],
-                      "zone": {"chain": "spine", "height": [0.5, 1.45], "facing_deg": [0, 65], "lateral": [0.03, 1.3]},
+                      "zone": {"chain": "spine", "height": [0.5, 1.45], "facing_deg": [0, 65], "lateral": [0.03, 1.3]}, "patches": "nearest",
                       "anchor": "chest",
                       "limit_share": 0.66,
                       "limit_max_share": 0.66,

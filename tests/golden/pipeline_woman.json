@@ -1,9 +1,9 @@
 {
  "fixture": "pipeline_woman",
  "plugins": {
-  "character-pipeline": "0.10.0",
-  "follow-through": "0.6.2",
-  "humanform": "0.10.1",
+  "character-pipeline": "0.13.0",
+  "follow-through": "0.7.0",
+  "humanform": "0.12.0",
   "rig-anything": "0.26.0",
   "wardrobe": "0.5.1"
  },
@@ -355,11 +355,74 @@
    "without_may_miss": "failed: names bloater_belly True, gives numbers True"
   },
   "flesh_missed": [],
+  "flesh_placement": {
+   "chin_z": 1.473,
+   "control_legacy": {
+    "chin_z": 1.473,
+    "judged": "failed: MISPLACED names the chin False, the face True",
+    "ok": false,
+    "regions": {
+     "breast.L": {
+      "head_share": 0.757,
+      "ok": false,
+      "tail_z": 1.436
+     },
+     "breast.R": {
+      "head_share": 0.757,
+      "ok": false,
+      "tail_z": 1.436
+     }
+    }
+   },
+   "ok": true,
+   "regions": {
+    "breast.L": {
+     "head_share": 0.0,
+     "ok": true,
+     "tail_z": 1.27
+    },
+    "breast.R": {
+     "head_share": 0.0,
+     "ok": true,
+     "tail_z": 1.27
+    }
+   }
+  },
   "flesh_regions": [
    "breast.L breast",
    "breast.R breast",
    "butt.L butt",
    "butt.R butt"
+  ],
+  "flesh_stage_placement": [
+   {
+    "centre_height": 0.792,
+    "head_share": 0.0,
+    "name": "breast.L",
+    "ok": true,
+    "tail_height": 0.815
+   },
+   {
+    "centre_height": 0.792,
+    "head_share": 0.0,
+    "name": "breast.R",
+    "ok": true,
+    "tail_height": 0.815
+   },
+   {
+    "centre_height": 0.005,
+    "head_share": 0.0,
+    "name": "butt.L",
+    "ok": true,
+    "tail_height": -0.027
+   },
+   {
+    "centre_height": 0.006,
+    "head_share": 0.0,
+    "name": "butt.R",
+    "ok": true,
+    "tail_height": -0.027
+   }
   ],
   "fresh_session": {
    "build_block": {
@@ -400,7 +463,7 @@
      "ft_jiggle_butt.R"
     ],
     "passed": true,
-    "verts": 1182
+    "verts": 1203
    }
   },
   "height_field": "export.height was removed: height_m.stand is always the Idle clip's standing height (a hair bun does not raise it) - delete the line",
@@ -535,7 +598,7 @@
    },
    "collider": {
     "height": 1.6985,
-    "radius": 0.2229
+    "radius": 0.2223
    },
    "dropped_clips": [],
    "fields": [
@@ -617,10 +680,10 @@
      "damping_ratio": 0.25,
      "frequency_hz": 2.7,
      "material": "soft_fat",
-     "max_offset_m": 0.0565,
+     "max_offset_m": 0.0542,
      "name": "breast.L",
      "parent": "spine.003",
-     "peak_m": 0.0856,
+     "peak_m": 0.0821,
      "type": "breast"
     },
     {
@@ -628,10 +691,10 @@
      "damping_ratio": 0.25,
      "frequency_hz": 2.7,
      "material": "soft_fat",
-     "max_offset_m": 0.0565,
+     "max_offset_m": 0.0542,
      "name": "breast.R",
      "parent": "spine.003",
-     "peak_m": 0.0856,
+     "peak_m": 0.0821,
      "type": "breast"
     },
     {

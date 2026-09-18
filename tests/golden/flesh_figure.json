@@ -1,8 +1,8 @@
 {
  "fixture": "flesh_figure",
  "plugins": {
-  "follow-through": "0.6.1",
-  "rig-anything": "0.24.0"
+  "follow-through": "0.7.0",
+  "rig-anything": "0.26.0"
  },
  "report": {
   "bodies": {
@@ -195,6 +195,169 @@
       }
      ],
      "object": "Bloater",
+     "placement": {
+      "chin_z": 1.458,
+      "ok": true,
+      "regions": [
+       {
+        "centre_height": 0.455,
+        "centre_z": 0.956,
+        "head_share": 0.0,
+        "name": "bloater_belly",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.523,
+        "tail_z": 0.983,
+        "type": "bloater_belly",
+        "zone_height": [
+         -0.4,
+         0.9
+        ]
+       },
+       {
+        "centre_height": 0.97,
+        "centre_z": 1.157,
+        "head_share": 0.0,
+        "name": "breast.L",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.862,
+        "tail_z": 1.115,
+        "type": "breast",
+        "zone_height": [
+         0.4,
+         1.55
+        ]
+       },
+       {
+        "centre_height": 0.986,
+        "centre_z": 1.163,
+        "head_share": 0.0,
+        "name": "breast.R",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.885,
+        "tail_z": 1.124,
+        "type": "breast",
+        "zone_height": [
+         0.4,
+         1.55
+        ]
+       },
+       {
+        "centre_height": 0.214,
+        "centre_z": 0.862,
+        "head_share": 0.0,
+        "name": "butt.L",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.248,
+        "tail_z": 0.876,
+        "type": "butt",
+        "zone_height": [
+         -0.6,
+         0.4
+        ]
+       },
+       {
+        "centre_height": 0.219,
+        "centre_z": 0.865,
+        "head_share": 0.0,
+        "name": "butt.R",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.253,
+        "tail_z": 0.878,
+        "type": "butt",
+        "zone_height": [
+         -0.6,
+         0.4
+        ]
+       },
+       {
+        "centre_height": 0.473,
+        "centre_z": 0.963,
+        "head_share": 0.0,
+        "name": "love_handle.L",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.468,
+        "tail_z": 0.962,
+        "type": "love_handle",
+        "zone_height": [
+         -0.1,
+         0.6
+        ]
+       },
+       {
+        "centre_height": 0.484,
+        "centre_z": 0.968,
+        "head_share": 0.0,
+        "name": "love_handle.R",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.483,
+        "tail_z": 0.967,
+        "type": "love_handle",
+        "zone_height": [
+         -0.1,
+         0.6
+        ]
+       },
+       {
+        "centre_height": 1.189,
+        "centre_z": 1.243,
+        "head_share": 0.0,
+        "name": "arm_flab.L",
+        "ok": true,
+        "problems": [],
+        "tail_height": 1.207,
+        "tail_z": 1.25,
+        "type": "arm_flab"
+       },
+       {
+        "centre_height": 1.162,
+        "centre_z": 1.232,
+        "head_share": 0.0,
+        "name": "arm_flab.R",
+        "ok": true,
+        "problems": [],
+        "tail_height": 1.202,
+        "tail_z": 1.248,
+        "type": "arm_flab"
+       },
+       {
+        "centre_height": -0.699,
+        "centre_z": 0.507,
+        "head_share": 0.0,
+        "name": "thigh.L",
+        "ok": true,
+        "problems": [],
+        "tail_height": -0.73,
+        "tail_z": 0.495,
+        "type": "thigh",
+        "zone_height": [
+         -1.0,
+         0.0
+        ]
+       },
+       {
+        "centre_height": -0.699,
+        "centre_z": 0.507,
+        "head_share": 0.0,
+        "name": "thigh.R",
+        "ok": true,
+        "problems": [],
+        "tail_height": -0.729,
+        "tail_z": 0.495,
+        "type": "thigh",
+        "zone_height": [
+         -1.0,
+         0.0
+        ]
+       }
+      ]
+     },
      "rig": "Bloater_metarig",
      "spec": {
       "class": "flesh",
@@ -545,7 +708,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\rw\\cp-resume-hashes\\rk\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7t0tbzam\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -1538,6 +1701,139 @@
       }
      ],
      "object": "Figure",
+     "placement": {
+      "chin_z": 1.494,
+      "ok": true,
+      "regions": [
+       {
+        "centre_height": 1.009,
+        "centre_z": 1.263,
+        "head_share": 0.0,
+        "name": "breast.L",
+        "ok": true,
+        "problems": [],
+        "tail_height": 1.035,
+        "tail_z": 1.274,
+        "type": "breast",
+        "zone_height": [
+         0.4,
+         1.55
+        ]
+       },
+       {
+        "centre_height": 1.025,
+        "centre_z": 1.27,
+        "head_share": 0.0,
+        "name": "breast.R",
+        "ok": true,
+        "problems": [],
+        "tail_height": 1.047,
+        "tail_z": 1.279,
+        "type": "breast",
+        "zone_height": [
+         0.4,
+         1.55
+        ]
+       },
+       {
+        "centre_height": 0.075,
+        "centre_z": 0.873,
+        "head_share": 0.0,
+        "name": "butt.L",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.134,
+        "tail_z": 0.897,
+        "type": "butt",
+        "zone_height": [
+         -0.6,
+         0.4
+        ]
+       },
+       {
+        "centre_height": 0.08,
+        "centre_z": 0.875,
+        "head_share": 0.0,
+        "name": "butt.R",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.137,
+        "tail_z": 0.899,
+        "type": "butt",
+        "zone_height": [
+         -0.6,
+         0.4
+        ]
+       },
+       {
+        "centre_height": 0.272,
+        "centre_z": 0.955,
+        "head_share": 0.0,
+        "name": "belly",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.276,
+        "tail_z": 0.957,
+        "type": "belly",
+        "zone_height": [
+         0.1,
+         0.85
+        ]
+       },
+       {
+        "centre_height": 0.835,
+        "centre_z": 1.19,
+        "head_share": 0.0,
+        "name": "arm_flab.L",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.905,
+        "tail_z": 1.22,
+        "type": "arm_flab"
+       },
+       {
+        "centre_height": 0.816,
+        "centre_z": 1.182,
+        "head_share": 0.0,
+        "name": "arm_flab.R",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.89,
+        "tail_z": 1.213,
+        "type": "arm_flab"
+       },
+       {
+        "centre_height": -0.776,
+        "centre_z": 0.517,
+        "head_share": 0.0,
+        "name": "thigh.L",
+        "ok": true,
+        "problems": [],
+        "tail_height": -0.795,
+        "tail_z": 0.509,
+        "type": "thigh",
+        "zone_height": [
+         -1.0,
+         0.0
+        ]
+       },
+       {
+        "centre_height": -0.772,
+        "centre_z": 0.519,
+        "head_share": 0.0,
+        "name": "thigh.R",
+        "ok": true,
+        "problems": [],
+        "tail_height": -0.793,
+        "tail_z": 0.51,
+        "type": "thigh",
+        "zone_height": [
+         -1.0,
+         0.0
+        ]
+       }
+      ]
+     },
      "rig": "Figure_metarig",
      "spec": {
       "class": "flesh",
@@ -1843,7 +2139,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\rw\\cp-resume-hashes\\rk\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7t0tbzam\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",
