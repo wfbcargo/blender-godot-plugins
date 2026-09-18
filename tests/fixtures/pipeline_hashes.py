@@ -375,13 +375,181 @@ def build():
     # what each stage of the full spec reads, by label (the digests themselves move with every plugin edit)
     from character_pipeline import inputs
     reads = {s: sorted(inputs.stage_inputs(ch, s)) for s in names["full"]}
-    report = {"stages": names, "flips": out, "reads": reads, "failed": failed,
+
+    # what moves reads of flesh's output: each flip must move its labels of the digest and moves' view hash; its
+    # control leaves those labels out, and the flip must then go unseen; what flesh writes that moves never reads
+    # (the jiggle block's swing limits) and what moves writes itself (the body's rotation modes, the pose, the
+    # action on the rig) must move nothing
+    output_drop = [label[len("output:"):] for label in judged_drop.get("flesh", []) if label.startswith("output:")]
+    outputs = _output_flips(runner, ch, base, output_drop)
+    failed += [f"output: {t}" for t, row in outputs.items() if not row["ok"] or row.get("control_unseen") is False]
+    if failed:
+        raise AssertionError(f"pipeline_hashes: flips not caught or unrelated edits that moved a stage: {failed}; "
+                             + json.dumps({k: (out.get(k) or outputs.get(k[len("output: "):])) for k in failed}))
+    report = {"stages": names, "flips": out, "outputs": outputs, "reads": reads, "failed": failed,
               "quality_skin": {q: quality.settings(q, "skin") for q in quality.QUALITIES},
               "final_hash_part_bake": quality.for_hash("final", "bake")}
     if failed:
         raise AssertionError(f"pipeline_hashes: flips not caught or unrelated edits that moved a stage: {failed}; "
                              + json.dumps({k: out[k] for k in failed if k in out}))
     return report
+
+
+def _output_scene(ch):
+    """A rig with a hip, a spine and a follow-through jiggle bone, and a cube skinned to it under the spec's names,
+    as the flesh stage leaves a body: built the same way every time, so each flip starts from the same file."""
+    import bmesh
+    import bpy
+    for o in list(bpy.data.objects):
+        bpy.data.objects.remove(o, do_unlink=True)
+    for coll in (bpy.data.meshes, bpy.data.armatures, bpy.data.materials, bpy.data.actions):
+        for block in list(coll):
+            coll.remove(block)
+    arm = bpy.data.armatures.new(ch.rig)
+    rig = bpy.data.objects.new(ch.rig, arm)
+    bpy.context.scene.collection.objects.link(rig)
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    for name, head, tail, parent in (("hips", (0, 0, 1.0), (0, 0, 1.2), None),
+                                     ("spine", (0, 0, 1.2), (0, 0, 1.5), "hips"),
+                                     ("ft_jiggle_belly", (0, -0.1, 1.1), (0, -0.25, 1.1), "hips")):
+        b = arm.edit_bones.new(name)
+        b.head, b.tail = head, tail
+        if parent:
+            b.parent = arm.edit_bones[parent]
+    bpy.ops.object.mode_set(mode="OBJECT")
+    arm.bones["ft_jiggle_belly"]["ft_role"] = "jiggle"
+    for pb in rig.pose.bones:
+        pb.rotation_mode = "QUATERNION" if pb.name.startswith("ft_") else "XYZ"
+    me = bpy.data.meshes.new(ch.mesh)
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=0.4)
+    bm.to_mesh(me)
+    bm.free()
+    ob = bpy.data.objects.new(ch.mesh, me)
+    bpy.context.scene.collection.objects.link(ob)
+    ob.location = (0, 0, 1.2)
+    groups = {g: ob.vertex_groups.new(name=g) for g in ("hips", "spine", "ft_jiggle_belly")}
+    for v in me.vertices:
+        groups["hips" if v.co.z < 0 else "spine"].add([v.index], 0.75, "REPLACE")
+        groups["ft_jiggle_belly"].add([v.index], 0.25, "REPLACE")
+    ob.modifiers.new("Armature", "ARMATURE").object = rig
+    ob["follow_through"] = {"route": "jiggle_bones", "jiggle": {"regions": [{"name": "belly", "max_offset_m": 0.06}]}}
+    me.materials.append(bpy.data.materials.new(f"{ch.name}_skin"))
+    bpy.context.view_layer.update()
+    return rig, ob
+
+
+def _edit_bone(rig, name, **what):
+    import bpy
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    b = rig.data.edit_bones[name]
+    for k, v in what.items():
+        if k == "parent":
+            v = rig.data.edit_bones[v]
+        setattr(b, k, v)
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def _output_flips(runner, ch, done, judged_drop):
+    """What the moves stage reads of the flesh stage's output (`inputs.outputs(ch, "flesh")`), and moves' view hash
+    (`runner.view_hash`), judged on a small file (`_output_scene`, rebuilt for each flip) with one thing flipped at
+    a time. `judged_drop` leaves output labels out of every digest the flips are judged on
+    (`PIPELINE_HASHES_DROP=flesh:output:<label>`): the fixture must then fail."""
+    import bpy
+    from character_pipeline import inputs, plugins, quality, stages
+    q = quality.check(ch.build.quality)
+    names = [s[0] for s in stages.STAGES if s[5](ch)]
+    _name, needs, sections = next(s for s in stages.STAGES if s[0] == "moves")[:3]
+    needs = [n for n in needs if n in names]
+    versions = plugins.stage_versions(ch, "moves")
+
+    def view(out, drop=()):
+        return runner.view_hash(ch, "moves", needs, sections, done, {"flesh": out}, q, versions,
+                                inputs.stage_inputs(ch, "moves"), drop=drop)
+
+    def second_mesh(rig, ob):
+        other = bpy.data.objects.new(f"{ch.name}_extra", ob.data.copy())
+        bpy.context.scene.collection.objects.link(other)
+        other.modifiers.new("Armature", "ARMATURE").object = rig
+
+    def constraint(rig, ob):
+        c = rig.pose.bones["spine"].constraints.new("COPY_ROTATION")
+        c.target = rig
+        c.subtarget = "hips"
+
+    def weight(rig, ob):
+        ob.vertex_groups["spine"].add([len(ob.data.vertices) - 1], 0.5, "REPLACE")
+
+    def vertex(rig, ob):
+        ob.data.vertices[0].co.x += 0.001
+
+    def spec_edit(key, value):
+        def edit(rig, ob):
+            s = ob["follow_through"].to_dict()
+            if key == "route":
+                s["route"] = value
+            else:
+                s["jiggle"]["regions"][0][key] = value
+            ob["follow_through"] = s
+        return edit
+
+    def action(rig, ob):
+        rig.animation_data_create().action = bpy.data.actions.new(f"{ch.name}_Idle")
+
+    def pose(rig, ob):
+        rig.pose.bones["spine"].rotation_euler.x = 0.3
+
+    mesh_labels = [label for label in inputs.OUTPUT_LABELS if label.startswith("mesh:")]
+    # (title, edit, the labels it must move - None: it must move nothing)
+    flips = [
+        ("a bone's tail", lambda rig, ob: _edit_bone(rig, "spine", tail=(0, 0.01, 1.5)), ["rig:bones"]),
+        ("a bone's parent", lambda rig, ob: _edit_bone(rig, "ft_jiggle_belly", parent="spine"), ["rig:bones"]),
+        ("a bone's follow-through tag", lambda rig, ob: rig.data.bones["spine"].__setitem__("ft_role", "strand"),
+         ["rig:bones", "rig:pose"]),
+        ("a pose constraint", constraint, ["rig:pose"]),
+        ("the rotation mode of a jiggle bone",
+         lambda rig, ob: setattr(rig.pose.bones["ft_jiggle_belly"], "rotation_mode", "XYZ"), ["rig:pose"]),
+        ("the rig's place", lambda rig, ob: setattr(rig, "location", (0.0, 0.0, 0.01)), ["rig:object"]),
+        ("a second mesh bound to the rig", second_mesh, ["meshes:bound"] + mesh_labels),
+        ("a vertex", vertex, ["mesh:geometry"]),
+        ("a weight", weight, ["mesh:weights"]),
+        ("an empty vertex group", lambda rig, ob: ob.vertex_groups.new(name="extra"), ["mesh:groups"]),
+        ("a modifier", lambda rig, ob: ob.modifiers.new("Sub", "SUBSURF"), ["mesh:modifiers"]),
+        ("the follow-through route", spec_edit("route", "soft_body"), ["mesh:marks"]),
+        ("a wardrobe mark", lambda rig, ob: ob.__setitem__("wardrobe_cut", 1), ["mesh:marks"]),
+        ("a material", lambda rig, ob: ob.data.materials.append(bpy.data.materials.new("extra")), ["mesh:materials"]),
+        ("a shape key", lambda rig, ob: ob.shape_key_add(name="Basis"), ["mesh:shape_keys"]),
+        # what flesh writes that moves never reads, and what moves writes itself
+        ("unrelated: a jiggle swing limit", spec_edit("max_offset_m", 0.05), None),
+        ("unrelated: the rotation mode of a body bone (moves sets it)",
+         lambda rig, ob: setattr(rig.pose.bones["spine"], "rotation_mode", "QUATERNION"), None),
+        ("unrelated: a pose (the stages rest the rig first)", pose, None),
+        ("unrelated: an action on the rig", action, None),
+    ]
+    out = {}
+    for title, edit, labels in flips:
+        _output_scene(ch)
+        before = inputs.outputs(ch, "flesh", drop=judged_drop)
+        rig, ob = _output_scene(ch)
+        edit(rig, ob)
+        bpy.context.view_layer.update()
+        after = inputs.outputs(ch, "flesh", drop=judged_drop)
+        moved = inputs.output_changed(before, after)
+        row = {"moved": moved, "view_moved": view(before) != view(after), "expect": labels}
+        if labels is None:
+            row["ok"] = not moved and not row["view_moved"]
+        else:
+            row["ok"] = sorted(moved) == sorted(labels) and row["view_moved"]
+            # control: with those labels left out of the digest, moves' view no longer sees the flip
+            row["control_unseen"] = view(before, drop=labels) == view(after, drop=labels)
+        out[title] = row
+    # a flesh record with no output digested (built before 0.10.0) gives moves no view: moves never skips on it
+    out["no output recorded"] = {"ok": runner.view_hash(ch, "moves", needs, sections, done, {}, q, versions, {}) is None}
+    for o in list(bpy.data.objects):
+        bpy.data.objects.remove(o, do_unlink=True)
+    return out
 
 
 LEFT_OUT = ("version:", "quality:", "spec:")

@@ -510,12 +510,75 @@ def judge_flesh(ch, r, asked=None):
     return out
 
 
+def preflesh_name(ch):
+    """The mesh datablock that keeps the body as it was before its first jiggle bones (`_preflesh`)."""
+    return f"{ch.mesh}:preflesh"
+
+
+def _geometry_digest(me):
+    import hashlib
+    import numpy as np
+    co = np.empty(len(me.vertices) * 3, dtype=np.float64)
+    me.vertices.foreach_get("co", co)
+    loops = np.empty(len(me.loops), dtype=np.int64)
+    me.loops.foreach_get("vertex_index", loops)
+    return hashlib.sha1(np.round(co, 6).tobytes() + loops.tobytes()).hexdigest()[:16]
+
+
+def _preflesh(ch):
+    """Put the body back exactly as it was before the flesh stage first ran on it, or keep a copy of it as it is.
+
+    follow-through takes each jiggle weight out of a vertex's other weights and then keeps the four strongest
+    influences (`limit_influences`), so a second `flesh.prepare` can give back only what was not dropped: a rerun
+    weighted study_man within 0.020 of a fresh build, and the moves stage, which reads the weights, had to rerun
+    after every [flesh] edit. So the first flesh run keeps the unfleshed mesh (a copy of its data with a fake
+    user, linked to no object, so no exporter sees it), and a rerun swaps it back in - geometry, materials and
+    every weight exactly as bake and hair left them - before `prepare`. Only when it still fits: the same
+    vertices and faces, and the object's vertex groups starting with the ones the copy was taken with (jiggle
+    groups come after them); otherwise follow-through's own give-back is used, as before.
+    Returns "kept", "restored" or why neither."""
+    ob = _obj(ch.mesh)
+    name = preflesh_name(ch)
+    snap = bpy.data.meshes.get(name)
+    jiggle = [g.name for g in ob.vertex_groups if g.name.startswith("ft_jiggle_")]
+    if not jiggle:
+        if snap is not None:
+            bpy.data.meshes.remove(snap)
+        snap = ob.data.copy()
+        snap.name = name
+        snap.use_fake_user = True
+        snap["cp_groups"] = [g.name for g in ob.vertex_groups]
+        snap["cp_geometry"] = _geometry_digest(ob.data)
+        return "kept"
+    if snap is None:
+        return "no copy of the unfleshed body in this file (built before character-pipeline 0.10.0)"
+    groups = list(snap.get("cp_groups") or [])
+    names = [g.name for g in ob.vertex_groups]
+    if names[:len(groups)] != groups or any(not n.startswith("ft_jiggle_") for n in names[len(groups):]):
+        return "the body's vertex groups are not the copy's plus jiggle groups"
+    if len(snap.vertices) != len(ob.data.vertices) or snap.get("cp_geometry") != _geometry_digest(ob.data):
+        return "the body's geometry is not the copy's"
+    old = ob.data
+    keep = old.name
+    fresh = snap.copy()
+    fresh.use_fake_user = False
+    for k in ("cp_groups", "cp_geometry"):
+        if k in fresh:
+            del fresh[k]
+    ob.data = fresh
+    bpy.data.meshes.remove(old)
+    fresh.name = keep
+    for g in [g for g in ob.vertex_groups if g.name.startswith("ft_jiggle_")]:
+        ob.vertex_groups.remove(g)
+    return "restored"
+
+
 def run_flesh(ch, ctx):
     from follow_through import flesh as ft_flesh
     from follow_through import marks
     _rest(ch)
     regions = None
-    out = {}
+    out = {"unfleshed": _preflesh(ch)}
     if ch.flesh.zones:
         sheet_dir = os.path.join(ctx["scratch"], "flesh_sheet")
         sheet = marks.render(ch.mesh, sheet_dir, views=("front", "right", "back"), focus="torso")
