@@ -25,7 +25,7 @@ here and nowhere else:
 - humanform 0.10.0
 - character-pipeline 0.7.1
 - wardrobe 0.5.0
-- lookdev 0.3.0
+- lookdev 0.4.0
 - godot-lsp 0.1.0
 
 ---
@@ -69,13 +69,31 @@ and a close-up that would have shown a defect was missing twice. Fix the loop be
   feet, and bust at 0.4-1 m. Aim the cameras from the posed frame's bone positions, and label the tiles.
   Done when a build writes `review/<id>/close/*.png` and the look checklist can be answered from them
   with no script.
-- **06 rank 8 - Godot-side look tools in lookdev:** `close_shot.gd` (load a glb, apply lookdev materials,
-  aim at bones, write a labelled sheet), a glb tone probe, and a runtime preset applier with
-  `presets.json` shipped in the addon. Done when a character is judged in Godot with one command and
-  `figure_study.gd` drops its own preset port.
+- **06 rank 8 - Godot-side look tools in lookdev: done** (branch `lookdev-godot-tools`, lookdev 0.4.0,
+  merged 2026-09-18). `lookdev.mjs close-shot` loads a glb, applies lookdev materials, poses a clip and
+  writes a labelled sheet (face, eyes, palm and back of each hand, feet, bust, crotch, full body,
+  `bone:<name>`) with cameras aimed from posed bones, under named presets; it fails on a missing
+  skeleton or bone, an unknown clip, or an empty/small/off-target tile. `lookdev.mjs tone` probes a
+  glb's albedo; `lookdev_presets.gd` applies `presets.json` (now in the addon) at runtime, and
+  `figure_study.gd` uses it instead of its own port. interior_daylight is marked `needs: interior` and
+  refused on an open stage. `lookdev.mjs selftest` runs 11 controls. Open: no control for close-shot's
+  post-render tile checks and no `--min-subject` flag; `tone --expect` only reports; `tone` with no
+  `--material` fails on study_woman's lashes (0.0073 under the 0.01 floor); `sky_openness` calls a
+  runtime-built scene open (the refusal should name `--stage`/`--force`); `LookdevPresets.apply` can
+  leave the Environment half-changed when it returns not-ok; close-shot and the selftest are not in
+  `regress --godot`; bone aliases cover Rigify/rig-anything and Mixamo only; tone writes its default
+  output under the shared `%TEMP%/lookdev/`. Defects the close-ups show (fingertip and neck stipple,
+  orange palms on study_man, stair-step sun shadows at 1 m, clumped lashes) belong to steps 1 and 2.
 - **06 rank 3 - rebuilds that match what changed:** the thin callers open the saved blend, and every stage
   hash names the code and data it reads. A `[flesh]` edit today reruns the whole build from body.
 - **06 rank 12 - bake at final size:** pass `[build] quality` to `look.skin` (2048 px at final).
+- **06 section 5 - repo tooling: done** (branch `repo-regress-quick`, merged 2026-09-18). `regress.py`
+  runs longest first, prints results as they finish, ends with `REGRESS DONE exit=N, K fixtures ok`,
+  always writes a diff file, and has `--quick` (fixtures selected from the git diff; `--dry-run` shows why).
+  `tools/bump.py` does version bumps; `tools/test_tools.py` checks both. A full `--quick --jobs 4` took
+  about 3.5 min. Open: mpfb_woman_curvy's glb readback sits under the VOLATILE key `export.file` and is
+  never compared (renaming it moves goldens); `--restamp` and refusing `--update` off main are not done;
+  DURATIONS is a static table; addon sync and `.gitattributes` from the same list are not done.
 
 ### Step 1 - hair
 
@@ -95,8 +113,8 @@ and a close-up that would have shown a defect was missing twice. Fix the loop be
   1 m. Add mid-frequency variation: tone and redness by region (knees, elbows, knuckles, face, the
   soles), and a roughness map by region so the forehead and lips stop reading as gloss.
 - **Small defects:** thin orange lines at the finger-web creases under clear_midday.
-- **Lighting presets on an open stage:** golden_hour overexposure and floor stripes; mark
-  interior_daylight as interior-only in lookdev.
+- **Lighting presets on an open stage:** golden_hour overexposure and floor stripes. (interior_daylight is
+  marked interior-only since lookdev 0.4.0.)
 
 ### Step 3 - anatomy: genitals (parked branch)
 

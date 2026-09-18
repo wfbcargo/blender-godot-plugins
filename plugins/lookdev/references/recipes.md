@@ -1,7 +1,10 @@
 # Lighting recipes
 
-`presets/presets.json` holds five recipes. `lookdev.mjs preset` applies one to
-the sun, sky, environment and exposure of a scene copy. This page is what each
+`godot/addons/lookdev/presets.json` holds five recipes. `lookdev.mjs preset` applies one to
+the sun, sky, environment and exposure of a scene copy; a game applies the same recipe at runtime with
+the addon's `lookdev_presets.gd` (the offline tool calls that same script). A recipe can say what it
+needs: `interior_daylight` has `"needs": "interior"` and is refused on an open stage (most rays up from
+the camera reach the sky) unless `--force` / `{"force": true}`. This page is what each
 is trying to be, how it was calibrated, and how to adjust it for a real scene.
 
 ## What a preset changes, and what it doesn't

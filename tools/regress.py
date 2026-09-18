@@ -7,6 +7,18 @@
     python tools/regress.py --update             # rewrite the goldens, then review the diff
     python tools/regress.py --twice              # build each fixture twice; the builds must agree
     python tools/regress.py --godot <project>    # then play the exports in Godot's verifiers
+    python tools/regress.py --quick              # only the fixtures the changed plugins reach
+    python tools/regress.py --quick --dry-run    # say what would run, and why, and stop
+
+The longest fixtures start first (DURATIONS, measured), each result is printed as soon as it is in,
+the full diff of every changed key goes to a file whose path is printed, and every run ends with
+exactly one line `REGRESS DONE exit=N, K fixtures ok`, which is what a background wait should match.
+
+`--quick` compares this branch with `main` (`git diff --name-only main...HEAD`, plus uncommitted and
+untracked files) and runs the fixtures that reach a changed plugin - through `H.use` in the fixture
+or through one plugin importing another - or whose own fixture, helper or golden changed. A change to
+tools/ or the shared harness runs everything; documentation runs nothing. It prints what it selected
+and what it skipped, and why. Run a full `--twice` before merging all the same.
 
 Each fixture (tests/fixtures/<name>.py) is a script Blender runs in its own process, building
 something from nothing and writing a JSON report of what it got. This compares that report to
@@ -70,6 +82,33 @@ PATHLIKE = re.compile(r"^([A-Za-z]:[\\/]|\\\\|/[^/])")
 TOLERANCES = {}
 DEFAULT_TOLERANCE = 1e-3
 
+# Seconds one build of each fixture took, measured (see the notebook realism-step0/repo-regress-quick):
+# the pool is fed longest first so the two slowest builds never start last and leave one Blender
+# idle at the end. Only the order matters. A fixture not listed here is assumed long, so a new one
+# starts early rather than at the tail.
+DURATIONS = {  # 2026-09-18, `--jobs 2` on main at 5a218d3
+    "rabbit": 193, "cricket": 182, "pipeline_muscle": 130, "dressed_presets": 69, "pipeline_woman": 67,
+    "dressed_skirts": 55, "flesh_figure": 54, "traced_detail": 53, "rigify_human": 53, "quadruped": 49,
+    "mpfb_woman_curvy": 49, "pipeline_ponytail": 40, "dressed_figure": 38, "hair_presets": 36,
+    "strand_ponytail": 32, "muscle_definition": 31, "mixamo_names": 21, "skin_detail": 18,
+    "review_sheet": 9, "starfish": 6,
+}
+UNKNOWN_DURATION = 10 ** 6
+
+# Windows MAX_PATH. A --keep folder whose deepest output nears it breaks renders and glb writes in
+# ways that do not say "path too long". DEEPEST_OUTPUT is the longest path under a fixture's output
+# folder, relative to the --keep root, measured on a full run; the warning is also raised afterwards
+# from what the run actually wrote.
+MAX_PATH = 260
+PATH_MARGIN = 20
+DEEPEST_OUTPUT = 95   # pipeline_woman's review png, 93, plus `a/` under --twice
+
+
+def _print(*args, **kw):
+    """Every line flushed: a run is watched from a background log, and a buffered result is a lost one."""
+    kw.setdefault("flush", True)
+    print(*args, **kw)
+
 
 def find_blender():
     if os.environ.get("BLENDER"):
@@ -82,11 +121,159 @@ def fixtures():
     return sorted(p.stem for p in FIXTURES.glob("*.py") if not p.name.startswith("_"))
 
 
+def schedule(names):
+    """Longest first by DURATIONS; unmeasured fixtures first of all, then by name."""
+    return sorted(names, key=lambda n: (-DURATIONS.get(n, UNKNOWN_DURATION), n))
+
+
+# --- --quick: which fixtures a change reaches ------------------------------------------------------
+
+def _plugin_packages():
+    """{plugin: {top-level importable name}} from each plugin's package folder."""
+    out = {}
+    for plugin in sorted(set(SCRIPT_VARS.values())):
+        root = REPO / "plugins" / plugin / PACKAGE_DIR.get(plugin, "scripts")
+        names = set()
+        if root.is_dir():
+            for p in root.iterdir():
+                if p.is_dir() and (p / "__init__.py").is_file():
+                    names.add(p.name)
+                elif p.suffix == ".py":
+                    names.add(p.stem)
+        out[plugin] = names
+    return out
+
+
+def plugin_imports():
+    """{plugin: {other plugins its sources import}}, scanned from the checkout. Lazy imports count:
+    a function that imports wardrobe runs wardrobe's code whenever it is called."""
+    packages = _plugin_packages()
+    owner = {name: plugin for plugin, names in packages.items() for name in names}
+    pattern = re.compile(r"^\s*(?:from|import)\s+([A-Za-z_][A-Za-z0-9_]*)", re.M)
+    graph = {}
+    for plugin in packages:
+        root = REPO / "plugins" / plugin / PACKAGE_DIR.get(plugin, "scripts")
+        found = set()
+        for src in (root.rglob("*.py") if root.is_dir() else []):
+            try:
+                text = src.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            found |= {owner[m] for m in pattern.findall(text) if m in owner}
+        graph[plugin] = found - {plugin}
+    return graph
+
+
+def fixture_plugins(name, graph=None):
+    """{plugin: how the fixture reaches it}: the plugins its source names (H.use and any *_SCRIPTS it
+    reads), then every plugin those import, transitively."""
+    graph = plugin_imports() if graph is None else graph
+    text = (FIXTURES / (name + ".py")).read_text(encoding="utf-8", errors="replace")
+    reach = {SCRIPT_VARS[v]: "uses it" for v in re.findall(r"\b([A-Z]{2}_SCRIPTS)\b", text) if v in SCRIPT_VARS}
+    todo = list(reach)
+    while todo:
+        plugin = todo.pop()
+        for other in sorted(graph.get(plugin, ())):
+            if other not in reach:
+                reach[other] = "%s imports %s" % (plugin, other) if reach[plugin] == "uses it" \
+                    else "%s, which imports %s" % (reach[plugin], other)
+                todo.append(other)
+    return reach
+
+
+def changed_files(base="main"):
+    """Repo-relative paths that differ from `base`: committed on this branch since it left base,
+    staged, unstaged and untracked. Renames count both names."""
+    def git(*args):
+        proc = subprocess.run(["git", "-C", str(REPO), *args], capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError("git %s: %s" % (" ".join(args), proc.stderr.strip()))
+        return [l.strip() for l in proc.stdout.splitlines() if l.strip()]
+    paths = set(git("diff", "--name-only", "--no-renames", "%s...HEAD" % base))
+    paths |= set(git("diff", "--name-only", "--no-renames", "HEAD"))
+    paths |= set(git("ls-files", "--others", "--exclude-standard"))
+    return sorted(paths)
+
+
+def select(changed, names=None):
+    """What a set of changed paths reaches. Returns (selected {fixture: [reasons]},
+    skipped {fixture: reason}, notes [(path, what it selected)])."""
+    names = fixtures() if names is None else names
+    graph = plugin_imports()
+    reach = {n: fixture_plugins(n, graph) for n in names}
+    sources = {n: (FIXTURES / (n + ".py")).read_text(encoding="utf-8", errors="replace") for n in names}
+    selected, notes = {}, []
+
+    def pick(fixture_names, why):
+        for n in fixture_names:
+            selected.setdefault(n, []).append(why)
+        return fixture_names
+
+    for path in changed:
+        parts = path.replace("\\", "/").split("/")
+        if "__pycache__" in parts or path.endswith(".pyc"):
+            notes.append((path, "nothing (bytecode)"))
+        elif parts[0] == "tools":
+            pick(names, "shared code: %s" % path)
+            notes.append((path, "every fixture (shared code)"))
+        elif parts[0] == "plugins" and len(parts) > 2:
+            plugin = parts[1]
+            hit = [n for n in names if plugin in reach[n]]
+            for n in hit:
+                selected.setdefault(n, []).append("%s changed (%s)" % (
+                    plugin, "the fixture uses it" if reach[n][plugin] == "uses it" else reach[n][plugin]))
+            notes.append((path, ", ".join(hit) if hit else "nothing (no fixture reaches %s)" % plugin))
+        elif parts[:2] == ["tests", "fixtures"] and len(parts) == 3 and path.endswith(".py"):
+            stem = parts[2][:-3]
+            if stem.startswith("_"):
+                # a helper: every fixture that names it (all of them import _harness)
+                hit = pick([n for n in names if re.search(r"\b%s\b" % re.escape(stem), sources[n])],
+                           "shared test harness: %s" % path)
+                notes.append((path, "every fixture (shared harness)" if len(hit) == len(names)
+                              else ", ".join(hit) or "nothing (no fixture names %s)" % stem))
+            else:
+                hit = pick([stem] if stem in names else [], "its fixture changed")
+                notes.append((path, ", ".join(hit) or "nothing (fixture gone)"))
+        elif parts[:2] == ["tests", "golden"] and len(parts) == 3 and path.endswith(".json"):
+            stem = parts[2][:-5]
+            hit = pick([stem] if stem in names else [], "its golden changed")
+            notes.append((path, ", ".join(hit) or "nothing (no such fixture)"))
+        elif path.endswith(".md") or parts[0] in ("docs", ".claude-plugin") or path in (".gitignore",):
+            notes.append((path, "nothing (documentation or marketplace metadata; no fixture reads it)"))
+        else:
+            pick(names, "unclassified change: %s" % path)
+            notes.append((path, "every fixture (not classified, so run everything)"))
+
+    skipped = {}
+    for n in names:
+        if n not in selected:
+            skipped[n] = "reaches only %s, none of which changed" % ", ".join(sorted(reach[n])) \
+                if reach[n] else "reaches no plugin"
+    return selected, skipped, notes
+
+
 def volatile(key):
     words = [w for w in re.split(r"[_\W]+", key.lower()) if w]
     if not words or words[-1] in UNITS:
         return False
     return any(w in VOLATILE for w in words)
+
+
+def volatile_blocks(value, prefix=""):
+    """[(dotted key, n)] where a volatile key holds a dict of n entries (a list of paths is fine).
+    `flatten` drops the whole block, so a `build_timing` that also held a result is never compared."""
+    out = []
+    if isinstance(value, dict):
+        for k, v in value.items():
+            key = "%s.%s" % (prefix, k) if prefix else str(k)
+            if volatile(str(k)) and isinstance(v, dict) and v:
+                out.append((key, len(v)))
+            elif not volatile(str(k)):
+                out += volatile_blocks(v, key)
+    elif isinstance(value, list):
+        for i, v in enumerate(value):
+            out += volatile_blocks(v, "%s[%d]" % (prefix, i))
+    return out
 
 
 def flatten(value, prefix=""):
@@ -149,7 +336,52 @@ def run_fixture(name, blender, out_root, env):
         tail = "\n".join((proc.stdout or "").splitlines()[-12:])
         return {"fixture": name, "error": "no report written (exit %s)\n%s" % (proc.returncode, tail)}, took
     with open(result_path, encoding="utf-8") as fh:
-        return json.load(fh), took
+        report = json.load(fh)
+    # Read now: without --keep the folder is gone by the time the result is printed.
+    report["_stage_times"] = stage_times(out)
+    report["_deepest"] = deepest_path(out)
+    return report, took
+
+
+def stage_times(out):
+    """[(manifest, quality, total_seconds, {stage: seconds})] from every character-pipeline manifest a
+    fixture exported: its `build` block records how long each stage took. The pipeline fixtures silence
+    the runner's log, so this is the only place a slow stage shows."""
+    rows = []
+    for p in sorted(out.rglob("*.moves.json")):
+        if "_humanform_library" in p.parts:
+            continue
+        try:
+            with open(p, encoding="utf-8") as fh:
+                build = json.load(fh).get("build") or {}
+        except (OSError, ValueError, AttributeError):
+            continue
+        if isinstance(build, dict) and isinstance(build.get("stage_seconds"), dict):
+            rows.append((p.relative_to(out).as_posix(), build.get("quality"), build.get("total_seconds"),
+                         build["stage_seconds"]))
+    return rows
+
+
+def deepest_path(root):
+    """(length, path) of the longest path under root, as an absolute path string."""
+    best = (0, "")
+    for dirpath, dirnames, filenames in os.walk(root):
+        for f in filenames + dirnames:
+            full = os.path.join(dirpath, f)
+            if len(full) > best[0]:
+                best = (len(full), full)
+    return best
+
+
+def path_warning(keep_root, deepest_rel):
+    """A warning line when keep_root plus the deepest relative output nears MAX_PATH, else None."""
+    total = len(str(keep_root)) + 1 + deepest_rel
+    if deepest_rel and total >= MAX_PATH - PATH_MARGIN:
+        return ("WARNING: --keep %s (%d characters) plus the deepest fixture output (%d) is %d characters, "
+                "within %d of Windows' %d-character MAX_PATH: renders and glb writes fail there without "
+                "saying why. Use a shorter --keep folder." % (keep_root, len(str(keep_root)), deepest_rel,
+                                                             total, PATH_MARGIN, MAX_PATH))
+    return None
 
 
 # --godot: the engine side of each fixture. Every `.moves.json` a fixture exports goes through
@@ -195,7 +427,8 @@ GODOT_FLESH = {
                        "control": ["require=within_body"]},
 }
 # The Godot addons the verifiers load from the project, and where this repo keeps each one.
-GODOT_ADDONS = {"rig_anything": "rig-anything", "wardrobe": "wardrobe", "follow_through": "follow-through"}
+GODOT_ADDONS = {"rig_anything": "rig-anything", "wardrobe": "wardrobe", "follow_through": "follow-through",
+                "lookdev": "lookdev"}
 GODOT_STAGE = "_regress"                         # res://_regress/<fixture>/, removed afterwards
 
 
@@ -371,32 +604,106 @@ def _run_flesh(godot, project, where, name):
 
 def show(changes, was="was", now="now", limit=40):
     for key, before, after in changes[:limit]:
-        print("          %s\n            %s %r\n            %s %r" % (key, was, before, now, after))
+        _print("          %s\n            %s %r\n            %s %r" % (key, was, before, now, after))
     if len(changes) > limit:
-        print("          ... and %d more" % (len(changes) - limit))
+        _print("          ... and %d more (all of them are in the diff file)" % (len(changes) - limit))
+
+
+def diff_text(name, changes, was="was", now="now", heading=""):
+    lines = ["== %s: %s%d key(s)" % (name, heading, len(changes))]
+    for key, before, after in changes:
+        lines.append("  %s\n    %s %r\n    %s %r" % (key, was, before, now, after))
+    return "\n".join(lines) + "\n"
+
+
+def done_line(code, ok):
+    """The last line of every run, exactly: a background wait matches on it."""
+    return "REGRESS DONE exit=%d, %d fixtures ok" % (code, ok)  # never singular: waits match this literal
+
+
+def default_diff_path(keep):
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    folder = Path(keep) if keep else Path(tempfile.gettempdir()) / "regress-diffs"
+    return folder / ("regress-%s-%d.diff" % (stamp, os.getpid()))
 
 
 def main(argv=None):
+    state = {"ok": 0}
+    try:
+        code = _main(argv, state)
+    except SystemExit as exc:                    # argparse errors and --help
+        code = exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 2)
+    except BaseException:
+        import traceback
+        traceback.print_exc()
+        code = 3
+    _print(done_line(code, state["ok"]))
+    return code
+
+
+def _main(argv, state):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--only", nargs="+", metavar="FIXTURE", help="run these fixtures, not all")
+    ap.add_argument("--quick", action="store_true",
+                    help="run only the fixtures that reach what changed since --base (see above)")
+    ap.add_argument("--base", default="main", help="what --quick compares with (default main)")
+    ap.add_argument("--changed", nargs="+", metavar="PATH",
+                    help="with --quick: take these repo-relative paths as the change instead of asking git")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="print the fixtures that would run, in order, and why; build nothing")
     ap.add_argument("--plugins", metavar="CHECKOUT",
                     help="a repo checkout whose plugins/<name>/scripts the fixtures import")
-    ap.add_argument("--update", action="store_true", help="rewrite goldens from this run")
+    ap.add_argument("--update", action="store_true",
+                    help="rewrite goldens from this run (a golden within tolerance is left alone)")
     ap.add_argument("--twice", action="store_true",
                     help="build every fixture twice and fail if the two builds disagree")
     ap.add_argument("--jobs", type=int, default=1, help="fixtures to run at once (default 1)")
     ap.add_argument("--keep", metavar="DIR", help="keep each fixture's output here, not in a temp dir")
+    ap.add_argument("--diff", metavar="FILE",
+                    help="write the full diff here (default: in --keep, else <temp>/regress-diffs/)")
     ap.add_argument("--blender", default=find_blender())
     ap.add_argument("--godot", metavar="PROJECT",
                     help="also run the Godot verifiers on the fixtures' exports inside this project")
     ap.add_argument("--godot-bin", default=find_godot(), help="the Godot console binary ($GODOT)")
     args = ap.parse_args(argv)
 
+    if args.quick and args.only:
+        ap.error("--quick chooses the fixtures itself; do not pass --only with it")
+    if args.changed and not args.quick:
+        ap.error("--changed only means something with --quick")
     names = args.only or fixtures()
     unknown = [n for n in names if not (FIXTURES / (n + ".py")).is_file()]
     if unknown:
         ap.error("no such fixture: %s (have: %s)" % (", ".join(unknown), ", ".join(fixtures())))
+
+    if args.quick:
+        try:
+            changed = args.changed or changed_files(args.base)
+        except RuntimeError as exc:
+            ap.error("--quick could not list the change: %s" % exc)
+        selected, skipped, notes = select(changed, names)
+        _print("quick: %d path(s) changed against %s" % (len(changed), "--changed" if args.changed else args.base))
+        for path, what in notes:
+            _print("  %s -> %s" % (path, what))
+        _print("quick: selected %d of %d fixture(s)" % (len(selected), len(names)))
+        for n in schedule(selected):
+            _print("  run   %s: %s" % (n, "; ".join(dict.fromkeys(selected[n]))))
+        for n in sorted(skipped):
+            _print("  skip  %s: %s" % (n, skipped[n]))
+        names = list(selected)
+    names = schedule(names)
+    _print("order (longest first): %s" % " ".join(names))
+    if args.keep:
+        keep_root = Path(args.keep).resolve()
+        warn = path_warning(keep_root, DEEPEST_OUTPUT if args.twice else DEEPEST_OUTPUT - 2)
+        if warn:
+            _print(warn)
+    if args.dry_run or not names:
+        if not names:
+            _print("nothing to run")
+        return 0
+
     if not Path(args.blender).is_file() and not shutil.which(args.blender):
         ap.error("no Blender at %s - set $BLENDER or pass --blender" % args.blender)
     project = Path(args.godot).resolve() if args.godot else None
@@ -407,8 +714,8 @@ def main(argv=None):
             ap.error("no Godot at %s - set $GODOT or pass --godot-bin" % args.godot_bin)
         drift = addon_drift(project)
         if drift:
-            print("WARNING: the project's addons differ from this repo's, so the verifiers run the "
-                  "project's copy:\n  " + "\n  ".join(drift))
+            _print("WARNING: the project's addons differ from this repo's, so the verifiers run the "
+                   "project's copy:\n  " + "\n  ".join(drift))
 
     env = dict(os.environ)
     if args.plugins:
@@ -420,80 +727,135 @@ def main(argv=None):
             if scripts.is_dir():
                 env[var] = str(scripts)
         have = sorted(p for var, p in SCRIPT_VARS.items() if env.get(var, "").startswith(str(root)))
-        print("plugins: %s (%s; the rest from this checkout)" % (root, ", ".join(have)))
+        _print("plugins: %s (%s; the rest from this checkout)" % (root, ", ".join(have)))
     else:
-        print("plugins: %s (this checkout)" % REPO)
+        _print("plugins: %s (this checkout)" % REPO)
     GOLDEN.mkdir(parents=True, exist_ok=True)
+
+    diff_path = Path(args.diff) if args.diff else default_diff_path(args.keep)
+    diff_path.parent.mkdir(parents=True, exist_ok=True)
+    diff_chunks = []
 
     temp = None if args.keep else tempfile.TemporaryDirectory(prefix="regress-")
     out_root = Path(args.keep) if args.keep else Path(temp.name)
-    failures, updated, built = [], [], []
+    failures, updated, built, deepest = [], [], [], (0, "")
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
             # With --twice each build gets its own folder - and so its own humanform library, so
-            # the second build cannot warm-start from the first and hide a difference.
+            # the second build cannot warm-start from the first and hide a difference. Submitted
+            # longest first, both builds of a fixture together, so its result is in as early as it can be.
             builds = ("a", "b") if args.twice else ("",)
-            runs = {(name, b): pool.submit(run_fixture, name, args.blender, out_root / b, env)
-                    for name in names for b in builds}
+            runs = {}
             for name in names:
-                fresh, took = runs[(name, builds[0])].result()
-                versions = " ".join("%s %s" % (k, v) for k, v in sorted(fresh.get("plugins", {}).items()))
-                head = "%s [%.0fs] %s" % (name, took, versions)
-                if "error" in fresh:
-                    print("  ERROR   %s\n          %s" % (head, fresh["error"]))
-                    failures.append(name)
-                    continue
-                if args.twice:
-                    second, took_b = runs[(name, "b")].result()
-                    head = "%s [%.0fs + %.0fs] %s" % (name, took, took_b, versions)
-                    if "error" in second:
-                        print("  ERROR   %s (second build)\n          %s" % (head, second["error"]))
-                        failures.append(name)
-                        continue
-                    differ = compare(fresh, second)
-                    if differ:
-                        # Checked before the golden: a build that does not reproduce is not a
-                        # result to compare, and never one to record.
-                        print("  NONDETERMINISTIC %s: %d key(s) differ between two builds"
-                              % (head, len(differ)))
-                        show(differ, "a", "b")
-                        failures.append(name)
-                        continue
-                built.append(name)
-                golden_path = GOLDEN / (name + ".json")
-                if args.update or not golden_path.is_file():
-                    with open(golden_path, "w", encoding="utf-8") as fh:
-                        json.dump(fresh, fh, indent=1, sort_keys=True)
-                    print("  %s %s" % ("UPDATED" if args.update else "RECORDED", head))
-                    updated.append(name)
-                    continue
-                with open(golden_path, encoding="utf-8") as fh:
-                    changes = compare(json.load(fh), fresh)
-                if not changes:
-                    print("  ok      %s" % head)
-                    continue
-                failures.append(name)
-                print("  CHANGED %s: %d key(s)" % (head, len(changes)))
-                show(changes)
+                for b in builds:
+                    runs[pool.submit(run_fixture, name, args.blender, out_root / b, env)] = (name, b)
+            results = {}
+            for fut in concurrent.futures.as_completed(runs):
+                name, b = runs[fut]
+                results[(name, b)] = fut.result()
+                if all((name, x) in results for x in builds):
+                    for fresh, _ in (results[(name, x)] for x in builds):
+                        if fresh.get("_deepest", (0,))[0] > deepest[0]:
+                            deepest = tuple(fresh["_deepest"])
+                    state["ok"] += judge(name, [results[(name, x)] for x in builds], args, failures,
+                                         updated, built, diff_chunks)
         if project and built:
             # A fixture whose golden moved still exported something worth playing; one that
             # errored or did not reproduce did not.
-            print("\ngodot: %s" % project)
+            _print("\ngodot: %s" % project)
             for check, passed, detail in run_godot(args.godot_bin, project, out_root / builds[0], built):
-                print("  %s %s: %s" % ("ok     " if passed else "FAILED ", check, detail))
+                _print("  %s %s: %s" % ("ok     " if passed else "FAILED ", check, detail))
                 if not passed:
                     failures.append(check)
+                    diff_chunks.append("== godot %s: FAILED\n  %s\n" % (check, detail))
     finally:
         if temp:
             temp.cleanup()
+        # Written whatever happened, even when the run died part-way: what it had seen is in it.
+        with open(diff_path, "w", encoding="utf-8") as fh:
+            fh.write("regress %s, %s\n\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), " ".join(sys.argv[1:])))
+            fh.write("".join(diff_chunks) if diff_chunks else "no key changed in any fixture\n")
 
+    if args.keep and deepest[0]:
+        # the free value: what this run wrote, not the DEEPEST_OUTPUT estimate
+        rel = deepest[0] - len(str(out_root)) - 1
+        _print("deepest output: %d characters (%s)" % (deepest[0], deepest[1]))
+        warn = path_warning(Path(args.keep), rel)
+        if warn:
+            _print(warn)
     if updated:
-        print("\ngoldens written for %s - review the diff before committing" % ", ".join(updated))
+        _print("\ngoldens written for %s - review the diff before committing" % ", ".join(updated))
+    _print("\nfull diff: %s" % diff_path)
     if failures:
-        print("\n%d fixture(s) changed or failed: %s" % (len(failures), ", ".join(failures)))
+        _print("%d fixture(s) changed or failed: %s" % (len(failures), ", ".join(failures)))
         return 1
-    print("\nno change")
+    _print("no change")
     return 0
+
+
+def judge(name, results, args, failures, updated, built, diff_chunks):
+    """Print one fixture's result the moment its builds are in. Returns 1 if it passed, else 0."""
+    fresh, took = results[0]
+    stages = fresh.pop("_stage_times", [])
+    fresh.pop("_deepest", None)
+    versions = " ".join("%s %s" % (k, v) for k, v in sorted(fresh.get("plugins", {}).items()))
+    head = "%s [%.0fs] %s" % (name, took, versions)
+    if "error" in fresh:
+        _print("  ERROR   %s\n          %s" % (head, fresh["error"]))
+        diff_chunks.append("== %s: ERROR\n%s\n" % (name, fresh["error"]))
+        failures.append(name)
+        return 0
+    if args.twice:
+        second, took_b = results[1]
+        second.pop("_stage_times", None)
+        second.pop("_deepest", None)
+        head = "%s [%.0fs + %.0fs] %s" % (name, took, took_b, versions)
+        if "error" in second:
+            _print("  ERROR   %s (second build)\n          %s" % (head, second["error"]))
+            diff_chunks.append("== %s: ERROR in the second build\n%s\n" % (name, second["error"]))
+            failures.append(name)
+            return 0
+        differ = compare(fresh, second)
+        if differ:
+            # Checked before the golden: a build that does not reproduce is not a
+            # result to compare, and never one to record.
+            _print("  NONDETERMINISTIC %s: %d key(s) differ between two builds" % (head, len(differ)))
+            show(differ, "a", "b")
+            diff_chunks.append(diff_text(name, differ, "a", "b", "NONDETERMINISTIC, "))
+            failures.append(name)
+            return 0
+    built.append(name)
+    for key, n in volatile_blocks(fresh.get("report", {})):
+        _print("  WARNING %s: `%s` is a volatile key holding a dict of %d entr%s, so none of it is "
+               "compared; rename it if it holds results" % (name, key, n, "y" if n == 1 else "ies"))
+    golden_path = GOLDEN / (name + ".json")
+    old = None
+    if golden_path.is_file():
+        with open(golden_path, encoding="utf-8") as fh:
+            old = json.load(fh)
+    changes = compare(old, fresh) if old is not None else None
+    passed = 1
+    if old is None or (args.update and changes):
+        with open(golden_path, "w", encoding="utf-8") as fh:
+            json.dump(fresh, fh, indent=1, sort_keys=True)
+        _print("  %s %s" % ("UPDATED" if old is not None else "RECORDED", head))
+        if changes:
+            diff_chunks.append(diff_text(name, changes, heading="UPDATED, "))
+        updated.append(name)
+    elif not changes:
+        # With --update too: a golden within tolerance is not rewritten, so a re-record touches
+        # only the goldens that moved (its version stamp stays as it was).
+        _print("  ok      %s%s" % (head, " (golden within tolerance, kept)" if args.update else ""))
+    else:
+        failures.append(name)
+        passed = 0
+        _print("  CHANGED %s: %d key(s)" % (head, len(changes)))
+        show(changes)
+        diff_chunks.append(diff_text(name, changes, heading="CHANGED, "))
+    for manifest, quality, total, secs in stages:
+        _print("          stages %s (%s, %ss): %s" % (manifest, quality, total,
+                                                     ", ".join("%s %s" % kv for kv in secs.items())))
+    return passed
 
 
 if __name__ == "__main__":
