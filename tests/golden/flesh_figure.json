@@ -1,7 +1,7 @@
 {
  "fixture": "flesh_figure",
  "plugins": {
-  "follow-through": "0.5.1",
+  "follow-through": "0.5.2",
   "rig-anything": "0.23.0"
  },
  "report": {
