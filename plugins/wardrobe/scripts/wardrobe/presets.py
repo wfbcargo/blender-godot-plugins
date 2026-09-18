@@ -98,7 +98,7 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
                 break
             lifted.append({"tris": len(tris), "verts_moved": fit.lift_over(g, body, tris, (p.get("ease") or {}).get("base", 0.006))})
             cr = cover.compute(g, body, **_args(p.get("cover")))
-        if lifted:
+        if lifted and er is not None:
             er["detail"] = fit.detail(g, body, limit=(p.get("ease") or {}).get("detail_limit"))   # of the cloth as lifted
     layers = {o: cover.compute(g, o, **_args(p.get("layer_cover"))) for o in over}
     s = spec.build(g, body, cr, hr, er, kind=p.get("spec_kind", p["cut"]),
@@ -117,8 +117,9 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
         "cloth": _cloth_summary(cloth),
     }
     # the preset's `ease.detail_limit`: a compression garment that still carries more of the skin's
-    # own relief than the limit fails - and so does one whose limited region was never measured
-    detail = builtins.list((er.get("detail") or {}).get("problems") or [])
+    # own relief than the limit fails - and so does one whose limited region was never measured.
+    # A skirt or dress has no ease step (`er` None): there is no relief to have measured.
+    detail = builtins.list(((er or {}).get("detail") or {}).get("problems") or [])
     if cr.get("drawn_over_cloth"):
         detail.append("cover: %d drawn body triangles still lie over the cloth after lifting it" % cr["drawn_over_cloth"])
     if problems:
