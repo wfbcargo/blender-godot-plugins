@@ -17,8 +17,10 @@ preset and hair code, follow-through's registry, the skin bake's code), so:
   file holds, and refuses if an earlier stage is missing or was built from a different spec;
 - a stage whose preconditions do not hold refuses and names the order (`stages.StageRefused`).
 
-With `save` (default) the .blend goes to the spec's `export.blend` after the last stage, refusing to
-overwrite a file holding a scene this session does not have.
+With `save` (default) the .blend goes to the spec's `export.blend` after the last stage (resolved by
+`spec.resolve_blend`: a relative path lands under $BLEND_DIR, else the project), refusing to overwrite a file
+holding a scene this session does not have, and refusing - before any stage runs - a path outside the project
+and $BLEND_DIR unless `save_outside=True` (06 rank 2: a copied spec cannot save over the real blends).
 
 Where the minutes went: every stage that runs records its wall time, and the build's own record - the
 quality, `stage_seconds` for the stages this build ran, what it skipped, and `total_seconds` - goes into the
@@ -140,7 +142,7 @@ def open_saved(spec, log=print):
     Returns the path opened, or None. Opening replaces everything in this session, so a build script calls
     this before anything else touches the scene."""
     ch = spec_mod.load(spec) if isinstance(spec, (str, os.PathLike)) else spec
-    path = ch.export.blend
+    path = ch.blend_path()
     if not path or not os.path.isfile(path):
         return None
     current = bpy.data.filepath or ""
@@ -153,8 +155,22 @@ def open_saved(spec, log=print):
     return path
 
 
-def _save(ch, path):
-    """save_as_mainfile, refusing if the file on disk has a scene this session lacks."""
+def check_save_path(ch, path, save_outside=False):
+    """Refuse (BuildRefused) a .blend path outside the project and $BLEND_DIR unless `save_outside`: a spec
+    copied into a scratch project with an absolute `[export] blend`, or a stray $BLEND_DIR, must not save over
+    the real file. Returns the path."""
+    roots = ch.save_roots()
+    if not save_outside and not spec_mod.inside(path, roots):
+        raise BuildRefused(f"[{ch.id}] refusing to save {path}: it is outside the project and $BLEND_DIR "
+                           f"({', '.join(roots) or 'none known'}) - make [export] blend relative, set BLEND_DIR, "
+                           "or pass save_outside=True")
+    return path
+
+
+def _save(ch, path, save_outside=False):
+    """save_as_mainfile, refusing a path outside the project and $BLEND_DIR (`check_save_path`) and a file on
+    disk that has a scene this session lacks."""
+    check_save_path(ch, path, save_outside)
     if os.path.isfile(path) and os.path.normcase(os.path.abspath(bpy.data.filepath or "")) != os.path.normcase(os.path.abspath(path)):
         before = set(bpy.data.libraries)
         with bpy.data.libraries.load(path) as (src, _dst):
@@ -164,6 +180,7 @@ def _save(ch, path):
         lost = sorted(set(on_disk) - {s.name for s in bpy.data.scenes})
         if lost:
             raise BuildRefused(f"refusing to save over {path}: it holds scene(s) {lost} this session does not")
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)     # a fresh BLEND_DIR may not exist yet
     bpy.ops.wm.save_as_mainfile(filepath=path, copy=True)
     return path
 
@@ -172,12 +189,17 @@ class _Restart(Exception):
     pass
 
 
-def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=print, quality=None, resume=False):
+def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=print, quality=None, resume=False,
+          save_outside=False):
     """Run the spec's stages. `spec` is a path or a `spec.Character`. `quality` overrides the spec's
     `[build] quality` ("draft", "preview", "final"). `resume` first opens the spec's saved .blend when no
     file is open (`open_saved`), which is what a build script run from the command line wants.
-    Returns {stage: {status, report}, "build": {...}}."""
+    `save_outside` lets the .blend be saved outside the project and $BLEND_DIR (refused otherwise, before
+    anything runs). Returns {stage: {status, report}, "build": {...}}."""
     ch = spec_mod.load(spec) if isinstance(spec, (str, os.PathLike)) else spec
+    blend = ch.blend_path() if save else None
+    if blend:
+        check_save_path(ch, blend, save_outside)
     if resume:
         open_saved(ch, log=log)
     q = quality_mod.check(quality or ch.build.quality)
@@ -201,8 +223,8 @@ def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=prin
             _manifest_build(ch, summary)
     report["build"] = summary
     log(f"[{ch.id}] {q} build: {summary['total_seconds']}s ({', '.join(f'{k} {v}' for k, v in ran.items()) or 'nothing ran'})")
-    if save and ch.export.blend and any(v.get("status") for v in report.values() if isinstance(v, dict)):
-        report["saved"] = _save(ch, ch.export.blend)
+    if blend and any(v.get("status") for v in report.values() if isinstance(v, dict)):
+        report["saved"] = _save(ch, blend, save_outside)
     return report
 
 

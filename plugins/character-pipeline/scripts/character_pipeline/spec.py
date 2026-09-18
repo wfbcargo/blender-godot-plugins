@@ -61,7 +61,14 @@ that belong to a plugin.
     [export]
     dir = "assets/belle"         # under the project
     res_dir = "res://assets/belle"
-    blend = "C:/Users/pauli/Code/Blender/belle_realistic.blend"
+    blend = "belle_realistic.blend"   # relative: under $BLEND_DIR when set, else under the project
+                                      # (absolute is still accepted) - see `resolve_blend`
+
+A relative `[export] blend` is what makes a spec safe to copy (06 rank 2): the same file, unedited, builds
+into whichever project it sits in, and saves its .blend there - `runner.build` refuses to save anywhere but
+under the project or `$BLEND_DIR` unless told to (`save_outside=True`). The string is hashed as written (the
+export stage's section), so a byte-for-byte copy of a spec in a scratch project hashes the same, and a copy of
+its saved .blend resumes there with every stage unchanged.
 
 `load(path)` reads and checks it and returns a `Character`. Every field maps to a plugin
 argument; `GAPS` lists what the plugins cannot take yet, so a spec that needs one says so
@@ -219,6 +226,14 @@ class Character:
         d = self.export.dir
         return d if os.path.isabs(d) else os.path.join(self.project or os.getcwd(), d)
 
+    def blend_path(self):
+        """The .blend a build opens and saves: `[export] blend` resolved (`resolve_blend`), or None."""
+        return resolve_blend(self.export.blend, self.project)
+
+    def save_roots(self):
+        """The folders a build may save its .blend under without `save_outside` (`save_roots`)."""
+        return save_roots(self.project)
+
     def section(self, name):
         """The part of the spec a stage reads, as plain data - what its input hash covers."""
         value = getattr(self, name) if name not in ("character",) else {"id": self.id, "name": self.name}
@@ -239,6 +254,47 @@ class Character:
     def digest(self, *sections):
         text = json.dumps({s: self.section(s) for s in sections}, sort_keys=True, default=str)
         return hashlib.sha1(text.encode()).hexdigest()[:16]
+
+
+def blend_dir(override=None):
+    """$BLEND_DIR (or `override`, when given) as an absolute path, or None when neither is set."""
+    d = override or os.environ.get("BLEND_DIR")
+    return os.path.normpath(os.path.abspath(os.path.expanduser(d))) if d else None
+
+
+def resolve_blend(blend, project, blend_dir_override=None):
+    """Where `[export] blend` points. Absolute: as written. Relative: under $BLEND_DIR when it is set (or
+    `blend_dir_override`, for a tool resolving another project's specs), else under `project` (the folder
+    holding `characters/`), else $PROJECT, else the working directory. None when the spec names no blend."""
+    if not blend:
+        return None
+    blend = os.path.expanduser(blend)
+    if os.path.isabs(blend):
+        return os.path.normpath(blend)
+    base = blend_dir(blend_dir_override) or project or os.environ.get("PROJECT") or os.getcwd()
+    return os.path.normpath(os.path.join(os.path.abspath(base), blend))
+
+
+def save_roots(project):
+    """The folders a build saves under without being told otherwise: the project and $BLEND_DIR (if set)."""
+    roots = [os.path.normpath(os.path.abspath(project))] if project else []
+    d = blend_dir()
+    if d and d not in roots:
+        roots.append(d)
+    return roots
+
+
+def inside(path, roots):
+    """Whether `path` is at or under one of `roots` (case-insensitive where the file system is)."""
+    p = os.path.normcase(os.path.normpath(os.path.abspath(path)))
+    for r in roots:
+        r = os.path.normcase(os.path.normpath(os.path.abspath(r)))
+        try:
+            if os.path.commonpath([p, r]) == r:
+                return True
+        except ValueError:                      # different drives
+            continue
+    return False
 
 
 def _take(table, key, kind, default=None, required=False, where=""):

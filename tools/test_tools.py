@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks for tools/regress.py and tools/bump.py that need no Blender. Each check has a control that
+"""Checks for tools/regress.py, tools/bump.py and tools/scratch_project.py that need no Blender. Each check has a control that
 must fail, so a check that stops measuring is caught.
 
     python tools/test_tools.py
@@ -157,6 +157,172 @@ def test_bump():
         check("control: bump.py exits non-zero on a bad version", code == 1, "exit %s" % code)
 
 
+# --- scratch_project.py and specs safe to copy ------------------------------------------------------
+
+def _tree(root):
+    """Every file under root by content: what 'untouched' is measured against."""
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in sorted(Path(root).rglob("*")) if p.is_file()}
+
+
+def _fake_godot(tmp, text, code=0):
+    n = len(list(Path(tmp).glob("godot_*")))
+    if os.name == "nt":
+        fake = Path(tmp) / ("godot_%d.cmd" % n)
+        fake.write_text("@echo %s\r\n@exit /b %d\r\n" % (text, code))
+    else:
+        fake = Path(tmp) / ("godot_%d" % n)
+        fake.write_text("#!/bin/sh\necho '%s'\nexit %d\n" % (text, code))
+        fake.chmod(0o755)
+    return str(fake)
+
+
+def _fake_spec(cid, blend):
+    return ('[character]\nid = "%s"\nname = "%s"\n\n[body]\nsex = "male"\n\n[moves]\ngaits = { Walk = 0.2 }\n\n'
+            '[export]\ndir = "assets/%s"\nres_dir = "res://assets/%s"\nblend = "%s"\n' % (cid, cid.title(), cid, cid, blend))
+
+
+def _fake_game(tmp):
+    game, blends = Path(tmp) / "game", Path(tmp) / "realblends"
+    files = {
+        "project.godot": 'config_version=5\n\n[application]\n\nrun/main_scene="res://main.tscn"\n',
+        "main.tscn": '[ext_resource type="PackedScene" path="res://assets/not_copied.glb" id="1"]\n',
+        "figure.tscn": '[ext_resource type="Script" path="res://figure.gd" id="1"]\n',
+        "figure.gd": 'const F = "res://assets/fig/%s.glb"\nconst A = preload("res://addons/mine/y.gd")\n',
+        "characters/fig.toml": _fake_spec("fig", "fig.blend"),
+        "characters/abs.toml": _fake_spec("abs", "%s/abs.blend" % blends.as_posix()),
+        "characters/other.toml": _fake_spec("other", "%s/other.blend" % blends.as_posix()),
+        "assets/save_guard.py": "# guard\n", "assets/humans/build_human.py": "# human\n",
+        "assets/belle/build_belle.py": "# belle\n", "assets/fig/fig.glb": "glb", "assets/fig/review/sheet.png": "png",
+        "assets/other/other.glb": "glb", "addons/lookdev/x.gd": "# the game's copy\n", "addons/mine/y.gd": "# y\n",
+    }
+    for rel, text in files.items():
+        (game / rel).parent.mkdir(parents=True, exist_ok=True)
+        (game / rel).write_text(text, encoding="utf-8", newline="\n")
+    blends.mkdir()
+    for n in ("fig", "abs", "other"):
+        (blends / (n + ".blend")).write_bytes(b"BLENDER-" + n.encode())
+    lib = Path(tmp) / "library"
+    (lib / "items").mkdir(parents=True)
+    (lib / "index.json").write_text("{}")
+    return game, blends, lib
+
+
+def test_scratch_project():
+    import scratch_project as sp
+    spec = sp._spec_module(REPO)
+    tmp = tempfile.mkdtemp(prefix="tsp_")
+    saved_env = os.environ.pop("BLEND_DIR", None)
+    try:
+        # spec.resolve_blend / inside, without Blender
+        proj = os.path.join(tmp, "p")
+        absolute = "C:/x/y.blend" if os.name == "nt" else "/x/y.blend"
+        check("absolute blend kept", spec.resolve_blend(absolute, proj) == os.path.normpath(absolute))
+        check("relative blend under the project", spec.resolve_blend("y.blend", proj) == os.path.join(proj, "y.blend"))
+        os.environ["BLEND_DIR"] = os.path.join(tmp, "bd")
+        check("relative blend under BLEND_DIR when set", spec.resolve_blend("y.blend", proj) ==
+              os.path.join(tmp, "bd", "y.blend"))
+        check("save roots: project and BLEND_DIR", spec.save_roots(proj) == [os.path.normpath(proj),
+                                                                             os.path.join(tmp, "bd")])
+        os.environ.pop("BLEND_DIR")
+        check("inside the project", spec.inside(os.path.join(proj, "sub", "y.blend"), [proj]))
+        sibling = os.path.join(tmp, "p2", "y.blend")
+        check("a sibling whose name starts with the project's is outside", not spec.inside(sibling, [proj]))
+        check("control: a prefix test would call that sibling inside", sibling.startswith(proj))
+        check("../ out of the project is outside", not spec.inside(spec.resolve_blend("../q/y.blend", proj), [proj]))
+        text, old = sp.rewrite_blend('[export]\ndir = "a"\nblend = "C:/B/x.blend"  # c\n')
+        check("absolute blend rewritten to its file name",
+              old == "C:/B/x.blend" and 'blend = "x.blend"  # c' in text, text)
+        check("control: a relative blend is left alone",
+              sp.rewrite_blend('blend = "x.blend"\n') == ('blend = "x.blend"\n', None))
+
+        game, blends, lib = _fake_game(tmp)
+        before, before_blends = _tree(game), _tree(blends)
+        out = Path(tmp) / "scratch"
+        clean = _fake_godot(tmp, "Godot Engine v4.7 import ok")
+        done = sp.make(out, who=["fig", "abs"], game=game, game_blend_dir=str(blends), library=str(lib),
+                       godot=clean, blender="blender", log=lambda m: None)
+        check("layout: characters, build scripts, the chosen export, addons, scenes",
+              all((out / r).is_file() for r in ("characters/fig.toml", "characters/other.toml", "assets/save_guard.py",
+                                                "assets/humans/build_human.py", "assets/belle/build_belle.py",
+                                                "assets/fig/fig.glb", "addons/mine/y.gd", "figure.tscn", "figure.gd")))
+        check("review/ folders are not copied", not (out / "assets/fig/review").exists())
+        check("a character not chosen: its export is not copied", not (out / "assets/other").exists())
+        check("the chosen blends copied into blends/, the other not",
+              sorted(p.name for p in (out / "blends").glob("*.blend")) == ["abs.blend", "fig.blend"])
+        check("blends/ and the library carry .gdignore",
+              (out / "blends/.gdignore").is_file() and (out / "humanform_library/.gdignore").is_file())
+        check("a relative spec is copied byte for byte",
+              (out / "characters/fig.toml").read_bytes() == (game / "characters/fig.toml").read_bytes())
+        check("absolute specs rewritten, chosen or not", sorted(done["rewritten"]) == ["abs", "other"],
+              str(done["rewritten"]))
+        bd = str(out / "blends")
+        where = {t.stem: spec.resolve_blend(spec.load(str(t)).export.blend, str(out), blend_dir_override=bd)
+                 for t in (out / "characters").glob("*.toml")}
+        check("every copied spec's blend resolves under the copy",
+              all(spec.inside(p, [str(out)]) for p in where.values()), str(where))
+        real = {t.stem: spec.resolve_blend(spec.load(str(t)).export.blend, str(out), blend_dir_override=bd)
+                for t in (game / "characters").glob("*.toml")}
+        check("control: the game's own specs, resolved the same way, reach outside the copy",
+              not all(spec.inside(p, [str(out)]) for p in real.values()), str(real))
+        check("the game is untouched", _tree(game) == before)
+        check("the game's blends are untouched", _tree(blends) == before_blends)
+        (game / "characters/fig.toml").write_text("changed")
+        check("control: the untouched check sees an edit", _tree(game) != before)
+        (game / "characters/fig.toml").write_bytes(before["characters/fig.toml"])
+        env = dict(re.findall(r"^export (\w+)='([^']*)'$", (out / "env.sh").read_text(), re.M))
+        check("env.sh: PROJECT and BLEND_DIR are the copy",
+              env.get("PROJECT") == sp.fwd(out) and env.get("BLEND_DIR") == sp.fwd(out / "blends"), str(env))
+        scripts = {k: v for k, v in env.items() if k.endswith("_SCRIPTS")}
+        check("env.sh: RA/HF/FT/WD/CP/LD_SCRIPTS at the checkout, each a folder",
+              sorted(scripts) == ["CP_SCRIPTS", "FT_SCRIPTS", "HF_SCRIPTS", "LD_SCRIPTS", "RA_SCRIPTS", "WD_SCRIPTS"]
+              and all(v.startswith(sp.fwd(REPO) + "/") and os.path.isdir(v) for v in scripts.values()), str(scripts))
+        check("env.sh: HUMANFORM_LIBRARY is a copy of the library",
+              env.get("HUMANFORM_LIBRARY") == sp.fwd(out / "humanform_library")
+              and (out / "humanform_library/index.json").is_file())
+        ps1 = (out / "env.ps1").read_text()
+        check("env.ps1 sets the same variables", all("$env:%s = '%s'" % kv in ps1 for kv in env.items()))
+        check("addons this repo keeps come from the checkout",
+              not (out / "addons/lookdev/x.gd").exists() and (out / "addons/lookdev").is_dir()
+              and "lookdev" in done["addons_from_checkout"])
+        check("a scene naming a file the copy lacks is left out, with the main scene line",
+              not (out / "main.tscn").exists() and "main_scene" not in (out / "project.godot").read_text()
+              and done["main_scene"] is None)
+        check("control: a scene whose files are all there is kept (a % format path is not a reference)",
+              (out / "figure.tscn").exists() and (out / "figure.gd").exists())
+        build_sh = (out / "build.sh").read_text()
+        check("build.sh sources env.sh and picks the build script",
+              '. "$HERE/env.sh"' in build_sh and "build_human.py" in build_sh and "build_belle.py" in build_sh)
+        check("the printed command is build.sh with the first figure",
+              done["build"] == "bash %s/build.sh fig" % sp.fwd(out), done["build"])
+
+        def refused(**kw):
+            args = dict(out=Path(tmp) / "s2", who=["fig"], game=game, game_blend_dir=str(blends), library=str(lib),
+                        godot=clean, blender="blender", log=lambda m: None)
+            args.update(kw)
+            try:
+                sp.make(**args)
+                return None
+            except sp.Refused as exc:
+                return str(exc)
+        check("refuses a folder that is not empty", "not empty" in (refused(out=out) or ""))
+        check("refuses a folder inside the game", "inside the game" in (refused(out=game / "scratch") or ""))
+        check("refuses an unknown character", "no characters/" in (refused(who=["nobody"]) or ""))
+        bad = _fake_godot(tmp, "ERROR: Failed loading resource: res://x.glb")
+        why = refused(out=Path(tmp) / "s3", godot=bad)
+        check("an import that prints ERROR is refused, naming the line", "Failed loading resource" in (why or ""),
+              str(why))
+        check("control: the same copy with a clean import passes", refused(out=Path(tmp) / "s4") is None)
+        crash = _fake_godot(tmp, "nothing said", code=3)
+        check("an import that exits non-zero is refused", "exit 3" in (refused(out=Path(tmp) / "s5", godot=crash) or ""))
+        check("--force copies over a folder that is not empty", refused(out=out, force=True) is None)
+    finally:
+        if saved_env is not None:
+            os.environ["BLEND_DIR"] = saved_env
+        else:
+            os.environ.pop("BLEND_DIR", None)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # --- end to end with a fake Blender ---------------------------------------------------------------
 
 def _fake_blender():
@@ -243,7 +409,7 @@ def test_end_to_end():
 def main():
     if "--fake-blender" in sys.argv:
         return _fake_blender()
-    for t in (test_quick, test_pieces, test_bump, test_end_to_end):
+    for t in (test_quick, test_pieces, test_bump, test_scratch_project, test_end_to_end):
         print(t.__name__, flush=True)
         t()
     print("\n%s" % ("%d FAILED: %s" % (len(FAILED), ", ".join(FAILED)) if FAILED else "all passed"))
