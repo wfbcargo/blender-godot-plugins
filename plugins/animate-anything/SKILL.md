@@ -113,6 +113,64 @@ Blender's evaluated pose matched the prediction to ~1e-6 m on every rig. Forced
 failures (fold limit removed) are caught: knees folding to 8-21 degrees and a
 thigh 0.26 m through the floor.
 
+## The motion critic
+
+Every export writes review strips beside the glb (`<glb folder>/review/<glb name>/`): eight frames
+of each clip in a row, `front`, `right` and `three_quarter`, one scale, one floor line, plus
+`contact.png` and `review.json`. rig-anything's `review.py` draws them; character-pipeline's
+`review` stage draws the dressed character. They and the shipped `.moves.json` are the critic's
+only input - never the builder's account of what the clip was meant to do.
+
+The numbers passed on Walter's walk reaching forward with straight elbows and on Tomas' run carrying
+his hand at his neck. What caught both was a person looking at eight frames side by side, and this
+is that look, automated the way humancheck automates the body's
+(`humanform/skills/humancheck/SKILL.md`, "The critic").
+
+**Spawn a critic that did not author the clips:**
+
+```
+Agent(subagent_type="general-purpose", description="Critique motion review strips", prompt="""
+You are the motion critic in animate-anything's review loop. Read
+${CLAUDE_PLUGIN_ROOT}/references/motion-critic-checklist.md and follow its protocol exactly.
+Brief: <the character sheet or the user's words, including any posture or gait style>.
+Clips being judged: <Walk, Run, Idle, ...>.
+Current version: <out_dir>/review/<name>/ - the strips, contact.png and review.json.
+Its numbers: <out_dir>/<name>.moves.json - `clip_checks` and `arm_pose`.
+Previous version (for pairwise comparison, or 'none'): <prev_dir>/review/<name>/.
+Write your questions before opening any image. Return only the JSON the checklist specifies.""")
+```
+
+Three things make it worth more than looking yourself:
+
+- **Questions first.** The critic writes its yes/no questions from the brief and `review.json`
+  before opening a png. A question invented after seeing the picture measures nothing.
+- **A JSON verdict**, with a severity (`gross`, `carriage`, `timing`, `outfit`, `brief`), the clip,
+  the body part and the cell that shows it - not prose. It is diffable between rounds.
+- **Pairwise against the previous sheet.** Two sheets with the same `ortho_scale_m`, `cell_px` and
+  `frames` compare tile for tile; the critic checks that before it compares pixels, and falls back
+  to description when they differ.
+
+**Keep or revert:** keep the new clips only if the locked numbers held - `clip_checks` still passes
+and no `arm_pose` range moved toward its limit - **and** the critic prefers them, or calls them the
+same with fewer `gross` and `carriage` issues. A critic that prefers the new version while a check
+that used to pass now fails is not a reason to keep it.
+
+Both locked sets are fields of the shipped `.moves.json`, because the rule is pairwise and the
+previous round's build log is gone by the time it is asked: `export_character` writes `arm_pose`
+(per clip, per arm) beside `clip_checks`. Nothing that is not in those two files is lockable - a
+manifest written before `arm_pose` existed compares on `clip_checks` alone.
+
+**When it flags the same thing twice**, on two characters or across two rounds, it stops being a
+judgement and becomes a check. `verify.arm_pose` is the worked example: `hand_rise` (the palm from
+hip 0 to shoulder 1), elbow flexion and the upper arm's angle from gravity, with a walk failing
+above 0.7 and a run above 0.65 or an elbow opened past 140 degrees. `verify.arm_swing` is the
+second, from this loop's own findings: a non-running clip whose arm swings 8 degrees or more and
+never comes back within 2 degrees of hanging is carried out in front, not swung. The strips have to
+justify the line - measure the flagged clips and the passing ones and put it between them. Here the
+17 shipped walks that have arms (the 16 of `assets/humans/*` and Belle) pass behind hanging by 3.9
+to 17.5 degrees and the pre-fix Walter walk stops 8.8 degrees in front of it.
+
+
 ## Rules
 
 **Never read bone names in an action.** Read the body map. Four naming schemes
