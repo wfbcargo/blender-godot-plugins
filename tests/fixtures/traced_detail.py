@@ -20,6 +20,9 @@ Then the garments go on six ways, and the golden holds what the check said each 
   `drawn_over_cloth`, `wardrobe.dress` lifts the cloth over those triangles and re-measures, and
   `lifted` records each round. That is the only path in the suite through `cover.drawn_over_cloth`
   and `fit.lift_over`, and it carries a per-region limit, which the shipped presets' `all` does not.
+  It lifts smoothly (`lift.smooth`, as sports_top ships); `top_pressed_cone_lift` is the same with
+  the per-corner cones that folded Belle's top into a shelf (improvements NEXT 9), and each records
+  `folded_faces`, the cloth faces the fit turned over.
 - `sports_top` with a limit on the buttocks, which no top covers: **unmeasured, and so failed**. A
   limit nothing was measured against has not been held (wardrobe 0.2.2 said the same of `verify`),
   and this is the body type it matters on - on a character-pipeline MPFB woman follow-through's
@@ -104,6 +107,10 @@ def build():
             "top_uncompressed": uncompressed(top),
             "top_pressed": dict(top, ease=dict(top["ease"], flatten={"breast": 0.5},
                                                detail_limit={"all": 0.06, "breast": 0.1})),
+            # the same, lifted per corner as before the smooth lift (`lift` removed): the cones it
+            # pushes up can fold the cloth - `folded_faces` says whether they did here
+            "top_pressed_cone_lift": dict(top, lift=None, ease=dict(top["ease"], flatten={"breast": 0.5},
+                                                                    detail_limit={"all": 0.06, "breast": 0.1})),
             "top_limit_elsewhere": dict(top, ease=dict(top["ease"], detail_limit={"butt": 0.1})),
             "shorts_compressed": shorts,
             "shorts_uncompressed": uncompressed(shorts),
@@ -117,8 +124,10 @@ def build():
                 "detail": H.stable(r["ease"]["detail"]),
                 "compression": H.stable({k: v for k, v in (r["ease"].get("compression") or {}).items()
                                          if k in ("passes", "moved_max_m", "moved_p95_m", "flatten",
-                                                  "inside_skin_verts")}),
+                                                  "inside_skin_verts", "settle")}),
                 "lifted": r.get("lifted"),
+                "folded_faces": r.get("folded_faces"),
+                "creased": r["cover_report"].get("creased"),
                 "drawn_over_cloth": r["cover_report"].get("drawn_over_cloth"),
                 "inside": r["cover_report"].get("inside"),
                 "hidden": r["cover_report"]["hidden"],

@@ -72,6 +72,7 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
     cut = tailor.pants if p["cut"] == "pants" else tailor.shirt
 
     g = cut(body, name=name, **_args(p.get("tailor")))
+    cut_normals = [f.normal.copy() for f in g.data.polygons]
     painted = fit.paint_ease(g, **_args(p["paint"])) if p.get("paint") is not None else None
     er = fit.ease(g, body, over=over, **_args(p.get("ease")))
     sk = fit.skin(g, body)
@@ -103,6 +104,9 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
         "verts": len(g.data.vertices), "groups": len(g.vertex_groups),
         "cut": dict(g["wardrobe_cut_report"]), "painted": painted, "ease": er, "skin": sk,
         **({"lifted": lifted} if lifted is not None else {}),
+        # faces the fit turned over against their cut (a fold in the cloth): lift_over's per-corner
+        # cones folded six faces under Belle's bust into a pointed shelf (improvements NEXT 9)
+        "folded_faces": sum(1 for f in g.data.polygons if f.normal.dot(cut_normals[f.index]) < 0.0),
         "hem": hr["rings"] if hr else None, "hem_bones": len(hr["block"]["bones"]) if hr else 0,
         "cover": cover.summarize(cr), "cover_report": {k: v for k, v in cr.items() if not k.startswith("_")},
         "layers": {o.name: {"hidden": r["hidden"], "tris_hidden": r["tris_hidden"]} for o, r in layers.items()},

@@ -49,6 +49,7 @@ def build():
                 "problems": r["problems"],
                 "ease": H.stable(r["ease"]),
                 "lifted": r.get("lifted"),
+                "folded_faces": r.get("folded_faces"),
                 "hem_rings": H.stable(r["hem"]),
                 "cover": H.stable(r["cover_report"]),
                 "export": H.stable(r["export_report"]),
