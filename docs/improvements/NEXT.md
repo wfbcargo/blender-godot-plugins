@@ -4,6 +4,99 @@ A handoff for a fresh conversation. Start with:
 
 > Read `docs/improvements/NEXT.md`, then the work item it points at, and plan it.
 
+State as of 2026-09-18, after the third round (the figure study). The latest pushed commits
+are `899da4d` in this repo and `2d1118d` in `grungist-creek`. Everything after them is local and not
+pushed: 90 commits here and 7 in `grungist-creek`.
+
+**Read [06-figure-study-lessons.md](06-figure-study-lessons.md) next.** It holds what this round
+learned, a timing table (draft against final, per stage), and a ranked list of plugin improvements by
+the time each saves per character, each with its file and a done-when. Its top items are the next
+work, ahead of the older items below. The raw lab notebooks are in
+[notebooks/figure-study/](notebooks/figure-study/).
+
+The third round:
+
+- **Merged, each on its own:** skirts-dresses, figure-prereqs, compression-on-belle,
+  fig-flesh-reporting-and-godot-proof, fig-brows-lashes-hairline, fig-realistic-skin and
+  fig-natural-locomotion. The [merge log](#merge-log) below has one paragraph per merge, with its
+  numbers and open items.
+- **Shipped in `grungist-creek`:**
+  - `d02f953`: Belle rebuilt, with bun hair in lookdev's hair material, the spanned `sports_top` and
+    her Trot arms fixed.
+  - `afe71f3`: StudyMan and StudyWoman at final quality, with realistic skin, brows and lashes,
+    natural-speed gaits and TurnL/TurnR, in `figure_study.tscn`. It was checked in a scratch copy of the
+    project. The selftests, `verify_moves` and `verify_flesh` pass. `verify_strands` fails its
+    cross-rate spread, 1.26 against 1.25; that is open, and the limit was not widened.
+- **Parked:** `fig-genital-anatomy` at `94ac682`, in `.worktrees/fig-genital-anatomy`. It failed its
+  merge gate because the thighs still pass into the shell: 27-30 mm in Crouch and Jump, where the
+  thighs' inner skins cross each other. 06 section 3C has what was tried and the next options.
+- **Left in place:** the worktrees `.worktrees/figure-draft` and `.worktrees/figure-final`. Neither has
+  commits, and both can be removed.
+- **Not applied:** the crowd's Run patch (`[moves.per_gait.Run] upper.arm_forward` on 7 specs). It
+  works around a rig-anything bug: `U.running` is never set, so every Run is judged as a walk. That
+  should be fixed in rig-anything instead (06 rank 5).
+
+Installed copies in `~/.claude/skills` match the repo. This is the one list of versions: update it
+here, and nowhere else in this file.
+- rig-anything 0.24.0
+- animate-anything 0.10.0
+- follow-through 0.6.0
+- humanform 0.10.0
+- character-pipeline 0.7.1
+- wardrobe 0.5.0
+- lookdev 0.3.0
+- godot-lsp 0.1.0
+
+Read the repo's `CLAUDE.md` first: worktrees, scratch folders, the regression harness, install and version rules,
+and the gotchas are there.
+
+---
+
+## Where things stand
+
+| Item | Status |
+|---|---|
+| [03 Regression harness and install](03-regression-harness-and-install.md) | **Done.** |
+| [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | **Done.** Belle's hand-marked flesh zones retired with 05 · 5.9. |
+| [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | **Done.** Belle and the 16 people build from `grungist-creek/characters/*.toml`. Its loose ends are settled (character-pipeline 0.2.0) and the committed characters are rebuilt on them (grungist-creek `ed654b0`). |
+| [04 Checks that match the eye](04-checks-that-match-the-eye.md) | **a done** (wardrobe 0.2.1), **b done** (rig-anything 0.22.0, character-pipeline 0.3.0: every export writes a review sheet), **c done** (animate-anything 0.10.0: a motion critic reading the strips; rig-anything 0.23.0: `arm_pose` in `.moves.json`), **d part done** for flesh limits, garment relief and arm carry (follow-through 0.5.0, wardrobe 0.3.0, rig-anything 0.23.0 `verify.arm_swing`). |
+| [05 Feature gaps](05-feature-gaps.md) | 5.1, 5.6, 5.7, 5.8, 5.9 done. **5.2 hair done** (humanform 0.7.0, lookdev 0.2.0, character-pipeline 0.3.0; strand motion follow-through 0.5.0; a spec's ponytail swings through the pipeline since character-pipeline 0.4.0). `long_loose` is still rigid. **5.3 compression garments done** (wardrobe 0.3.0; on a heavy bust since 0.5.0). **5.5 muscle done** (humanform 0.7.0, lookdev 0.2.0). **5.4 skirts and dresses merged** (wardrobe 0.4.0) with three open items: a run's raised thigh through the front panel, a stiff deep crouch, and no check that counts the first. |
+| [06 Figure study lessons](06-figure-study-lessons.md) | **New.** A ranked list of plugin improvements by time saved per character. None is started. The genital branch is parked (3C). |
+| Figure study (grungist-creek) | **Shipped** (`afe71f3`): StudyMan and StudyWoman at final quality, with `figure_study.tscn`. Belle is rebuilt (`d02f953`). The crowd is not rebuilt; its Runs wait on the rig-anything `U.running` fix. |
+| Old project notes | Not triaged (item 7 below). |
+
+What exists now, and is worth knowing before starting anything:
+
+- **`python tools/regress.py --jobs 2`** rebuilds 20 fixtures headless and compares them to `tests/golden/`:
+  `mpfb_woman_curvy`, `rigify_human`, `mixamo_names`, `quadruped`, `rabbit`, `cricket`, `starfish`,
+  `flesh_figure`, `dressed_figure`, `dressed_presets`, `pipeline_woman`, and this round's
+  `review_sheet`, `traced_detail`, `hair_presets`, `strand_ponytail`, `muscle_definition`, the
+  second round's `pipeline_ponytail`, `dressed_skirts`, and the third round's `pipeline_muscle` and
+  `skin_detail` (20 in all).
+  - `--twice` fails a build that doesn't reproduce.
+  - `--godot C:/Users/pauli/Code/GoDot/grungist-creek` plays the exports in the engine's verifiers -
+    now five wardrobe fixtures; `dressed_skirts` has two controls that must fail.
+  - `--plugins <checkout>` routes all six plugin variables, lookdev included (its Blender package is
+    `plugins/lookdev/blender`, not `scripts`).
+  - A full `--twice --godot` run takes 11-18 minutes at `--jobs 4`, and 10-27 minutes at `--jobs 2`.
+    It always takes longer than the Bash tool's 10-minute cap, so run it in the background and wait
+    with Monitor. See `tests/README.md`.
+- **Bone roles:** `bodymap.build(rig)["roles"]` gives root, pelvis, chest, neck, head, tail, anchors, hands and feet, and
+  controls. Rig profiles live in `rig_analysis/profiles/`. rig-anything SKILL.md, "Bone roles".
+- **Characters:** `character_pipeline.runner.build(spec)` runs the stages body, bake, hair, flesh, moves, strand
+  (only when the hair preset has a chain), garments, export, review. They refuse out of order, record their inputs in the .blend, and resume in a fresh session. Its SKILL.md
+  has Belle as the worked example.
+  - `assets/humans/build_human.py who=<name>` and `assets/belle/build_belle.py` are thin callers.
+- **Presets and exporter:** wardrobe garment presets with `wardrobe.dress`; follow-through `limit_share` per flesh type;
+  `export.export_character` writes the `.moves.json` for bipeds and quadrupeds.
+
+---
+
+## Merge log
+
+Newest last. Each paragraph was written by the agent that merged that branch. The first two paragraphs
+cover the rounds before the figure study.
+
 State as of 2026-09-17, second round. Both repos are pushed up to `899da4d` here and `2d1118d` in
 `grungist-creek`; everything after that is local. The first round merged six branches (review-strips,
 flesh-limit-suggest, compression-garments, hair-layer, strand-chains, muscle-definition) and synced
@@ -50,54 +143,6 @@ frame) and both its controls fail as they must (`rigid=spine`: 46 skirt vertices
 **Then `fig-realistic-skin` was merged on its own** (humanform 0.10.0, lookdev 0.3.0, character-pipeline 0.7.1): `look.skin` marks skin regions and gives a flat subsurface skin until baked (an unbaked export keeps its tone, no COLOR_n), the bake stage bakes albedo/ORM/normal with lookdev (study figures' tone within 0.003 of spec), Godot gets SSS skin mode, 1 cm transmittance and pore detail on UV2, lint warns `SKIN_PLASTIC`; new fixture `skin_detail`; the bake stage hash now covers lookdev; `lookdev_materials.gd` synced into `grungist-creek` (`a8fc064`). `regress.py --twice --jobs 4 --godot`: 21 fixtures agreeing, only hair_presets' bake version keys changed (re-recorded), every verifier passing. Open: final quality still bakes 1024 px (quality not passed to look.skin), a bake-only rerun flattens the regions (hf_skin_tint deleted after bake), muscle normal replaces the skin normal, glb extras lack the post-bake humanform_skin keys, orange finger-web lines under clear_midday, lint's name match on "skin", skin.bake leaks a temp dir. Not pushed.
 
 **Then `fig-natural-locomotion` was merged on its own** (rig-anything 0.24.0): walks and runs last one natural stride and play at natural speed (StudyMan walk implied 1.304 vs natural 1.343 m/s, StudyWoman 1.253 vs 1.288), an upright biped walk vaults over a near-straight stance leg (11.5 deg, the reach cap) with `bounce_scale` scaling the rise and fall and a `vault` style key that elderly_shuffle and heavy set false (their soft knees kept: 26-27 and 35-36 deg), relaxed hands (curl from the knuckle, thumb beside the index), TurnL/TurnR about a planted ball with floor_skid 0.0 in the manifest's `turns`; rigify_human gains `styled_walks`, the harness keeps `.moves.json` field names as a full list. Merge conflict only in pipeline_woman's golden fields list (re-recorded to include main's `flesh`). `regress.py --twice --jobs 4 --godot` on the merged `main`: 20 fixtures agreeing, no change, every verifier passing and every control failing (11 min). No Godot addon changed, nothing synced. Open: MovesController does not play turns or apply `turns`; the child walk bounces no more than the adult; fingertip gaps (mid/end bones keep MPFB's fan); a spec's absolute `[export] blend` writes into the old scratch folder when copied; regress `--update` rewrites goldens whose only change is temp paths and timings; grungist-creek's Margaret, Frank, Lily and Hugo are not rebuilt yet. Not pushed.
-
-Installed copies in `~/.claude/skills` match the repo:
-- rig-anything 0.24.0
-- animate-anything 0.10.0
-- follow-through 0.6.0
-- humanform 0.10.0
-- character-pipeline 0.7.1
-- wardrobe 0.5.0
-- lookdev 0.3.0
-- godot-lsp 0.1.0
-
-Read the repo's `CLAUDE.md` first: worktrees, scratch folders, the regression harness, install and version rules,
-and the gotchas are there.
-
----
-
-## Where things stand
-
-| Item | Status |
-|---|---|
-| [03 Regression harness and install](03-regression-harness-and-install.md) | **Done.** |
-| [02 Bone roles and rig profiles](02-bone-roles-and-rig-profiles.md) | **Done.** Belle's hand-marked flesh zones retired with 05 · 5.9. |
-| [01 Character spec and pipeline](01-character-spec-and-staged-pipeline.md) | **Done.** Belle and the 16 people build from `grungist-creek/characters/*.toml`. Its loose ends are settled (character-pipeline 0.2.0) and the committed characters are rebuilt on them (grungist-creek `ed654b0`). |
-| [04 Checks that match the eye](04-checks-that-match-the-eye.md) | **a done** (wardrobe 0.2.1), **b done** (rig-anything 0.22.0, character-pipeline 0.3.0: every export writes a review sheet), **c done** (animate-anything 0.10.0: a motion critic reading the strips; rig-anything 0.23.0: `arm_pose` in `.moves.json`), **d part done** for flesh limits, garment relief and arm carry (follow-through 0.5.0, wardrobe 0.3.0, rig-anything 0.23.0 `verify.arm_swing`). |
-| [05 Feature gaps](05-feature-gaps.md) | 5.1, 5.6, 5.7, 5.8, 5.9 done. **5.2 hair done** (humanform 0.7.0, lookdev 0.2.0, character-pipeline 0.3.0; strand motion follow-through 0.5.0; a spec's ponytail swings through the pipeline since character-pipeline 0.4.0). `long_loose` is still rigid. **5.3 compression garments done** (wardrobe 0.3.0; on a heavy bust since 0.5.0). **5.5 muscle done** (humanform 0.7.0, lookdev 0.2.0). **5.4 skirts and dresses merged** (wardrobe 0.4.0) with three open items: a run's raised thigh through the front panel, a stiff deep crouch, and no check that counts the first. |
-| Old project notes | Not triaged (item 7 below). |
-
-What exists now, and is worth knowing before starting anything:
-
-- **`python tools/regress.py --jobs 2`** rebuilds 18 fixtures headless and compares them to `tests/golden/`:
-  `mpfb_woman_curvy`, `rigify_human`, `mixamo_names`, `quadruped`, `rabbit`, `cricket`, `starfish`,
-  `flesh_figure`, `dressed_figure`, `dressed_presets`, `pipeline_woman`, and this round's
-  `review_sheet`, `traced_detail`, `hair_presets`, `strand_ponytail`, `muscle_definition`, the
-  second round's `pipeline_ponytail`, and `dressed_skirts` (18 in all).
-  - `--twice` fails a build that doesn't reproduce.
-  - `--godot C:/Users/pauli/Code/GoDot/grungist-creek` plays the exports in the engine's verifiers -
-    now five wardrobe fixtures; `dressed_skirts` has two controls that must fail.
-  - `--plugins <checkout>` routes all six plugin variables, lookdev included (its Blender package is
-    `plugins/lookdev/blender`, not `scripts`).
-  - A full `--twice --godot` run takes about 40 minutes. See `tests/README.md`.
-- **Bone roles:** `bodymap.build(rig)["roles"]` gives root, pelvis, chest, neck, head, tail, anchors, hands and feet, and
-  controls. Rig profiles live in `rig_analysis/profiles/`. rig-anything SKILL.md, "Bone roles".
-- **Characters:** `character_pipeline.runner.build(spec)` runs the stages body, bake, hair, flesh, moves, strand
-  (only when the hair preset has a chain), garments, export, review. They refuse out of order, record their inputs in the .blend, and resume in a fresh session. Its SKILL.md
-  has Belle as the worked example.
-  - `assets/humans/build_human.py who=<name>` and `assets/belle/build_belle.py` are thin callers.
-- **Presets and exporter:** wardrobe garment presets with `wardrobe.dress`; follow-through `limit_share` per flesh type;
-  `export.export_character` writes the `.moves.json` for bipeds and quadrupeds.
 
 ---
 
@@ -304,7 +349,9 @@ From the second round (motion-critic, hair-strands-integration):
 - **04's doc cites session scratch paths** (`scratchpad/wf2/critic/...`) as evidence; they die with the
   session.
 
-### 9. Rebuilding the characters on these versions - attempted, nothing shipped
+### 9. Rebuilding the characters on these versions - Belle shipped, crowd waiting
+
+> **Update (third round):** Belle shipped as grungist-creek `d02f953`. wardrobe 0.5.0's top passes on her, and so does her Trot at `arm_forward` -17. The crowd probe found that 7 of the 10 crowd Runs fail `arm_swing` because rig-anything never sets `U.running`. A spec patch exists (`crowd_specs.patch`, in the round's scratch) but was not applied. Fix rig-anything instead: 06 rank 5. The text below is the second round's record.
 
 A rebuild of the `grungist-creek` characters on the installed plugins (listed above) stopped before
 anything was worth committing. `grungist-creek` is still at `f7a039b` with its assets unchanged, and

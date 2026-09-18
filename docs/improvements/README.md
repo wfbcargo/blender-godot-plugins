@@ -29,6 +29,7 @@ before fixing it - the category says where the fix belongs.
 3. [Regression harness and install](03-regression-harness-and-install.md) - golden baselines, one rebuild-and-compare command, an install script, wardrobe under git. *Steps 1-5 done.*
 4. [Checks that match the eye](04-checks-that-match-the-eye.md) - wardrobe hole precision, auto review strips, a motion critic.
 5. [Feature gaps](05-feature-gaps.md) - jump floor bug, hair, compression garments, skirts, muscle definition, garment and join nondeterminism. *5.1 and 5.6 done.*
+6. [Figure study lessons](06-figure-study-lessons.md) - what the September 2026 figure study round cost, the timing per stage, and a ranked list of plugin improvements by time saved per character.
 
 Do 03 first if you are about to change shared code: without it every other item is verified on one
 character at a time.
