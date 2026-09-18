@@ -22,7 +22,7 @@ Scratch: `C:/Users/pauli/AppData/Local/Temp/rw/lookdev-godot-tools/`.
   `HF_sclera`, `HF_iris_*`, `HF_pupil` on the body mesh. The eye anchor comes from the sclera vertices
   carried by the head bone's skin bind, so it is still posed-frame and bone-driven.
 
-## 08:50-09:10 the tools
+## 08:50-09:03 the tools (times from `date`: branch made 08:44, fresh import done 08:47, figure_study selftest run 09:03)
 
 - `lookdev_presets.gd` (runtime applier, no class_name) written; `apply_preset.gd` now finds/owns the
   WorldEnvironment and sun and calls it, so the offline and runtime paths are one piece of code.
@@ -59,7 +59,7 @@ Scratch: `C:/Users/pauli/AppData/Local/Temp/rw/lookdev-godot-tools/`.
   shell's default directory - the game's MAIN checkout. Restored at once with `git restore --staged
   --worktree` (status clean again). From here every git call uses `git -C <absolute worktree>`.
 
-## 09:10-09:25 the game, equivalence, docs
+## 09:03-09:08 the game, equivalence, docs (plugins commit at 09:08)
 
 - figure_study.gd: the port (apply_preset + _set_all + _has_property + _convert + kelvin_to_color, 77 lines)
   replaced by a 15-line call to the addon's applier with `{"stage": "open"}`; `lighting_presets.json`
