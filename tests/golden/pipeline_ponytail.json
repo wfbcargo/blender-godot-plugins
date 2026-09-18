@@ -1,11 +1,11 @@
 {
  "fixture": "pipeline_ponytail",
  "plugins": {
-  "character-pipeline": "0.3.0",
-  "follow-through": "0.5.0",
-  "humanform": "0.7.0",
+  "character-pipeline": "0.4.0",
+  "follow-through": "0.5.1",
+  "humanform": "0.7.1",
   "lookdev": "0.2.0",
-  "rig-anything": "0.22.0",
+  "rig-anything": "0.23.0",
   "wardrobe": "0.3.0"
  },
  "report": {
@@ -108,6 +108,88 @@
    ]
   },
   "manifest": {
+   "arm_pose_on_disk": {
+    "PonyWoman_Idle": {
+     "upper_arm.L": {
+      "arm_carry_deg": [
+       9.1,
+       11.2
+      ],
+      "arm_swing_deg": 2.0,
+      "elbow_flex_deg": [
+       12.0,
+       12.0
+      ],
+      "hand_rise": [
+       -0.117,
+       -0.106
+      ],
+      "upper_arm_deg": [
+       3.0,
+       5.0
+      ]
+     },
+     "upper_arm.R": {
+      "arm_carry_deg": [
+       9.1,
+       11.2
+      ],
+      "arm_swing_deg": 2.0,
+      "elbow_flex_deg": [
+       12.0,
+       12.0
+      ],
+      "hand_rise": [
+       -0.117,
+       -0.106
+      ],
+      "upper_arm_deg": [
+       3.0,
+       5.0
+      ]
+     }
+    },
+    "PonyWoman_Run": {
+     "upper_arm.L": {
+      "arm_carry_deg": [
+       1.2,
+       53.6
+      ],
+      "arm_swing_deg": 52.4,
+      "elbow_flex_deg": [
+       85.0,
+       85.0
+      ],
+      "hand_rise": [
+       0.154,
+       0.488
+      ],
+      "upper_arm_deg": [
+       -40.0,
+       13.7
+      ]
+     },
+     "upper_arm.R": {
+      "arm_carry_deg": [
+       1.2,
+       53.6
+      ],
+      "arm_swing_deg": 52.4,
+      "elbow_flex_deg": [
+       85.0,
+       85.0
+      ],
+      "hand_rise": [
+       0.154,
+       0.488
+      ],
+      "upper_arm_deg": [
+       -40.0,
+       13.7
+      ]
+     }
+    }
+   },
    "clips": {
     "Idle": "PonyWoman_Idle",
     "Run": "PonyWoman_Run"
@@ -118,9 +200,9 @@
    },
    "dropped_clips": [],
    "fields": {
-    "first": "brief",
+    "first": "arm_pose",
     "last": "verified",
-    "len": 21
+    "len": 22
    },
    "gaits": {
     "Run": {

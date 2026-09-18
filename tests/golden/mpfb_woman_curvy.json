@@ -1,8 +1,8 @@
 {
  "fixture": "mpfb_woman_curvy",
  "plugins": {
-  "humanform": "0.7.0",
-  "rig-anything": "0.22.0"
+  "humanform": "0.7.1",
+  "rig-anything": "0.23.0"
  },
  "report": {
   "bake": {
