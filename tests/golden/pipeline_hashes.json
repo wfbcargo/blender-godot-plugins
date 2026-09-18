@@ -1,7 +1,7 @@
 {
  "fixture": "pipeline_hashes",
  "plugins": {
-  "character-pipeline": "0.9.1",
+  "character-pipeline": "0.10.0",
   "follow-through": "0.6.2",
   "humanform": "0.10.1",
   "lookdev": "0.4.1",
@@ -426,6 +426,216 @@
     ],
     "ok": true,
     "spec": "full"
+   }
+  },
+  "outputs": {
+   "a bone's follow-through tag": {
+    "control_unseen": true,
+    "expect": [
+     "rig:bones",
+     "rig:pose"
+    ],
+    "moved": [
+     "rig:bones",
+     "rig:pose"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "a bone's parent": {
+    "control_unseen": true,
+    "expect": [
+     "rig:bones"
+    ],
+    "moved": [
+     "rig:bones"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "a bone's tail": {
+    "control_unseen": true,
+    "expect": [
+     "rig:bones"
+    ],
+    "moved": [
+     "rig:bones"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "a material": {
+    "control_unseen": true,
+    "expect": [
+     "mesh:materials"
+    ],
+    "moved": [
+     "mesh:materials"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "a modifier": {
+    "control_unseen": true,
+    "expect": [
+     "mesh:modifiers"
+    ],
+    "moved": [
+     "mesh:modifiers"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "a pose constraint": {
+    "control_unseen": true,
+    "expect": [
+     "rig:pose"
+    ],
+    "moved": [
+     "rig:pose"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "a second mesh bound to the rig": {
+    "control_unseen": true,
+    "expect": [
+     "meshes:bound",
+     "mesh:geometry",
+     "mesh:groups",
+     "mesh:weights",
+     "mesh:modifiers",
+     "mesh:marks",
+     "mesh:shape_keys",
+     "mesh:materials"
+    ],
+    "moved": [
+     "mesh:geometry",
+     "mesh:groups",
+     "mesh:marks",
+     "mesh:materials",
+     "mesh:modifiers",
+     "mesh:shape_keys",
+     "mesh:weights",
+     "meshes:bound"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "a shape key": {
+    "control_unseen": true,
+    "expect": [
+     "mesh:shape_keys"
+    ],
+    "moved": [
+     "mesh:shape_keys"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "a vertex": {
+    "control_unseen": true,
+    "expect": [
+     "mesh:geometry"
+    ],
+    "moved": [
+     "mesh:geometry"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "a wardrobe mark": {
+    "control_unseen": true,
+    "expect": [
+     "mesh:marks"
+    ],
+    "moved": [
+     "mesh:marks"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "a weight": {
+    "control_unseen": true,
+    "expect": [
+     "mesh:weights"
+    ],
+    "moved": [
+     "mesh:weights"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "an empty vertex group": {
+    "control_unseen": true,
+    "expect": [
+     "mesh:groups"
+    ],
+    "moved": [
+     "mesh:groups"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "no output recorded": {
+    "ok": true
+   },
+   "the follow-through route": {
+    "control_unseen": true,
+    "expect": [
+     "mesh:marks"
+    ],
+    "moved": [
+     "mesh:marks"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "the rig's place": {
+    "control_unseen": true,
+    "expect": [
+     "rig:object"
+    ],
+    "moved": [
+     "rig:object"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "the rotation mode of a jiggle bone": {
+    "control_unseen": true,
+    "expect": [
+     "rig:pose"
+    ],
+    "moved": [
+     "rig:pose"
+    ],
+    "ok": true,
+    "view_moved": true
+   },
+   "unrelated: a jiggle swing limit": {
+    "expect": null,
+    "moved": [],
+    "ok": true,
+    "view_moved": false
+   },
+   "unrelated: a pose (the stages rest the rig first)": {
+    "expect": null,
+    "moved": [],
+    "ok": true,
+    "view_moved": false
+   },
+   "unrelated: an action on the rig": {
+    "expect": null,
+    "moved": [],
+    "ok": true,
+    "view_moved": false
+   },
+   "unrelated: the rotation mode of a body bone (moves sets it)": {
+    "expect": null,
+    "moved": [],
+    "ok": true,
+    "view_moved": false
    }
   },
   "quality_skin": {

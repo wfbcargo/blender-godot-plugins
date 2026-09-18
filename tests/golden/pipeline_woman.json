@@ -1,7 +1,7 @@
 {
  "fixture": "pipeline_woman",
  "plugins": {
-  "character-pipeline": "0.9.1",
+  "character-pipeline": "0.10.0",
   "follow-through": "0.6.2",
   "humanform": "0.10.1",
   "rig-anything": "0.26.0",
@@ -295,12 +295,30 @@
     "SportsTop"
    ],
    "control": "refused: names garments True, names fresh=1 True",
-   "restarted": "flesh changed and garments are bound to the rig (Shorts, SportsTop): rebuilding from body",
+   "control_restart": "flesh changed and garments are bound to the rig (Shorts, SportsTop): rebuilding from body",
+   "moves_why": "what it reads of flesh came out the same",
+   "restarted": null,
    "statuses": {
-    "bake": "ran",
-    "body": "ran",
-    "flesh": "ran"
-   }
+    "bake": "unchanged",
+    "body": "unchanged",
+    "flesh": "ran",
+    "moves": "unchanged"
+   },
+   "undressed": {
+    "body_groups": [
+     "wd_hide_SportsTop",
+     "wd_edge_SportsTop",
+     "wd_hide_Shorts",
+     "wd_edge_Shorts"
+    ],
+    "garments": [
+     "Shorts",
+     "SportsTop"
+    ],
+    "hem_bones": 0,
+    "left": []
+   },
+   "unfleshed": "restored"
   },
   "flesh_found": {
    "breast": [
