@@ -100,6 +100,8 @@ detector).
 
 Paired crops, Blender close set left, Step 0 Godot middle, this branch right:
 `hairline_study_{man,woman}_{clear_midday,overcast}.png`, `brows_study_{man,woman}_{clear_midday,overcast}.png`.
+Lashes and brows on the eyes tile (Step 0 left, this branch right): `lashes_brows_study_woman_clear_midday.png` -
+the lashes are fine separate hairs instead of black blocks; blended lash cards over the eye show no sorting error.
 
 Causes, each isolated on study_man's face tile (crops `cause_hair_alpha_mode.png`, `cause_brow_alpha.png`):
 
@@ -145,7 +147,16 @@ its hair still draws: "transparency 4 OK").
 
 ## Regress
 
-`python tools/regress.py --quick --jobs 2 --godot <game worktree>`: see the result line at the end of this file.
+`python tools/regress.py --quick --jobs 2 --godot <game worktree>` (8 fixtures chosen: humanform and lookdev changed).
+- First run (13:45-13:52): 7 ok, `hair_presets` CHANGED on exactly the intended keys - brows and lashes
+  `godot_transparency` 2 -> 1, and the new `gltf.extras.lookdev.alpha` {coverage_mips 0.5, edge 0.25}. Godot
+  verifiers ok (verify_moves 4 manifests, verify_wardrobe, verify_flesh full/walk/run, the flesh control failed as it must).
+- Golden updated with `--only hair_presets --update` and read (`git diff tests/golden`: those four keys plus the
+  version stamp), committed on its own.
+- Final run (13:50-13:54): `REGRESS DONE exit=0, 8 fixtures ok`, Godot verifiers ok. Full output:
+  `%TEMP%/rw/hair-godot-transfer/regress_quick_final.log`.
+
+Ended 13:55 (54 min).
 
 ## What worked first time / what cost time
 
