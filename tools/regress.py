@@ -38,7 +38,8 @@ NONDETERMINISTIC and fails the run, and no golden is written from a build that d
 `<project>/_regress/`, imports them, and runs the engine-side verifiers the project's addons carry:
 every manifest through rig-anything's `verify_moves.gd`, each fixture in GODOT_WARDROBE dressed
 and walked by wardrobe's `verify_wardrobe.gd`, and each fixture in GODOT_FLESH's body driven round
-follow-through's `verify_flesh.gd` courses. The folder is removed afterwards whatever happens.
+follow-through's `verify_flesh.gd` courses, and each fixture in GODOT_STRANDS's strands swung at
+30/60/120/240 fps by `verify_strands.gd` (with a control that must fail). The folder is removed afterwards whatever happens.
 It warns first when the project's addons differ from this repo's, since those are what run.
 
 Blender is found at $BLENDER, or the newest under Program Files, or `blender` on PATH; Godot at
@@ -426,6 +427,16 @@ GODOT_FLESH = {
                                 ("run", ["course=run", "require=within_body"])],
                        "control": ["require=within_body"]},
 }
+# A fixture whose export carries a strand chain has it swung by follow-through's `verify_strands.gd` at
+# 30/60/120/240 fps: rest drift, a kick that settles, a fling at the head and the run kept out of the
+# head's skin, a stalled frame capped, and the run's swing within 1.25x across the rates. `control`
+# steps the strands as before follow-through 0.6.3 (`legacy_integration=true`: the target's velocity
+# per step, not averaged over a 30 fps frame), whose run swung 67/52/53/53 deg here: it must fail, so a
+# verifier that stops telling rates apart fails the harness.
+GODOT_STRANDS = {
+    "pipeline_ponytail": {"body": "ponywoman.glb", "strands": "ponywoman_hair.glb", "args": [],
+                          "control": ["legacy_integration=true"]},
+}
 # The Godot addons the verifiers load from the project, and where this repo keeps each one.
 GODOT_ADDONS = {"rig_anything": "rig-anything", "wardrobe": "wardrobe", "follow_through": "follow-through",
                 "lookdev": "lookdev"}
@@ -477,7 +488,7 @@ def run_godot(godot, project, out_root, names):
     Returns [(fixture or check, passed, one-line detail)]."""
     stage = project / GODOT_STAGE
     shutil.rmtree(stage, ignore_errors=True)
-    results, manifests, wardrobe, flesh = [], [], [], []
+    results, manifests, wardrobe, flesh, strands = [], [], [], [], []
     try:
         for name in names:
             src = out_root / name
@@ -513,7 +524,9 @@ def run_godot(godot, project, out_root, names):
                 wardrobe.append(name)
             if name in GODOT_FLESH:
                 flesh.append(name)
-        if not manifests and not wardrobe and not flesh:
+            if name in GODOT_STRANDS:
+                strands.append(name)
+        if not manifests and not wardrobe and not flesh and not strands:
             return results or [("godot", True, "no fixture in this run exports anything Godot checks")]
 
         code, out = _godot(godot, project, "--import")
@@ -558,6 +571,8 @@ def run_godot(godot, project, out_root, names):
                                     "".join("\n            " + p for p in r.get("problems", [])))))
         for name in flesh:
             results += _run_flesh(godot, project, stage / name, name)
+        for name in strands:
+            results += _run_strands(godot, project, stage / name, name)
     finally:
         shutil.rmtree(stage, ignore_errors=True)
     return results
@@ -600,6 +615,33 @@ def _run_flesh(godot, project, where, name):
         out_rows.append((label, passed == should_pass,
                          verdict[-1] + "".join("\n            " + r for r in rows[:12])))
     return out_rows
+
+
+def _run_strands(godot, project, where, name):
+    """GODOT_STRANDS' run on one fixture's exports and its must-fail control: [(check, passed, detail)]."""
+    spec = GODOT_STRANDS[name]
+    body = sorted(where.rglob(spec["body"]))
+    hair = sorted(where.rglob(spec["strands"]))
+    if not body or not hair:
+        return [("verify_strands %s" % name, False, "the fixture did not export %s and %s" % (spec["body"], spec["strands"]))]
+    res = ["scene=res://" + body[0].relative_to(project).as_posix(), "strands=res://" + hair[0].relative_to(project).as_posix()]
+    rows = []
+    for label, args, should_pass in [("verify_strands %s" % name, spec["args"], True),
+                                     ("verify_strands %s %s (must fail)" % (name, " ".join(spec["control"])),
+                                      spec["args"] + spec["control"], False)]:
+        code, out = _godot(godot, project, "-s", "res://addons/follow_through/verify_strands.gd", "--", *res, *args)
+        verdict = [l for l in out.splitlines() if l.startswith("FT_SUMMARY")]
+        per_rate = [json.loads(l[len("FT_STRAND "):]) for l in out.splitlines() if l.startswith("FT_STRAND ")]
+        if not verdict or not per_rate:
+            rows.append((label, False, "no FT_STRAND / FT_SUMMARY, exit %s: %s" % (code, " | ".join(out.strip().splitlines()[-3:]))))
+            continue
+        passed = code == 0 and "PASSED" in verdict[-1]
+        fails = [l.strip() for l in out.splitlines() if l.strip().startswith("FAIL ")]
+        detail = verdict[-1] + "".join("\n            %s fps: swing %s deg (mean %s), head %s m, rest drift %s deg" % (
+            r.get("fps"), r.get("swing_deg"), r.get("swing_mean_deg"), r.get("run_head_penetration_m"),
+            r.get("rest_drift_deg")) for r in per_rate) + "".join("\n            " + f for f in fails[:8])
+        rows.append((label, passed == should_pass, detail))
+    return rows
 
 
 def show(changes, was="was", now="now", limit=40):

@@ -31,6 +31,9 @@ extends SceneTree
 ##
 ## Across rates: the run's swing_deg within 25% of each other (max / min <= 1.25).
 ##
+## legacy_integration=true steps the strands as before follow-through 0.6.3 (StrandModifier's
+## legacy_integration): the run swings differently at each rate. It is regress's control and must fail
+## the spread, on pipeline_ponytail (1.39) as on study_woman (1.26).
 ## set=key:value,... overrides spring values on every bone (damping_ratio, frequency_hz, max_angle_deg,
 ## gravity_scale, response, collision_margin_m) for tuning without re-exporting.
 ## dump=<file.json> writes, for the first rate, every chain's joints (skeleton space, glTF axes) each
@@ -128,6 +131,8 @@ func _run_rate(rate: int) -> Dictionary:
 		body.queue_free()
 		return out
 	var mod = mods[0]
+	for m in mods:
+		m.legacy_integration = args.get("legacy_integration", "false") == "true"
 	var skel: Skeleton3D = mod.get_skeleton()
 	out["build"] = mod.report.duplicate()
 	out["build"].erase("problems")
@@ -202,13 +207,13 @@ func _run_rate(rate: int) -> Dictionary:
 		out["clip"] = clip
 		ap.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
 		ap.play(clip)
-		await _steps(ap, skel, dt, 0.5, state)
+		await _steps(ap, skel, dt, float(args.get("warmup", "0.5")), state)
 		state["pen"] = 0.0
 		state["pen_at"] = []
 		for m in mods:
 			m.reset_stats()
 		state["phase"] = "run" if dumping else ""
-		var swing: Array = await _steps(ap, skel, dt, 4.0, state, true)
+		var swing: Array = await _steps(ap, skel, dt, float(args.get("run_s", "4.0")), state, true)
 		state["phase"] = ""
 		out["swing_deg"] = snappedf(swing.max(), 0.01)
 		out["swing_mean_deg"] = snappedf(_mean(swing), 0.01)
@@ -218,6 +223,7 @@ func _run_rate(rate: int) -> Dictionary:
 		out["run_head_penetration_m"] = snappedf(state["pen"], 0.0001)
 		out["run_penetration_at"] = state["pen_at"]
 		out["run_usec_per_frame"] = mod.stats()["usec_per_frame"]
+		out["run_accel_clamps"] = mod.accel_clamps
 		if swing.max() < 3.0:
 			out["failures"].append("the run swings the strands only %.2f deg" % swing.max())
 		if state["pen"] > 0.005:

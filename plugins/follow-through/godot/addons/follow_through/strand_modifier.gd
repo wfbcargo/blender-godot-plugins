@@ -11,8 +11,8 @@ extends SkeletonModifier3D
 ## a stalled frame drops time rather than spiralling), with the animated parent and the colliders
 ## interpolated to each step's moment, so 30 fps and 240 fps swing the same. Per bone, per substep, in order:
 ##   spring      the exact damped oscillator over the frame (as jiggle_modifier.gd and wardrobe's
-##               hem), loaded by the target's acceleration and the change of gravity in the parent's
-##               frame. Stable at any frame rate and frequency, so a frequency means Hz.
+##               hem), loaded by the target's acceleration (averaged over LOAD_STEPS) and the
+##               change of gravity in the parent's frame. Stable at any frame rate and frequency, so a frequency means Hz.
 ##   length      the tail is put back on the bone's length: a strand swings, it does not stretch
 ##   angle       no further than max_angle_deg from where the parent points it
 ##   collision   four points along the bone kept out of an ellipsoid round the head and capsules round
@@ -30,6 +30,9 @@ var chains: Array[Dictionary] = []
 var colliders: Array[Dictionary] = []
 var paused := false                 # hold every bone at rest
 var response_scale := 1.0           # multiplies every bone's response to the body's motion, live
+var legacy_integration := false     # step as before 0.6.3 (verify_strands' must-fail control): no
+                                    # LOAD_STEPS average, MAX_ACCEL's excess dropped, colliders' bases
+                                    # not turned through the frame
 
 # stats, since the last reset_stats()
 var peak_angle_deg := 0.0
@@ -40,11 +43,31 @@ var usec_total := 0
 var frames := 0
 var peak_steps := 0
 var dropped_steps := 0
+var accel_clamps := 0               # steps whose target moved faster than MAX_ACCEL explains
 var _caps_prev: Array = []
 var _left := 0.0                    # time since the last step, carried between frames
 
 const TELEPORT_M := 1.0
+## m/s^2 of the target's acceleration a step turns into swing, so a snap of the animation (a clip
+## started without a blend) does not throw the strand. What is over it is a jump of the target the
+## tail does not follow, so a snap of D leaves the tail D behind whatever the frame rate. Before 0.6.3
+## the excess was dropped, and a snap then counted by how many steps its frame spanned: the ~10 cm
+## start of study_woman's run was clamped at 120 fps and at 60, and not at 30.
 const MAX_ACCEL := 400.0
+## Steps (1/30 s) the target's velocity is averaged over before it loads the spring. The animation
+## reaches the strand only at frames, and between them the parent is interpolated in a straight line,
+## so a 30 fps frame turns a clip's 24 Hz key-to-key velocity changes (a footfall) into one sharp
+## change a frame, and a 120 fps frame into four smaller ones at the keys themselves. The linear spring
+## sees the same impulse either way, but the length, limit, collision and friction projections do not,
+## and study_woman's ponytail swung in one of two stable ways on the run depending on which it got:
+## 53 deg at 30 fps, 62 at 120, 49 at 60. Averaged over a 30 fps frame, every rate at or above 30
+## loads the spring with the same motion, and nothing a strand's 1-3 Hz swing responds to is lost
+## (a 1/30 s average passes 3 Hz at 98.5%). Its cost is 17 ms of lag in the load, never in the root.
+## Measured (verify_strands, tip swing on the run): before, study_woman 53/49/62/62 deg at
+## 30/60/120/240 fps and 45-63 across 29-144, pipeline_ponytail 67/52/53/53; averaged, study_woman
+## 31-37 and pipeline_ponytail 43-48 across 29-240 fps. The sharp steps also pumped the swing: the
+## averaged ponytail swings less (study_woman 31 deg at 60 fps, against 49).
+const LOAD_STEPS := 4
 const PASSES := 2                   # collision passes over every collider per bone
 const STEP := 1.0 / 120.0           # the simulation's fixed step; a frame takes as many as fit in it
 const MAX_STEPS := 16               # the most one frame may simulate: a stall drops time, never spirals
@@ -131,7 +154,7 @@ func _setup(skel: Skeleton3D, options: Dictionary) -> void:
 				"response": float(p.get("response", blk.get("response", 1.0))),
 				"gaps": gaps, "reach": reach,
 				"friction": clampf(float(p.get("collision_friction", blk.get("collision_friction", 0.0))), 0.0, 1.0),
-				"e": Vector3.ZERO, "u": Vector3.ZERO, "target": Vector3.ZERO, "target_v": Vector3.ZERO,
+				"e": Vector3.ZERO, "u": Vector3.ZERO, "target": Vector3.ZERO, "target_v": Vector3.ZERO, "x_hist": [],
 				"started": false, "g_rest_local": Vector3.ZERO, "angle": 0.0, "tip": Vector3.ZERO,
 				"q": Quaternion.IDENTITY,
 			})
@@ -189,6 +212,7 @@ func reset_stats() -> void:
 	frames = 0
 	peak_steps = 0
 	dropped_steps = 0
+	accel_clamps = 0
 
 
 func _process_modification_with_delta(delta: float) -> void:
@@ -246,7 +270,15 @@ func _process_modification_with_delta(delta: float) -> void:
 			var parent_xf := _blend(prev, now, f)
 			var caps: Array = []
 			for c in caps_now.size():
-				caps.append([(caps_prev[c][0] as Vector3).lerp(caps_now[c][0], f), (caps_prev[c][1] as Vector3).lerp(caps_now[c][1], f), caps_now[c][2]])
+				# the ellipsoid turns with the head through the frame too: its end-of-frame basis on every
+				# step led the head by up to a frame at any rate below 120 fps
+				var axes = caps_now[c][2]
+				if axes != null and caps_prev[c][2] != null and not legacy_integration:
+					# its rotation turned; the rest of the basis (the rig's scale) kept as it is now
+					var q_now := (axes as Basis).get_rotation_quaternion()
+					var q_at := (caps_prev[c][2] as Basis).get_rotation_quaternion().slerp(q_now, f)
+					axes = Basis(q_at * q_now.inverse()) * (axes as Basis)
+				caps.append([(caps_prev[c][0] as Vector3).lerp(caps_now[c][0], f), (caps_prev[c][1] as Vector3).lerp(caps_now[c][1], f), axes])
 			for bd in bones:
 				parent_xf = _step(parent_xf, g, caps, bd, STEP)
 		ch["parent_prev"] = now
@@ -268,7 +300,16 @@ func _seed(parent_xf: Transform3D, b: Dictionary) -> Transform3D:
 	if b["started"]:
 		b["target"] = frame * (b["tail_local"] as Vector3)
 		b["target_v"] = Vector3.ZERO
+		b["x_hist"] = _still(b["target"])
 	return frame * Transform3D(Basis(b["q"] as Quaternion), Vector3.ZERO)
+
+
+## LOAD_STEPS copies of a point: the history of a target that has not moved.
+static func _still(p: Vector3) -> Array:
+	var out := []
+	for i in LOAD_STEPS:
+		out.append(p)
+	return out
 
 
 static func _blend(a: Transform3D, b: Transform3D, f: float) -> Transform3D:
@@ -290,19 +331,35 @@ func _step(parent_xf: Transform3D, g: Vector3, caps: Array, b: Dictionary, dt: f
 	if not b["started"] or target.distance_to(b["target"]) > TELEPORT_M:
 		b["target"] = target
 		b["target_v"] = Vector3.ZERO
+		b["x_hist"] = _still(target)
 		b["e"] = Vector3.ZERO
 		b["u"] = Vector3.ZERO
 		b["g_rest_local"] = parent_basis.inverse() * g
 		b["started"] = true
-	var vt: Vector3 = (target - b["target"]) / dt
+	# the target's velocity over the last LOAD_STEPS steps, not the last one (see LOAD_STEPS)
+	var hist: Array = b["x_hist"]
+	var vt: Vector3 = (target - b["target"]) / dt if legacy_integration else (target - (hist[0] as Vector3)) / (LOAD_STEPS * dt)
+	hist.pop_front()
+	hist.append(target)
 	var at: Vector3 = (vt - b["target_v"]) / dt
+	var gain := float(b["response"]) * response_scale
+	var e0: Vector3 = b["e"]
 	if at.length() > MAX_ACCEL:
-		at = at.normalized() * MAX_ACCEL
+		accel_clamps += 1
+		var at_c := at.normalized() * MAX_ACCEL
+		if not legacy_integration:
+			# The part of the step's move the clamped acceleration does not explain is a jump of the
+			# target: the tail does not follow it (e -= jump), and nothing is thrown. The move is
+			# kept, only its timing changes - see MAX_ACCEL.
+			var vt_c: Vector3 = (b["target_v"] as Vector3) + at_c * dt
+			e0 -= (vt - vt_c) * dt * gain
+			vt = vt_c
+		at = at_c
 	b["target"] = target
 	b["target_v"] = vt
 	var g_rest_world: Vector3 = parent_basis * (b["g_rest_local"] as Vector3)
-	var push: Vector3 = (g - g_rest_world) * float(b["gravity_scale"]) - at * float(b["response"]) * response_scale
-	var next := spring_step(b["e"], b["u"], TAU * float(b["frequency_hz"]), float(b["damping_ratio"]), dt, push)
+	var push: Vector3 = (g - g_rest_world) * float(b["gravity_scale"]) - at * gain
+	var next := spring_step(e0, b["u"], TAU * float(b["frequency_hz"]), float(b["damping_ratio"]), dt, push)
 	var e: Vector3 = next[0]
 	var u: Vector3 = next[1]
 	var length: float = b["length"]
@@ -450,4 +507,4 @@ func stats() -> Dictionary:
 	return {"chains": chains.size(), "peak_angle_deg": snappedf(peak_angle_deg, 0.01), "limit_hits": limit_hits,
 		"collision_hits": collision_hits, "nonfinite": nonfinite,
 		"usec_per_frame": snappedf(float(usec_total) / maxf(frames, 1), 0.1), "frames": frames,
-		"peak_steps": peak_steps, "dropped_steps": dropped_steps}
+		"peak_steps": peak_steps, "dropped_steps": dropped_steps, "accel_clamps": accel_clamps}
