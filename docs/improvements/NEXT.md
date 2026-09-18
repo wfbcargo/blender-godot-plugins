@@ -136,6 +136,37 @@ past the fit; MPFB's ancestry macros are asian/caucasian/african only, so "Hispa
 plus skin tone; no confirmed jaw-shape control in the brief; `long_loose` hair is still rigid (Mei); Ruth's
 cropped grey hair is `short_crop`, whose shell is the critic's first complaint.
 
+**The cast demo (2026-09-18): the first new characters from briefs.** `grungist-creek/cast_demo.tscn` shows
+`characters/cast_marco.toml`, `cast_mei.toml` and `cast_ruth.toml` (the three benchmark briefs, built by hand from
+specs with the installed plugins: Marco 40.6 s, Ruth 38.9 s; review 7-8 s and bake 7-9 s are the biggest stages).
+**The user's review, recorded as given:**
+- Something jiggles on their mouths that looks unnatural (all three).
+- Marco's chest and stomach jiggle together, in the same motion, far too much - it looks very odd.
+- Walking and running are very stiff: animation work to do.
+- Breast and butt jiggle does not feel correctly weighted; the point of attachment and the weight distribution
+  are the likely cause.
+
+**Diagnosed and researched: [research-flesh-jiggle.md](research-flesh-jiggle.md).** The mouth jiggle was
+follow-through's breast search landing on the lips and chin (Mei's and Ruth's breast bones sat on the face, so their
+breasts did not move at all); Marco's belly region was his whole front torso, 0.92-1.31 m. Fixed at spec level in the
+game (`72effe5`: hand-marked `[[flesh.zones]]`, Marco's belly off). The plugin changes, ranked, with checks and
+controls, are items A-G there: bone placement and a zone check first, then graded weights from the attachment, the
+pivot at the upper attachment, an asymmetric spring, mass-scaled response, and spec material overrides.
+Also seen: garments are cut from the skin, so Ruth's long-sleeve top shows her nipples through it (a smoothing pass
+on the cut surface).
+
+Also found building them:
+- **rig-anything close-up check, false alarm:** Mei's `hand_back.L` tile is framed well but fails `off_body`: the
+  check tests one pixel at the landmarks' centroid, which falls between her spread fingers (the mirrored `.R`
+  passes by a pixel). Her build stopped at review, so her blend was not saved. Test a neighbourhood or the nearest
+  body pixel within a radius, with a control.
+- **Brief fidelity:** no ancestry field (Hispanic and Asian carried only by skin, iris and hair colour, so the
+  faces do not read as either); "stocky" via `build = "heavy"` reads average; the strong-jaw face part is too
+  subtle; Ruth's face has no age at 64 (no age lines or skin change); `long_loose` is shoulder length, rigid and
+  helmet-edged.
+- **Godot runs rewrite committed JSON:** `addons/lookdev/presets.json` came back reformatted (content identical)
+  after the cast selftest and shots, like `assets/wardrobe/nora.walk.json` in the Step 1 ship step. Find the writer.
+
 ---
 
 ## The realism work, in order
