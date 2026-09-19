@@ -1,7 +1,7 @@
 {
  "fixture": "dressed_figure",
  "plugins": {
-  "follow-through": "0.9.0",
+  "follow-through": "0.10.0",
   "rig-anything": "0.26.0",
   "wardrobe": "0.5.2"
  },
@@ -56,12 +56,12 @@
       "traced": -0.387
      },
      "belly": {
-      "cloth_relief_mm": 0.037,
-      "cloth_verts": 140,
-      "relief_mm": 0.007,
-      "skin_relief_mm": 0.021,
-      "skin_verts": 140,
-      "traced": 0.331
+      "cloth_relief_mm": 0.033,
+      "cloth_verts": 199,
+      "relief_mm": 0.005,
+      "skin_relief_mm": 0.02,
+      "skin_verts": 184,
+      "traced": 0.253
      },
      "breast": {
       "cloth_relief_mm": 0.111,
@@ -90,7 +90,7 @@
   "export": {
    "edge": 1455,
    "exported": true,
-   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-h_ms27ae\\a\\dressed_figure\\dressed_figure\\shirt.glb",
+   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0sc1s9x8\\a\\dressed_figure\\dressed_figure\\shirt.glb",
    "garment": "Shirt",
    "hem_bones": 16,
    "hem_head_error_m": 1e-06,
@@ -98,7 +98,7 @@
    "joints": 54,
    "passed": true,
    "problems": [],
-   "size_bytes": 458024,
+   "size_bytes": 458028,
    "weight_sum_min": 1.0
   },
   "exported": true,

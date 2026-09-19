@@ -1,7 +1,7 @@
 {
  "fixture": "traced_detail",
  "plugins": {
-  "follow-through": "0.9.0",
+  "follow-through": "0.10.0",
   "rig-anything": "0.26.0",
   "wardrobe": "0.5.2"
  },
@@ -68,6 +68,14 @@
        "skin_verts": 2107,
        "traced": 0.066
       },
+      "belly": {
+       "cloth_relief_mm": 0.04,
+       "cloth_verts": 72,
+       "relief_mm": 0.022,
+       "skin_relief_mm": 0.056,
+       "skin_verts": 59,
+       "traced": 0.384
+      },
       "butt": {
        "cloth_relief_mm": 0.086,
        "cloth_verts": 152,
@@ -124,6 +132,14 @@
        "skin_relief_mm": 0.117,
        "skin_verts": 2040,
        "traced": 0.762
+      },
+      "belly": {
+       "cloth_relief_mm": 0.063,
+       "cloth_verts": 74,
+       "relief_mm": 0.07,
+       "skin_relief_mm": 0.056,
+       "skin_verts": 60,
+       "traced": 1.248
       },
       "butt": {
        "cloth_relief_mm": 0.351,
@@ -212,7 +228,7 @@
     "drawn_over_cloth": 0,
     "exported": true,
     "folded_faces": 0,
-    "hidden": 2514,
+    "hidden": 2520,
     "inside": 2,
     "lifted": [],
     "passed": true,
@@ -280,7 +296,7 @@
     "drawn_over_cloth": 0,
     "exported": true,
     "folded_faces": 0,
-    "hidden": 2514,
+    "hidden": 2520,
     "inside": 2,
     "lifted": [],
     "passed": false,
@@ -358,7 +374,7 @@
     "drawn_over_cloth": 0,
     "exported": true,
     "folded_faces": 0,
-    "hidden": 2611,
+    "hidden": 2615,
     "inside": 130,
     "lifted": [
      {
@@ -439,7 +455,7 @@
     "drawn_over_cloth": 0,
     "exported": true,
     "folded_faces": 0,
-    "hidden": 2612,
+    "hidden": 2617,
     "inside": 150,
     "lifted": [
      {

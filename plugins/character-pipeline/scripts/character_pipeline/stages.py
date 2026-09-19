@@ -642,7 +642,8 @@ def run_flesh(ch, ctx):
         regions = found["regions"]
         out["zones"] = len(ch.flesh.zones)
     r = ft_flesh.prepare(ch.mesh, rig_name=ch.rig, regions=regions,
-                         types=ch.flesh.types or None if regions is None else None)
+                         types=ch.flesh.types or None if regions is None else None,
+                         overrides=ch.flesh.overrides or None)
     if "error" in r:
         raise RuntimeError(f"flesh: {r['error']}")
     out.update(judge_flesh(ch, r, asked=list(ch.flesh.types) if regions is None else []))

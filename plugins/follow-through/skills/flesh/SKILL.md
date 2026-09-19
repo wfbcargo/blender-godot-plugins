@@ -265,6 +265,16 @@ raises a jump-only course's time on the limit (the cast's breasts 9.9 -> 10.6-10
 10 % line: run one-motion courses with `require=within_body`. A second `prepare` straight on a fleshed body can
 fail the check (open; the pipeline restores the unfleshed mesh first).
 
+**A belly hangs from above too** (follow-through 0.10.0): from the lower ribs, so it takes the same
+`"attachment": "upper"` with a longer reach - `attach_rise_m` [0.03, 0.12] for its pivot and `attach_above_m` 0.15
+for check_placement's reading above the apex (a type's own; breast and butt keep 3-6 cm and 10 cm). Its zone stops
+at 0.6 of the hip-to-shoulder span: at 0.75 (0.85 grown) it took a man's pecs - Marco's belly weighted from 0.92
+to 1.31 m, chest and stomach swinging as one slab, study_man's belly bone at chest height. Now Marco's is 0.85-1.11 m
+at weight over 0.5, nothing above the nipple line. It ships `limit_share` 0.6: the material's 1.2 x stand-out let
+a jump carry it past its own stand-out (0.193 m against 0.161). A firm belly is a spec's `[flesh] overrides`
+(character-pipeline 0.14.0): Marco's at 4.5 Hz / 0.6 swings 1.2 cm walking and 1.3 running, against 4.6 and 6.2 cm
+on soft_fat.
+
 **Buttocks ride the pelvis.** A type's `"anchor"` names a **bone role** from rig-anything's body map
 (`bodymap.build(...)["roles"]`: `pelvis`, `chest`, `head`, ...), and its jiggle bone is parented to
 the bone that role names instead of the core bone nearest the region; without rig-anything,

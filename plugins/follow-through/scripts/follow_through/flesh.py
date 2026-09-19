@@ -89,7 +89,8 @@ MIN_REGION_FRACTION = 0.003   # of the body's vertices; smaller clusters are noi
 HEAD_SHARE_MAX = 0.02
 
 # a type with "attachment": "upper" (breast, butt) hangs from above (_hang_from_above)
-ATTACH_UP_M = (0.03, 0.06)      # the pivot's rise above the apex, clipped to this
+ATTACH_UP_M = (0.03, 0.06)      # the pivot's rise above the apex, clipped to this (a type's `attach_rise_m`)
+ATTACH_ABOVE_M = 0.10           # check_placement reads the weight this far above the apex (a type's `attach_above_m`)
 ATTACH_UNDER_LEAN_M = 0.02      # and its depth under the lean surface there
 ATTACH_U0 = 0.3                 # weight is 0 up to this far along pivot -> apex
 ATTACH_LEG_OFF = 0.5            # and 0 on a vertex with this share of its skin on a leg, rising to 1 at none
@@ -1007,7 +1008,8 @@ def _region(obj, t, c, rname, tname, entry, verts, area, normals, body_volume, n
     w_out = w
     attach = None
     if entry.get("attachment") == "upper" and not _legacy_attachment():
-        head, tail, w_out, attach = _hang_from_above(obj, t, verts, w, exc, n_mean, surface)
+        head, tail, w_out, attach = _hang_from_above(obj, t, verts, w, exc, n_mean, surface,
+                                                      rise_m=tuple(entry.get("attach_rise_m", ATTACH_UP_M)))
     volume = float((exc * area[verts] * np.clip(w, 0, 1)).sum())
     coords = {k: float(np.average(c[k][verts], weights=w + 1e-9)) for k in ("height", "facing", "lateral")}
     roles = list(c["role"][verts])
@@ -1040,7 +1042,7 @@ def _legacy_attachment():
     return os.environ.get("FT_FLESH_LEGACY_ATTACHMENT") == "1"
 
 
-def _hang_from_above(obj, t, verts, w, exc, n_mean, surface):
+def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M):
     """A mass that hangs from its upper edge - a breast from the chest wall above it, a buttock from the
     iliac crest and sacrum - pivots there, not at its own height, and moves most at its apex (research-flesh-
     jiggle.md items B and C). Before this the bone's tail sat at the excess^2 centre, 5-8 cm inside the
@@ -1050,7 +1052,7 @@ def _hang_from_above(obj, t, verts, w, exc, n_mean, surface):
 
     Tail: the apex, the mean of the region's most outward vertices (along its mean normal) among those
     weighted >= 0.5. Head: under the lean surface at the apex by ATTACH_UNDER_LEAN_M, raised by 0.6 x the
-    region's height above the apex, clipped to ATTACH_UP_M. Weight: the measured feathering times
+    region's height above the apex, clipped to `rise_m` (ATTACH_UP_M, or the type's `attach_rise_m`). Weight: the measured feathering times
     smoothstep((u - ATTACH_U0) / (1 - ATTACH_U0)), u the vertex's place along head -> tail (0 at the pivot, 1
     at the apex), times (1 - its skin share on leg chains), normalised to 1 at the apex.
 
@@ -1066,7 +1068,7 @@ def _hang_from_above(obj, t, verts, w, exc, n_mean, surface):
     apex = P[top].mean(axis=0)
     lean_at_apex = apex - n_mean * float(exc[top].mean())
     zs = P[w > 0.2] @ up if (w > 0.2).any() else P @ up
-    rise = float(np.clip(0.6 * (np.percentile(zs, 90) - apex @ up), ATTACH_UP_M[0], ATTACH_UP_M[1]))
+    rise = float(np.clip(0.6 * (np.percentile(zs, 90) - apex @ up), rise_m[0], rise_m[1]))
     head = lean_at_apex - n_mean * ATTACH_UNDER_LEAN_M
     # exactly `rise` above the apex: stepping in along a normal that tilts down lowered it (study_woman 2.8 cm)
     head = head + up * (float(apex @ up) + rise - float(head @ up))
@@ -1128,7 +1130,7 @@ def _leg_share(obj, t, verts):
     return out
 
 
-def _attachment_measures(t, r, verts, w):
+def _attachment_measures(t, r, verts, w, above_m=ATTACH_ABOVE_M):
     """How a hanging mass's bone and weight sit (check_placement): the pivot's rise over the tail, the mean weight
     within 2 cm of the tail, the most weight on region vertices 9-11 cm above the tail within 4 cm of it
     horizontally, and the most on vertices with half or more of their skin on a leg. Free values, never clamped."""
@@ -1139,11 +1141,11 @@ def _attachment_measures(t, r, verts, w):
     dz = d @ up
     horiz = np.linalg.norm(d - np.outer(dz, up), axis=1)
     near = np.linalg.norm(d, axis=1) < 0.02
-    above = (dz > 0.09) & (dz < 0.11) & (horiz < 0.04)
+    above = (dz > above_m - 0.01) & (dz < above_m + 0.01) & (horiz < 0.04)
     leg = _leg_share(bpy.data.objects[t["object"]], t, verts) >= 0.5
     return {"pivot_rise_m": round(float((head - tail) @ up), 4),
             "weight_at_apex": round(float(w[near].mean()), 3) if near.any() else 0.0,
-            "weight_10cm_above": round(float(w[above].max()), 3) if above.any() else 0.0,
+            "weight_10cm_above": round(float(w[above].max()), 3) if above.any() else 0.0, "above_m": above_m,
             "weight_on_thigh": round(float(w[leg].max()), 3) if leg.any() else 0.0}
 
 
@@ -1191,16 +1193,18 @@ def check_placement(t, regions, c=None):
                 if not lo <= row[k] <= hi:
                     row["problems"].append(f"{r['name']}: its {what} is at height {row[k]:.2f}, outside the "
                                            f"{r['type']} zone's {lo:.2f}-{hi:.2f} (0 hip joints, 1 shoulder joints)")
-        if (types.get(r["type"]) or {}).get("attachment") == "upper":
-            row.update(_attachment_measures(t, r, verts, w))
-            if row["pivot_rise_m"] < ATTACH_UP_M[0] - 0.001:
+        entry = types.get(r["type"]) or {}
+        if entry.get("attachment") == "upper":
+            rise_min = float(entry.get("attach_rise_m", ATTACH_UP_M)[0])
+            row.update(_attachment_measures(t, r, verts, w, above_m=float(entry.get("attach_above_m", ATTACH_ABOVE_M))))
+            if row["pivot_rise_m"] < rise_min - 0.001:
                 row["problems"].append(f"{r['name']}: its pivot is {row['pivot_rise_m'] * 100:.1f} cm above its tail; a "
-                                       f"mass hanging from above pivots at least {ATTACH_UP_M[0] * 100:.0f} cm above its apex")
+                                       f"mass hanging from above pivots at least {rise_min * 100:.0f} cm above its apex")
             if row["weight_at_apex"] < ATTACH_APEX_MIN:
                 row["problems"].append(f"{r['name']}: weight {row['weight_at_apex']:.2f} at its apex (the tail), "
                                        f"under {ATTACH_APEX_MIN}")
             if row["weight_10cm_above"] > ATTACH_ABOVE_MAX:
-                row["problems"].append(f"{r['name']}: weight {row['weight_10cm_above']:.2f} 10 cm above its apex, over "
+                row["problems"].append(f"{r['name']}: weight {row['weight_10cm_above']:.2f} {row['above_m'] * 100:.0f} cm above its apex, over "
                                        f"{ATTACH_ABOVE_MAX}: the attachment moves with the mass")
             if row["weight_on_thigh"] > ATTACH_THIGH_MAX:
                 row["problems"].append(f"{r['name']}: weight {row['weight_on_thigh']:.2f} on vertices the thigh "

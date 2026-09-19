@@ -55,6 +55,7 @@ stance_width = 1.0
 
 [flesh]
 types = ["breast", "butt"]
+overrides = { butt = { frequency_hz = 3.0, damping_ratio = 0.3 } }
 
 [[outfit]]
 preset = "sports_top"
@@ -178,6 +179,19 @@ def build():
     except spec.SpecError as exc:
         may_miss_stray = str(exc)
 
+    # [flesh] overrides: refused on a type the spec does not ask for, and for a key that is no jiggle parameter
+    overrides_refused = {}
+    for label, line in (("unknown_type", "overrides = { belly = { frequency_hz = 4.5 } }"),
+                        ("unknown_param", "overrides = { butt = { stiffness = 4.5 } }"),
+                        ("not_a_table", "overrides = { butt = 4.5 }"),
+                        ("not_finite", "overrides = { butt = { frequency_hz = nan } }")):
+        try:
+            import tomllib
+            spec.parse(tomllib.loads(SPEC.replace("overrides = { butt = { frequency_hz = 3.0, damping_ratio = 0.3 } }", line)))
+            overrides_refused[label] = "accepted (it must be refused)"
+        except spec.SpecError as exc:
+            overrides_refused[label] = str(exc)
+
     # a type the spec asks for that the body has no mass for: the stage's judgment on this body's own
     # measure, failing without may_miss and passing with it. find_regions only reads the body.
     import dataclasses
@@ -279,6 +293,8 @@ def build():
         "flesh_placement": placement,
         "flesh_stage_placement": flesh.get("placement"),
         "may_miss_stray": may_miss_stray,
+        "flesh_overrides": ch.flesh.overrides,
+        "flesh_overrides_refused": overrides_refused,
         "manifest_flesh": H.stable({"types": manifest.get("flesh", {}).get("types"),
                                     "missed": manifest.get("flesh", {}).get("missed"),
                                     "regions": [{k: r.get(k) for k in ("name", "type", "bone", "parent", "material",
