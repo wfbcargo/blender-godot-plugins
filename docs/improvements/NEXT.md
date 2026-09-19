@@ -179,7 +179,7 @@ selftest runs in `regress --godot`. Mass-scaled frequency is built but off: the 
 amplitude on every body. The 0.98 jiggle-share cap closes B+C's re-run item. Critic: pass. Open: the jump-only
 course stays over its 10 % line for the cast (D did not fix it); walking in phase 0.69-0.85 against people's 0.66;
 running amplitude ~6 cm against ~15 cm, bounded by the limits; E's lag and mass-scaled response. Notebook:
-[flesh-spring](notebooks/flesh-cast/flesh-spring.md). Remaining flesh item: F (spec overrides, Marco's belly).
+[flesh-spring](notebooks/flesh-cast/flesh-spring.md). Shipped: grungist-creek rebuilt (cast, study figures, Belle), selftests and verify_flesh 24/24. Remaining flesh item: F (spec overrides, Marco's belly).
 
 Also seen: garments are cut from the skin, so Ruth's long-sleeve top shows her nipples through it (a smoothing pass
 on the cut surface).
