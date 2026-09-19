@@ -1,7 +1,7 @@
 {
  "fixture": "dressed_presets",
  "plugins": {
-  "follow-through": "0.9.0",
+  "follow-through": "0.10.0",
   "rig-anything": "0.26.0",
   "wardrobe": "0.5.2"
  },
@@ -87,6 +87,14 @@
         "skin_verts": 2109,
         "traced": 0.39
        },
+       "belly": {
+        "cloth_relief_mm": 0.039,
+        "cloth_verts": 72,
+        "relief_mm": 0.022,
+        "skin_relief_mm": 0.056,
+        "skin_verts": 59,
+        "traced": 0.39
+       },
        "butt": {
         "cloth_relief_mm": 0.096,
         "cloth_verts": 153,
@@ -114,7 +122,7 @@
     "export": {
      "edge": 443,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-h_ms27ae\\a\\dressed_presets\\dressed_presets\\compression_shorts.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0sc1s9x8\\a\\dressed_presets\\dressed_presets\\compression_shorts.glb",
      "garment": "CompressionShorts",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
@@ -122,7 +130,7 @@
      "joints": 38,
      "passed": true,
      "problems": [],
-     "size_bytes": 225792,
+     "size_bytes": 225920,
      "weight_sum_min": 1.0
     },
     "exported": true,
@@ -208,6 +216,14 @@
         "skin_verts": 5893,
         "traced": 0.421
        },
+       "belly": {
+        "cloth_relief_mm": 0.04,
+        "cloth_verts": 72,
+        "relief_mm": 0.022,
+        "skin_relief_mm": 0.056,
+        "skin_verts": 59,
+        "traced": 0.389
+       },
        "butt": {
         "cloth_relief_mm": 0.099,
         "cloth_verts": 151,
@@ -235,7 +251,7 @@
     "export": {
      "edge": 369,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-h_ms27ae\\a\\dressed_presets\\dressed_presets\\leggings.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0sc1s9x8\\a\\dressed_presets\\dressed_presets\\leggings.glb",
      "garment": "Leggings",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
@@ -243,7 +259,7 @@
      "joints": 38,
      "passed": true,
      "problems": [],
-     "size_bytes": 489576,
+     "size_bytes": 489704,
      "weight_sum_min": 1.0
     },
     "exported": true,
@@ -297,6 +313,14 @@
         "skin_verts": 1662,
         "traced": 0.833
        },
+       "belly": {
+        "cloth_relief_mm": 0.068,
+        "cloth_verts": 74,
+        "relief_mm": 0.074,
+        "skin_relief_mm": 0.056,
+        "skin_verts": 60,
+        "traced": 1.32
+       },
        "butt": {
         "cloth_relief_mm": 0.103,
         "cloth_verts": 160,
@@ -316,7 +340,7 @@
     "export": {
      "edge": 425,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-h_ms27ae\\a\\dressed_presets\\dressed_presets\\shorts_mid_thigh.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0sc1s9x8\\a\\dressed_presets\\dressed_presets\\shorts_mid_thigh.glb",
      "garment": "Shorts",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
@@ -324,7 +348,7 @@
      "joints": 38,
      "passed": true,
      "problems": [],
-     "size_bytes": 198580,
+     "size_bytes": 198708,
      "weight_sum_min": 1.0
     },
     "exported": true,
@@ -347,17 +371,17 @@
      "covered": 3298,
      "crease": 0.03,
      "creased": 0,
-     "disagree": 18,
+     "disagree": 16,
      "drawn_over_cloth": 0,
-     "edge": 693,
+     "edge": 684,
      "garment": "SportsTop",
-     "hidden": 2605,
+     "hidden": 2614,
      "hidden_gap_max_m": 0.0524,
      "hidden_gap_median_m": 0.011,
      "inside": 2,
      "margin": 0.03,
      "max_gap": 0.1,
-     "tris_hidden": 4928,
+     "tris_hidden": 4951,
      "tris_total": 34220
     },
     "cut": {
@@ -430,17 +454,17 @@
      "verts": 3370
     },
     "export": {
-     "edge": 693,
+     "edge": 684,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-h_ms27ae\\a\\dressed_presets\\dressed_presets\\sports_top.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0sc1s9x8\\a\\dressed_presets\\dressed_presets\\sports_top.glb",
      "garment": "SportsTop",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
-     "hidden": 2605,
+     "hidden": 2614,
      "joints": 38,
      "passed": true,
      "problems": [],
-     "size_bytes": 255092,
+     "size_bytes": 255096,
      "weight_sum_min": 1.0
     },
     "exported": true,

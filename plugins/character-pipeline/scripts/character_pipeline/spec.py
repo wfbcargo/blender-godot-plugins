@@ -175,6 +175,7 @@ class Flesh:
     zones: list = field(default_factory=list)
     limit_share: dict = field(default_factory=dict)   # overrides the type's own
     may_miss: list = field(default_factory=list)      # types the flesh stage may come back without
+    overrides: dict = field(default_factory=dict)     # {type or region: {jiggle parameter: value}}, over the material
 
 
 @dataclass
@@ -325,6 +326,31 @@ def _unknown(table, allowed, where):
         raise SpecError(f"{where}: unknown field(s) {', '.join(extra)}")
 
 
+# the jiggle parameters `[flesh] overrides` may set (follow-through's jiggle_block / set_params)
+FLESH_OVERRIDE_KEYS = ("frequency_hz", "damping_ratio", "squash", "gravity_scale", "aim", "translate", "response",
+                       "frequency_down_ratio", "frequency_ap_ratio", "max_offset")
+
+
+def _check_overrides(flesh):
+    """`[flesh] overrides`: each key a type in `types` (or one of its sides, `breast.L`), each value a table of
+    numeric jiggle parameters from FLESH_OVERRIDE_KEYS. A key nothing will find is refused, not ignored: an
+    override on a type the spec never asks for would change nothing and say nothing."""
+    for name, params in flesh.overrides.items():
+        base = name[:-2] if name.endswith((".L", ".R")) else name
+        if base not in flesh.types:
+            raise SpecError(f"[flesh] overrides names {name!r}, which types does not ask for ({flesh.types})")
+        if not isinstance(params, dict) or not params:
+            raise SpecError(f"[flesh] overrides.{name} must be a table of jiggle parameters, e.g. "
+                            "{ frequency_hz = 4.5, damping_ratio = 0.6 }")
+        bad = sorted(k for k in params if k not in FLESH_OVERRIDE_KEYS)
+        if bad:
+            raise SpecError(f"[flesh] overrides.{name}: {bad} are not jiggle parameters (one of {FLESH_OVERRIDE_KEYS}; "
+                            "the swing limit is `limit_share`)")
+        for k, v in params.items():
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or v < 0:
+                raise SpecError(f"[flesh] overrides.{name}.{k} = {v!r}: a number, 0 or more")
+
+
 def parse(data, path=None):
     """A `Character` from parsed TOML, checked. Raises `SpecError` naming the field."""
     _unknown(data, ("character", "body", "moves", "hair", "flesh", "outfit", "export", "review", "muscle", "build"),
@@ -403,14 +429,16 @@ def parse(data, path=None):
     flesh = None
     if "flesh" in data:
         f = data["flesh"]
-        _unknown(f, ("types", "zones", "limit_share", "may_miss"), "[flesh]")
+        _unknown(f, ("types", "zones", "limit_share", "may_miss", "overrides"), "[flesh]")
         flesh = Flesh(types=list(_take(f, "types", list, default=[])),
                       zones=list(_take(f, "zones", list, default=[])),
                       limit_share=dict(_take(f, "limit_share", dict, default={})),
-                      may_miss=list(_take(f, "may_miss", list, default=[])))
+                      may_miss=list(_take(f, "may_miss", list, default=[])),
+                      overrides={k: dict(v) for k, v in dict(_take(f, "overrides", dict, default={})).items()})
         stray = [t for t in flesh.may_miss if t not in flesh.types]
         if stray:
             raise SpecError(f"[flesh] may_miss names {stray}, which types does not ask for ({flesh.types})")
+        _check_overrides(flesh)
     outfit = []
     for i, g in enumerate(_take(data, "outfit", list, default=[])):
         _unknown(g, ("preset", "name", "colour"), f"[[outfit]] {i}")

@@ -94,6 +94,12 @@ body_hair = false                  #   (a switch left false hashes as before, so
 [flesh]                            # follow-through; limit shares come from the type registry
 types = ["breast", "butt"]
 may_miss = []                      # types the stage may come back without (see below)
+overrides = { belly = { frequency_hz = 4.5, damping_ratio = 0.6 } }
+                                   # optional: jiggle parameters over the material's, per type in `types`
+                                   #   or region (`breast.L`): frequency_hz, damping_ratio, squash,
+                                   #   gravity_scale, aim, translate, response, frequency_down_ratio,
+                                   #   frequency_ap_ratio, max_offset. A firm belly: soft_fat is a
+                                   #   breast's tissue, and Marco's swung 4.6 cm walking on it, 1.2 at 4.5 Hz
 [[flesh.zones]]                    # only while the measure reads a mass wrong (05 5.9)
 type = "butt"
 view = "back"
