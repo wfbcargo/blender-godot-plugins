@@ -110,3 +110,13 @@ PNG controls: main's fingers report lines, the fixed pair is clean). Golden re-r
 --update --twice` (no other key moved).
 
 Time: about 85 min to here (over the 60 min budget: the skin-mode-off detour and the backlit check cost ~20).
+
+## 11:08 - final regress
+
+`regress.py --quick --jobs 4 --godot rw/sfe/game` after the commit (golden in): `REGRESS DONE exit=0, 23 fixtures
+ok` (log `rw/sfe/regress_final.log`, 10:46-11:08). edges pipeline_woman 0 tiles with lines (worst 0.05 per mille,
+ratio 0.57 - a thin margin under the 0.1 limit on the fixture body's hand_palm.L); control 2 tiles, 1.35 per mille.
+
+Open: the pale fingertip lines (skin-regions' REGIONS `nail` rough, above); `stipple` reading pore grain on
+study_woman hand_palm.L (above); the edges limit has 2x margin on the fixture but its ratio criterion trips on any
+real backlit glow, so backlit tiles are judged by eye; the game's figures are not rebuilt (the ship step does it).
