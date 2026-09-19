@@ -161,3 +161,61 @@ The fix is a choice, not a conflict resolution: lower clear_midday (breaks done-
 on the open stage), keep the backdrop in GI for sky-lit presets only, or accept that close-shot's stage is now
 closer to the open calibration stage and that clear_midday is marginally past white for study_woman. Left for
 the next round; logs and tiles in `%TEMP%/rw/merge-lookdev-overcast/` (cs_study_woman, csmain_woman, regress.log).
+
+## Merge attempt 2 (2026-09-19, resumed): measured, then merged
+
+Attempt 1 left the SKIN_PAST_WHITE interaction as "a choice, not a conflict resolution". It was
+decidable by measurement, so it was measured before anything was changed.
+
+**Is the branch's stage wrong, or was main's stage hiding something?** A temporary probe in
+`close_shot.gd` (`LOOKDEV_PROBE_STAGE`, reverted afterwards) rendered study_woman's `full` tile under
+clear_midday three ways on one game and one glb - same framing, `figure_px` 46300 throughout:
+
+| stage | skin past white |
+|---|---|
+| backdrop in SDFGI (main) | 0.009 % |
+| backdrop out of GI (this branch) | 1.423 % |
+| **no backdrop at all (the open calibration stage)** | **1.421 %** |
+
+The `gi` variant reproduces main's 0.0086 % to the digit, so the probe itself is sound. The open
+stage - the one `_calibration` says the exteriors were tuned on - agrees with this branch to 0.002
+points. **The branch's change is not a regression; it makes close-shot's stage honest.** The 7 m
+cylinder had been acting as a courtyard wall.
+
+**Then is clear_midday itself hot?** `capture --probes` on the open stage (`lookdev-overcast_stage.tscn`,
+no figure, nothing but ground and probes) at the shipped exposure 1.0:
+
+```
+grey probe  lit 0.62 display
+key/fill    2.5 stops (key 1.073, fill 0.194 linear on 18% grey)
+WARN  EXPOSURE: median display luma 0.61 is overexposed for 'day' (0.3-0.6)
+WARN  GREY_PROBE: 18% grey probe reads 0.62 display (want 0.33-0.62 for 'day')
+```
+
+clear_midday fails its own two exposure gates with no figure and no backdrop in the scene. The
+recorded key of 1.06 was already over the meter; the backdrop had been hiding what that costs.
+
+| clear_midday exposure | key on 18% grey | grey probe | study_woman past white |
+|---|---|---|---|
+| 1.0 (shipped) | 1.073 | 0.62 (over) | 1.42 % FAIL |
+| **0.94** | **1.008** | 0.61 | **0.01 %** |
+| 0.90 | 0.966 | 0.60 | 0.00 % |
+
+**Where the blown pixels were:** 98 % in one band across the upward-facing shoulders and upper chest,
+peak luma 0.815 against the 0.796 line. A marginal, localised overexposure on the surfaces that see
+the whole sky dome on top of the key - not a blown figure. That is why it took an open stage to show.
+
+**Resolution: clear_midday `tonemap_exposure` 1.0 -> 0.94** (lookdev 0.11.0), which is the "lower
+clear_midday" option of attempt 1, but taken for the opposite reason: it does not break the open-stage
+calibration, it restores it. `_calibration` now records key 1.01.
+
+`close-shot --views head,full --presets clear_midday,overcast,golden_hour` on the merged tree:
+**study_woman exit 0, study_man exit 0**, past white 0.00-0.01 % on all six full tiles, tone shift ok.
+
+**Incidental fix - the ship step's FLOOR_STRIPES false fail.** The ship notebook recorded overcast
+failing FLOOR_STRIPES when rendered after clear_midday in one run (state carried between presets).
+On this branch overcast reads 0.13-0.15 % contrast against the 1.20 % limit and passes, on both
+figures, rendered third after clear_midday. The cause is covered rather than fixed: overcast no
+longer casts a shadow at all (`shadow_enabled` false since 0.9.0), so a sun property leaked from the
+previous recipe can no longer draw acne. `LookdevPresets.apply` still does not reset unnamed
+properties - see Open, above - and that is worth doing on its own.

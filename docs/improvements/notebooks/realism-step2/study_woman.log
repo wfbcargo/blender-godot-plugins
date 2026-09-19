@@ -1,0 +1,32 @@
+lookdev close-shot  res://assets/figure_study/study_woman/study_woman.glb  StudyWoman_Idle @ 0.00 s of 2.04  tiles 640x640 + a 64 px label band above
+  materials: StudyWoman_skin, StudyWoman_hair, StudyWoman_brows, StudyWoman_lashes
+  clear_midday   face         1.00 m  fov  15.9  frame 0.280 m  figure  41%  subject  41%  off 0.17
+  clear_midday   face_3q      1.00 m  fov  17.4  frame 0.306 m  figure  46%  subject  46%  off 0.13
+  clear_midday   eyes         1.00 m  fov   8.7  frame 0.153 m  figure  89%  subject  87%  off 0.00
+  clear_midday   head_side    1.00 m  fov  26.5  frame 0.471 m  figure  32%  subject  32%  off 0.20
+  clear_midday   head_back    1.00 m  fov  26.5  frame 0.471 m  figure  33%  subject  33%  off 0.11
+  clear_midday   full         4.00 m  fov  26.3  frame 1.871 m  figure  14%  subject  14%  off 0.25
+                              skin past white 0.01% (max 1%)  floor stripe 0.328 at -1,4 px, contrast 0.15% (limits 0.3, 1.20%)
+  overcast       face         1.00 m  fov  15.9  frame 0.280 m  figure  41%  subject  41%  off 0.17
+  overcast       face_3q      1.00 m  fov  17.4  frame 0.306 m  figure  46%  subject  46%  off 0.13
+  overcast       eyes         1.00 m  fov   8.7  frame 0.153 m  figure  89%  subject  87%  off 0.00
+  overcast       head_side    1.00 m  fov  26.5  frame 0.471 m  figure  32%  subject  32%  off 0.20
+  overcast       head_back    1.00 m  fov  26.5  frame 0.471 m  figure  33%  subject  33%  off 0.11
+  overcast       full         4.00 m  fov  26.3  frame 1.871 m  figure  14%  subject  14%  off 0.25
+                              skin past white 0.00% (max 1%)  floor stripe 0.376 at -8,4 px, contrast 0.15% (limits 0.3, 1.20%)
+  golden_hour    face         1.00 m  fov  15.9  frame 0.280 m  figure  41%  subject  41%  off 0.17
+  golden_hour    face_3q      1.00 m  fov  17.4  frame 0.306 m  figure  46%  subject  46%  off 0.13
+  golden_hour    eyes         1.00 m  fov   8.7  frame 0.153 m  figure  89%  subject  87%  off 0.00
+  golden_hour    head_side    1.00 m  fov  26.5  frame 0.471 m  figure  32%  subject  32%  off 0.20
+  golden_hour    head_back    1.00 m  fov  26.5  frame 0.471 m  figure  33%  subject  33%  off 0.11
+  golden_hour    full         4.00 m  fov  26.3  frame 1.871 m  figure  14%  subject  14%  off 0.25
+                              skin past white 0.00% (max 1%)  floor stripe 0.357 at -5,1 px, contrast 0.11% (limits 0.3, 1.20%)
+
+sheet (one row per view, one column per preset; each tile labelled view, distance, preset, fov): C:/Users/pauli/AppData/Local/Temp/rw/ovc-verify/study_woman/sheet.png
+out: C:/Users/pauli/AppData/Local/Temp/rw/ovc-verify/study_woman
+
+tone shift  full: clear_midday -> overcast
+  clear_midday   mean 0.697,0.580,0.508  hue 22.8  sat 0.271  val 0.697  (59081 px)
+  overcast       mean 0.597,0.493,0.433  hue 22.0  sat 0.274  val 0.597  (59100 px)
+  hue -0.82 deg (max 3)  saturation +1.1% (max 15%)  value x0.857
+  ok: the skin keeps its tone
