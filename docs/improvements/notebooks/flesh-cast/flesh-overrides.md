@@ -13,7 +13,8 @@ crashed the parser with a TypeError, and nan, inf and frequency 0 got through (c
 records those refusals too), passed to `flesh.prepare(overrides=)`, which `jiggle_block` already
 applied over the material. The flesh stage's hash covers the raw `[flesh]` section, so an override edit reruns flesh.
 pipeline_woman's spec carries `butt = { frequency_hz = 3.0, damping_ratio = 0.3 }` (its manifest shows 3.0 / 0.3 on
-both butt regions) and two must-refuse parses: a type the spec does not ask for, a key that is no parameter.
+both butt regions) and four must-refuse parses: a type the spec does not ask for, a key that is no parameter, a
+value that is not a table, a number that is not finite.
 
 ## The belly was the real blocker
 
@@ -26,14 +27,14 @@ Probe (`belly.py`, patched registry):
 | belly | Marco: weight above nipple line | Marco: check | study_man: tail z | study_man: above nipple line |
 |---|---|---|---|---|
 | zone 0.2-0.75 (shipped), plateau | 1.0 | - | 1.225 (chest) | 0.92 |
+| same zone, hangs from above (breast distances) | 0.07 | fails: 0.79 at 10 cm above | 1.225 | 0.92 |
+| zone 0.05-0.6, from above, rise to 12 cm, read 15 cm above | 0.00 | ok | 1.036 (abdomen) | 0.00 |
+| zone 0.05-0.55, same | 0.00 | ok | 1.036 | 0.00 |
 
 (Row 1 was probed after taking the jiggle weights off rather than restoring the pipeline's saved unfleshed mesh;
 the critic, restoring it, reads study_man's tail at 1.209 m and weight 1.0 above the line - the same conclusion.)
 Note what made the check pass: at 10 cm above the apex Marco's belly reads 0.79, at 15 cm 0.24 (limit 0.3); the
 belly's own `attach_above_m` 15 cm is that choice.
-| same zone, hangs from above (breast distances) | 0.07 | fails: 0.79 at 10 cm above | 1.225 | 0.92 |
-| zone 0.05-0.6, from above, rise to 12 cm, read 15 cm above | 0.00 | ok | 1.036 (abdomen) | 0.00 |
-| zone 0.05-0.55, same | 0.00 | ok | 1.036 | 0.00 |
 
 So (follow-through 0.10.0) belly: zone 0.05-0.6 (pubis to lower ribs), `"attachment": "upper"`, and two new per-type
 keys - `attach_rise_m` [0.03, 0.12] (the pivot's rise clip; breast and butt keep ATTACH_UP_M, 3-6 cm) and
