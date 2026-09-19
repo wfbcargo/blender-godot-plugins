@@ -132,3 +132,9 @@ figure_study --selftest PASSED on the scratch game with the branch's figure_stud
   numbers after this merges.
 - The man's lips and forehead read glossy under clear_midday: skin material (roughness), other branches.
 - The forehead-band measurement is a probe script, not a shipped check (tone-shift covers LOOK-S6 only).
+
+## Final regress
+
+`python tools/regress.py --quick --jobs 4 --godot %TEMP%/rw/lookdev-overcast/game` (09:49-10:05): `REGRESS DONE
+exit=0, 9 fixtures ok`, no change; close-shot pipeline_woman and its must-fail control, lookdev selftest 23/23.
+Full output: `%TEMP%/rw/lookdev-overcast/regress_final.log`. Wall time for the branch about 50 min.
