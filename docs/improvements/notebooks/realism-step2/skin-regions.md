@@ -240,3 +240,12 @@ study_man's about equal), mergeable; minor: the wt manifests were built (10:21, 
 No code changed this round, so no bump beyond 0.13.0 / 0.15.0 and no golden moved.
 
 Final `regress --quick --jobs 3` after critic round 2 on b447c34 (code identical to HEAD; 10:43-10:48): `REGRESS DONE exit=0, 9 fixtures ok`, no change (log %TEMP%/rw/skr/regress_final3.txt).
+
+## Merge step (2026-09-19)
+
+Main had moved to skin-pores-distance (humanform 0.13.0, lookdev 0.9.0), so this branch became humanform 0.14.0 in
+the merge of main (3203e7e): marketplace.json's humanform conflict resolved as a union (main's Since 0.13.0 kept,
+this branch's sentence moved to Since 0.14.0 by tools/bump.py), and the branch's "humanform 0.13.0" comments,
+fixture docstring, tests/README and character-pipeline's Since 0.15.0 sentence renumbered. skin.py auto-merged.
+Merged-branch `regress --quick --jobs 4` (11:10-11:12): `REGRESS DONE exit=0, 9 fixtures ok`, no change
+(log %TEMP%/rw/skrm/regress.txt). No --godot run: no addon changed on the branch and there is no game worktree.
