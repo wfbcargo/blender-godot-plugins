@@ -1,7 +1,7 @@
 {
  "fixture": "flesh_figure",
  "plugins": {
-  "follow-through": "0.7.0",
+  "follow-through": "0.8.0",
   "rig-anything": "0.26.0"
  },
  "report": {
@@ -107,7 +107,7 @@
      },
      "collider": {
       "height": 1.7668,
-      "radius": 0.2886
+      "radius": 0.2887
      },
      "dropped_clips": [],
      "fields": [
@@ -215,60 +215,76 @@
         ]
        },
        {
-        "centre_height": 0.97,
-        "centre_z": 1.157,
+        "centre_height": 0.903,
+        "centre_z": 1.131,
         "head_share": 0.0,
         "name": "breast.L",
         "ok": true,
+        "pivot_rise_m": 0.0539,
         "problems": [],
-        "tail_height": 0.862,
-        "tail_z": 1.115,
+        "tail_height": 0.929,
+        "tail_z": 1.141,
         "type": "breast",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.968,
+        "weight_on_thigh": 0.0,
         "zone_height": [
          0.4,
          1.55
         ]
        },
        {
-        "centre_height": 0.986,
-        "centre_z": 1.163,
+        "centre_height": 0.919,
+        "centre_z": 1.137,
         "head_share": 0.0,
         "name": "breast.R",
         "ok": true,
+        "pivot_rise_m": 0.0567,
         "problems": [],
-        "tail_height": 0.885,
-        "tail_z": 1.124,
+        "tail_height": 0.933,
+        "tail_z": 1.143,
         "type": "breast",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.985,
+        "weight_on_thigh": 0.0,
         "zone_height": [
          0.4,
          1.55
         ]
        },
        {
-        "centre_height": 0.214,
-        "centre_z": 0.862,
+        "centre_height": 0.24,
+        "centre_z": 0.872,
         "head_share": 0.0,
         "name": "butt.L",
         "ok": true,
+        "pivot_rise_m": 0.03,
         "problems": [],
-        "tail_height": 0.248,
-        "tail_z": 0.876,
+        "tail_height": 0.232,
+        "tail_z": 0.87,
         "type": "butt",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.984,
+        "weight_on_thigh": 0.0,
         "zone_height": [
          -0.6,
          0.4
         ]
        },
        {
-        "centre_height": 0.219,
-        "centre_z": 0.865,
+        "centre_height": 0.247,
+        "centre_z": 0.875,
         "head_share": 0.0,
         "name": "butt.R",
         "ok": true,
+        "pivot_rise_m": 0.03,
         "problems": [],
-        "tail_height": 0.253,
-        "tail_z": 0.878,
+        "tail_height": 0.246,
+        "tail_z": 0.875,
         "type": "butt",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.982,
+        "weight_on_thigh": 0.0,
         "zone_height": [
          -0.6,
          0.4
@@ -403,9 +419,9 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          0.05618,
-          1.02945,
-          0.01099
+          0.08236,
+          1.19525,
+          0.09214
          ],
          "mass_kg": 4.122,
          "material": "soft_fat",
@@ -416,9 +432,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          0.18168,
-          1.11507,
-          0.14803
+          0.17007,
+          1.14131,
+          0.18791
          ],
          "translate": 0.35,
          "type": "breast",
@@ -432,9 +448,9 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          -0.06015,
-          1.03952,
-          0.01329
+          -0.0822,
+          1.19972,
+          0.09329
          ],
          "mass_kg": 3.841,
          "material": "soft_fat",
@@ -445,9 +461,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          -0.18101,
-          1.12409,
-          0.14591
+          -0.16859,
+          1.14297,
+          0.18809
          ],
          "translate": 0.35,
          "type": "breast",
@@ -461,9 +477,9 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          0.03513,
-          0.91997,
-          -0.04077
+          0.0612,
+          0.89968,
+          -0.06704
          ],
          "mass_kg": 1.322,
          "material": "soft_fat",
@@ -474,9 +490,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          0.06044,
-          0.87562,
-          -0.15226
+          0.08247,
+          0.86968,
+          -0.16072
          ],
          "translate": 0.35,
          "type": "butt",
@@ -490,9 +506,9 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          -0.03887,
-          0.91883,
-          -0.04182
+          -0.05645,
+          0.90492,
+          -0.06744
          ],
          "mass_kg": 1.159,
          "material": "soft_fat",
@@ -503,9 +519,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          -0.06613,
-          0.87757,
-          -0.15337
+          -0.07999,
+          0.87492,
+          -0.16378
          ],
          "translate": 0.35,
          "type": "butt",
@@ -708,7 +724,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7t0tbzam\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7l24gl00\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -796,9 +812,9 @@
      },
      {
       "head": [
-       0.056177,
-       -0.010993,
-       1.029453
+       0.082362,
+       -0.092136,
+       1.195246
       ],
       "mass_kg": 4.122,
       "name": "breast.L",
@@ -809,9 +825,9 @@
       ],
       "peak_m": 0.1514,
       "tail": [
-       0.181676,
-       -0.148028,
-       1.115071
+       0.170072,
+       -0.187907,
+       1.141306
       ],
       "type": "breast",
       "vertex_count": 664,
@@ -819,9 +835,9 @@
      },
      {
       "head": [
-       -0.060149,
-       -0.013288,
-       1.039524
+       -0.082197,
+       -0.093291,
+       1.199716
       ],
       "mass_kg": 3.841,
       "name": "breast.R",
@@ -832,9 +848,9 @@
       ],
       "peak_m": 0.1471,
       "tail": [
-       -0.181014,
-       -0.145913,
-       1.124088
+       -0.168593,
+       -0.188092,
+       1.142973
       ],
       "type": "breast",
       "vertex_count": 629,
@@ -842,9 +858,9 @@
      },
      {
       "head": [
-       0.035129,
-       0.04077,
-       0.91997
+       0.061201,
+       0.067039,
+       0.899684
       ],
       "mass_kg": 1.322,
       "name": "butt.L",
@@ -855,9 +871,9 @@
       ],
       "peak_m": 0.0896,
       "tail": [
-       0.060442,
-       0.152259,
-       0.875617
+       0.08247,
+       0.16072,
+       0.869684
       ],
       "type": "butt",
       "vertex_count": 355,
@@ -865,9 +881,9 @@
      },
      {
       "head": [
-       -0.038873,
-       0.041823,
-       0.918829
+       -0.056448,
+       0.067445,
+       0.904924
       ],
       "mass_kg": 1.159,
       "name": "butt.R",
@@ -878,9 +894,9 @@
       ],
       "peak_m": 0.0887,
       "tail": [
-       -0.066128,
-       0.153369,
-       0.877566
+       -0.079986,
+       0.163778,
+       0.874924
       ],
       "type": "butt",
       "vertex_count": 324,
@@ -1567,7 +1583,7 @@
      },
      "collider": {
       "height": 1.7668,
-      "radius": 0.1698
+      "radius": 0.1689
      },
      "dropped_clips": [],
      "fields": [
@@ -1706,60 +1722,76 @@
       "ok": true,
       "regions": [
        {
-        "centre_height": 1.009,
-        "centre_z": 1.263,
+        "centre_height": 0.868,
+        "centre_z": 1.204,
         "head_share": 0.0,
         "name": "breast.L",
         "ok": true,
+        "pivot_rise_m": 0.06,
         "problems": [],
-        "tail_height": 1.035,
-        "tail_z": 1.274,
+        "tail_height": 0.977,
+        "tail_z": 1.25,
         "type": "breast",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.997,
+        "weight_on_thigh": 0.0,
         "zone_height": [
          0.4,
          1.55
         ]
        },
        {
-        "centre_height": 1.025,
-        "centre_z": 1.27,
+        "centre_height": 0.891,
+        "centre_z": 1.214,
         "head_share": 0.0,
         "name": "breast.R",
         "ok": true,
+        "pivot_rise_m": 0.06,
         "problems": [],
-        "tail_height": 1.047,
-        "tail_z": 1.279,
+        "tail_height": 0.981,
+        "tail_z": 1.251,
         "type": "breast",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.995,
+        "weight_on_thigh": 0.0,
         "zone_height": [
          0.4,
          1.55
         ]
        },
        {
-        "centre_height": 0.075,
-        "centre_z": 0.873,
+        "centre_height": 0.099,
+        "centre_z": 0.883,
         "head_share": 0.0,
         "name": "butt.L",
         "ok": true,
+        "pivot_rise_m": 0.0442,
         "problems": [],
-        "tail_height": 0.134,
-        "tail_z": 0.897,
+        "tail_height": 0.128,
+        "tail_z": 0.895,
         "type": "butt",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.975,
+        "weight_on_thigh": 0.0,
         "zone_height": [
          -0.6,
          0.4
         ]
        },
        {
-        "centre_height": 0.08,
-        "centre_z": 0.875,
+        "centre_height": 0.1,
+        "centre_z": 0.883,
         "head_share": 0.0,
         "name": "butt.R",
         "ok": true,
+        "pivot_rise_m": 0.0441,
         "problems": [],
-        "tail_height": 0.137,
-        "tail_z": 0.899,
+        "tail_height": 0.125,
+        "tail_z": 0.894,
         "type": "butt",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.975,
+        "weight_on_thigh": 0.0,
         "zone_height": [
          -0.6,
          0.4
@@ -1850,9 +1882,9 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          0.04659,
-          1.26797,
-          -0.00213
+          0.0302,
+          1.30976,
+          0.03227
          ],
          "mass_kg": 2.182,
          "material": "soft_fat",
@@ -1863,9 +1895,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          0.08186,
-          1.27368,
-          0.09634
+          0.06787,
+          1.24976,
+          0.13743
          ],
          "translate": 0.35,
          "type": "breast",
@@ -1879,9 +1911,9 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          -0.04819,
-          1.27362,
-          -0.00352
+          -0.02476,
+          1.31115,
+          0.03401
          ],
          "mass_kg": 2.019,
          "material": "soft_fat",
@@ -1892,9 +1924,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          -0.08783,
-          1.27881,
-          0.09572
+          -0.06676,
+          1.25115,
+          0.13916
          ],
          "translate": 0.35,
          "type": "breast",
@@ -1908,9 +1940,9 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          0.03055,
-          0.9112,
-          -0.01953
+          0.05193,
+          0.93903,
+          -0.04243
          ],
          "mass_kg": 1.717,
          "material": "soft_fat",
@@ -1921,9 +1953,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          0.06216,
-          0.89742,
-          -0.13035
+          0.08256,
+          0.89488,
+          -0.14981
          ],
          "translate": 0.35,
          "type": "butt",
@@ -1937,9 +1969,9 @@
          "frequency_hz": 2.7,
          "gravity_scale": 1.0,
          "head": [
-          -0.03116,
-          0.91065,
-          -0.02236
+          -0.0465,
+          0.93768,
+          -0.04812
          ],
          "mass_kg": 1.531,
          "material": "soft_fat",
@@ -1950,9 +1982,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          -0.06597,
-          0.89851,
-          -0.13188
+          -0.07942,
+          0.89363,
+          -0.1517
          ],
          "translate": 0.35,
          "type": "butt",
@@ -2125,10 +2157,10 @@
      "control_without_giving_back": {
       "max_total_lost": 0.9999,
       "max_weight_diff": 0.9999,
-      "unweighted": 25
+      "unweighted": 18
      },
      "max_total_lost": 0.0,
-     "max_weight_diff": 0.0739,
+     "max_weight_diff": 0.4228,
      "regions_equal": true,
      "unweighted": 0,
      "unweighted_first": 0
@@ -2139,7 +2171,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7t0tbzam\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7l24gl00\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",
@@ -2227,9 +2259,9 @@
      },
      {
       "head": [
-       0.046592,
-       0.002126,
-       1.267968
+       0.030204,
+       -0.032272,
+       1.309756
       ],
       "mass_kg": 2.182,
       "name": "breast.L",
@@ -2240,9 +2272,9 @@
       ],
       "peak_m": 0.0781,
       "tail": [
-       0.081862,
-       -0.096342,
-       1.273679
+       0.06787,
+       -0.137427,
+       1.249756
       ],
       "type": "breast",
       "vertex_count": 687,
@@ -2250,9 +2282,9 @@
      },
      {
       "head": [
-       -0.048191,
-       0.003515,
-       1.273622
+       -0.024756,
+       -0.034009,
+       1.311146
       ],
       "mass_kg": 2.019,
       "name": "breast.R",
@@ -2263,9 +2295,9 @@
       ],
       "peak_m": 0.0798,
       "tail": [
-       -0.087831,
-       -0.095721,
-       1.278809
+       -0.066756,
+       -0.139155,
+       1.251146
       ],
       "type": "breast",
       "vertex_count": 651,
@@ -2273,9 +2305,9 @@
      },
      {
       "head": [
-       0.030545,
-       0.019529,
-       0.911204
+       0.051931,
+       0.042431,
+       0.939031
       ],
       "mass_kg": 1.717,
       "name": "butt.L",
@@ -2286,9 +2318,9 @@
       ],
       "peak_m": 0.0833,
       "tail": [
-       0.062158,
-       0.130348,
-       0.897419
+       0.082563,
+       0.149814,
+       0.894878
       ],
       "type": "butt",
       "vertex_count": 653,
@@ -2296,9 +2328,9 @@
      },
      {
       "head": [
-       -0.031162,
-       0.022363,
-       0.910653
+       -0.046504,
+       0.048123,
+       0.937681
       ],
       "mass_kg": 1.531,
       "name": "butt.R",
@@ -2309,9 +2341,9 @@
       ],
       "peak_m": 0.0829,
       "tail": [
-       -0.065968,
-       0.131881,
-       0.898509
+       -0.079421,
+       0.1517,
+       0.893626
       ],
       "type": "butt",
       "vertex_count": 619,

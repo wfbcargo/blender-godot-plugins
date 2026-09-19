@@ -61,7 +61,7 @@ step's form, since on_limit's line is drawn on the full course) 15/15 PASSED.
 - Marked regions go through the same grading (marks.regions calls _region with the type's entry); no marked build
   was tried on this branch.
 
-## Regress (--quick --godot, first run): one real failure, a finding about wardrobe
+## Regress (--quick --godot, first run): one real failure, found to be wardrobe's
 
 `verify_wardrobe traced_detail` FAILED (poke 0.532 %, 65 skin verts through the garment at frame 48; was 0.000 %)
 and `top_compressed.passed` True -> False (`cover: 274 drawn body triangles still lie over the cloth after
@@ -74,3 +74,15 @@ sports top bridges the cleavage and hid the bump there; at the apex - where a ni
 fixture's "compressed keeps a fraction of the relief and passes" held only because the bump was misplaced: the
 same wardrobe weakness as Ruth's nipples showing through her long-sleeve top (NEXT.md cast review). Butt bumps
 moved 8 -> 9 cm from the tail; the shorts are unaffected.
+
+**That diagnosis was wrong.** The user chose to fix wardrobe first (branch `wardrobe-apex-cover`, notebook
+`wardrobe-apex-cover.md`): every skin vertex round both bumps was hidden. The flagged triangles were all at the
+armholes, skin beside the rim that `cover.drawn_over_cloth` took for skin through the cloth; the graded weights
+reached it by moving the shirt's sleeve cut (the plateau's breast weight had scaled the upper chest's arm weight
+under the cut's 0.25). Fixed there (wardrobe 0.5.2); this branch is merged together with it.
+
+## Controls in the suite
+
+`pipeline_woman` records `flesh_placement.hanging` (breast and butt: pivot rise 0.06, weight at the apex 0.99,
+0 at 10 cm above and on the thigh) and `control_attachment` (FT_FLESH_LEGACY_ATTACHMENT=1) with ok false on all
+four regions: breast pivot -2.9 cm, butt 0.998 at 10 cm above and 0.44 on the thigh.
