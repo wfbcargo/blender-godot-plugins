@@ -100,6 +100,9 @@ func _setup(skel: Skeleton3D, options: Dictionary) -> void:
 			"squash_ok": along_y > 0.98,
 			"frequency_hz": float(p.get("frequency_hz", 2.5)),
 			"damping_ratio": float(p.get("damping_ratio", 0.25)),
+			"down_ratio": float(p.get("frequency_down_ratio", 1.0)),
+			"ap_ratio": float(p.get("frequency_ap_ratio", 1.0)),
+			"up": Vector3.UP, "ap": Vector3.FORWARD,
 			"squash": float(p.get("squash", 0.5)),
 			"gravity_scale": float(p.get("gravity_scale", 1.0)),
 			"aim": float(p.get("aim", 1.0)),
@@ -175,7 +178,13 @@ func _process_modification_with_delta(delta: float) -> void:
 		# response scales only the body's own motion: 1 is physical, games usually want 2-4
 		var push: Vector3 = (g - g_rest_world) * float(reg["gravity_scale"]) - at * float(reg["response"]) * response_scale
 		var w := TAU * float(reg["frequency_hz"])
-		var next := spring_step(reg["e"], reg["u"], w, float(reg["damping_ratio"]), delta, push)
+		# the axes the spring is stiffer along: up against gravity, and front-to-back along the bone's direction
+		var up := -g.normalized()
+		var dir := frame.basis * (reg["tail_local"] as Vector3)
+		var flat := dir - up * dir.dot(up)
+		reg["up"] = up
+		reg["ap"] = flat.normalized() if flat.length() > 1e-6 else (frame.basis.z - up * frame.basis.z.dot(up)).normalized()
+		var next := step(reg, reg["e"], reg["u"], delta, push)
 		var e: Vector3 = next[0]
 		var u: Vector3 = next[1]
 		var limit := float(reg["max_offset"])
@@ -186,6 +195,7 @@ func _process_modification_with_delta(delta: float) -> void:
 		reg["u"] = u
 		if measuring:
 			_measure(reg, w, delta, push, e.length(), limit)
+			_measure_motion(reg, e, u, vt, -g.normalized())
 		if paused:
 			e = Vector3.ZERO
 		_pose(skel, reg, frame, e)
@@ -200,6 +210,44 @@ static func clamp_step(x: Vector3, v: Vector3, limit: float) -> Array:
 		if out > 0.0:
 			v -= n * out
 	return [x, v]
+
+
+## Substeps of the anisotropic spring are at most this long: the vertical spring changes stiffness where the
+## offset crosses rest, and a step that straddles the crossing runs on one side's stiffness throughout
+const AXIS_SUBSTEP_S := 1.0 / 240.0
+
+
+## One frame of a region's spring. With `down_ratio` and `ap_ratio` at 1 it is spring_step, isotropic. Else the
+## offset is solved per axis - up (against gravity), front-to-back (`ap`), and the side - each exactly, with its
+## own frequency: `frequency_hz` above rest, `down_ratio` x that below it (a breast floats up and stops hard at
+## the bottom: Cai 2018, 73.5 N/m above rest against 658 below - about 3x the frequency), `ap_ratio` x it front to
+## back, and `frequency_hz` to the side. Damping ratio is the same on every axis. Returns [x, x'].
+static func step(reg: Dictionary, x: Vector3, v: Vector3, dt: float, push: Vector3) -> Array:
+	var w := TAU * float(reg["frequency_hz"])
+	var z := float(reg["damping_ratio"])
+	var down := float(reg.get("down_ratio", 1.0))
+	var ap_r := float(reg.get("ap_ratio", 1.0))
+	if is_equal_approx(down, 1.0) and is_equal_approx(ap_r, 1.0):
+		return spring_step(x, v, w, z, dt, push)
+	var up: Vector3 = reg["up"]
+	var ap: Vector3 = reg["ap"]
+	var side := up.cross(ap).normalized()
+	var n := maxi(1, ceili(dt / AXIS_SUBSTEP_S))
+	var h := dt / n
+	var xs := [x.dot(up), x.dot(ap), x.dot(side)]
+	var vs := [v.dot(up), v.dot(ap), v.dot(side)]
+	var ps := [push.dot(up), push.dot(ap), push.dot(side)]
+	for _i in n:
+		for k in 3:
+			var wk := w
+			if k == 0 and float(xs[0]) < 0.0:
+				wk = w * down
+			elif k == 1:
+				wk = w * ap_r
+			var r := spring_step(Vector3(xs[k], 0, 0), Vector3(vs[k], 0, 0), wk, z, h, Vector3(ps[k], 0, 0))
+			xs[k] = (r[0] as Vector3).x
+			vs[k] = (r[1] as Vector3).x
+	return [up * xs[0] + ap * xs[1] + side * xs[2], up * vs[0] + ap * vs[1] + side * vs[2]]
 
 
 ## One exact step of x'' = -w^2 x - 2 z w x' + push, over dt. Returns [x, x'].
@@ -302,18 +350,17 @@ static func ladder_limits(limit_m: float) -> PackedFloat64Array:
 
 
 ## One tick of measuring: the shadow springs take the same load, with no limit and on the ladder.
-func _measure(reg: Dictionary, w: float, delta: float, push: Vector3, d: float, limit: float) -> void:
+func _measure(reg: Dictionary, _w: float, delta: float, push: Vector3, d: float, limit: float) -> void:
 	var m: Dictionary = reg["m"]
-	var z := float(reg["damping_ratio"])
 	var ladder: PackedFloat64Array = m["ladder"]
 	for i in ladder.size():
-		var st := spring_step(m["ladder_e"][i], m["ladder_u"][i], w, z, delta, push)
+		var st := step(reg, m["ladder_e"][i], m["ladder_u"][i], delta, push)
 		st = clamp_step(st[0], st[1], ladder[i])
 		m["ladder_e"][i] = st[0]
 		m["ladder_u"][i] = st[1]
 		if (st[0] as Vector3).length() >= ladder[i] - ON_LIMIT_M:
 			m["ladder_on"][i] += 1
-	var nf := spring_step(m["free_e"], m["free_u"], w, z, delta, push)
+	var nf := step(reg, m["free_e"], m["free_u"], delta, push)
 	m["free_e"] = nf[0]
 	m["free_u"] = nf[1]
 	var fd: float = (nf[0] as Vector3).length()
@@ -335,6 +382,25 @@ func _measure(reg: Dictionary, w: float, delta: float, push: Vector3, d: float, 
 		m["run"] = 0
 
 
+## One tick of the mass's vertical motion against the trunk's (research-flesh-jiggle.md, item E): its offset
+## along `up` (relative to the trunk), and whether the mass - the anchor's velocity plus the offset's - moves
+## up or down with the anchor. Only ticks where both move faster than MOTION_MIN_MPS count toward the phase.
+const MOTION_MIN_MPS := 0.02
+
+
+func _measure_motion(reg: Dictionary, e: Vector3, u: Vector3, anchor_v: Vector3, up: Vector3) -> void:
+	var m: Dictionary = reg["m"]
+	var z := e.dot(up)
+	m["v_lo"] = minf(float(m.get("v_lo", 0.0)), z)
+	m["v_hi"] = maxf(float(m.get("v_hi", 0.0)), z)
+	var va := anchor_v.dot(up)
+	var vm := va + u.dot(up)
+	if absf(va) > MOTION_MIN_MPS and absf(vm) > MOTION_MIN_MPS:
+		m["phase_n"] = int(m.get("phase_n", 0)) + 1
+		if signf(va) == signf(vm):
+			m["phase_same"] = int(m.get("phase_same", 0)) + 1
+
+
 ## Per region, what measure_limits() has counted since it was called:
 ##   max_offset_m, peak_m          the limit and how far the mass stands out (from the spec)
 ##   ticks, on_limit_share         ticks measured, and the share of them within ON_LIMIT_M of the limit
@@ -348,6 +414,10 @@ func _measure(reg: Dictionary, w: float, delta: float, push: Vector3, d: float, 
 ##   swing_kept                    RMS offset over the unlimited swing's RMS: 1 when the limit never bites
 ##   ladder                        [limit_m, on_limit_share] for the 33 limits of ladder_limits(max_offset_m),
 ##                                 each measured on a shadow spring given that limit
+##   vertical_range_m              the offset's range along up, relative to the trunk (Scurr: an unbraced
+##                                 D cup moves about 4 cm walking, 15 cm running)
+##   in_phase_share                share of moving ticks the mass goes up or down with the trunk (Williams
+##                                 2024: about 0.66 unbraced, over 0.9 braced - a rigid mass is 1)
 ##
 ## The report also carries `problems`: a region measure_limits() never touched is left out of
 ## `regions`, so without it the report is empty, and an empty report used to read downstream as every
@@ -389,7 +459,9 @@ func limit_report() -> Dictionary:
 			"free_over_limit_share": snappedf(float(over) / maxf(n, 1), 0.0001),
 			"demand": demand,
 			"ladder": ladder,
-			"swing_kept": snappedf(sqrt(m["sq"] / maxf(m["free_sq"], 1e-12)) if m["free_sq"] > 0.0 else 1.0, 0.001)}
+			"swing_kept": snappedf(sqrt(m["sq"] / maxf(m["free_sq"], 1e-12)) if m["free_sq"] > 0.0 else 1.0, 0.001),
+			"vertical_range_m": snappedf(float(m.get("v_hi", 0.0)) - float(m.get("v_lo", 0.0)), 0.0001),
+			"in_phase_share": snappedf(float(m.get("phase_same", 0)) / maxf(float(m.get("phase_n", 0)), 1.0), 0.001)}
 		if n == 0:
 			problems.append("%s: 0 ticks measured" % reg["name"])
 	if out.is_empty():

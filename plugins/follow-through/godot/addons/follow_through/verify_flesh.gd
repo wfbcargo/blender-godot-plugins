@@ -410,6 +410,8 @@ func _finish() -> void:
 			print("  %-16s %s  limit %.3f  peak %.3f  free peak %.3f  on the limit %4.1f%% in %d contacts (longest %d ticks)  %s" % [
 				rname, "OK " if g["passed"] else "BAD", g["max_offset_m"], g["peak_offset_m"], g["free_peak_m"],
 				100.0 * float(g["on_limit_share"]), g["contacts"], g["longest_contact_ticks"], g["on_limit_by_label"]])
+			print("  %-16s      vertical range %.3f  in phase with the trunk %.2f" % [
+				rname, float(g.get("vertical_range_m", 0.0)), float(g.get("in_phase_share", 0.0))])
 	if args.has("out"):
 		var f := FileAccess.open(args["out"], FileAccess.WRITE)
 		if f != null:

@@ -344,7 +344,9 @@ def _gravity_sag(g):
     """How far gravity alone can carry a region: a spring at f Hz whose rest point turns with the
     anchor settles g/(2 pi f)^2 away from it. A region smaller than that sits on its limit whatever
     the body does, and no limit inside its own geometry can free it (follow-through's soft_fat is
-    2.7 Hz: 3.4 cm, more than the sample Figure's 2.2 cm arm flab stands out)."""
+    2.7 Hz: 3.4 cm, more than the sample Figure's 2.2 cm arm flab stands out). Since 0.9.0 soft_fat is
+    stiffer below rest and front to back; `frequency_hz` is its softest axis (up and to the side, 2.4 Hz:
+    4.3 cm), the worst case - a body lying on its side sags along it."""
     f = float(g.get("frequency_hz") or 0.0)
     if f <= 0.0:
         return None
