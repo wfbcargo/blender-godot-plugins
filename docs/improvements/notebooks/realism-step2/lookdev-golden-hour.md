@@ -140,3 +140,12 @@ interior_daylight, night; `_comment` too).
 - The woman is still front-lit at golden hour on this stage (sun behind the camera); a golden-hour look usually
   wants the sun to the side or behind. The preset keeps a sun's side when it is up; close-shot's fresh sun takes
   azimuth 150.
+
+## 10:05 final regress
+
+`python tools/regress.py --quick --jobs 4 --godot C:/Users/pauli/AppData/Local/Temp/rw/lookdev-golden-hour/game`
+(09:47-10:05, run on commit fcad506): `REGRESS DONE exit=0, 9 fixtures ok`, no change; the regress lookdev selftest on
+pipeline_woman passed 24/24 with the new controls (the fixture body fails FLOOR_STRIPES under 0.7.0's recipe and
+SKIN_PAST_WHITE two stops over). Log: `C:/Users/pauli/AppData/Local/Temp/rw/lookdev-golden-hour/regress_quick.log`.
+Wall time for the branch: 09:19-10:06, about 47 min. Three-attempt rule not needed: the stripe measure took two
+cuts (margin/contrast), the fix one.
