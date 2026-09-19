@@ -58,8 +58,8 @@ here and nowhere else:
 - rig-anything 0.26.0
 - animate-anything 0.10.1
 - follow-through 0.10.0
-- humanform 0.13.0 (merged 2026-09-19, skin-pores-distance; not yet installed or shipped)
-- character-pipeline 0.14.0
+- humanform 0.14.0 (merged 2026-09-19: 0.13.0 skin-pores-distance, 0.14.0 skin-regions; not yet installed or shipped)
+- character-pipeline 0.15.0 (merged 2026-09-19, skin-regions; not yet installed or shipped)
 - wardrobe 0.5.2
 - lookdev 0.9.0 (merged 2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance; not yet installed or shipped)
 - godot-lsp 0.1.0
@@ -481,6 +481,17 @@ and each branch's open items above; a demo selftest rewrites `assets/wardrobe/no
   forehead in the eyes tile reads a little orange-peel; thin grain margins, set for 640 px tiles only; regional
   tone, redness and roughness are still to do. Notebook:
   [notebooks/realism-step2/skin-pores-distance.md](notebooks/realism-step2/skin-pores-distance.md).
+  **Status: regional tone and roughness merged (2026-09-19, `skin-regions`, humanform 0.14.0, character-pipeline
+  0.15.0; not yet shipped - the ship step must rebuild study_man and study_woman from body).** The tone was lost
+  before the bake: region tints at dE 2.6-3.2, palms and soles redder than the skin, the palm mask on the feet, the
+  knee weight short of 1. Knees, elbows, knuckles, lips and cheeks now read redder at 1 m and full body (knee dE
+  9.1/12.4, main 3.0/3.3), palms and soles paler by the brief's tone (skin.pale_tint), T-zone roughness 0.47 and lips
+  0.45 (main 0.41/0.37). The manifest's skin block carries contrast per region, contrast_ok against CONTRAST_FLOOR
+  and baked roughness; HF_SKIN_LEGACY_REGIONS=1 is the must-fail control. Critic: mergeable, pass=false on one
+  item - study_woman's palm still reads darker than the lit wrist (the cupped palm gets 0.53-0.58 of the wrist's
+  light; needs a lighting or pose change, lookdev's); study_man's palm only equals the wrist. Open: pale_tint not
+  checked against a palm/dorsum dataset; nipple, genital and nail tints untuned and unfloored. Notebook:
+  [notebooks/realism-step2/skin-regions.md](notebooks/realism-step2/skin-regions.md).
 - **Specular under overcast:** hard, mirror-like forehead band and nose and lip patches (the baseline's
   item 4); check the roughness range the bake writes and lookdev's skin preset under a soft sky.
 - **Overcast exposure:** study_man drops to a muddy brown under overcast, study_woman goes grey.
