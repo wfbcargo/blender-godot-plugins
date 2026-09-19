@@ -117,8 +117,9 @@ final quality) against **main** (the committed manifests' region tones, same for
 0.468 / 0.467, lips 0.453 / 0.454, plain skin 0.523 (main: lips texels 0.366 on study_man; the fixture's control
 reads T-zone 0.405, lips 0.367).
 
-**skin_detail fixture** (deep tone 0.45/0.31/0.23, 512 px): contrast_ok true (knee 6.08, knuckle 5.94, elbow 7.07,
-flush 6.97, lips 11.93, palm 6.78 dL +5.8 rg 0.967, sole 6.85); T-zone roughness 0.468, lips 0.453. Control
+**skin_detail fixture** (deep tone 0.45/0.31/0.23, 512 px): contrast_ok true (knee 6.05, knuckle 5.91, elbow 7.04,
+flush 6.94, lips 11.90, palm 6.02 dL +5.19 rg 0.985, sole 6.21 - the committed golden at da3688b; an
+earlier draft of this line quoted attempt 2's palm 6.78 / +5.8 / 0.967, corrected after critic round 1); T-zone roughness 0.468, lips 0.453. Control
 (HF_SKIN_LEGACY_REGIONS=1): contrast_ok **false**, 11 misses (knee dE 2.29, elbow 2.94, knuckle 2.71, flush 2.76, lips
 7.42, palm dE 3.36 / dL 1.34 / rg 1.042, sole 3.76 / 1.32 / 1.034); its T-zone 0.405 and lips 0.367 roughness are
 lower than the new ones (`rougher_than_legacy` true for both).
@@ -158,3 +159,50 @@ crops (`bin/crop_bl.py`, same camera before and after):
   were not retuned (not floored).
 
 Final `regress --quick --jobs 4` (10:06-10:12): `REGRESS DONE exit=0, 9 fixtures ok`, no change (log %TEMP%/rw/skr/regress_final.txt).
+
+## 5. Critic round 1 fixes (10:17-, 2026-09-19)
+
+Critic round 1: pass false (LOOK-S1 palm half), mergeable. Problems and what was done:
+
+1. **Palms not paler than the skin round them in the Godot palm tiles; study_woman's overcast palm grey-olive.**
+   Cause, measured on the round-1 renders (`%TEMP%/rw/skr/cmp3/crops_out.txt`, palm = centre of the palm, wrist = the
+   lit inner wrist, median luma): study_man clear_midday palm 0.129 vs wrist 0.157, study_woman 0.224 vs 0.270. The
+   palm faces away from the sun, so shading takes ~20-25 % off it; round 1's fixed lift (1.35, 1.35, 1.24) gave study_man
+   (medium-brown) only dL +7.2 in the map and study_woman (light) +8.5 - the wrong way round for skin: palmar skin
+   holds a fraction of the rest's melanin, so how much paler a palm is grows with how dark the body is. The olive
+   came from the blue being held back (0.92 of R) while R = G.
+   Fix: `skin.pale_tint(tone, region)` - a CIELAB lightness step dL = clip(0.5 * (80 - L*_tone), 8.5, 16) turned into
+   one linear gain, times hue (1.0, 0.985, 0.95) for palms and (1.0, 0.99, 0.90) for soles. `mark(ob, tone=)` uses it;
+   `look.skin` passes the brief's tone; with no tone (or under the legacy control) the table's tints stand. Tried
+   min 7.0 first: study_woman's palm fell to dL +6.0 and its render luma to 0.213 (below round 1's 0.224), so 8.5.
+   Manifest (wt builds): study_man palm dE 14.62 / dL +13.57 / rg 0.980, sole 14.57 / +12.76; study_woman palm
+   8.03 / +7.34 / 1.003, sole 9.07 / +7.76. Renders, median luma palm vs wrist:
+   | | main | round 1 | round 2 |
+   |---|---|---|---|
+   | study_man clear_midday | 0.111 / 0.157 | 0.129 / 0.157 | **0.155 / 0.154** |
+   | study_man overcast | 0.130 / 0.152 | 0.150 / 0.151 | **0.178 / 0.149** |
+   | study_woman clear_midday | 0.187 / 0.270 | 0.224 / 0.270 | 0.220 / 0.270 |
+   | study_woman overcast | 0.198 / 0.241 | 0.234 / 0.241 | 0.231 / 0.241 |
+   Palm R/G against wrist R/G: study_woman overcast 1.273/1.293 (round 1, the olive) -> 1.294/1.293 (same hue as the
+   wrist); study_man 1.645/1.642. So study_man's palm now reads as light as the lit wrist despite facing away from
+   the sun; study_woman's is lighter than main's and no longer olive, but still darker than the lit wrist - her palm
+   albedo is already sRGB (0.96, 0.75, 0.62), so more lift would push it towards white. Open: on light skin the palm
+   tile's self-shadow outweighs any plausible albedo step.
+2. **Knuckles only faintly redder; fixture margin thin (5.91 vs 5.0).** Knuckle tint (0.80, 0.52, 0.48) -> (0.76, 0.47,
+   0.44), mark sigma 1.1 -> 1.25 cm (legacy keeps 1.1). Fixture knuckle dE 5.91 -> 7.00. Render, knuckle R/G over the
+   back of the hand (hand_back.L clear_midday, `cmp3/crops_k_out.txt`): study_man main 1.097, round 1 1.166, now 1.212;
+   study_woman 1.126, 1.186, 1.220.
+3. **`contrast_fails` skipped a floored region with no texels.** It now reports "<region>: no texels". skin_detail
+   gains `control_missing_knee` (the passing report with the knee removed) which must read failed - it does
+   (["knee: no texels"]). The legacy control still fails with 11 misses.
+4. **Stale fixture numbers in section 3** corrected to the committed golden's (knee 6.05, palm 6.02 / +5.19 / 0.985).
+
+Goldens re-recorded (`--only pipeline_woman skin_detail --update --twice --jobs 2`, exit 0, both builds agree), diff
+read: skin_detail - region tones (palm/sole lighter: 0.51/0.36/0.26 -> 0.62/0.43/0.32 on the deep tone), contrast
+(palm dE 15.50 / dL +14.17 / rg 0.984, sole 15.73, knuckle 7.00, knee 6.24, the rest within 0.3), knuckle vertex count
+694 -> 808, `pale` {palm 16, sole 16} (the fixture's deep tone hits the cap), `control_missing_knee` failed; the legacy
+control unchanged. pipeline_woman - skin.body_tone 0.63/0.44/0.35 -> 0.63/0.45/0.36, lips_tone R 0.59 -> 0.58,
+nipple_tone 0.53/0.33 -> 0.52/0.32 (per-vertex means shifting with the lighter palms; tone_ok is the bake's covered mean).
+Sheets: `%TEMP%/rw/skr/after3/study_man/`, `%TEMP%/rw/skr/after4/study_woman/` (after4/study_man is a copy of after3);
+three-way pairs main | round 1 | round 2 in `%TEMP%/rw/skr/cmp3/`. No seam, hard edge or blotch on the palm, hand_back,
+face or full tiles; the knuckle red stays soft.
