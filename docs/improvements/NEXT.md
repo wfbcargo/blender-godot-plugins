@@ -29,7 +29,7 @@ Installed copies in `~/.claude/skills` match the repo. **This is the one list of
 here and nowhere else:
 - rig-anything 0.26.0
 - animate-anything 0.10.1
-- follow-through 0.8.0
+- follow-through 0.9.0
 - humanform 0.12.0
 - character-pipeline 0.13.0
 - wardrobe 0.5.2
@@ -172,6 +172,14 @@ Open: a direct second `flesh.prepare` on a fleshed body can fail the check (fix 
 below 1); the plain jump course fails on_limit for the cast (10.2-10.9 %; D is the fix); FACING_MIN vs cover's
 fold rules. Notebooks: [flesh-graded-pivot](notebooks/flesh-cast/flesh-graded-pivot.md),
 [wardrobe-apex-cover](notebooks/flesh-cast/wardrobe-apex-cover.md). Shipped: grungist-creek rebuilt cast, study figures and Belle; selftests and verify_flesh 24/24 pass. Next: D+E.
+
+**D and E: done** (branch `flesh-spring`, follow-through 0.9.0, merged 2026-09-19). The jiggle spring is solved per
+axis: soft_fat 2.4 Hz above rest, 2.8x below, 1.4x front to back (a breast floats up and stops hard); a kick
+selftest runs in `regress --godot`. Mass-scaled frequency is built but off: the swing limit, not the spring, bounds
+amplitude on every body. The 0.98 jiggle-share cap closes B+C's re-run item. Critic: pass. Open: the jump-only
+course stays over its 10 % line for the cast (D did not fix it); walking in phase 0.69-0.85 against people's 0.66;
+running amplitude ~6 cm against ~15 cm, bounded by the limits; E's lag and mass-scaled response. Notebook:
+[flesh-spring](notebooks/flesh-cast/flesh-spring.md). Remaining flesh item: F (spec overrides, Marco's belly).
 
 Also seen: garments are cut from the skin, so Ruth's long-sleeve top shows her nipples through it (a smoothing pass
 on the cut surface).
