@@ -182,7 +182,9 @@ def build():
     # [flesh] overrides: refused on a type the spec does not ask for, and for a key that is no jiggle parameter
     overrides_refused = {}
     for label, line in (("unknown_type", "overrides = { belly = { frequency_hz = 4.5 } }"),
-                        ("unknown_param", "overrides = { butt = { stiffness = 4.5 } }")):
+                        ("unknown_param", "overrides = { butt = { stiffness = 4.5 } }"),
+                        ("not_a_table", "overrides = { butt = 4.5 }"),
+                        ("not_finite", "overrides = { butt = { frequency_hz = nan } }")):
         try:
             import tomllib
             spec.parse(tomllib.loads(SPEC.replace("overrides = { butt = { frequency_hz = 3.0, damping_ratio = 0.3 } }", line)))

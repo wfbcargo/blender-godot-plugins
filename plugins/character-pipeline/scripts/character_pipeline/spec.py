@@ -80,6 +80,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import tomllib
 from dataclasses import asdict, dataclass, field
@@ -339,7 +340,7 @@ def _check_overrides(flesh):
         base = name[:-2] if name.endswith((".L", ".R")) else name
         if base not in flesh.types:
             raise SpecError(f"[flesh] overrides names {name!r}, which types does not ask for ({flesh.types})")
-        if not isinstance(params, dict) or not params:
+        if not isinstance(params, dict) or not params:   # a number or a list of pairs is refused, not coerced
             raise SpecError(f"[flesh] overrides.{name} must be a table of jiggle parameters, e.g. "
                             "{ frequency_hz = 4.5, damping_ratio = 0.6 }")
         bad = sorted(k for k in params if k not in FLESH_OVERRIDE_KEYS)
@@ -347,8 +348,10 @@ def _check_overrides(flesh):
             raise SpecError(f"[flesh] overrides.{name}: {bad} are not jiggle parameters (one of {FLESH_OVERRIDE_KEYS}; "
                             "the swing limit is `limit_share`)")
         for k, v in params.items():
-            if isinstance(v, bool) or not isinstance(v, (int, float)) or v < 0:
-                raise SpecError(f"[flesh] overrides.{name}.{k} = {v!r}: a number, 0 or more")
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0:
+                raise SpecError(f"[flesh] overrides.{name}.{k} = {v!r}: a finite number, 0 or more")
+            if k.startswith("frequency") and v <= 0:
+                raise SpecError(f"[flesh] overrides.{name}.{k} = {v!r}: a frequency is more than 0")
 
 
 def parse(data, path=None):
@@ -434,7 +437,7 @@ def parse(data, path=None):
                       zones=list(_take(f, "zones", list, default=[])),
                       limit_share=dict(_take(f, "limit_share", dict, default={})),
                       may_miss=list(_take(f, "may_miss", list, default=[])),
-                      overrides={k: dict(v) for k, v in dict(_take(f, "overrides", dict, default={})).items()})
+                      overrides=dict(_take(f, "overrides", dict, default={})))
         stray = [t for t in flesh.may_miss if t not in flesh.types]
         if stray:
             raise SpecError(f"[flesh] may_miss names {stray}, which types does not ask for ({flesh.types})")

@@ -362,6 +362,8 @@
    }
   },
   "flesh_overrides_refused": {
+   "not_a_table": "[flesh] overrides.butt must be a table of jiggle parameters, e.g. { frequency_hz = 4.5, damping_ratio = 0.6 }",
+   "not_finite": "[flesh] overrides.butt.frequency_hz = nan: a finite number, 0 or more",
    "unknown_param": "[flesh] overrides.butt: ['stiffness'] are not jiggle parameters (one of ('frequency_hz', 'damping_ratio', 'squash', 'gravity_scale', 'aim', 'translate', 'response', 'frequency_down_ratio', 'frequency_ap_ratio', 'max_offset'); the swing limit is `limit_share`)",
    "unknown_type": "[flesh] overrides names 'belly', which types does not ask for (['breast', 'butt'])"
   },
