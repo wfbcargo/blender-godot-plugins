@@ -171,7 +171,7 @@ false positive (skin beside an armhole rim counted as through the cloth; runaway
 Open: a direct second `flesh.prepare` on a fleshed body can fail the check (fix with D+E: cap the jiggle share
 below 1); the plain jump course fails on_limit for the cast (10.2-10.9 %; D is the fix); FACING_MIN vs cover's
 fold rules. Notebooks: [flesh-graded-pivot](notebooks/flesh-cast/flesh-graded-pivot.md),
-[wardrobe-apex-cover](notebooks/flesh-cast/wardrobe-apex-cover.md). Next: ship (cast, study figures, Belle), then D+E.
+[wardrobe-apex-cover](notebooks/flesh-cast/wardrobe-apex-cover.md). Shipped: grungist-creek rebuilt cast, study figures and Belle; selftests and verify_flesh 24/24 pass. Next: D+E.
 
 Also seen: garments are cut from the skin, so Ruth's long-sleeve top shows her nipples through it (a smoothing pass
 on the cut surface).
