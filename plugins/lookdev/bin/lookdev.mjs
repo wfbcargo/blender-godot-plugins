@@ -10,6 +10,7 @@
 //   node lookdev.mjs tone     --project <dir> --glb <file.glb> [--material skin]
 //   node lookdev.mjs selftest --project <dir>   (the controls: every check here must be able to fail)
 //   node lookdev.mjs stipple  <png> [--region x,y,w,h]   (a dithered lattice in shadowed skin; no Godot)
+//   node lookdev.mjs grain    <png> [--region cheek] [--min pct] [--max pct]   (fine skin texture in a patch; no Godot)
 //
 // Every subcommand runs a GDScript from ../godot against the project, then reads
 // back what it wrote. Godot fails quietly - a broken scene loads with nodes
@@ -24,6 +25,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { stippleCommand } from "./stipple.mjs";
+import { grainCommand } from "./grain.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -861,6 +863,15 @@ async function selftest(args) {
     check(`stipple on ${png} ${want ? "reports the lattice" : "is clean"}`, want ? st.code === 1 && /STIPPLE/.test(st.out) : st.code === 0 && /clean/.test(st.out), said.slice(0, 160));
   }
 
+  // grain: the cheek of the face tile at 1 m. The two-octave skin detail passes; main's pores (mipped away to a
+  // flat normal) and no detail at all are too smooth; the pores sampled without mips fill the band but are noise.
+  for (const [png, want, re] of [["grain_cheek_branch.png", true, /^\s*ok\s*$/m], ["grain_cheek_main.png", false, /SMOOTH/],
+    ["grain_cheek_off.png", false, /SMOOTH/], ["grain_cheek_nomips.png", false, /NOISY/]]) {
+    const gr = await runSelf(["grain", fwd(path.join(HERE, "controls", png)), "--min", "0.40", "--max-finest", "1.5"], 120);
+    const said = firstLine(gr.out, /grain \d/);
+    check(`grain on ${png} ${want ? "passes" : `fails ${re.source}`}`, want ? gr.code === 0 && re.test(gr.out) : gr.code === 1 && re.test(gr.out), said.slice(0, 160));
+  }
+
   // tone: a black albedo is not ok, an 18% grey one reads 0.18
   const tres = await runGodot(godot, ["--headless", "--path", project, "--script", `${GODOT_DIR}/glb_tone.gd`, "--", "--selftest", "--out-dir", `${dir}/tone`], 120);
   const toneLines = tres.out.split(/\r?\n/).filter((l) => l.startsWith("TONE_SELFTEST"));
@@ -978,6 +989,8 @@ const USAGE = `lookdev - lighting and shading tools for Godot
   selftest --project <dir> [--glb <rigged character>]   run the controls (each must fail)
   compare  --project <dir> --a <png|capture dir> --b <png|capture dir> [--views lit,unshaded] [--out dir]
   stipple  <png> [--region x,y,w,h | fx,fy,fw,fh] [--out crop.png] [--json]   exit 1 when shadowed skin stipples
+  grain    <png> [--region x,y,w,h | fx,fy,fw,fh | cheek] [--min pct] [--max pct] [--out crop.png] [--json]
+           fine texture in a skin patch (high-pass luma RMS / mean, %); exit 1 outside --min/--max
 
 Views: lit unshaded lighting normal overdraw ssao ssil pssm sdfgi sdfgi_probes gi_buffer voxel_gi_lighting luminance
 Set targets: @env @sun @camera @world or a node path, e.g. --set "Sun:light_energy=2" --set "@env:ssao_enabled=true"
@@ -986,7 +999,7 @@ Godot binary: --godot <path>, LOOKDEV_GODOT, GODOT_PATH, or the project's .mcp.j
 const args = parseArgs(process.argv.slice(2));
 const cmd = args._[0];
 const commands = { capture, lint, preset, compare, presets: listPresets, "close-shot": closeShot, tone, selftest,
-  stipple: (a) => stippleCommand(a, die) };
+  stipple: (a) => stippleCommand(a, die), grain: (a) => grainCommand(a, die) };
 if (!cmd || args.help || !commands[cmd]) {
   console.log(USAGE);
   process.exit(cmd && !args.help ? 2 : 0);
