@@ -19,7 +19,10 @@ game mesh even though the groups do not.
 
 **Tone.** The brief's `skin` colour stays the mean: after baking, the albedo map's mean over the texels the
 body covers is pulled back to it (a per-channel gain in linear light), so the regions and the mottling
-move tone around the body without moving its average. `TONE_TOLERANCE` is what the bake checks.
+move tone around the body without moving its average. `TONE_TOLERANCE` is what the bake checks. The bake also
+measures each region against plain skin in the finished map (`contrast`: CIELAB dE, lightness, red/green) and
+judges it against `CONTRAST_FLOOR` (`contrast_ok`, the misses in `contrast_fail`), and reports the baked roughness
+over each region and the T-zone (`roughness`).
 
 **Mottling and pores.** Two octaves of 4D noise in object space (seeded, so a rebuild bakes the same map)
 vary tone and redness; a finer noise bumps the baked normal map. Real pores (0.05-0.2 mm) are finer than any
@@ -60,24 +63,59 @@ REGION = "hf_skin_region"      # int per vertex: 1 + index in REGIONS of the reg
 DETAIL_UV = "hf_detail"
 TONE_TOLERANCE = 0.03          # sRGB, per channel: the baked mean against the brief's colour
 
-# linear RGB multipliers of the mean tone, and roughness, per region (weights blend them; unmarked skin is 1, BASE)
+# linear RGB multipliers of the mean tone, and roughness, per region (weights blend them; unmarked skin is 1, BASE).
+# Measured on study_man's bake before humanform 0.14.0 (notebooks/realism-step2/skin-regions.md): knees, elbows,
+# knuckles and cheeks sat at CIELAB dE 2.6-3.2 from plain skin - one just-noticeable difference, lost under light
+# and mottle - and palms and soles were *redder* than skin. Now the red regions shift red against green (R/G of the
+# multiplier 1.25-1.6) and the pale ones lift green and blue over red (paler, less red, a little yellow).
+# Roughness: Weyrich et al. 2006 (measured faces, Torrance-Sparrow m 0.25-0.45 by region) and d'Eon & Luebke 2007
+# (m 0.3 for skin) put skin's perceptual roughness (sqrt of the microfacet slope) near 0.5-0.6; the oily T-zone is
+# the low end, not lacquer. Forehead/nose/chin 0.46 and lips 0.45 (was 0.38 and 0.36, which drew a white plateau).
 REGIONS = {
-    "lips":      {"tint": (0.90, 0.62, 0.64), "rough": 0.36},
+    "lips":      {"tint": (0.84, 0.46, 0.50), "rough": 0.45},
     "nipple":    {"tint": (0.70, 0.50, 0.46), "rough": 0.48},
     "genital":   {"tint": (0.70, 0.54, 0.50), "rough": 0.50},
-    "knee":      {"tint": (0.88, 0.76, 0.72), "rough": 0.58},
-    "elbow":     {"tint": (0.86, 0.74, 0.70), "rough": 0.60},
-    "knuckle":   {"tint": (0.88, 0.76, 0.72), "rough": 0.55},
-    "palm":      {"tint": (1.16, 1.04, 0.98), "rough": 0.60},
-    "sole":      {"tint": (1.14, 1.05, 0.92), "rough": 0.64},
-    "flush":     {"tint": (1.02, 0.88, 0.88), "rough": 0.46},     # cheeks, nose tip, ears
+    "knee":      {"tint": (0.80, 0.52, 0.48), "rough": 0.58},
+    "elbow":     {"tint": (0.78, 0.52, 0.48), "rough": 0.60},
+    "knuckle":   {"tint": (0.76, 0.47, 0.44), "rough": 0.55},
+    "palm":      {"tint": (1.35, 1.35, 1.24), "rough": 0.60},
+    "sole":      {"tint": (1.32, 1.32, 1.14), "rough": 0.64},
+    "flush":     {"tint": (1.00, 0.70, 0.70), "rough": 0.48},     # cheeks, nose tip, ears
     "nail":      {"tint": (1.10, 0.92, 0.92), "rough": 0.30},
 }
 BASE_ROUGH = 0.50
-T_ZONE_ROUGH = 0.38            # forehead, nose, chin: oilier
+T_ZONE_ROUGH = 0.46            # forehead, nose, chin: oilier than the rest, still skin
 LIMB_ROUGH = 0.57              # forearms, shins: drier
-MOTTLE = ((5.0, 0.07), (28.0, 0.035))    # (noise scale per metre, value share) - blotches ~20 cm, then ~4 cm
-REDNESS = 0.05                 # the low octave also shifts red against green/blue by this share
+MOTTLE = ((4.0, 0.08), (24.0, 0.035))    # (noise scale per metre, value share) - blotches ~25 cm, then ~4 cm
+REDNESS = 0.07                 # the low octave also shifts red against green/blue by this share
+# palms and soles by the brief's tone (humanform 0.14.0, critic round 1): palmar and plantar skin carries a fraction of
+# the melanin of the rest (Yamaguchi et al. 2006; palmoplantar melanocyte density ~1/5 of the trunk's), so how much
+# paler a palm is grows with how dark the body is - barely on pale skin, a lot on deep skin. The lift is a CIELAB
+# lightness step dL = clip(PALE_SLOPE * (PALE_L0 - L*_tone), PALE_DL) turned into one linear gain, times a hue that
+# takes a little red and more blue out (paler, a touch yellow, never green over red - that read olive in Godot).
+# The table's palm/sole tints are what a body marked without a tone gets.
+PALE_L0 = 80.0
+PALE_SLOPE = 0.5
+PALE_DL = (8.5, 16.0)
+PALE_HUE = {"palm": (1.0, 0.985, 0.95), "sole": (1.0, 0.99, 0.90)}
+# the regional contrast each bake must reach: CIELAB dE76 of the region's baked tone from plain skin, and which way
+# (redder: region R/G over skin R/G at least RED_MIN; paler: lighter by PALE_DL_MIN and no redder than skin)
+CONTRAST_FLOOR = {"lips": ("red", 8.0), "knee": ("red", 5.0), "elbow": ("red", 5.0), "knuckle": ("red", 5.0),
+                  "flush": ("red", 4.0), "palm": ("pale", 5.0), "sole": ("pale", 5.0)}
+RED_MIN = 1.03
+PALE_DL_MIN = 3.0
+PALE_RG_MAX = 1.02
+# HF_SKIN_LEGACY_REGIONS=1 puts back the values and the unbounded palm mask of humanform 0.12.0 - the must-fail
+# control of the contrast check (skin_detail)
+LEGACY = {"REGIONS": {"lips": {"tint": (0.90, 0.62, 0.64), "rough": 0.36},
+                      "knee": {"tint": (0.88, 0.76, 0.72), "rough": 0.58},
+                      "elbow": {"tint": (0.86, 0.74, 0.70), "rough": 0.60},
+                      "knuckle": {"tint": (0.88, 0.76, 0.72), "rough": 0.55},
+                      "palm": {"tint": (1.16, 1.04, 0.98), "rough": 0.60},
+                      "sole": {"tint": (1.14, 1.05, 0.92), "rough": 0.64},
+                      "flush": {"tint": (1.02, 0.88, 0.88), "rough": 0.46}},
+          "T_ZONE_ROUGH": 0.38, "MOTTLE": ((5.0, 0.07), (28.0, 0.035)), "REDNESS": 0.05}
+ZONES = ("t_zone",)            # REGION ids after REGIONS' for skin in no region: the oily T-zone, for the bake's report
 BUMP = {"scale": 180.0, "strength": 0.12, "distance": 0.0006}   # fine relief the map can hold at 1-2k
 SUBSURFACE = {"weight": 1.0, "radius": (3.67, 1.37, 0.68), "scale": 0.001, "ior": 1.4}
 SPECULAR_IOR_LEVEL = 0.45      # skin F0 ~2.8% (IOR 1.4) against Principled's 4% at 0.5
@@ -92,9 +130,31 @@ GODOT = {                      # StandardMaterial3D properties glTF drops (lookd
     "subsurf_scatter_transmittance_boost": 0.0,
     "metallic_specular": 0.42,
 }
-DETAIL = {"normal": "pores", "tile_px": 256, "cells": 48, "uv2_scale": 80.0, "strength": 0.35, "bump": 3.0}
+# The tiling detail lookdev draws on UV2 in Godot (lookdev_materials.gd set_detail). Pores alone (`cells` per tile,
+# 0.3 mm on the face) are under a pixel at 1 m and mip away to a flat normal, so a coarser octave rides with them:
+# `coarse_cells` per tile of larger pits of random depth with shallow furrows between (2.3 mm on the face, 3.7 mm
+# on the body), in the normal (`coarse_weight` of the height, at `bump`) and as an albedo cavity (`cavity`, the
+# darkening at the deepest point; the base colour is lifted back by its mean, `keep_base`, which also gives the
+# baked normal map back what the detail mix takes). Its mips fade to flat where a cell is under 3 texels, so at full
+# body it adds no shimmer. A 512 px tile 40 times across UV2 keeps the pores the size they were at 256 px / 80.
+# `shared`: every body draws the same tile (the seed is left out), so a crowd pays for it once (2.3 MB, ~0.1 s).
+DETAIL = {"normal": "pores", "tile_px": 512, "cells": 96, "uv2_scale": 40.0, "strength": 0.35, "bump": 5.5,
+          "coarse_cells": 12, "coarse_px": 128, "coarse_weight": 0.7, "pit": 0.4, "furrow": 0.2, "furrow_depth": 0.4,
+          "cavity": 0.26, "keep_base": True, "shared": True}
 MPFB_GROUPS = {"lips": "lips", "nipple": "nipple", "nippleTip": "nipple", "ears": "flush",
                "fingernails": "nail", "toenails": "nail"}
+
+
+def legacy():
+    return os.environ.get("HF_SKIN_LEGACY_REGIONS") == "1"
+
+
+def params():
+    """The region tints and roughness, T-zone roughness, mottle and redness in force (LEGACY's under the control)."""
+    if not legacy():
+        return {"REGIONS": REGIONS, "T_ZONE_ROUGH": T_ZONE_ROUGH, "MOTTLE": MOTTLE, "REDNESS": REDNESS}
+    return {"REGIONS": {k: LEGACY["REGIONS"].get(k, v) for k, v in REGIONS.items()},
+            "T_ZONE_ROUGH": LEGACY["T_ZONE_ROUGH"], "MOTTLE": LEGACY["MOTTLE"], "REDNESS": LEGACY["REDNESS"]}
 
 
 def _smooth(e0, e1, x):
@@ -166,6 +226,10 @@ def regions(ob):
     xs = 1.0 if j["joint-l-hand"][0] > 0 else -1.0                    # which way is the left side
     fwd = np.array([0.0, -1.0, 0.0])                                   # MPFB faces -Y
     front = nrm @ fwd
+    old = legacy()
+    # a joint mark's Gaussian peaks under 1 where its centre sits off the surface (a knee cap 4 cm in front of
+    # the joint): scaled so its core reaches 1 (humanform 0.14.0; the knee's core was 0.86 before)
+    peak = 1.0 if old else 1.25
     for side in (1.0, -1.0):
         def J(name):
             c = np.array(j[name], np.float64)
@@ -174,14 +238,21 @@ def regions(ob):
             return c
         on = np.sign(p[:, 0]) == side * xs
         # knees (cap, forwards) and elbows (olecranon, backwards)
-        w["knee"] = np.maximum(w["knee"], on * _gauss(p, J("joint-l-knee") + fwd * 0.04 * s, 0.045 * s)
-                               * _smooth(0.1, 0.5, front))
-        w["elbow"] = np.maximum(w["elbow"], on * _gauss(p, J("joint-l-elbow") - fwd * 0.03 * s, 0.04 * s)
-                                * _smooth(0.1, 0.5, -front))
+        w["knee"] = np.maximum(w["knee"], on * np.minimum(1.0, peak * _gauss(p, J("joint-l-knee") + fwd * 0.04 * s,
+                                                                           0.045 * s)) * _smooth(0.1, 0.5, front))
+        w["elbow"] = np.maximum(w["elbow"], on * np.minimum(1.0, peak * _gauss(p, J("joint-l-elbow") - fwd * 0.03 * s,
+                                                                             0.04 * s)) * _smooth(0.1, 0.5, -front))
         # hand: past the wrist along the forearm; palm is the side the thumb curls towards
         wr, el = J("joint-l-hand"), J("joint-l-elbow")
         ax = _unit(wr - el)
-        hand = on * _smooth(0.0, 0.02 * s, (p - wr) @ ax)
+        along = (p - wr) @ ax
+        hand = on * _smooth(0.0, 0.02 * s, along)
+        if not old:
+            # the hand ends past the fingertips and within a hand's breadth of the forearm's line: unbounded, the
+            # half-space past the wrist took in the undersides of the feet (917 of study_man's 2093 palm
+            # vertices were below the wrist by over 15 cm, 0.12.0)
+            radial = np.linalg.norm((p - wr) - np.outer(along, ax), axis=1)
+            hand = hand * (1.0 - _smooth(0.24 * s, 0.28 * s, along)) * (1.0 - _smooth(0.09 * s, 0.11 * s, radial))
         thumb = J("joint-l-finger-1-1") if "joint-l-finger-1-1" in j else None
         mid = J("joint-l-finger-3-1") if "joint-l-finger-3-1" in j else None
         if thumb is not None and mid is not None:
@@ -195,7 +266,7 @@ def regions(ob):
                 for seg in (1, 2, 3):
                     nm = f"joint-l-finger-{k}-{seg}"
                     if nm in j:
-                        w["knuckle"] = np.maximum(w["knuckle"], hand * _gauss(p, J(nm), 0.011 * s)
+                        w["knuckle"] = np.maximum(w["knuckle"], hand * _gauss(p, J(nm), (0.011 if old else 0.0125) * s)
                                                   * _smooth(0.1, 0.5, -facing))
         else:
             notes.append("no finger joints: no palms or knuckles")
@@ -205,7 +276,9 @@ def regions(ob):
         # flush: the cheek below and outside each eye, facing forwards
         eye = J("joint-l-eye")
         cheek = eye + np.array([0.012 * side * xs * s, -0.005 * s, -0.035 * s])
-        w["flush"] = np.maximum(w["flush"], 0.8 * _gauss(p, cheek, 0.018 * s) * _smooth(0.0, 0.4, front))
+        # (0.14.0: wider and fuller - at 1.8 cm and 0.8 the flush was a coin on the cheekbone)
+        w["flush"] = np.maximum(w["flush"], (0.8 if old else 0.9) * _gauss(p, cheek, (0.018 if old else 0.024) * s)
+                                * _smooth(0.0, 0.4, front))
         # limbs are drier: forearms and shins
         extra["limb"] = np.maximum(extra["limb"], on * _smooth(0.0, 0.05 * s, (p - el) @ ax) * (1 - hand))
         extra["limb"] = np.maximum(extra["limb"], on * _smooth(J("joint-l-knee")[2], J("joint-l-knee")[2] - 0.08 * s,
@@ -231,16 +304,39 @@ def regions(ob):
     return w, extra, notes
 
 
-def mark(ob):
-    """Write `hf_skin_tint` and `hf_skin_oil` on an MPFB human (see `regions`). Returns a report."""
+def pale_tint(srgb, region):
+    """The palm or sole tint for a body of tone `srgb`: a linear gain that lifts CIELAB L* by PALE_SLOPE * (PALE_L0 -
+    L*), clipped to PALE_DL, times PALE_HUE[region]. Returns (tint, dL)."""
+    L = float(_lab(np.asarray(srgb, np.float64)[:3])[0])
+    dl = float(np.clip(PALE_SLOPE * (PALE_L0 - L), *PALE_DL))
+
+    def Y(l):
+        f = (l + 16.0) / 116.0
+        return f ** 3 if f > 6.0 / 29.0 else (l / 903.3)
+    g = Y(min(L + dl, 100.0)) / max(Y(L), 1e-6)
+    return tuple(round(g * h, 4) for h in PALE_HUE[region]), round(dl, 2)
+
+
+def mark(ob, tone=None):
+    """Write `hf_skin_tint` and `hf_skin_oil` on an MPFB human (see `regions`). `tone` (the brief's sRGB) sets the
+    palm and sole lift (`pale_tint`); without it they take REGIONS' fixed tints. Returns a report."""
     ob = bpy.data.objects[ob] if isinstance(ob, str) else ob
     w, extra, notes = regions(ob)
+    prm = params()
+    pale = {}
+    if tone is not None and not legacy():
+        prm = dict(prm, REGIONS=dict(prm["REGIONS"]))
+        for k in ("palm", "sole"):
+            t, dl = pale_tint(tone, k)
+            prm["REGIONS"][k] = dict(prm["REGIONS"][k], tint=t)
+            pale[k] = {"tint": list(t), "dL": dl}
     n_all = len(ob.data.vertices)
     n = len(next(iter(w.values())))
     tint = np.ones((n_all, 4))
     rough = np.full(n_all, BASE_ROUGH)
-    rough[:n] = BASE_ROUGH + (T_ZONE_ROUGH - BASE_ROUGH) * extra["t_zone"] + (LIMB_ROUGH - BASE_ROUGH) * extra["limb"]
-    for k, spec in REGIONS.items():
+    rough[:n] = (BASE_ROUGH + (prm["T_ZONE_ROUGH"] - BASE_ROUGH) * extra["t_zone"]
+                 + (LIMB_ROUGH - BASE_ROUGH) * extra["limb"])
+    for k, spec in prm["REGIONS"].items():
         a = w[k][:, None]
         tint[:n, :3] = tint[:n, :3] * (1 - a) + np.asarray(spec["tint"]) * a
         rough[:n] = rough[:n] * (1 - w[k]) + spec["rough"] * w[k]
@@ -249,6 +345,9 @@ def mark(ob):
         if name in me.attributes:
             me.attributes.remove(me.attributes[name])
     rid = np.zeros(n_all, np.int32)
+    for i, z in enumerate(ZONES):
+        # a zone's id only where no region claims the vertex (they are written first, so a region overwrites)
+        rid[:n][extra[z] > 0.5] = len(REGIONS) + i + 1
     for i, k in enumerate(REGIONS):
         rid[:n][w[k] > 0.5] = i + 1
     me.attributes.new(REGION, "INT", "POINT").data.foreach_set("value", rid)
@@ -256,7 +355,8 @@ def mark(ob):
     me.attributes.new(TINT, "FLOAT_VECTOR", "POINT").data.foreach_set("vector", tint[:, :3].astype(np.float32).ravel())
     me.attributes.new(OIL, "FLOAT", "POINT").data.foreach_set("value", rough.astype(np.float32))
     return {"regions": {k: round(float((v > 0.5).sum()), 0) for k, v in w.items()},
-            "t_zone": int((extra["t_zone"] > 0.5).sum()), "limb": int((extra["limb"] > 0.5).sum()), "notes": notes}
+            "t_zone": int((extra["t_zone"] > 0.5).sum()), "limb": int((extra["limb"] > 0.5).sum()), "notes": notes,
+            "pale": pale}
 
 
 def seed_of(name):
@@ -319,7 +419,8 @@ def material(name, srgb, seed=None, roughness=BASE_ROUGH, procedural=False):
     tone.inputs[6].default_value = (*lin, 1.0)
     L(tint.outputs["Color"], tone.inputs[7])
     col = tone.outputs[2]
-    for i, (scale, share) in enumerate(MOTTLE):
+    prm = params()
+    for i, (scale, share) in enumerate(prm["MOTTLE"]):
         nz = N("ShaderNodeTexNoise")
         nz.noise_dimensions = "4D"
         nz.inputs["Scale"].default_value = scale
@@ -339,8 +440,8 @@ def material(name, srgb, seed=None, roughness=BASE_ROUGH, procedural=False):
             inv = N("ShaderNodeMath")
             inv.operation = "MULTIPLY_ADD"
             L(gain.outputs["Result"], inv.inputs[0])
-            inv.inputs[1].default_value = -REDNESS / share
-            inv.inputs[2].default_value = 1.0 + REDNESS / share
+            inv.inputs[1].default_value = -prm["REDNESS"] / share
+            inv.inputs[2].default_value = 1.0 + prm["REDNESS"] / share
             L(inv.outputs["Value"], red.inputs["Red"])
             L(gain.outputs["Result"], red.inputs["Green"])
             L(gain.outputs["Result"], red.inputs["Blue"])
@@ -441,6 +542,17 @@ def bake(ob, mat, size=1024, out_dir=None):
         coverage = None
 
         def __call__(self, key, px):
+            if key == "roughness" and loop_region is not None:
+                # the baked roughness over each region's and zone's texels (the map's first channel)
+                side = int(round(np.sqrt(len(px) // 4)))
+                xy = np.clip((loop_uv * side).astype(np.int64), 0, side - 1)
+                r = px.reshape(-1, 4)[xy[:, 1] * side + xy[:, 0], 0].astype(np.float64)
+                names = list(REGIONS) + list(ZONES)
+                means["roughness"] = {k: round(float(r[loop_region == i + 1].mean()), 3)
+                                      for i, k in enumerate(names) if (loop_region == i + 1).any()}
+                if (loop_region == 0).any():
+                    means["roughness"]["skin"] = round(float(r[loop_region == 0].mean()), 3)
+                return None
             # a byte sRGB image's pixels are its stored (sRGB-encoded) values, not linear light
             if key != "base_color" or self.coverage is None or not self.coverage.any():
                 return None
@@ -465,7 +577,10 @@ def bake(ob, mat, size=1024, out_dir=None):
                 texel = xy[:, 1] * side + xy[:, 0]
                 means["regions"] = {k: [round(float(v), 3) for v in out[texel[loop_region == i + 1], :3].mean(axis=0)]
                                     for i, k in enumerate(REGIONS) if (loop_region == i + 1).any()}
-                means["regions"]["skin"] = [round(float(v), 3) for v in out[texel[loop_region == 0], :3].mean(axis=0)]
+                plain = out[texel[loop_region == 0], :3].astype(np.float64).mean(axis=0)
+                means["regions"]["skin"] = [round(float(v), 3) for v in plain]
+                means["contrast"] = contrast({k: out[texel[loop_region == i + 1], :3].astype(np.float64).mean(axis=0)
+                                              for i, k in enumerate(REGIONS) if (loop_region == i + 1).any()}, plain)
             return out.ravel()
 
     me = ob.data
@@ -500,9 +615,57 @@ def bake(ob, mat, size=1024, out_dir=None):
         me.uv_layers[src].active_render = True
     # the marks stay (a rebake from this file needs them); none is a colour attribute, so the exporter skips them
     err = float(np.abs(np.asarray(means.get("baked", [9, 9, 9])) - target).max())
+    extra = {}
+    if "contrast" in means:
+        extra["contrast_fail"] = contrast_fails(means["contrast"])
+        extra["contrast_ok"] = not extra["contrast_fail"]
     return {"size": size, "maps": res["maps"], "images": res["images"], "timings_s": res["timings_s"],
             "tone_target": [round(float(v), 4) for v in target], **means,
-            "tone_error": round(err, 4), "tone_ok": err <= TONE_TOLERANCE, "detail_uv": DETAIL_UV}
+            "tone_error": round(err, 4), "tone_ok": err <= TONE_TOLERANCE, **extra, "detail_uv": DETAIL_UV}
+
+
+def _lab(srgb):
+    """CIELAB (D65) of an sRGB colour."""
+    lin = _linear(srgb)
+    m = np.array([[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]])
+    x = (m @ lin) / np.array([0.95047, 1.0, 1.08883])
+    f = np.where(x > 0.008856, np.cbrt(x), 7.787 * x + 16.0 / 116.0)
+    return np.array([116.0 * f[1] - 16.0, 500.0 * (f[0] - f[1]), 200.0 * (f[1] - f[2])])
+
+
+def contrast(tones, plain):
+    """Each region's baked tone against plain skin's (both sRGB): `dE` (CIELAB 1976), `dL` (lightness) and `rg`,
+    the region's red/green ratio over skin's (above 1 is redder). The free values; `contrast_fails` judges them."""
+    plain = np.asarray(plain, np.float64)
+    lp = _lab(plain)
+    out = {}
+    for k, v in tones.items():
+        v = np.asarray(v, np.float64)
+        lv = _lab(v)
+        out[k] = {"dE": round(float(np.linalg.norm(lv - lp)), 2), "dL": round(float(lv[0] - lp[0]), 2),
+                  "rg": round(float((v[0] / max(v[1], 1e-6)) / max(plain[0] / max(plain[1], 1e-6), 1e-6)), 3)}
+    return out
+
+
+def contrast_fails(c):
+    """What in a `contrast` report is under CONTRAST_FLOOR: ["knee: dE 2.96 < 5.0", "palm: redder than skin
+    (rg 1.04)", ...]. A floored region the body has no texels of fails too ("knee: no texels"): a mask that lost a
+    region must not pass by being absent. (Only a body with region marks gets a `contrast` report at all.)"""
+    fails = []
+    for k, (way, floor) in CONTRAST_FLOOR.items():
+        if k not in c:
+            fails.append(f"{k}: no texels")
+            continue
+        r = c[k]
+        if r["dE"] < floor:
+            fails.append(f"{k}: dE {r['dE']} < {floor}")
+        if way == "red" and r["rg"] < RED_MIN:
+            fails.append(f"{k}: not redder than skin (rg {r['rg']} < {RED_MIN})")
+        if way == "pale" and r["dL"] < PALE_DL_MIN:
+            fails.append(f"{k}: not paler than skin (dL {r['dL']} < {PALE_DL_MIN})")
+        if way == "pale" and r["rg"] > PALE_RG_MAX:
+            fails.append(f"{k}: redder than skin (rg {r['rg']} > {PALE_RG_MAX})")
+    return fails
 
 
 def unmarked(ob):
