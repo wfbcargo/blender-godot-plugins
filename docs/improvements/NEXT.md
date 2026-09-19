@@ -29,10 +29,10 @@ Installed copies in `~/.claude/skills` match the repo. **This is the one list of
 here and nowhere else:
 - rig-anything 0.26.0
 - animate-anything 0.10.1
-- follow-through 0.7.0
+- follow-through 0.8.0
 - humanform 0.12.0
 - character-pipeline 0.13.0
-- wardrobe 0.5.1
+- wardrobe 0.5.2
 - lookdev 0.7.0
 - godot-lsp 0.1.0
 
@@ -163,6 +163,15 @@ had the same chin bug; it now carries the `FT_FLESH_LEGACY_PLACEMENT=1` control.
 5.7-8 cm from the bust point (item C); a rig with no head bone found passes the face tests silently; no escape for a
 deliberate mark outside a zone; "above the fold" unchecked. Next: B+C, D+E, F. Notebook:
 [notebooks/flesh-cast/flesh-zone-placement.md](notebooks/flesh-cast/flesh-zone-placement.md).
+
+**B and C: done** (branches `flesh-graded-pivot` and `wardrobe-apex-cover`, follow-through 0.8.0, wardrobe 0.5.2,
+merged 2026-09-18). Breasts and buttocks hang from above: pivot 3-6 cm over the apex, tail on it (shipped 0.5-3.8 cm
+from the bust point), weight 0 at the attachment and on the thigh; check_placement tests it. It exposed a wardrobe
+false positive (skin beside an armhole rim counted as through the cloth; runaway lifts), fixed. Critic: mergeable.
+Open: a direct second `flesh.prepare` on a fleshed body can fail the check (fix with D+E: cap the jiggle share
+below 1); the plain jump course fails on_limit for the cast (10.2-10.9 %; D is the fix); FACING_MIN vs cover's
+fold rules. Notebooks: [flesh-graded-pivot](notebooks/flesh-cast/flesh-graded-pivot.md),
+[wardrobe-apex-cover](notebooks/flesh-cast/wardrobe-apex-cover.md). Next: ship (cast, study figures, Belle), then D+E.
 
 Also seen: garments are cut from the skin, so Ruth's long-sleeve top shows her nipples through it (a smoothing pass
 on the cut surface).
