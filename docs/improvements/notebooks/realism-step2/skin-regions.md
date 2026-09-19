@@ -208,3 +208,33 @@ three-way pairs main | round 1 | round 2 in `%TEMP%/rw/skr/cmp3/`. No seam, hard
 face or full tiles; the knuckle red stays soft.
 
 Final `regress --quick --jobs 4` after round-1 fixes (10:32-10:37): `REGRESS DONE exit=0, 9 fixtures ok`, no change (log %TEMP%/rw/skr/regress_final2.txt).
+
+## 6. Critic round 2 fixes (10:41-, 2026-09-19) - last round
+
+Critic round 2: pass false (LOOK-S1 palm half only: study_woman's palm still darker than the wrist in the palm tiles,
+study_man's about equal), mergeable; minor: the wt manifests were built (10:21, 10:27) before commit 4987a23.
+
+1. **Manifest provenance.** Rebuilt both study figures in the scratch copy at HEAD b447c34 with `from=body force=1`
+   (a plain rebuild said "unchanged" - the stage hash carries plugin versions, not code, so it proved nothing; `from=bake`
+   is refused on a body with hair joined). Both exit 0 (10:43-10:47). The `skin` block of each new `.moves.json` is
+   byte-for-byte equal to the one the critic read (tone_ok true, tone_error 0.0, contrast_ok true, same region tones,
+   contrast and roughness); only `build.stage_seconds` differs. Logs `%TEMP%/rw/skr/wt/build_study_*7.log`, the old
+   manifests kept in `%TEMP%/rw/skr/r3/*.before.moves.json`.
+2. **Palm half of LOOK-S1: measured why it cannot be met from the skin, left open.** Split the palm/wrist render ratio
+   into albedo and shading (`%TEMP%/rw/skr/r3/shade.py`; render medians are sRGB luma from `cmp3/crops*_out.txt`,
+   linearised; albedo = manifest palm vs skin region tone):
+   | figure / light | albedo Y palm/skin | render palm/wrist (linear) | shading palm/wrist | albedo ratio needed | palm L* needed (dL) |
+   |---|---|---|---|---|---|
+   | study_woman clear_midday | 0.593/0.470 = 1.26 | 0.670 | 0.53 | 1.89 | 95.4 (+21.3) |
+   | study_woman overcast | 1.26 | 0.921 | 0.73 | 1.37 | 84.2 (+10.0) |
+   | study_man clear_midday | 0.337/0.194 = 1.73 | 1.012 | 0.58 | 1.71 | 64.4 (+13.2) - met |
+   | study_man overcast | 1.73 | 1.376 | 0.79 | 1.26 | 56.6 (+5.4) - met |
+   The cupped palm gets 0.53-0.58 of the wrist's light under clear_midday on both figures - the same on dark and light
+   skin, so it is geometry and light, not the albedo. On study_woman the palm would need L* 95 (paper white) to read
+   paler under the sun, and dL +10 against the skin under overcast, where palmar skin on light bodies is at most a few
+   L* paler than the dorsum; the current +7.3 is already at the top of plausible. So no skin change: pushing the lift
+   further would give white palms in the albedo and in every other view. No switch added - nothing that exists fails;
+   the unmet part needs a lighting or pose change (a flatter hand, or fill in the palm tile), which is lookdev's, not
+   humanform's. Recorded as open.
+
+No code changed this round, so no bump beyond 0.13.0 / 0.15.0 and no golden moved.
