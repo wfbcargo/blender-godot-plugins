@@ -145,3 +145,11 @@ main had merged lookdev-golden-hour as lookdev 0.8.0 in the meantime, so this br
 (plugin.json, marketplace.json "Since 0.9.0", SKILL.md). Where this notebook says "lookdev 0.8.0" above, read 0.9.0.
 Conflicts in marketplace.json, lookdev SKILL.md (`stripes` and `grain` rows both kept, selftest row names both sets
 of controls) and lookdev.mjs (both imports, usage lines and commands) resolved as unions; no code changed beyond that.
+
+Merged-branch regress on a fresh scratch game (C:/Users/pauli/AppData/Local/Temp/rw/merge-skin-pores/game, the
+merged addons): the first `--quick --jobs 4 --godot` (10:41-10:56) ended exit=1 on one lookdev selftest control,
+"--min-subject 0.95 fails the face tile SUBJECT_SMALL: exit 1: no failures" - close-shot exited 1 but its
+close.json had no failures list (not kept, temp dir gone). It did not reproduce: that close-shot alone 3/3 SUBJECT
+runs exit 1 as it must, the selftest alone on study_woman 28/28, `--only pipeline_woman --godot` 28/28, and the full
+`--quick --jobs 4 --godot` again (11:03-11:08): REGRESS DONE exit=0, 9 fixtures ok, lookdev selftest 28/28. Open: a
+transient close-shot exit with no close.json under load; tileFail cannot tell it from a real failure.
