@@ -651,6 +651,8 @@ def run_godot(godot, project, out_root, names):
                                     "".join("\n            " + p for p in r.get("problems", [])))))
         for name in flesh:
             results += _run_flesh(godot, project, stage / name, name)
+        if flesh:
+            results += _run_jiggle_selftest(godot, project)
         for name in strands:
             results += _run_strands(godot, project, stage / name, name)
         for k, name in enumerate(lookdev):
@@ -698,6 +700,30 @@ def _run_flesh(godot, project, where, name):
         out_rows.append((label, passed == should_pass,
                          verdict[-1] + "".join("\n            " + r for r in rows[:12])))
     return out_rows
+
+
+def _run_jiggle_selftest(godot, project):
+    """follow-through's jiggle_selftest.gd: the spring's shape kicked and timed at three frame rates, and the linear
+    spring (`down_ratio=1`) as the control, which must fail on `down_up`: [(check, passed, detail)]."""
+    rows = []
+    for label, args, should_pass in (("jiggle spring selftest", [], True),
+                                     ("jiggle spring selftest down_ratio=1 (must fail)", ["down_ratio=1"], False)):
+        code, out = _godot(godot, project, "-s", "res://addons/follow_through/jiggle_selftest.gd", "--", *args)
+        verdict = [l for l in out.splitlines() if l.startswith("FT_SUMMARY")]
+        line = [l for l in out.splitlines() if l.startswith("FT_JIGGLE_SELFTEST ")]
+        if not verdict or not line:
+            rows.append((label, False, "no FT_JIGGLE_SELFTEST / FT_SUMMARY, exit %s: %s"
+                         % (code, " | ".join(out.strip().splitlines()[-3:]))))
+            continue
+        r = json.loads(line[-1][len("FT_JIGGLE_SELFTEST "):])
+        passed = code == 0 and "PASSED" in verdict[-1]
+        fails = r.get("failures", [])
+        if not should_pass and not any(f.startswith("down_up") for f in fails):
+            passed = True            # failed, but not on the spring's shape: that is not the control failing
+        detail = verdict[-1] + "".join("\n            %s fps: below/above %s, ap/side %s" % (k, v.get("down_up"), v.get("ap_side"))
+                                       for k, v in sorted(r.get("rates", {}).items())) + "".join("\n            " + f for f in fails[:4])
+        rows.append((label, passed == should_pass, detail))
+    return rows
 
 
 def _run_strands(godot, project, where, name):

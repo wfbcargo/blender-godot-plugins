@@ -97,6 +97,8 @@ ATTACH_LEG_OFF = 0.5            # and 0 on a vertex with this share of its skin 
 ATTACH_APEX_MIN = 0.9           # mean weight within 2 cm of the tail, at least
 ATTACH_ABOVE_MAX = 0.3          # weight 10 cm above the apex, at most
 ATTACH_THIGH_MAX = 0.05         # weight on vertices half or more skinned to a leg, at most
+# jiggle_block: a material's mass scaling of frequency is clipped to this range
+MASS_SCALE = (0.75, 1.33)
 
 # FT_FLESH_LEGACY_PLACEMENT=1 puts back how regions were placed before check_placement existed - the face
 # seeding and growing regions, every patch in a zone merged - so check_placement has a control that must
@@ -1308,6 +1310,7 @@ def zone_around(region, pad=0.08):
 # ------------------------------------------------------------------ rigging
 
 JIGGLE_PREFIX = "ft_jiggle_"
+JIGGLE_SHARE_MAX = 0.98   # of a vertex's weight a jiggle bone may take (add_jiggle_bones)
 ROLE_PROP = "ft_role"     # on every bone follow-through adds; rig-anything's bodymap skips tagged bones
 
 
@@ -1360,7 +1363,10 @@ def add_jiggle_bones(obj_name, regions, rig_name=None, weight_scale=1.0):
     for r in regions:
         g = groups[r["name"]]
         for v, w in zip(r["vertices"], r["weights"]):
-            w = float(min(1.0, w * weight_scale))
+            # never all of it: a vertex whose other weights were all taken can only give its jiggle weight back to
+            # the anchor bone (remove_jiggle_weights), and a second prepare then measured the thigh share it lost -
+            # Ruth's graded butt came back 0.57 at the apex and 0.50 10 cm above it, failing check_placement
+            w = float(min(JIGGLE_SHARE_MAX, w * weight_scale))
             if w <= 1e-3:
                 continue
             vert = obj.data.vertices[int(v)]
@@ -1482,9 +1488,19 @@ def jiggle_block(obj, rig, regions, overrides=None):
             "max_offset_m": (round(float(share) * r["peak_m"], 4) if share is not None
                              else round(float(params.get("max_offset", 0.5)) * 2.0 * r["peak_m"], 4)),
         }
-        for k in ("frequency_hz", "damping_ratio", "squash", "gravity_scale", "aim", "translate", "response"):
+        for k in ("frequency_hz", "damping_ratio", "squash", "gravity_scale", "aim", "translate", "response",
+                  "frequency_down_ratio", "frequency_ap_ratio"):
             if k in params:
                 entry[k] = params[k]
+        # a heavier mass on the same tissue swings slower (research-flesh-jiggle.md, E): frequency x
+        # (mass_ref_kg / mass_kg) ^ mass_exponent, clipped to MASS_SCALE. soft_fat ships it off (exponent 0): on
+        # every body measured the swing limit bounds the amplitude, and a lower frequency only held the heavy
+        # mass on its limit longer (Belle's breast at 1.9 Hz: walking 4.0 -> 7.4 % on the limit, jumping 8 -> 15 %)
+        exp_ = float(params.get("mass_exponent", 0.0))
+        if exp_ and "frequency_hz" in entry and r.get("mass_kg"):
+            scale = (float(params.get("mass_ref_kg", r["mass_kg"])) / float(r["mass_kg"])) ** exp_
+            entry["frequency_hz"] = round(float(entry["frequency_hz"]) * min(max(scale, MASS_SCALE[0]), MASS_SCALE[1]), 4)
+            entry["mass_scale"] = round(scale, 4)
         out.append(entry)
     return {"space": "gltf_armature", "armature": rig.name, "regions": out}
 
@@ -1540,7 +1556,7 @@ def set_params(obj_name, region, **params):
     if s is None or "jiggle" not in s:
         raise ValueError(f"{obj_name} has no jiggle spec - run flesh.prepare first")
     allowed = {"frequency_hz", "damping_ratio", "squash", "gravity_scale", "aim", "translate", "response",
-               "max_offset_m"}
+               "max_offset_m", "frequency_down_ratio", "frequency_ap_ratio"}
     bad = set(params) - allowed
     if bad:
         raise ValueError(f"not jiggle parameters: {sorted(bad)}")

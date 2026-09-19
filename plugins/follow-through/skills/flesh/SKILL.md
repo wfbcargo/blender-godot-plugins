@@ -103,11 +103,24 @@ influences a vertex), and writes the `jiggle` block. Re-running replaces them.
 
 | material | Hz | damping | squash | translate | gravity | used by |
 |---|---|---|---|---|---|---|
-| soft_fat | 2.7 | 0.25 | 0.5 | 0.35 | 1.0 | breast, belly, butt, love_handle, arm_flab |
+| soft_fat | 2.4 up, 6.7 down, 3.4 front-back | 0.25 | 0.5 | 0.35 | 1.0 | breast, belly, butt, love_handle, arm_flab |
 | firm_flesh | 6 | 0.6 | 0.2 | 0.15 | 0.5 | thigh |
 | bloated | 1.8 | 0.18 | 0.75 | 0.6 | 1.2 | bloater_belly |
 
-soft_fat's 2.7 Hz is breast adipose tissue (E 3.25 kPa, Samani 2007) as a dome of 10 cm.
+soft_fat's frequency was 2.7 Hz, breast adipose tissue (E 3.25 kPa, Samani 2007) as a dome of 10 cm, the
+same every way. **It is not symmetric** (follow-through 0.9.0; research-flesh-jiggle.md D): a breast floats
+up and stops hard at the bottom (Cai 2018: 73.5 N/m above rest, 658 below), so `frequency_hz` is the spring
+above rest (2.4) and `frequency_down_ratio` (2.8) multiplies it below; front to back it is stiffer than up or
+to the side (`frequency_ap_ratio` 1.4, twice the stiffness). The modifier solves each axis - up against
+gravity, front-back along the bone, the side - exactly, substepped at 240 Hz where the vertical spring crosses
+rest; both ratios at 1 is the old isotropic spring. `jiggle_selftest.gd` kicks it (below/above half-period
+0.345-0.360 at 30, 60 and 144 fps against 1/2.8; the linear control fails) and runs in `regress --godot`.
+`verify_flesh.gd` prints each region's `vertical range` (its offset along up, relative to the trunk) and
+`in phase with the trunk` (the share of moving ticks the mass goes up or down with the trunk: about 0.66
+unbraced, over 0.9 braced, Williams 2024). On the cast, 2.4 Hz gave running breasts 5.6-5.9 cm of vertical
+range, 0.72-0.78 in phase; lower up-frequencies swung more but pinned the jump course on the limit (2.0 Hz:
+31-33 % of its ticks), so the swing limit, not the spring, bounds the amplitude on these bodies. For the same
+reason `mass_exponent` (frequency x (mass_ref_kg / mass_kg)^exponent) ships at 0.
 `aim` swings the bone toward the sprung tail, `translate` moves its head that share of the
 offset, `squash` stretches it along its length with the cross-section at 1/sqrt so the
 mass keeps its volume, `max_offset_m` caps the swing, `response` scales how hard the body's
@@ -202,8 +215,8 @@ How it works:
   the limit is tightened onto the loosest measured rung inside it when that still keeps the region
   out of the band's top; when nothing can do both, the row is `capped`, the limit is left alone, and
   it names what to change instead - `response`, `gravity_scale`, `frequency_hz`, `damping_ratio`. A
-  region smaller than g/(2 pi f)^2 (3.4 cm at `soft_fat`'s 2.7 Hz) hangs off its limit whatever the
-  body does, and the row says so.
+  region smaller than g/(2 pi f)^2 (4.3 cm at `soft_fat`'s 2.4 Hz up, 0.55 cm at 6.7 Hz down) hangs off its
+  limit whatever the body does, and the row says so.
 - `verify_flesh.gd` also fails a region whose peak offset passed its own stand-out (`within_body`).
   `course=walk|run|jump` drives one motion alone on the body's own clip (a jump plays the Jump clip,
   takes off at its highest hips, holds that pose through the flight and lands on the rest), so a

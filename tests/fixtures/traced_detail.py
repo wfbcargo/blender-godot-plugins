@@ -30,8 +30,9 @@ Then the garments go on six ways, and the golden holds what the check said each 
   limit nothing was measured against has not been held (wardrobe 0.2.2 said the same of `verify`),
   and this is the body type it matters on - on a character-pipeline MPFB woman follow-through's
   breast search landed on the jaw until 0.7.0, and a breast limit there measured nothing at all.
-- last, the control that must fail: the shipped top with `cover.drawn_over_cloth`'s facing test off
-  (`FACING_MIN`), which counts skin beside the armholes' rims and runs its lifts away.
+- last, the control: `cover.drawn_over_cloth` on the shipped top before any lift, with its facing test
+  (`FACING_MIN`) and without. Without it, skin beside the armholes' rims counts as skin through the
+  cloth (`flagged_without_test` above 0); with it, none (`flagged_with_test` 0).
 - `compression_shorts` shipped and uncompressed, the same pair over the buttocks.
 
 The bodies are the `dressed_presets` bodies, so a change to the cut or the ease shows up in both;
@@ -143,16 +144,26 @@ def build():
                 "problems": r["problems"],
             }
 
-        # the control, which must fail: `drawn_over_cloth` without its facing test counts skin beside the
-        # armholes' rims as skin through the cloth, and the lifts over it run away (wardrobe 0.5.2)
-        from wardrobe import cover as wd_cover
+        # the control: `drawn_over_cloth` on the shipped top before any lift, with its facing test (wardrobe 0.5.2)
+        # and without. Without it, skin beside the armholes' rims counts as skin through the cloth - `without` must
+        # be above 0, and `with` must stay 0. Dressing with the test off was the control first, but whether its
+        # lifts ran away hung on the shoulder's exact weights (follow-through 0.9.0's 0.98 cap stopped it)
+        from wardrobe import cover as wd_cover, fit as wd_fit, tailor as wd_tailor
+        from wardrobe.presets import _args
+        g = wd_tailor.shirt(body, name=top["name"] + "_rim", **_args(top.get("tailor")))
+        wd_fit.ease(g, body, **_args(top["ease"]))
+        wd_fit.skin(g, body)
+        cr = wd_cover.compute(g, body, **_args(top.get("cover")))
+        reach = top["cover"]["behind"]
+        flagged_with = wd_cover.drawn_over_cloth(g, body, cr, reach=reach)
         kept, wd_cover.FACING_MIN = wd_cover.FACING_MIN, -2.0
         try:
-            r = wardrobe.dress(BODY, dict(top, name=top["name"] + "_no_facing"), out_path=None)
+            flagged_without = wd_cover.drawn_over_cloth(g, body, cr, reach=reach)
         finally:
             wd_cover.FACING_MIN = kept
-        garments["control_top_no_facing_test"] = {"passed": r["passed"], "lifts": len(r.get("lifted") or []),
-                                                  "drawn_over_cloth": r["cover_report"].get("drawn_over_cloth")}
+        garments["control_facing_test"] = {"flagged_with_test": len(flagged_with),
+                                           "flagged_without_test": len(flagged_without),
+                                           "dropped_by_test": len(set(flagged_without) - set(flagged_with))}
 
         from rig_analysis import export as ra_export
         walk = BODY + "Walk"

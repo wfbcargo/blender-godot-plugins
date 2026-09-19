@@ -56,8 +56,8 @@
     "soft_fat": {
       "route": "jiggle_bones",
       "density_kg_m3": 950,
-      "jiggle": {"frequency_hz": 2.7, "damping_ratio": 0.25, "squash": 0.5, "gravity_scale": 1.0, "aim": 1.0, "translate": 0.35, "response": 1.0, "max_offset": 0.6},
-      "source": "Breast adipose Young's modulus 3.25 +- 0.91 kPa (Samani et al. 2007), density ~950 kg/m3: G = E/3, c_s ~ 1.07 m/s, f ~ c_s/(4R) ~ 2.7 Hz for R = 0.1 m before skin and ligament stiffen it. Damping ratio 0.2-0.35 is the usual game choice (visible wobble that settles)."
+      "jiggle": {"frequency_hz": 2.4, "frequency_down_ratio": 2.8, "frequency_ap_ratio": 1.4, "mass_ref_kg": 2.4, "mass_exponent": 0.0, "damping_ratio": 0.25, "squash": 0.5, "gravity_scale": 1.0, "aim": 1.0, "translate": 0.35, "response": 1.0, "max_offset": 0.6},
+      "source": "Breast adipose Young's modulus 3.25 +- 0.91 kPa (Samani et al. 2007), density ~950 kg/m3: G = E/3, c_s ~ 1.07 m/s, f ~ c_s/(4R) ~ 2.7 Hz for R = 0.1 m before skin and ligament stiffen it. Damping ratio 0.2-0.35 is the usual game choice (visible wobble that settles). The spring is not symmetric (research-flesh-jiggle.md, D): Cai 2018 measured 73.5 N/m above rest and 658 N/m below, so a breast floats up and stops hard at the bottom - about 2-2.5 Hz up and 6-7.5 Hz down: 2.4 Hz above rest, 2.8x (6.7 Hz) below. Front to back it is stiffer than up or sideways (Scurr: medio-lateral motion exceeds antero-posterior): 2x the stiffness, 1.4x the frequency. Mass scaling (frequency x (mass_ref_kg / mass_kg)^mass_exponent) is off: mass_kg here is the region's stand-out volume (2.2-5 kg a breast), not tissue mass, and on every body measured the swing limit bounds the amplitude, so a slower heavy mass only sat on its limit longer."
     },
     "firm_flesh": {
       "route": "jiggle_bones",
