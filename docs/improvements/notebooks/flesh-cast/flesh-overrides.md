@@ -10,7 +10,7 @@
 by `_check_overrides` (the key a type in `types` or one of its sides; the parameters from FLESH_OVERRIDE_KEYS,
 finite numbers 0 or more, a frequency over 0; anything else a SpecError - a value that is not a table first
 crashed the parser with a TypeError, and nan, inf and frequency 0 got through (critic; fixed, and pipeline_woman
-records those refusals too), passed to `flesh.prepare(overrides=)`, which `jiggle_block` already
+records those refusals too) - passed to `flesh.prepare(overrides=)`, which `jiggle_block` already
 applied over the material. The flesh stage's hash covers the raw `[flesh]` section, so an override edit reruns flesh.
 pipeline_woman's spec carries `butt = { frequency_hz = 3.0, damping_ratio = 0.3 }` (its manifest shows 3.0 / 0.3 on
 both butt regions) and four must-refuse parses: a type the spec does not ask for, a key that is no parameter, a
@@ -33,8 +33,9 @@ Probe (`belly.py`, patched registry):
 
 (Row 1 was probed after taking the jiggle weights off rather than restoring the pipeline's saved unfleshed mesh;
 the critic, restoring it, reads study_man's tail at 1.209 m and weight 1.0 above the line - the same conclusion.)
-Note what made the check pass: at 10 cm above the apex Marco's belly reads 0.79, at 15 cm 0.24 (limit 0.3); the
-belly's own `attach_above_m` 15 cm is that choice.
+On the old, taller zone Marco's belly read 0.79 at 10 cm above the apex, which is why the belly reads at 15 cm
+(`attach_above_m`, 0.24 there). On the zone as shipped the 10 cm window holds no vertex at all, and the measure then
+reports 0.0 - it passes without reading anything (open, below).
 
 So (follow-through 0.10.0) belly: zone 0.05-0.6 (pubis to lower ribs), `"attachment": "upper"`, and two new per-type
 keys - `attach_rise_m` [0.03, 0.12] (the pivot's rise clip; breast and butt keep ATTACH_UP_M, 3-6 cm) and
@@ -78,6 +79,8 @@ thigh shifts in dressed_skirts; the sports top's cover counts in dressed_presets
   across one edge at 0.83 m) - no worse than before, unexamined.
 - Every `[flesh]` spec's hash changes once (the parsed section now carries `overrides`, empty or not); this release
   reruns flesh anyway.
+- `_attachment_measures` reports 0.0 when its above-the-apex window holds no vertex (Marco's shipped belly at 10 cm:
+  0 vertices, against 5 at 8, 12 and 15 cm), so the check can pass without measuring; it predates this branch.
 - `registry.define` (teaching a type) takes no `attachment` / `attach_*` keys, so a taught type cannot hang from above.
 - The belly's frequency default is still soft_fat's (a breast's tissue); a belly material, or override guidance by
   build, is not done - a spec chooses.
