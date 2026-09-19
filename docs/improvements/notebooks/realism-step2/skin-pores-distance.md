@@ -55,8 +55,8 @@ A second, coarser octave that is 2+ pixels at 1 m and under a pixel at full body
   1 - cavity (0.26) x depth after Godot's mix. This is what makes the grain show in diffuse light; the normal
   alone shows only in highlights.
 - `_fade_mips`: every mip level where a coarse cell spans under 3 texels fades towards flat (all the way by 1.5).
-  Without it, a half-pixel camera shift at full body changed the pixel-level detail up to 37 % more than main
-  (variant v7, see 3); with it, the same as main.
+  Without it, a half-pixel camera shift at full body changed the pixel-level detail up to 45 % more than main
+  (control in 3); with it, the same as main.
 - `keep_base`: `normal_scale /= 1 - strength` gives the baked normal map back what the lerp takes;
   `albedo_color` is lifted by 1 / the cavity's mean (0.951), so the tone is unchanged: cheek mean luma main
   0.398 / 0.229 / 0.564 / 0.366, branch 0.399 / 0.229 / 0.564 / 0.366.
@@ -80,7 +80,9 @@ Attempts (face 1 m cheek grain, woman clear / man overcast; look at `shots/cmp_v
 as % of mean luma (`grain`), and the pixel-to-pixel part apart (`finest`). The first version was a plain 5x5
 high-pass; Godot's renderer dither (a regular 1-2 px pattern, visible in main's cheek crops, relatively stronger
 on dark skin) put main's man-overcast at 1.07 % there, above the branch's woman-clear - the band-pass drops it.
-Check: `--region cheek --min 0.40 --max-finest 1.5`. Controls in `lookdev.mjs selftest` (crops of the cheek
+Check: `--region cheek --min 0.40 --max-finest 2.0` (limits set from the data: main's highest grain 0.38, the
+branch's lowest 0.47; the branch's highest finest 1.47 - its 2 mm pits are 2-4 px at 1 m - and the mip-less
+pores' lowest 2.87; 1.5 was tried first and was too close to the branch's 1.47). Controls in `lookdev.mjs selftest` (crops of the cheek
 patch in `bin/controls/`): branch passes; main (man overcast, main's highest) and detail-off fail SMOOTH;
 main's pores without mips pass the band but fail NOISY.
 
@@ -89,10 +91,10 @@ Face tile at 1 m, cheek (grain %, finest %), before -> after (rebuilt figures, `
 | | man clear | man overcast | woman clear | woman overcast |
 |---|---|---|---|---|
 | main | 0.23 / 0.42 | 0.38 / 0.93 | 0.16 / 0.25 | 0.21 / 0.40 |
-| branch | AFTER_MC | AFTER_MO | AFTER_WC | AFTER_WO |
+| branch | 0.61 / 0.80 | 0.94 / 1.47 | 0.47 / 0.64 | 0.70 / 0.96 |
 
 Full body at 4 m, torso patch `0.45,0.40,0.09,0.07` (grain / finest): main 0.31/0.53, 0.58/0.69, 0.17/0.25,
-0.31/0.47; branch (v9) 0.31/0.52, 0.58/0.67, 0.17/0.25, 0.31/0.48 - no added texture or noise at full body.
+0.31/0.47; branch (after) 0.31/0.52, 0.58/0.67, 0.17/0.25, 0.31/0.48 - no added texture or noise at full body.
 
 Shimmer (`py/dolly.sh`, `py/shimmer.mjs`): full at 4 m, t=0.5, camera moved 1.7 x 1.1 mm (about half a pixel),
 change of the pixel-level detail, % of luma, torso / thigh:
@@ -100,11 +102,13 @@ change of the pixel-level detail, % of luma, torso / thigh:
 | | man clear | man overcast | woman clear | woman overcast |
 |---|---|---|---|---|
 | main | 0.621 / 2.078 | 0.688 / 2.034 | 0.310 / 0.503 | 0.469 / 0.530 |
-| branch (after) | 0.617 / 2.074 | 0.684 / 2.046 | 0.299 / 0.504 | 0.461 / 0.565 |
+| branch (after) | 0.606 / 2.076 | 0.678 / 2.045 | 0.303 / 0.506 | 0.455 / 0.578 |
+| branch, mip fade off (control) | 0.670 / 2.134 | 0.804 / 2.075 | 0.362 / 0.726 | 0.624 / 0.769 |
 
-(v7, before the mip fade, compared t=0 against a 4.03 m dolly at t=0.5 - not like for like - and was 7-37 %
-above main; the fade was added for it. The 4.03 m dolly itself was useless: close-shot refits the full view,
-so the picture barely moved.)
+The control is the same build with `_fade_mips` returning its input (scratch addon only, restored after): up
+to 45 % over main (woman clear thigh 0.726 against 0.503), so the fade is what keeps full body at main's level.
+(A first try dollied the camera 4.00 -> 4.03 m: useless, close-shot refits the full view so the picture barely
+moved.) Full-body torso grain/finest with the fade off: 0.33/0.59, 0.54/0.74, 0.19/0.31, 0.34/0.58.
 
 ## 4. Cost
 

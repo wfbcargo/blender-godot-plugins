@@ -867,7 +867,7 @@ async function selftest(args) {
   // flat normal) and no detail at all are too smooth; the pores sampled without mips fill the band but are noise.
   for (const [png, want, re] of [["grain_cheek_branch.png", true, /^\s*ok\s*$/m], ["grain_cheek_main.png", false, /SMOOTH/],
     ["grain_cheek_off.png", false, /SMOOTH/], ["grain_cheek_nomips.png", false, /NOISY/]]) {
-    const gr = await runSelf(["grain", fwd(path.join(HERE, "controls", png)), "--min", "0.40", "--max-finest", "1.5"], 120);
+    const gr = await runSelf(["grain", fwd(path.join(HERE, "controls", png)), "--min", "0.40", "--max-finest", "2.0"], 120);
     const said = firstLine(gr.out, /grain \d/);
     check(`grain on ${png} ${want ? "passes" : `fails ${re.source}`}`, want ? gr.code === 0 && re.test(gr.out) : gr.code === 1 && re.test(gr.out), said.slice(0, 160));
   }
