@@ -94,9 +94,9 @@ def skin(ob, srgb, roughness=SKIN_ROUGHNESS, name=None, realistic=True, size=Non
     me.update()
     if realistic:
         if _is_mpfb_human(ob):
-            rep = _skin.mark(ob)
+            rep = _skin.mark(ob, tone=srgb)
             mat["humanform_skin"] = dict(mat["humanform_skin"], stage="flat", marked=rep["regions"],
-                                         notes=rep["notes"])
+                                         notes=rep["notes"], pale=rep.get("pale", {}))
         else:
             if _skin.TINT not in me.attributes:
                 _skin.unmarked(ob)

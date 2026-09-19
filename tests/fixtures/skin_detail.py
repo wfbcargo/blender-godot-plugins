@@ -15,7 +15,9 @@ One seeded brief with a deep skin tone (the darks are where an sRGB/linear slip 
 5. Regional contrast (humanform 0.13.0): each floored region's CIELAB dE, lightness and red/green against plain skin
    in the baked map (`contrast`, the free values) must clear skin.CONTRAST_FLOOR (`contrast_ok`), and the baked
    roughness over the T-zone and the lips is reported. The control, a copy of the same human marked and baked with
-   HF_SKIN_LEGACY_REGIONS=1 (0.12.0's tints, roughness and unbounded palm mask), must fail the floor.
+   HF_SKIN_LEGACY_REGIONS=1 (0.12.0's tints, roughness and unbounded palm mask), must fail the floor; so must the
+   passing report with a floored region (the knee) removed. The palm and sole lift follows the brief's tone
+   (skin.pale_tint): its CIELAB step is recorded.
 """
 import json
 import os
@@ -200,6 +202,13 @@ def build():
                      else "failed: %d floor(s) missed" % len(ctl["fail"]))
     contrast["control_legacy"] = ctl
     contrast["rougher_than_legacy"] = {k: bool(rough.get(k, 0) > lr.get(k, 9)) for k in ("t_zone", "lips")}
+    # a mask regression that loses a floored region entirely must fail too, not pass by being absent: the passing
+    # report with the knee taken out
+    gone = {k: v for k, v in rep.get("contrast", {}).items() if k != "knee"}
+    miss = skin.contrast_fails(gone)
+    contrast["control_missing_knee"] = {"fail": miss, "judged": ("failed" if miss else "passed (it must fail)")}
+    # the palm/sole lift the mark used, from the brief's tone
+    contrast["pale"] = {k: skin.pale_tint(TONE, k)[1] for k in ("palm", "sole")}
     return {"marked": marked, "unbaked_export": unbaked, "no_lookdev": fallback, "baked": baked,
             "contrast": contrast}
 

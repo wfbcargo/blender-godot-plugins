@@ -67,7 +67,7 @@ REGIONS = {
     "genital":   {"tint": (0.70, 0.54, 0.50), "rough": 0.50},
     "knee":      {"tint": (0.80, 0.52, 0.48), "rough": 0.58},
     "elbow":     {"tint": (0.78, 0.52, 0.48), "rough": 0.60},
-    "knuckle":   {"tint": (0.80, 0.52, 0.48), "rough": 0.55},
+    "knuckle":   {"tint": (0.76, 0.47, 0.44), "rough": 0.55},
     "palm":      {"tint": (1.35, 1.35, 1.24), "rough": 0.60},
     "sole":      {"tint": (1.32, 1.32, 1.14), "rough": 0.64},
     "flush":     {"tint": (1.00, 0.70, 0.70), "rough": 0.48},     # cheeks, nose tip, ears
@@ -78,6 +78,16 @@ T_ZONE_ROUGH = 0.46            # forehead, nose, chin: oilier than the rest, sti
 LIMB_ROUGH = 0.57              # forearms, shins: drier
 MOTTLE = ((4.0, 0.08), (24.0, 0.035))    # (noise scale per metre, value share) - blotches ~25 cm, then ~4 cm
 REDNESS = 0.07                 # the low octave also shifts red against green/blue by this share
+# palms and soles by the brief's tone (humanform 0.13.0, critic round 1): palmar and plantar skin carries a fraction of
+# the melanin of the rest (Yamaguchi et al. 2006; palmoplantar melanocyte density ~1/5 of the trunk's), so how much
+# paler a palm is grows with how dark the body is - barely on pale skin, a lot on deep skin. The lift is a CIELAB
+# lightness step dL = clip(PALE_SLOPE * (PALE_L0 - L*_tone), PALE_DL) turned into one linear gain, times a hue that
+# takes a little red and more blue out (paler, a touch yellow, never green over red - that read olive in Godot).
+# The table's palm/sole tints are what a body marked without a tone gets.
+PALE_L0 = 80.0
+PALE_SLOPE = 0.5
+PALE_DL = (8.5, 16.0)
+PALE_HUE = {"palm": (1.0, 0.985, 0.95), "sole": (1.0, 0.99, 0.90)}
 # the regional contrast each bake must reach: CIELAB dE76 of the region's baked tone from plain skin, and which way
 # (redder: region R/G over skin R/G at least RED_MIN; paler: lighter by PALE_DL_MIN and no redder than skin)
 CONTRAST_FLOOR = {"lips": ("red", 8.0), "knee": ("red", 5.0), "elbow": ("red", 5.0), "knuckle": ("red", 5.0),
@@ -235,7 +245,7 @@ def regions(ob):
                 for seg in (1, 2, 3):
                     nm = f"joint-l-finger-{k}-{seg}"
                     if nm in j:
-                        w["knuckle"] = np.maximum(w["knuckle"], hand * _gauss(p, J(nm), 0.011 * s)
+                        w["knuckle"] = np.maximum(w["knuckle"], hand * _gauss(p, J(nm), (0.011 if old else 0.0125) * s)
                                                   * _smooth(0.1, 0.5, -facing))
         else:
             notes.append("no finger joints: no palms or knuckles")
@@ -273,11 +283,32 @@ def regions(ob):
     return w, extra, notes
 
 
-def mark(ob):
-    """Write `hf_skin_tint` and `hf_skin_oil` on an MPFB human (see `regions`). Returns a report."""
+def pale_tint(srgb, region):
+    """The palm or sole tint for a body of tone `srgb`: a linear gain that lifts CIELAB L* by PALE_SLOPE * (PALE_L0 -
+    L*), clipped to PALE_DL, times PALE_HUE[region]. Returns (tint, dL)."""
+    L = float(_lab(np.asarray(srgb, np.float64)[:3])[0])
+    dl = float(np.clip(PALE_SLOPE * (PALE_L0 - L), *PALE_DL))
+
+    def Y(l):
+        f = (l + 16.0) / 116.0
+        return f ** 3 if f > 6.0 / 29.0 else (l / 903.3)
+    g = Y(min(L + dl, 100.0)) / max(Y(L), 1e-6)
+    return tuple(round(g * h, 4) for h in PALE_HUE[region]), round(dl, 2)
+
+
+def mark(ob, tone=None):
+    """Write `hf_skin_tint` and `hf_skin_oil` on an MPFB human (see `regions`). `tone` (the brief's sRGB) sets the
+    palm and sole lift (`pale_tint`); without it they take REGIONS' fixed tints. Returns a report."""
     ob = bpy.data.objects[ob] if isinstance(ob, str) else ob
     w, extra, notes = regions(ob)
     prm = params()
+    pale = {}
+    if tone is not None and not legacy():
+        prm = dict(prm, REGIONS=dict(prm["REGIONS"]))
+        for k in ("palm", "sole"):
+            t, dl = pale_tint(tone, k)
+            prm["REGIONS"][k] = dict(prm["REGIONS"][k], tint=t)
+            pale[k] = {"tint": list(t), "dL": dl}
     n_all = len(ob.data.vertices)
     n = len(next(iter(w.values())))
     tint = np.ones((n_all, 4))
@@ -303,7 +334,8 @@ def mark(ob):
     me.attributes.new(TINT, "FLOAT_VECTOR", "POINT").data.foreach_set("vector", tint[:, :3].astype(np.float32).ravel())
     me.attributes.new(OIL, "FLOAT", "POINT").data.foreach_set("value", rough.astype(np.float32))
     return {"regions": {k: round(float((v > 0.5).sum()), 0) for k, v in w.items()},
-            "t_zone": int((extra["t_zone"] > 0.5).sum()), "limb": int((extra["limb"] > 0.5).sum()), "notes": notes}
+            "t_zone": int((extra["t_zone"] > 0.5).sum()), "limb": int((extra["limb"] > 0.5).sum()), "notes": notes,
+            "pale": pale}
 
 
 def seed_of(name):
@@ -596,10 +628,12 @@ def contrast(tones, plain):
 
 def contrast_fails(c):
     """What in a `contrast` report is under CONTRAST_FLOOR: ["knee: dE 2.96 < 5.0", "palm: redder than skin
-    (rg 1.04)", ...]. A floored region the body has no texels of is not judged."""
+    (rg 1.04)", ...]. A floored region the body has no texels of fails too ("knee: no texels"): a mask that lost a
+    region must not pass by being absent. (Only a body with region marks gets a `contrast` report at all.)"""
     fails = []
     for k, (way, floor) in CONTRAST_FLOOR.items():
         if k not in c:
+            fails.append(f"{k}: no texels")
             continue
         r = c[k]
         if r["dE"] < floor:
