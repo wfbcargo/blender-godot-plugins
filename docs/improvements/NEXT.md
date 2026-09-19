@@ -29,9 +29,9 @@ Installed copies in `~/.claude/skills` match the repo. **This is the one list of
 here and nowhere else:
 - rig-anything 0.26.0
 - animate-anything 0.10.1
-- follow-through 0.9.0
+- follow-through 0.10.0
 - humanform 0.12.0
-- character-pipeline 0.13.0
+- character-pipeline 0.14.0
 - wardrobe 0.5.2
 - lookdev 0.7.0
 - godot-lsp 0.1.0
@@ -180,6 +180,13 @@ amplitude on every body. The 0.98 jiggle-share cap closes B+C's re-run item. Cri
 course stays over its 10 % line for the cast (D did not fix it); walking in phase 0.69-0.85 against people's 0.66;
 running amplitude ~6 cm against ~15 cm, bounded by the limits; E's lag and mass-scaled response. Notebook:
 [flesh-spring](notebooks/flesh-cast/flesh-spring.md). Shipped: grungist-creek rebuilt (cast, study figures, Belle), selftests and verify_flesh 24/24. Remaining flesh item: F (spec overrides, Marco's belly).
+
+**F: done** (branch `flesh-overrides`, character-pipeline 0.14.0, follow-through 0.10.0, merged 2026-09-19). A spec's
+`[flesh] overrides` sets jiggle parameters per type or region. The belly's zone stops at 0.6 of the span and it hangs
+from the lower ribs, so it no longer takes a man's chest (the research's cause 2); it ships limit_share 0.6. Marco's
+belly is back at 4.5 Hz / 0.6 (1.2 cm walking, 1.3 running). Critic: pass. Open: study_woman's belly missed by
+0.0001 m (may_miss stays); an empty above-apex window reads 0.0; registry.define lacks the attach keys. Notebook:
+[flesh-overrides](notebooks/flesh-cast/flesh-overrides.md). **All of research-flesh-jiggle.md's A-G are now done.**
 
 Also seen: garments are cut from the skin, so Ruth's long-sleeve top shows her nipples through it (a smoothing pass
 on the cut surface).
