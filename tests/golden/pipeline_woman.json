@@ -1039,20 +1039,20 @@
   "skin": {
    "body_tone": [
     0.63,
-    0.44,
-    0.35
+    0.45,
+    0.36
    ],
    "detail": "pores",
    "godot_sss": true,
    "lips_tone": [
-    0.59,
+    0.58,
     0.35,
     0.29
    ],
    "lookdev_preset": "skin",
    "nipple_tone": [
-    0.53,
-    0.33,
+    0.52,
+    0.32,
     0.25
    ],
    "size": 2048,
