@@ -1,5 +1,11 @@
 # Flesh jiggle: what is wrong and what correct looks like
 
+**Status 2026-09-19: A-G are all done, merged and shipped** (follow-through 0.7.0-0.10.0, character-pipeline
+0.13.0-0.14.0, wardrobe 0.5.2). What each became, what the critics found and what is still open: NEXT.md "The cast
+demo" and the notebooks in [notebooks/flesh-cast/](notebooks/flesh-cast/). Two findings changed the plan: E's premise
+("4-5 mm walking") was out of date after B+C, and mass scaling ships off because the swing limit, not the spring,
+bounds amplitude; F needed the belly's zone and attachment fixed before an override could help Marco.
+
 2026-09-18, from the user's review of `grungist-creek/cast_demo.tscn` ("jiggle on their mouths", "Marco's chest and
 stomach jiggle together, way too much", "breasts and butts don't feel correctly weighted - attachment point and weight
 distribution"). Two subagents: a research pass (web sources, and measurements in the built blends and glbs) and a

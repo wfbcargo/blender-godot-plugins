@@ -1,20 +1,48 @@
-# Next: realism on the figure study
+# Next: realism on the figure study (flesh round done; skin or motion next)
 
 A handoff for a fresh conversation. Start with:
 
-> Read `docs/improvements/NEXT.md`, then plan the next step of "The realism work" below and run it with
-> the `plugin-round` workflow (see "Running the next session").
+> Read `docs/improvements/NEXT.md`, ask which step to take next (it lists the choices), plan it, and run it the
+> way the flesh round ran (one branch at a time, an independent critic each) - or with the `plugin-round` workflow
+> if the user asks for multi-agent orchestration (see "Running the next session").
 
 **The goal of all this work:** tools that make a new human asset from a brief **in under 30 seconds** and
 have it **look great** in Godot. The study figures are the test bench; the scoreboard is the benchmark
 (below): three brand-new characters built cold from their briefs, timed, and judged by an independent critic.
 Every round's ship step runs it, and every plan should say which of the two numbers it moves.
 
-State as of 2026-09-18, after realism Step 0.5 and Step 1 (hair) shipped. Everything is pushed: this
-repo's `main` and `grungist-creek`'s `master` (the rebuilt figures and Belle). The parked branch
-`fig-genital-anatomy` (`94ac682`) is pushed and still has its worktree at `.worktrees/fig-genital-anatomy`.
-There are no other worktrees or open branches. Step 2 (skin) is next; Step 1's leftovers (the short cap's
-volume and colour, `long_loose`) are listed under it.
+State as of 2026-09-19. **The flesh round from the user's cast-demo review is done and shipped**: all seven plugin
+changes (A-G) of [research-flesh-jiggle.md](research-flesh-jiggle.md) are merged, installed and in the game (see "The
+cast demo" below for what each did). Everything is pushed: this repo's `main` and `grungist-creek`'s `master`. The
+parked branch `fig-genital-anatomy` (`94ac682`) still has its worktree at `.worktrees/fig-genital-anatomy`; there are
+no other worktrees or open branches. `~/.claude/skills` and the game's addons match `main`.
+
+**Where to pick up - the user chooses** (ask, don't assume):
+- **Step 2 - skin** (the next step in "The realism work" order): regional tone and redness, forehead and lip gloss,
+  overcast exposure and specular, the orange finger-web edges.
+- **Step 5 - motion**: the one item of the user's cast review not yet started - "walking and running are very stiff".
+- Smaller open flesh items (below, under each branch): the jump-only course over its 10 % on-limit line for the cast
+  (10.2-11.4 %), walking in phase 0.69-0.85 against people's 0.66, study_woman's belly missed by 0.0001 m, the
+  attachment check reading 0.0 on an empty window.
+
+**How the flesh round was run** (2026-09-18/19, one main session, no `plugin-round` workflow - the user had not opted
+into multi-agent orchestration): one branch at a time in its own worktree, a scratch game from
+`tools/scratch_project.py`, `regress --quick --jobs 4 --godot <scratch game>`, goldens re-recorded with
+`--update --twice`, then **one independent critic subagent per branch** answering done-when questions written before
+it started, fixes, a second critic look when the fix touched code, merge, install, rebuild the six figures in the
+game (study_man, study_woman, the cast, Belle), `--import`, the four demo selftests and verify_flesh (full course, and
+walk/run/jump with `require=within_body`). Every branch's critic caught something real - a crash, a control that had
+lost its teeth, a claim the evidence did not support. Keep that step. Lessons that cost time this round:
+- **Re-import after rebuilding glbs**: a Godot project plays its cached import until `--headless --import` runs; the
+  first D measurement matched the baseline to the last digit because of it.
+- **Never bump a version while regress runs**: the stage hashes move mid-fixture and it refuses (`BuildRefused`).
+- **A control can go blind when the thing it leans on moves**: the 0.98 jiggle cap made two controls stop failing.
+  Prefer a control that tests the mechanism directly over one that depends on a body's exact weights.
+- **Probe before tuning**: a 30-line Blender probe on the saved blend (`remove_jiggle_weights`, `find_regions`,
+  `check_placement`, or a bust/seat landmark) settled every placement question faster than rebuilding.
+- **Blender's Python needs C:/ paths**: a git-bash `/c/...` path in a probe script fails the import.
+- Mei's full build still stops at review on the `hand_back.L` off_body false alarm: build her with `to=export`.
+- A Godot selftest rewrites `assets/wardrobe/nora.walk.json` (whitespace only): restore it before committing.
 
 Read these first, in this order:
 1. The repo's `CLAUDE.md`: worktrees, scratch folders, the regression harness, install and version rules, gotchas.
