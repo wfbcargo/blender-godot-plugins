@@ -226,45 +226,268 @@ static func set_properties(mat: Material, props: Dictionary) -> void:
 
 
 static var _detail_cache := {}
+## What each detail spec cost to make, by its JSON: {"ms": generation time, "bytes": texture memory with mips,
+## "tile_px", "albedo_mean": the detail albedo's mean multiplier on the skin's linear colour (1 = unchanged)}.
+static var last_detail := {}
 
 
 ## A seamless pore normal map: cellular noise (distance to the nearest cell centre, so every cell centre is a
 ## pit) turned into a tangent-space normal map. Cached per spec, so every skin material with the same detail
 ## shares one texture.
+##
+## A spec with `coarse_cells` adds a second, coarser octave (see `_detail_maps`): pores alone (0.3 mm on the face)
+## are finer than a pixel at 1 m, and box-filtered mips average them to a flat normal, so past the eyes tile they
+## were gone.
 static func detail_normal(d: Dictionary) -> Texture2D:
-	var key := JSON.stringify(d)
+	var key := _detail_key(d)
 	if _detail_cache.has(key):
 		return _detail_cache[key]
+	if d.has("coarse_cells"):
+		return _detail_maps(d)["normal"]
+	var t0 := Time.get_ticks_usec()
 	var px := int(d.get("tile_px", 256))
-	var noise := FastNoiseLite.new()
-	noise.noise_type = FastNoiseLite.TYPE_CELLULAR
-	noise.seed = int(d.get("seed", 0))
-	noise.frequency = float(d.get("cells", 48)) / float(px)
-	noise.fractal_type = FastNoiseLite.FRACTAL_NONE
-	noise.cellular_return_type = FastNoiseLite.RETURN_DISTANCE
+	var noise := _pore_noise(d, px, int(d.get("seed", 0)))
 	var img := noise.get_seamless_image(px, px, false, false, 0.1, true)
 	img.convert(Image.FORMAT_RGBA8)
 	img.bump_map_to_normal_map(float(d.get("bump", 3.0)))
 	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
 	_detail_cache[key] = tex
+	last_detail[key] = {"ms": (Time.get_ticks_usec() - t0) / 1000.0, "bytes": img.get_data().size(), "tile_px": px,
+		"albedo_mean": 1.0}
 	return tex
 
 
+## The detail albedo: white with alpha `strength` (Godot mixes the detail normal in by that alpha), or, for a
+## spec with `coarse_cells`, the coarse octave's furrows as a darkening (`cavity`).
+static func detail_albedo(d: Dictionary) -> Texture2D:
+	if d.has("coarse_cells"):
+		return _detail_maps(d)["albedo"]
+	var a := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	a.fill(Color(1, 1, 1, clampf(float(d.get("strength", 0.35)), 0.0, 1.0)))
+	return ImageTexture.create_from_image(a)
+
+
+static func _pore_noise(d: Dictionary, px: int, seed: int) -> FastNoiseLite:
+	var noise := FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_CELLULAR
+	noise.seed = seed
+	noise.frequency = float(d.get("cells", 48)) / float(px)
+	noise.fractal_type = FastNoiseLite.FRACTAL_NONE
+	noise.cellular_return_type = FastNoiseLite.RETURN_DISTANCE
+	return noise
+
+
+## Two octaves in one tile, for a spec with `coarse_cells`:
+## - the pores, as before: `cells` per tile of seeded cellular noise, pits at the cell centres;
+## - a coarse octave (`_coarse`): `coarse_cells` per tile of larger, sparser pits of random depth, with shallow
+##   furrows between them - the open pores and the micro-relief lines that still cover a pixel or two at 1 m.
+##   At full body it is under a pixel and its mips average it away smoothly (it is made periodic, not
+##   cross-faded like the pores, so no seam line repeats across the body).
+## Height = (1 - coarse_weight) * pores + coarse_weight * coarse; the normal comes from it at `bump`. The
+## albedo multiplies the skin's linear colour by 1 - cavity * (1 - coarse) / strength, so after Godot's mix
+## at `strength` the coarse pits darken it by `cavity` at their deepest - which is what makes the grain show in
+## diffuse light, not only in the highlights. Mips of both are box-filtered; the normal's are renormalised.
+static func _detail_maps(d: Dictionary) -> Dictionary:
+	var key := _detail_key(d)
+	if _detail_cache.has(key + "|maps"):
+		return _detail_cache[key + "|maps"]
+	var t0 := Time.get_ticks_usec()
+	var px := int(d.get("tile_px", 512))
+	var grid := int(d.get("coarse_px", 128))
+	var cells := int(d.get("coarse_cells", 16))
+	var seed := 0 if bool(d.get("shared", false)) else int(d.get("seed", 0))
+	var strength := clampf(float(d.get("strength", 0.35)), 0.01, 1.0)
+	var wc := clampf(float(d.get("coarse_weight", 0.5)), 0.0, 1.0)
+	var coarse := _coarse(grid, cells, float(d.get("pit", 0.3)), float(d.get("furrow", 0.2)),
+		float(d.get("furrow_depth", 0.4)), seed + 7919)
+	# height = (1 - wc) * pores + wc * coarse: the coarse octave, scaled up to the tile with alpha wc, blended over
+	var cb: PackedByteArray = coarse.get_data()
+	var la := PackedByteArray()
+	la.resize(grid * grid * 2)
+	var aw := int(round(255.0 * wc))
+	for i in grid * grid:
+		la[i * 2] = cb[i]
+		la[i * 2 + 1] = aw
+	var over := _upscale_wrapped(Image.create_from_data(grid, grid, false, Image.FORMAT_LA8, la), px)
+	over.convert(Image.FORMAT_RGBA8)
+	var height := _pore_noise(d, px, seed).get_seamless_image(px, px, false, false, 0.1, true)
+	height.convert(Image.FORMAT_RGBA8)
+	height.blend_rect(over, Rect2i(0, 0, px, px), Vector2i.ZERO)
+	height.bump_map_to_normal_map(float(d.get("bump", 3.0)))
+	height.generate_mipmaps(true)
+	height = _fade_mips(height, float(px) / cells, [128, 128, 255, 255])
+	# the albedo cavity, at the coarse octave's own size (its pits are 8 texels across there)
+	var k := float(d.get("cavity", 0.0)) / strength
+	var lut := PackedByteArray()
+	lut.resize(256)
+	var mul := PackedFloat32Array()        # the linear multiplier each coarse value stands for
+	mul.resize(256)
+	for v in 256:
+		var m := clampf(1.0 - k * (1.0 - v / 255.0), 0.0, 1.0)
+		mul[v] = m
+		lut[v] = _srgb_code(m)             # a source_color texture: the sRGB code of the linear multiplier
+	var a8 := int(round(255.0 * strength))
+	var ab := PackedByteArray()
+	ab.resize(grid * grid * 4)
+	var lin_sum := 0.0
+	for i in grid * grid:
+		var g := lut[cb[i]]
+		var j := i * 4
+		ab[j] = g
+		ab[j + 1] = g
+		ab[j + 2] = g
+		ab[j + 3] = a8
+		lin_sum += mul[cb[i]]
+	var mean_mul := lin_sum / (grid * grid)
+	var albedo := Image.create_from_data(grid, grid, false, Image.FORMAT_RGBA8, ab)
+	albedo.generate_mipmaps()
+	var mc := _srgb_code(mean_mul)
+	albedo = _fade_mips(albedo, float(grid) / cells, [mc, mc, mc, a8])
+	var maps := {"normal": ImageTexture.create_from_image(height), "albedo": ImageTexture.create_from_image(albedo)}
+	_detail_cache[key + "|maps"] = maps
+	_detail_cache[key] = maps["normal"]
+	last_detail[key] = {"ms": (Time.get_ticks_usec() - t0) / 1000.0, "tile_px": px, "albedo_px": grid,
+		"bytes": height.get_data().size() + albedo.get_data().size(),
+		# mean linear multiplier after Godot's mix at `strength`
+		"albedo_mean": 1.0 - strength * (1.0 - mean_mul)}
+	return maps
+
+
+## The cache key of a detail spec: its JSON, without the seed when the spec is `shared` (one texture for every
+## body, however many there are; the pattern tiles every 2-5 cm, so no one can tell two bodies share it).
+static func _detail_key(d: Dictionary) -> String:
+	if bool(d.get("shared", false)) and d.has("seed"):
+		var e := d.duplicate()
+		e.erase("seed")
+		return JSON.stringify(e)
+	return JSON.stringify(d)
+
+
+static func _srgb_code(m: float) -> int:
+	var s := 12.92 * m if m <= 0.0031308 else 1.055 * pow(m, 1.0 / 2.4) - 0.055
+	return clampi(int(round(255.0 * s)), 0, 255)
+
+
+## `img` with each mip level past the one where a coarse cell spans 3 texels faded towards `flat` (RGBA bytes):
+## all the way by the level where it spans 1.5. A box-filtered mip of a pattern at 1-2 texels a cell is no longer
+## its average but an aliased remnant of it, and on a body at full-body distance (mip 5) that remnant crawls as the
+## camera moves: this is the shimmer a coarser octave would otherwise add. The levels a face at 1 m samples
+## (mip 3, a cell over 5 texels) keep all of it.
+static func _fade_mips(img: Image, cell_px: float, flat: Array) -> Image:
+	var data := img.get_data()
+	var w := img.get_width()
+	for level in range(1, img.get_mipmap_count() + 1):
+		var span := cell_px / pow(2.0, level)
+		var t := clampf((span - 1.5) / 1.5, 0.0, 1.0)
+		var keep := t * t * (3.0 - 2.0 * t)
+		if keep >= 1.0:
+			continue
+		var lw := maxi(1, w >> level)
+		var off := img.get_mipmap_offset(level)
+		for i in lw * lw:
+			var j := off + i * 4
+			for c in 4:
+				data[j + c] = int(round(flat[c] + (data[j + c] - flat[c]) * keep))
+	return Image.create_from_data(w, img.get_height(), true, img.get_format(), data)
+
+
+## The coarse octave: a periodic Voronoi pattern, `cells` x `cells` on a `grid` px tile. Each cell has a pit at its centre, `pit` of a cell in
+## radius and of a random depth (0.3-1, so no two neighbours match and no lattice shows), and its borders are
+## furrows `furrow` of a cell wide at `furrow_depth`. 1 is the flat skin between them, 0 the deepest point.
+static func _coarse(grid: int, cells: int, pit: float, furrow: float, furrow_depth: float, seed: int) -> Image:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
+	var cs := float(grid) / cells
+	var fx := PackedFloat32Array()
+	var fy := PackedFloat32Array()
+	var depth := PackedFloat32Array()
+	fx.resize(cells * cells)
+	fy.resize(cells * cells)
+	depth.resize(cells * cells)
+	for i in cells * cells:
+		fx[i] = ((i % cells) + 0.1 + 0.8 * rng.randf()) * cs
+		fy[i] = ((i / cells) + 0.1 + 0.8 * rng.randf()) * cs
+		depth[i] = 0.3 + 0.7 * rng.randf()
+	var bytes := PackedByteArray()
+	bytes.resize(grid * grid)
+	var pit_px := maxf(pit * cs, 1e-3)
+	var furrow_px := maxf(furrow * cs, 1e-3)
+	for y in grid:
+		var cy := int(y / cs)
+		var py := y + 0.5
+		for x in grid:
+			var cx := int(x / cs)
+			var p_x := x + 0.5
+			var f1 := 1e9
+			var f2 := 1e9
+			var q1 := 0
+			for oy in range(-1, 2):
+				var gy := cy + oy
+				var wy := posmod(gy, cells)
+				var sy := (gy - wy) * cs       # the wrapped cell's offset back into this tile's frame
+				for ox in range(-1, 2):
+					var gx := cx + ox
+					var wx := posmod(gx, cells)
+					var sx := (gx - wx) * cs
+					var q := wy * cells + wx
+					var dx := p_x - (fx[q] + sx)
+					var dy := py - (fy[q] + sy)
+					var dd := sqrt(dx * dx + dy * dy)
+					if dd < f1:
+						f2 = f1
+						f1 = dd
+						q1 = q
+					elif dd < f2:
+						f2 = dd
+			var tp := clampf(f1 / pit_px, 0.0, 1.0)
+			var tf := clampf((f2 - f1) / furrow_px, 0.0, 1.0)
+			var h := 1.0 - depth[q1] * (1.0 - tp * tp * (3.0 - 2.0 * tp)) - furrow_depth * (1.0 - tf * tf * (3.0 - 2.0 * tf))
+			bytes[y * grid + x] = int(round(255.0 * clampf(h, 0.0, 1.0)))
+	return Image.create_from_data(grid, grid, false, Image.FORMAT_L8, bytes)
+
+
+## A periodic tile scaled up to `px` (cubic), with a wrapped margin round it so the filter sees the neighbours
+## across the edges and the tile still meets itself.
+static func _upscale_wrapped(base: Image, px: int) -> Image:
+	var grid := base.get_width()
+	if px == grid:
+		return base
+	var m := 4
+	var big := Image.create(grid + 2 * m, grid + 2 * m, false, base.get_format())
+	for oy in range(-1, 2):
+		for ox in range(-1, 2):
+			big.blit_rect(base, Rect2i(0, 0, grid, grid), Vector2i(m + ox * grid, m + oy * grid))
+	var s := float(px) / grid
+	big.resize(int(round((grid + 2 * m) * s)), int(round((grid + 2 * m) * s)), Image.INTERPOLATE_CUBIC)
+	return big.get_region(Rect2i(int(round(m * s)), int(round(m * s)), px, px))
+
+
 ## The detail layer on `mat`: the pore normal, mixed into the material's own normal map at `strength` (Godot
-## mixes detail normals by the detail albedo's alpha, so a white detail albedo with that alpha, multiplied in,
+## mixes detail normals by the detail albedo's alpha: a white detail albedo with that alpha, multiplied in,
 ## leaves the colour alone), tiled `uv2_scale` times across UV2.
+##
+## Godot's mix is a lerp of the two maps' colours, so it also takes `strength` off the material's own normal
+## map (the baked body relief): a spec with `keep_base` divides `normal_scale` by 1 - strength to give it back,
+## and lifts `albedo_color` by the inverse of the cavity's mean darkening, so the baked tone stays the tone.
 static func set_detail(mat: BaseMaterial3D, d: Dictionary, has_uv2 := true) -> void:
 	if str(d.get("normal", "")) != "pores":
 		push_warning("lookdev: %s asks for detail '%s', which this addon does not make" % [mat.resource_name, d.get("normal")])
 		return
-	var a := Image.create(4, 4, false, Image.FORMAT_RGBA8)
-	a.fill(Color(1, 1, 1, clampf(float(d.get("strength", 0.35)), 0.0, 1.0)))
 	mat.detail_enabled = true
 	mat.detail_blend_mode = BaseMaterial3D.BLEND_MODE_MUL
 	mat.detail_uv_layer = BaseMaterial3D.DETAIL_UV_2
-	mat.detail_albedo = ImageTexture.create_from_image(a)
+	mat.detail_albedo = detail_albedo(d)
 	mat.detail_normal = detail_normal(d)
+	if bool(d.get("keep_base", false)):
+		if mat.normal_texture != null:
+			mat.normal_scale = mat.normal_scale / maxf(0.05, 1.0 - clampf(float(d.get("strength", 0.35)), 0.0, 1.0))
+		# the cavity darkens on average (a detail albedo can only multiply by 1 or less): lift the base colour by
+		# the inverse of that mean, in linear, so the skin keeps the tone it was baked to
+		var mean := float(last_detail.get(_detail_key(d), {}).get("albedo_mean", 1.0))
+		if mean > 0.5 and mean < 1.0:
+			var lin := mat.albedo_color.srgb_to_linear()
+			mat.albedo_color = Color(lin.r / mean, lin.g / mean, lin.b / mean, lin.a).linear_to_srgb()
 	mat.normal_enabled = true
 	var s := float(d.get("uv2_scale", 80.0))
 	if has_uv2:

@@ -10,6 +10,8 @@
 //   node lookdev.mjs tone     --project <dir> --glb <file.glb> [--material skin]
 //   node lookdev.mjs selftest --project <dir>   (the controls: every check here must be able to fail)
 //   node lookdev.mjs stipple  <png> [--region x,y,w,h]   (a dithered lattice in shadowed skin; no Godot)
+//   node lookdev.mjs edges    --project <dir> --glb res://x.glb   (lines a skin's transmittance draws)
+//   node lookdev.mjs grain    <png> [--region cheek] [--min pct] [--max pct]   (fine skin texture in a patch; no Godot)
 //   node lookdev.mjs stripes  <png> [--mask m.png --band px]   (shadow-acne bands on a smooth floor; no Godot)
 //   node lookdev.mjs tone-shift <close-shot dir> [--from clear_midday --to overcast]   (skin keeps its hue; no Godot)
 //
@@ -26,8 +28,10 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { stippleCommand } from "./stipple.mjs";
+import { edgesCommand } from "./edges.mjs";
 import { stripesCommand, stripes, maskExclude, STRIPE_LIMITS } from "./stripes.mjs";
 import { readPNG } from "./png.mjs";
+import { grainCommand } from "./grain.mjs";
 import { toneShift, printToneShift, toneShiftCommand } from "./toneshift.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -42,7 +46,7 @@ const THRESHOLDS = path.join(ROOT, "presets", "thresholds.json");
 // ---------------------------------------------------------------- arguments
 
 function parseArgs(argv) {
-  const out = { _: [], set: [] };
+  const out = { _: [], set: [], "material-set": [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (!a.startsWith("--")) {
@@ -55,6 +59,10 @@ function parseArgs(argv) {
     if (key === "set") {
       if (!hasValue) die("--set needs target:property=value");
       out.set.push(next);
+      i++;
+    } else if (key === "material-set") {
+      if (!hasValue) die("--material-set needs property=value");
+      out["material-set"].push(next);
       i++;
     } else if (hasValue) {
       out[key] = next;
@@ -685,6 +693,30 @@ function glbPath(glb, project) {
   return fwd(abs);
 }
 
+// --material-set property=value (repeatable): set on the glb's lookdev materials of --material-preset
+// (default skin) after LookdevMaterials.apply - a probe, and the way a control restores an old setting.
+export function materialSet(list) {
+  const out = {};
+  for (const item of list ?? []) {
+    const eq = String(item).indexOf("=");
+    if (eq < 1) die(`--material-set wants property=value, not '${item}'`);
+    out[String(item).slice(0, eq)] = parseSetValue(String(item).slice(eq + 1));
+  }
+  return out;
+}
+
+// --sun-elevation / --sun-azimuth (degrees): every preset's sun comes from there instead.
+function sunOverride(args) {
+  const sun = {};
+  for (const k of ["elevation", "azimuth"]) {
+    if (args[`sun-${k}`] === undefined) continue;
+    const v = Number(args[`sun-${k}`]);
+    if (!Number.isFinite(v)) die(`--sun-${k} must be degrees`);
+    sun[k] = v;
+  }
+  return sun;
+}
+
 async function closeShot(args) {
   const project = findProject(args);
   const godot = findGodot(args, project);
@@ -740,6 +772,9 @@ async function closeShot(args) {
     sheet_tile: Number(args["sheet-tile"] ?? 384),
     warmup_frames: Number(args.warmup ?? 45),
     view_frames: Number(args["view-frames"] ?? 24),
+    material_set: materialSet(args["material-set"]),
+    material_preset: String(args["material-preset"] ?? "skin"),
+    sun: sunOverride(args),
   };
   const specPath = path.join(outDir, "spec.json");
   fs.writeFileSync(specPath, JSON.stringify(spec, null, 2));
@@ -944,6 +979,33 @@ async function selftest(args) {
     const said = firstLine(st.out, /STIPPLE|clean/);
     check(`stipple on ${png} ${want ? "reports the lattice" : "is clean"}`, want ? st.code === 1 && /STIPPLE/.test(st.out) : st.code === 0 && /clean/.test(st.out), said.slice(0, 160));
   }
+  // edges: study_woman's fingers (hand_back.R, clear_midday) rendered with and without transmittance - with
+  // humanform <= 0.12's skin (skin mode, 1 cm, full strength) they must draw lines; at 3 cm and 0.2 not
+  for (const [pair, want] of [["main", true], ["fixed", false]]) {
+    const c = (s) => fwd(path.join(HERE, "controls", `edges_fingers_${pair}_${s}.png`));
+    const ed = await runSelf(["edges", "--on", c("on"), "--off", c("off")], 120);
+    const said = firstLine(ed.out, /EDGE_LINES|lines/);
+    check(`edges on the fingers (${pair === "main" ? "humanform 0.12's transmittance" : "3 cm, strength 0.2"}) ${want ? "reports lines" : "is clean"}`,
+      want ? ed.code === 1 && /EDGE_LINES/.test(ed.out) : ed.code === 0 && /clean/.test(ed.out), said.slice(0, 160));
+  }
+  // edges --kind specular: study_man's fingertips (hand_back.L, overcast) with and without the specular - with
+  // humanform <= 0.14's glossy nail (0.30) a pale crescent at each tip; with the nail at 0.55 none
+  for (const [pair, want] of [["main", true], ["fixed", false]]) {
+    const c = (s) => fwd(path.join(HERE, "controls", `pale_fingers_${pair}_${s}.png`));
+    const ed = await runSelf(["edges", "--kind", "specular", "--on", c("on"), "--off", c("off")], 120);
+    const said = firstLine(ed.out, /PALE_LINES|lines/);
+    check(`edges --kind specular on the fingertips (${pair === "main" ? "humanform 0.14's nail" : "nail 0.55"}) ${want ? "reports pale lines" : "is clean"}`,
+      want ? ed.code === 1 && /PALE_LINES/.test(ed.out) : ed.code === 0 && /clean/.test(ed.out), said.slice(0, 160));
+  }
+
+  // grain: the cheek of the face tile at 1 m. The two-octave skin detail passes; main's pores (mipped away to a
+  // flat normal) and no detail at all are too smooth; the pores sampled without mips fill the band but are noise.
+  for (const [png, want, re] of [["grain_cheek_branch.png", true, /^\s*ok\s*$/m], ["grain_cheek_main.png", false, /SMOOTH/],
+    ["grain_cheek_off.png", false, /SMOOTH/], ["grain_cheek_nomips.png", false, /NOISY/]]) {
+    const gr = await runSelf(["grain", fwd(path.join(HERE, "controls", png)), "--min", "0.40", "--max-finest", "2.0"], 120);
+    const said = firstLine(gr.out, /grain \d/);
+    check(`grain on ${png} ${want ? "passes" : `fails ${re.source}`}`, want ? gr.code === 0 && re.test(gr.out) : gr.code === 1 && re.test(gr.out), said.slice(0, 160));
+  }
 
   // tone-shift: study_man's full tiles as lookdev 0.7.0 rendered them (overcast turned him muddy: hue -4.3 deg,
   // saturation -17%) must fail; the same figure under 0.9.0's overcast must pass (the fail is specific)
@@ -1088,11 +1150,17 @@ const USAGE = `lookdev - lighting and shading tools for Godot
            [--clip Idle] [--time 0] [--garments a.glb,b.glb] [--no-strands] [--size 640] [--out dir] [--json]
            [--pair-blender <Blender close dir>] [--min-subject 0.08] [--min-coverage 0.03]
            [--aim-offset view=x,y,z[;view=x,y,z]] [--label above|inside] [--presets-file presets.json]
+           [--material-set prop=value]... [--material-preset skin] [--sun-elevation deg] [--sun-azimuth deg]
            a full tile also fails SKIN_PAST_WHITE (figure past diffuse white) and FLOOR_STRIPES (shadow acne)
+  edges    --project <dir> --glb <res://|path> [--kind transmittance|specular] [--views hands] [--presets clear_midday,overcast] [--limit 0.1]
+           [--material-set prop=value]... [--min-glow v --glow-views head_back] [--out dir] [--json]
+           | --on <png> --off <png> [--subject <png>]   exit 1 when transmittance (EDGE_LINES) or, --kind specular, the specular (PALE_LINES) draws lines on the skin
   tone     --project <dir> --glb <res://|path> [--material skin] [--expect r,g,b] [--json]
   selftest --project <dir> [--glb <rigged character>]   run the controls (each must fail)
   compare  --project <dir> --a <png|capture dir> --b <png|capture dir> [--views lit,unshaded] [--out dir]
   stipple  <png> [--region x,y,w,h | fx,fy,fw,fh] [--out crop.png] [--json]   exit 1 when shadowed skin stipples
+  grain    <png> [--region x,y,w,h | fx,fy,fw,fh | cheek] [--min pct] [--max pct] [--out crop.png] [--json]
+           fine texture in a skin patch (high-pass luma RMS / mean, %); exit 1 outside --min/--max
   stripes  <png> [--region ...] [--mask figure_mask.png --band px] [--json]    exit 1 when a smooth surface bands
   tone-shift <close-shot dir> [--from clear_midday] [--to overcast] [--view full] [--max-hue 3] [--max-sat 0.15] [--json]
            exit 1 when the figure's mean skin hue or saturation moves between the two presets
@@ -1104,7 +1172,9 @@ Godot binary: --godot <path>, LOOKDEV_GODOT, GODOT_PATH, or the project's .mcp.j
 const args = parseArgs(process.argv.slice(2));
 const cmd = args._[0];
 const commands = { capture, lint, preset, compare, presets: listPresets, "close-shot": closeShot, tone, selftest,
-  stipple: (a) => stippleCommand(a, die), stripes: (a) => stripesCommand(a, die),
+  stipple: (a) => stippleCommand(a, die), edges: (a) => edgesCommand(a, { die, runSelf, fwd }),
+  grain: (a) => grainCommand(a, die),
+  stripes: (a) => stripesCommand(a, die),
   "tone-shift": (a) => toneShiftCommand(a, die) };
 if (!cmd || args.help || !commands[cmd]) {
   console.log(USAGE);

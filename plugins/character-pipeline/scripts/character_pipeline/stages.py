@@ -903,7 +903,8 @@ def flesh_manifest(ch):
 
 def skin_manifest(ch):
     """The manifest's `skin` block: how the skin shipped, read from the skin material in the file (humanform's
-    `humanform_skin` record), not from a stage report - `{stage, map_px, tone_ok, tone_error, regions}`.
+    `humanform_skin` record), not from a stage report - `{stage, map_px, tone_ok, tone_error, regions, contrast,
+    contrast_ok, roughness}`.
     `stage` is "baked" (maps of `map_px` square), "flat" (no maps: the bake failed or lookdev was absent, with
     its `error`) or "marked" (an unbaked MPFB body). None when the body has no skin material of humanform's."""
     mat = bpy.data.materials.get(f"{ch.name}_skin")
@@ -920,6 +921,16 @@ def skin_manifest(ch):
     if rec.get("regions"):
         # each marked region's tone in the baked albedo (sRGB): a bake that lost the marks has them all equal
         out["regions"] = {str(k): [round(float(x), 3) for x in v] for k, v in dict(rec["regions"]).items()}
+    if rec.get("contrast"):
+        # each region against plain skin in the baked albedo: CIELAB dE, lightness and red/green (humanform 0.14.0),
+        # and whether every floored region reached humanform's CONTRAST_FLOOR (the failures listed when not)
+        out["contrast"] = {str(k): {str(a): float(b) for a, b in dict(v).items()} for k, v in dict(rec["contrast"]).items()}
+        out["contrast_ok"] = bool(rec.get("contrast_ok"))
+        if rec.get("contrast_fail"):
+            out["contrast_fail"] = [str(x) for x in rec["contrast_fail"]]
+    if rec.get("roughness"):
+        # the baked roughness over each region's texels, the T-zone's and plain skin's
+        out["roughness"] = {str(k): round(float(v), 3) for k, v in dict(rec["roughness"]).items()}
     if rec.get("error"):
         out["error"] = str(rec["error"])
     return out

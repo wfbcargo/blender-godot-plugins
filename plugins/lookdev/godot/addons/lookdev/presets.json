@@ -4,6 +4,7 @@
     "clear_midday": {
       "kind": "day",
       "description": "Clear sky, high sun. Hard shadows, cool blue fill, warm-white key.",
+      "_clear_midday": "lookdev 0.11.0: exposure 0.94, metered on the 18% probe (key 1.008; 1.0 read key 1.073 with median display luma 0.61 and the grey probe 0.62, both over the day limits). close-shot's backdrop left GI in 0.9.0, so the stage no longer hides the sky and the old half-stop of extra key showed as study_woman past white on the shoulders and upper chest (1.42% of the figure, limit 1%; 0.01% at 0.94).",
       "sun": {
         "soft_shadow_filter_quality": 4,
         "elevation": 58,
@@ -52,7 +53,7 @@
         "fog_sky_affect": 0.2,
         "fog_sun_scatter": 0.05
       },
-      "environment_relative": { "tonemap_exposure": 1.0 },
+      "environment_relative": { "tonemap_exposure": 0.94 },
       "environment_physical": { "background_intensity": 30000.0 },
       "camera_physical": { "exposure_aperture": 16.0, "exposure_shutter_speed": 60.0, "exposure_sensitivity": 100.0 }
     },
@@ -262,5 +263,5 @@
       "camera_physical": { "exposure_aperture": 1.4, "exposure_shutter_speed": 4.0, "exposure_sensitivity": 3200.0 }
     }
   },
-  "_calibration": "Calibrated in Godot 4.7.2 (Forward+, D3D12) with lookdev capture --probes. Exteriors on an open ground plane, interior_daylight in a 8x6x3 m room with one 2x1.6 m window. Relative mode: clear_midday key 1.06 / key-fill 2.5 stops; golden_hour 0.58 / 3.4 (tonemap_exposure 0.7: exposed half a stop under the key; on the figure stage with study_woman, capture median luma 0.47); overcast 0.60 / 0.3 (lookdev 0.9.0: exposure 0.75, grey probe 0.56 display; 1.0 read 0.60, over the 0.58 limit); night 0.20 / 3.1; interior median display luma ~0.25. Physical mode: clear_midday key 1.20 / 2.3; golden_hour ~1.0 / ~2.3 (0.61 / 3.2 re-measured on the figure stage with study_woman); overcast ~0.7 / 1.1 (measured before 0.9.0, not re-measured); night 0.17 / 3.0; interior median ~0.43. Godot's physical exposure lands about one stop darker than Sunny-16 arithmetic predicts, hence 1/60 s at f/16 for midday sun. Scenes with dark ground, heavy occlusion or big interiors will differ: re-measure and move exposure first."
+  "_calibration": "Calibrated in Godot 4.7.2 (Forward+, D3D12) with lookdev capture --probes. Exteriors on an open ground plane, interior_daylight in a 8x6x3 m room with one 2x1.6 m window. Relative mode: clear_midday key 1.01 / key-fill 2.5 stops (lookdev 0.11.0: exposure 0.94; at 1.0 the key read 1.073 and the open stage tripped EXPOSURE and GREY_PROBE); golden_hour 0.58 / 3.4 (tonemap_exposure 0.7: exposed half a stop under the key; on the figure stage with study_woman, capture median luma 0.47); overcast 0.60 / 0.3 (lookdev 0.9.0: exposure 0.75, grey probe 0.56 display; 1.0 read 0.60, over the 0.58 limit); night 0.20 / 3.1; interior median display luma ~0.25. Physical mode: clear_midday key 1.20 / 2.3; golden_hour ~1.0 / ~2.3 (0.61 / 3.2 re-measured on the figure stage with study_woman); overcast ~0.7 / 1.1 (measured before 0.9.0, not re-measured); night 0.17 / 3.0; interior median ~0.43. Godot's physical exposure lands about one stop darker than Sunny-16 arithmetic predicts, hence 1/60 s at f/16 for midday sun. Scenes with dark ground, heavy occlusion or big interiors will differ: re-measure and move exposure first."
 }

@@ -58,7 +58,8 @@ in B was lost between Blender and Godot (the Step 0 baseline found the hair and 
 - **LOOK-S7** Is the skin albedo inside the plausible range and on the brief's tone? *tone* `ok` for the skin
   material; *manifest `skin`* `tone_ok`.
 - **LOOK-S8** Does the pore detail still show at 1 m - grain across the skin, not only in highlights?
-  *G:face*, *G:eyes*.
+  *G:face*, *G:eyes*. Measured: `lookdev.mjs grain <face tile> --region cheek --min 0.40 --max-finest 2.0`
+  (and no grain or noise added at *G:full* that main lacks).
 
 ### Form seen in the look (with humanform's bank)
 - **LOOK-F1** Is the crotch as the spec asks (smooth today; anatomy when Step 3 lands), with no seam or
