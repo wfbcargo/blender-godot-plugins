@@ -58,7 +58,9 @@
     },
     "golden_hour": {
       "kind": "golden",
-      "description": "Low warm sun, long soft-edged shadows, strong warm/cool contrast, light haze.",
+      "description": "Low warm sun, long shadows, strong warm/cool contrast, light haze. Exposed half a stop under the key, as golden hour is shot.",
+      "_shadows": "The sun is 7 degrees up, so the floor meets its light almost edge-on and each shadow-map texel spans a long run of floor depth. At light_angular_distance 1.0 the soft-shadow (PCSS) kernel reaches twice as far across that slope as at 0.5 and the floor shadowed itself in bands (FLOOR_STRIPES: contrast 2.96% at 1.0, 0.25% at 0.5; normal bias 1.5). 0.5 is also the sun's real size (0.53 deg). Normal bias 3.0 keeps the floor clean down to a 2-degree sun (at 1.5 the bands come back below about 4 degrees); feet keep their contact shadows.",
+      "_exposure": "Relative mode: tonemap_exposure 0.7 (-0.5 stop). At 1.0 a skin facing this sun was exposed past diffuse white - a white card facing the key read 0.83-1.02, with the sky fill on top - so pale skin (study_woman, albedo luma 0.47) ran into AgX's shoulder and washed out to a pale glow (4.1% of the figure past white; 0% now). Physical mode already metered half a stop darker (key 0.61) and is unchanged.",
       "sun": {
         "soft_shadow_filter_quality": 4,
         "elevation": 7,
@@ -67,10 +69,10 @@
         "energy": 3.0,
         "light": {
           "shadow_enabled": true,
-          "light_angular_distance": 1.0,
+          "light_angular_distance": 0.5,
           "directional_shadow_max_distance": 150.0,
           "shadow_bias": 0.05,
-          "shadow_normal_bias": 1.5
+          "shadow_normal_bias": 3.0
         }
       },
       "sky": {
@@ -107,7 +109,7 @@
         "fog_sky_affect": 0.3,
         "fog_sun_scatter": 0.35
       },
-      "environment_relative": { "tonemap_exposure": 1.0 },
+      "environment_relative": { "tonemap_exposure": 0.7 },
       "environment_physical": { "background_intensity": 14000.0 },
       "camera_physical": { "exposure_aperture": 8.0, "exposure_shutter_speed": 50.0, "exposure_sensitivity": 100.0 }
     },
@@ -260,5 +262,5 @@
       "camera_physical": { "exposure_aperture": 1.4, "exposure_shutter_speed": 4.0, "exposure_sensitivity": 3200.0 }
     }
   },
-  "_calibration": "Calibrated in Godot 4.7.2 (Forward+, D3D12) with lookdev capture --probes. Exteriors on an open ground plane, interior_daylight in a 8x6x3 m room with one 2x1.6 m window. Relative mode: clear_midday key 1.06 / key-fill 2.5 stops; golden_hour 1.02 / 2.6; overcast ~0.6-0.9 / ~0.2; night 0.20 / 3.1; interior median display luma ~0.25. Physical mode: clear_midday key 1.20 / 2.3; golden_hour ~1.0 / ~2.3; overcast ~0.7 / 1.1; night 0.17 / 3.0; interior median ~0.43. Godot's physical exposure lands about one stop darker than Sunny-16 arithmetic predicts, hence 1/60 s at f/16 for midday sun. Scenes with dark ground, heavy occlusion or big interiors will differ: re-measure and move exposure first."
+  "_calibration": "Calibrated in Godot 4.7.2 (Forward+, D3D12) with lookdev capture --probes. Exteriors on an open ground plane, interior_daylight in a 8x6x3 m room with one 2x1.6 m window. Relative mode: clear_midday key 1.06 / key-fill 2.5 stops; golden_hour 0.58 / 3.4 (tonemap_exposure 0.7: exposed half a stop under the key; on the figure stage with study_woman, capture median luma 0.47); overcast ~0.6-0.9 / ~0.2; night 0.20 / 3.1; interior median display luma ~0.25. Physical mode: clear_midday key 1.20 / 2.3; golden_hour ~1.0 / ~2.3 (0.61 / 3.2 re-measured on the figure stage with study_woman); overcast ~0.7 / 1.1; night 0.17 / 3.0; interior median ~0.43. Godot's physical exposure lands about one stop darker than Sunny-16 arithmetic predicts, hence 1/60 s at f/16 for midday sun. Scenes with dark ground, heavy occlusion or big interiors will differ: re-measure and move exposure first."
 }
