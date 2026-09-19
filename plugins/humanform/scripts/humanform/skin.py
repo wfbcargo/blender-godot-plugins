@@ -54,7 +54,7 @@ DETAIL_UV = "hf_detail"
 TONE_TOLERANCE = 0.03          # sRGB, per channel: the baked mean against the brief's colour
 
 # linear RGB multipliers of the mean tone, and roughness, per region (weights blend them; unmarked skin is 1, BASE).
-# Measured on study_man's bake before humanform 0.13.0 (notebooks/realism-step2/skin-regions.md): knees, elbows,
+# Measured on study_man's bake before humanform 0.14.0 (notebooks/realism-step2/skin-regions.md): knees, elbows,
 # knuckles and cheeks sat at CIELAB dE 2.6-3.2 from plain skin - one just-noticeable difference, lost under light
 # and mottle - and palms and soles were *redder* than skin. Now the red regions shift red against green (R/G of the
 # multiplier 1.25-1.6) and the pale ones lift green and blue over red (paler, less red, a little yellow).
@@ -78,7 +78,7 @@ T_ZONE_ROUGH = 0.46            # forehead, nose, chin: oilier than the rest, sti
 LIMB_ROUGH = 0.57              # forearms, shins: drier
 MOTTLE = ((4.0, 0.08), (24.0, 0.035))    # (noise scale per metre, value share) - blotches ~25 cm, then ~4 cm
 REDNESS = 0.07                 # the low octave also shifts red against green/blue by this share
-# palms and soles by the brief's tone (humanform 0.13.0, critic round 1): palmar and plantar skin carries a fraction of
+# palms and soles by the brief's tone (humanform 0.14.0, critic round 1): palmar and plantar skin carries a fraction of
 # the melanin of the rest (Yamaguchi et al. 2006; palmoplantar melanocyte density ~1/5 of the trunk's), so how much
 # paler a palm is grows with how dark the body is - barely on pale skin, a lot on deep skin. The lift is a CIELAB
 # lightness step dL = clip(PALE_SLOPE * (PALE_L0 - L*_tone), PALE_DL) turned into one linear gain, times a hue that
@@ -119,7 +119,17 @@ GODOT = {                      # StandardMaterial3D properties glTF drops (lookd
     "subsurf_scatter_transmittance_boost": 0.0,
     "metallic_specular": 0.42,
 }
-DETAIL = {"normal": "pores", "tile_px": 256, "cells": 48, "uv2_scale": 80.0, "strength": 0.35, "bump": 3.0}
+# The tiling detail lookdev draws on UV2 in Godot (lookdev_materials.gd set_detail). Pores alone (`cells` per tile,
+# 0.3 mm on the face) are under a pixel at 1 m and mip away to a flat normal, so a coarser octave rides with them:
+# `coarse_cells` per tile of larger pits of random depth with shallow furrows between (2.3 mm on the face, 3.7 mm
+# on the body), in the normal (`coarse_weight` of the height, at `bump`) and as an albedo cavity (`cavity`, the
+# darkening at the deepest point; the base colour is lifted back by its mean, `keep_base`, which also gives the
+# baked normal map back what the detail mix takes). Its mips fade to flat where a cell is under 3 texels, so at full
+# body it adds no shimmer. A 512 px tile 40 times across UV2 keeps the pores the size they were at 256 px / 80.
+# `shared`: every body draws the same tile (the seed is left out), so a crowd pays for it once (2.3 MB, ~0.1 s).
+DETAIL = {"normal": "pores", "tile_px": 512, "cells": 96, "uv2_scale": 40.0, "strength": 0.35, "bump": 5.5,
+          "coarse_cells": 12, "coarse_px": 128, "coarse_weight": 0.7, "pit": 0.4, "furrow": 0.2, "furrow_depth": 0.4,
+          "cavity": 0.26, "keep_base": True, "shared": True}
 MPFB_GROUPS = {"lips": "lips", "nipple": "nipple", "nippleTip": "nipple", "ears": "flush",
                "fingernails": "nail", "toenails": "nail"}
 
@@ -207,7 +217,7 @@ def regions(ob):
     front = nrm @ fwd
     old = legacy()
     # a joint mark's Gaussian peaks under 1 where its centre sits off the surface (a knee cap 4 cm in front of
-    # the joint): scaled so its core reaches 1 (humanform 0.13.0; the knee's core was 0.86 before)
+    # the joint): scaled so its core reaches 1 (humanform 0.14.0; the knee's core was 0.86 before)
     peak = 1.0 if old else 1.25
     for side in (1.0, -1.0):
         def J(name):
@@ -255,7 +265,7 @@ def regions(ob):
         # flush: the cheek below and outside each eye, facing forwards
         eye = J("joint-l-eye")
         cheek = eye + np.array([0.012 * side * xs * s, -0.005 * s, -0.035 * s])
-        # (0.13.0: wider and fuller - at 1.8 cm and 0.8 the flush was a coin on the cheekbone)
+        # (0.14.0: wider and fuller - at 1.8 cm and 0.8 the flush was a coin on the cheekbone)
         w["flush"] = np.maximum(w["flush"], (0.8 if old else 0.9) * _gauss(p, cheek, (0.018 if old else 0.024) * s)
                                 * _smooth(0.0, 0.4, front))
         # limbs are drier: forearms and shins

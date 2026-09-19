@@ -12,7 +12,7 @@ One seeded brief with a deep skin tone (the darks are where an sRGB/linear slip 
 4. The real bake (512 px, draft is 1024): base colour, roughness and normal maps in the glb, the albedo's covered
    mean held to the brief's tone, lips and areolae darker and redder than the body, palms and soles paler, and
    the glb's embedded map the same pixels as the baked one.
-5. Regional contrast (humanform 0.13.0): each floored region's CIELAB dE, lightness and red/green against plain skin
+5. Regional contrast (humanform 0.14.0): each floored region's CIELAB dE, lightness and red/green against plain skin
    in the baked map (`contrast`, the free values) must clear skin.CONTRAST_FLOOR (`contrast_ok`), and the baked
    roughness over the T-zone and the lips is reported. The control, a copy of the same human marked and baked with
    HF_SKIN_LEGACY_REGIONS=1 (0.12.0's tints, roughness and unbounded palm mask), must fail the floor; so must the

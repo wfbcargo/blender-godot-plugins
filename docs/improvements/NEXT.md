@@ -58,10 +58,10 @@ here and nowhere else:
 - rig-anything 0.26.0
 - animate-anything 0.10.1
 - follow-through 0.10.0
-- humanform 0.12.0
+- humanform 0.13.0 (merged 2026-09-19, skin-pores-distance; not yet installed or shipped)
 - character-pipeline 0.14.0
 - wardrobe 0.5.2
-- lookdev 0.7.0
+- lookdev 0.9.0 (merged 2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance; not yet installed or shipped)
 - godot-lsp 0.1.0
 
 ---
@@ -470,6 +470,17 @@ and each branch's open items above; a demo selftest rewrites `assets/wardrobe/no
 - **Detail that survives distance.** Pores exist as a Godot detail normal on UV2 but vanish past about
   1 m. Add mid-frequency variation: tone and redness by region (knees, elbows, knuckles, face, the
   soles), and a roughness map by region so the forehead and lips stop reading as gloss.
+  **Status: pores at distance merged (2026-09-19, `skin-pores-distance`, lookdev 0.9.0, humanform 0.13.0; not yet
+  shipped - the ship step must rebuild every figure from body, since skin.DETAIL is in the bake hash).** The pores
+  vanished to mip averaging: at 1 m the face samples mip 3.1 of the detail, where a 0.3 mm pore is 0.67 texel.
+  A second, coarser octave (pits and furrows of 2-4 mm, in the normal and as a detail-albedo cavity, mips faded
+  to flat under 3 texels, one shared 1.49 MB texture, ~150 ms once per session) shows grain across the skin at
+  1 m and leaves full body as main. New `lookdev.mjs grain --region cheek --min 0.40 --max-finest 2.0`: main
+  0.16-0.38 % fails SMOOTH, branch 0.47-0.94 % passes. Critic: pass. Open: the cavity adds only 10-20 % of the
+  grain (its docs overclaim it); stale numbers in the notebook (limits 0.40/1.5) and skin.py (2.3 MB); the
+  forehead in the eyes tile reads a little orange-peel; thin grain margins, set for 640 px tiles only; regional
+  tone, redness and roughness are still to do. Notebook:
+  [notebooks/realism-step2/skin-pores-distance.md](notebooks/realism-step2/skin-pores-distance.md).
 - **Specular under overcast:** hard, mirror-like forehead band and nose and lip patches (the baseline's
   item 4); check the roughness range the bake writes and lookdev's skin preset under a soft sky.
 - **Overcast exposure:** study_man drops to a muddy brown under overcast, study_woman goes grey.
@@ -477,6 +488,13 @@ and each branch's open items above; a demo selftest rewrites `assets/wardrobe/no
   lines at the fingertips under overcast.
 - **Lighting presets on an open stage:** golden_hour overexposure and floor stripes. (interior_daylight is
   marked interior-only since lookdev 0.4.0.)
+  **Status: golden_hour merged (2026-09-19, `lookdev-golden-hour`, lookdev 0.8.0; not yet shipped).** The stripes
+  were shadow acne at a 7-degree sun widened by PCSS: light_angular_distance 1.0 -> 0.5, shadow_normal_bias
+  1.5 -> 3.0, relative exposure 1.0 -> 0.7. close-shot gains SKIN_PAST_WHITE and FLOOR_STRIPES on every full
+  tile. study_woman 4.08% past white / 2.76% floor contrast -> 0.00% / 0.32%. Critic: pass. Open: the 0.796
+  past-white luma is tied to Godot 4.7.2's default AgX with no control re-measuring it; a faint floor pattern
+  (0.53) passes only on the contrast gate; the woman is evenly front-lit (close-shot's sun is behind the camera).
+  Notebook: [notebooks/realism-step2/lookdev-golden-hour.md](notebooks/realism-step2/lookdev-golden-hour.md).
 
 ### Step 3 - anatomy: genitals (parked branch)
 

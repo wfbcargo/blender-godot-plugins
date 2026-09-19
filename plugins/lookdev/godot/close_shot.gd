@@ -95,6 +95,7 @@ var band_label: Label
 var band_px := 0
 var stage_nodes: Array[Node3D] = []
 var presets_mod: Script
+var preset_src: Variant = null     # spec "presets_file" parsed, or null for the addon's presets.json
 var materials_mod: Script
 var manifest: Dictionary = {}
 var notes: PackedStringArray = []
@@ -129,13 +130,19 @@ func _run() -> void:
 		Common.fail(self, "cannot load the lookdev addon scripts (project res://addons/lookdev or the plugin's copy)")
 		return
 
-	# ---- presets first: a refusal costs nothing
+	# ---- presets first: a refusal costs nothing. "presets_file" reads the recipes from another
+	# presets.json (a control renders an old recipe with today's code) instead of the addon's.
 	var preset_names: Array = spec.get("presets", ["clear_midday"])
-	for pn in preset_names:
-		if not presets_mod.all().has(pn):
-			Common.fail(self, "unknown preset '%s' (known: %s)" % [pn, ", ".join(presets_mod.names())])
+	if str(spec.get("presets_file", "")) != "":
+		preset_src = Common.load_json(str(spec["presets_file"]))
+		if not preset_src is Dictionary or not (preset_src as Dictionary).has("presets"):
+			Common.fail(self, "presets_file %s is not a presets.json (no 'presets')" % spec["presets_file"])
 			return
-		var need: String = presets_mod.needs(pn)
+	for pn in preset_names:
+		if not presets_mod.all(preset_src).has(pn):
+			Common.fail(self, "unknown preset '%s' (known: %s)" % [pn, ", ".join(presets_mod.names(preset_src))])
+			return
+		var need: String = presets_mod.needs(pn, preset_src)
 		if need != "" and need != "open" and not spec.get("force", false):
 			Common.fail(self, "preset %s needs an %s stage; close-shot renders on an open stage (a floor and a backdrop under the sky), where it clips everything to white. Pass --force to render it anyway." % [pn, need])
 			return
@@ -200,7 +207,7 @@ func _run() -> void:
 	var tiles := []
 	var failures := PackedStringArray()
 	for pn in preset_names:
-		var rep: Dictionary = presets_mod.apply(pn, we, sun, {"stage": "open", "force": spec.get("force", false)})
+		var rep: Dictionary = presets_mod.apply(pn, we, sun, {"stage": "open", "force": spec.get("force", false), "presets": preset_src})
 		if not rep["ok"]:
 			Common.fail(self, "preset %s: %s" % [pn, "; ".join(rep["problems"])])
 			return

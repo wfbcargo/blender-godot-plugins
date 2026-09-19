@@ -922,7 +922,7 @@ def skin_manifest(ch):
         # each marked region's tone in the baked albedo (sRGB): a bake that lost the marks has them all equal
         out["regions"] = {str(k): [round(float(x), 3) for x in v] for k, v in dict(rec["regions"]).items()}
     if rec.get("contrast"):
-        # each region against plain skin in the baked albedo: CIELAB dE, lightness and red/green (humanform 0.13.0),
+        # each region against plain skin in the baked albedo: CIELAB dE, lightness and red/green (humanform 0.14.0),
         # and whether every floored region reached humanform's CONTRAST_FLOOR (the failures listed when not)
         out["contrast"] = {str(k): {str(a): float(b) for a, b in dict(v).items()} for k, v in dict(rec["contrast"]).items()}
         out["contrast_ok"] = bool(rec.get("contrast_ok"))
