@@ -238,3 +238,5 @@ study_man's about equal), mergeable; minor: the wt manifests were built (10:21, 
    humanform's. Recorded as open.
 
 No code changed this round, so no bump beyond 0.13.0 / 0.15.0 and no golden moved.
+
+Final `regress --quick --jobs 3` after critic round 2 on b447c34 (code identical to HEAD; 10:43-10:48): `REGRESS DONE exit=0, 9 fixtures ok`, no change (log %TEMP%/rw/skr/regress_final3.txt).
