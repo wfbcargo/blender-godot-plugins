@@ -61,7 +61,7 @@ here and nowhere else:
 - humanform 0.12.0
 - character-pipeline 0.14.0
 - wardrobe 0.5.2
-- lookdev 0.7.0
+- lookdev 0.8.0 (merged 2026-09-19, lookdev-golden-hour; not yet installed or shipped)
 - godot-lsp 0.1.0
 
 ---
@@ -477,6 +477,13 @@ and each branch's open items above; a demo selftest rewrites `assets/wardrobe/no
   lines at the fingertips under overcast.
 - **Lighting presets on an open stage:** golden_hour overexposure and floor stripes. (interior_daylight is
   marked interior-only since lookdev 0.4.0.)
+  **Status: golden_hour merged (2026-09-19, `lookdev-golden-hour`, lookdev 0.8.0; not yet shipped).** The stripes
+  were shadow acne at a 7-degree sun widened by PCSS: light_angular_distance 1.0 -> 0.5, shadow_normal_bias
+  1.5 -> 3.0, relative exposure 1.0 -> 0.7. close-shot gains SKIN_PAST_WHITE and FLOOR_STRIPES on every full
+  tile. study_woman 4.08% past white / 2.76% floor contrast -> 0.00% / 0.32%. Critic: pass. Open: the 0.796
+  past-white luma is tied to Godot 4.7.2's default AgX with no control re-measuring it; a faint floor pattern
+  (0.53) passes only on the contrast gate; the woman is evenly front-lit (close-shot's sun is behind the camera).
+  Notebook: [notebooks/realism-step2/lookdev-golden-hour.md](notebooks/realism-step2/lookdev-golden-hour.md).
 
 ### Step 3 - anatomy: genitals (parked branch)
 

@@ -138,3 +138,10 @@ moved.) Full-body torso grain/finest with the fade off: 0.33/0.59, 0.54/0.74, 0.
 no change; lookdev selftest PASSED 25/25 (the four grain controls among them). Full log:
 `C:/Users/pauli/AppData/Local/Temp/rw/skin-pores/regress_final.log`. Before/after sheets: `shots/main_<who>/sheet.png`,
 `shots/after_<who>/sheet.png` (face, eyes, hands, full; clear_midday and overcast). Ended 10:29.
+
+## Merge (2026-09-19, merge step)
+
+main had merged lookdev-golden-hour as lookdev 0.8.0 in the meantime, so this branch's lookdev became **0.9.0**
+(plugin.json, marketplace.json "Since 0.9.0", SKILL.md). Where this notebook says "lookdev 0.8.0" above, read 0.9.0.
+Conflicts in marketplace.json, lookdev SKILL.md (`stripes` and `grain` rows both kept, selftest row names both sets
+of controls) and lookdev.mjs (both imports, usage lines and commands) resolved as unions; no code changed beyond that.

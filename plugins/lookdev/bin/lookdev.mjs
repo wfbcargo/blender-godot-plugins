@@ -11,6 +11,7 @@
 //   node lookdev.mjs selftest --project <dir>   (the controls: every check here must be able to fail)
 //   node lookdev.mjs stipple  <png> [--region x,y,w,h]   (a dithered lattice in shadowed skin; no Godot)
 //   node lookdev.mjs grain    <png> [--region cheek] [--min pct] [--max pct]   (fine skin texture in a patch; no Godot)
+//   node lookdev.mjs stripes  <png> [--mask m.png --band px]   (shadow-acne bands on a smooth floor; no Godot)
 //
 // Every subcommand runs a GDScript from ../godot against the project, then reads
 // back what it wrote. Godot fails quietly - a broken scene loads with nodes
@@ -25,6 +26,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { stippleCommand } from "./stipple.mjs";
+import { stripesCommand, stripes, maskExclude, STRIPE_LIMITS } from "./stripes.mjs";
+import { readPNG } from "./png.mjs";
 import { grainCommand } from "./grain.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -586,6 +589,15 @@ const VIEW_GROUPS = {
   head: ["face", "face_3q", "eyes", "head_side", "head_back"],
 };
 const DEFAULT_CLOSE = "face,face_3q,eyes,head_side,head_back,hands,feet,bust,full";
+// What a `full` tile is also judged on, from its own pixels (fullLook):
+//   SKIN_PAST_WHITE  the share of the figure brighter than a diffuse white lit by the metered key. AgX
+//                    maps scene-linear 1.0 to display luma 0.796 (Godot 4.7.2, default agx white and
+//                    contrast; measured, see the lookdev-golden-hour notebook): skin, whose albedo is at most
+//                    about 0.5, only gets there when exposure is past the key, and there AgX's shoulder
+//                    washes its hue to a pale glow. Hard clipping (a channel at 255) never happens under AgX,
+//                    so a 250-level clip count reads 0 on a blown figure.
+//   FLOOR_STRIPES    regular bands on the stage floor below the horizon (stripes.mjs): shadow acne.
+const FULL_LOOK = { past_white_luma: 0.796, past_white_max_pct: 1.0, floor_top: 0.72 };
 // The Blender close set's tile (rig-anything closeups.look_set, the review stage's review/<id>/close/) that
 // shows the same thing as a Godot view. Views missing here have no Blender twin: full and bone:<name> in
 // Godot; knees, foot_inner.L, foot_outer.L and under_bust in Blender.
@@ -678,7 +690,15 @@ async function closeShot(args) {
   const godot = findGodot(args, project);
   const outDir = fwd(writableDir(args.out ?? defaultOut(project, "close"), "close-shot"));
   const presets = String(args.presets ?? args.preset ?? "clear_midday,overcast").split(",").filter(Boolean);
-  const known = JSON.parse(fs.readFileSync(PRESETS, "utf8")).presets;
+  // --presets-file: recipes from another presets.json (a control renders an old recipe with today's code)
+  const presetsFile = args["presets-file"] ? path.resolve(String(args["presets-file"])) : null;
+  let known;
+  try {
+    known = JSON.parse(fs.readFileSync(presetsFile ?? PRESETS, "utf8")).presets;
+  } catch (e) {
+    die(`cannot read presets from ${fwd(presetsFile ?? PRESETS)}: ${e.message}`);
+  }
+  if (!known) die(`${fwd(presetsFile)} has no 'presets'`);
   for (const p of presets) {
     if (!known[p]) die(`unknown preset '${p}' (known: ${Object.keys(known).join(", ")})`);
     // close-shot's stage is open: a floor and a backdrop under the sky.
@@ -709,6 +729,7 @@ async function closeShot(args) {
     views: views.map(({ explicit, ...v }) => v),
     clip: args.clip ?? "",
     time: Number(args.time ?? 0),
+    presets_file: presetsFile ? fwd(presetsFile) : "",
     garments: args.garments ? String(args.garments).split(",").map((g) => (g.startsWith("res://") ? g : fwd(g))) : [],
     strands: !args["no-strands"],
     force: !!args.force,
@@ -741,6 +762,16 @@ async function closeShot(args) {
     die(`close-shot failed (exit ${res.code}); full log: ${fwd(path.join(outDir, "godot.log"))}`, 1);
   }
   const stats = JSON.parse(fs.readFileSync(statsPath, "utf8"));
+  // the full tiles' look checks, measured here from the tile and its figure mask
+  for (const t of stats.tiles) {
+    if (t.view !== "full") continue;
+    t.look = fullLook(t, stats.band_px);
+    for (const f of t.look.failures) {
+      t.failures.push(f);
+      stats.failures.push(`${t.preset} ${t.view}: ${f}`);
+    }
+  }
+  fs.writeFileSync(statsPath, JSON.stringify(stats, null, 2));
   if (args.json) {
     console.log(JSON.stringify(stats, null, 2));
   } else {
@@ -755,6 +786,13 @@ async function closeShot(args) {
           (t.aim_offset?.length ? `  aim offset ${t.aim_offset.join(",")}` : "") +
           (t.failures.length ? `  FAIL ${t.failures.join("; ")}` : ""),
       );
+      if (t.look) {
+        const st = t.look.floor_stripes;
+        console.log(
+          `  ${"".padEnd(14)} ${"".padEnd(12)} skin past white ${fmt(t.look.skin_past_white_pct, 2)}% (max ${FULL_LOOK.past_white_max_pct}%)` +
+            `  floor stripe ${fmt(st.stripe, 3)} at ${st.lag ? st.lag.join(",") : "-"} px, contrast ${fmt(st.contrast != null ? 100 * st.contrast : null, 2)}% (limits ${st.limits.stripe}, ${fmt(100 * st.limits.contrast, 2)}%)`,
+        );
+      }
     }
     if (pair) {
       console.log(`\n  Blender pair: ${pair.dir}${pair.pose ? `  (${pair.pose.action} f${pair.pose.frame})` : ""}`);
@@ -767,9 +805,43 @@ async function closeShot(args) {
     reportEngine(scan);
   }
   if (stats.failures.length) {
-    console.log(`\n${stats.failures.length} tile(s) failed: an empty, small, off-target or cut tile is not a picture of the subject.`);
+    console.log(`\n${stats.failures.length} check(s) failed: an empty, small, off-target or cut tile is not a picture of the subject, and a full tile past white or on a banded floor is not a fair look at it.`);
     process.exitCode = 1;
   }
+}
+
+// The look checks of a `full` tile (FULL_LOOK): the share of the figure past diffuse white, and bands on the
+// floor. Reported as measured; failures are added only when a limit is passed.
+function fullLook(t, bandPx) {
+  const img = readPNG(t.file);
+  const mask = readPNG(t.file.replace(/\.png$/, "_mask.png"));
+  const W = img.width;
+  const H = img.height - bandPx;
+  const mw = mask.width, mh = mask.height;
+  const on = (mx, my) => mx >= 0 && my >= 0 && mx < mw && my < mh && mask.data[4 * (my * mw + mx)] > 127;
+  let fig = 0, past = 0;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const mx = Math.floor((x * mw) / W), my = Math.floor((y * mh) / H);
+      // the figure less its outline (one mask pixel), where it blends into the stage
+      if (!(on(mx, my) && on(mx - 1, my) && on(mx + 1, my) && on(mx, my - 1) && on(mx, my + 1))) continue;
+      const i = 4 * ((y + bandPx) * W + x);
+      const l = (0.2126 * img.data[i] + 0.7152 * img.data[i + 1] + 0.0722 * img.data[i + 2]) / 255;
+      fig++;
+      if (l >= FULL_LOOK.past_white_luma) past++;
+    }
+  }
+  const pct = fig ? (100 * past) / fig : null;
+  const top = bandPx + Math.round(FULL_LOOK.floor_top * H);
+  const st = stripes(img, [0, top, W, img.height - top].join(","), maskExclude(mask, W, H, bandPx));
+  const failures = [];
+  if (pct !== null && pct > FULL_LOOK.past_white_max_pct) {
+    failures.push(`SKIN_PAST_WHITE: ${pct.toFixed(2)}% of the figure reads brighter than a diffuse white in the key (display luma >= ${FULL_LOOK.past_white_luma}; max ${FULL_LOOK.past_white_max_pct}%): exposure is past the key, lower it`);
+  }
+  if (st.stripes) failures.push(`FLOOR_STRIPES: ${st.why}`);
+  const { limits, ...floor } = st;
+  return { figure_px: fig, skin_past_white_pct: pct, past_white_luma: FULL_LOOK.past_white_luma,
+    past_white_max_pct: FULL_LOOK.past_white_max_pct, floor_stripes: { ...floor, limits: STRIPE_LIMITS }, failures };
 }
 
 // ------------------------------------------------------------------- tone
@@ -963,6 +1035,27 @@ async function selftest(args) {
     check("close-shot --min-subject 0.95 fails the face tile SUBJECT_SMALL", ...tileFail(small, `${dir}/close_small`, /SUBJECT_SMALL/, [/EMPTY_TILE/, /OFF_TARGET/]));
     const inside = await runSelf(["close-shot", ...common, "--glb", character, "--views", "full", "--presets", "clear_midday", "--label", "inside", "--out", `${dir}/close_inside`]);
     check("close-shot --label inside (the band over the picture) fails full LABEL_OVER_HEAD", ...tileFail(inside, `${dir}/close_inside`, /LABEL_OVER_HEAD/));
+
+    // the full tile's look checks. The shipped golden_hour must pass both, so each control below is specific.
+    const lookOf = (out) => readJson(`${out}/close.json`)?.tiles?.find((t) => t.view === "full")?.look;
+    const lookSaid = (l) => l ? `skin past white ${l.skin_past_white_pct?.toFixed(2)}%, floor stripe ${l.floor_stripes.stripe?.toFixed(3)} at ${(100 * (l.floor_stripes.contrast ?? 0)).toFixed(2)}%` : "no look block";
+    const gh = await runSelf(["close-shot", ...common, "--glb", character, "--views", "full", "--presets", "golden_hour", "--out", `${dir}/close_golden`]);
+    const ghl = lookOf(`${dir}/close_golden`);
+    check("close-shot full under the shipped golden_hour passes SKIN_PAST_WHITE and FLOOR_STRIPES (the controls below are specific)",
+      gh.code === 0 && ghl && !ghl.failures.length, `exit ${gh.code}, ${lookSaid(ghl)}`);
+    // lookdev 0.7.0's golden_hour: a PCSS kernel of a 1-degree sun at 7 degrees banded the floor (shadow acne)
+    const oldGh = path.join(HERE, "controls", "presets_golden_hour_0.7.0.json");
+    const acne = await runSelf(["close-shot", ...common, "--glb", character, "--views", "full", "--presets", "golden_hour", "--presets-file", oldGh, "--out", `${dir}/close_golden_070`]);
+    check("close-shot full under lookdev 0.7.0's golden_hour fails FLOOR_STRIPES", ...tileFail(acne, `${dir}/close_golden_070`, /FLOOR_STRIPES/));
+    // the same recipe exposed two stops over: any skin is past diffuse white, whatever its albedo
+    const hot = JSON.parse(fs.readFileSync(oldGh, "utf8"));
+    const hg = hot.presets.golden_hour;
+    hg.environment_relative.tonemap_exposure *= 4;
+    hg.camera_physical.exposure_sensitivity *= 4;
+    fs.writeFileSync(`${dir}/presets_golden_hot.json`, JSON.stringify(hot, null, 2));
+    const blown = await runSelf(["close-shot", ...common, "--glb", character, "--views", "full", "--presets", "golden_hour", "--presets-file", `${dir}/presets_golden_hot.json`, "--out", `${dir}/close_golden_hot`]);
+    check("close-shot full under golden_hour two stops over fails SKIN_PAST_WHITE (reported free, not clamped)",
+      ...tileFail(blown, `${dir}/close_golden_hot`, /SKIN_PAST_WHITE/));
   }
   const failed = results.filter((r) => !r).length;
   console.log(`\nlookdev selftest ${failed ? "FAILED" : "PASSED"} (${results.length - failed}/${results.length} controls failed as they must)   out: ${dir}`);
@@ -984,13 +1077,15 @@ const USAGE = `lookdev - lighting and shading tools for Godot
            [--views face,face_3q,eyes,head_side,head_back,hands,feet,bust,full] [--presets clear_midday,overcast]
            [--clip Idle] [--time 0] [--garments a.glb,b.glb] [--no-strands] [--size 640] [--out dir] [--json]
            [--pair-blender <Blender close dir>] [--min-subject 0.08] [--min-coverage 0.03]
-           [--aim-offset view=x,y,z[;view=x,y,z]] [--label above|inside]
+           [--aim-offset view=x,y,z[;view=x,y,z]] [--label above|inside] [--presets-file presets.json]
+           a full tile also fails SKIN_PAST_WHITE (figure past diffuse white) and FLOOR_STRIPES (shadow acne)
   tone     --project <dir> --glb <res://|path> [--material skin] [--expect r,g,b] [--json]
   selftest --project <dir> [--glb <rigged character>]   run the controls (each must fail)
   compare  --project <dir> --a <png|capture dir> --b <png|capture dir> [--views lit,unshaded] [--out dir]
   stipple  <png> [--region x,y,w,h | fx,fy,fw,fh] [--out crop.png] [--json]   exit 1 when shadowed skin stipples
   grain    <png> [--region x,y,w,h | fx,fy,fw,fh | cheek] [--min pct] [--max pct] [--out crop.png] [--json]
            fine texture in a skin patch (high-pass luma RMS / mean, %); exit 1 outside --min/--max
+  stripes  <png> [--region ...] [--mask figure_mask.png --band px] [--json]    exit 1 when a smooth surface bands
 
 Views: lit unshaded lighting normal overdraw ssao ssil pssm sdfgi sdfgi_probes gi_buffer voxel_gi_lighting luminance
 Set targets: @env @sun @camera @world or a node path, e.g. --set "Sun:light_energy=2" --set "@env:ssao_enabled=true"
@@ -999,7 +1094,8 @@ Godot binary: --godot <path>, LOOKDEV_GODOT, GODOT_PATH, or the project's .mcp.j
 const args = parseArgs(process.argv.slice(2));
 const cmd = args._[0];
 const commands = { capture, lint, preset, compare, presets: listPresets, "close-shot": closeShot, tone, selftest,
-  stipple: (a) => stippleCommand(a, die), grain: (a) => grainCommand(a, die) };
+  stipple: (a) => stippleCommand(a, die), grain: (a) => grainCommand(a, die),
+  stripes: (a) => stripesCommand(a, die) };
 if (!cmd || args.help || !commands[cmd]) {
   console.log(USAGE);
   process.exit(cmd && !args.help ? 2 : 0);
