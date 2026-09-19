@@ -206,3 +206,5 @@ nipple_tone 0.53/0.33 -> 0.52/0.32 (per-vertex means shifting with the lighter p
 Sheets: `%TEMP%/rw/skr/after3/study_man/`, `%TEMP%/rw/skr/after4/study_woman/` (after4/study_man is a copy of after3);
 three-way pairs main | round 1 | round 2 in `%TEMP%/rw/skr/cmp3/`. No seam, hard edge or blotch on the palm, hand_back,
 face or full tiles; the knuckle red stays soft.
+
+Final `regress --quick --jobs 4` after round-1 fixes (10:32-10:37): `REGRESS DONE exit=0, 9 fixtures ok`, no change (log %TEMP%/rw/skr/regress_final2.txt).
