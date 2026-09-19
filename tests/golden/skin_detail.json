@@ -1,8 +1,8 @@
 {
  "fixture": "skin_detail",
  "plugins": {
-  "humanform": "0.13.0",
-  "lookdev": "0.7.0",
+  "humanform": "0.15.0",
+  "lookdev": "0.10.0",
   "rig-anything": "0.26.0"
  },
  "report": {
@@ -17,7 +17,7 @@
    "genital_darker": true,
    "glb_map_is_baked_map": true,
    "godot_sss": true,
-   "godot_transmittance_depth": 0.01,
+   "godot_transmittance_depth": 0.03,
    "lips_redder_darker": true,
    "lookdev_preset": "skin",
    "nipple_darker": true,
@@ -228,7 +228,7 @@
     "judged": "failed: 11 floor(s) missed",
     "roughness": {
      "lips": 0.367,
-     "skin": 0.511,
+     "skin": 0.514,
      "t_zone": 0.405
     }
    },
@@ -248,7 +248,7 @@
    },
    "roughness": {
     "lips": 0.453,
-    "skin": 0.523,
+    "skin": 0.525,
     "t_zone": 0.468
    }
   },

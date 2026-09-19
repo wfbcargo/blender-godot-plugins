@@ -30,6 +30,12 @@ extends SceneTree
 ## `aim_offset` moves a view's camera (target and eye) by a world offset while its checks keep the view's
 ## own subject: the control that a wrongly aimed camera fails.
 ##
+## Probes (spec keys, both optional): "sun": {"elevation": deg, "azimuth": deg} overrides every preset's sun
+## direction (a key light behind thin parts is how transmittance is judged); "material_set": {property:
+## value} is set on every material LookdevMaterials applied with preset "material_preset" (default "skin"),
+## after it applied them - `lookdev.mjs edges` renders with and without transmittance this way, and a
+## control restores an old setting without rebuilding the glb. Both are recorded in close.json.
+##
 ## Fails loudly (exit 2, before rendering anything) on: a glb that does not load, no Skeleton3D, a view
 ## whose bone is missing, an unknown clip, a preset the open stage cannot take (interior_daylight) unless
 ## "force", an out_dir it cannot write. After rendering it exits 1 when any tile fails a check, each
@@ -173,6 +179,23 @@ func _run() -> void:
 		return
 	if look.get("materials", []).is_empty() and int(look.get("skipped", 0)) == 0:
 		notes.append("no lookdev material extras in this glb: rendered with the imported materials as they are")
+	var mset = spec.get("material_set", {})
+	var mset_on := []
+	if typeof(mset) == TYPE_DICTIONARY and not mset.is_empty():
+		var want := str(spec.get("material_preset", "skin"))
+		for mi in model.find_children("*", "MeshInstance3D", true, false):
+			var mesh: Mesh = (mi as MeshInstance3D).mesh
+			if mesh == null:
+				continue
+			for si in mesh.get_surface_count():
+				for mat in [mesh.surface_get_material(si), (mi as MeshInstance3D).get_surface_override_material(si)]:
+					if mat is StandardMaterial3D and str(materials_mod.preset_of(mat).get("preset", "")) == want 							and not mat.resource_name in mset_on:
+						materials_mod.set_properties(mat, mset)
+						mset_on.append(mat.resource_name)
+		if mset_on.is_empty():
+			Common.fail(self, "material_set: no material with lookdev preset '%s' in '%s'" % [want, glb])
+			return
+		notes.append("material_set on %s: %s" % [", ".join(mset_on), JSON.stringify(mset)])
 
 	var err := _attach_extras(glb)
 	if err != "":
@@ -207,7 +230,13 @@ func _run() -> void:
 	var tiles := []
 	var failures := PackedStringArray()
 	for pn in preset_names:
-		var rep: Dictionary = presets_mod.apply(pn, we, sun, {"stage": "open", "force": spec.get("force", false), "presets": preset_src})
+		var popts := {"stage": "open", "force": spec.get("force", false), "presets": preset_src}
+		var sun_spec = spec.get("sun", {})
+		if typeof(sun_spec) == TYPE_DICTIONARY:
+			for k in ["elevation", "azimuth"]:
+				if sun_spec.has(k):
+					popts[k] = float(sun_spec[k])
+		var rep: Dictionary = presets_mod.apply(pn, we, sun, popts)
 		if not rep["ok"]:
 			Common.fail(self, "preset %s: %s" % [pn, "; ".join(rep["problems"])])
 			return
@@ -229,6 +258,8 @@ func _run() -> void:
 		"tile_px": [root.size.x, root.size.y], "band_px": band_px, "label": str(spec.get("label", "above")),
 		"pair_blender": spec.get("pair_blender", {}),
 		"materials": look, "notes": notes, "tiles": tiles, "failures": failures,
+		"material_set": {"preset": str(spec.get("material_preset", "skin")), "set": mset, "on": mset_on},
+		"sun": spec.get("sun", {}),
 		"physical_light_units": Common.physical_units(),
 	}
 	var f := FileAccess.open(out_dir.path_join("close.json"), FileAccess.WRITE)

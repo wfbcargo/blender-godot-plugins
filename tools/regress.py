@@ -452,11 +452,17 @@ GODOT_STRANDS = {
 # it wrote one), and must pass every tile check; each of `controls` is the same run with its own args and
 # must fail - a camera moved off its subject - so a tile check that stops measuring fails the harness. The
 # first fixture here also runs `lookdev.mjs selftest` on its body: lookdev's own controls.
+# `edges` runs `lookdev.mjs edges` on the body's hands (with and without the skin's transmittance): it must
+# draw no lines, and its control - humanform 0.12's transmittance (skin mode, 1 cm, full strength) put back
+# with --material-set - must fail EDGE_LINES, so an edge check that stops seeing the lines fails the harness.
 GODOT_LOOKDEV = {
     "pipeline_woman": {"body": "fixwoman.glb",
                        "views": "face,eyes,face_3q,head_side,head_back,hand_palm.L,hand_back.L,full",
                        "presets": "clear_midday",
-                       "controls": [["--views", "face", "--aim-offset", "face=0,-0.12,0"]]},
+                       "controls": [["--views", "face", "--aim-offset", "face=0,-0.12,0"]],
+                       "edges": {"views": "hands", "presets": "clear_midday",
+                                 "control": ["subsurf_scatter_transmittance_depth=0.01",
+                                             "subsurf_scatter_transmittance_color=[0.92,0.42,0.30,1.0]"]}},
 }
 LOOKDEV_MJS = REPO / "plugins" / "lookdev" / "bin" / "lookdev.mjs"
 
@@ -504,6 +510,32 @@ def _run_lookdev(godot, project, where, src, out, name, selftest):
             if pair else ", no Blender close set to pair", rep.get("sheet"))
         detail += "".join("\n            " + f for f in rep.get("failures", [])[:8])
         rows.append((label, passed == should_pass, detail))
+    edges = spec.get("edges")
+    if edges:
+        for label, sets, should_pass in (("edges %s" % name, [], True),
+                                         ("edges %s old transmittance (must fail)" % name, edges["control"], False)):
+            o = out / ("edges_%d" % int(not should_pass))
+            args = ["edges", "--project", str(project), "--godot", str(godot), "--glb", glb, "--views", edges["views"],
+                    "--presets", edges["presets"], "--out", str(o)]
+            for m in sets:
+                args += ["--material-set", m]
+            code, text = _node(args)
+            try:
+                with open(o / "edges.json", encoding="utf-8") as fh:
+                    rep = json.load(fh)
+            except (OSError, ValueError):
+                rows.append((label, False, "no edges.json, exit %s: %s" % (code, " | ".join(text.strip().splitlines()[-3:]))))
+                continue
+            lined = [t for t in rep.get("tiles", []) if t.get("fails")]
+            passed = code == 0 and not lined
+            worst = max(rep.get("tiles", []), key=lambda t: t.get("lines_per_mille", 0), default={})
+            detail = "exit %s, %d tiles, %d with lines; worst %s %s %.2f per mille (ratio %.2f)" % (
+                code, len(rep.get("tiles", [])), len(lined), worst.get("preset"), worst.get("view"),
+                worst.get("lines_per_mille", 0), worst.get("worst_ratio", 0))
+            if should_pass:
+                rows.append((label, passed, detail))
+            else:
+                rows.append((label, code == 1 and bool(lined), detail))
     if selftest:
         code, text = _node(["selftest", "--project", str(project), "--godot", str(godot), "--glb", glb,
                             "--out", str(out / "selftest")])

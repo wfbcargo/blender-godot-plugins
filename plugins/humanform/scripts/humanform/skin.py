@@ -34,6 +34,16 @@ only tile on UV2.
 (red 3.67 mm, green 1.37 mm, blue 0.68 mm) at scale 0.001 (the body is in metres). glTF has no subsurface, so
 the material's `lookdev` custom property (glTF extras) asks Godot for `subsurf_scatter` in skin mode with
 transmittance; `LookdevMaterials.apply` sets them.
+
+**Transmittance in Godot** reads a thickness toward the sun from the directional shadow map, whose texels are
+millimetres wide at 1 m: on a finger, at the web between two and on an ear the thickness it reads is noise of
+the size of the depth itself (and about zero just past the terminator, where the surface is its own occluder).
+Skin mode's profile is pure red from about 0.1 depth on and ignores the colour's RGB (it uses only the alpha), so
+at full strength and a 1 cm depth that noise drew thin saturated orange-red lines at the finger edges and the
+thumb web, and red specks on the ears (lookdev `edges` measures them). The strength (the colour's alpha) is
+0.2, so a mark the noise draws never outshines the skin under it, and the depth 3 cm, so real thin parts - finger
+edges and webs, ears - still glow warm with the sun behind them while a whole palm (2-3 cm, 7+ in the profile's
+units) does not. Skin mode stays: turning it off changes the screen-space scatter, and faces go grey.
 """
 
 from __future__ import annotations
@@ -71,7 +81,11 @@ REGIONS = {
     "palm":      {"tint": (1.35, 1.35, 1.24), "rough": 0.60},
     "sole":      {"tint": (1.32, 1.32, 1.14), "rough": 0.64},
     "flush":     {"tint": (1.00, 0.70, 0.70), "rough": 0.48},     # cheeks, nose tip, ears
-    "nail":      {"tint": (1.10, 0.92, 0.92), "rough": 0.30},
+    # nail 0.55 (humanform 0.15.0; was 0.30): MPFB's nail plate ends in a rim the overcast sky catches at grazing, and
+    # at 1 m a glossy plate drew a pale crescent at every fingertip (notebooks/realism-step2/skin-finger-edges.md: the
+    # crescent's added light fell 33 -> 21 -> 17 -> 14 -> 13 with the nail at 0.30/0.40/0.45/0.50/0.55). Keeping the
+    # gloss on the plate and fading it at the free edge or roughening the fingertip pad left it as it was.
+    "nail":      {"tint": (1.10, 0.92, 0.92), "rough": 0.55},
 }
 BASE_ROUGH = 0.50
 T_ZONE_ROUGH = 0.46            # forehead, nose, chin: oilier than the rest, still skin
@@ -114,8 +128,9 @@ GODOT = {                      # StandardMaterial3D properties glTF drops (lookd
     "subsurf_scatter_strength": 0.45,
     "subsurf_scatter_skin_mode": True,
     "subsurf_scatter_transmittance_enabled": True,
-    "subsurf_scatter_transmittance_color": [0.92, 0.42, 0.30, 1.0],
-    "subsurf_scatter_transmittance_depth": 0.01,   # m: ears, finger edges glow; a whole palm (2-3 cm) must not
+    # skin mode uses only the alpha (the strength); the RGB is what a non-skin mode would tint with
+    "subsurf_scatter_transmittance_color": [0.92, 0.42, 0.30, 0.2],
+    "subsurf_scatter_transmittance_depth": 0.03,   # m: finger edges, webs and ears glow; a whole palm must not
     "subsurf_scatter_transmittance_boost": 0.0,
     "metallic_specular": 0.42,
 }
