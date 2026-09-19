@@ -186,7 +186,7 @@ running amplitude ~6 cm against ~15 cm, bounded by the limits; E's lag and mass-
 from the lower ribs, so it no longer takes a man's chest (the research's cause 2); it ships limit_share 0.6. Marco's
 belly is back at 4.5 Hz / 0.6 (1.2 cm walking, 1.3 running). Critic: pass. Open: study_woman's belly missed by
 0.0001 m (may_miss stays); an empty above-apex window reads 0.0; registry.define lacks the attach keys. Notebook:
-[flesh-overrides](notebooks/flesh-cast/flesh-overrides.md). **All of research-flesh-jiggle.md's A-G are now done.**
+[flesh-overrides](notebooks/flesh-cast/flesh-overrides.md). **All of research-flesh-jiggle.md's A-G are now done**, and shipped: grungist-creek rebuilt with Marco's belly on, study_man's workaround gone, 24/24 verify_flesh.
 
 Also seen: garments are cut from the skin, so Ruth's long-sleeve top shows her nipples through it (a smoothing pass
 on the cut surface).
