@@ -1,9 +1,9 @@
 {
  "fixture": "pipeline_woman",
  "plugins": {
-  "character-pipeline": "0.14.0",
+  "character-pipeline": "0.15.0",
   "follow-through": "0.10.0",
-  "humanform": "0.12.0",
+  "humanform": "0.13.0",
   "rig-anything": "0.26.0",
   "wardrobe": "0.5.2"
  },
@@ -1038,16 +1038,16 @@
   ],
   "skin": {
    "body_tone": [
-    0.62,
-    0.45,
-    0.36
+    0.63,
+    0.44,
+    0.35
    ],
    "detail": "pores",
    "godot_sss": true,
    "lips_tone": [
-    0.6,
-    0.38,
-    0.31
+    0.59,
+    0.35,
+    0.29
    ],
    "lookdev_preset": "skin",
    "nipple_tone": [

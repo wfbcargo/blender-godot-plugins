@@ -141,3 +141,18 @@ crops (`bin/crop_bl.py`, same camera before and after):
   its max is 0.80 of white: a soft sheen, not a clipped plateau.
 - No seam, hard edge or blotch seen on the face, hands, knee close-up or full tiles; the knee's red falls off
   smoothly (the weights stay smoothed; only lips keep their sharp vermilion edge, as before).
+
+## 4. Regress and goldens
+
+- `regress --quick --jobs 4` (09:58-10:02): 7 ok, pipeline_woman and skin_detail changed, nothing else. Read the
+  diff: pipeline_woman moves only `skin.body_tone` (0.62/0.45/0.36 -> 0.63/0.44/0.35 - a per-vertex mean, not the
+  covered-texel mean the bake holds; tone_ok true) and `skin.lips_tone` (redder); skin_detail moves the region tones,
+  the marked counts (palm 2092 -> 1140, knee 40 -> 50, elbow, flush) and gains the `contrast` block with its control.
+- Re-recorded with `--only skin_detail pipeline_woman --update --twice --jobs 4`: exit 0, both builds agree. Committed
+  in its own commit after reading `git diff tests/golden`.
+- No Godot addon or export format changed, so no `--godot` run; the scratch game imports clean and close-shot runs.
+- Not done / open: no game worktree - no spec changes needed, the game's figures get the new skin when the ship step
+  rebuilds them. The palm reads less red and lighter in Godot but stays darker than the lit wrist in the palm view
+  (it faces away from the sun); a palm lift scaled by skin darkness (darker skin, paler palms) would be the next
+  step. The knuckle floor margin on the fixture's deep tone is about 0.9 dE (5.91 vs 5.0). Nipple/genital/nail tints
+  were not retuned (not floored).
