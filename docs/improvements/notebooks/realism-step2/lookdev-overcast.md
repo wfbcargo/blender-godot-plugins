@@ -138,3 +138,26 @@ figure_study --selftest PASSED on the scratch game with the branch's figure_stud
 `python tools/regress.py --quick --jobs 4 --godot %TEMP%/rw/lookdev-overcast/game` (09:49-10:05): `REGRESS DONE
 exit=0, 9 fixtures ok`, no change; close-shot pipeline_woman and its must-fail control, lookdev selftest 23/23.
 Full output: `%TEMP%/rw/lookdev-overcast/regress_final.log`. Wall time for the branch about 50 min.
+
+## Merge attempt 1 (merge step, 2026-09-19 10:24-10:45)
+
+main had moved: lookdev-golden-hour merged first as lookdev 0.8.0. Merged main into the branch (a3e1b5e):
+lookdev.mjs, SKILL.md and presets.json `_calibration` resolved as unions, marketplace.json from main, then
+`tools/bump.py lookdev 0.9.0` with this branch's sentence; the branch's own "0.8.0" references moved to 0.9.0 and
+the control folder is now `controls/tone_shift/branch_0.9.0`. Game master had not moved.
+
+`regress --quick --jobs 4 --godot %TEMP%/rw/merge-lookdev-overcast/game` (fresh scratch game from the game
+worktree, merged addons): `REGRESS DONE exit=0, 9 fixtures ok`, no change, lookdev selftest 26/26.
+
+**Not merged: an interaction the regress does not cover.** close-shot `--views head,full --presets
+clear_midday,overcast,golden_hour` on the study figures with the merged tree: study_man exit 0 (tone shift ok),
+**study_woman exit 1: clear_midday full SKIN_PAST_WHITE 1.43%** (limit 1%). main's close-shot on the same game and
+glb: 0.0086% (golden-hour's notebook: 0.01%). The only stage difference is this branch's backdrop out of GI: with
+the 7 m cylinder no longer hiding the sky, clear_midday's blue-sky fill brightens the pale skin past golden-hour's
+white line (same direction as study_man's clear_midday value 0.564 -> 0.588 noted above). overcast full 0%,
+golden_hour full 0.004%. Tone shift passes for both figures.
+
+The fix is a choice, not a conflict resolution: lower clear_midday (breaks done-when 4 here, and its calibration
+on the open stage), keep the backdrop in GI for sky-lit presets only, or accept that close-shot's stage is now
+closer to the open calibration stage and that clear_midday is marginally past white for study_woman. Left for
+the next round; logs and tiles in `%TEMP%/rw/merge-lookdev-overcast/` (cs_study_woman, csmain_woman, regress.log).
