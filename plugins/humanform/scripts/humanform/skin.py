@@ -81,7 +81,17 @@ GODOT = {                      # StandardMaterial3D properties glTF drops (lookd
     "subsurf_scatter_transmittance_boost": 0.0,
     "metallic_specular": 0.42,
 }
-DETAIL = {"normal": "pores", "tile_px": 256, "cells": 48, "uv2_scale": 80.0, "strength": 0.35, "bump": 3.0}
+# The tiling detail lookdev draws on UV2 in Godot (lookdev_materials.gd set_detail). Pores alone (`cells` per tile,
+# 0.3 mm on the face) are under a pixel at 1 m and mip away to a flat normal, so a coarser octave rides with them:
+# `coarse_cells` per tile of larger pits of random depth with shallow furrows between (2.3 mm on the face, 3.7 mm
+# on the body), in the normal (`coarse_weight` of the height, at `bump`) and as an albedo cavity (`cavity`, the
+# darkening at the deepest point; the base colour is lifted back by its mean, `keep_base`, which also gives the
+# baked normal map back what the detail mix takes). Its mips fade to flat where a cell is under 3 texels, so at full
+# body it adds no shimmer. A 512 px tile 40 times across UV2 keeps the pores the size they were at 256 px / 80.
+# `shared`: every body draws the same tile (the seed is left out), so a crowd pays for it once (2.3 MB, ~0.1 s).
+DETAIL = {"normal": "pores", "tile_px": 512, "cells": 96, "uv2_scale": 40.0, "strength": 0.35, "bump": 5.5,
+          "coarse_cells": 12, "coarse_px": 128, "coarse_weight": 0.7, "pit": 0.4, "furrow": 0.2, "furrow_depth": 0.4,
+          "cavity": 0.26, "keep_base": True, "shared": True}
 MPFB_GROUPS = {"lips": "lips", "nipple": "nipple", "nippleTip": "nipple", "ears": "flush",
                "fingernails": "nail", "toenails": "nail"}
 
