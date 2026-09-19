@@ -101,7 +101,8 @@ def skin(ob, srgb, roughness=SKIN_ROUGHNESS, name=None, realistic=True, size=Non
             if _skin.TINT not in me.attributes:
                 _skin.unmarked(ob)
             rep = _skin.bake(ob, mat, size=size or SKIN_MAP_PX)
-            info = {k: rep[k] for k in ("size", "tone_target", "baked", "tone_error", "tone_ok", "regions") if k in rep}
+            info = {k: rep[k] for k in ("size", "tone_target", "baked", "tone_error", "tone_ok", "regions", "contrast",
+                                         "contrast_ok", "contrast_fail", "roughness") if k in rep}
             mat["humanform_skin"] = dict(mat["humanform_skin"], stage="baked" if "error" not in rep else "flat",
                                          error=rep.get("error", ""), **info)
     return mat

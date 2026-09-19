@@ -12,6 +12,10 @@ One seeded brief with a deep skin tone (the darks are where an sRGB/linear slip 
 4. The real bake (512 px, draft is 1024): base colour, roughness and normal maps in the glb, the albedo's covered
    mean held to the brief's tone, lips and areolae darker and redder than the body, palms and soles paler, and
    the glb's embedded map the same pixels as the baked one.
+5. Regional contrast (humanform 0.13.0): each floored region's CIELAB dE, lightness and red/green against plain skin
+   in the baked map (`contrast`, the free values) must clear skin.CONTRAST_FLOOR (`contrast_ok`), and the baked
+   roughness over the T-zone and the lips is reported. The control, a copy of the same human marked and baked with
+   HF_SKIN_LEGACY_REGIONS=1 (0.12.0's tints, roughness and unbounded palm mask), must fail the floor.
 """
 import json
 import os
@@ -87,9 +91,23 @@ def build():
 
     rig = bpy.data.objects[NAME + "_rig"]
     body = NAME + "_body"
+    # the control's human: a copy marked with 0.12.0's regions, before bake_for_game deletes the original
+    leg = human.copy()
+    leg.data = human.data.copy()
+    leg.name = NAME + "_legacy"
+    for c in human.users_collection:
+        c.objects.link(leg)
+    os.environ["HF_SKIN_LEGACY_REGIONS"] = "1"
+    try:
+        skin.mark(leg)
+    finally:
+        os.environ.pop("HF_SKIN_LEGACY_REGIONS", None)
     b = ra_export.bake_for_game(NAME, rig.name, name=body)
     if "error" in b:
         raise RuntimeError("bake_for_game: " + b["error"])
+    b = ra_export.bake_for_game(leg.name, rig.name, name=NAME + "_legacy_body")
+    if "error" in b:
+        raise RuntimeError("bake_for_game (legacy control): " + b["error"])
     ob = bpy.data.objects[body]
     tmp = tempfile.mkdtemp(prefix="skin_detail_")
 
@@ -162,7 +180,28 @@ def build():
              "palm_paler": bool(luma.get("palm", 0) > luma["skin"]),
              "sole_paler": bool(luma.get("sole", 0) > luma["skin"]),
              "genital_darker": bool(luma.get("genital", 9) < luma["skin"])}
-    return {"marked": marked, "unbaked_export": unbaked, "no_lookdev": fallback, "baked": baked}
+
+    # 5. regional contrast, its floor, the roughness report, and the control that must fail
+    rough = rep.get("roughness", {})
+    contrast = {"contrast": {k: dict(v) for k, v in sorted(rep.get("contrast", {}).items())},
+                "contrast_ok": rep.get("contrast_ok"), "contrast_fail": list(rep.get("contrast_fail", [])),
+                "roughness": {k: rough.get(k) for k in ("t_zone", "lips", "skin")}}
+    os.environ["HF_SKIN_LEGACY_REGIONS"] = "1"
+    try:
+        look.skin(bpy.data.objects[NAME + "_legacy_body"], TONE, name=f"{NAME}_legacy_skin", size=SIZE)
+    finally:
+        os.environ.pop("HF_SKIN_LEGACY_REGIONS", None)
+    lrep = bpy.data.materials[f"{NAME}_legacy_skin"]["humanform_skin"].to_dict()
+    lr = lrep.get("roughness", {})
+    ctl = {"contrast_ok": lrep.get("contrast_ok"), "fail": sorted(lrep.get("contrast_fail", [])),
+           "contrast": {k: dict(v) for k, v in sorted(lrep.get("contrast", {}).items())},
+           "roughness": {k: lr.get(k) for k in ("t_zone", "lips", "skin")}}
+    ctl["judged"] = ("passed (it must fail)" if lrep.get("contrast_ok") is not False
+                     else "failed: %d floor(s) missed" % len(ctl["fail"]))
+    contrast["control_legacy"] = ctl
+    contrast["rougher_than_legacy"] = {k: bool(rough.get(k, 0) > lr.get(k, 9)) for k in ("t_zone", "lips")}
+    return {"marked": marked, "unbaked_export": unbaked, "no_lookdev": fallback, "baked": baked,
+            "contrast": contrast}
 
 
 H.run("skin_detail", build)
