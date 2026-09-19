@@ -26,6 +26,7 @@ node <skill>/bin/lookdev.mjs close-shot --project . --glb res://assets/x/x.glb -
 node <skill>/bin/lookdev.mjs tone    --project . --glb res://assets/x/x.glb [--material skin] [--expect 0.86,0.68,0.57]
 node <skill>/bin/lookdev.mjs selftest --project .
 node <skill>/bin/lookdev.mjs stipple <tile.png> --region x,y,w,h      # no Godot, < 2 s
+node <skill>/bin/lookdev.mjs edges --project . --glb res://x.glb      # transmittance lines on the hands, ~40 s
 ```
 
 | Command | What it gives you |
@@ -37,7 +38,8 @@ node <skill>/bin/lookdev.mjs stipple <tile.png> --region x,y,w,h      # no Godot
 | `close-shot` | **Judge a character in Godot with one command.** A labelled sheet of close-ups of one glb, one row per view, one column per preset, optionally beside its Blender close set (`--pair-blender`), ~10-15 s. Details below. |
 | `tone` | Mean albedo per material over the texels its UVs cover (padding ignored), linear and sRGB; `ok` is 0.01-0.9 linear luminance, so a black albedo fails. Headless, < 1 s. |
 | `stipple` | **A dithered lattice in shadowed skin**, the stipple Godot's default soft-low shadow filter drew on necks and fingers under a sun. Give it a close-shot tile and a region on the skin (pixels, or fractions when every number is at most 1). It keeps shadowed, smooth, warm pixels at least 3 px from anything else, high-passes luma, and in 96 px windows looks for a detail that repeats along two directions (correlation at a lag less that at half the lag, the weaker of the best lag and the best one 30 deg away from it); `lattice` >= 0.25 at >= 1.2% contrast is a stipple, exit 1. Hair, lashes and aliased silhouettes also repeat, so aim the region at skin. |
-| `selftest` | Runs the controls: every check above fails on a case built to fail (0-material lint and capture, unwritable `--out`, black albedo, no skeleton, a missing bone, interior_daylight on an open stage, the Step 0 neck and fingers for `stipple`) and passes its positive twin; close-shot's tile checks each fail on a camera moved off its subject (EMPTY_TILE, OFF_TARGET), `--min-subject` (SUBJECT_SMALL) and `--label inside` (LABEL_OVER_HEAD), and `--pair-blender` on a small fake set pairs and names the unpaired views. About 50 s. Run it after changing any tool; `regress.py --godot` runs it. |
+| `edges` | **Lines a skin's transmittance draws.** Renders close-shot tiles (default `hands`, clear_midday and overcast) twice - as the glb asks and with `subsurf_scatter_transmittance_enabled=false` - so the red channel's difference is the light transmittance added. Over each tile's subject it reports `glow` (mean added red), and `lines`: pixels where the added red is at least 8 and more than 0.5x the red the skin has there without it - a mark that outshines the skin it sits on, which a soft glow never does; over 0.1 per thousand is EDGE_LINES, exit 1. `--material-set` probes a setting without rebuilding; `--min-glow v --glow-views head_back` fails NO_GLOW where transmittance should still show; `--on/--off <png>` measures a pair already rendered. Under a low sun behind the part (`--sun-elevation 15 --sun-azimuth ...`) a real glow outshines the shadowed skin too, so judge those tiles by eye. |
+| `selftest` | Runs the controls: every check above fails on a case built to fail (0-material lint and capture, unwritable `--out`, black albedo, no skeleton, a missing bone, interior_daylight on an open stage, the Step 0 neck and fingers for `stipple`, study_woman's fingers with humanform 0.12's transmittance for `edges`) and passes its positive twin; close-shot's tile checks each fail on a camera moved off its subject (EMPTY_TILE, OFF_TARGET), `--min-subject` (SUBJECT_SMALL) and `--label inside` (LABEL_OVER_HEAD), and `--pair-blender` on a small fake set pairs and names the unpaired views. About 50 s. Run it after changing any tool; `regress.py --godot` runs it. |
 
 Exit codes: `lint` exits 1 on any error finding - including `NO_MATERIALS`, a scene with nothing to check
 (lint does not run scripts, so a stage built in `_ready` is invisible to it; use `capture` or `close-shot`,
@@ -256,9 +258,11 @@ chin, the sides of fingers); the transmittance, pores, subsurface and the hair's
 baked by `bake.bake_material(obj, material, out_dir, size)` - one material rebuilt in place from albedo, ORM
 and normal maps, keeping its name, custom properties and subsurface inputs, with an `adjust` hook that sees the
 covered texels (humanform holds the albedo's mean to the brief's tone with it). Its `lookdev` extras have preset
-`skin`: `LookdevMaterials.apply` sets `subsurf_scatter` (skin mode, transmittance with a 1 cm depth - at 8 cm a
-whole palm glowed orange under a sun behind it; judge transmittance with a key light behind thin parts, overcast
-hides it) and a tiling pore detail
+`skin`: `LookdevMaterials.apply` sets `subsurf_scatter` (skin mode, transmittance at strength 0.2 with a 3 cm
+depth. Godot reads the thickness from the sun's shadow map, whose texels are millimetres wide at 1 m, and skin
+mode's profile is pure red from 0.1 depth on whatever the colour's RGB: at full strength and 1 cm the noise drew
+orange-red lines at finger edges and the thumb web - `edges` measures them; at 8 cm a whole palm glowed. Judge
+transmittance with a key light behind thin parts (close-shot `--sun-azimuth`), overcast hides it) and a tiling pore detail
 normal (`lookdev.detail`, seeded cellular noise on UV2 = humanform's `hf_detail`). `lint` warns
 `SKIN_PLASTIC` on a skin with a flat albedo, one roughness, no normal/pore detail or no subsurface.
 

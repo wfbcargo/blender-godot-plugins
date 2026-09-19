@@ -10,6 +10,7 @@
 //   node lookdev.mjs tone     --project <dir> --glb <file.glb> [--material skin]
 //   node lookdev.mjs selftest --project <dir>   (the controls: every check here must be able to fail)
 //   node lookdev.mjs stipple  <png> [--region x,y,w,h]   (a dithered lattice in shadowed skin; no Godot)
+//   node lookdev.mjs edges    --project <dir> --glb res://x.glb   (lines a skin's transmittance draws)
 //
 // Every subcommand runs a GDScript from ../godot against the project, then reads
 // back what it wrote. Godot fails quietly - a broken scene loads with nodes
@@ -24,6 +25,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { stippleCommand } from "./stipple.mjs";
+import { edgesCommand } from "./edges.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -37,7 +39,7 @@ const THRESHOLDS = path.join(ROOT, "presets", "thresholds.json");
 // ---------------------------------------------------------------- arguments
 
 function parseArgs(argv) {
-  const out = { _: [], set: [] };
+  const out = { _: [], set: [], "material-set": [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (!a.startsWith("--")) {
@@ -50,6 +52,10 @@ function parseArgs(argv) {
     if (key === "set") {
       if (!hasValue) die("--set needs target:property=value");
       out.set.push(next);
+      i++;
+    } else if (key === "material-set") {
+      if (!hasValue) die("--material-set needs property=value");
+      out["material-set"].push(next);
       i++;
     } else if (hasValue) {
       out[key] = next;
@@ -671,6 +677,30 @@ function glbPath(glb, project) {
   return fwd(abs);
 }
 
+// --material-set property=value (repeatable): set on the glb's lookdev materials of --material-preset
+// (default skin) after LookdevMaterials.apply - a probe, and the way a control restores an old setting.
+export function materialSet(list) {
+  const out = {};
+  for (const item of list ?? []) {
+    const eq = String(item).indexOf("=");
+    if (eq < 1) die(`--material-set wants property=value, not '${item}'`);
+    out[String(item).slice(0, eq)] = parseSetValue(String(item).slice(eq + 1));
+  }
+  return out;
+}
+
+// --sun-elevation / --sun-azimuth (degrees): every preset's sun comes from there instead.
+function sunOverride(args) {
+  const sun = {};
+  for (const k of ["elevation", "azimuth"]) {
+    if (args[`sun-${k}`] === undefined) continue;
+    const v = Number(args[`sun-${k}`]);
+    if (!Number.isFinite(v)) die(`--sun-${k} must be degrees`);
+    sun[k] = v;
+  }
+  return sun;
+}
+
 async function closeShot(args) {
   const project = findProject(args);
   const godot = findGodot(args, project);
@@ -717,6 +747,9 @@ async function closeShot(args) {
     sheet_tile: Number(args["sheet-tile"] ?? 384),
     warmup_frames: Number(args.warmup ?? 45),
     view_frames: Number(args["view-frames"] ?? 24),
+    material_set: materialSet(args["material-set"]),
+    material_preset: String(args["material-preset"] ?? "skin"),
+    sun: sunOverride(args),
   };
   const specPath = path.join(outDir, "spec.json");
   fs.writeFileSync(specPath, JSON.stringify(spec, null, 2));
@@ -860,6 +893,15 @@ async function selftest(args) {
     const said = firstLine(st.out, /STIPPLE|clean/);
     check(`stipple on ${png} ${want ? "reports the lattice" : "is clean"}`, want ? st.code === 1 && /STIPPLE/.test(st.out) : st.code === 0 && /clean/.test(st.out), said.slice(0, 160));
   }
+  // edges: study_woman's fingers (hand_back.R, clear_midday) rendered with and without transmittance - with
+  // humanform <= 0.12's skin (skin mode, 1 cm, full strength) they must draw lines; at 3 cm and 0.2 not
+  for (const [pair, want] of [["main", true], ["fixed", false]]) {
+    const c = (s) => fwd(path.join(HERE, "controls", `edges_fingers_${pair}_${s}.png`));
+    const ed = await runSelf(["edges", "--on", c("on"), "--off", c("off")], 120);
+    const said = firstLine(ed.out, /EDGE_LINES|lines/);
+    check(`edges on the fingers (${pair === "main" ? "humanform 0.12's transmittance" : "3 cm, strength 0.2"}) ${want ? "reports lines" : "is clean"}`,
+      want ? ed.code === 1 && /EDGE_LINES/.test(ed.out) : ed.code === 0 && /clean/.test(ed.out), said.slice(0, 160));
+  }
 
   // tone: a black albedo is not ok, an 18% grey one reads 0.18
   const tres = await runGodot(godot, ["--headless", "--path", project, "--script", `${GODOT_DIR}/glb_tone.gd`, "--", "--selftest", "--out-dir", `${dir}/tone`], 120);
@@ -974,6 +1016,10 @@ const USAGE = `lookdev - lighting and shading tools for Godot
            [--clip Idle] [--time 0] [--garments a.glb,b.glb] [--no-strands] [--size 640] [--out dir] [--json]
            [--pair-blender <Blender close dir>] [--min-subject 0.08] [--min-coverage 0.03]
            [--aim-offset view=x,y,z[;view=x,y,z]] [--label above|inside]
+           [--material-set prop=value]... [--material-preset skin] [--sun-elevation deg] [--sun-azimuth deg]
+  edges    --project <dir> --glb <res://|path> [--views hands] [--presets clear_midday,overcast] [--limit 0.1]
+           [--material-set prop=value]... [--min-glow v --glow-views head_back] [--out dir] [--json]
+           | --on <png> --off <png> [--subject <png>]   exit 1 when transmittance draws lines on the skin
   tone     --project <dir> --glb <res://|path> [--material skin] [--expect r,g,b] [--json]
   selftest --project <dir> [--glb <rigged character>]   run the controls (each must fail)
   compare  --project <dir> --a <png|capture dir> --b <png|capture dir> [--views lit,unshaded] [--out dir]
@@ -986,7 +1032,7 @@ Godot binary: --godot <path>, LOOKDEV_GODOT, GODOT_PATH, or the project's .mcp.j
 const args = parseArgs(process.argv.slice(2));
 const cmd = args._[0];
 const commands = { capture, lint, preset, compare, presets: listPresets, "close-shot": closeShot, tone, selftest,
-  stipple: (a) => stippleCommand(a, die) };
+  stipple: (a) => stippleCommand(a, die), edges: (a) => edgesCommand(a, { die, runSelf, fwd }) };
 if (!cmd || args.help || !commands[cmd]) {
   console.log(USAGE);
   process.exit(cmd && !args.help ? 2 : 0);
