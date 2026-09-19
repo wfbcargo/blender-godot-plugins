@@ -216,3 +216,20 @@ reran everything (`rw/sfe2/redo.sh`, `redo.log`):
 - Stipple, region 180,300,300,250, clear_midday hands: 7/8 clean. study_woman hand_palm.R flags 0.266 at 4 px,
   identical before and after (`stw_r.png`). The window is the heel of the palm, and the grain is main's coarse pore detail
   (skin-pores-distance), not shadow dither. The fingers show none.
+
+### 12:18 - final regress, round 2
+
+`regress.py --quick --jobs 4 --godot rw/sfe/game` (addons synced) ran at 14d9c05: `REGRESS DONE exit=0, 23 fixtures ok`
+(`rw/sfe2/regress_final2.log`). The lookdev selftest had 32/32 controls fail as they must, the golden_hour control included.
+edges pipeline_woman: 0 tiles with lines, worst 0.05 per mille. The must-fail control gave 2 tiles, 1.29 per mille.
+
+Open:
+- The nail is at 0.55, rougher than a real nail. At 1 m its plate is a few pixels, and 0.50 still drew a faint line. A
+  nail that reads glossy up close needs its free edge's geometry or a view-distance roughness, not this table.
+- `edges --kind specular` runs in the selftest (PNG controls) but not as a regress fixture check. Its line ratio 0.4
+  sits over a thigh-silhouette sheen at 0.35-0.38x, so the margin is thin.
+- The backlit glow was not re-rendered this round (transmittance unchanged). The ear glow is still faint, as on main.
+- `stipple` flags main's coarse pore grain on study_woman's palm heel (0.266, identical before and after).
+- The scratch game's addons must be synced from the branch before any Godot judgement (`tools/scratch_project.py`
+  copies them only at creation).
+- Round 2 took about 70 min (11:11-12:20).
