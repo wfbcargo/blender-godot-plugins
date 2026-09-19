@@ -1,5 +1,5 @@
 {
-  "_note": "study_man's full tiles from lookdev 0.8.0's close-shot, 320 px: tone-shift must pass.",
+  "_note": "study_man's full tiles from lookdev 0.9.0's close-shot, 320 px: tone-shift must pass.",
   "glb": "res://assets/figure_study/study_man/study_man.glb",
   "presets": [
     "clear_midday",

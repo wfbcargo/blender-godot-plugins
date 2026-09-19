@@ -42,7 +42,7 @@ an 8×6×3 m room with one 2×1.6 m window for the interior.
 |---|---|---|
 | clear_midday | 1.06 / 2.5 stops | 1.20 / 2.3 |
 | golden_hour | 1.02 / 2.6 | ~1.0 / ~2.3 |
-| overcast | 0.60 / 0.3 (0.8.0; grey probe 0.56) | ~0.7 / 1.1 (before 0.8.0) |
+| overcast | 0.60 / 0.3 (0.9.0; grey probe 0.56) | ~0.7 / 1.1 (before 0.9.0) |
 | night | 0.20 / 3.1 (exposure 5) | 0.17 / 3.0 |
 | interior_daylight | median luma ~0.25 | median ~0.43 |
 
@@ -55,7 +55,7 @@ What that calibration taught, beyond the numbers:
   doesn't change key/fill. To shift the ratio, change the sky.
 - `ambient_light_energy` had no effect at all (see godot-lighting.md).
 - SDFGI adds real fill: ~0.035 linear of bounce off a mid-grey ground at midday.
-- **Overcast (0.8.0).** A shadowed sun with a 20 deg `light_angular_distance` does not make a soft overcast:
+- **Overcast (0.9.0).** A shadowed sun with a 20 deg `light_angular_distance` does not make a soft overcast:
   its shadow map drew a hard-edged, mirror-bright vertical band down each forehead and a patch on the nose
   (a column step of 0.116 display luma across study_man's forehead; 0.012 with the sun's shadow off, 0.018 at
   5 deg). Overcast casts no hard shadows, so its sun casts none now; AO and GI give the contact shading. The old

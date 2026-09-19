@@ -3,7 +3,7 @@
 //   node lookdev.mjs tone-shift <close-shot dir> [--from clear_midday] [--to overcast] [--view full] [--json]
 //
 // What it is for: a preset whose light is the wrong colour or brightness turns the skin into a different
-// person's - under the overcast recipe before lookdev 0.8.0, study_man went a muddy brown and study_woman
+// person's - under the overcast recipe before lookdev 0.9.0, study_man went a muddy brown and study_woman
 // grey. Exposure differences are expected (overcast is dimmer); a change of hue or saturation is not, beyond
 // what a cooler daylight gives.
 //

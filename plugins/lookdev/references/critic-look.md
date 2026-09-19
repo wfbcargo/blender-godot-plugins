@@ -73,7 +73,8 @@ in B was lost between Blender and Godot (the Step 0 baseline found the hair and 
   (`close.json` has no `failed`).
 - **LOOK-P2** Are exposure, clipping and key-to-fill inside the preset's thresholds? *capture* findings.
 - **LOOK-P3** Under golden_hour, is the pale figure not overexposed and the floor free of stripes? *G:full*
-  with `--presets golden_hour`.
+  with `--presets golden_hour`; measured on every full tile as `look` in `close.json`: `skin_past_white_pct`
+  (SKIN_PAST_WHITE over 1%) and `floor_stripes` (FLOOR_STRIPES).
 
 ## Not answerable from these today
 
