@@ -114,6 +114,7 @@
     "overcast": {
       "kind": "overcast",
       "description": "Uniform grey sky, no hard shadows. Shape comes from AO and GI; low contrast, denser haze.",
+      "_overcast": "lookdev 0.8.0: the sun casts no shadow (a 20 deg disc's shadow map drew a hard-edged, mirror-like band down every forehead and nose), the sky is neutral grey (the blue-grey one moved skin hue 1 deg and saturation 8% down; the rest of the muddy tone was the stage's backdrop in SDFGI, see references/recipes.md), and exposure is metered on the 18% probe (0.75).",
       "sun": {
         "soft_shadow_filter_quality": 4,
         "elevation": 55,
@@ -121,20 +122,19 @@
         "lux": 300,
         "energy": 0.25,
         "light": {
-          "shadow_enabled": true,
+          "shadow_enabled": false,
           "light_angular_distance": 20.0,
-          "shadow_opacity": 0.6,
           "directional_shadow_max_distance": 80.0
         }
       },
       "sky": {
         "type": "procedural",
         "material": {
-          "sky_top_color": "Color(0.62, 0.65, 0.69, 1)",
-          "sky_horizon_color": "Color(0.72, 0.74, 0.76, 1)",
+          "sky_top_color": "Color(0.66, 0.67, 0.68, 1)",
+          "sky_horizon_color": "Color(0.74, 0.74, 0.74, 1)",
           "sky_curve": 0.25,
           "ground_bottom_color": "Color(0.2, 0.2, 0.2, 1)",
-          "ground_horizon_color": "Color(0.72, 0.74, 0.76, 1)",
+          "ground_horizon_color": "Color(0.74, 0.74, 0.74, 1)",
           "sun_angle_max": 0.0
         },
         "material_relative": { "sky_energy_multiplier": 1.6, "ground_energy_multiplier": 1.6 },
@@ -159,7 +159,7 @@
         "fog_sky_affect": 0.5,
         "fog_sun_scatter": 0.0
       },
-      "environment_relative": { "tonemap_exposure": 1.0 },
+      "environment_relative": { "tonemap_exposure": 0.75 },
       "environment_physical": { "background_intensity": 4000.0 },
       "camera_physical": { "exposure_aperture": 5.6, "exposure_shutter_speed": 40.0, "exposure_sensitivity": 100.0 }
     },
@@ -260,5 +260,5 @@
       "camera_physical": { "exposure_aperture": 1.4, "exposure_shutter_speed": 4.0, "exposure_sensitivity": 3200.0 }
     }
   },
-  "_calibration": "Calibrated in Godot 4.7.2 (Forward+, D3D12) with lookdev capture --probes. Exteriors on an open ground plane, interior_daylight in a 8x6x3 m room with one 2x1.6 m window. Relative mode: clear_midday key 1.06 / key-fill 2.5 stops; golden_hour 1.02 / 2.6; overcast ~0.6-0.9 / ~0.2; night 0.20 / 3.1; interior median display luma ~0.25. Physical mode: clear_midday key 1.20 / 2.3; golden_hour ~1.0 / ~2.3; overcast ~0.7 / 1.1; night 0.17 / 3.0; interior median ~0.43. Godot's physical exposure lands about one stop darker than Sunny-16 arithmetic predicts, hence 1/60 s at f/16 for midday sun. Scenes with dark ground, heavy occlusion or big interiors will differ: re-measure and move exposure first."
+  "_calibration": "Calibrated in Godot 4.7.2 (Forward+, D3D12) with lookdev capture --probes. Exteriors on an open ground plane, interior_daylight in a 8x6x3 m room with one 2x1.6 m window. Relative mode: clear_midday key 1.06 / key-fill 2.5 stops; golden_hour 1.02 / 2.6; overcast 0.60 / 0.3 (lookdev 0.8.0: exposure 0.75, grey probe 0.56 display; 1.0 read 0.60, over the 0.58 limit); night 0.20 / 3.1; interior median display luma ~0.25. Physical mode: clear_midday key 1.20 / 2.3; golden_hour ~1.0 / ~2.3; overcast ~0.7 / 1.1 (measured before 0.8.0, not re-measured); night 0.17 / 3.0; interior median ~0.43. Godot's physical exposure lands about one stop darker than Sunny-16 arithmetic predicts, hence 1/60 s at f/16 for midday sun. Scenes with dark ground, heavy occlusion or big interiors will differ: re-measure and move exposure first."
 }

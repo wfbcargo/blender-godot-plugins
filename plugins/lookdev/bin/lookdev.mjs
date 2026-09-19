@@ -10,6 +10,7 @@
 //   node lookdev.mjs tone     --project <dir> --glb <file.glb> [--material skin]
 //   node lookdev.mjs selftest --project <dir>   (the controls: every check here must be able to fail)
 //   node lookdev.mjs stipple  <png> [--region x,y,w,h]   (a dithered lattice in shadowed skin; no Godot)
+//   node lookdev.mjs tone-shift <close-shot dir> [--from clear_midday --to overcast]   (skin keeps its hue; no Godot)
 //
 // Every subcommand runs a GDScript from ../godot against the project, then reads
 // back what it wrote. Godot fails quietly - a broken scene loads with nodes
@@ -24,6 +25,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { stippleCommand } from "./stipple.mjs";
+import { toneShift, printToneShift, toneShiftCommand } from "./toneshift.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -768,6 +770,16 @@ async function closeShot(args) {
     console.log(`\n${stats.failures.length} tile(s) failed: an empty, small, off-target or cut tile is not a picture of the subject.`);
     process.exitCode = 1;
   }
+  // Rendered under clear_midday and overcast with the full view: the skin must keep its tone between them.
+  if (presets.includes("clear_midday") && presets.includes("overcast") && stats.tiles.some((t) => t.view === "full")) {
+    const ts = toneShift(outDir, { from: "clear_midday", to: "overcast", view: "full" });
+    fs.writeFileSync(path.join(outDir, "tone_shift.json"), JSON.stringify(ts, null, 2));
+    if (!args.json) {
+      console.log("");
+      printToneShift(ts);
+    }
+    if (!ts.ok) process.exitCode = 1;
+  }
 }
 
 // ------------------------------------------------------------------- tone
@@ -859,6 +871,15 @@ async function selftest(args) {
     const st = await runSelf(["stipple", fwd(path.join(HERE, "controls", png))], 120);
     const said = firstLine(st.out, /STIPPLE|clean/);
     check(`stipple on ${png} ${want ? "reports the lattice" : "is clean"}`, want ? st.code === 1 && /STIPPLE/.test(st.out) : st.code === 0 && /clean/.test(st.out), said.slice(0, 160));
+  }
+
+  // tone-shift: study_man's full tiles as lookdev 0.7.0 rendered them (overcast turned him muddy: hue -4.3 deg,
+  // saturation -17%) must fail; the same figure under 0.8.0's overcast must pass (the fail is specific)
+  for (const [sub, want] of [["main_0.7.0", false], ["branch_0.8.0", true]]) {
+    const ts = await runSelf(["tone-shift", fwd(path.join(HERE, "controls", "tone_shift", sub))], 120);
+    const said = firstLine(ts.out, /FAIL TONE|keeps its tone/);
+    check(`tone-shift on study_man ${sub} ${want ? "keeps the tone" : "reports TONE_SHIFT"}`,
+      want ? ts.code === 0 && /keeps its tone/.test(ts.out) : ts.code === 1 && /TONE_SHIFT/.test(ts.out), said.slice(0, 160));
   }
 
   // tone: a black albedo is not ok, an 18% grey one reads 0.18
@@ -978,6 +999,8 @@ const USAGE = `lookdev - lighting and shading tools for Godot
   selftest --project <dir> [--glb <rigged character>]   run the controls (each must fail)
   compare  --project <dir> --a <png|capture dir> --b <png|capture dir> [--views lit,unshaded] [--out dir]
   stipple  <png> [--region x,y,w,h | fx,fy,fw,fh] [--out crop.png] [--json]   exit 1 when shadowed skin stipples
+  tone-shift <close-shot dir> [--from clear_midday] [--to overcast] [--view full] [--max-hue 3] [--max-sat 0.15] [--json]
+           exit 1 when the figure's mean skin hue or saturation moves between the two presets
 
 Views: lit unshaded lighting normal overdraw ssao ssil pssm sdfgi sdfgi_probes gi_buffer voxel_gi_lighting luminance
 Set targets: @env @sun @camera @world or a node path, e.g. --set "Sun:light_energy=2" --set "@env:ssao_enabled=true"
@@ -986,7 +1009,7 @@ Godot binary: --godot <path>, LOOKDEV_GODOT, GODOT_PATH, or the project's .mcp.j
 const args = parseArgs(process.argv.slice(2));
 const cmd = args._[0];
 const commands = { capture, lint, preset, compare, presets: listPresets, "close-shot": closeShot, tone, selftest,
-  stipple: (a) => stippleCommand(a, die) };
+  stipple: (a) => stippleCommand(a, die), "tone-shift": (a) => toneShiftCommand(a, die) };
 if (!cmd || args.help || !commands[cmd]) {
   console.log(USAGE);
   process.exit(cmd && !args.help ? 2 : 0);

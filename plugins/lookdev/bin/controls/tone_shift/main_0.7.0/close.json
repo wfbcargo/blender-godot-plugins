@@ -1,0 +1,28 @@
+{
+  "_note": "study_man's full tiles from lookdev 0.7.0's close-shot (overcast with a shadowed 20 deg sun, a blue-grey sky and the backdrop in SDFGI), 320 px: tone-shift must fail.",
+  "glb": "res://assets/figure_study/study_man/study_man.glb",
+  "presets": [
+    "clear_midday",
+    "overcast"
+  ],
+  "tiles": [
+    {
+      "view": "full",
+      "preset": "clear_midday",
+      "picture_px": [
+        640,
+        640
+      ],
+      "file": "clear_midday_full.png"
+    },
+    {
+      "view": "full",
+      "preset": "overcast",
+      "picture_px": [
+        640,
+        640
+      ],
+      "file": "overcast_full.png"
+    }
+  ]
+}

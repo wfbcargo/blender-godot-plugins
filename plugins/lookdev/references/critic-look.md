@@ -53,7 +53,8 @@ in B was lost between Blender and Godot (the Step 0 baseline found the hair and 
   under overcast)? *G:hand_palm.L/.R*, *G:hand_back.L/.R*, both rows.
 - **LOOK-S5** Are shadowed fingers free of the dither stipple under clear_midday? *G:hand_back.L/.R*.
 - **LOOK-S6** Under overcast, does each figure keep its skin tone - not muddy brown (study_man) or grey
-  (study_woman)? *G:full* overcast against clear_midday; *capture* with `--kind overcast`.
+  (study_woman)? *G:full* overcast against clear_midday; the numbers in `tone_shift.json` (close-shot writes it when it renders
+  both; `lookdev.mjs tone-shift <dir>`); *capture* with `--kind overcast`.
 - **LOOK-S7** Is the skin albedo inside the plausible range and on the brief's tone? *tone* `ok` for the skin
   material; *manifest `skin`* `tone_ok`.
 - **LOOK-S8** Does the pore detail still show at 1 m - grain across the skin, not only in highlights?

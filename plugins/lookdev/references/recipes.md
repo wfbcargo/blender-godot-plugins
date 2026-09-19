@@ -26,7 +26,7 @@ toward +X). Scale sun energy with `--energy-scale`.
 |---|---|---|---|---|
 | `clear_midday` | day | 58°, 5600 K, 100k lx / energy 1.8, 0.5° disc | Physical, turbidity 6 | Hard shadows, blue fill, light haze |
 | `golden_hour` | golden | 7°, 3000 K, 25k lx / energy 3.0, 1° disc | Physical, turbid, strong Mie | Long soft shadows, warm key vs cool fill, sun scatter in fog |
-| `overcast` | overcast | 55°, 6800 K, weak (300 lx / 0.25), 20° disc, soft | Procedural grey | No hard shadows; AO and GI carry form; denser fog |
+| `overcast` | overcast | 55°, 6800 K, weak (300 lx / 0.25), casts no shadow | Procedural neutral grey | No hard shadows; AO and GI carry form; denser fog; exposure 0.75 |
 | `interior_daylight` | interior | 40°, 5600 K, like midday | Physical | SDFGI + SSIL, exposure opened ~4.5 stops, windows may clip |
 | `night` | night | "Moon" 35°, 7500 K, 0.3 lx / 0.08 | Procedural near-black | Volumetric fog for halos; **you add practical lights** |
 
@@ -42,7 +42,7 @@ an 8×6×3 m room with one 2×1.6 m window for the interior.
 |---|---|---|
 | clear_midday | 1.06 / 2.5 stops | 1.20 / 2.3 |
 | golden_hour | 1.02 / 2.6 | ~1.0 / ~2.3 |
-| overcast | ~0.6-0.9 / 0.2 | ~0.7 / 1.1 |
+| overcast | 0.60 / 0.3 (0.8.0; grey probe 0.56) | ~0.7 / 1.1 (before 0.8.0) |
 | night | 0.20 / 3.1 (exposure 5) | 0.17 / 3.0 |
 | interior_daylight | median luma ~0.25 | median ~0.43 |
 
@@ -55,6 +55,18 @@ What that calibration taught, beyond the numbers:
   doesn't change key/fill. To shift the ratio, change the sky.
 - `ambient_light_energy` had no effect at all (see godot-lighting.md).
 - SDFGI adds real fill: ~0.035 linear of bounce off a mid-grey ground at midday.
+- **Overcast (0.8.0).** A shadowed sun with a 20 deg `light_angular_distance` does not make a soft overcast:
+  its shadow map drew a hard-edged, mirror-bright vertical band down each forehead and a patch on the nose
+  (a column step of 0.116 display luma across study_man's forehead; 0.012 with the sun's shadow off, 0.018 at
+  5 deg). Overcast casts no hard shadows, so its sun casts none now; AO and GI give the contact shading. The old
+  blue-grey sky (0.62, 0.65, 0.69) pulled the skin's hue about 1 deg toward red and its saturation down; the
+  sky is a neutral grey now. At exposure 1.0 the 18 % probe read 0.60 display, over overcast's 0.58; 0.75 reads
+  0.56 with white-in-key -0.74 stops (limit -0.8).
+- **A backdrop in GI is a courtyard.** Under a preset lit by its sky, anything around the figure that SDFGI sees
+  hides that sky: close-shot's (and figure_study's) 7 m cylinder backdrop took study_man's skin from 0.50 to
+  0.33 display value under overcast (hue 20 -> 18 deg) while clear_midday, lit by its sun, barely moved.
+  Both stages now set the backdrop's `gi_mode` to disabled. A real scene with walls will be darker under
+  overcast, as it should be.
 
 ## Adapting a preset to a real scene
 
