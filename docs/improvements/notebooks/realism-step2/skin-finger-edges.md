@@ -120,3 +120,99 @@ ratio 0.57 - a thin margin under the 0.1 limit on the fixture body's hand_palm.L
 Open: the pale fingertip lines (skin-regions' REGIONS `nail` rough, above); `stipple` reading pore grain on
 study_woman hand_palm.L (above); the edges limit has 2x margin on the fixture but its ratio criterion trips on any
 real backlit glow, so backlit tiles are judged by eye; the game's figures are not rebuilt (the ship step does it).
+
+## Critic round 1 fixes (11:11 on)
+
+Critic round 1: orange lines fixed, the pale fingertip crescent under overcast not (study_man
+`overcast_hand_back.L`); humanform 0.13.0 / lookdev 0.8.0 collided with main. Scratch for this round:
+`rw/sfe2/`.
+
+**Versions.** Main moved twice during the round (skin-pores-distance took humanform 0.13.0 and lookdev 0.9.0,
+then skin-regions took humanform 0.14.0). Merged main into the branch (7155c7c): versions taken from main
+and bumped with tools/bump.py to **humanform 0.15.0, lookdev 0.10.0**. Conflicts in lookdev SKILL.md, lookdev.mjs
+(usage, imports, command table: edges beside grain and stripes), close_shot.gd (sun elevation/azimuth plus
+main's `presets` option) were resolved by keeping both. I took skin_detail.json from main and re-recorded it
+below. Both figures were rebuilt on the merged code (exit 0) and imported.
+
+**Pale crescent: the cause.** Every probe is study_man, overcast hand_back.L, window 180,470 200x120. "Pale add"
+is the most light the specular adds to all three channels (render against `metallic_specular=0`); "px" is the
+pixel count with add >= 10 and > 0.3x the skin under it:
+
+| probe | pale add | px |
+|---|---|---|
+| merged branch (nail rough 0.30) | 33 | 256 |
+| nail mask not smoothed (0.30) | 33 | 215 |
+| nail gloss faded over the free edge's last 3-6 mm, nail 0.30 | 31 | 178 |
+| fingertip pad zone at 0.62, nail gloss on the dorsal plate only | 31 | 200 |
+| nail 0.40 | 21 | 144 |
+| nail 0.45 | 17 | 77 |
+| nail 0.50 | 14 | 22 |
+| **nail 0.55 (chosen)** | 13 | 17 (not at a tip: 266,528) |
+| flat roughness 0.7 (no ORM, Godot `--material-set`) | 8 | 0 |
+| ORM roughness 1.0 everywhere | - | 0 |
+| ORM background (G=0 outside the islands) filled with 0.5 | 33 | 256 |
+
+The line comes and goes with the nail region's roughness and nothing else. The plate's end catches the overcast
+sky at grazing. The UV-island background (roughness 0 in 31% of the ORM) and mipmapping were ruled out
+(`p_fill`, `p_nomip`). A sampled ORM (`orm3.py`) showed the probes did land on the fingertip texels. Crops:
+`rw/sfe2/tip_probe*.png`, `tip_n.png` (0.30 | 0.50 | 0.55), `ba_tip_m.png` (before | after).
+
+One trap for whoever reruns this. Two renders after overwriting and restoring the ORM PNG by hand gave 18 in
+place of 33 for the same code (`b1`, `b2`). Every build-then-import render reproduces 33 (`s1`, `r1`, `det1-3`,
+which are identical). Only the build-then-import renders are used above.
+
+**Fix.** REGIONS `nail` rough 0.30 -> 0.55 (humanform skin.py). This is rougher than a real nail. At 1 m the plate
+is a few pixels, and at 0.50 a faint line still showed. The tint is unchanged. Toenails share the region.
+
+**Check.** `lookdev edges --kind specular`: the same two renders as the transmittance check, but the second one is
+`metallic_specular=0`. A pale pixel is one whose three channels all rise by >= 10 and by > 0.4x the brightest channel of
+the skin there. PALE_LINES fires over 0.1 per thousand. Line-ratio sweep over both figures, pre and fix, hands, both presets
+(`sweep.mjs`):
+
+- 0.3: flags a grazing sheen on the lit thigh's silhouette in the fixed man (clear_midday hand_back.R, 0.44 per
+  mille; overcast palm.L 0.25). That sheen is not a hand line.
+- **0.4: pre man overcast hand_back.L 0.87 and palm.L 0.13 per mille fail; every fixed tile of both figures is 0.**
+  Its worst ratio is 0.38x (thigh rim), so the margin is thin.
+- 0.5: pre man hand_back.L still fails (0.52).
+
+The study_woman before the fix is clean at every ratio. Her round-1 problem was the orange glow, not pale lines.
+
+On the rebuilt figures, clear_midday + overcast hands: specular clean on 16/16 tiles. Transmittance `edges` (hands +
+head_back): clean on 20/20. Glow, clear_midday: man hand_back.R 0.18, woman 0.23. Controls: the selftest has
+the PNG pair `controls/pale_fingers_main_*` (pre, overcast hand_back.L crop), which gives PALE_LINES at 2.22 per mille
+and exit 1, and `pale_fingers_fixed_*`, which is clean at worst 0.30x. selftest on study_man: every edges control ok. One
+FAIL: "close-shot full under the shipped golden_hour passes" (FLOOR_STRIPES 0.549 at 2.80% on study_man's full
+tile). That is main's golden_hour control, run on this figure rather than the regress fixture. It is untouched here.
+
+LOOK-S5 stipple, `--region 180,300,300,250` on the clear_midday hand tiles: clean on 8/8, worst lattice
+0.177 (woman hand_palm.L; round 1 had 0.313 there before the merged pore change).
+
+skin_detail golden re-recorded with `--update --twice` and reviewed. `godot_transmittance_depth` 0.01 -> 0.03
+(round 1's change). Plain skin roughness 0.523 -> 0.525 and control_legacy 0.511 -> 0.514, where the smoothed nail
+weight feathers onto skin. Plugin stamps now read humanform 0.15.0, lookdev 0.10.0.
+
+Not rechecked this round: the backlit glow (`--sun-elevation 15 --sun-azimuth 90`). The transmittance settings
+did not change. The nail roughness does not enter transmittance.
+
+### 12:00 - stale addon in the scratch game; everything above rerun
+
+The first regress of this round (`rw/sfe2/regress_final.log`, exit 1) failed a single control: lookdev selftest's "close-shot full
+under the shipped golden_hour passes" (FLOOR_STRIPES 0.550). main's lookdev.mjs and the branch's gave identical
+numbers on the scratch game (`gh_main`, `gh_br`), and neither passed. The cause was the scratch game itself. Its
+`addons/lookdev` was copied in round 1, before main's golden_hour and pore-detail changes (presets.json,
+lookdev_materials.gd). Every Godot number in the section above was rendered with that old addon. Fix: I copied each
+`plugins/*/godot/addons/*` of the branch over the scratch game's addons (only lookdev differed), reimported, and
+reran everything (`rw/sfe2/redo.sh`, `redo.log`):
+
+- Before the fix (HEAD~2's skin.py via `hf_pre`, both figures rebuilt): `edges --kind specular` gives study_man
+  PALE_LINES on overcast hand_back.L at 0.86 per mille (worst 0.62x) and on overcast hand_palm.L at 0.14. study_woman is clean.
+- Branch (both rebuilt): specular clean on 16/16 hand tiles, worst 0.35x. Transmittance clean on 20/20. Glow at
+  clear_midday: man hand_back.R 0.18, woman 0.23. The transmittance control (main's 1 cm, alpha 1.0 via `--material-set`) fails on
+  both figures: man palm.L 1.07 / back.R 0.90 per mille; woman palm.L 0.43 / back.R 4.44.
+- PNG controls regenerated from these renders, overcast hand_back.L cropped to 300x200: main pair 2.18 per mille
+  PALE_LINES, exit 1; fixed pair clean at 0.30x.
+- Sheets: `rw/sfe2/before2/<id>/sheet.png` against `rw/sfe2/after2/<id>/sheet.png`. Fingertip crop:
+  `rw/sfe2/ba2_tip_m.png`.
+- Stipple, region 180,300,300,250, clear_midday hands: 7/8 clean. study_woman hand_palm.R flags 0.266 at 4 px,
+  identical before and after (`stw_r.png`). The window is the heel of the palm, and the grain is main's coarse pore detail
+  (skin-pores-distance), not shadow dither. The fingers show none.
