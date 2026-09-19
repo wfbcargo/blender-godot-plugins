@@ -31,6 +31,14 @@ from mathutils.bvhtree import BVHTree
 
 from . import fit, rigmap
 
+# drawn_over_cloth: skin counts as over the cloth only where the cloth's face and the skin's normal agree at
+# least this much - `compute`'s rule for cloth it reaches ahead of the skin. Measured on the sample Figure's sports
+# top: skin beside an armhole's rim 0.01-0.22 (and -0.6 on the other side), skin through the cloth over a pressed
+# bump 0.72-0.93. WD_LEGACY_OVER_CLOTH=1 drops the test, as the control that must fail (traced_detail's top).
+FACING_MIN = 0.3
+if __import__("os").environ.get("WD_LEGACY_OVER_CLOTH") == "1":
+    FACING_MIN = -2.0
+
 
 def garment_bvh(garment):
     g = rigmap._obj(garment)
@@ -238,7 +246,12 @@ def drawn_over_cloth(garment, body, rep, reach=0.03, tol=0.0005):
                 co = bme.vertices[i].co
                 h = bvh.find_nearest(co, reach)
                 over[i] = False
-                if h[0] is not None and h[3] > 1e-9:
+                # the cloth must face the way the skin does, as `compute` asks of cloth it counts as covering:
+                # an armhole's rim, turned sideways at the garment's edge, has skin facing forward and down
+                # over its face (normals 120-130 deg apart) - skin beside the opening, not through the cloth.
+                # Counted, each lift turned more rim toward more skin: 18 -> 274 triangles over four lifts on
+                # the sample Figure's sports top once the cut's armhole sat where the arm starts
+                if h[0] is not None and h[3] > 1e-9 and h[1].dot(bme.vertices[i].normal) >= FACING_MIN:
                     side = (co - h[0]).dot(h[1])
                     over[i] = side > tol and side > 0.7 * h[3]
             bad = bad or over[i]

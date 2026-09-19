@@ -88,7 +88,10 @@ figure), and each skin vertex takes the nearest point of that surface. All of it
 skin over 5 cm from the garment's edges, where cloth also keeps its ease off the real skin. `dress`
 then lifts the cloth over any skin the engine would still draw lying over it
 (`cover.drawn_over_cloth`, `fit.lift_over`; `lifted` in the report) and fails a preset whose
-`detail_limit` is exceeded.
+`detail_limit` is exceeded. Skin counts as over the cloth only where the cloth faces the way it does
+(`cover.FACING_MIN`, 0.3): skin beside an armhole's rim meets the rim's face side-on (dots 0.01-0.22,
+or turned away), and lifting the rim over it turned more rim toward more skin - 18 to 274 triangles
+over four lifts on the sample Figure's sports top, once its armhole sat where the arm starts.
 
 Four more knobs came out of the sports top on Belle's real body (a heavier bust than any fixture:
 0.171 mm carried against the 0.060 limit, a faceted pointed shelf under each breast and a dark
