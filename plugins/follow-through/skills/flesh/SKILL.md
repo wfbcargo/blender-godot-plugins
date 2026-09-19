@@ -248,8 +248,9 @@ weight was a plateau from 14 cm above the nipple. `check_placement` tests it: pi
 >= 0.9 within 2 cm of the tail, <= 0.3 10 cm above it, <= 0.05 on leg-dominant vertices
 (`pivot_rise_m`, `weight_at_apex`, `weight_10cm_above`, `weight_on_thigh`, free values);
 `FT_FLESH_LEGACY_ATTACHMENT=1` puts the old bone and weights back as its must-fail control. The longer lever
-raises a jump-only course's time on the limit a little (the cast's breasts 9.9 -> 10.6-10.9 %), still under
-the full course's line.
+raises a jump-only course's time on the limit (the cast's breasts 9.9 -> 10.6-10.9 %), over that course's own
+10 % line: run one-motion courses with `require=within_body`. A second `prepare` straight on a fleshed body can
+fail the check (open; the pipeline restores the unfleshed mesh first).
 
 **Buttocks ride the pelvis.** A type's `"anchor"` names a **bone role** from rig-anything's body map
 (`bodymap.build(...)["roles"]`: `pelvis`, `chest`, `head`, ...), and its jiggle bone is parented to
