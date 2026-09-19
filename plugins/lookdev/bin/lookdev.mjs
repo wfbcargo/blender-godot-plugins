@@ -976,6 +976,15 @@ async function selftest(args) {
     check(`edges on the fingers (${pair === "main" ? "humanform 0.12's transmittance" : "3 cm, strength 0.2"}) ${want ? "reports lines" : "is clean"}`,
       want ? ed.code === 1 && /EDGE_LINES/.test(ed.out) : ed.code === 0 && /clean/.test(ed.out), said.slice(0, 160));
   }
+  // edges --kind specular: study_man's fingertips (hand_back.L, overcast) with and without the specular - with
+  // humanform <= 0.14's glossy nail (0.30) a pale crescent at each tip; with the nail at 0.55 none
+  for (const [pair, want] of [["main", true], ["fixed", false]]) {
+    const c = (s) => fwd(path.join(HERE, "controls", `pale_fingers_${pair}_${s}.png`));
+    const ed = await runSelf(["edges", "--kind", "specular", "--on", c("on"), "--off", c("off")], 120);
+    const said = firstLine(ed.out, /PALE_LINES|lines/);
+    check(`edges --kind specular on the fingertips (${pair === "main" ? "humanform 0.14's nail" : "nail 0.55"}) ${want ? "reports pale lines" : "is clean"}`,
+      want ? ed.code === 1 && /PALE_LINES/.test(ed.out) : ed.code === 0 && /clean/.test(ed.out), said.slice(0, 160));
+  }
 
   // grain: the cheek of the face tile at 1 m. The two-octave skin detail passes; main's pores (mipped away to a
   // flat normal) and no detail at all are too smooth; the pores sampled without mips fill the band but are noise.
@@ -1122,9 +1131,9 @@ const USAGE = `lookdev - lighting and shading tools for Godot
            [--aim-offset view=x,y,z[;view=x,y,z]] [--label above|inside] [--presets-file presets.json]
            [--material-set prop=value]... [--material-preset skin] [--sun-elevation deg] [--sun-azimuth deg]
            a full tile also fails SKIN_PAST_WHITE (figure past diffuse white) and FLOOR_STRIPES (shadow acne)
-  edges    --project <dir> --glb <res://|path> [--views hands] [--presets clear_midday,overcast] [--limit 0.1]
+  edges    --project <dir> --glb <res://|path> [--kind transmittance|specular] [--views hands] [--presets clear_midday,overcast] [--limit 0.1]
            [--material-set prop=value]... [--min-glow v --glow-views head_back] [--out dir] [--json]
-           | --on <png> --off <png> [--subject <png>]   exit 1 when transmittance draws lines on the skin
+           | --on <png> --off <png> [--subject <png>]   exit 1 when transmittance (EDGE_LINES) or, --kind specular, the specular (PALE_LINES) draws lines on the skin
   tone     --project <dir> --glb <res://|path> [--material skin] [--expect r,g,b] [--json]
   selftest --project <dir> [--glb <rigged character>]   run the controls (each must fail)
   compare  --project <dir> --a <png|capture dir> --b <png|capture dir> [--views lit,unshaded] [--out dir]

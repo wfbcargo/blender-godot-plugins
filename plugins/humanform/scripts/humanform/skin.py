@@ -81,7 +81,11 @@ REGIONS = {
     "palm":      {"tint": (1.35, 1.35, 1.24), "rough": 0.60},
     "sole":      {"tint": (1.32, 1.32, 1.14), "rough": 0.64},
     "flush":     {"tint": (1.00, 0.70, 0.70), "rough": 0.48},     # cheeks, nose tip, ears
-    "nail":      {"tint": (1.10, 0.92, 0.92), "rough": 0.30},
+    # nail 0.55 (humanform 0.15.0; was 0.30): MPFB's nail plate ends in a rim the overcast sky catches at grazing, and
+    # at 1 m a glossy plate drew a pale crescent at every fingertip (notebooks/realism-step2/skin-finger-edges.md: the
+    # crescent's added light fell 33 -> 21 -> 17 -> 14 -> 13 with the nail at 0.30/0.40/0.45/0.50/0.55). Keeping the
+    # gloss on the plate and fading it at the free edge or roughening the fingertip pad left it as it was.
+    "nail":      {"tint": (1.10, 0.92, 0.92), "rough": 0.55},
 }
 BASE_ROUGH = 0.50
 T_ZONE_ROUGH = 0.46            # forehead, nose, chin: oilier than the rest, still skin
