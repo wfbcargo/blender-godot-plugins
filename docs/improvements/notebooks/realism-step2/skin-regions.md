@@ -156,3 +156,5 @@ crops (`bin/crop_bl.py`, same camera before and after):
   (it faces away from the sun); a palm lift scaled by skin darkness (darker skin, paler palms) would be the next
   step. The knuckle floor margin on the fixture's deep tone is about 0.9 dE (5.91 vs 5.0). Nipple/genital/nail tints
   were not retuned (not floored).
+
+Final `regress --quick --jobs 4` (10:06-10:12): `REGRESS DONE exit=0, 9 fixtures ok`, no change (log %TEMP%/rw/skr/regress_final.txt).
