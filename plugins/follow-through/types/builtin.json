@@ -106,7 +106,7 @@
 
     "breast":        {"family": "volume", "classes": ["flesh"], "material": "soft_fat", "paired": true,
                       "names": ["breast", "boob", "bust", "moob", "pec", "chest"],
-                      "zone": {"chain": "spine", "height": [0.5, 1.45], "facing_deg": [0, 65], "lateral": [0.03, 1.3]}, "patches": "nearest",
+                      "zone": {"chain": "spine", "height": [0.5, 1.45], "facing_deg": [0, 65], "lateral": [0.03, 1.3]}, "patches": "nearest", "attachment": "upper",
                       "anchor": "chest",
                       "limit_share": 0.66,
                       "limit_max_share": 0.66,
@@ -127,7 +127,7 @@
                       "description": "a swollen torso: named so, or a belly standing out by at least 20% of the body's volume and 8% of its height (the test figure's belly: 16.5% and 6.3%; the bloater's: 23% and 9.4%), slow and sloshing"},
     "butt":          {"family": "volume", "classes": ["flesh"], "material": "soft_fat", "paired": true,
                       "names": ["butt", "buttock", "buttocks", "glute", "gluteus", "bum", "rump", "booty"],
-                      "zone": {"chain": "any", "height": [-0.5, 0.3], "facing_deg": [105, 180], "lateral": [0.02, 1.3]}, "lean": "profile",
+                      "zone": {"chain": "any", "height": [-0.5, 0.3], "facing_deg": [105, 180], "lateral": [0.02, 1.3]}, "lean": "profile", "attachment": "upper",
                       "anchor": "pelvis",
                       "limit_share": 0.9,
                       "limit_max_share": 0.9,

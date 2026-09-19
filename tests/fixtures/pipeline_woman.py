@@ -201,11 +201,14 @@ def build():
     # lean envelope inside the breast zone: before face vertices were kept out of regions its breast bones went
     # on it (about 1.45 m, most of their weight on the face, 0.05 at the bust). The control puts that back and must
     # fail the check, and the stage's judgment must fail on it.
-    def placed(found):
-        p = ft_flesh.check_placement(found["tissue"], [r for r in found["regions"] if r["type"] == "breast"],
+    hangs = ("pivot_rise_m", "weight_at_apex", "weight_10cm_above", "weight_on_thigh")
+
+    def placed(found, kinds=("breast",)):
+        p = ft_flesh.check_placement(found["tissue"], [r for r in found["regions"] if r["type"] in kinds],
                                      found["coords"])
         return {"ok": p["ok"], "chin_z": p["chin_z"],
-                "regions": {r["name"]: {"tail_z": r["tail_z"], "head_share": r["head_share"], "ok": r["ok"]}
+                "regions": {r["name"]: {"tail_z": r["tail_z"], "head_share": r["head_share"], "ok": r["ok"],
+                                        **{k: r[k] for k in hangs if k in r}}
                             for r in p["regions"]}}
     placement = placed(looked)
     os.environ["FT_FLESH_LEGACY_PLACEMENT"] = "1"
@@ -222,6 +225,17 @@ def build():
     except RuntimeError as exc:
         placement["control_legacy"]["judged"] = "failed: MISPLACED names the chin %s, the face %s" % (
             "above the chin" in str(exc), "head-skinned" in str(exc))
+
+    # breasts and buttocks hang from above (follow-through 0.8.0): pivot over the apex, weight graded from the
+    # attachment and off the thigh. The control puts the old bone (tail inside the surface, head level with it)
+    # and the plateau weights back and must fail the check on both types.
+    placement["hanging"] = placed(looked, ("breast", "butt"))
+    os.environ["FT_FLESH_LEGACY_ATTACHMENT"] = "1"
+    try:
+        plateau = ft_flesh.find_regions(ch.mesh, ch.rig, types=["breast", "butt"])
+    finally:
+        os.environ.pop("FT_FLESH_LEGACY_ATTACHMENT", None)
+    placement["control_attachment"] = placed(plateau, ("breast", "butt"))
 
     manifest_path = first["export"]["report"]["moves"]
     with open(manifest_path, encoding="utf-8") as fh:

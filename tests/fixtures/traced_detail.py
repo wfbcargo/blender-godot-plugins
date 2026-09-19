@@ -6,7 +6,9 @@ That made the check untestable: every limit passed whatever the garment did. So 
 embosses the body first. Each breast and buttock gets a 12 mm bump, 18 mm wide, at the vertex where
 its jiggle weight peaks - deliberately larger than a real nipple, so the limits are crossed by a
 margin no rounding reaches, and deterministic because the peak vertex and the falloff are functions
-of the mesh.
+of the mesh. Since follow-through 0.8.0 grades the weight from the attachment to the apex, that vertex
+is at the breast's apex, 1.9 cm from it; the plateau before put it in the cleavage, 4.5 cm off, where
+the top's span hid it.
 
 Then the garments go on six ways, and the golden holds what the check said each time:
 
@@ -27,7 +29,9 @@ Then the garments go on six ways, and the golden holds what the check said each 
 - `sports_top` with a limit on the buttocks, which no top covers: **unmeasured, and so failed**. A
   limit nothing was measured against has not been held (wardrobe 0.2.2 said the same of `verify`),
   and this is the body type it matters on - on a character-pipeline MPFB woman follow-through's
-  breast search lands on the jaw, and a breast limit there would measure nothing at all.
+  breast search landed on the jaw until 0.7.0, and a breast limit there measured nothing at all.
+- last, the control that must fail: the shipped top with `cover.drawn_over_cloth`'s facing test off
+  (`FACING_MIN`), which counts skin beside the armholes' rims and runs its lifts away.
 - `compression_shorts` shipped and uncompressed, the same pair over the buttocks.
 
 The bodies are the `dressed_presets` bodies, so a change to the cut or the ease shows up in both;
@@ -138,6 +142,17 @@ def build():
                 "passed": r["passed"],
                 "problems": r["problems"],
             }
+
+        # the control, which must fail: `drawn_over_cloth` without its facing test counts skin beside the
+        # armholes' rims as skin through the cloth, and the lifts over it run away (wardrobe 0.5.2)
+        from wardrobe import cover as wd_cover
+        kept, wd_cover.FACING_MIN = wd_cover.FACING_MIN, -2.0
+        try:
+            r = wardrobe.dress(BODY, dict(top, name=top["name"] + "_no_facing"), out_path=None)
+        finally:
+            wd_cover.FACING_MIN = kept
+        garments["control_top_no_facing_test"] = {"passed": r["passed"], "lifts": len(r.get("lifted") or []),
+                                                  "drawn_over_cloth": r["cover_report"].get("drawn_over_cloth")}
 
         from rig_analysis import export as ra_export
         walk = BODY + "Walk"

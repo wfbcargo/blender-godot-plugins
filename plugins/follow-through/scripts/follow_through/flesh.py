@@ -88,6 +88,16 @@ MIN_REGION_FRACTION = 0.003   # of the body's vertices; smaller clusters are noi
 # check_placement: a region fails when more than this share of its weight is on head-skinned vertices
 HEAD_SHARE_MAX = 0.02
 
+# a type with "attachment": "upper" (breast, butt) hangs from above (_hang_from_above)
+ATTACH_UP_M = (0.03, 0.06)      # the pivot's rise above the apex, clipped to this
+ATTACH_UNDER_LEAN_M = 0.02      # and its depth under the lean surface there
+ATTACH_U0 = 0.3                 # weight is 0 up to this far along pivot -> apex
+ATTACH_LEG_OFF = 0.5            # and 0 on a vertex with this share of its skin on a leg, rising to 1 at none
+# check_placement on such a type (research-flesh-jiggle.md B and C)
+ATTACH_APEX_MIN = 0.9           # mean weight within 2 cm of the tail, at least
+ATTACH_ABOVE_MAX = 0.3          # weight 10 cm above the apex, at most
+ATTACH_THIGH_MAX = 0.05         # weight on vertices half or more skinned to a leg, at most
+
 # FT_FLESH_LEGACY_PLACEMENT=1 puts back how regions were placed before check_placement existed - the face
 # seeding and growing regions, every patch in a zone merged - so check_placement has a control that must
 # fail (the cast builds' breast bones on the chin).
@@ -992,6 +1002,10 @@ def _region(obj, t, c, rname, tname, entry, verts, area, normals, body_volume, n
     peak = max(float(np.percentile(exc, 90)), 0.01)
     tail = surface
     head = surface - n_mean * (depth + 0.5 * peak)
+    w_out = w
+    attach = None
+    if entry.get("attachment") == "upper" and not _legacy_attachment():
+        head, tail, w_out, attach = _hang_from_above(obj, t, verts, w, exc, n_mean, surface)
     volume = float((exc * area[verts] * np.clip(w, 0, 1)).sum())
     coords = {k: float(np.average(c[k][verts], weights=w + 1e-9)) for k in ("height", "facing", "lateral")}
     roles = list(c["role"][verts])
@@ -1002,7 +1016,8 @@ def _region(obj, t, c, rname, tname, entry, verts, area, normals, body_volume, n
         density = registry.material(entry["material"]).get("density_kg_m3", density)
     return {
         "name": rname, "type": tname, "material": entry.get("material"),
-        "vertices": np.asarray(verts, dtype=int), "weights": w, "count": int(len(verts)),
+        "vertices": np.asarray(verts, dtype=int), "weights": w_out, "count": int(len(verts)),
+        "attachment": attach,
         "volume_m3": round(volume, 6),
         "volume_fraction": round(volume / max(body_volume, 1e-9), 4),
         "peak_m": round(peak, 4), "peak_relative": round(peak_rel, 3),
@@ -1016,6 +1031,118 @@ def _region(obj, t, c, rname, tname, entry, verts, area, normals, body_volume, n
                      f"out of the body in the {tname} zone: height {coords['height']:.2f}, facing "
                      f"{coords['facing']:.0f} deg, on the {role}"],
     }
+
+
+def _legacy_attachment():
+    import os
+    return os.environ.get("FT_FLESH_LEGACY_ATTACHMENT") == "1"
+
+
+def _hang_from_above(obj, t, verts, w, exc, n_mean, surface):
+    """A mass that hangs from its upper edge - a breast from the chest wall above it, a buttock from the
+    iliac crest and sacrum - pivots there, not at its own height, and moves most at its apex (research-flesh-
+    jiggle.md items B and C). Before this the bone's tail sat at the excess^2 centre, 5-8 cm inside the
+    surface, its head at the same height 15 cm deep (study_woman's 3 cm *below* the tail), and the weight was a
+    plateau: >= 0.9 from 14 cm above the nipple to 4 cm below, so a vertical bounce rocked the upper pole and
+    the lower back with the mass as one lump; a buttock's weight ran 12-16 cm down the back of the thigh.
+
+    Tail: the apex, the mean of the region's most outward vertices (along its mean normal) among those
+    weighted >= 0.5. Head: under the lean surface at the apex by ATTACH_UNDER_LEAN_M, raised by 0.6 x the
+    region's height above the apex, clipped to ATTACH_UP_M. Weight: the measured feathering times
+    smoothstep((u - ATTACH_U0) / (1 - ATTACH_U0)), u the vertex's place along head -> tail (0 at the pivot, 1
+    at the apex), times (1 - its skin share on leg chains), normalised to 1 at the apex.
+
+    Returns head, tail, weights and a report of where they went."""
+    P = t["P"][verts]
+    up = np.asarray(t["frame"]["up"], dtype=float)
+    out = (P - surface) @ n_mean
+    strong = np.where(w >= 0.5)[0]
+    if len(strong) < 3:
+        strong = np.arange(len(verts))
+    k = max(3, int(round(0.05 * len(strong))))
+    top = strong[np.argsort(out[strong])[-k:]]
+    apex = P[top].mean(axis=0)
+    lean_at_apex = apex - n_mean * float(exc[top].mean())
+    zs = P[w > 0.2] @ up if (w > 0.2).any() else P @ up
+    rise = float(np.clip(0.6 * (np.percentile(zs, 90) - apex @ up), ATTACH_UP_M[0], ATTACH_UP_M[1]))
+    head = lean_at_apex - n_mean * ATTACH_UNDER_LEAN_M
+    # exactly `rise` above the apex: stepping in along a normal that tilts down lowered it (study_woman 2.8 cm)
+    head = head + up * (float(apex @ up) + rise - float(head @ up))
+    axis = apex - head
+    L2 = max(float(axis @ axis), 1e-9)
+    u = ((P - head) @ axis) / L2
+    g = _smoothstep((u - ATTACH_U0) / (1.0 - ATTACH_U0))
+    leg = _leg_share(obj, t, verts)
+    # nothing on a vertex the thigh mostly moves: 1 - leg alone left 0.51 on the sample Figure's, and a
+    # buttock weighted onto the back of the thigh creases the fold as the leg swings
+    graded = w * g * _smoothstep((ATTACH_LEG_OFF - leg) / ATTACH_LEG_OFF)
+    # full weight at the apex: most of the 2 cm round it at 1. Normalising on the outermost vertices alone left
+    # study_man's and Marco's seat at 0.80-0.85 there, the thigh's share taking the rest
+    near = np.linalg.norm(P - apex, axis=1) < 0.02
+    ref = graded[near] if near.sum() >= 3 else graded[top]
+    at_apex = float(np.percentile(ref, 25))
+    graded = np.clip(graded / max(at_apex, 1e-6), 0.0, 1.0)
+    report = {"apex": [round(float(x), 4) for x in apex], "rise_m": round(rise, 4),
+              "under_lean_m": ATTACH_UNDER_LEAN_M, "leg_share_max": round(float(leg.max()), 3),
+              "weight_before_grading_at_apex": round(float(w[top].mean()), 3)}
+    return head, apex, graded, report
+
+
+def _leg_share(obj, t, verts):
+    """Per region vertex, the share of its (non-ft_) skin weight on a leg: each leg's upper bone (rig-anything's
+    limb roles, else a bone named like a thigh) and every bone under it. Not the chains' `kind`, which is set by
+    height alone: on study_woman it called the root-to-spine chain and the fingers legs, and every bone under
+    `root` then counted as leg."""
+    rig = bpy.data.objects.get(t.get("rig") or "")
+    legs = set()
+    if rig is None:
+        return np.zeros(len(verts))
+    for limb in ((t.get("roles") or {}).get("limbs") or {}).values():
+        if limb.get("role") == "leg" and limb.get("upper") in rig.data.bones:
+            legs.add(limb["upper"])
+    if not legs:
+        legs = {b.name for b in rig.data.bones
+                if {"thigh", "upperleg", "upleg"} & set(name_tokens(b.name)) or "upper_leg" in b.name.lower()}
+    if legs:
+        stack = [rig.data.bones[b] for b in list(legs)]
+        while stack:
+            b = stack.pop()
+            for ch_b in b.children:
+                if ch_b.name not in legs and not ch_b.name.startswith("ft_"):
+                    legs.add(ch_b.name)
+                    stack.append(ch_b)
+    names = {g.index: g.name for g in obj.vertex_groups}
+    out = np.zeros(len(verts))
+    for i, v in enumerate(verts):
+        tot = on = 0.0
+        for x in obj.data.vertices[int(v)].groups:
+            n = names.get(x.group, "")
+            if n.startswith("ft_"):
+                continue
+            tot += x.weight
+            if n in legs:
+                on += x.weight
+        out[i] = on / tot if tot > 0 else 0.0
+    return out
+
+
+def _attachment_measures(t, r, verts, w):
+    """How a hanging mass's bone and weight sit (check_placement): the pivot's rise over the tail, the mean weight
+    within 2 cm of the tail, the most weight on region vertices 9-11 cm above the tail within 4 cm of it
+    horizontally, and the most on vertices with half or more of their skin on a leg. Free values, never clamped."""
+    P = t["P"][verts]
+    up = np.asarray(t["frame"]["up"], dtype=float)
+    tail, head = np.asarray(r["tail"], dtype=float), np.asarray(r["head"], dtype=float)
+    d = P - tail
+    dz = d @ up
+    horiz = np.linalg.norm(d - np.outer(dz, up), axis=1)
+    near = np.linalg.norm(d, axis=1) < 0.02
+    above = (dz > 0.09) & (dz < 0.11) & (horiz < 0.04)
+    leg = _leg_share(bpy.data.objects[t["object"]], t, verts) >= 0.5
+    return {"pivot_rise_m": round(float((head - tail) @ up), 4),
+            "weight_at_apex": round(float(w[near].mean()), 3) if near.any() else 0.0,
+            "weight_10cm_above": round(float(w[above].max()), 3) if above.any() else 0.0,
+            "weight_on_thigh": round(float(w[leg].max()), 3) if leg.any() else 0.0}
 
 
 def check_placement(t, regions, c=None):
@@ -1062,6 +1189,20 @@ def check_placement(t, regions, c=None):
                 if not lo <= row[k] <= hi:
                     row["problems"].append(f"{r['name']}: its {what} is at height {row[k]:.2f}, outside the "
                                            f"{r['type']} zone's {lo:.2f}-{hi:.2f} (0 hip joints, 1 shoulder joints)")
+        if (types.get(r["type"]) or {}).get("attachment") == "upper":
+            row.update(_attachment_measures(t, r, verts, w))
+            if row["pivot_rise_m"] < ATTACH_UP_M[0] - 0.001:
+                row["problems"].append(f"{r['name']}: its pivot is {row['pivot_rise_m'] * 100:.1f} cm above its tail; a "
+                                       f"mass hanging from above pivots at least {ATTACH_UP_M[0] * 100:.0f} cm above its apex")
+            if row["weight_at_apex"] < ATTACH_APEX_MIN:
+                row["problems"].append(f"{r['name']}: weight {row['weight_at_apex']:.2f} at its apex (the tail), "
+                                       f"under {ATTACH_APEX_MIN}")
+            if row["weight_10cm_above"] > ATTACH_ABOVE_MAX:
+                row["problems"].append(f"{r['name']}: weight {row['weight_10cm_above']:.2f} 10 cm above its apex, over "
+                                       f"{ATTACH_ABOVE_MAX}: the attachment moves with the mass")
+            if row["weight_on_thigh"] > ATTACH_THIGH_MAX:
+                row["problems"].append(f"{r['name']}: weight {row['weight_on_thigh']:.2f} on vertices the thigh "
+                                       f"mostly moves, over {ATTACH_THIGH_MAX}")
         if row["head_share"] > HEAD_SHARE_MAX:
             row["problems"].append(f"{r['name']}: {row['head_share']:.0%} of its weight is on head-skinned "
                                    f"vertices (the face), over {HEAD_SHARE_MAX:.0%}")
