@@ -131,3 +131,10 @@ moved.) Full-body torso grain/finest with the fade off: 0.33/0.59, 0.54/0.74, 0.
 - Pores in the fine octave still use `get_seamless_image` (its skirt band is under a pixel at 1 m).
 - The eyes tile (0.25 mm/px) shows pores clearly; a critic may find the forehead in clear_midday a touch strong.
 - The grain limits (0.40 / 1.5) are measured on 640 px close-shot tiles; another tile size needs its own.
+
+## 6. Final check
+
+`python tools/regress.py --quick --jobs 4 --godot <scratch game>` (10:18-10:28): `REGRESS DONE exit=0, 9 fixtures ok`,
+no change; lookdev selftest PASSED 25/25 (the four grain controls among them). Full log:
+`C:/Users/pauli/AppData/Local/Temp/rw/skin-pores/regress_final.log`. Before/after sheets: `shots/main_<who>/sheet.png`,
+`shots/after_<who>/sheet.png` (face, eyes, hands, full; clear_midday and overcast). Ended 10:29.
