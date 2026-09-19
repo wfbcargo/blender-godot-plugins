@@ -58,10 +58,10 @@ here and nowhere else:
 - rig-anything 0.26.0
 - animate-anything 0.10.1
 - follow-through 0.10.0
-- humanform 0.14.0 (merged 2026-09-19: 0.13.0 skin-pores-distance, 0.14.0 skin-regions; not yet installed or shipped)
+- humanform 0.15.0 (merged 2026-09-19: 0.13.0 skin-pores-distance, 0.14.0 skin-regions, 0.15.0 skin-finger-edges; not yet installed or shipped)
 - character-pipeline 0.15.0 (merged 2026-09-19, skin-regions; not yet installed or shipped)
 - wardrobe 0.5.2
-- lookdev 0.9.0 (merged 2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance; not yet installed or shipped)
+- lookdev 0.10.0 (merged 2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance, 0.10.0 skin-finger-edges; not yet installed or shipped)
 - godot-lsp 0.1.0
 
 ---
@@ -497,6 +497,17 @@ and each branch's open items above; a demo selftest rewrites `assets/wardrobe/no
 - **Overcast exposure:** study_man drops to a muddy brown under overcast, study_woman goes grey.
 - **Small defects:** thin orange lines at the finger-web creases and thumb web under clear_midday, pale
   lines at the fingertips under overcast.
+  **Status: merged (2026-09-19, `skin-finger-edges`, humanform 0.15.0, lookdev 0.10.0; not yet shipped - the ship
+  step must rebuild the figures from body, since the nail roughness is in the bake).** The orange lines were skin
+  transmittance: now skin mode, 3 cm, alpha 0.2, and the backlit glow in the finger webs stays. The pale fingertip
+  crescent followed only the nail's roughness (added light 33 -> 13, pixels 256 -> 17 over 0.30-0.55); nail rough
+  is now 0.55. New `lookdev edges` (transmittance colour on the hand and head_back tiles, a regress check on
+  pipeline_woman with an old-transmittance control) and `edges --kind specular` (PALE_LINES, PNG controls in the
+  selftest). Critic: pass, mergeable. Open: nail 0.55 reads matte up close; `--kind specular` is selftest-only and
+  its 0.4 ratio sits just above a thigh-rim sheen at 0.35x; a thin orange thigh rim under an extreme backlight (not
+  a preset); ear glow faint, as on main; `tools/scratch_project.py` copies addons only on creation, so sync
+  `plugins/*/godot/addons/*` into a scratch game made before a merge. Notebook:
+  [notebooks/realism-step2/skin-finger-edges.md](notebooks/realism-step2/skin-finger-edges.md).
 - **Lighting presets on an open stage:** golden_hour overexposure and floor stripes. (interior_daylight is
   marked interior-only since lookdev 0.4.0.)
   **Status: golden_hour merged (2026-09-19, `lookdev-golden-hour`, lookdev 0.8.0; not yet shipped).** The stripes
