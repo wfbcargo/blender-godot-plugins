@@ -740,7 +740,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-h_ms27ae\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-88qioskn\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -2184,6 +2184,7 @@
     },
     "prepare_again": {
      "control_fails": true,
+     "control_uncapped_placement_ok": false,
      "control_without_giving_back": {
       "max_total_lost": 0.98,
       "max_weight_diff": 0.9604,
@@ -2191,6 +2192,7 @@
      },
      "max_total_lost": 0.0,
      "max_weight_diff": 0.2166,
+     "placement_ok": true,
      "regions_equal": true,
      "unweighted": 0,
      "unweighted_first": 0
@@ -2201,7 +2203,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-h_ms27ae\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-88qioskn\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",

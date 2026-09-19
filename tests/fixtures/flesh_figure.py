@@ -140,11 +140,28 @@ def prepare_again(name, flesh):
         return {"max_weight_diff": round(diff, 4), "unweighted": sum(1 for t in t1 if t < 1e-4),
                 "max_total_lost": round(max(a - b for a, b in zip(t0, t1)), 4)}
 
+    def keep():
+        return [{ob.vertex_groups[g.group].name: g.weight for g in v.groups} for v in ob.data.vertices]
+
+    def put_back(saved):
+        for g in list(ob.vertex_groups):
+            ob.vertex_groups.remove(g)
+        groups = {}
+        for i, d in enumerate(saved):
+            for k, x in d.items():
+                g = groups.get(k) or groups.setdefault(k, ob.vertex_groups.new(name=k))
+                g.add([i], x, "REPLACE")
+
     w0, t0 = snap()
+    first = keep()
     regions0 = sorted(r["name"] for r in ob["follow_through"]["jiggle"]["regions"])
     again = flesh.prepare(name)
     w1, t1 = snap()
     out = dict(compare(w0, w1, t1), regions_equal=sorted(r["name"] for r in again.get("regions", [])) == regions0)
+    # the second prepare's regions pass check_placement: before follow-through 0.9.0 capped a jiggle bone's share
+    # at 0.98, a vertex it took all of could only give its weight back to the anchor, and the second prepare read
+    # the lost thigh share (the sample butt: 0.87 at its apex). Its control, below, runs both prepares at cap 1
+    out["placement_ok"] = bool((again.get("placement") or {}).get("ok"))
     real = flesh.remove_jiggle_weights
 
     def dropped(obj, rig=None):                     # what a rerun did before 0.6.1
@@ -160,8 +177,20 @@ def prepare_again(name, flesh):
     out["control_without_giving_back"] = compare(w0, w2, t2)
     out["unweighted_first"] = sum(1 for t in t0 if t < 1e-4)
     out["control_fails"] = out["control_without_giving_back"]["max_total_lost"] > 0.01
+
+    # the cap's control, which must fail placement: from the first run's weights, both prepares with the cap at 1
+    put_back(first)
+    cap = flesh.JIGGLE_SHARE_MAX
+    flesh.JIGGLE_SHARE_MAX = 1.0
+    try:
+        flesh.prepare(name)
+        uncapped = flesh.prepare(name)
+    finally:
+        flesh.JIGGLE_SHARE_MAX = cap
+        put_back(first)
+    out["control_uncapped_placement_ok"] = bool((uncapped.get("placement") or {}).get("ok"))
     if (out["unweighted"] > out["unweighted_first"] or out["max_total_lost"] > 0.01 or not out["regions_equal"]
-            or not out["control_fails"]):
+            or not out["control_fails"] or not out["placement_ok"] or out["control_uncapped_placement_ok"]):
         raise AssertionError(f"flesh.prepare run twice: {out}")
     return out
 
