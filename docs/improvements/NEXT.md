@@ -1,4 +1,4 @@
-# Next: realism on the figure study (flesh round done; skin or motion next)
+# Next: realism on the figure study (skin shipped; motion or the rest of skin next)
 
 A handoff for a fresh conversation. Start with:
 
@@ -17,9 +17,16 @@ cast demo" below for what each did). Everything is pushed: this repo's `main` an
 parked branch `fig-genital-anatomy` (`94ac682`) still has its worktree at `.worktrees/fig-genital-anatomy`; there are
 no other worktrees or open branches. `~/.claude/skills` and the game's addons match `main`.
 
+**Step 2 - skin: four branches merged and shipped (2026-09-19, not pushed)**: lookdev-golden-hour,
+skin-pores-distance, skin-regions and skin-finger-edges (humanform 0.15.0, lookdev 0.10.0, character-pipeline 0.15.0),
+installed; the six figures rebuilt in the game from body (`grungist-creek` master, see "Where the figures are");
+`regress --twice --jobs 4 --godot` on a copy of the game: `REGRESS DONE exit=0, 23 fixtures ok`, no change. Not done
+in Step 2: specular under overcast (the forehead band is still there) and overcast exposure. Notebook:
+[notebooks/realism-step2/ship.md](notebooks/realism-step2/ship.md).
+
 **Where to pick up - the user chooses** (ask, don't assume):
-- **Step 2 - skin** (the next step in "The realism work" order): regional tone and redness, forehead and lip gloss,
-  overcast exposure and specular, the orange finger-web edges.
+- **Step 2 - skin, what is left**: specular under overcast (the vertical forehead band), overcast exposure, and
+  close-shot's overcast FLOOR_STRIPES false fail after clear_midday (see Step 2 below).
 - **Step 5 - motion**: the one item of the user's cast review not yet started - "walking and running are very stiff".
 - Smaller open flesh items (below, under each branch): the jump-only course over its 10 % on-limit line for the cast
   (10.2-11.4 %), walking in phase 0.69-0.85 against people's 0.66, study_woman's belly missed by 0.0001 m, the
@@ -58,10 +65,10 @@ here and nowhere else:
 - rig-anything 0.26.0
 - animate-anything 0.10.1
 - follow-through 0.10.0
-- humanform 0.15.0 (merged 2026-09-19: 0.13.0 skin-pores-distance, 0.14.0 skin-regions, 0.15.0 skin-finger-edges; not yet installed or shipped)
-- character-pipeline 0.15.0 (merged 2026-09-19, skin-regions; not yet installed or shipped)
+- humanform 0.15.0 (2026-09-19: 0.13.0 skin-pores-distance, 0.14.0 skin-regions, 0.15.0 skin-finger-edges; installed and shipped)
+- character-pipeline 0.15.0 (2026-09-19, skin-regions; installed and shipped)
 - wardrobe 0.5.2
-- lookdev 0.10.0 (merged 2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance, 0.10.0 skin-finger-edges; not yet installed or shipped)
+- lookdev 0.10.0 (2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance, 0.10.0 skin-finger-edges; installed and shipped)
 - godot-lsp 0.1.0
 
 ---
@@ -70,13 +77,14 @@ here and nowhere else:
 
 `grungist-creek/characters/study_man.toml` and `study_woman.toml` build through character-pipeline at
 `quality = "final"` in about 32 s each from nothing (a resumed rebuild skips unchanged stages), into
-`assets/figure_study/`, with skin baked at 2048 px. They and Belle were rebuilt on 2026-09-18 by the Step 1
-ship step on every version listed above (study_man 37.6 s, study_woman 34.3 s, Belle 36.5 s, every stage rerun);
-Belle now has brows and lashes. `figure_study.tscn` shows both on
+`assets/figure_study/`, with skin baked at 2048 px. They, Belle and the cast (Marco, Mei, Ruth) were rebuilt from
+body on 2026-09-19 by the Step 2 ship step on every version listed above (study_man 32.5 s, study_woman 31.5 s,
+Marco 39.1 s, Ruth 40.1 s, Mei 31.5 s to export, Belle 34.7 s), so all six carry regional tone, the pore octave,
+the T-zone and lip roughness and the finger-edge fixes. `figure_study.tscn` shows both on
 turntables: keys 1-7 clips (Idle, Walk, Run, Crouch, Jump, TurnL, TurnR), F/S/B/Q/C views (C is a 1 m
 close-up, Tab picks the figure), L lighting presets, T turntables, J flesh, H hair strands. Its
-`--selftest` passes, as do `belle_demo`, `people_demo`, `verify_moves` and `verify_flesh` (full, walk, run and
-jump courses).
+`--selftest` passes, as do `belle_demo`, `people_demo`, `cast_demo`, `verify_moves` (six manifests) and
+`verify_flesh` (full, walk, run and jump courses on all six: 24/24).
 
 To look at them: each build writes the Blender close-up set to
 `assets/figure_study/<id>/review/<id>/close/` (`sheet.png`, 16 tiles, `close.json`; the folder is git-ignored).
@@ -87,11 +95,15 @@ In Godot,
 writes a sheet with one row per view (face, face_3q, eyes, head_side, head_back, the four hand views, full),
 the Blender close-set tile first and one column per preset, in about 20 s (Belle needs `--garments
 res://assets/belle/belle_sportstop.glb,res://assets/belle/belle_shorts.glb`). Run it on a copy of the project
-(`tools/scratch_project.py`, or a tar copy), not the game itself. The Step 1 ship step's sheets (study_man,
-study_woman, belle; 1 m, clear_midday and overcast) are in `%TEMP%/rw/ship/look/<id>/sheet.png` (a scratch
-folder; regenerate rather than rely on it). They show the table below: the neck stipple is gone, the man's
-hairline has fine edge hairs, and brows and lashes read as hair at 1 m; the vertical specular band on the
-foreheads under overcast is still there.
+(`tools/scratch_project.py`, or a tar copy), not the game itself. The Step 2 ship step's sheets (study_man,
+study_woman, belle, cast_marco, cast_mei, cast_ruth; face, face_3q, eyes, head_side, head_back and hands at 1 m, full
+body at 4 m; clear_midday and overcast; paired with the Blender close set) are in
+`%TEMP%/rw/ship/look/<id>/sheet.png` (a scratch folder; regenerate rather than rely on it). Every run exits 1 on one
+tile, overcast full, FLOOR_STRIPES at 1.20-1.54 % against 1.20 % - a close-shot artefact, not the figures: the
+pre-ship glb reads the same (1.24-1.30 %) when overcast follows clear_midday in one run, and both read 0.68-0.86 %
+with overcast alone. First look (not an independent critic): pore grain now shows across the face at 1 m; lips and
+cheeks read redder; the vertical specular band on the foreheads under overcast is still there, and overcast is still
+darker and flatter than clear_midday.
 
 **Judged honestly: clean, well-proportioned CG figures that move properly, not yet realistic.**
 
@@ -492,6 +504,16 @@ and each branch's open items above; a demo selftest rewrites `assets/wardrobe/no
   light; needs a lighting or pose change, lookdev's); study_man's palm only equals the wrist. Open: pale_tint not
   checked against a palm/dorsum dataset; nipple, genital and nail tints untuned and unfloored. Notebook:
   [notebooks/realism-step2/skin-regions.md](notebooks/realism-step2/skin-regions.md).
+**Step 2 status: four branches merged and shipped (2026-09-19).** The ship step installed humanform 0.15.0, lookdev
+0.10.0 and character-pipeline 0.15.0, synced lookdev's addon into the game, rebuilt study_man, study_woman, the cast and
+Belle from body (Mei `to=export`: the known hand_back.L off_body false alarm), and they pass `--import`, the four demo
+selftests, verify_moves and verify_flesh 24/24. Regress on a copy of the game: exit 0, 23 fixtures ok, no change,
+18 min (lookdev selftest 32/32). Open from the ship step: **close-shot carries state from one preset into the next** -
+overcast rendered after clear_midday reads 0.4-0.6 % more floor-stripe contrast than overcast alone and fails
+FLOOR_STRIPES on every figure (reset per preset or render each in its own process, with a control that renders
+overcast after clear_midday). Specular under overcast and overcast exposure below were not taken this round.
+Notebook: [notebooks/realism-step2/ship.md](notebooks/realism-step2/ship.md).
+
 - **Specular under overcast:** hard, mirror-like forehead band and nose and lip patches (the baseline's
   item 4); check the roughness range the bake writes and lookdev's skin preset under a soft sky.
 - **Overcast exposure:** study_man drops to a muddy brown under overcast, study_woman goes grey.
