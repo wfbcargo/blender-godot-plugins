@@ -43,6 +43,14 @@ the eye material preset (lookdev 0.12.0, humanform 0.16.0). The six figures are 
   shoulder, with a cap seam over the crown and the ear covered by a flat plane.
 - **The rest of Step 5 - motion**: MovesController's turns (06 rank 15), the fingertip gaps, and the motion
   critic on every clip. `U.running` was only its first item, and it also unblocks the crowd rebuild.
+- **Motion that reads as alive** - [07](07-motion-that-reads-as-alive.md), new 2026-09-20, from the user's
+  note that the clips look good but rigid. Diagnosis, against 0.27.0: the clips are not missing a degree of
+  freedom, it is that every upper-body DOF is an INSTANTANEOUS algebraic function of one scalar phase, built
+  from one sine - thorax is exactly `-k x` pelvis at the same instant at every speed, arms are the exact
+  negative of their leg, and cycle N is bit-identical to cycle N+1. Five layers to fix it, with whole-body
+  angular momentum as the generative principle so it carries to any body plan rather than being a rule per
+  joint. **Step 1 (the mass model, `mass.py`) is done and shipped as rig-anything 0.28.0**; the natural next
+  one is the girdle term, which is what makes "shoulders drop when a person walks" expressible at all.
 - **An age layer** (benchmark finding): two briefs asked for 40s and 60s and both read twenty-plus years young.
   The 58-year fit cap is not what stops it - slackness, lip thinning, hand tendons and posture are authorable
   on top of a 58-year fit and none was attempted.
