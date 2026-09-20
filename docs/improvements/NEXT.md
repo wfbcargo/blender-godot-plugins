@@ -95,7 +95,7 @@ here and nowhere else:
   0.16.0 eye-material; installed and shipped)
 - character-pipeline 0.15.0 (2026-09-19, skin-regions; installed and shipped)
 - wardrobe 0.5.2
-- lookdev 0.11.0 (2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance, 0.10.0 skin-finger-edges,
+- lookdev 0.12.0 (2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance, 0.10.0 skin-finger-edges,
   0.11.0 lookdev-overcast, 0.12.0 eye-material; installed and shipped)
 - godot-lsp 0.1.0
 
