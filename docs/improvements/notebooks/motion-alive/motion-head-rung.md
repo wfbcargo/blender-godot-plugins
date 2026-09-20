@@ -290,3 +290,15 @@ and -152.1), so the new rung does not disturb the one below it.
 - **No dead ends in the derivation itself**, but one honest negative: `mass.angular_momentum`, the
   arbiter that settled 0.31.0, has nothing to say here (table above). Reaching for it first was
   right; believing it would answer would have been wrong.
+
+## 2026-09-20 14:40 - the final run
+
+`python tools/regress.py --quick --jobs 4` on the branch's HEAD, after the goldens were recorded:
+
+    REGRESS DONE exit=0, 23 fixtures ok
+
+Full output: `C:/Users/pauli/AppData/Local/Temp/rw/hr/regress2.txt`. No `--godot` run: nothing on
+the engine side changed (`git diff main --name-only` has no `.gd`, `.tscn` or addon path), and the
+round's ship step runs the one full `--twice`.
+
+Elapsed: 14:04 to 14:40, 36 minutes, no attempt spent and nothing abandoned.
