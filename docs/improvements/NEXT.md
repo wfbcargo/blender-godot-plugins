@@ -1,4 +1,4 @@
-# Next: realism on the figure study (skin shipped; motion or the rest of skin next)
+# Next: realism on the figure study (skin done; motion next)
 
 A handoff for a fresh conversation. Start with:
 
@@ -17,16 +17,22 @@ cast demo" below for what each did). Everything is pushed: this repo's `main` an
 parked branch `fig-genital-anatomy` (`94ac682`) still has its worktree at `.worktrees/fig-genital-anatomy`; there are
 no other worktrees or open branches. `~/.claude/skills` and the game's addons match `main`.
 
-**Step 2 - skin: four branches merged and shipped (2026-09-19, not pushed)**: lookdev-golden-hour,
-skin-pores-distance, skin-regions and skin-finger-edges (humanform 0.15.0, lookdev 0.10.0, character-pipeline 0.15.0),
-installed; the six figures rebuilt in the game from body (`grungist-creek` master, see "Where the figures are");
-`regress --twice --jobs 4 --godot` on a copy of the game: `REGRESS DONE exit=0, 23 fixtures ok`, no change. Not done
-in Step 2: specular under overcast (the forehead band is still there) and overcast exposure. Notebook:
-[notebooks/realism-step2/ship.md](notebooks/realism-step2/ship.md).
+**Step 2 - skin: five branches merged, shipped and pushed (2026-09-19)**: lookdev-golden-hour,
+skin-pores-distance, skin-regions, skin-finger-edges and lookdev-overcast (humanform 0.15.0, lookdev 0.11.0,
+character-pipeline 0.15.0), installed; the six figures rebuilt in the game from body (`grungist-creek` master, see
+"Where the figures are"); `regress --twice --jobs 4 --godot` on a copy of the game: `REGRESS DONE exit=0, 23 fixtures
+ok`, no change. **Step 2 is done**: lookdev-overcast took the last two items (specular under overcast, overcast
+exposure) and, in doing so, found clear_midday metered half a stop hot. Notebooks:
+[notebooks/realism-step2/ship.md](notebooks/realism-step2/ship.md),
+[lookdev-overcast.md](notebooks/realism-step2/lookdev-overcast.md).
 
 **Where to pick up - the user chooses** (ask, don't assume):
-- **Step 2 - skin, what is left**: specular under overcast (the vertical forehead band), overcast exposure, and
-  close-shot's overcast FLOOR_STRIPES false fail after clear_midday (see Step 2 below).
+- **Step 5 - motion** is now the only untouched item of the user's cast review; Step 2 is closed.
+- Left over from Step 2, both small: `LookdevPresets.apply` leaves on the sun any light property the previous
+  recipe set and this one does not name (this is what made overcast fail FLOOR_STRIPES after clear_midday; the
+  symptom is gone only because overcast no longer casts a shadow), and the tone_shift controls under
+  `plugins/lookdev/bin/controls/tone_shift/` were rendered at clear_midday exposure 1.0, so they no longer show
+  what the shipped preset does - re-render them the next time that area is touched.
 - **Step 5 - motion**: the one item of the user's cast review not yet started - "walking and running are very stiff".
 - Smaller open flesh items (below, under each branch): the jump-only course over its 10 % on-limit line for the cast
   (10.2-11.4 %), walking in phase 0.69-0.85 against people's 0.66, study_woman's belly missed by 0.0001 m, the
@@ -68,7 +74,8 @@ here and nowhere else:
 - humanform 0.15.0 (2026-09-19: 0.13.0 skin-pores-distance, 0.14.0 skin-regions, 0.15.0 skin-finger-edges; installed and shipped)
 - character-pipeline 0.15.0 (2026-09-19, skin-regions; installed and shipped)
 - wardrobe 0.5.2
-- lookdev 0.10.0 (2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance, 0.10.0 skin-finger-edges; installed and shipped)
+- lookdev 0.11.0 (2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance, 0.10.0 skin-finger-edges,
+  0.11.0 lookdev-overcast; installed and shipped)
 - godot-lsp 0.1.0
 
 ---
@@ -509,14 +516,31 @@ and each branch's open items above; a demo selftest rewrites `assets/wardrobe/no
 Belle from body (Mei `to=export`: the known hand_back.L off_body false alarm), and they pass `--import`, the four demo
 selftests, verify_moves and verify_flesh 24/24. Regress on a copy of the game: exit 0, 23 fixtures ok, no change,
 18 min (lookdev selftest 32/32). Open from the ship step: **close-shot carries state from one preset into the next** -
-overcast rendered after clear_midday reads 0.4-0.6 % more floor-stripe contrast than overcast alone and fails
-FLOOR_STRIPES on every figure (reset per preset or render each in its own process, with a control that renders
-overcast after clear_midday). Specular under overcast and overcast exposure below were not taken this round.
+overcast rendered after clear_midday read 0.4-0.6 % more floor-stripe contrast than overcast alone and failed
+FLOOR_STRIPES on every figure. **The symptom is gone since lookdev 0.11.0** (overcast reads 0.13-0.15 % against a
+1.20 % limit, rendered third after clear_midday, on both figures) but only because overcast no longer casts a
+shadow at all, so a leaked sun property can no longer draw acne. The cause stands: `LookdevPresets.apply` leaves
+on the sun any light property the previous recipe set and this one does not name. Still worth fixing properly
+(reset per preset or render each in its own process, with a control that renders overcast after clear_midday).
 Notebook: [notebooks/realism-step2/ship.md](notebooks/realism-step2/ship.md).
 
-- **Specular under overcast:** hard, mirror-like forehead band and nose and lip patches (the baseline's
-  item 4); check the roughness range the bake writes and lookdev's skin preset under a soft sky.
-- **Overcast exposure:** study_man drops to a muddy brown under overcast, study_woman goes grey.
+- **Specular under overcast** and **overcast exposure**.
+  **Status: merged and shipped (2026-09-19, `lookdev-overcast`, lookdev 0.11.0).** The mirror-like forehead band
+  was not roughness at all: overcast's sun cast a shadow through a 20 deg disc, whose shadow map drew a hard-edged
+  band down every forehead and nose. It casts no shadow now, the sky is neutral grey (the blue-grey one moved skin
+  hue 1 deg and saturation 8 % down) and exposure is metered on the 18 % probe at 0.75. The muddy tone was mostly
+  the stage: close-shot's 7 m backdrop cylinder sat in SDFGI and hid the sky below ~38 deg, so a sky-lit preset
+  rendered the figure as if in a courtyard (study_man's skin 0.33 display value against 0.50 with it out of GI).
+  New `lookdev.mjs tone-shift` fails when skin hue or saturation moves between clear_midday and overcast, and
+  close-shot runs it when it renders both. Notebook:
+  [notebooks/realism-step2/lookdev-overcast.md](notebooks/realism-step2/lookdev-overcast.md).
+- **clear_midday was metered half a stop hot** - found by the above, because the backdrop had been hiding it.
+  **Status: fixed in the same branch (exposure 1.0 -> 0.94).** On the open calibration stage with no figure in
+  the scene, `capture --probes` read median display luma 0.61 (day wants 0.3-0.6), grey probe 0.62 (wants
+  0.33-0.62) and key 1.073; at 0.94 the key is 1.008 and both gates clear. study_woman's clear_midday full tile
+  went 1.42 % past white -> 0.01 %. The three-way stage measurement that settled it (backdrop in GI 0.009 %,
+  out of GI 1.423 %, no backdrop 1.421 %) is in the notebook - **the lesson is that close-shot's stage had been
+  quietly differing from the stage the presets were calibrated on.**
 - **Small defects:** thin orange lines at the finger-web creases and thumb web under clear_midday, pale
   lines at the fingertips under overcast.
   **Status: merged (2026-09-19, `skin-finger-edges`, humanform 0.15.0, lookdev 0.10.0; not yet shipped - the ship
