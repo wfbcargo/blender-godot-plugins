@@ -244,10 +244,12 @@ at `%TEMP%/rw/jit/gp`.
   evidence for it.
 - **The spectrum, re-measured by code that shares nothing with the shipped verifier**
   (`%TEMP%/rw/jit/indep_dfa.py`: the generator rewritten in pure Python on Mersenne Twister
-  rather than Godot's PCG, DFA rewritten with its own least-squares detrend). 40 seeds x 4096
-  cycles: **persistent mean 0.806** (0.761-0.864), **0 of 40 outside the shipped [0.70, 0.90]
-  band**; **white mean 0.513** (0.446-0.571), **40 of 40 rejected by it**. Both agree with
-  `gait_jitter.dfa`'s 0.823 / 0.805 and 0.500 / 0.532 to within the seed spread.
+  rather than Godot's PCG, DFA rewritten with its own least-squares detrend). **200 seeds x 4096
+  cycles: persistent mean 0.811** (0.745-0.880), **0 of 200 outside the shipped [0.70, 0.90]
+  band**; **white mean 0.508** (0.446-0.571), **200 of 200 rejected by it**. The band separates
+  them with room on both sides - the lowest persistent seed is 0.745 against a 0.70 floor, the
+  highest white one 0.571 - and both agree with `gait_jitter.dfa`'s own 0.823 / 0.805 and
+  0.500 / 0.532 to within the seed spread. (40 seeds first: 0.806 and 0.513, same picture.)
 - **The seam read directly**, four manifest shapes through `GaitJitter.from_moves`
   (`%TEMP%/rw/jit/seam_check.gd`, copied into the scratch project to run):
 
@@ -389,3 +391,54 @@ a double. Recorded for the merge step; not changed here, because that file is th
 - Tidy-up, deliberately not made after the final regress started so the log matches the shipped
   bytes: `verify_jitter.gd` computes the bound as `phase_gain() * 6.0` with a literal, while the
   6 is now `GaitJitter.KNOT_MAX`. Same number today; they should be one constant.
+
+### The final regress, and the one failure in it - which is main's, not this branch's
+
+`python tools/regress.py --quick --jobs 4 --godot %TEMP%/rw/jit/gp` on the merged branch
+(full output `%TEMP%/rw/jit/regress-final-0.34.0.log`, 17:35-17:57):
+**`REGRESS DONE exit=1, 23 fixtures ok`** - every Blender fixture green and no golden moved, and
+**one Godot row red**:
+
+    FAILED  verify_strands pipeline_ponytail: ... swing_spread=1.050 start_spread=1.048 FAILED
+              FAIL 30 fps: running, a strand went 0.0060 m into the head
+              FAIL 60 fps: running, a strand went 0.0065 m into the head
+              FAIL 120 fps: running, a strand went 0.0067 m into the head
+              FAIL 240 fps: running, a strand went 0.0067 m into the head
+
+**It is not this branch's.** This branch adds no Blender code, no bake code and no strand code -
+`git diff main --stat` is the rig_anything addon, `tools/regress.py`, SKILL.md, the version files
+and this notebook. Reproduced on **`main` itself** (`d367a4b`), from the main checkout, which it
+left clean: `python tools/regress.py --only pipeline_ponytail --jobs 1 --godot <the same scratch
+game>` gives `REGRESS DONE exit=1, 1 fixtures ok` and **the identical four numbers**, 0.0060 /
+0.0065 / 0.0067 / 0.0067 m, `swing_spread=1.050`.
+
+Where it came from, from this branch's own earlier log (`regress-quick-1436.log`, run on the base
+`328fcbc`, before either motion merge):
+
+    ok  verify_strands pipeline_ponytail: ... swing_spread=1.013 start_spread=1.040 PASSED
+          30 fps: swing 101.04 deg settled, head 0.0038 m
+          60 fps: swing  99.72 deg settled, head 0.0039 m
+
+So the ponytail's head penetration went **0.0038-0.0039 m (passing) -> 0.0060-0.0067 m (failing)**
+and the settled swing 100-101 -> 104-109 deg when `motion-head-rung` and `motion-asymmetry` landed.
+That is the head moving more on the Run clip, which is what both of those shipped; the strand is
+simply following it into the skull. Neither branch saw it because **neither of their final regress
+runs used `--godot`** - `%TEMP%/rw/asym/regress-final.txt` is `REGRESS DONE exit=0, 23 fixtures ok`
+with no `godot:` stage in it at all. Worth carrying as a rule: a round that changes what a clip
+does needs one `--godot` run before it merges, because the strand, flesh and wardrobe verifiers are
+the only things that watch the clip move.
+
+For the merge step: this is a blocker on `main`, not on `motion-jitter`, and it is either the
+ponytail's collision radius or the head rung's amplitude. The three `verify_jitter` rows in the
+same run are all ok, including both must-fail controls:
+
+    ok  verify_jitter pipeline_woman: alpha phase 0.823 amp 0.805 | stride cv 0.0261 on / 0.000000 off
+        | swing cv 0.0597 on / 0.00487 off | drift 0.0652 of 0.2160 cycles over 160 s
+        | skate mean 0.0248 on / 0.0236 off m | 1.99 + 2.06 us per character per frame
+    ok  verify_jitter pipeline_woman spectrum=white (must fail): alpha phase 0.500 amp 0.532 | ...
+    ok  verify_jitter pipeline_woman naive=1 long=400 (must fail): ... | drift 0.5185 of 0.2160 cycles over 400 s
+
+and so is everything else the Godot stage runs: verify_moves (12 manifests), verify_wardrobe (7
+rows with 3 must-fail), verify_flesh (4 rows with 1 must-fail), the jiggle spring selftest and its
+control, close-shot, edges and eyes with their controls. Both `verify_strands` must-fail controls
+still fail, though they now fail on the penetration line as well as their own.
