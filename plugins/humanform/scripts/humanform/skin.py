@@ -74,7 +74,7 @@ TONE_TOLERANCE = 0.03          # sRGB, per channel: the baked mean against the b
 REGIONS = {
     "lips":      {"tint": (0.84, 0.46, 0.50), "rough": 0.45},
     "nipple":    {"tint": (0.70, 0.50, 0.46), "rough": 0.48},
-    "genital":   {"tint": (0.70, 0.54, 0.50), "rough": 0.50},
+    "genital":   {"tint": (0.74, 0.46, 0.43), "rough": 0.50},
     "knee":      {"tint": (0.80, 0.52, 0.48), "rough": 0.58},
     "elbow":     {"tint": (0.78, 0.52, 0.48), "rough": 0.60},
     "knuckle":   {"tint": (0.76, 0.47, 0.44), "rough": 0.55},
@@ -105,6 +105,10 @@ PALE_HUE = {"palm": (1.0, 0.985, 0.95), "sole": (1.0, 0.99, 0.90)}
 # the regional contrast each bake must reach: CIELAB dE76 of the region's baked tone from plain skin, and which way
 # (redder: region R/G over skin R/G at least RED_MIN; paler: lighter by PALE_DL_MIN and no redder than skin)
 CONTRAST_FLOOR = {"lips": ("red", 8.0), "knee": ("red", 5.0), "elbow": ("red", 5.0), "knuckle": ("red", 5.0),
+                  # set under the weakest body the fixtures build, not the strongest: study_woman reads
+                  # genital 14.9 and nipple 15.3, but skin_detail's reads 8.3 and 9.3, and a floor that a
+                  # legitimate body misses is a failure recorded as normal rather than a check
+                  "genital": ("red", 7.0), "nipple": ("red", 8.0),
                   "flush": ("red", 4.0), "palm": ("pale", 5.0), "sole": ("pale", 5.0)}
 RED_MIN = 1.03
 PALE_DL_MIN = 3.0
@@ -189,6 +193,15 @@ def _mpfb_group_indices(ob, name, n):
     except ImportError:
         idx = []
     return np.array([i for i in idx if i < n], dtype=np.int64)
+
+
+def _sheet_sex(ob):
+    """The brief's sex off the body's stored sheet, or None when it is not there (then the genital
+    band keeps the sex-blind shape it had before humanform 0.17.0)."""
+    try:
+        return __import__("json").loads(ob["humanform_sheet"]).get("sex")
+    except Exception:
+        return None
 
 
 def regions(ob):
@@ -295,8 +308,13 @@ def regions(ob):
         w["flush"] = np.maximum(w["flush"], 0.8 * _gauss(p, tip, 0.012 * s))
     # genital skin: the midline between the hip joints, from the pubis down, front and under
     hip = 0.5 * (np.array(j["joint-l-upper-leg"]) + np.array(j["joint-l-upper-leg"]) * np.array([-1, 1, 1]))
-    band = _smooth(hip[2] + 0.03 * s, hip[2] - 0.02 * s, p[:, 2]) * _smooth(hip[2] - 0.16 * s, hip[2] - 0.10 * s, p[:, 2])
-    mid_x = np.exp(-(p[:, 0] ** 2) / (2 * (0.03 * s) ** 2))
+    # A woman's tinted skin is the mons pubis and the labia, which reach higher than the hip-joint line
+    # and wider than a man's midline strip. One sex-blind band gave 63 vertices on the study man and 60
+    # on the study woman, while the anatomy there covers about 258 (humanform's own genital delta:
+    # mons 148, labia 87, cleft 23), so most of a woman's was left plain.
+    top, sigma = (0.03, 0.03) if _sheet_sex(ob) != "female" else (0.115, 0.070)
+    band = _smooth(hip[2] + top * s, hip[2] - 0.02 * s, p[:, 2]) * _smooth(hip[2] - 0.16 * s, hip[2] - 0.10 * s, p[:, 2])
+    mid_x = np.exp(-(p[:, 0] ** 2) / (2 * (sigma * s) ** 2))
     w["genital"] = band * mid_x * _smooth(-0.2, 0.3, front - nrm[:, 2] * 0.5) * (p[:, 1] < hip[1] + 0.02 * s)
     # T-zone: forehead, the nose and the chin, facing forwards
     face = _smooth(0.2, 0.6, front) * (p[:, 2] > eye_z - 0.12 * s)
