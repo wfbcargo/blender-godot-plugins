@@ -27,10 +27,14 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _harness as H  # noqa: E402
 
-H.use("RA_SCRIPTS", "HF_SCRIPTS", "FT_SCRIPTS", "WD_SCRIPTS", "CP_SCRIPTS")
+# LD_SCRIPTS is here because humanform's eyes and brows import lookdev_blender and fall back to flat
+# materials without it: until lookdev 0.12.0 this fixture built its eyes through that fallback and no one
+# could see it, because nothing looked at an eye. `lookdev eyes` does, and a real build always sets the
+# variable (scratch_project.py writes it into env.sh), so the fixture sets it too.
+H.use("RA_SCRIPTS", "HF_SCRIPTS", "FT_SCRIPTS", "WD_SCRIPTS", "CP_SCRIPTS", "LD_SCRIPTS")
 # the pipeline finds its plugins through these variables (else the installed copies); point them at
 # the checkout under test, for this process and the second Blender alike
-for _var in ("RA_SCRIPTS", "HF_SCRIPTS", "FT_SCRIPTS", "WD_SCRIPTS", "CP_SCRIPTS"):
+for _var in ("RA_SCRIPTS", "HF_SCRIPTS", "FT_SCRIPTS", "WD_SCRIPTS", "CP_SCRIPTS", "LD_SCRIPTS"):
     os.environ[_var] = H.scripts(_var)
 
 SPEC = '''

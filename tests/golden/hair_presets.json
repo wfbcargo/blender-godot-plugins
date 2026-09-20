@@ -1,12 +1,12 @@
 {
  "fixture": "hair_presets",
  "plugins": {
-  "character-pipeline": "0.12.0",
-  "follow-through": "0.6.2",
-  "humanform": "0.12.0",
-  "lookdev": "0.7.0",
-  "rig-anything": "0.26.0",
-  "wardrobe": "0.5.1"
+  "character-pipeline": "0.15.0",
+  "follow-through": "0.10.0",
+  "humanform": "0.16.0",
+  "lookdev": "0.12.0",
+  "rig-anything": "0.27.0",
+  "wardrobe": "0.5.2"
  },
  "report": {
   "brief_refusal": [
@@ -529,12 +529,12 @@
     "face_order": {
      "HairWoman_hair": {
       "faces": 4103,
-      "order": "40db9557dbdb",
-      "set": "05f917895dd4"
+      "order": "7873b7073dd8",
+      "set": "ab1657429b99"
      }
     },
     "hair": {
-     "cap_min_clearance_m": 0.00011,
+     "cap_min_clearance_m": -0.00018,
      "faces": 4103,
      "verts": 4353
     },
@@ -618,12 +618,12 @@
     "face_order": {
      "HairWoman_hair": {
       "faces": 3274,
-      "order": "9a0ae464837c",
-      "set": "0b4f42da65fc"
+      "order": "0abdc2f593a7",
+      "set": "3adf8c25ef1f"
      }
     },
     "hair": {
-     "cap_min_clearance_m": 0.00011,
+     "cap_min_clearance_m": -0.00018,
      "faces": 3274,
      "verts": 3475
     },
@@ -724,8 +724,8 @@
     "face_order": {
      "HairWoman_hair": {
       "faces": 4423,
-      "order": "0f70884cb05e",
-      "set": "b06adcfc7131"
+      "order": "9faffd754a82",
+      "set": "57995862114f"
      },
      "HairWoman_hair_strand": {
       "faces": 350,
@@ -734,7 +734,7 @@
      }
     },
     "hair": {
-     "cap_min_clearance_m": 0.00011,
+     "cap_min_clearance_m": -0.00018,
      "faces": 4423,
      "verts": 4673
     },
@@ -863,8 +863,8 @@
     "face_order": {
      "HairWoman_hair": {
       "faces": 2688,
-      "order": "a482db250d0d",
-      "set": "510f171410c9"
+      "order": "deeb117aa12a",
+      "set": "dc8e1f070280"
      },
      "HairWoman_hair_strand": {
       "faces": 444,
@@ -873,7 +873,7 @@
      }
     },
     "hair": {
-     "cap_min_clearance_m": 0.00011,
+     "cap_min_clearance_m": -0.00018,
      "faces": 2688,
      "verts": 2897
     },
@@ -989,7 +989,7 @@
     "face_order": {
      "HairWoman_hair": {
       "faces": 2456,
-      "order": "19057a89d778",
+      "order": "0fb558f51598",
       "set": "8a09c423c9bd"
      }
     },
@@ -1048,7 +1048,7 @@
     "HairWoman_hair_strand"
    ],
    "refused": "[hairwoman] hair is already in this file (HairWoman_body, HairWoman_hair_strand) and the hair stage joins a layer on rather than replacing it - rebuild from body (from_stage=\"body\") to change [hair]",
-   "verts": 17241,
+   "verts": 18265,
    "with_another_character": [
     "HairWoman_body",
     "HairWoman_hair_strand"
@@ -1075,7 +1075,7 @@
   },
   "stage": {
    "body_has_ft_strand": false,
-   "body_verts": 17241,
+   "body_verts": 18265,
    "joined": [
     "HairWoman_hair"
    ],
@@ -1086,6 +1086,7 @@
     "HairWoman_skin",
     "HF_sclera",
     "HF_iris_HairWoman_eyes",
+    "HF_limbal_HairWoman_eyes",
     "HF_pupil",
     "HairWoman_hair"
    ],

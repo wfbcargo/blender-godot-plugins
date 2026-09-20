@@ -54,6 +54,7 @@ import json
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -462,9 +463,32 @@ GODOT_LOOKDEV = {
                        "controls": [["--views", "face", "--aim-offset", "face=0,-0.12,0"]],
                        "edges": {"views": "hands", "presets": "clear_midday",
                                  "control": ["subsurf_scatter_transmittance_depth=0.01",
-                                             "subsurf_scatter_transmittance_color=[0.92,0.42,0.30,1.0]"]}},
+                                             "subsurf_scatter_transmittance_color=[0.92,0.42,0.30,1.0]"]},
+                       "eyes": True},
 }
 LOOKDEV_MJS = REPO / "plugins" / "lookdev" / "bin" / "lookdev.mjs"
+
+
+def _strip_eye_preset(src, dst):
+    """A copy of `src` with the eye preset taken back off: no `lookdev` extras on the eye materials and the
+    old 0.01 pupil. This is exactly what every character's eyes were before lookdev 0.12.0, so `lookdev eyes`
+    must fail on it - a check that stops seeing a preset-less eye then fails the harness."""
+    buf = src.read_bytes()
+    jlen = struct.unpack_from("<I", buf, 12)[0]
+    g = json.loads(buf[20:20 + jlen].decode("utf-8"))
+    for m in g.get("materials", []):
+        ld = (m.get("extras") or {}).get("lookdev") or {}
+        if ld.get("preset") != "eye":
+            continue
+        m.pop("extras", None)
+        if ld.get("part") == "pupil":
+            pbr = m.setdefault("pbrMetallicRoughness", {})
+            pbr["baseColorFactor"] = [0.01, 0.01, 0.01, 1.0]
+    js = json.dumps(g, separators=(",", ":")).encode("utf-8")
+    js += b" " * (-len(js) % 4)
+    rest = buf[20 + jlen:]
+    dst.write_bytes(b"glTF" + struct.pack("<II", 2, 12 + 8 + len(js) + len(rest))
+                    + struct.pack("<II", len(js), 0x4E4F534A) + js + rest)
 
 
 def _node(args, timeout=900):
@@ -536,6 +560,28 @@ def _run_lookdev(godot, project, where, src, out, name, selftest):
                 rows.append((label, passed, detail))
             else:
                 rows.append((label, code == 1 and bool(lined), detail))
+    if spec.get("eyes"):
+        stripped = out / "eyes_control.glb"
+        try:
+            _strip_eye_preset(body[0], stripped)
+        except (OSError, ValueError, KeyError, struct.error) as e:
+            rows.append(("eyes %s (control)" % name, False, "could not make the control: %s" % e))
+            stripped = None
+        for label, target, should_pass in (("eyes %s" % name, body[0], True),
+                                           ("eyes %s preset stripped (must fail)" % name, stripped, False)):
+            if target is None:
+                continue
+            code, text = _node(["eyes", str(target), "--json"])
+            try:
+                rep = json.loads(text[text.index("{"):text.rindex("}") + 1])
+            except ValueError:
+                rows.append((label, False, "no json, exit %s: %s" % (code, " | ".join(text.strip().splitlines()[-3:]))))
+                continue
+            fails = rep.get("failures", [])
+            detail = "exit %s, parts %s, iris/pupil %sx, limbal %sx%s" % (
+                code, ",".join(rep.get("found", [])), rep.get("iris_pupil_ratio"), rep.get("limbal_share"),
+                "".join(chr(10) + " " * 12 + f for f in fails[:4]))
+            rows.append((label, (code == 0 and not fails) if should_pass else (code == 1 and bool(fails)), detail))
     if selftest:
         code, text = _node(["selftest", "--project", str(project), "--godot", str(godot), "--glb", glb,
                             "--out", str(out / "selftest")])

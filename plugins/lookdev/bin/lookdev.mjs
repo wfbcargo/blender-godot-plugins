@@ -33,6 +33,7 @@ import { stripesCommand, stripes, maskExclude, STRIPE_LIMITS } from "./stripes.m
 import { readPNG } from "./png.mjs";
 import { grainCommand } from "./grain.mjs";
 import { toneShift, printToneShift, toneShiftCommand } from "./toneshift.mjs";
+import { eyesCommand } from "./eyecheck.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -1175,7 +1176,8 @@ const commands = { capture, lint, preset, compare, presets: listPresets, "close-
   stipple: (a) => stippleCommand(a, die), edges: (a) => edgesCommand(a, { die, runSelf, fwd }),
   grain: (a) => grainCommand(a, die),
   stripes: (a) => stripesCommand(a, die),
-  "tone-shift": (a) => toneShiftCommand(a, die) };
+  "tone-shift": (a) => toneShiftCommand(a, die),
+  eyes: (a) => eyesCommand(a, die) };
 if (!cmd || args.help || !commands[cmd]) {
   console.log(USAGE);
   process.exit(cmd && !args.help ? 2 : 0);
