@@ -835,7 +835,8 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
     if upper_params is not None:
         stance = {l["name"]: {"target": (lambda p, limb, posed, s=pl["stance_shift"][l["name"]]:
                                          limb["rest_eff"] + s)} for l in legs}
-        U = upper_mod.Upper(P, upper_params, posture=posture, stance=stance, running=running)
+        U = upper_mod.Upper(P, upper_params, posture=posture, stance=stance, running=running,
+                            stride_hz=pl["frequency_hz"])
 
     state = {"drop": pl["drop"], "stroke": pl["stroke"], "lift": pl["lift"],
              "flex": pl["flex"], "bounce": 1.0, "over": 1.0}
@@ -933,7 +934,8 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         flex = state["flex"] * math.cos(2.0 * math.pi * (p0 - ext_phase)) * -1.0
         side = 1.0 if (first_leg["rest_root"] - P.centre).dot(P.lat) > 0 else -1.0
         # The upper body rides the same phases: pelvis and thorax turn and
-        # list, the head holds, the arms swing against their own side's leg.
+        # list, the head holds, the arms swing against their own side's leg,
+        # and each shoulder drops as its own side takes the weight.
         trunk, list_drop = None, 0.0
         if U is not None:
             trunk, arm_limbs, list_drop = U.cycle_key(p0, offsets, duty, legs)
@@ -947,7 +949,8 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
                       tail_lift=tail_lift + 0.8 * flex,
                       tail_sway=-tail_swing * math.sin(2.0 * math.pi * p0),
                       posture=posture, trunk=trunk,
-                      hands=getattr(U, "hands", None) if U is not None else None)
+                      hands=getattr(U, "hands", None) if U is not None else None,
+                      girdle=getattr(U, "girdle", None) if U is not None else None)
 
     skin_rest = body.skin_lowest(body.fk(), P._upw)
     skin_allowed = (min(0.0, skin_rest - floor) - 0.012 * bm["height"]
@@ -1018,6 +1021,25 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
                 % (", ".join(clamped), pl["max_drop"], 100 * pl["max_drop"],
                    pl["drop_max"] * pl["scale"]))
         evaluated = ev["evaluated"]
+        # Measured off the playback, not predicted: how far the thorax runs
+        # behind the pelvis in the transverse plane. `upper.response` is what
+        # sets it, and this is the number that says whether it did.
+        if U is not None:
+            r["pelvis_thorax_phase_deg"] = upper_mod.relative_phase(
+                body, bm, evaluated, frames)
+        # Whole-body angular momentum, normalised: the residual the arms exist
+        # to cancel. Reported rather than gated - what a healthy band is for a
+        # body with six legs is not known, and a check nobody can calibrate is
+        # worse than a number somebody can read.
+        try:
+            from . import mass as mass_mod
+            md = mass_mod.body_mass(body)
+            if md is not None and "error" not in md:
+                r["angular_momentum"] = mass_mod.angular_momentum(
+                    md, body, evaluated, frames, bpy.context.scene.render.fps,
+                    pl["speed_mps"])
+        except Exception as e:                                  # pragma: no cover
+            r["angular_momentum"] = {"error": str(e)[:80]}
         seam, seam_bone = _pose_gap(rig, evaluated[1], evaluated[frames + 1])
         if seam > 1e-4:
             r["failures"].append("loop seam %.5f on %s" % (seam, seam_bone))

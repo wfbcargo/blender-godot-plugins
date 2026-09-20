@@ -322,7 +322,8 @@ def stance_shift(poser, limb, width):
 class Key:
     def __init__(self, drop=0.0, shift=0.0, sway=0.0, lean=0.0, head_level=0.8,
                  limbs=None, name="", tail_lift=0.0, tail_sway=0.0, flex=0.0,
-                 wings=None, maw=None, posture=None, trunk=None, hands=None):
+                 wings=None, maw=None, posture=None, trunk=None, hands=None,
+                 girdle=None):
         self.drop, self.shift, self.sway = drop, shift, sway
         self.lean, self.head_level = lean, head_level
         self.limbs = dict(limbs or {})
@@ -345,11 +346,17 @@ class Key:
         # {arm name: share of the relaxed finger curl}; an arm not named is
         # relaxed (1.0) - see FINGER_CURL_DEG
         self.hands = dict(hands) if hands else None
+        # {girdle bone: (lat, fwd, up) degrees}, from `upper.Upper.girdle`: the
+        # shoulder rising, dropping and swinging forward on its own. A girdle
+        # hangs off the axial chain rather than sitting on it, so `Key.trunk`
+        # cannot reach it and `motion.Body.turn_bone` poses it instead.
+        self.girdle = dict(girdle) if girdle else None
 
     def copy(self, **changes):
         k = Key(self.drop, self.shift, self.sway, self.lean, self.head_level,
                 self.limbs, self.name, self.tail_lift, self.tail_sway, self.flex,
-                self.wings, self.maw, self.posture, self.trunk, self.hands)
+                self.wings, self.maw, self.posture, self.trunk, self.hands,
+                self.girdle)
         for a, v in changes.items():
             setattr(k, a, v)
         return k
@@ -547,6 +554,18 @@ class Poser:
                 a.wings if a.wings is not None else self.wing_default,
                 b.wings if b.wings is not None else self.wing_default, ww)
             overrides.update(self.wing_rig.pose(posed, states))
+            posed = body.fk(overrides)
+        # The shoulder girdles, BEFORE the arms are solved: each arm's target is
+        # built from wherever its own shoulder ends up this frame
+        # (`upper.arm_spec`), so moving the shoulder carries the whole arm with
+        # it instead of leaving the hand behind.
+        g_a, g_b = getattr(a, "girdle", None) or {}, getattr(b, "girdle", None) or {}
+        if g_a or g_b:
+            zero = (0.0, 0.0, 0.0)
+            for n in set(g_a) | set(g_b):
+                va, vb = g_a.get(n) or zero, g_b.get(n) or zero
+                t = [lerp(x, y, wa) for x, y in zip(va, vb)]
+                overrides.update(body.turn_bone(posed, n, t[0], t[1], t[2]))
             posed = body.fk(overrides)
         infos, plant_ws = {}, {}
         for limb in self.legs + self.arms:

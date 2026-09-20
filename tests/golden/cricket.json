@@ -1,7 +1,7 @@
 {
  "fixture": "cricket",
  "plugins": {
-  "rig-anything": "0.23.0"
+  "rig-anything": "0.30.0"
  },
  "report": {
   "detection": {
@@ -123,8 +123,8 @@
     "CricketTest_rig_JumpAir",
     "CricketTest_rig_JumpLand"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-1zflmuyv\\a\\cricket\\cricket\\cricket.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-1zflmuyv\\a\\cricket\\cricket\\cricket.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-qyx0c2z2\\cricket\\cricket\\cricket.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-qyx0c2z2\\cricket\\cricket\\cricket.moves.json",
    "review": {
     "bands_px": [
      45,
@@ -140,7 +140,7 @@
      1079
     ],
     "count": 16,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-1zflmuyv\\a\\cricket\\cricket\\review\\cricket",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-qyx0c2z2\\cricket\\cricket\\review\\cricket",
     "frame_height_m": 0.05,
     "frames": {
      "CricketTest_rig_Idle": [
@@ -194,7 +194,7 @@
       15
      ]
     },
-    "seconds": 6.23,
+    "seconds": 5.2,
     "strips": {
      "CricketTest_rig_Idle": {
       "front": {
@@ -1163,6 +1163,10 @@
    "Walk": {
     "action": "CricketTest_rig_Walk",
     "adjustments": [],
+    "angular_momentum": {
+     "up_mean_abs": 0.02894,
+     "up_range": 0.10725
+    },
     "attempts": 1,
     "balance": null,
     "bounce_scale": null,

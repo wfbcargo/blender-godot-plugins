@@ -1,7 +1,7 @@
 {
  "fixture": "quadruped",
  "plugins": {
-  "rig-anything": "0.27.0"
+  "rig-anything": "0.30.0"
  },
  "report": {
   "bind": {
@@ -463,6 +463,10 @@
    "Run": {
     "action": "Dog_Run",
     "adjustments": [],
+    "angular_momentum": {
+     "up_mean_abs": 0.00206,
+     "up_range": 0.00807
+    },
     "attempts": 1,
     "balance": null,
     "bounce_scale": null,
@@ -597,6 +601,10 @@
    "Trot": {
     "action": "Dog_Trot",
     "adjustments": [],
+    "angular_momentum": {
+     "up_mean_abs": 0.00203,
+     "up_range": 0.0077
+    },
     "attempts": 1,
     "balance": null,
     "bounce_scale": null,
@@ -731,6 +739,10 @@
    "Walk": {
     "action": "Dog_Walk",
     "adjustments": [],
+    "angular_momentum": {
+     "up_mean_abs": 0.01183,
+     "up_range": 0.03675
+    },
     "attempts": 1,
     "balance": null,
     "bounce_scale": null,

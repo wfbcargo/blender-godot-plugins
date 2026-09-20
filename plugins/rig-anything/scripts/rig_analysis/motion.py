@@ -270,6 +270,35 @@ class Body:
         return self.drape_chain(chain, self.carried(posed, first, chain[0][1]), rots,
                                 floor=floor, clearance=clearance)
 
+    def turn_bone(self, posed, name, lat_deg=0.0, fwd_deg=0.0, up_deg=0.0):
+        """Override turning ONE bone about its own posed head, by totals about
+        the body map's axes - never about the bone's own.
+
+        For a bone that hangs off the axial chain rather than sitting on it, so
+        `bend_axial` cannot reach it: a shoulder girdle, which carries the whole
+        arm. What the bone carries follows on the next `fk`, because `fk` walks
+        the hierarchy and derives a child from its posed parent.
+
+        Totals, like `bend_axial`'s, and in its order - pitch about `lat`, then
+        roll about `fwd`, then yaw about `up_vec` - so a caller that knows one
+        knows the other. Which side a positive value lifts or brings forward is
+        `axis_turns`, not a convention to be remembered here.
+        """
+        if name not in posed or not (lat_deg or fwd_deg or up_deg):
+            return {}
+        bm = self.bm
+        r = Matrix.Identity(3)
+        if lat_deg:
+            r = Matrix.Rotation(math.radians(lat_deg), 3, bm["lat"]) @ r
+        if fwd_deg:
+            r = Matrix.Rotation(math.radians(fwd_deg), 3, bm["fwd"]) @ r
+        if up_deg:
+            r = Matrix.Rotation(math.radians(up_deg), 3, bm["up_vec"]) @ r
+        head = posed[name].translation.copy()
+        turn = (Matrix.Translation(head) @ r.to_4x4()
+                @ Matrix.Translation(-head))
+        return {name: turn @ posed[name]}
+
     def drape_digits(self, posed, limb, floor=0.0, clearance=0.0):
         """Toes lie on the floor rather than pointing into it."""
         if not limb["digits"] or not limb["end"]:
