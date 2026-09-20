@@ -91,8 +91,8 @@ here and nowhere else:
 - rig-anything 0.27.0 (2026-09-19, moves-running-flag: a Run's arms judged as a run; installed and shipped)
 - animate-anything 0.10.1
 - follow-through 0.10.0
-- humanform 0.16.0 (2026-09-19: 0.13.0 skin-pores-distance, 0.14.0 skin-regions, 0.15.0 skin-finger-edges,
-  0.16.0 eye-material; installed and shipped)
+- humanform 0.17.0 (2026-09-19: 0.13.0 skin-pores-distance, 0.14.0 skin-regions, 0.15.0 skin-finger-edges,
+  0.16.0 eye-material; 2026-09-20: 0.17.0 skin-genital, PR #1; installed and shipped)
 - character-pipeline 0.15.0 (2026-09-19, skin-regions; installed and shipped)
 - wardrobe 0.5.2
 - lookdev 0.12.0 (2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance, 0.10.0 skin-finger-edges,
