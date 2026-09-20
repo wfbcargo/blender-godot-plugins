@@ -420,6 +420,10 @@ func _build_stage() -> void:
 	var bm := _flat(BACKDROP, 0.95)
 	bm.cull_mode = BaseMaterial3D.CULL_FRONT
 	back.material_override = bm
+	# A background, not a wall: left in SDFGI, a 7 m cylinder 6-12 m away hides the sky below ~38 deg, and
+	# a preset lit by its sky (overcast) rendered the figure as if in a courtyard - study_man's skin 0.33
+	# display value against 0.50 with it out of GI (lookdev-overcast notebook, lookdev 0.9.0). The camera still sees it.
+	back.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 	root.add_child(back)
 	stage_nodes = [floor_mi, back]
 	cam = Camera3D.new()

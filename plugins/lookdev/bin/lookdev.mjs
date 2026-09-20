@@ -13,6 +13,7 @@
 //   node lookdev.mjs edges    --project <dir> --glb res://x.glb   (lines a skin's transmittance draws)
 //   node lookdev.mjs grain    <png> [--region cheek] [--min pct] [--max pct]   (fine skin texture in a patch; no Godot)
 //   node lookdev.mjs stripes  <png> [--mask m.png --band px]   (shadow-acne bands on a smooth floor; no Godot)
+//   node lookdev.mjs tone-shift <close-shot dir> [--from clear_midday --to overcast]   (skin keeps its hue; no Godot)
 //
 // Every subcommand runs a GDScript from ../godot against the project, then reads
 // back what it wrote. Godot fails quietly - a broken scene loads with nodes
@@ -31,6 +32,7 @@ import { edgesCommand } from "./edges.mjs";
 import { stripesCommand, stripes, maskExclude, STRIPE_LIMITS } from "./stripes.mjs";
 import { readPNG } from "./png.mjs";
 import { grainCommand } from "./grain.mjs";
+import { toneShift, printToneShift, toneShiftCommand } from "./toneshift.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
@@ -841,6 +843,16 @@ async function closeShot(args) {
     console.log(`\n${stats.failures.length} check(s) failed: an empty, small, off-target or cut tile is not a picture of the subject, and a full tile past white or on a banded floor is not a fair look at it.`);
     process.exitCode = 1;
   }
+  // Rendered under clear_midday and overcast with the full view: the skin must keep its tone between them.
+  if (presets.includes("clear_midday") && presets.includes("overcast") && stats.tiles.some((t) => t.view === "full")) {
+    const ts = toneShift(outDir, { from: "clear_midday", to: "overcast", view: "full" });
+    fs.writeFileSync(path.join(outDir, "tone_shift.json"), JSON.stringify(ts, null, 2));
+    if (!args.json) {
+      console.log("");
+      printToneShift(ts);
+    }
+    if (!ts.ok) process.exitCode = 1;
+  }
 }
 
 // The look checks of a `full` tile (FULL_LOOK): the share of the figure past diffuse white, and bands on the
@@ -995,6 +1007,15 @@ async function selftest(args) {
     check(`grain on ${png} ${want ? "passes" : `fails ${re.source}`}`, want ? gr.code === 0 && re.test(gr.out) : gr.code === 1 && re.test(gr.out), said.slice(0, 160));
   }
 
+  // tone-shift: study_man's full tiles as lookdev 0.7.0 rendered them (overcast turned him muddy: hue -4.3 deg,
+  // saturation -17%) must fail; the same figure under 0.9.0's overcast must pass (the fail is specific)
+  for (const [sub, want] of [["main_0.7.0", false], ["branch_0.9.0", true]]) {
+    const ts = await runSelf(["tone-shift", fwd(path.join(HERE, "controls", "tone_shift", sub))], 120);
+    const said = firstLine(ts.out, /FAIL TONE|keeps its tone/);
+    check(`tone-shift on study_man ${sub} ${want ? "keeps the tone" : "reports TONE_SHIFT"}`,
+      want ? ts.code === 0 && /keeps its tone/.test(ts.out) : ts.code === 1 && /TONE_SHIFT/.test(ts.out), said.slice(0, 160));
+  }
+
   // tone: a black albedo is not ok, an 18% grey one reads 0.18
   const tres = await runGodot(godot, ["--headless", "--path", project, "--script", `${GODOT_DIR}/glb_tone.gd`, "--", "--selftest", "--out-dir", `${dir}/tone`], 120);
   const toneLines = tres.out.split(/\r?\n/).filter((l) => l.startsWith("TONE_SELFTEST"));
@@ -1141,6 +1162,8 @@ const USAGE = `lookdev - lighting and shading tools for Godot
   grain    <png> [--region x,y,w,h | fx,fy,fw,fh | cheek] [--min pct] [--max pct] [--out crop.png] [--json]
            fine texture in a skin patch (high-pass luma RMS / mean, %); exit 1 outside --min/--max
   stripes  <png> [--region ...] [--mask figure_mask.png --band px] [--json]    exit 1 when a smooth surface bands
+  tone-shift <close-shot dir> [--from clear_midday] [--to overcast] [--view full] [--max-hue 3] [--max-sat 0.15] [--json]
+           exit 1 when the figure's mean skin hue or saturation moves between the two presets
 
 Views: lit unshaded lighting normal overdraw ssao ssil pssm sdfgi sdfgi_probes gi_buffer voxel_gi_lighting luminance
 Set targets: @env @sun @camera @world or a node path, e.g. --set "Sun:light_energy=2" --set "@env:ssao_enabled=true"
@@ -1151,7 +1174,8 @@ const cmd = args._[0];
 const commands = { capture, lint, preset, compare, presets: listPresets, "close-shot": closeShot, tone, selftest,
   stipple: (a) => stippleCommand(a, die), edges: (a) => edgesCommand(a, { die, runSelf, fwd }),
   grain: (a) => grainCommand(a, die),
-  stripes: (a) => stripesCommand(a, die) };
+  stripes: (a) => stripesCommand(a, die),
+  "tone-shift": (a) => toneShiftCommand(a, die) };
 if (!cmd || args.help || !commands[cmd]) {
   console.log(USAGE);
   process.exit(cmd && !args.help ? 2 : 0);
