@@ -157,6 +157,25 @@ arms would tip the body forward. `cycle(upper={...})` / `idle(upper={...})`
 override, `upper=False` leaves the rest pose; bodies other than upright
 bipeds are untouched unless asked.
 
+**The axial chain is a lag ladder** (0.30.0, completed in 0.32.0). The legs
+drive the pelvis, the thorax chases the pelvis, and what the chain carries at
+its top chases the thorax - each rung reading the same drive a little later
+rather than mirroring the rung below it, by the lag `upper.response` (a driven
+damped oscillator) gives at that clip's stride frequency. No sign is written
+down anywhere: half a cycle of lag IS anti-phase, and it falls out as the fast
+limit. The segment frequencies are measured, not set - `mass.pendulum` on the
+mass model, through `upper.limb_frequencies` and `upper.head_frequency`
+(whose caveat is in its docstring: what sits on top of an upright chain is
+above its pivot, so its number is a gravitational time scale rather than a
+resonance). `trunk_hz`, `trunk_damping`, `arm_lag`, `hand_lag`, `head_lag` and
+`limb_damping` override; `head_lag=0.0` is the locked top that predates
+0.32.0. Every gait clip reports what it resolved to (`head_hz`,
+`head_lag_deg`, `trunk_lag_deg`) and, measured off the BAKED clip rather than
+off the prediction, what came out: `pelvis_thorax_phase_deg` and
+`thorax_head_phase_deg` (`upper.relative_phase`). Both should MOVE with speed -
+a rung that reads the same number at every speed is a rung that is not really
+there.
+
 **Gait styles** say how a body walks at a speed: `duty`, `stride_scale`,
 `lift_scale`, `bounce_scale`, `sway`, `min_knee` (and `extension`) on
 `plan`/`cycle`, gathered with `upper`, `posture`, `stance_width` and
@@ -478,7 +497,7 @@ godot --headless --path <project> -s res://addons/rig_anything/verify_moves.gd -
 It drives 0 -> walk -> each change-up -> run -> back down -> 0 and checks role, rate,
 hysteresis and phase at every step (`MOVES VERIFY PASSED`).
 
-**Per-cycle variability, so a looping clip stops reading as a loop (0.32.0).** The bake
+**Per-cycle variability, so a looping clip stops reading as a loop (0.33.0).** The bake
 samples ONE cycle and Godot loops it, so nothing put inside a clip can differ from stride
 to stride: the variation has to be added at runtime. A manifest may carry
 
