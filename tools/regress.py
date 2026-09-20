@@ -458,8 +458,9 @@ GODOT_STRANDS = {
 # against the shipped 0.82), so a DFA check that stops telling a persistent series from a white one fails
 # the harness. `naive=1` reads the warp's slope off the clip's own playing phase instead of the
 # unjittered one - the implementation a first attempt gives - whose per-cycle bias of about 1.2 x gain^2
-# does not telescope (study_man: 0.036 cycles of gap at 40 s and 0.200 at 200 s, against 0.016 and 0.058
-# for the shipped one), so a drift check that stops seeing accumulated phase error fails the harness too.
+# does not telescope (over 400 s study_man's worst gap is 0.494 cycles and the trend fitted through a
+# sample a second of it -0.503, both past the 0.216 bound, against 0.134 and +0.042 for the shipped one),
+# so a drift check that stops seeing accumulated phase error fails the harness too.
 GODOT_JITTER = {
     "pipeline_woman": {"manifest": "fixwoman.moves.json",
                        "args": ["cycles=4096", "seconds=40", "long=160"],

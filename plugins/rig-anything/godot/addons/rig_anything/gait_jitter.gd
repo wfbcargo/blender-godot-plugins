@@ -21,8 +21,9 @@ extends RefCounted
 ## range. beta 0.40 over tau 1..729 cycles measures alpha 0.80 +- 0.05 (40 seeds, 4096 cycles).
 ## Cost is MODES multiply-adds and MODES gaussians **per cycle**, about 1 Hz - not per frame.
 ##
-## Nothing here accumulates. The series is bounded and zero-mean, and the playhead offset it
-## drives is bounded too, so a stride can be early or late but the walk never drifts away from
+## Nothing here accumulates. The series is bounded (every knot is clamped to KNOT_MAX sigma) and
+## zero-mean, and the playhead offset it drives is bounded too - hard, not on average - so a
+## stride can be early or late but the walk never drifts away from
 ## where the clip rate says it should be. That is what keeps planted feet from skating and
 ## keeps `implied_speed` time scaling honest.
 ##
@@ -48,6 +49,14 @@ const AMP_SPAN := 0.15
 ## Playback-rate factor is clamped here whatever the draw: a gait never runs backwards or double.
 const RATE_MIN := 0.6
 const RATE_MAX := 1.4
+## Every knot is clamped to this many standard deviations, which is what makes
+## `PHASE_SPAN * jitter_phase * KNOT_MAX` a HARD bound on the playhead offset rather than a
+## statistical one. Without it the bound is only as good as the largest draw a run happens to
+## make: 4096 cycles reach about 4.2 sigma and 3707 cycles of walking reached 4.95, so a long
+## enough run would eventually touch it. Clipping a 6-sigma tail (about 2e-9 of draws) costs
+## nothing measurable - the DFA exponent is unchanged, because the clamp is inside `_draw_*`
+## and so applies identically to the live stream and to the series the verifier measures.
+const KNOT_MAX := 6.0
 
 ## "persistent" (shipped) or "white" (the control that must fail verify_jitter's DFA check).
 var spectrum := "persistent"
@@ -168,22 +177,22 @@ func _step() -> void:
 func _draw_phase() -> float:
 	if spectrum == "white":
 		# The control: what a naive randf() per cycle gives. DFA alpha ~0.5.
-		return _phase_rng.randfn(0.0, 1.0)
+		return clampf(_phase_rng.randfn(0.0, 1.0), -KNOT_MAX, KNOT_MAX)
 	var s := 0.0
 	for k in MODES:
 		_phase_state[k] = _pole[k] * _phase_state[k] + _kick[k] * _phase_rng.randfn(0.0, 1.0)
 		s += _weight[k] * _phase_state[k]
-	return s
+	return clampf(s, -KNOT_MAX, KNOT_MAX)
 
 
 func _draw_amp() -> float:
 	if spectrum == "white":
-		return _amp_rng.randfn(0.0, 1.0)
+		return clampf(_amp_rng.randfn(0.0, 1.0), -KNOT_MAX, KNOT_MAX)
 	var s := 0.0
 	for k in MODES:
 		_amp_state[k] = _pole[k] * _amp_state[k] + _kick[k] * _amp_rng.randfn(0.0, 1.0)
 		s += _weight[k] * _amp_state[k]
-	return s
+	return clampf(s, -KNOT_MAX, KNOT_MAX)
 
 
 ## The cycle just ended: slide to the next pair of knots.

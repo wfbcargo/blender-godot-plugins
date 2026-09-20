@@ -20,11 +20,16 @@ extends SceneTree
 ##  3. varies   - driven at a gait's natural speed, stride intervals and arm swing differ from
 ##     cycle to cycle with jitter on and are exactly periodic with it off, and the MEAN stride
 ##     time is unchanged (which is what `implied_speed` time scaling rests on).
-##  4. drift    - the two runs' real playheads, read off the AnimationPlayer, never get further
-##     apart than the offset bound, and the gap at `long` is no worse than at `seconds`. Its CONTROL
-##     is `naive=1`, which reads the warp's slope off the clip's own playing phase instead of the
+##  4. drift    - the two runs' real playheads, read off the AnimationPlayer, sampled once a
+##     second for the whole run. The gap between them must never leave the offset bound, and the
+##     TREND fitted through those samples, carried over the whole run, must not leave it either.
+##     A gap that wanders inside a bound and one that grows are different shapes, and only a fit
+##     over the run tells them apart: comparing the endpoint against one earlier endpoint compares
+##     two samples of a wandering quantity, which reads as growth whenever the earlier one happened
+##     to be small (it false-failed a clean 3600 s run at 0.0659 against 0.0600). Its CONTROL is
+##     `naive=1`, which reads the warp's slope off the clip's own playing phase instead of the
 ##     unjittered one - the implementation a first attempt gives. Its per-cycle bias is about
-##     1.2 x gain^2 and does not telescope, so it must FAIL the bound.
+##     1.2 x gain^2 and does not telescope, so it must FAIL both.
 ##  5. skate    - the planted foot's horizontal travel during stance, jitter on against off, the
 ##     same estimator both sides. On may be no more than `skate_ratio` x off.
 ##  6. cost     - microseconds per character per frame for the phase warp and for the amplitude
@@ -68,6 +73,8 @@ var _off: MovesController
 var _s_on := {}
 var _s_off := {}
 var _tick := 0
+## (cycles played by the unjittered body, gap in cycles), once a second over the whole run.
+var _gap := []
 var _short_ticks := 0
 var _total_ticks := 0
 var _short := {}
@@ -202,6 +209,7 @@ func _start(path: String) -> void:
 		mod.lod_override = 0.0          # headless: there is no camera, so measure it up close
 	_s_on = _sampler(_on)
 	_s_off = _sampler(_off)
+	_gap = []
 	_tick = 0
 	_short_ticks = int(round(_f("seconds", 60.0) / TICK))
 	_total_ticks = maxi(int(round(_f("long", 300.0) / TICK)), _short_ticks)
@@ -313,6 +321,9 @@ func _step(delta: float) -> void:
 	_advance(_s_on, delta)
 	_advance(_s_off, delta)
 	_tick += 1
+	if _tick % 60 == 0 or _tick >= _total_ticks:
+		var c_off := _played(_s_off)
+		_gap.append(Vector2(c_off, _played(_s_on) - c_off))
 	if _tick == _short_ticks:
 		_short = {"on": _snapshot(_s_on), "off": _snapshot(_s_off)}
 	if _tick >= _total_ticks:
@@ -368,6 +379,11 @@ func _advance(s: Dictionary, delta: float) -> void:
 		var frac: float = (1.0 - last_u) / span if span > 0.0 else 0.0
 		wraps.append(float(s["t"]) - delta + frac * delta)
 	s["last_u"] = u
+
+
+## The playhead as the AnimationPlayer itself reports it, in cycles.
+func _played(s: Dictionary) -> float:
+	return float((s["wraps"] as Array).size()) + float(s["last_u"])
 
 
 ## The playhead as the AnimationPlayer itself reports it, in cycles, plus the per-cycle series.
@@ -515,17 +531,26 @@ func _finish() -> void:
 	var d_short: float = absf(float(on["played"]) - float(off["played"]))
 	var d_long: float = absf(float(long_on["played"]) - float(long_off["played"]))
 	var hz := maxf(float(_m.get("gaits", {}).get(_role, {}).get("stride_frequency_hz", 1.0)), 0.01)
+	# The whole run, not two endpoints: the largest gap it ever reached, and the trend fitted
+	# through every sample, carried over the run. Both are free numbers in the report.
+	var worst_gap := 0.0
+	for g in _gap:
+		worst_gap = maxf(worst_gap, absf((g as Vector2).y))
+	var fitted := _fitted_drift()
 	_out["drift"] = {"cycles_at_short": d_short, "seconds_short": float(on["seconds"]),
 			"cycles_at_long": d_long, "seconds_long": float(long_on["seconds"]),
 			"played_on": long_on["played"], "played_off": long_off["played"],
 			"bound_cycles": bound, "metres_at_long": d_long * _speed / hz,
-			"controller_drift": float(_on.jitter_state()["drift"])}
-	_check(d_long <= bound,
-			"%s the jittered playhead stays inside the offset bound after %d cycles (%.4f <= %.4f cycles, %.3f m of ground)"
-			% [_who, int(float(long_off["played"])), d_long, bound, d_long * _speed / hz])
-	_check(d_long <= maxf(d_short, 0.02) * 3.0,
-			"%s the gap does not grow with the run (%.4f cycles at %.0f s -> %.4f at %.0f s)"
-			% [_who, d_short, float(on["seconds"]), d_long, float(long_on["seconds"])])
+			"worst_gap_cycles": worst_gap, "fitted_drift_cycles": fitted,
+			"samples": _gap.size(), "controller_drift": float(_on.jitter_state()["drift"])}
+	_check(worst_gap <= bound,
+			"%s the jittered playhead stays inside the offset bound over %d cycles (worst gap %.4f <= %.4f cycles, %.3f m of ground; it ends at %.4f)"
+			% [_who, int(float(long_off["played"])), worst_gap, bound,
+			worst_gap * _speed / hz, d_long])
+	_check(absf(fitted) <= bound,
+			"%s the gap does not grow with the run (the trend through %d samples carries %+.4f cycles over %.0f s, bound %.4f; the gap reads %.4f at %.0f s and %.4f at the end)"
+			% [_who, _gap.size(), fitted, float(long_on["seconds"]), bound, d_short,
+			float(on["seconds"]), d_long])
 
 	# ---- 5. no more foot skate
 	var sk_on := {"worst_m": 0.0, "mean_m": 0.0, "stances": 0}
@@ -583,6 +608,32 @@ func _finish() -> void:
 	_on = null
 	_off = null
 	_state = "next"
+
+
+## Least squares through the (cycles, gap) samples, times the cycles the run covered: how far the
+## gap would have moved if the trend in it were real. A bounded wander fits a slope near zero
+## whatever its endpoints happen to be; an accumulating error fits its own rate.
+func _fitted_drift() -> float:
+	var n := _gap.size()
+	if n < 3:
+		return 0.0
+	var mx := 0.0
+	var my := 0.0
+	for g in _gap:
+		mx += (g as Vector2).x
+		my += (g as Vector2).y
+	mx /= float(n)
+	my /= float(n)
+	var num := 0.0
+	var den := 0.0
+	for g in _gap:
+		var dx: float = (g as Vector2).x - mx
+		num += dx * ((g as Vector2).y - my)
+		den += dx * dx
+	if den <= 0.0:
+		return 0.0
+	var span: float = (_gap[n - 1] as Vector2).x - (_gap[0] as Vector2).x
+	return num / den * span
 
 
 ## Time the two pieces of per-frame work on their own, over enough calls that the clock is not the

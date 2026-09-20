@@ -526,10 +526,13 @@ per cycle (not per frame).
   the foot lands, which is the foot skate this must not add. It is LOD-gated on
   `jitter_lod_distance_m` (30 m); the phase warp is one multiply and is not gated.
 
-Measured on study_man at 60 Hz, `jitter_phase = jitter_amp = 0.6`: stride-interval cv 0.027
-on / 4e-14 off, arm-swing cv 0.062 on / 0.0036 off (the estimator's own floor), playhead
-drift 0.057 of a 0.216-cycle bound after 308 cycles, planted-foot travel 0.0247 m on against
-0.0236 off, 3.7 + 3.3 us per character per frame.
+Measured on study_man at 60 Hz, `jitter_phase = jitter_amp = 0.6`: stride-interval cv 0.026
+on / 0 off, arm-swing cv 0.063 on / 0.0036 off (the estimator's own floor), planted-foot
+travel 0.0272 m on against 0.0261 off (worst stance 0.309 against 0.328), 1.5 + 1.3 us per
+character per frame. The playhead gap does not accumulate, which is the claim that needs a long
+run rather than a tolerance: over **3706 cycles - one simulated hour of walking** - the gap
+never exceeds 0.178 of its 0.216-cycle bound and the trend fitted through 3600 samples of it
+carries +0.008 cycles. The same run with `naive=1` reaches 4.61 cycles, 6.0 m of ground.
 
 ```bash
 godot --headless --fixed-fps 60 --path <project> -s res://addons/rig_anything/verify_jitter.gd --     manifests=res://assets/humans/who.moves.json            # add spectrum=white for the control
@@ -539,8 +542,11 @@ godot --headless --fixed-fps 60 --path <project> -s res://addons/rig_anything/ve
 that must fail: `spectrum=white` swaps the bank for one gaussian per cycle - what a naive
 implementation gives - and fails the DFA check (0.50 against 0.82), and `naive=1` reads the warp's
 slope off the clip's own playing phase instead of the unjittered one, which accumulates about
-1.2 x gain^2 of phase per cycle and fails the drift check (0.036 cycles of gap at 40 s and 0.200 at
-200 s, against 0.016 and 0.058). `regress.py --godot` runs the verifier and both controls on
+1.2 x gain^2 of phase per cycle and fails the drift check (over 400 s its worst gap is 0.494 and
+its fitted trend -0.503, both past the 0.216 bound; the shipped path reads 0.134 and +0.042). The
+drift check fits the trend through a sample a second over the whole run rather than comparing two
+endpoints, because a gap that wanders inside a bound and one that grows have the same endpoints
+often enough that the endpoint form false-failed a clean 3600 s run. `regress.py --godot` runs the verifier and both controls on
 `pipeline_woman`.
 
 **8. Wings: fold, flap, glide.** Any free limb whose skin is a sheet is a wing
