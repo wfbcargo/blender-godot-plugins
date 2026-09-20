@@ -49,8 +49,11 @@ the eye material preset (lookdev 0.12.0, humanform 0.16.0). The six figures are 
   from one sine - thorax is exactly `-k x` pelvis at the same instant at every speed, arms are the exact
   negative of their leg, and cycle N is bit-identical to cycle N+1. Five layers to fix it, with whole-body
   angular momentum as the generative principle so it carries to any body plan rather than being a rule per
-  joint. **Step 1 (the mass model, `mass.py`) is done and shipped as rig-anything 0.28.0**; the natural next
-  one is the girdle term, which is what makes "shoulders drop when a person walks" expressible at all.
+  joint. **Steps 1 (the mass model, `mass.py`, 0.28.0) and 2 (the shoulder girdle, 0.29.0) are done and
+  shipped** - each shoulder now drops as its own side takes the weight, two dips a stride, half a
+  cycle apart. Next is step 3, the lag ladder: replace the instantaneous negatives with a lag
+  derived from segment inertia, which also subsumes the two hand-set lag constants
+  (`HAND_LAG`, `girdle_lag`).
 - **An age layer** (benchmark finding): two briefs asked for 40s and 60s and both read twenty-plus years young.
   The 58-year fit cap is not what stops it - slackness, lip thinning, hand tendons and posture are authorable
   on top of a 58-year fit and none was attempted.

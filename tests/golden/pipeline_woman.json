@@ -5,7 +5,7 @@
   "follow-through": "0.10.0",
   "humanform": "0.17.0",
   "lookdev": "0.12.0",
-  "rig-anything": "0.27.0",
+  "rig-anything": "0.28.0",
   "wardrobe": "0.5.2"
  },
  "report": {
@@ -634,13 +634,13 @@
        1.1,
        53.2
       ],
-      "arm_swing_deg": 52.2,
+      "arm_swing_deg": 52.1,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.134,
+       0.136,
        0.467
       ],
       "upper_arm_deg": [
@@ -653,13 +653,13 @@
        1.1,
        53.2
       ],
-      "arm_swing_deg": 52.2,
+      "arm_swing_deg": 52.1,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.134,
+       0.136,
        0.467
       ],
       "upper_arm_deg": [
@@ -680,8 +680,8 @@
        23.0
       ],
       "hand_rise": [
-       -0.179,
-       0.014
+       -0.189,
+       0.008
       ],
       "upper_arm_deg": [
        -13.7,
@@ -699,8 +699,8 @@
        22.9
       ],
       "hand_rise": [
-       -0.179,
-       0.014
+       -0.19,
+       0.009
       ],
       "upper_arm_deg": [
        -13.8,

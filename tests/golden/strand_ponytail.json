@@ -2,7 +2,7 @@
  "fixture": "strand_ponytail",
  "plugins": {
   "follow-through": "0.10.0",
-  "rig-anything": "0.27.0"
+  "rig-anything": "0.28.0"
  },
  "report": {
   "body_export": {
@@ -163,8 +163,8 @@
        85.0
       ],
       "hand_rise": [
-       -0.02,
-       0.324
+       -0.031,
+       0.323
       ],
       "upper_arm_deg": [
        -40.0,
@@ -182,7 +182,7 @@
        85.0
       ],
       "hand_rise": [
-       -0.039,
+       -0.052,
        0.307
       ],
       "upper_arm_deg": [

@@ -225,10 +225,28 @@ arthritic elder) rather than a per-clip hack.
    - Still open: `motion._com_terms` weights bones by VERTEX COUNT, so it puts 50% of Belle's mass
      in her head bone and 4% in each big toe. `mass.com_terms(data)` is a drop-in replacement of
      the same shape; switching `motion.Body` over is a behaviour change and wants its own commit.
-2. **Girdle posing** - a girdle term in `upper.cycle_key`. 02 already names the bone, so this is
-   the shoulder rising and falling with its own side's load, lagged behind the thorax by L1's
-   ladder. Unblocks "shoulders drop when a person walks", which is the thing that prompted all
-   of this.
+2. ~~**Girdle posing**~~ - **done, rig-anything 0.29.0**. Each shoulder now drops as its own side
+   takes the body's weight and swings forward with its own arm, `girdle_lag` of a cycle behind
+   both. Three new `upper` parameters (`girdle_drop`, `girdle_forward`, `girdle_lag`), a
+   `Key.girdle`, and `motion.Body.turn_bone`, which turns ONE bone about the body map's axes -
+   the girdle hangs off the axial chain rather than sitting on it, so `bend_axial` cannot reach
+   it. Posed BEFORE the arms are solved, because `upper.arm_spec` builds each arm's target from
+   wherever its own shoulder ended up that frame, so the arm rides the shoulder instead of being
+   left behind by it.
+   - Measured on Belle: shoulder-to-chest excursion 8.7 mm -> 14.7 mm walking, 22.3 mm running,
+     symmetric to 0.3%. Each shoulder bottoms out within a frame of its own leg's mid-stance plus
+     the lag, and the two are **exactly half a cycle apart** - two dips a stride, one per leg,
+     which is what the eye reads as walking rather than gliding.
+   - The arm-clearance machinery absorbed it on its own: hands came 0.3-0.6 mm nearer the body,
+     `clear_out` re-measured and widened the hang, and every clip still clears the 15 mm margin.
+   - `regress --jobs 4`: six biped fixtures moved (arm pose, hand rise, arm carry, arm_out),
+     none failed, and no creature moved at all - `upper.resolve` only turns the upper body on for
+     an upright two-legged body. Idle and the turns gained only the three reported parameters at
+     zero. Goldens reviewed and updated.
+   - The magnitudes are PROVISIONAL and set by eye, not measured: 2.5 deg of drop walking, 6 deg
+     running, protraction at 0.22 of the arm swing. `girdle_lag` 0.05 is provisional in a
+     stronger sense - step 3 derives every lag on the chain from segment inertia and should take
+     this one with it rather than leaving a hand-set constant behind.
 3. **L1 lag** - `tau` per axial joint from (1); replace the instantaneous negatives. Check
    pelvis-thorax relative phase against the published speed trend.
 4. **L4 variability** - the cheapest visible win; can land before or after (3).

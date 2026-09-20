@@ -1,8 +1,8 @@
 {
  "fixture": "mpfb_woman_curvy",
  "plugins": {
-  "humanform": "0.16.0",
-  "rig-anything": "0.27.0"
+  "humanform": "0.17.0",
+  "rig-anything": "0.28.0"
  },
  "report": {
   "bake": {
@@ -609,7 +609,7 @@
      "FixWoman_body",
      "FixWoman_rig"
     ],
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-vr5a2qtt\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-nu1g5k2u\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "morph_targets": false,
     "options_dropped_by_this_blender": [],
     "skipped": [],
@@ -637,7 +637,7 @@
      "FixWoman_TurnR": 1.041667,
      "FixWoman_Walk": 1.0
     },
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-vr5a2qtt\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-nu1g5k2u\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "generator": "Khronos glTF Blender I/O v5.2.40",
     "gltf_version": 2,
     "joints": 53,
@@ -703,7 +703,7 @@
      1548
     ],
     "count": 25,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-vr5a2qtt\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-nu1g5k2u\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
     "frame_height_m": 2.1,
     "frames": {
      "FixWoman_Crouch": [
@@ -787,7 +787,7 @@
       21
      ]
     },
-    "seconds": 5.45,
+    "seconds": 9.88,
     "strips": {
      "FixWoman_Crouch": {
       "front": {
@@ -1052,7 +1052,7 @@
      "three_quarter"
     ]
    },
-   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-vr5a2qtt\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
+   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-nu1g5k2u\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
    "stage": "done",
    "verified": {
     "durations_match": true,
@@ -1407,6 +1407,9 @@
      ],
      "elbow": 12.0,
      "elbow_swing": 0.0,
+     "girdle_drop": 0.0,
+     "girdle_forward": 0.0,
+     "girdle_lag": 0.0,
      "hand_clearance": 0.015,
      "hand_in": 0.0,
      "head_hold": 0.85,
@@ -1456,20 +1459,20 @@
    "Run": {
     "action": "FixWoman_Run",
     "adjustments": [],
-    "arm_clearance_m": 0.02,
+    "arm_clearance_m": 0.0209,
     "arm_pose": {
      "upper_arm.L": {
       "arm_carry_deg": [
        1.1,
        53.2
       ],
-      "arm_swing_deg": 52.2,
+      "arm_swing_deg": 52.1,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.134,
+       0.136,
        0.467
       ],
       "upper_arm_deg": [
@@ -1482,13 +1485,13 @@
        1.1,
        53.2
       ],
-      "arm_swing_deg": 52.2,
+      "arm_swing_deg": 52.1,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.134,
+       0.136,
        0.467
       ],
       "upper_arm_deg": [
@@ -1568,7 +1571,7 @@
     "planted_drift": {},
     "posture": null,
     "prediction_error": 1e-06,
-    "rest_error": 0.476568,
+    "rest_error": 0.482718,
     "rig": "FixWoman_rig",
     "skin_lowest": -0.0001,
     "spine_flex_deg": 0.0,
@@ -1604,8 +1607,8 @@
     "upper": {
      "arm_forward": -15.0,
      "arm_out": {
-      "upper_arm.L": 12.3,
-      "upper_arm.R": 12.3
+      "upper_arm.L": 12.6,
+      "upper_arm.R": 12.6
      },
      "arm_out_measured": {
       "upper_arm.L": 11.6,
@@ -1613,19 +1616,22 @@
      },
      "arm_swing": 25.0,
      "breath": 0.0,
-     "clearance_m": 0.02,
+     "clearance_m": 0.0209,
      "clearance_tries": [
       [
-       0.0136,
+       0.0111,
        11.6
       ],
       [
-       0.02,
-       12.3
+       0.0209,
+       12.6
       ]
      ],
      "elbow": 85.0,
      "elbow_swing": 0.0,
+     "girdle_drop": 6.0,
+     "girdle_forward": 5.5,
+     "girdle_lag": 0.05,
      "hand_clearance": 0.015,
      "hand_in": 5.0,
      "head_hold": 0.85,
@@ -1756,6 +1762,9 @@
      ],
      "elbow": 12.0,
      "elbow_swing": 0.0,
+     "girdle_drop": 0.0,
+     "girdle_forward": 0.0,
+     "girdle_lag": 0.0,
      "hand_clearance": 0.015,
      "hand_in": 0.0,
      "head_hold": 0.85,
@@ -1884,6 +1893,9 @@
      ],
      "elbow": 12.0,
      "elbow_swing": 0.0,
+     "girdle_drop": 0.0,
+     "girdle_forward": 0.0,
+     "girdle_lag": 0.0,
      "hand_clearance": 0.015,
      "hand_in": 0.0,
      "head_hold": 0.85,
@@ -1898,7 +1910,7 @@
    "Walk": {
     "action": "FixWoman_Walk",
     "adjustments": [],
-    "arm_clearance_m": 0.0199,
+    "arm_clearance_m": 0.0187,
     "arm_pose": {
      "upper_arm.L": {
       "arm_carry_deg": [
@@ -1911,8 +1923,8 @@
        23.0
       ],
       "hand_rise": [
-       -0.179,
-       0.014
+       -0.189,
+       0.008
       ],
       "upper_arm_deg": [
        -13.7,
@@ -1930,8 +1942,8 @@
        22.9
       ],
       "hand_rise": [
-       -0.179,
-       0.014
+       -0.19,
+       0.009
       ],
       "upper_arm_deg": [
        -13.8,
@@ -2010,7 +2022,7 @@
     "planted_drift": {},
     "posture": null,
     "prediction_error": 1e-06,
-    "rest_error": 0.488897,
+    "rest_error": 0.491424,
     "rig": "FixWoman_rig",
     "skin_lowest": -0.0047,
     "spine_flex_deg": 0.0,
@@ -2046,8 +2058,8 @@
     "upper": {
      "arm_forward": 2.0,
      "arm_out": {
-      "upper_arm.L": 11.5,
-      "upper_arm.R": 11.5
+      "upper_arm.L": 11.8,
+      "upper_arm.R": 11.8
      },
      "arm_out_measured": {
       "upper_arm.L": 9.8,
@@ -2055,19 +2067,22 @@
      },
      "arm_swing": 15.839,
      "breath": 0.0,
-     "clearance_m": 0.0199,
+     "clearance_m": 0.0187,
      "clearance_tries": [
       [
-       0.0062,
+       0.004,
        9.8
       ],
       [
-       0.0199,
-       11.5
+       0.0187,
+       11.8
       ]
      ],
      "elbow": 15.0,
      "elbow_swing": 8.0,
+     "girdle_drop": 2.5,
+     "girdle_forward": 3.485,
+     "girdle_lag": 0.05,
      "hand_clearance": 0.015,
      "hand_in": 0.0,
      "head_hold": 0.85,
@@ -2140,13 +2155,13 @@
        1.1,
        53.2
       ],
-      "arm_swing_deg": 52.2,
+      "arm_swing_deg": 52.1,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.134,
+       0.136,
        0.467
       ],
       "upper_arm_deg": [
@@ -2159,13 +2174,13 @@
        1.1,
        53.2
       ],
-      "arm_swing_deg": 52.2,
+      "arm_swing_deg": 52.1,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.134,
+       0.136,
        0.467
       ],
       "upper_arm_deg": [
@@ -2266,8 +2281,8 @@
        23.0
       ],
       "hand_rise": [
-       -0.179,
-       0.014
+       -0.189,
+       0.008
       ],
       "upper_arm_deg": [
        -13.7,
@@ -2285,8 +2300,8 @@
        22.9
       ],
       "hand_rise": [
-       -0.179,
-       0.014
+       -0.19,
+       0.009
       ],
       "upper_arm_deg": [
        -13.8,

@@ -23,6 +23,11 @@ each leg sits on, never from a bone's roll)
   roll and pitch, so the head keeps its orientation toward the world
 - arm swing: each arm swings opposite its own side's leg, the forward swing
   the larger, and the elbow bends further as the arm comes forward
+- shoulder girdle: each shoulder DROPS as its own side takes the body's weight,
+  and swings forward with its own arm. The girdle hangs off the axial chain
+  rather than sitting on it, so `Key.trunk` cannot reach it - it is posed by
+  `motion.Body.turn_bone` through `Key.girdle`, before the arms are solved, so
+  each arm rides its shoulder instead of being left behind by it
 
 ARMS are positions, like legs. Each arm's direction is built against GRAVITY
 and the body's heading - hanging `arm_out` degrees out from vertical, swung
@@ -48,7 +53,8 @@ from mathutils import Vector
 # Every parameter `cycle(upper=...)` and `idle(upper=...)` take.
 PARAMS = ("arm_swing", "arm_forward", "arm_out", "elbow", "elbow_swing", "hand_in",
           "pelvis_turn", "pelvis_list", "thorax_turn", "side_bend", "lean", "lean_bob",
-          "head_hold", "hand_clearance", "breath")
+          "head_hold", "hand_clearance", "breath",
+          "girdle_drop", "girdle_forward", "girdle_lag")
 
 
 # The relaxed finger curl rides the arm swing (`Upper.cycle_key`): its share
@@ -94,6 +100,22 @@ def defaults(froude, duty):
         "head_hold": 0.85,
         "hand_clearance": 0.015,
         "breath": 0.0,
+        # The shoulder girdle. Tied to `arm_swing` rather than given its own
+        # speed curve, so a style that damps the arms damps the shoulders with
+        # them: the shoulder carries roughly a fifth of the arm's fore-aft
+        # excursion. The drop is what reads as "shoulders drop when you walk" -
+        # a couple of degrees on a clavicle is about a centimetre at the
+        # shoulder, which is the size of the real thing. PROVISIONAL numbers:
+        # they are the right shape and an eye, not a measurement, set them - the
+        # motion critic (04) is what should settle them.
+        "girdle_drop": 2.5 + 3.5 * run,
+        "girdle_forward": 0.22 * max(4.0, min(25.0, 6.0 + 22.0 * u)),
+        # Fraction of a cycle the girdle trails its driver. A shoulder is a mass
+        # hung on the ribcage, so it arrives late; HAND_LAG is the same idea one
+        # joint further out, and is larger because it is further out. Also
+        # PROVISIONAL: 07's L1 derives every lag on the chain from segment
+        # inertia instead, and should take this with it.
+        "girdle_lag": 0.05,
     }
 
 
@@ -106,6 +128,9 @@ def idle_defaults():
         "head_hold": 0.85, "hand_clearance": 0.015,
         # degrees the arms drift with each breath
         "breath": 1.0,
+        # nothing is carrying weight and no arm is swinging, so the shoulders
+        # sit where the rig put them
+        "girdle_drop": 0.0, "girdle_forward": 0.0, "girdle_lag": 0.0,
     }
 
 
@@ -466,9 +491,12 @@ class Upper:
         tr = trunk(P, pelvis_yaw, pelvis_roll, thorax_yaw, thorax_roll, pitch,
                    prm["head_hold"])
         drop = self.hip_half * math.sin(math.radians(abs(prm["pelvis_list"] * lst)))
-        limbs, hands = {}, {}
+        limbs, hands, girdle = {}, {}, {}
+        g_lag = prm.get("girdle_lag", 0.0)
+        g_drop, g_fwd = prm.get("girdle_drop", 0.0), prm.get("girdle_forward", 0.0)
         for arm in P.arms:
-            same = [l for l in self.side_legs.get(_side(P, arm), []) if l["name"] in fwd_sig]
+            side = _side(P, arm)
+            same = [l for l in self.side_legs.get(side, []) if l["name"] in fwd_sig]
             if not same:
                 continue
             # the leg on that side nearest the arm along the body
@@ -478,12 +506,28 @@ class Upper:
             # opening a little as it comes back and closing as it goes forward
             lagged = -leg_forward((p0 - HAND_LAG - offsets[leg["name"]]) % 1.0, duty)
             hands[arm["name"]] = 1.0 + HAND_SWING * lagged
+            # The shoulder. It drops as ITS OWN SIDE takes the weight - which is
+            # why a walk has two shoulder dips a stride, one per leg, and why
+            # they are half a cycle apart rather than together - and it swings
+            # forward with its own arm. Both trail their driver by `girdle_lag`,
+            # because a shoulder is a mass hung on a ribcage and arrives late.
+            g_bone = arm.get("girdle")
+            if not g_bone or not (g_drop or g_fwd):
+                continue
+            ph = (p0 - g_lag - offsets[leg["name"]]) % 1.0
+            drop_here = -g_drop * leg_load(ph, duty) * side * self.s_roll
+            fwd_here = g_fwd * -leg_forward(ph, duty) * side * self.s_yaw
+            girdle[g_bone] = (0.0, drop_here, fwd_here)
         self.hands = hands
+        self.girdle = girdle
         return tr, limbs, drop
 
     def idle_key(self, t):
         """(limbs) at idle time t in 0..1: relaxed arms, a breath of drift."""
         b = self.params.get("breath", 0.0) * math.sin(2.0 * math.pi * t)
+        # nothing is loaded and no arm is swinging: clear any girdle a gait key
+        # left on this Upper, rather than holding the last frame of a walk
+        self.girdle = {}
         return {arm["name"]: self.arm_terms(arm, 0.0, breath=b) for arm in self.P.arms}
 
     def widen(self, need_m):

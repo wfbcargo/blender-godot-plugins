@@ -2,7 +2,7 @@
  "fixture": "rigify_human",
  "plugins": {
   "follow-through": "0.10.0",
-  "rig-anything": "0.27.0"
+  "rig-anything": "0.28.0"
  },
  "report": {
   "arm_swing": {
@@ -582,6 +582,9 @@
      ],
      "elbow": 12.0,
      "elbow_swing": 0.0,
+     "girdle_drop": 0.0,
+     "girdle_forward": 0.0,
+     "girdle_lag": 0.0,
      "hand_clearance": 0.015,
      "hand_in": 0.0,
      "head_hold": 0.85,
@@ -631,7 +634,7 @@
    "Run": {
     "action": "Figure_Run",
     "adjustments": [],
-    "arm_clearance_m": 0.0176,
+    "arm_clearance_m": 0.017,
     "arm_pose": {
      "upper_arm.L": {
       "arm_carry_deg": [
@@ -644,8 +647,8 @@
        85.0
       ],
       "hand_rise": [
-       -0.02,
-       0.324
+       -0.031,
+       0.323
       ],
       "upper_arm_deg": [
        -40.0,
@@ -663,7 +666,7 @@
        85.0
       ],
       "hand_rise": [
-       -0.039,
+       -0.052,
        0.307
       ],
       "upper_arm_deg": [
@@ -738,8 +741,8 @@
     },
     "planted_drift": {},
     "posture": null,
-    "prediction_error": 0.0,
-    "rest_error": 0.494258,
+    "prediction_error": 1e-06,
+    "rest_error": 0.498623,
     "rig": "Figure_metarig",
     "skin_lowest": -0.0021,
     "spine_flex_deg": 0.0,
@@ -784,19 +787,22 @@
      },
      "arm_swing": 25.0,
      "breath": 0.0,
-     "clearance_m": 0.0176,
+     "clearance_m": 0.017,
      "clearance_tries": [
       [
-       0.0103,
+       0.0101,
        4.6
       ],
       [
-       0.0176,
+       0.017,
        5.8
       ]
      ],
      "elbow": 85.0,
      "elbow_swing": 0.0,
+     "girdle_drop": 6.0,
+     "girdle_forward": 5.5,
+     "girdle_lag": 0.05,
      "hand_clearance": 0.015,
      "hand_in": 5.0,
      "head_hold": 0.85,
@@ -930,11 +936,11 @@
    "Trot": {
     "action": "Figure_Trot",
     "adjustments": [],
-    "arm_clearance_m": 0.0173,
+    "arm_clearance_m": 0.017,
     "arm_pose": {
      "upper_arm.L": {
       "arm_carry_deg": [
-       -5.4,
+       -5.3,
        48.3
       ],
       "arm_swing_deg": 53.7,
@@ -943,7 +949,7 @@
        77.2
       ],
       "hand_rise": [
-       -0.098,
+       -0.12,
        0.279
       ],
       "upper_arm_deg": [
@@ -962,7 +968,7 @@
        77.2
       ],
       "hand_rise": [
-       -0.117,
+       -0.139,
        0.254
       ],
       "upper_arm_deg": [
@@ -1038,7 +1044,7 @@
     "planted_drift": {},
     "posture": null,
     "prediction_error": 0.0,
-    "rest_error": 0.502104,
+    "rest_error": 0.506569,
     "rig": "Figure_metarig",
     "skin_lowest": -0.0021,
     "spine_flex_deg": 0.0,
@@ -1074,8 +1080,8 @@
     "upper": {
      "arm_forward": -12.855,
      "arm_out": {
-      "upper_arm.L": 5.3,
-      "upper_arm.R": 4.9
+      "upper_arm.L": 5.4,
+      "upper_arm.R": 5.0
      },
      "arm_out_measured": {
       "upper_arm.L": 3.9,
@@ -1083,19 +1089,22 @@
      },
      "arm_swing": 25.0,
      "breath": 0.0,
-     "clearance_m": 0.0173,
+     "clearance_m": 0.017,
      "clearance_tries": [
       [
-       0.0085,
+       0.0078,
        3.7
       ],
       [
-       0.0173,
-       5.1
+       0.017,
+       5.2
       ]
      ],
      "elbow": 76.166,
      "elbow_swing": 1.01,
+     "girdle_drop": 5.558,
+     "girdle_forward": 5.5,
+     "girdle_lag": 0.05,
      "hand_clearance": 0.015,
      "hand_in": 2.5,
      "head_hold": 0.85,
@@ -1112,7 +1121,7 @@
    "Walk": {
     "action": "Figure_Walk",
     "adjustments": [],
-    "arm_clearance_m": 0.0175,
+    "arm_clearance_m": 0.0172,
     "arm_pose": {
      "upper_arm.L": {
       "arm_carry_deg": [
@@ -1125,8 +1134,8 @@
        23.0
       ],
       "hand_rise": [
-       -0.387,
-       -0.166
+       -0.408,
+       -0.176
       ],
       "upper_arm_deg": [
        -13.8,
@@ -1144,8 +1153,8 @@
        23.0
       ],
       "hand_rise": [
-       -0.405,
-       -0.184
+       -0.427,
+       -0.195
       ],
       "upper_arm_deg": [
        -13.8,
@@ -1220,7 +1229,7 @@
     "planted_drift": {},
     "posture": null,
     "prediction_error": 0.0,
-    "rest_error": 0.493221,
+    "rest_error": 0.494285,
     "rig": "Figure_metarig",
     "skin_lowest": -0.0021,
     "spine_flex_deg": 0.0,
@@ -1256,8 +1265,8 @@
     "upper": {
      "arm_forward": 2.0,
      "arm_out": {
-      "upper_arm.L": 5.1,
-      "upper_arm.R": 4.8
+      "upper_arm.L": 5.5,
+      "upper_arm.R": 5.1
      },
      "arm_out_measured": {
       "upper_arm.L": 4.2,
@@ -1265,19 +1274,22 @@
      },
      "arm_swing": 15.839,
      "breath": 0.0,
-     "clearance_m": 0.0175,
+     "clearance_m": 0.0172,
      "clearance_tries": [
       [
-       0.0121,
+       0.0097,
        4.0
       ],
       [
-       0.0175,
-       5.0
+       0.0172,
+       5.3
       ]
      ],
      "elbow": 15.0,
      "elbow_swing": 8.0,
+     "girdle_drop": 2.5,
+     "girdle_forward": 3.485,
+     "girdle_lag": 0.05,
      "hand_clearance": 0.015,
      "hand_in": 0.0,
      "head_hold": 0.85,
@@ -1355,8 +1367,8 @@
        85.0
       ],
       "hand_rise": [
-       -0.02,
-       0.324
+       -0.031,
+       0.323
       ],
       "upper_arm_deg": [
        -40.0,
@@ -1374,7 +1386,7 @@
        85.0
       ],
       "hand_rise": [
-       -0.039,
+       -0.052,
        0.307
       ],
       "upper_arm_deg": [
@@ -1386,7 +1398,7 @@
     "Figure_Trot": {
      "upper_arm.L": {
       "arm_carry_deg": [
-       -5.4,
+       -5.3,
        48.3
       ],
       "arm_swing_deg": 53.7,
@@ -1395,7 +1407,7 @@
        77.2
       ],
       "hand_rise": [
-       -0.098,
+       -0.12,
        0.279
       ],
       "upper_arm_deg": [
@@ -1414,7 +1426,7 @@
        77.2
       ],
       "hand_rise": [
-       -0.117,
+       -0.139,
        0.254
       ],
       "upper_arm_deg": [
@@ -1435,8 +1447,8 @@
        23.0
       ],
       "hand_rise": [
-       -0.387,
-       -0.166
+       -0.408,
+       -0.176
       ],
       "upper_arm_deg": [
        -13.8,
@@ -1454,8 +1466,8 @@
        23.0
       ],
       "hand_rise": [
-       -0.405,
-       -0.184
+       -0.427,
+       -0.195
       ],
       "upper_arm_deg": [
        -13.8,
