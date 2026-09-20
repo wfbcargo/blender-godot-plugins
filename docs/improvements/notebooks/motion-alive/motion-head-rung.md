@@ -190,6 +190,15 @@ and it separates or converges according to what was measured off each body.
 Both bodies' `pelvis_thorax_phase_deg` is unchanged to the tenth of a degree at every speed: this
 rung sits on top of 0.30.0's, it does not disturb it.
 
+### One reported number that looks odd and is not
+
+An Idle's golden now reads `head_lag_cycles` 0.5 / `head_lag_deg` 180.0. An idle has no stride to
+be driven at, so `response(0, head_hz, d)` returns its "nothing known" fallback of half a cycle -
+exactly as `trunk_lag_deg` has read 180.0 on every idle since 0.30.0. Neither is ever used: the
+idle path poses the chain through `actions.py`'s own `trunk(...)` call, which passes positional
+arguments only and so gets `head=None`. It is reported because everything `Upper` resolved is
+reported, and it is goldened, which is the right place for a number nobody reads to sit.
+
 ## The control that must fail
 
 Two of them, and the fixture carries the permanent one.
