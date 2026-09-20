@@ -91,7 +91,7 @@ DEFAULT_TOLERANCE = 1e-3
 # starts early rather than at the tail.
 DURATIONS = {  # 2026-09-18, `--jobs 2` on main at 5a218d3
     "rabbit": 193, "cricket": 182, "pipeline_muscle": 130, "dressed_presets": 69, "pipeline_woman": 67,
-    "dressed_skirts": 55, "flesh_figure": 54, "traced_detail": 53, "rigify_human": 53, "quadruped": 49,
+    "dressed_skirts": 55, "flesh_figure": 54, "traced_detail": 53, "rigify_human": 230, "quadruped": 49,
     "mpfb_woman_curvy": 49, "pipeline_ponytail": 40, "dressed_figure": 38, "hair_presets": 36,
     "strand_ponytail": 32, "muscle_definition": 31, "mixamo_names": 21, "skin_detail": 18,
     "review_sheet": 9, "starfish": 6, "pipeline_paths": 28,

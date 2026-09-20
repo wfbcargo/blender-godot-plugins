@@ -695,7 +695,8 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
           extension=None, tail_lift=None, tail_swing=None, attempts=6, paw_fold=1.0,
           swing_hold=SWING_HOLD, max_drop=None, centre_weight=None, stance_width=None,
           posture=None, upper=None, duty=None, stride_scale=None, lift_scale=None,
-          bounce_scale=None, sway=None, min_knee=None, style=None, vault=None):
+          bounce_scale=None, sway=None, min_knee=None, style=None, vault=None,
+          variability=None):
     """Author a looping gait from `plan`, verified on Blender's playback.
 
     froude         a number, or a name from `GAITS` ("walk", "trot", "sprint"...)
@@ -735,6 +736,15 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
                    `stance_width`, its "walk" or "run" section chosen by the
                    Froude number asked (a speed in m/s over 2 runs). Every
                    argument given here beats the style.
+    variability    this character's own `[variability]` (`variability.py`), as
+                   the spec's table or an already-resolved block: a FIXED
+                   left/right asymmetry drawn once from its seed and baked into
+                   the arm swing, step length, shoulder dip and arm lag. None,
+                   or `asymmetry = 0` (the default), is the identity and the
+                   clip is the mirror-symmetric one it has always been - not
+                   nearly, exactly. Non-zero adds a `variability` block to the
+                   report with what was drawn AND what came back off the baked
+                   clip (`variability.measure`), never the parameter alone.
 
     The clip is in place. Its implied speed (stance feet sweeping back at the
     body's speed) is what the engine time-scales against; `natural_speed_mps`
@@ -830,13 +840,33 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         ext_phase = 0.5 * (off_h + on_f)
 
     from . import upper as upper_mod
+    from . import variability as var_mod
+    try:
+        asym = var_mod.for_clip(variability)
+    except var_mod.VariabilityError as e:
+        return {"error": str(e)}
+    # Step length, one side longer than the other. NOT by giving that side a longer stroke: both
+    # planted feet must sweep back at the BODY's speed or one of them skates, and the exporter
+    # says so (`thigh.L is planted at a different speed from the other feet - it slides 0.018
+    # over its stance`). What differs in a real asymmetric walk is WHERE each foot lands: each
+    # foot still travels one stride, the two stance lines just sit at different places along the
+    # travel direction, so the step from left to right is not the step from right to left. So
+    # the whole asymmetry is one shift of each leg's stance centre, applied here and nowhere
+    # else - `key_at`, the vault profile and the skate test all read `pl["centres"]` and need
+    # no changes at all. At asymmetry 0 the shift is exactly 0.0 and the vector is unmoved.
+    step_shift = {}
+    for l in legs:
+        d = asym.offset("step_length", upper_mod._side(P, l)) * pl["stroke"]
+        step_shift[l["name"]] = d
+        if d:
+            pl["centres"][l["name"]] = pl["centres"][l["name"]] + fwd * d
     upper_params = upper_mod.resolve(P, upper, upper_mod.defaults(fr, duty))
     U = None
     if upper_params is not None:
         stance = {l["name"]: {"target": (lambda p, limb, posed, s=pl["stance_shift"][l["name"]]:
                                          limb["rest_eff"] + s)} for l in legs}
         U = upper_mod.Upper(P, upper_params, posture=posture, stance=stance, running=running,
-                            stride_hz=pl["frequency_hz"])
+                            stride_hz=pl["frequency_hz"], asym=asym)
 
     state = {"drop": pl["drop"], "stroke": pl["stroke"], "lift": pl["lift"],
              "flex": pl["flex"], "bounce": 1.0, "over": 1.0}
@@ -1140,6 +1170,15 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         "limited_by": pl["limited_by"], "adjustments": adjustments,
         "attempts": attempt + 1,
     })
+    if asym:
+        # Only when a spec opted in, so a character at the default 0 reports exactly the keys
+        # it reported before this existed and its golden does not move. What was drawn, and
+        # what came back off the BAKED clip - the second is the one worth reading.
+        report["variability"] = dict(asym.report(),
+                                     measured=var_mod.measure(rig_name, action.name, forward=forward,
+                                                              up=up, floor=floor, bm=bm),
+                                     step_shift_m={k: round(v * pl["scale"], 5)
+                                                   for k, v in step_shift.items()})
     return report
 
 

@@ -701,9 +701,14 @@ class Upper:
     """Resolved parameters for one clip, and the per-key terms they give."""
 
     def __init__(self, poser, params, posture=None, stance=None, running=False,
-                 stride_hz=0.0):
+                 stride_hz=0.0, asym=None):
         self.P = poser
         self.params = dict(params)
+        # This character's fixed left/right asymmetry (`variability.Asym`). None is the
+        # identity: every gain exactly 1.0, every offset exactly 0.0, so a body that asks
+        # for nothing is posed by the same arithmetic to the same numbers it always was.
+        from . import variability as var_mod
+        self.asym = asym if asym is not None else var_mod.IDENTITY
         # How fast the trunk is being driven: once per stride. With it, the
         # thorax's lag behind the pelvis comes from `response`; without it (an
         # idle, a one-shot action) the lag is the half-cycle that hard anti-
@@ -766,7 +771,8 @@ class Upper:
             if prm["arm_out"] is not None:
                 self.outs[arm["name"]] = float(prm["arm_out"])
                 continue
-            sw, fw = prm["arm_swing"], prm["arm_forward"]
+            sw = prm["arm_swing"] * self.asym.gain("arm_swing", _side(poser, arm))
+            fw = prm["arm_forward"]
             el, es = prm["elbow"], prm["elbow_swing"]
             poses = [(fw, el, prm["hand_in"])]
             if sw:
@@ -780,9 +786,12 @@ class Upper:
     def arm_terms(self, arm, swing, breath=0.0):
         """Limb spec for one arm at a swing of -1 (back) .. +1 (forward)."""
         prm = self.params
-        forward = prm["arm_forward"] + prm["arm_swing"] * swing
+        # This arm's own swing: the parameter times this side's fixed asymmetry gain (1.0
+        # exactly when the character asked for none). Nobody swings both arms the same.
+        arm_swing = prm["arm_swing"] * self.asym.gain("arm_swing", _side(self.P, arm))
+        forward = prm["arm_forward"] + arm_swing * swing
         if swing > 0.0:
-            forward += 0.15 * prm["arm_swing"] * swing     # the forward swing is the larger
+            forward += 0.15 * arm_swing * swing           # the forward swing is the larger
         forward += breath
         elbow = prm["elbow"] + prm["elbow_swing"] * swing
         hand_in = prm["hand_in"] * (0.3 + 0.7 * max(swing, 0.0))
@@ -847,7 +856,7 @@ class Upper:
             # the sign is not written down: a lag of half a cycle IS the exact
             # negation this replaces, and it is what `response` returns when
             # nothing is known about the drive.
-            al = self.arm_lag.get(arm["name"], 0.5)
+            al = self.arm_lag.get(arm["name"], 0.5) + self.asym.offset("lag", side)
             hl = self.hand_lag.get(arm["name"], HAND_LAG)
             swing = leg_forward((p0 - al - offsets[leg["name"]]) % 1.0, duty)
             limbs[arm["name"]] = self.arm_terms(arm, swing)
@@ -864,7 +873,9 @@ class Upper:
             if not g_bone or not (g_drop or g_fwd):
                 continue
             ph = (p0 - g_lag - offsets[leg["name"]]) % 1.0
-            drop_here = -g_drop * leg_load(ph, duty) * side * self.s_roll
+            # one shoulder drops a little deeper than the other, always the same one
+            drop_here = (-g_drop * self.asym.gain("shoulder_dip", side)
+                         * leg_load(ph, duty) * side * self.s_roll)
             fwd_here = g_fwd * -leg_forward(ph, duty) * side * self.s_yaw
             girdle[g_bone] = (0.0, drop_here, fwd_here)
         self.hands = hands
@@ -906,6 +917,8 @@ class Upper:
         out["arm_lag_cycles"] = {k: round(v, 4) for k, v in getattr(self, "arm_lag", {}).items()}
         out["hand_lag_cycles"] = {k: round(v, 4) for k, v in getattr(self, "hand_lag", {}).items()}
         out["arm_out_measured"] = {k: round(v, 1) for k, v in self.params["arm_out_measured"].items()}
+        if self.asym:
+            out["asymmetry"] = self.asym.report()
         if getattr(self, "clearance", None) is not None:
             out["clearance_m"] = self.clearance.get("closest_m")
             # [closest m, mean arm_out] per playback, when the hang had to widen
