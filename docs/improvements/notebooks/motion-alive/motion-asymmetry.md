@@ -218,7 +218,18 @@ finding, not a person.
    "jitter_amp": 0.0}`. Documented in rig-anything's `SKILL.md` ("Nobody is symmetric") and in
    character-pipeline's (the spec block, and the manifest's `variability` block).
 5. **A control that must fail, regress green, goldens reviewed, both plugins bumped, a
-   notebook?** Yes: two controls (`RA_ASYM_MIRROR=1`, `RA_ASYM_NONDETERMINISTIC=1`), both
+   notebook?** The final run, with the goldens recorded and everything committed, is
+   `REGRESS DONE exit=0, 23 fixtures ok` (`%TEMP%/rw/asym/regress-final.txt`; its diff file is
+   `no change`). Both controls fail on demand at the command line, with nothing but Python:
+
+       $ python -c "from rig_analysis import variability as v; print(v.seed_from('belle') == v.seed_from('belle'))"
+       True
+       $ RA_ASYM_NONDETERMINISTIC=1 python -c "... same line ..."
+       False
+       $ python -c "...draw('belle', 0.35) gains..."      {'arm_swing': (0.91074, 1.08926)}
+       $ RA_ASYM_MIRROR=1 python -c "... same line ..."   {'arm_swing': (0.91074, 0.91074)}
+
+   And in full: two controls (`RA_ASYM_MIRROR=1`, `RA_ASYM_NONDETERMINISTIC=1`), both
    committed in the fixture with their False verdicts in the golden, so the check fails if the
    side plumbing goes AND if a control stops working. `regress --quick --jobs 4` green. The
    goldens are additive only (the one non-added line in either is the `plugins:` version stamp,
