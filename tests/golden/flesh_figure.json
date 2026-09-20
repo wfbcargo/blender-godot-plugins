@@ -2,7 +2,7 @@
  "fixture": "flesh_figure",
  "plugins": {
   "follow-through": "0.10.0",
-  "rig-anything": "0.26.0"
+  "rig-anything": "0.27.0"
  },
  "report": {
   "bodies": {
@@ -19,6 +19,10 @@
      "vertices": 22748
     },
     "moves_json": {
+     "arm_gait_on_disk": {
+      "BloaterWalk": "walk",
+      "Bloater_Idle": "walk"
+     },
      "arm_pose_on_disk": {
       "BloaterWalk": {
        "upper_arm.L": {
@@ -111,6 +115,7 @@
      },
      "dropped_clips": [],
      "fields": [
+      "arm_gait",
       "arm_pose",
       "clip_checks",
       "clips",
@@ -744,7 +749,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0sc1s9x8\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-ilyjxd9i\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -1515,6 +1520,10 @@
      "vertices": 17112
     },
     "moves_json": {
+     "arm_gait_on_disk": {
+      "FigureWalk": "walk",
+      "Figure_Idle": "walk"
+     },
      "arm_pose_on_disk": {
       "FigureWalk": {
        "upper_arm.L": {
@@ -1607,6 +1616,7 @@
      },
      "dropped_clips": [],
      "fields": [
+      "arm_gait",
       "arm_pose",
       "clip_checks",
       "clips",
@@ -2216,7 +2226,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0sc1s9x8\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-ilyjxd9i\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",

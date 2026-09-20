@@ -835,7 +835,7 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
     if upper_params is not None:
         stance = {l["name"]: {"target": (lambda p, limb, posed, s=pl["stance_shift"][l["name"]]:
                                          limb["rest_eff"] + s)} for l in legs}
-        U = upper_mod.Upper(P, upper_params, posture=posture, stance=stance)
+        U = upper_mod.Upper(P, upper_params, posture=posture, stance=stance, running=running)
 
     state = {"drop": pl["drop"], "stroke": pl["stroke"], "lift": pl["lift"],
              "flex": pl["flex"], "bounce": 1.0, "over": 1.0}

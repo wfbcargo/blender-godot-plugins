@@ -1,7 +1,7 @@
 {
  "fixture": "quadruped",
  "plugins": {
-  "rig-anything": "0.23.0"
+  "rig-anything": "0.27.0"
  },
  "report": {
   "bind": {
@@ -864,6 +864,7 @@
    }
   },
   "moves_json": {
+   "arm_gait_on_disk": {},
    "arm_pose_on_disk": {},
    "clips": {
     "Crouch": "Dog_Crouch",
@@ -878,6 +879,7 @@
    },
    "dropped_clips": [],
    "fields": [
+    "arm_gait",
     "arm_pose",
     "clip_checks",
     "clips",
