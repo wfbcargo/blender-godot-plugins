@@ -26,8 +26,21 @@ exposure) and, in doing so, found clear_midday metered half a stop hot. Notebook
 [notebooks/realism-step2/ship.md](notebooks/realism-step2/ship.md),
 [lookdev-overcast.md](notebooks/realism-step2/lookdev-overcast.md).
 
+**The benchmark has been run for the first time (2026-09-19)** - it had never been, despite being this file's
+scoreboard. Cold medians **42.2 / ~41 / 41.7 s against 30 s**; warm rebuild 2.0-2.1 s, so cold is the whole gap
+and it is `bake` (8-10 s) plus `moves` (7-10 s). **None of the three briefs built on the first attempt**, and the
+critics scored 11/19, 11/18, 10/16 with none reading as a real person. Full results and the ranked list they
+support: [notebooks/benchmark/baseline-2026-09-19.md](notebooks/benchmark/baseline-2026-09-19.md). Re-run it
+after each round with the same briefs and compare those two numbers.
+
 **Where to pick up - the user chooses** (ask, don't assume):
-- **Step 5 - motion** is now the only untouched item of the user's cast review; Step 2 is closed.
+- **Step 5 - motion**, starting with `U.running`. The benchmark upgraded this from cosmetic: the Run clip check
+  asks that the arm come back to hanging - the walk criterion - so **a new character does not build at all**
+  without `may_fail = ["Run"]`. It hit 2 of 3 briefs; the third passed by 0.8 degrees.
+- **Eyes, and then hair** - not in the plan above, and the benchmark's strongest look result. All three critics
+  put both in their top three. The eye catchlight and iris shading are **present in the Blender tile and absent
+  in Godot**, so it is a transfer loss in the eye material, small and well located. `long_loose` is not even
+  long (it stops at the shoulder).
 - Left over from Step 2, both small: `LookdevPresets.apply` leaves on the sun any light property the previous
   recipe set and this one does not name (this is what made overcast fail FLOOR_STRIPES after clear_midday; the
   symptom is gone only because overcast no longer casts a shadow), and the tone_shift controls under
