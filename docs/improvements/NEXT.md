@@ -593,11 +593,31 @@ thighs pass 27-30 mm into it. 06 section 3C has all 13 attempts. The finding tha
 is not the genitals.** rig-anything's linear blend skinning collapses the crotch, and the two inner
 thighs cross each other in Walk and Run, so there is no free space to push into.
 
-So fix the hip first, in rig-anything: hip and thigh deformation that keeps volume (helper or twist
-bones at the hip, corrective shape keys driven by thigh angle, or dual-quaternion skinning where Godot
-supports it). That also serves the skirts' open problem (a raised thigh through the front panel) and
-every character's crouch. Then rebase the branch onto `main`, merge `main` into it, and re-run its gate
-with an **absolute** clearance limit rather than "better than before".
+**Measured 2026-09-20, and it changes this plan.** The crossing was reproduced on `study_man` - a shipped
+figure with no genitals at all - so it is general: left-right crotch interpenetrations are Idle 0, Walk 4,
+Run 12, Jump 34, **Crouch 58** (face pairs, adjacent faces excluded). The weights are not at fault: of the
+75 vertices involved, **none** carries any weight from the opposite thigh, and the mixes are the expected
+`thigh.L + spine`. The pose is not at fault either: the two thigh bones never come within **163 mm** of each
+other in any clip.
+
+**But the volume-preserving fix does not apply, because there is no volume to preserve.** Sliced by height,
+the inner thigh surfaces at rest are already **1.1 to 4.7 mm apart from z 0.809 to 0.929** - the crotch -
+opening to 12 mm just below and 120 mm at the knee. In a crouch that band closes to **0.0 mm**. The two
+sides are in contact before any animation, and leg motion slides them through one another. A half-rotation
+hip helper was prototyped (helper bone at the thigh head, crotch blend-zone weight moved onto it, 251
+vertices): **58 crossings became 56**. The premise that skinning collapse is destroying clearance is wrong;
+the clearance was never there.
+
+So the next attempt should not be a skinning change. What is left, in the order that looks most likely:
+put the shell where the thighs are not in contact (forward and below the contact band, which the slices
+locate exactly), weight it so it rides the thighs apart rather than being swept, or widen the crouch's
+stance (the bone gap does close from 226 mm in Idle to 192 mm in Crouch, so some of it is posing). Then
+rebase the branch onto `main` - it is 210 commits behind and predates the `plugins/<name>/SKILL.md` layout
+change - and re-run its gate with an **absolute** clearance limit rather than "better than before".
+
+**Genitals stay opt-in**: buildable when a spec asks, never in a default build. That is what `opt_in` on the
+follow-through type and the `[body] genitals` field are for - adding the type without it moved eleven
+goldens, because a new flesh type joins every default search.
 
 Also on this branch: `genital_shape = 1.0` maps onto MPFB's extreme length target (up to 16 cm longer);
 a neutral anatomical default needs a sane range. And add a posed limb-clearance check to humancheck
