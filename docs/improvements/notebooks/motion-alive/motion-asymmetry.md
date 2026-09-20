@@ -261,3 +261,27 @@ finding, not a person.
 - **A body whose own feet plant unevenly hides the effect in the index.** Belle's 3.1 cm and the
   Figure's 6.5 mm are pre-existing and nobody has asked why. It may be a real asymmetry in those
   meshes, or it may be `plan`'s centre choice.
+
+## After merging main (motion-head-rung landed mid-branch)
+
+`motion-head-rung` merged while this was building, took rig-anything 0.32.0, and touched the
+same four files. `main` was merged in here rather than left for the merge step:
+
+- `upper.py` and `locomotion.py` merged clean - the head rung reworks `upper.trunk` to take
+  signals, and this branch's asymmetry rides `arm_terms`, the arm lag and the girdle drop, so
+  they do not overlap.
+- `tests/fixtures/rigify_human.py` conflicted twice: both branches add a section after the
+  export. Both are kept, the head rung's first.
+- `.claude-plugin/marketplace.json` conflicted because **both branches had independently
+  repaired the same thing** - the motion round left plugin.json at 0.31.0 and marketplace.json
+  at 0.27.0, and `tools/bump.py` refuses a plugin whose two files disagree. main's repair is
+  the one kept.
+- `tests/golden/rigify_human.json` auto-merged, which is not a golden anyone should trust, so
+  it was re-recorded: `regress --only rigify_human --twice --update --jobs 1` came back
+  `ok rigify_human [143s + 145s] ... (golden within tolerance, kept)`, `no change`. The merge
+  happened to be right, AND that is a second `--twice` - two more Blender processes agreeing on
+  the asymmetric clips, this time with the head rung in the same build.
+
+This branch is therefore **rig-anything 0.33.0**, not 0.32.0. Final run on the merged branch:
+`REGRESS DONE exit=0, 23 fixtures ok`, diff file `no key changed in any fixture`
+(`%TEMP%/rw/asym/regress-final.txt`, `regress-final.diff`).
