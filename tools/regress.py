@@ -887,14 +887,24 @@ def _run_jitter(godot, project, where, name):
                 rows.append((label, False, "it failed, but not on %s - that is not this control failing"
                              % " and ".join(missing)))
                 continue
+        # A control may leave a measurement undefined - `spectrum=flat` has no DFA exponent,
+        # because a constant series has no fluctuation to detrend - and Godot writes that as null.
+        # Printing the row must not be what decides whether the control counted.
+        def num(*keys):
+            v = r
+            for k in keys:
+                v = v.get(k) if isinstance(v, dict) else None
+            return float("nan") if v is None else float(v)
+
         detail = ("alpha phase %.3f amp %.3f | stride cv %.4f on / %.6f off | swing cv %.4f on / %.5f off"
                   " | drift %.4f of %.4f cycles over %.0f s | skate mean %.4f on / %.4f off m"
                   " | %.2f + %.2f us per character per frame"
-                  % (r["dfa"]["phase"], r["dfa"]["amp"], r["stride"]["cv_on"], r["stride"]["cv_off"],
-                     r["amplitude"]["cv_on"], r["amplitude"]["cv_off"], r["drift"]["cycles_at_long"],
-                     r["drift"]["bound_cycles"], r["drift"]["seconds_long"], r["skate"]["on"]["mean_m"],
-                     r["skate"]["off"]["mean_m"], r["cost_us_per_frame"]["phase"],
-                     r["cost_us_per_frame"]["amp"])
+                  % (num("dfa", "phase"), num("dfa", "amp"), num("stride", "cv_on"),
+                     num("stride", "cv_off"), num("amplitude", "cv_on"), num("amplitude", "cv_off"),
+                     num("drift", "cycles_at_long"), num("drift", "bound_cycles"),
+                     num("drift", "seconds_long"), num("skate", "on", "mean_m"),
+                     num("skate", "off", "mean_m"), num("cost_us_per_frame", "phase"),
+                     num("cost_us_per_frame", "amp"))
                   + "".join("\n            " + f for f in fails[:6]))
         rows.append((label, passed == should_pass, detail))
     return rows
