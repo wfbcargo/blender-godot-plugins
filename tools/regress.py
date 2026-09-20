@@ -448,6 +448,25 @@ GODOT_STRANDS = {
                                        (["mod=smooth_hz:0"],
                                         ["starting swing differs across frame rates"])]},
 }
+# A fixture named here has its gait jittered by rig-anything's `verify_jitter.gd`: the per-cycle phase
+# and amplitude series' DFA exponent, whether stride timing and arm swing actually vary cycle to cycle
+# (and are exactly periodic with jitter off), that the jittered playhead never drifts from the plain one,
+# that planted feet travel no further, what it costs per frame, and that a manifest with no `variability`
+# key - every character built before the seam - reads as all zeros and off. Two controls, each of which
+# must fail and must fail on the lines named with it - a control that failed for some other reason would
+# prove nothing. `spectrum=white` is one gaussian per cycle, what a naive randf() gives (it reads DFA 0.50
+# against the shipped 0.82), so a DFA check that stops telling a persistent series from a white one fails
+# the harness. `naive=1` reads the warp's slope off the clip's own playing phase instead of the
+# unjittered one - the implementation a first attempt gives - whose per-cycle bias of about 1.2 x gain^2
+# does not telescope (study_man: 0.036 cycles of gap at 40 s and 0.200 at 200 s, against 0.016 and 0.058
+# for the shipped one), so a drift check that stops seeing accumulated phase error fails the harness too.
+GODOT_JITTER = {
+    "pipeline_woman": {"manifest": "fixwoman.moves.json",
+                       "args": ["cycles=4096", "seconds=40", "long=160"],
+                       "controls": [(["spectrum=white"], ["phase series DFA alpha",
+                                                          "amplitude series DFA alpha"]),
+                                    (["naive=1", "long=400"], ["does not grow with the run"])]},
+}
 # A fixture named here has its body looked at in Godot by lookdev's `close-shot` (the head, eye and hand
 # views and full, under one preset, beside the fixture's own Blender close set from the review stage when
 # it wrote one), and must pass every tile check; each of `controls` is the same run with its own args and
@@ -644,7 +663,7 @@ def run_godot(godot, project, out_root, names):
     Returns [(fixture or check, passed, one-line detail)]."""
     stage = project / GODOT_STAGE
     shutil.rmtree(stage, ignore_errors=True)
-    results, manifests, wardrobe, flesh, strands, lookdev = [], [], [], [], [], []
+    results, manifests, wardrobe, flesh, strands, lookdev, jitter = [], [], [], [], [], [], []
     try:
         for name in names:
             src = out_root / name
@@ -682,9 +701,11 @@ def run_godot(godot, project, out_root, names):
                 flesh.append(name)
             if name in GODOT_STRANDS:
                 strands.append(name)
+            if name in GODOT_JITTER:
+                jitter.append(name)
             if name in GODOT_LOOKDEV:
                 lookdev.append(name)
-        if not manifests and not wardrobe and not flesh and not strands and not lookdev:
+        if not manifests and not wardrobe and not flesh and not strands and not lookdev and not jitter:
             return results or [("godot", True, "no fixture in this run exports anything Godot checks")]
 
         code, out = _godot(godot, project, "--import")
@@ -733,6 +754,8 @@ def run_godot(godot, project, out_root, names):
             results += _run_jiggle_selftest(godot, project)
         for name in strands:
             results += _run_strands(godot, project, stage / name, name)
+        for name in jitter:
+            results += _run_jitter(godot, project, stage / name, name)
         for k, name in enumerate(lookdev):
             results += _run_lookdev(godot, project, stage / name, out_root / name, out_root / "_lookdev" / name,
                                     name, selftest=k == 0)
@@ -800,6 +823,48 @@ def _run_jiggle_selftest(godot, project):
             passed = True            # failed, but not on the spring's shape: that is not the control failing
         detail = verdict[-1] + "".join("\n            %s fps: below/above %s, ap/side %s" % (k, v.get("down_up"), v.get("ap_side"))
                                        for k, v in sorted(r.get("rates", {}).items())) + "".join("\n            " + f for f in fails[:4])
+        rows.append((label, passed == should_pass, detail))
+    return rows
+
+
+def _run_jitter(godot, project, where, name):
+    """GODOT_JITTER's run on one fixture's manifest and its must-fail control: [(check, passed, detail)]."""
+    spec = GODOT_JITTER[name]
+    found = sorted(where.rglob(spec["manifest"]))
+    if not found:
+        return [("verify_jitter %s" % name, False, "the fixture did not export %s" % spec["manifest"])]
+    res = "manifests=res://" + found[0].relative_to(project).as_posix()
+    rows = []
+    runs = [("verify_jitter %s" % name, spec["args"], True, [])]
+    runs += [("verify_jitter %s %s (must fail)" % (name, " ".join(ctl)), spec["args"] + ctl, False, must)
+             for ctl, must in spec["controls"]]
+    for label, args, should_pass, must in runs:
+        code, out = _godot(godot, project, "--fixed-fps", "60", "-s",
+                           "res://addons/rig_anything/verify_jitter.gd", "--", res, *args)
+        verdict = [l for l in out.splitlines() if l.startswith("RA_JIT VERIFY")]
+        line = [l for l in out.splitlines() if l.startswith("RA_JITTER ")]
+        if not verdict or not line:
+            rows.append((label, False, "no RA_JITTER / RA_JIT VERIFY, exit %s: %s"
+                         % (code, " | ".join(out.strip().splitlines()[-3:]))))
+            continue
+        r = json.loads(line[-1][len("RA_JITTER "):])
+        passed = code == 0 and "PASSED" in verdict[-1]
+        fails = [l.split("FAIL", 1)[1].strip() for l in out.splitlines() if l.startswith("RA_JIT  FAIL")]
+        if not should_pass:
+            missing = [w for w in must if not any(w in f for f in fails)]
+            if missing:
+                rows.append((label, False, "it failed, but not on %s - that is not this control failing"
+                             % " and ".join(missing)))
+                continue
+        detail = ("alpha phase %.3f amp %.3f | stride cv %.4f on / %.6f off | swing cv %.4f on / %.5f off"
+                  " | drift %.4f of %.4f cycles over %.0f s | skate mean %.4f on / %.4f off m"
+                  " | %.2f + %.2f us per character per frame"
+                  % (r["dfa"]["phase"], r["dfa"]["amp"], r["stride"]["cv_on"], r["stride"]["cv_off"],
+                     r["amplitude"]["cv_on"], r["amplitude"]["cv_off"], r["drift"]["cycles_at_long"],
+                     r["drift"]["bound_cycles"], r["drift"]["seconds_long"], r["skate"]["on"]["mean_m"],
+                     r["skate"]["off"]["mean_m"], r["cost_us_per_frame"]["phase"],
+                     r["cost_us_per_frame"]["amp"])
+                  + "".join("\n            " + f for f in fails[:6]))
         rows.append((label, passed == should_pass, detail))
     return rows
 

@@ -478,6 +478,52 @@ godot --headless --path <project> -s res://addons/rig_anything/verify_moves.gd -
 It drives 0 -> walk -> each change-up -> run -> back down -> 0 and checks role, rate,
 hysteresis and phase at every step (`MOVES VERIFY PASSED`).
 
+**Per-cycle variability, so a looping clip stops reading as a loop (0.32.0).** The bake
+samples ONE cycle and Godot loops it, so nothing put inside a clip can differ from stride
+to stride: the variation has to be added at runtime. A manifest may carry
+
+```json
+"variability": {"seed": 11, "asymmetry": 0.0, "jitter_phase": 0.6, "jitter_amp": 0.6}
+```
+
+(the character pipeline resolves it from the spec's `[variability]` table). `MovesController`
+reads it into `gait_jitter.gd` and **does nothing at all when the key is absent**, which is
+every character built before it existed - absent is all zeros, and zero is off.
+
+Per cycle it draws two scalars. **Their spectrum is the point**: human stride intervals are
+persistent, with a detrended-fluctuation exponent (DFA alpha) near 0.8, not the 0.5 a naive
+`randf()` gives. A bank of 7 relaxations with time constants 1..729 cycles, weighted
+`tau^((beta-1)/2)` at beta 0.40, measures 0.80 +- 0.05 over 4096 cycles, for 7 multiply-adds
+per cycle (not per frame).
+
+- `jitter_phase` warps the playhead **inside** the stride: the timing of a footfall moves by
+  up to `0.06 x jitter_phase` cycles, and `MovesController.jitter_factor()` steers the
+  playhead onto (base phase + that bounded offset) rather than integrating a rate, so it
+  cannot accumulate. The mean stride time, and with it `implied_speed` time scaling and
+  planted feet, are unchanged over any run length.
+- `jitter_amp` scales the arm swing by `1 +- 0.15 x jitter_amp` through
+  `jitter_modifier.gd`, a `SkeletonModifier3D` over the arm roots `arm_pose` names and their
+  chains (6 bones on a human). **Arms only, deliberately**: scaling a leg would move where
+  the foot lands, which is the foot skate this must not add. It is LOD-gated on
+  `jitter_lod_distance_m` (30 m); the phase warp is one multiply and is not gated.
+
+Measured on study_man at 60 Hz, `jitter_phase = jitter_amp = 0.6`: stride-interval cv 0.027
+on / 4e-14 off, arm-swing cv 0.062 on / 0.0036 off (the estimator's own floor), playhead
+drift 0.057 of a 0.216-cycle bound after 308 cycles, planted-foot travel 0.0247 m on against
+0.0236 off, 3.7 + 3.3 us per character per frame.
+
+```bash
+godot --headless --fixed-fps 60 --path <project> -s res://addons/rig_anything/verify_jitter.gd --     manifests=res://assets/humans/who.moves.json            # add spectrum=white for the control
+```
+
+`verify_jitter.gd` measures all of the above and prints `RA_JIT VERIFY PASSED`, with two controls
+that must fail: `spectrum=white` swaps the bank for one gaussian per cycle - what a naive
+implementation gives - and fails the DFA check (0.50 against 0.82), and `naive=1` reads the warp's
+slope off the clip's own playing phase instead of the unjittered one, which accumulates about
+1.2 x gain^2 of phase per cycle and fails the drift check (0.036 cycles of gap at 40 s and 0.200 at
+200 s, against 0.016 and 0.058). `regress.py --godot` runs the verifier and both controls on
+`pipeline_woman`.
+
 **8. Wings: fold, flap, glide.** Any free limb whose skin is a sheet is a wing
 (see `animate-anything`'s `references/wings.md`):
 
