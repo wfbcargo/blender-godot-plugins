@@ -75,6 +75,19 @@ clearance_check = ["Crouch", "CrouchWalk", "Jump"]
 max_drop = 0.07
 upper = { lean = 9.0, arm_swing = 25.0, elbow = 85.0 }
 
+[variability]                      # rig-anything's variability.py: what makes this body's motion its
+                                   #   own. EVERY FIELD DEFAULTS TO 0, and 0 changes nothing, so a
+                                   #   spec without this table builds the clips it always built
+seed = 1234                        # optional; absent: derived from character.id (SHA-256), which is
+                                   #   deterministic, so two builds of one spec agree and two
+                                   #   characters differ
+asymmetry = 0.35                   # 0..1: a FIXED left/right asymmetry, drawn once and baked into arm
+                                   #   swing, step length, shoulder dip and arm lag. Identity, not
+                                   #   noise. 0.35 is a real person (arm swing up to +-12%, a step
+                                   #   asymmetry of a few percent); 1 is the dial's end
+jitter_phase = 0.0                 # 0..1: the runtime half of L4 - per-cycle phase and amplitude
+jitter_amp = 0.0                   #   jitter. Carried through to the manifest, not baked here
+
 [muscle]                           # humanform's muscle definition, weighted by the brief's muscle and body fat
 output = "geometry"                # or "normal": baked into the skin's normal map (bulk stays geometry)
 strength = 1.0                     # 0..2, scales every definition group
@@ -299,6 +312,13 @@ What the stages write that is the pipeline's own convention rather than a plugin
   `export.height` is rejected with a message saying to delete the line. With no `standing_height_m`
   in the stored Idle report (a report from an older rig-anything) export raises and asks for moves
   to be rerun, rather than falling back to the mesh top.
+- **The manifest's `variability` block** (only for a spec with a `[variability]` table) is the seam
+  between the bake and the engine: ONE top-level key holding the **resolved** values this build used,
+  `{"seed": <int>, "asymmetry": <float>, "jitter_phase": <float>, "jitter_amp": <float>}`. `seed` is
+  already resolved, so an engine reading it never has to derive anything and never sees None.
+  rig-anything bakes `asymmetry` into the gait clips (`variability.py`); `jitter_phase` and
+  `jitter_amp` are the runtime half and are carried through untouched for the engine to read. A spec
+  with no `[variability]` writes no key, so every manifest built before this existed is unchanged.
 - **The manifest has no `upper_body`.** The clips' upper-body parameters are in the move reports
   stored on the actions; nothing in Godot read the copy.
 - **Hair and muscle go on once.** Hair is joined into the body, because rig-anything exports one mesh,

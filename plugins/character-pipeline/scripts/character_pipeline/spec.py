@@ -25,6 +25,15 @@ that belong to a plugin.
     [moves.per_gait.Walk]        # anything move_set takes per role, over the style
     max_drop = 0.035
 
+    [variability]                # optional: rig-anything's variability.py - what makes this body's
+                                 # motion its own. Every field defaults to 0, and 0 changes nothing
+    seed = 1234                  # absent: derived from character.id, deterministically
+    asymmetry = 0.35             # 0..1, default 0: a FIXED left/right asymmetry, drawn once from
+                                 # the seed and baked into arm swing, step length, shoulder dip and
+                                 # arm lag. It is identity, not noise: the same every build
+    jitter_phase = 0.0           # 0..1, default 0: the runtime half of L4 (per-cycle jitter),
+    jitter_amp = 0.0             #   carried through to <id>.moves.json for the engine to read
+
     [muscle]                     # optional: humanform's muscle definition (delta parts), weighted by
                                  # the brief's muscle and estimated body fat - applied between body and bake
     output = "geometry"          # or "normal": baked into the skin's normal map (silhouette bulk stays geometry)
@@ -166,6 +175,32 @@ class Muscle:
 
 
 @dataclass
+class Variability:
+    """rig-anything's `[variability]`: what makes this character's motion its own.
+
+    `seed` None is derived from `character.id` at bake (`rig_analysis.variability.seed_from`), so
+    a spec need not carry a number to be deterministic. `asymmetry` is baked by this repo's
+    branch; `jitter_phase` and `jitter_amp` are the runtime half and are only carried through to
+    the manifest. Every default is 0, and 0 is the identity - a spec with no [variability] builds
+    the clips it always built."""
+    seed: int | None = None
+    asymmetry: float = 0.0
+    jitter_phase: float = 0.0
+    jitter_amp: float = 0.0
+
+    def asked(self):
+        """Whether the spec asked for anything at all - a seed, or any dial off 0. False means
+        this section changes nothing and is left out of every stage hash, so no existing
+        character's records move."""
+        return bool(self.seed is not None or self.asymmetry or self.jitter_phase or self.jitter_amp)
+
+    def table(self):
+        """The `[variability]` table as written, for `rig_analysis.variability.resolve`."""
+        out = {k: v for k, v in asdict(self).items() if k != "seed" or v is not None}
+        return out
+
+
+@dataclass
 class Build:
     quality: str = "final"
 
@@ -215,6 +250,7 @@ class Character:
     review: Review = field(default_factory=Review)
     muscle: Muscle | None = None
     build: Build = field(default_factory=Build)
+    variability: Variability | None = None
     path: str | None = None                  # the spec file
     project: str | None = None               # the project it builds into
 
@@ -257,6 +293,16 @@ class Character:
                     out.pop(k, None)
             if out.get("brow_shape") in (None, "natural"):
                 out.pop("brow_shape", None)         # the default hashes as before the field existed
+            return out
+        if name == "moves":
+            # [variability] rides the moves section rather than having one of its own, and only
+            # when the spec asked for something: a section that is always there would change the
+            # digest of every character that has never heard of it. The id rides with it because
+            # that is what an unstated seed is derived from, so two specs that differ only in
+            # their id do not share a moves hash once one of them is asymmetric.
+            out = asdict(value)
+            if self.variability is not None and self.variability.asked():
+                out["variability"] = dict(asdict(self.variability), identity=self.id)
             return out
         if isinstance(value, list):
             return [asdict(v) if hasattr(v, "__dataclass_fields__") else v for v in value]
@@ -356,8 +402,8 @@ def _check_overrides(flesh):
 
 def parse(data, path=None):
     """A `Character` from parsed TOML, checked. Raises `SpecError` naming the field."""
-    _unknown(data, ("character", "body", "moves", "hair", "flesh", "outfit", "export", "review", "muscle", "build"),
-             "spec")
+    _unknown(data, ("character", "body", "moves", "hair", "flesh", "outfit", "export", "review", "muscle",
+                    "build", "variability"), "spec")
     c = _take(data, "character", dict, required=True)
     _unknown(c, ("id", "name"), "[character]")
     cid = _take(c, "id", str, required=True, where="character.")
@@ -498,6 +544,23 @@ def parse(data, path=None):
     if quality not in QUALITIES:
         raise SpecError(f"build.quality must be one of {QUALITIES}, not {quality!r}")
 
+    variability = None
+    if "variability" in data:
+        v = _take(data, "variability", dict)
+        _unknown(v, ("seed", "asymmetry", "jitter_phase", "jitter_amp"), "[variability]")
+        if isinstance(v.get("seed"), bool):
+            raise SpecError("variability.seed must be a whole number, not a boolean")
+        seed = _take(v, "seed", int, where="variability.")
+        if seed is not None and seed < 0:
+            raise SpecError(f"variability.seed must be 0 or more, not {seed}")
+        dials = {}
+        for k in ("asymmetry", "jitter_phase", "jitter_amp"):
+            d = _take(v, k, float, default=0.0, where="variability.")
+            if not 0.0 <= d <= 1.0:
+                raise SpecError(f"variability.{k} = {d} must be 0..1")
+            dials[k] = d
+        variability = Variability(seed=seed, **dials)
+
     project = None
     if path:
         # characters/<id>.toml sits in the project it builds into
@@ -505,6 +568,7 @@ def parse(data, path=None):
         project = os.path.dirname(here) if os.path.basename(here) == "characters" else here
     return Character(id=cid, name=name, body=body, moves=moves, export=export, hair=hair, flesh=flesh,
                      outfit=outfit, review=review, muscle=muscle, build=Build(quality=quality),
+                     variability=variability,
                      path=os.path.abspath(path) if path else None, project=project)
 
 

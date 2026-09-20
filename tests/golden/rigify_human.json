@@ -65,6 +65,230 @@
     "swing_deg": 39.2
    }
   },
+  "asymmetry": {
+   "asym_reports_block": true,
+   "cases": {
+    "mirror_control": {
+     "asymmetric": {
+      "arm_swing_deg": false,
+      "shoulder_dip_m": false,
+      "step_length_m": false
+     },
+     "drawn": {
+      "arm_swing": -0.01893,
+      "lag": -0.00587,
+      "shoulder_dip": -0.06452,
+      "step_length": -0.00589
+     },
+     "failures": [],
+     "index_over_zero": {
+      "arm_swing_deg": 8e-05,
+      "shoulder_dip_m": 0.00017
+     },
+     "measured": {
+      "arm_swing_deg": {
+       "index": 0.0051,
+       "minus_lat": 35.953,
+       "plus_lat": 36.137,
+       "ratio": 1.00512
+      },
+      "shoulder_dip_m": {
+       "index": 0.00567,
+       "minus_lat": 0.01621,
+       "plus_lat": 0.01611,
+       "ratio": 0.99434
+      },
+      "stance_offset_m": 0.00652,
+      "step_length_m": {
+       "index": 0.05098,
+       "minus_lat": 0.24917,
+       "plus_lat": 0.2622,
+       "ratio": 1.05232
+      },
+      "stride_m": {
+       "index": 0.00168,
+       "minus_lat": 0.51094,
+       "plus_lat": 0.5118,
+       "ratio": 1.00168
+      }
+     },
+     "passed": true,
+     "report_has_variability": true,
+     "resolved": {
+      "asymmetry": 0.35,
+      "jitter_amp": 0.0,
+      "jitter_phase": 0.0,
+      "seed": 1160722956121454133
+     },
+     "stance_offset_moved_m": 5e-05,
+     "stride_stays_even": true,
+     "stroke_m": 0.5211
+    },
+    "ship_a": {
+     "asymmetric": {
+      "arm_swing_deg": true,
+      "shoulder_dip_m": true,
+      "step_length_m": true
+     },
+     "drawn": {
+      "arm_swing": -0.01893,
+      "lag": -0.00587,
+      "shoulder_dip": -0.06452,
+      "step_length": -0.00589
+     },
+     "failures": [],
+     "index_over_zero": {
+      "arm_swing_deg": 0.02376,
+      "shoulder_dip_m": 0.05874
+     },
+     "measured": {
+      "arm_swing_deg": {
+       "index": 0.02878,
+       "minus_lat": 37.191,
+       "plus_lat": 36.136,
+       "ratio": 0.97163
+      },
+      "shoulder_dip_m": {
+       "index": 0.06424,
+       "minus_lat": 0.01718,
+       "plus_lat": 0.01611,
+       "ratio": 0.93776
+      },
+      "stance_offset_m": 0.00034,
+      "step_length_m": {
+       "index": 0.00269,
+       "minus_lat": 0.25534,
+       "plus_lat": 0.25603,
+       "ratio": 1.00269
+      },
+      "stride_m": {
+       "index": 0.00168,
+       "minus_lat": 0.51094,
+       "plus_lat": 0.5118,
+       "ratio": 1.00168
+      }
+     },
+     "passed": true,
+     "report_has_variability": true,
+     "resolved": {
+      "asymmetry": 0.35,
+      "jitter_amp": 0.0,
+      "jitter_phase": 0.0,
+      "seed": 1160722956121454133
+     },
+     "stance_offset_moved_m": -0.00613,
+     "stride_stays_even": true,
+     "stroke_m": 0.5211
+    },
+    "ship_b": {
+     "asymmetric": {
+      "arm_swing_deg": true,
+      "shoulder_dip_m": true,
+      "step_length_m": true
+     },
+     "drawn": {
+      "arm_swing": -0.1076,
+      "lag": 0.00902,
+      "shoulder_dip": 0.03362,
+      "step_length": 0.01048
+     },
+     "failures": [],
+     "index_over_zero": {
+      "arm_swing_deg": 0.16236,
+      "shoulder_dip_m": 0.0196
+     },
+     "measured": {
+      "arm_swing_deg": {
+       "index": 0.16738,
+       "minus_lat": 39.803,
+       "plus_lat": 33.655,
+       "ratio": 0.84554
+      },
+      "shoulder_dip_m": {
+       "index": 0.0251,
+       "minus_lat": 0.01644,
+       "plus_lat": 0.01686,
+       "ratio": 1.02542
+      },
+      "stance_offset_m": 0.01752,
+      "step_length_m": {
+       "index": 0.13712,
+       "minus_lat": 0.238,
+       "plus_lat": 0.27304,
+       "ratio": 1.14722
+      },
+      "stride_m": {
+       "index": 6e-05,
+       "minus_lat": 0.51106,
+       "plus_lat": 0.51102,
+       "ratio": 0.99994
+      }
+     },
+     "passed": true,
+     "report_has_variability": true,
+     "resolved": {
+      "asymmetry": 0.35,
+      "jitter_amp": 0.0,
+      "jitter_phase": 0.0,
+      "seed": 14048036347988158411
+     },
+     "stance_offset_moved_m": 0.01105,
+     "stride_stays_even": true,
+     "stroke_m": 0.5211
+    },
+    "zero": {
+     "drawn": null,
+     "failures": [],
+     "measured": {
+      "arm_swing_deg": {
+       "index": 0.00502,
+       "minus_lat": 36.477,
+       "plus_lat": 36.661,
+       "ratio": 1.00504
+      },
+      "shoulder_dip_m": {
+       "index": 0.0055,
+       "minus_lat": 0.01669,
+       "plus_lat": 0.0166,
+       "ratio": 0.99452
+      },
+      "stance_offset_m": 0.00647,
+      "step_length_m": {
+       "index": 0.05066,
+       "minus_lat": 0.24914,
+       "plus_lat": 0.26209,
+       "ratio": 1.05198
+      },
+      "stride_m": {
+       "index": 0.0011,
+       "minus_lat": 0.51094,
+       "plus_lat": 0.5115,
+       "ratio": 1.00111
+      }
+     },
+     "passed": true,
+     "report_has_variability": false,
+     "resolved": null,
+     "stroke_m": 0.5211
+    }
+   },
+   "determinism": {
+    "control_nondeterministic_agrees": false,
+    "same_id_same_draw": true,
+    "seed": 1160722956121454133,
+    "two_ids_differ": true,
+    "zero_is_exact": true
+   },
+   "dial": 0.35,
+   "margin": 0.004,
+   "mirror_control_did_apply": true,
+   "mirror_control_symmetric": true,
+   "ship_a_asymmetric": true,
+   "ship_b_asymmetric": true,
+   "strides_stay_even": true,
+   "two_ids_differ": true,
+   "zero_reports_nothing": true
+  },
   "bind_coverage": 1.0,
   "export": {
    "clips": {

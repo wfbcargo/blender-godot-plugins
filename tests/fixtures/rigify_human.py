@@ -20,6 +20,11 @@ the branch that fails an arm carried out in front is exercised without needing a
 and it walks the same body at two speeds a decade apart to say whether the last rung of the axial
 lag ladder moves with speed (`HEAD_RUNG_CASES`), with the locked head it replaces as the control
 that must read a flat line.
+
+And it is where the fixed per-character left/right asymmetry is judged (`ASYM_IDS`, `_asymmetry`):
+four more walks on the same body, each MEASURED off its baked clip, at the default (which must
+change nothing and report nothing), at the shipped dial on two different character ids, and once
+with `RA_ASYM_MIRROR=1` - the control that must fail, whose verdicts are False in the golden.
 """
 import os
 import sys
@@ -56,6 +61,30 @@ HEAD_RUNG_CASES = (("derived", None), ("control_locked_head", {"head_lag": 0.0})
 STYLED_WALKS = ("child", "elderly_shuffle", "heavy")
 STYLED_HEADLINE = ("passed", "failures", "stance_knee_flex_deg", "vault", "vault_drop_m", "drop_m",
                    "duty_factor", "stride_m")
+
+# The fixed per-character left/right asymmetry (rig-anything's `variability.py`), measured off
+# the BAKED clip and never from the parameter that was set. Four walks on one body:
+#
+#   zero     the default. Its indices are the body's own - a Rigify Figure is not exactly
+#            symmetric and the solver is not exact - and every other case is judged against them.
+#   ship_a   `variability.SENSIBLE` on one character id: each index must clear zero's by MARGIN.
+#   ship_b   the same dial on a DIFFERENT id: also asymmetric, and its draw differs from ship_a's,
+#            which is what "two characters differ" means.
+#   mirror   the control that must fail. `RA_ASYM_MIRROR=1` gives both sides one side's draw, so
+#            the asymmetry is still drawn and still applied (the arms swing less than zero's) and
+#            the clip comes out symmetric again. Its verdicts are False in the golden, so this
+#            check fails if the side plumbing is lost AND if the control ever stops working.
+ASYM_IDS = ("rigify_human_a", "rigify_human_b")
+ASYM_MEASURES = ("arm_swing_deg", "shoulder_dip_m")
+# how far past the body's own asymmetry a symmetry index must get to count as asymmetric. The
+# shoulder dip is the quiet one (a 2.5 degree clavicle at a walk), so it sets this floor.
+ASYM_MARGIN = 0.004
+# Step length is judged on `stance_offset_m` instead of on its index, in metres, because the
+# index is not monotone in the asymmetry: this body's own feet already plant 6.5 mm apart along
+# the travel direction, so a draw that happens to shift the other way makes the walk MORE
+# symmetric than the default while still being just as asymmetric a change. The offset is the
+# quantity the bake moves one for one, and it is signed.
+ASYM_STEP_MARGIN_M = 0.002
 
 # `verify.arm_swing` decides whether a clip's arms swing through hanging or are carried out in
 # front (04 d). Its branches cannot all be reached by a body that is built right, so they are
@@ -134,6 +163,7 @@ def build():
             got["moves_with_speed"] = bool(got["sweep_deg"] is not None
                                            and got["sweep_deg"] >= HEAD_RUNG_SWEEP_DEG)
             head_rung[label] = got
+        asymmetry = H.stable(_asymmetry(rig))
     finally:
         window.scene = previous
 
@@ -147,6 +177,7 @@ def build():
         "moves": {role: H.stable(moves[role]) for role in ROLES},
         "styled_walks": styled,
         "head_rung": head_rung,
+        "asymmetry": asymmetry,
         "export": {"exported": exported.get("exported"), "stage": exported.get("stage"),
                    "note": exported.get("note"), "dropped_clips": H.stable(exported.get("dropped_clips")),
                    "verified": H.stable(exported.get("verified")),
@@ -160,6 +191,110 @@ def build():
                       for name, carry, running in ARM_SWING_CASES},
         "moves_json": H.moves_manifest(char),
         "review": H.review_sheet(char.get("review")),
+    }
+
+
+def _asymmetry(rig):
+    """Bake the four walks above, measure each off its clip, and judge them against `zero`."""
+    from rig_analysis import locomotion, variability
+
+    def walk(label, identity, asymmetry, mirror=False):
+        v = None
+        if asymmetry is not None:
+            v = variability.resolve({"asymmetry": asymmetry}, identity)
+        was = os.environ.get("RA_ASYM_MIRROR")
+        if mirror:
+            os.environ["RA_ASYM_MIRROR"] = "1"
+        try:
+            r = locomotion.cycle(rig, froude=0.2, style="adult", variability=v,
+                                 action_name=BODY + "_Asym_" + label)
+        finally:
+            if mirror:
+                os.environ.pop("RA_ASYM_MIRROR", None)
+                if was is not None:
+                    os.environ["RA_ASYM_MIRROR"] = was
+        if "error" in r:
+            return {"error": r["error"]}
+        m = variability.measure(rig, r["action"])
+        return {"resolved": v, "drawn": (r.get("variability") or {}).get("plus_lat"),
+                "report_has_variability": "variability" in r,
+                "passed": r.get("passed"), "failures": r.get("failures", [])[:3],
+                "stroke_m": r.get("stroke_m"),
+                "measured": {k: m.get(k) for k in
+                             ASYM_MEASURES + ("step_length_m", "stride_m", "stance_offset_m")}}
+
+    cases = {"zero": walk("zero", ASYM_IDS[0], None),
+             "ship_a": walk("ship_a", ASYM_IDS[0], variability.SENSIBLE),
+             "ship_b": walk("ship_b", ASYM_IDS[1], variability.SENSIBLE),
+             "mirror_control": walk("mirror", ASYM_IDS[0], variability.SENSIBLE, mirror=True)}
+    base = cases["zero"]["measured"]
+    for name, c in cases.items():
+        if "error" in c or name == "zero":
+            continue
+        # the free values, not just the verdicts: an index that drifts toward its floor is
+        # visible in the golden long before the verdict flips
+        c["index_over_zero"] = {k: round(c["measured"][k]["index"] - base[k]["index"], 5)
+                                for k in ASYM_MEASURES}
+        c["asymmetric"] = {k: c["index_over_zero"][k] > ASYM_MARGIN for k in ASYM_MEASURES}
+        c["stance_offset_moved_m"] = round(c["measured"]["stance_offset_m"]
+                                           - base["stance_offset_m"], 5)
+        c["asymmetric"]["step_length_m"] = (abs(c["stance_offset_moved_m"])
+                                            > ASYM_STEP_MARGIN_M)
+        # the no-skate invariant: each foot still travels one stride at the body's speed, or
+        # one of them would slide over its stance and the exporter would refuse the clip
+        c["stride_stays_even"] = c["measured"]["stride_m"]["index"] < 0.01
+    a, b = cases["ship_a"], cases["ship_b"]
+    return {
+        "margin": ASYM_MARGIN,
+        "dial": variability.SENSIBLE,
+        "cases": cases,
+        # the whole claim in four booleans, so a golden diff reads as a verdict and not as noise
+        # at the default the clip reports no variability block at all, which is what keeps every
+        # existing character's report - and so its golden - byte for byte what it was
+        "zero_reports_nothing": cases["zero"]["report_has_variability"] is False,
+        "asym_reports_block": all(cases[k]["report_has_variability"] is True
+                                  for k in ("ship_a", "ship_b", "mirror_control")),
+        "ship_a_asymmetric": all(a["asymmetric"].values()),
+        "ship_b_asymmetric": all(b["asymmetric"].values()),
+        "strides_stay_even": all(c.get("stride_stays_even") for c in cases.values()
+                                 if "stride_stays_even" in c),
+        "two_ids_differ": a["drawn"] != b["drawn"] and any(
+            a["measured"][k]["ratio"] != b["measured"][k]["ratio"] for k in ASYM_MEASURES),
+        # the control: drawn and applied, but symmetric - every verdict False
+        "mirror_control_symmetric": not any(cases["mirror_control"]["asymmetric"].values()),
+        "mirror_control_did_apply": (cases["mirror_control"]["measured"]["arm_swing_deg"]["plus_lat"]
+                                     != base["arm_swing_deg"]["plus_lat"]),
+        # determinism, with no Blender in it: the same seed twice, two ids apart, and the
+        # control that breaks exactly that
+        "determinism": _determinism(),
+    }
+
+
+def _determinism():
+    from rig_analysis import variability
+    seed = variability.seed_from(ASYM_IDS[0])
+    same = (variability.draw(seed, variability.SENSIBLE).values
+            == variability.draw(variability.seed_from(ASYM_IDS[0]), variability.SENSIBLE).values)
+    other = variability.draw(variability.seed_from(ASYM_IDS[1]), variability.SENSIBLE).values
+    was = os.environ.get("RA_ASYM_NONDETERMINISTIC")
+    os.environ["RA_ASYM_NONDETERMINISTIC"] = "1"
+    try:
+        loose = variability.seed_from(ASYM_IDS[0]) == variability.seed_from(ASYM_IDS[0])
+    finally:
+        os.environ.pop("RA_ASYM_NONDETERMINISTIC", None)
+        if was is not None:
+            os.environ["RA_ASYM_NONDETERMINISTIC"] = was
+    return {
+        # the seed is the id's, byte for byte, in this process and in every other one
+        "seed": seed,
+        "same_id_same_draw": same,
+        "two_ids_differ": variability.draw(seed, variability.SENSIBLE).values != other,
+        # a zero dial is the identity exactly, not nearly: 1.0 and 0.0, not 0.9999999
+        "zero_is_exact": all(variability.draw(seed, 0.0).gain(c, s) == 1.0
+                             and variability.draw(seed, 0.0).offset(c, s) == 0.0
+                             for c in variability.CHANNELS for s in (1, -1)),
+        # the control that must fail: a seed off the process agrees with nothing, not even itself
+        "control_nondeterministic_agrees": loose,
     }
 
 
