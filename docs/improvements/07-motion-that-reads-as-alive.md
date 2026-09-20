@@ -313,11 +313,12 @@ arthritic elder) rather than a per-clip hack.
      above it, about the lateral axis through the base of the neck, and `response` turns that into
      a phase at the clip's stride. After, over eight Froude numbers:
 
-     | m/s | 0.48 | 0.76 | 1.08 | 1.37 | 1.73 | 2.28 | 3.01 | 3.75 |
+     | froude | 0.03 | 0.08 | 0.15 | 0.25 | 0.40 | 0.70 | 1.20 | 2.00 |
      |---|---|---|---|---|---|---|---|---|
      | Figure, head rung | -56.7 | -89.6 | -112.5 | -127.4 | -137.6 | -146.5 | -152.5 | -156.9 |
      | MPFB woman, head rung | -36.6 | -55.7 | -75.2 | -94.4 | -111.4 | -127.8 | -139.2 | -146.9 |
 
+     (0.48 to 3.75 m/s on the figure, 0.50 to 3.91 on the woman.)
      The two bodies sweep differently because their measured frequencies differ (0.9084 Hz on the
      lofted figure, 1.0889 Hz on the MPFB woman), and the measured value sits within a degree of
      the lag asked for at every point. `pelvis_thorax_phase_deg` is unchanged to the tenth of a
@@ -337,7 +338,7 @@ arthritic elder) rather than a per-clip hack.
      residual sees nothing. The sweep still earns its keep - it says the change costs nothing.
    - `rigify_human` carries the permanent control: the same body at Froude 0.05 and 1.2, once
      derived and once with `head_lag` forced to 0, reporting the free value `sweep_deg` beside the
-     threshold it is read against. The control's sweep is 0.0 and it must fail.
+     threshold it is read against. The control's sweep is 0.1 degrees against the 20 it needs, so it fails.
    - Still owed: `girdle_lag`, which is still hand-set because a clavicle is not a gravity
      pendulum.
 4. **L4 variability** - the cheapest visible win; can land before or after (3).

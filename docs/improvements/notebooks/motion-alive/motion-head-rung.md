@@ -108,6 +108,17 @@ so `r = drive/natural` lands in 0.7-1.9 - the part of the transfer function that
 rather than pinned at either limit. The alternative is a hand-set constant, which is what 07 is
 trying to remove.
 
+**Why the lateral axis and not `up`.** The phase this rung is measured in is a turn about `up`, so
+the obvious move is to measure the pendulum about `up` too - and that would be wrong. Gravity
+exerts no torque at all about a vertical axis, so `sqrt(m g d / I)` there is an artifact of
+however many millimetres the centre of mass happens to sit off the vertical line through the
+pivot: 0.7254 Hz on one body from an 11 mm offset, 1.4034 Hz on the other from 45 mm - two numbers
+that say nothing and disagree. `lat` is the axis the segment's own weight actually acts about, it
+is the axis `limb_frequencies` already measures every limb about, and the frequency it gives is a
+property of the SEGMENT, which is the one number `response` asks for. The same reasoning is
+already load-bearing one rung out: the arm's lag is applied to a swing signal while its pendulum
+is measured fore-aft about `lat`.
+
 ### Why angular momentum could not arbitrate this one
 
 0.31.0 settled the arm by sweeping its lag against `mass.angular_momentum`, so I ran the same
