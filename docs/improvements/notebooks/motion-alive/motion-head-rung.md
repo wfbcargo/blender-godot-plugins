@@ -50,6 +50,22 @@ The same tell the trunk had at a flat -179.3: the head reports the SAME number a
 because it is a scaled copy of its driver rather than a segment with a phase of its own. The
 pelvis-thorax rung sweeps 83 degrees over the same range, which is 0.30.0 working.
 
+### BEFORE - MPFB woman (curvy, seed 7), the body the game actually ships
+
+| froude | speed m/s | pelvis->thorax deg | thorax->head deg |
+|---|---|---|---|
+| 0.03 | 0.505 | -70.1 | **-0.7** |
+| 0.08 | 0.798 | -101.4 | **-0.6** |
+| 0.15 | 1.079 | -119.3 | **-0.6** |
+| 0.25 | 1.367 | -130.6 | **-0.6** |
+| 0.40 | 1.724 | -138.6 | **-0.7** |
+| 0.70 | 2.254 | -145.9 | **-0.7** |
+| 1.20 | 2.962 | -151.2 | **-0.6** |
+| 2.00 | 3.912 | -155.2 | **-0.6** |
+
+Two bodies that share no geometry, the same flat -0.6 on both - which is what a scaled copy of a
+value looks like, and not what a segment with a phase of its own looks like.
+
 ## 2026-09-20 14:15 - the change
 
 Two edits, and the first is the whole point:
