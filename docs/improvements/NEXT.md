@@ -1,4 +1,4 @@
-# Next: realism on the figure study (skin done; motion next)
+# Next: realism on the figure study (skin done; motion under way)
 
 A handoff for a fresh conversation. Start with:
 
@@ -6,12 +6,20 @@ A handoff for a fresh conversation. Start with:
 > way the flesh round ran (one branch at a time, an independent critic each) - or with the `plugin-round` workflow
 > if the user asks for multi-agent orchestration (see "Running the next session").
 
+**Resuming the motion work specifically?** Go straight to
+["Resuming the motion work"](#resuming-the-motion-work-2026-09-20) below - it is written to be picked up
+cold, and it names the branches, which repo is the real one, and what to do next.
+
 **The goal of all this work:** tools that make a new human asset from a brief **in under 30 seconds** and
 have it **look great** in Godot. The study figures are the test bench; the scoreboard is the benchmark
 (below): three brand-new characters built cold from their briefs, timed, and judged by an independent critic.
 Every round's ship step runs it, and every plan should say which of the two numbers it moves.
 
-State as of 2026-09-19. **The flesh round from the user's cast-demo review is done and shipped**: all seven plugin
+State as of **2026-09-20**: the motion round (rig-anything 0.28.0-0.31.0) is four versions in and
+**unpushed on `motion-mass-model`** - see "Resuming the motion work" below.
+
+The rest of this file is the state as of 2026-09-19, which the motion round did not touch.
+**The flesh round from the user's cast-demo review is done and shipped**: all seven plugin
 changes (A-G) of [research-flesh-jiggle.md](research-flesh-jiggle.md) are merged, installed and in the game (see "The
 cast demo" below for what each did). Everything is pushed: this repo's `main` and `grungist-creek`'s `master`. The
 parked branch `fig-genital-anatomy` (`94ac682`) still has its worktree at `.worktrees/fig-genital-anatomy`; there are
@@ -43,25 +51,9 @@ the eye material preset (lookdev 0.12.0, humanform 0.16.0). The six figures are 
   shoulder, with a cap seam over the crown and the ear covered by a flat plane.
 - **The rest of Step 5 - motion**: MovesController's turns (06 rank 15), the fingertip gaps, and the motion
   critic on every clip. `U.running` was only its first item, and it also unblocks the crowd rebuild.
-- **Motion that reads as alive** - [07](07-motion-that-reads-as-alive.md), new 2026-09-20, from the user's
-  note that the clips look good but rigid. Diagnosis, against 0.27.0: the clips are not missing a degree of
-  freedom, it is that every upper-body DOF is an INSTANTANEOUS algebraic function of one scalar phase, built
-  from one sine - thorax is exactly `-k x` pelvis at the same instant at every speed, arms are the exact
-  negative of their leg, and cycle N is bit-identical to cycle N+1. Five layers to fix it, with whole-body
-  angular momentum as the generative principle so it carries to any body plan rather than being a rule per
-  joint. **Steps 1 (the mass model, `mass.py`, 0.28.0) and 2 (the shoulder girdle, 0.29.0) are done and
-  shipped** - each shoulder now drops as its own side takes the weight, two dips a stride, half a
-  cycle apart. **Step 3's trunk rung is done too (0.30.0)**: the thorax chases the
-  pelvis through a driven-oscillator transfer function instead of being its instantaneous negative,
-  so the pelvis-thorax relative phase now sweeps -53 deg at 0.36 m/s to -157 at 4.59, where it was a
-  flat -179 at every speed. Measured off the baked clip and reported per gait as
-  `pelvis_thorax_phase_deg`. **The arm pendulum is done too (0.31.0)**: `mass.pendulum` gives the arm
-  0.91 Hz and the hand 1.60 Hz from measured mass alone, the hand's lag is derived from it and
-  `HAND_LAG` is gone - but the ARM's lag stays at half a cycle, because sweeping it against
-  whole-body angular momentum says so (mean |L| 0.0095 at 0.5 against 0.0118 derived). That
-  measurement, `mass.angular_momentum`, is L2 arriving early to arbitrate, and every gait clip now
-  reports it. What step 3 still owes: the head rung, and `girdle_lag`, which stays hand-set because
-  a clavicle is not a gravity pendulum.
+- **Motion that reads as alive** - [07](07-motion-that-reads-as-alive.md). The user's "the movements
+  look good, but are very rigid". Four versions shipped 2026-09-20 (rig-anything 0.28.0-0.31.0) and the
+  thread is mid-flight: see **"Resuming the motion work"** below, which is written to be picked up cold.
 - **An age layer** (benchmark finding): two briefs asked for 40s and 60s and both read twenty-plus years young.
   The 58-year fit cap is not what stops it - slackness, lip thinning, hand tendons and posture are authorable
   on top of a 58-year fit and none was attempted.
@@ -72,10 +64,112 @@ the eye material preset (lookdev 0.12.0, humanform 0.16.0). The six figures are 
   symptom is gone only because overcast no longer casts a shadow), and the tone_shift controls under
   `plugins/lookdev/bin/controls/tone_shift/` were rendered at clear_midday exposure 1.0, so they no longer show
   what the shipped preset does - re-render them the next time that area is touched.
-- **Step 5 - motion**: the one item of the user's cast review not yet started - "walking and running are very stiff".
+- **Step 5 - motion**: the user's "walking and running are very stiff" - UNDER WAY since 2026-09-20, four versions shipped; see "Resuming the motion work" above.
 - Smaller open flesh items (below, under each branch): the jump-only course over its 10 % on-limit line for the cast
   (10.2-11.4 %), walking in phase 0.69-0.85 against people's 0.66, study_woman's belly missed by 0.0001 m, the
   attachment check reading 0.0 on an empty window.
+
+## Resuming the motion work (2026-09-20)
+
+Written to be picked up cold. The design and the reasoning are in
+[07-motion-that-reads-as-alive.md](07-motion-that-reads-as-alive.md); this is the state.
+
+**Where the code is.** `C:/Users/pauli/Code/blender-godot-plugins`. NOT
+`~/.claude/plugins/marketplaces/blender-godot-plugins`, which is a stale 0.14.2 cache that looks
+like the repo, has its own git, and will happily let you commit into it. An hour went into that this
+round, and `tools/install.py` run from it downgrades the installed skill.
+
+**Branch state - nothing is pushed.**
+
+| Repo | Branch | Commits |
+|---|---|---|
+| blender-godot-plugins | `motion-mass-model` | 4, off `main` at 2558c5a |
+| grungist-creek | `girdle-rebuild` | 2, off `master` |
+
+The game's characters (Belle, Marco, Mei, Ruth) are built on **0.30.0**, one version behind. The only
+difference 0.31.0 makes to a shipped clip is finger-curl timing, so a rebuild is optional; do it with
+the loop under "Rebuilding a character" below.
+
+### What shipped, and what each one established
+
+- **0.28.0 `mass.py`** - per-bone mass, centre of mass and inertia from the skin, in each bone's own
+  rest frame. The whole body from its surface exactly; the partition between bones **volumetrically**,
+  because a weighted surface integral does not partition a volume. Inside is a **winding number**, not
+  a parity, because a body is ~27 overlapping shells. 17 closed-form self-tests, no Blender needed -
+  from `plugins/rig-anything/scripts`, run `python -m rig_analysis.mass`.
+- **0.29.0 the shoulder girdle** - `bodymap` had named it since 02 and nothing posed it. Each shoulder
+  drops as its own side takes the weight; two dips a stride, half a cycle apart.
+- **0.30.0 the trunk lag** - `upper.response` is the driven-oscillator transfer function. The thorax
+  chases the pelvis instead of mirroring it, **and the sign is nowhere written down**: half a cycle of
+  lag IS anti-phase, as the fast limit.
+- **0.31.0 the limb pendulums** - `mass.pendulum` gives the arm 0.91 Hz and the hand 1.60 Hz from
+  measured mass alone. The hand's lag is derived from it (`HAND_LAG` is gone). The **arm's is not**,
+  because `mass.angular_momentum` says the half cycle is already optimal - see 07 for the sweep.
+
+### The instruments that now exist
+
+Everything below is measured off the **baked** clip, never the prediction, and lands in the gait
+report (so in `tests/golden/`):
+
+- `pelvis_thorax_phase_deg` - relative Fourier phase, thorax against pelvis. **The headline number**:
+  it was a flat -179.3 at every speed and now sweeps -53 (0.36 m/s) to -157 (4.59).
+- `angular_momentum.up_range` / `.up_mean_abs` - normalised whole-body angular momentum, `L / M H V`.
+  Reads sensibly across body plans: quadruped trot 0.008, biped walk 0.060, cricket 0.107. **Reported,
+  never gated** - nobody knows the healthy band for a hexapod.
+- `upper.limb_hz`, `upper.arm_lag_cycles`, `upper.hand_lag_cycles`, `upper.trunk_lag_deg`.
+
+`mass.angular_momentum` is the arbiter for any "should this move differently?" question, and it has
+already settled one. Reach for it before reaching for an opinion.
+
+### Next, in the order I would take it
+
+1. **The head rung** - the last piece of the lag ladder. The head should trail the thorax as the
+   thorax trails the pelvis. Blocked on shape, not physics: `upper.trunk()` takes scalars, so the
+   head's share is computed from the thorax's *value*; it needs to take signals so the head can read
+   its driver at a different phase. Small refactor, then one `response` call.
+2. **L4 variability** - the cheapest visible win in the whole item and still untouched. Per-cycle
+   phase and amplitude jitter with a persistent (DFA alpha ~0.8) spectrum, plus a fixed per-character
+   left/right asymmetry stored in the character spec as part of its identity. Kills the "it is a loop"
+   tell. Near-zero runtime cost.
+3. **L2 proper** - the momentum measurement exists; the *solve* does not. Minimise the residual over
+   the free DOFs (arm swing gain, thorax counter-rotation, tail sway) at bake. This is the step that
+   makes counter-rotation body-plan agnostic instead of a constant per archetype.
+4. **L3 runtime joint springs** - widen `follow_through/jiggle_modifier.gd` from flesh bones to any
+   bone, frequency and damping from 0.28.0's inertia. The only layer with a runtime cost; LOD-gate it.
+5. **L5 turn sequencing** - eyes, head, trunk, pelvis, feet. Reuses the lag ladder. `TurnL`/`TurnR`
+   already exist in the cast manifests.
+
+Two open questions worth deciding before 2 or 3: whether `response`'s **gain** should be applied
+(0.30.0 deliberately applies phase only - amplitude is authored, timing is derived), and whether the
+arm's 2:1 to 1:1 frequency transition at slow walking is worth modelling (it is the real mechanism,
+and it is a big change).
+
+### Rebuilding a character
+
+```
+cd /c/Users/pauli/Code/GoDot/grungist-creek
+export BLEND_DIR="C:/Users/pauli/Code/Blender"
+BLENDER="C:/Program Files/Blender Foundation/Blender 5.2/blender.exe"
+CP="$HOME/.claude/skills/character-pipeline/scripts/build.py"
+"$BLENDER" -b --factory-startup --python-exit-code 1 --python "$CP" \
+  -- spec="C:/Users/pauli/Code/GoDot/grungist-creek/characters/belle.toml" from=body
+```
+
+Then `--headless --import --path .` and the demo selftests. Belle takes ~45 s, the cast ~60 s each.
+
+### What cost time this round
+
+- **The marketplace cache is not the repo.** See the top of this section.
+- **A version bump invalidates every stage hash**, so `from=moves` is refused with "rebuild from
+  body" and the whole character rebuilds. Expected, but budget for it.
+- **Blender 5.2 actions are slotted**: `action.fcurves` is gone; go through
+  `layer.strips[..].channelbag(slot).fcurves`.
+- **Build the instrument before the change.** The flat -179.3 baseline is what made the trunk lag
+  reviewable, and the momentum sweep is what stopped a plausible-but-wrong arm change from shipping.
+  Both took minutes.
+- **Mei's `hand_back.L` review false alarm is still there** (already known, above: build her with
+  `to=export`). Confirmed this round that it is NOT from any of this work - it reproduces on 0.28.0,
+  whose `upper.py` contains no girdle code at all.
 
 **How the flesh round was run** (2026-09-18/19, one main session, no `plugin-round` workflow - the user had not opted
 into multi-agent orchestration): one branch at a time in its own worktree, a scratch game from
@@ -107,7 +201,9 @@ Read these first, in this order:
 
 Installed copies in `~/.claude/skills` match the repo. **This is the one list of versions**; update it
 here and nowhere else:
-- rig-anything 0.27.0 (2026-09-19, moves-running-flag: a Run's arms judged as a run; installed and shipped)
+- rig-anything 0.31.0 (2026-09-20, branch `motion-mass-model`, NOT pushed: 0.28.0 mass model, 0.29.0
+  shoulder girdle, 0.30.0 trunk lag, 0.31.0 limb pendulums and whole-body angular momentum; installed.
+  0.27.0 was 2026-09-19 moves-running-flag)
 - animate-anything 0.10.1
 - follow-through 0.10.0
 - humanform 0.17.0 (2026-09-19: 0.13.0 skin-pores-distance, 0.14.0 skin-regions, 0.15.0 skin-finger-edges,
