@@ -15,7 +15,8 @@ have it **look great** in Godot. The study figures are the test bench; the score
 (below): three brand-new characters built cold from their briefs, timed, and judged by an independent critic.
 Every round's ship step runs it, and every plan should say which of the two numbers it moves.
 
-State as of **2026-09-20**: the motion round (rig-anything 0.28.0-0.32.0) is five versions in and
+State as of **2026-09-20**: the motion round (rig-anything 0.28.0-0.33.0, character-pipeline 0.16.0)
+is six versions in and
 **unpushed on `main`** - see "Resuming the motion work" below.
 
 The rest of this file is the state as of 2026-09-19, which the motion round did not touch.
@@ -52,7 +53,7 @@ the eye material preset (lookdev 0.12.0, humanform 0.16.0). The six figures are 
 - **The rest of Step 5 - motion**: MovesController's turns (06 rank 15), the fingertip gaps, and the motion
   critic on every clip. `U.running` was only its first item, and it also unblocks the crowd rebuild.
 - **Motion that reads as alive** - [07](07-motion-that-reads-as-alive.md). The user's "the movements
-  look good, but are very rigid". Five versions shipped 2026-09-20 (rig-anything 0.28.0-0.32.0) and the
+  look good, but are very rigid". Six versions shipped 2026-09-20 (rig-anything 0.28.0-0.33.0) and the
   thread is mid-flight: see **"Resuming the motion work"** below, which is written to be picked up cold.
 - **An age layer** (benchmark finding): two briefs asked for 40s and 60s and both read twenty-plus years young.
   The 58-year fit cap is not what stops it - slackness, lip thinning, hand tendons and posture are authorable
@@ -139,10 +140,27 @@ already settled one. Reach for it before reaching for an opinion.
    04's motion critic is the arbiter it wants, once the ship step rebuilds the characters.
    `girdle_lag` (0.05) is now the last un-derived lag on the chain, and a clavicle is not a gravity
    pendulum, so it needs a different argument than this one.
-2. **L4 variability** - the cheapest visible win in the whole item and still untouched. Per-cycle
-   phase and amplitude jitter with a persistent (DFA alpha ~0.8) spectrum, plus a fixed per-character
-   left/right asymmetry stored in the character spec as part of its identity. Kills the "it is a loop"
-   tell. Near-zero runtime cost.
+2. **L4 variability - the asymmetry half is done** (branch `motion-asymmetry`, rig-anything 0.33.0,
+   character-pipeline 0.16.0, merged 2026-09-20). A fixed per-character left/right asymmetry, drawn
+   once from SHA-256 of the character's id and baked into every gait clip:
+   `rig_analysis/variability.py` owns the seam (`[variability]` = seed, asymmetry, jitter_phase,
+   jitter_amp, all default 0), the draw and `measure`, which reads the result back off the **baked**
+   clip. Four channels - arm_swing, shoulder_dip, lag, step_length. Belle's walk at 0 -> 0.35: arm
+   swing ratio 1.0004 -> 0.8667, shoulder dip 1.0021 -> 1.0178, stance offset +0.03148 -> +0.04097 m
+   (a move of 0.00949 against a drawn 0.00950), strides still even so no foot skates. asymmetry 0 is
+   the identity **exactly** (literal 1.0 and 0.0, and no `variability` block written), which is why
+   every golden held and no existing character reruns. Two controls ship with their False verdicts in
+   the golden: `RA_ASYM_MIRROR=1` and `RA_ASYM_NONDETERMINISTIC=1`.
+   **Step length is the part to remember:** scaling each side's stroke made the exporter refuse every
+   gait ("planted at a different speed"), and it was right - both planted feet sweep back at the
+   body's speed. What differs is *where* each foot plants, so it is one shift of `pl["centres"]`.
+   **Still open here:** `jitter_phase` and `jitter_amp` are parsed, hashed, resolved and written to
+   the manifest but nothing bakes them - that is the per-cycle half, with the persistent (DFA alpha
+   ~0.8) spectrum, and it is the next piece. Only `locomotion.cycle`'s roles (Walk, Trot, Run) take
+   the asymmetry; Idle, Crouch, Jump and the Turns are still exactly mirror-symmetric, and an idle is
+   where a viewer looks longest. No real game character carries `[variability]` yet and no motion
+   critic has looked at an asymmetric walk in Godot - the ship step should put `asymmetry = 0.35` on
+   the cast, rebuild, and have one look.
 3. **L2 proper** - the momentum measurement exists; the *solve* does not. Minimise the residual over
    the free DOFs (arm swing gain, thorax counter-rotation, tail sway) at bake. This is the step that
    makes counter-rotation body-plan agnostic instead of a constant per archetype.
@@ -217,17 +235,20 @@ Read these first, in this order:
 
 Installed copies in `~/.claude/skills` match the repo. **This is the one list of versions**; update it
 here and nowhere else:
-- rig-anything 0.32.0 (2026-09-20, branches `motion-mass-model` and `motion-head-rung`, NOT pushed:
-  0.28.0 mass model, 0.29.0 shoulder girdle, 0.30.0 trunk lag, 0.31.0 limb pendulums and whole-body
-  angular momentum, 0.32.0 the head rung. 0.31.0 and earlier are installed; 0.32.0 is merged into
-  `main` but NOT yet installed - the ship step does that. 0.27.0 was 2026-09-19 moves-running-flag.
+- rig-anything 0.33.0 (2026-09-20, branches `motion-mass-model`, `motion-head-rung` and
+  `motion-asymmetry`, NOT pushed: 0.28.0 mass model, 0.29.0 shoulder girdle, 0.30.0 trunk lag,
+  0.31.0 limb pendulums and whole-body angular momentum, 0.32.0 the head rung, 0.33.0 the fixed
+  per-character left/right asymmetry. 0.31.0 and earlier are installed; 0.32.0 and 0.33.0 are merged
+  into `main` but NOT yet installed - the ship step does that. 0.27.0 was 2026-09-19 moves-running-flag.
   Bump with `tools/bump.py`: the 0.28.0-0.31.0 commits edited only plugin.json and left
   `.claude-plugin/marketplace.json`, the file other machines read, stale at 0.27.0)
 - animate-anything 0.10.1
 - follow-through 0.10.0
 - humanform 0.17.0 (2026-09-19: 0.13.0 skin-pores-distance, 0.14.0 skin-regions, 0.15.0 skin-finger-edges,
   0.16.0 eye-material; 2026-09-20: 0.17.0 skin-genital, PR #1; installed and shipped)
-- character-pipeline 0.15.0 (2026-09-19, skin-regions; installed and shipped)
+- character-pipeline 0.16.0 (2026-09-20, branch `motion-asymmetry`: the `[variability]` spec table and
+  the manifest's `variability` block. 0.15.0 was 2026-09-19 skin-regions, installed and shipped;
+  0.16.0 is merged into `main` but NOT yet installed - the ship step does that)
 - wardrobe 0.5.2
 - lookdev 0.12.0 (2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance, 0.10.0 skin-finger-edges,
   0.11.0 lookdev-overcast, 0.12.0 eye-material; installed and shipped)
