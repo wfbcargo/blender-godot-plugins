@@ -835,7 +835,8 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
     if upper_params is not None:
         stance = {l["name"]: {"target": (lambda p, limb, posed, s=pl["stance_shift"][l["name"]]:
                                          limb["rest_eff"] + s)} for l in legs}
-        U = upper_mod.Upper(P, upper_params, posture=posture, stance=stance, running=running)
+        U = upper_mod.Upper(P, upper_params, posture=posture, stance=stance, running=running,
+                            stride_hz=pl["frequency_hz"])
 
     state = {"drop": pl["drop"], "stroke": pl["stroke"], "lift": pl["lift"],
              "flex": pl["flex"], "bounce": 1.0, "over": 1.0}
@@ -1020,6 +1021,12 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
                 % (", ".join(clamped), pl["max_drop"], 100 * pl["max_drop"],
                    pl["drop_max"] * pl["scale"]))
         evaluated = ev["evaluated"]
+        # Measured off the playback, not predicted: how far the thorax runs
+        # behind the pelvis in the transverse plane. `upper.response` is what
+        # sets it, and this is the number that says whether it did.
+        if U is not None:
+            r["pelvis_thorax_phase_deg"] = upper_mod.relative_phase(
+                body, bm, evaluated, frames)
         seam, seam_bone = _pose_gap(rig, evaluated[1], evaluated[frames + 1])
         if seam > 1e-4:
             r["failures"].append("loop seam %.5f on %s" % (seam, seam_bone))

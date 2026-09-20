@@ -51,9 +51,13 @@ the eye material preset (lookdev 0.12.0, humanform 0.16.0). The six figures are 
   angular momentum as the generative principle so it carries to any body plan rather than being a rule per
   joint. **Steps 1 (the mass model, `mass.py`, 0.28.0) and 2 (the shoulder girdle, 0.29.0) are done and
   shipped** - each shoulder now drops as its own side takes the weight, two dips a stride, half a
-  cycle apart. Next is step 3, the lag ladder: replace the instantaneous negatives with a lag
-  derived from segment inertia, which also subsumes the two hand-set lag constants
-  (`HAND_LAG`, `girdle_lag`).
+  cycle apart. **Step 3's trunk rung is done too (0.30.0)**: the thorax chases the
+  pelvis through a driven-oscillator transfer function instead of being its instantaneous negative,
+  so the pelvis-thorax relative phase now sweeps -53 deg at 0.36 m/s to -157 at 4.59, where it was a
+  flat -179 at every speed. Measured off the baked clip and reported per gait as
+  `pelvis_thorax_phase_deg`. What step 3 still owes: the head rung, and the arm - which is the one
+  that can be DERIVED rather than fitted, as a gravity pendulum from 0.28.0's mass model, and which
+  would subsume `HAND_LAG` and `girdle_lag`.
 - **An age layer** (benchmark finding): two briefs asked for 40s and 60s and both read twenty-plus years young.
   The 58-year fit cap is not what stops it - slackness, lip thinning, hand tendons and posture are authorable
   on top of a 58-year fit and none was attempted.

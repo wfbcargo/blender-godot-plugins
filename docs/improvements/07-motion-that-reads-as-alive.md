@@ -247,8 +247,36 @@ arthritic elder) rather than a per-clip hack.
      running, protraction at 0.22 of the arm swing. `girdle_lag` 0.05 is provisional in a
      stronger sense - step 3 derives every lag on the chain from segment inertia and should take
      this one with it rather than leaving a hand-set constant behind.
-3. **L1 lag** - `tau` per axial joint from (1); replace the instantaneous negatives. Check
-   pelvis-thorax relative phase against the published speed trend.
+3. **L1 lag** - *the trunk rung is done, rig-anything 0.30.0; the rest is open.*
+   `upper.response(drive_hz, natural_hz, damping)` is the driven-oscillator transfer function, and
+   the thorax now reads its driver at `p0 - trunk_lag` instead of being `-k x` the pelvis at the
+   same instant. **The sign is no longer written down anywhere**: a lag of half a cycle IS the old
+   hard anti-phase, and it falls out as the fast limit rather than being asserted.
+   - `upper.relative_phase` measures it off the BAKED clip - the once-per-stride Fourier component
+     of each segment's rotation about `up`, thorax minus pelvis - and every gait clip reports
+     `pelvis_thorax_phase_deg`, so it is goldened rather than checked once.
+   - Before: **-179.3 deg at every speed from 0.92 to 4.59 m/s**, a flat line. After, on Belle:
+
+     | m/s | 0.36 | 0.50 | 0.71 | 0.92 | 1.30 | 1.72 | 2.25 | 2.90 | 3.56 | 4.59 |
+     |---|---|---|---|---|---|---|---|---|---|---|
+     | rel phase | -53 | -71 | -93 | -109 | -126 | -137 | -144 | -150 | -153 | -157 |
+
+     which is the sweep van Emmerik et al. report, over the speed range they report it over, from
+     two constants rather than a rule per speed. The shipped measurement agrees with an independent
+     scratch instrument to within 1 deg.
+   - `trunk_hz` 0.82 and `trunk_damping` 0.35 are FITTED to that published trend, not measured. The
+     honest derivation is trunk inertia (step 1 has it) on the spine's torsional stiffness, which is
+     the number nobody has.
+   - **Gain is deliberately not applied.** `response` returns it, and at running speed it is ~0.4,
+     which would fight `thorax_turn` and every per-character `upper` override already tuned. The
+     split is: amplitude is authored, timing is derived. Worth revisiting when 04's motion critic
+     can arbitrate.
+   - Still owed by this step: the rest of the ladder. The head should lag the thorax (it needs
+     `upper.trunk` to take signals rather than scalars), and `HAND_LAG` and `girdle_lag` are still
+     two hand-set constants. The one that can be *derived* rather than fitted is the ARM: it is a
+     gravity pendulum, `w_n = sqrt(m g d / I)`, and step 1's mass model has all three terms - which
+     is the Collins/Adamczyk/Kuo result made load-bearing. It is also the riskiest, because the
+     arm-opposite-its-own-leg relationship is what every clip is tuned around.
 4. **L4 variability** - the cheapest visible win; can land before or after (3).
 5. **L2 momentum solve** - objective, solver, and an `L_vertical` check.
 6. **L3 joint springs** - widen `jiggle_modifier`; LOD gate.
