@@ -1027,6 +1027,19 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
         if U is not None:
             r["pelvis_thorax_phase_deg"] = upper_mod.relative_phase(
                 body, bm, evaluated, frames)
+        # Whole-body angular momentum, normalised: the residual the arms exist
+        # to cancel. Reported rather than gated - what a healthy band is for a
+        # body with six legs is not known, and a check nobody can calibrate is
+        # worse than a number somebody can read.
+        try:
+            from . import mass as mass_mod
+            md = mass_mod.body_mass(body)
+            if md is not None and "error" not in md:
+                r["angular_momentum"] = mass_mod.angular_momentum(
+                    md, body, evaluated, frames, bpy.context.scene.render.fps,
+                    pl["speed_mps"])
+        except Exception as e:                                  # pragma: no cover
+            r["angular_momentum"] = {"error": str(e)[:80]}
         seam, seam_bone = _pose_gap(rig, evaluated[1], evaluated[frames + 1])
         if seam > 1e-4:
             r["failures"].append("loop seam %.5f on %s" % (seam, seam_bone))

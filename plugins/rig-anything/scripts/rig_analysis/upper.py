@@ -55,7 +55,7 @@ PARAMS = ("arm_swing", "arm_forward", "arm_out", "elbow", "elbow_swing", "hand_i
           "pelvis_turn", "pelvis_list", "thorax_turn", "side_bend", "lean", "lean_bob",
           "head_hold", "hand_clearance", "breath",
           "girdle_drop", "girdle_forward", "girdle_lag",
-          "trunk_hz", "trunk_damping")
+          "trunk_hz", "trunk_damping", "arm_lag", "hand_lag", "limb_damping")
 
 
 # The relaxed finger curl rides the arm swing (`Upper.cycle_key`): its share
@@ -155,6 +155,56 @@ def relative_phase(body, bm, evaluated, frames):
     return round(((pht - php + 180.0) % 360.0) - 180.0, 1)
 
 
+def limb_frequencies(poser):
+    """{arm: {"arm": Hz, "hand": Hz}} from the body's own measured mass.
+
+    The arm swinging about its shoulder and the hand about its wrist, both
+    about the body's lateral axis, both under gravity. Measured once and cached
+    on the body, because a character builds several clips and the answer is a
+    property of the body, not of the clip.
+
+    {} when the body carries no skinned mass to measure - a rig with no mesh
+    bound, say - and every caller then falls back to the constants that were
+    set by hand.
+    """
+    body = poser.body
+    cached = body.__dict__.get("_limb_hz")
+    if cached is not None:
+        return cached
+    out = {}
+    try:
+        from . import mass as mass_mod
+        data = mass_mod.body_mass(body)
+        if data and "error" not in data:
+            bones = body.rig.data.bones
+            lat = poser.lat
+
+            def carried(root):
+                got, stack = [], [bones[root]]
+                while stack:
+                    b = stack.pop()
+                    got.append(b.name)
+                    stack.extend(b.children)
+                return got
+
+            for arm in poser.arms:
+                entry = {}
+                upper_bone = arm["upper"]
+                if upper_bone in bones:
+                    entry["arm"] = mass_mod.pendulum(
+                        data, body.rig, carried(upper_bone),
+                        bones[upper_bone].head_local, lat)
+                end = arm.get("end")
+                if end and end in bones:
+                    entry["hand"] = mass_mod.pendulum(
+                        data, body.rig, carried(end), bones[end].head_local, lat)
+                out[arm["name"]] = {k: v for k, v in entry.items() if v}
+    except Exception:
+        out = {}
+    body.__dict__["_limb_hz"] = out
+    return out
+
+
 def _smooth(x):
     x = max(0.0, min(1.0, x))
     return x * x * (3.0 - 2.0 * x)
@@ -217,6 +267,26 @@ def defaults(froude, duty):
         # is the number nobody has.
         "trunk_hz": 0.82,
         "trunk_damping": 0.35,
+        # The HAND's lag is derived from the body's own mass, as a gravity
+        # pendulum about the wrist (`mass.pendulum` -> `response`); None asks
+        # for that. It lands near 0.10 of a cycle against the 0.08 that used to
+        # be written here by hand, which is the physics agreeing with the eye.
+        #
+        # The ARM's is NOT derived, and the reason is measured rather than
+        # argued. Treating the arm as a pendulum driven by its own leg's signal
+        # gives 0.33 of a cycle at a walk, and swept against whole-body angular
+        # momentum - `mass.angular_momentum`, the thing arms are FOR - it comes
+        # out worse than the half cycle it would replace on both measures
+        # (mean |L| 0.0118 against 0.0095; the range is flat within 2% across
+        # 0.30..0.50). Half a cycle sits at the optimum, which is what the
+        # biomechanics says: the arms are there to cancel the legs. The real
+        # speed dependence is not a phase lag inside 1:1 anyway - it is a
+        # transition from 2:1 to 1:1 between arm and leg near the arm's own
+        # resonance (Wagenaar & van Emmerik 2004), which is a different and
+        # much larger change. Set a number here to explore it.
+        "arm_lag": 0.5,
+        "hand_lag": None,
+        "limb_damping": 0.30,
     }
 
 
@@ -232,8 +302,9 @@ def idle_defaults():
         # nothing is carrying weight and no arm is swinging, so the shoulders
         # sit where the rig put them
         "girdle_drop": 0.0, "girdle_forward": 0.0, "girdle_lag": 0.0,
-        # an idle has no stride to be driven at, so the trunk coupling never runs
+        # an idle has no stride to be driven at, so no coupling runs
         "trunk_hz": 0.82, "trunk_damping": 0.35,
+        "arm_lag": 0.5, "hand_lag": None, "limb_damping": 0.30,
     }
 
 
@@ -541,6 +612,26 @@ class Upper:
         self.trunk_gain, self.trunk_lag = response(
             self.stride_hz, self.params.get("trunk_hz", 0.0),
             self.params.get("trunk_damping", 0.35))
+        # The arm and the hand are gravity pendulums, and the body has been
+        # measured, so their natural frequencies are not parameters: the mass
+        # model gives m, the lever arm and the inertia, and `mass.pendulum`
+        # turns those into the frequency. A human arm lands near 0.9 Hz and a
+        # hand near 1.6 Hz; at a walk's stride the hand's lag then comes out
+        # about 0.10 of a cycle, against the 0.08 that was set here by eye -
+        # which is the physics agreeing with whoever tuned it.
+        self.limb_hz = limb_frequencies(poser)
+        d = self.params.get("limb_damping", 0.30)
+        self.arm_lag, self.hand_lag = {}, {}
+        for arm in poser.arms:
+            hz = self.limb_hz.get(arm["name"]) or {}
+            given = self.params.get("arm_lag")
+            self.arm_lag[arm["name"]] = (
+                given if given is not None else response(self.stride_hz, hz.get("arm", 0.0), d)[1])
+            given = self.params.get("hand_lag")
+            self.hand_lag[arm["name"]] = (
+                given if given is not None
+                else (response(self.stride_hz, hz.get("hand", 0.0), d)[1] if hz.get("hand")
+                      else HAND_LAG))
         # Whether this clip is a run (duty < 0.5), for the arm checks: a run keeps both
         # arms in front and is judged on hand rise and elbow instead of the swing-through
         # -hanging a walk must show. Only the gait path knows it; idles and turns are False.
@@ -626,10 +717,18 @@ class Upper:
                 continue
             # the leg on that side nearest the arm along the body
             leg = min(same, key=lambda l: abs(l["forward_pos"] - arm["forward_pos"]))
-            limbs[arm["name"]] = self.arm_terms(arm, -fwd_sig[leg["name"]])
-            # the fingers trail the swing: HAND_LAG of a cycle behind the arm,
-            # opening a little as it comes back and closing as it goes forward
-            lagged = -leg_forward((p0 - HAND_LAG - offsets[leg["name"]]) % 1.0, duty)
+            # The arm is a pendulum hung at the shoulder, so it does not mirror
+            # its leg instantly, it chases the body's swing. As with the trunk
+            # the sign is not written down: a lag of half a cycle IS the exact
+            # negation this replaces, and it is what `response` returns when
+            # nothing is known about the drive.
+            al = self.arm_lag.get(arm["name"], 0.5)
+            hl = self.hand_lag.get(arm["name"], HAND_LAG)
+            swing = leg_forward((p0 - al - offsets[leg["name"]]) % 1.0, duty)
+            limbs[arm["name"]] = self.arm_terms(arm, swing)
+            # the fingers trail the arm by their own pendulum's lag, opening a
+            # little as the hand comes back and closing as it goes forward
+            lagged = leg_forward((p0 - al - hl - offsets[leg["name"]]) % 1.0, duty)
             hands[arm["name"]] = 1.0 + HAND_SWING * lagged
             # The shoulder. It drops as ITS OWN SIDE takes the weight - which is
             # why a walk has two shoulder dips a stride, one per leg, and why
@@ -672,6 +771,10 @@ class Upper:
         out["trunk_lag_cycles"] = round(self.trunk_lag, 4)
         out["trunk_lag_deg"] = round(self.trunk_lag * 360.0, 1)
         out["trunk_gain"] = round(self.trunk_gain, 4)
+        out["limb_hz"] = {k: {kk: round(vv, 3) for kk, vv in v.items()}
+                          for k, v in getattr(self, "limb_hz", {}).items()}
+        out["arm_lag_cycles"] = {k: round(v, 4) for k, v in getattr(self, "arm_lag", {}).items()}
+        out["hand_lag_cycles"] = {k: round(v, 4) for k, v in getattr(self, "hand_lag", {}).items()}
         out["arm_out_measured"] = {k: round(v, 1) for k, v in self.params["arm_out_measured"].items()}
         if getattr(self, "clearance", None) is not None:
             out["clearance_m"] = self.clearance.get("closest_m")

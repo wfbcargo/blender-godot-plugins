@@ -55,9 +55,13 @@ the eye material preset (lookdev 0.12.0, humanform 0.16.0). The six figures are 
   pelvis through a driven-oscillator transfer function instead of being its instantaneous negative,
   so the pelvis-thorax relative phase now sweeps -53 deg at 0.36 m/s to -157 at 4.59, where it was a
   flat -179 at every speed. Measured off the baked clip and reported per gait as
-  `pelvis_thorax_phase_deg`. What step 3 still owes: the head rung, and the arm - which is the one
-  that can be DERIVED rather than fitted, as a gravity pendulum from 0.28.0's mass model, and which
-  would subsume `HAND_LAG` and `girdle_lag`.
+  `pelvis_thorax_phase_deg`. **The arm pendulum is done too (0.31.0)**: `mass.pendulum` gives the arm
+  0.91 Hz and the hand 1.60 Hz from measured mass alone, the hand's lag is derived from it and
+  `HAND_LAG` is gone - but the ARM's lag stays at half a cycle, because sweeping it against
+  whole-body angular momentum says so (mean |L| 0.0095 at 0.5 against 0.0118 derived). That
+  measurement, `mass.angular_momentum`, is L2 arriving early to arbitrate, and every gait clip now
+  reports it. What step 3 still owes: the head rung, and `girdle_lag`, which stays hand-set because
+  a clavicle is not a gravity pendulum.
 - **An age layer** (benchmark finding): two briefs asked for 40s and 60s and both read twenty-plus years young.
   The 58-year fit cap is not what stops it - slackness, lip thinning, hand tendons and posture are authorable
   on top of a 58-year fit and none was attempted.

@@ -699,6 +699,167 @@ def _checks(whole, per_bone, unassigned, voxel_vol, grid, holes):
 
 
 # --------------------------------------------------------------------------
+# what the mass model is for: how fast a hanging part wants to swing
+# --------------------------------------------------------------------------
+
+G = 9.80665
+
+
+def pendulum(data, rig, bones, pivot, axis):
+    """Natural frequency, in Hz, of `bones` swinging about `axis` through
+    `pivot` under gravity - the compound pendulum, w^2 = m g d / I.
+
+    `m` is the summed mass, `d` the lever arm from the axis to the combined
+    centre of mass, and `I` the moment about that same axis, each bone's own
+    tensor rotated into armature space and carried out to the axis by the
+    parallel-axis theorem. All three come from the measurement, so nothing here
+    is fitted: the number is a property of the body that was modelled.
+
+    This is what a limb hung on a walking body actually wants to do, and it is
+    the quantity `upper.response` needs to say how far behind its drive the
+    limb runs. A human arm lands near 0.7-0.9 Hz and a hand near 1.5 Hz, which
+    is the check that the tensors and the frames are right way round.
+
+    None when the bones carry no measured mass.
+    """
+    from mathutils import Matrix, Vector
+    a = Vector(axis).normalized()
+    pivot = Vector(pivot)
+    total, moment, inertia = 0.0, Vector((0.0, 0.0, 0.0)), 0.0
+    for name in bones:
+        b = data["bones"].get(name)
+        if not b:
+            continue
+        m = b["mass"]
+        if m <= 0.0:
+            continue
+        com = Vector(b["com"])
+        total += m
+        moment += com * m
+        # the bone's own tensor is written in its rest-local frame, where it is
+        # a constant; bring it back to armature space before reading an axis off
+        basis = rig.data.bones[name].matrix_local.to_3x3()
+        t = b["inertia_local"]
+        il = Matrix(((t[0], t[1], t[2]), (t[3], t[4], t[5]), (t[6], t[7], t[8])))
+        iw = basis @ il @ basis.transposed()
+        own = a.dot(iw @ a)
+        # parallel axis, out to the line through `pivot` along `a`
+        r = com - pivot
+        perp = (r - a * r.dot(a)).length
+        inertia += own + m * perp * perp
+    if total <= 0.0 or inertia <= 0.0:
+        return None
+    com = moment / total
+    r = com - pivot
+    d = (r - a * r.dot(a)).length
+    if d <= 1e-9:
+        return None
+    return math.sqrt(total * G * d / inertia) / (2.0 * math.pi)
+
+
+def body_mass(body):
+    """The mass model for a `motion.Body`, measured once and kept on it.
+
+    A character builds several clips off one body and the measurement is a
+    property of the body, not of the clip, so it is taken from the rig's stamp
+    when there is one and otherwise measured and cached. None when the body
+    carries no skinned mass.
+    """
+    got = body.__dict__.get("_mass_data")
+    if got is not None:
+        return got or None
+    try:
+        got = load(body.rig.name) or measure(body.rig.name)
+    except Exception:                                           # pragma: no cover
+        got = None
+    if got is not None and "error" in got:
+        got = None
+    body.__dict__["_mass_data"] = got or {}
+    return got
+
+
+def angular_momentum(data, body, evaluated, frames, fps, speed):
+    """Whole-body angular momentum about the centre of mass, per frame, read
+    off a BAKED clip and normalised the way the gait literature normalises it
+    (L / M H V - mass, standing height, travel speed).
+
+    Why this is here rather than in a gait module: it is the one measurement
+    that can ARBITRATE between two ways of moving. Whole-body angular momentum
+    is held in a narrow band about zero through a stride, by the arms
+    cancelling the legs; walking with the arms reversed needs almost no
+    shoulder torque yet costs 26% more energy, because the cancellation is what
+    the arms are for (Collins, Adamczyk & Kuo 2009). So a change that lowers
+    the residual is doing what a body does, and one that raises it is not -
+    without anyone having to have an opinion about how it looks.
+
+    Each bone contributes its own spin and the orbit of its centre of mass:
+    `sum m (p - pc) x (v - vc) + R I R^T w`, velocities by central difference
+    around the loop, and the whole thing is frame-invariant because it is taken
+    about the COM - which is why an in-place clip measures the same as one that
+    travels.
+
+    Returns the up-axis component's range and mean magnitude, or None when the
+    body has no measured mass.
+    """
+    from mathutils import Matrix, Vector
+
+    rest = body.rest
+    parts = []
+    for name, b in data["bones"].items():
+        if b["mass"] <= 0.0 or name not in rest:
+            continue
+        t = b["inertia_local"]
+        parts.append((name, b["mass"], Vector(b["com"]),
+                      Matrix(((t[0], t[1], t[2]), (t[3], t[4], t[5]), (t[6], t[7], t[8])))))
+    if not parts:
+        return None
+    # frame `frames + 1` repeats frame 1 to close the loop; leave it out
+    seq = [evaluated.get(f) for f in range(1, frames + 1)]
+    if any(fr is None for fr in seq) or len(seq) < 3:
+        return None
+
+    pos, rot = [], []
+    for fr in seq:
+        p, r = {}, {}
+        for name, m, com, il in parts:
+            if name not in fr:
+                return None
+            p[name] = (fr[name] @ rest[name].inverted()) @ com
+            r[name] = fr[name].to_3x3()
+        pos.append(p)
+        rot.append(r)
+
+    n = len(seq)
+    dt = 1.0 / float(fps or 30)
+    up = body.bm["up_vec"]
+    total = sum(m for _, m, _, _ in parts)
+    ups = []
+    for i in range(n):
+        j, k = (i + 1) % n, (i - 1) % n
+        pc, vc = Vector(), Vector()
+        for name, m, _c, _i in parts:
+            pc += pos[i][name] * m
+            vc += ((pos[j][name] - pos[k][name]) / (2.0 * dt)) * m
+        pc /= total
+        vc /= total
+        L = Vector()
+        for name, m, _c, il in parts:
+            v = (pos[j][name] - pos[k][name]) / (2.0 * dt)
+            L += (pos[i][name] - pc).cross((v - vc) * m)
+            q = (rot[j][name] @ rot[i][name].inverted()).to_quaternion()
+            ang = q.angle
+            if ang > math.pi:
+                ang -= 2.0 * math.pi
+            if abs(ang) > 1e-12:
+                L += (rot[i][name] @ il @ rot[i][name].transposed()) @ (q.axis * (ang / dt))
+        ups.append(L.dot(up))
+    norm = total * max(body.bm["height"], 1e-6) * max(speed, 1e-6)
+    ups = [u / norm for u in ups]
+    return {"up_range": round(max(ups) - min(ups), 5),
+            "up_mean_abs": round(sum(abs(u) for u in ups) / len(ups), 5)}
+
+
+# --------------------------------------------------------------------------
 # stamping, so a later session need not remeasure
 # --------------------------------------------------------------------------
 

@@ -2,7 +2,7 @@
  "fixture": "rigify_human",
  "plugins": {
   "follow-through": "0.10.0",
-  "rig-anything": "0.29.0"
+  "rig-anything": "0.30.0"
  },
  "report": {
   "arm_swing": {
@@ -559,6 +559,11 @@
     "tolerance": 0.00883,
     "upper": {
      "arm_forward": 4.0,
+     "arm_lag": 0.5,
+     "arm_lag_cycles": {
+      "upper_arm.L": 0.5,
+      "upper_arm.R": 0.5
+     },
      "arm_out": {
       "upper_arm.L": 5.3,
       "upper_arm.R": 5.2
@@ -587,9 +592,23 @@
      "girdle_lag": 0.0,
      "hand_clearance": 0.015,
      "hand_in": 0.0,
+     "hand_lag": null,
+     "hand_lag_cycles": {
+      "upper_arm.L": 0.08,
+      "upper_arm.R": 0.08
+     },
      "head_hold": 0.85,
      "lean": 0.0,
      "lean_bob": 0.0,
+     "limb_damping": 0.3,
+     "limb_hz": {
+      "upper_arm.L": {
+       "arm": 0.945
+      },
+      "upper_arm.R": {
+       "arm": 0.945
+      }
+     },
      "pelvis_list": 0.0,
      "pelvis_turn": 0.0,
      "side_bend": 0.0,
@@ -640,6 +659,10 @@
    "Run": {
     "action": "Figure_Run",
     "adjustments": [],
+    "angular_momentum": {
+     "up_mean_abs": 0.00127,
+     "up_range": 0.00403
+    },
     "arm_clearance_m": 0.0175,
     "arm_pose": {
      "upper_arm.L": {
@@ -784,6 +807,11 @@
     "tolerance": 0.00883,
     "upper": {
      "arm_forward": -15.0,
+     "arm_lag": 0.5,
+     "arm_lag_cycles": {
+      "upper_arm.L": 0.5,
+      "upper_arm.R": 0.5
+     },
      "arm_out": {
       "upper_arm.L": 5.9,
       "upper_arm.R": 5.9
@@ -812,9 +840,23 @@
      "girdle_lag": 0.05,
      "hand_clearance": 0.015,
      "hand_in": 5.0,
+     "hand_lag": null,
+     "hand_lag_cycles": {
+      "upper_arm.L": 0.08,
+      "upper_arm.R": 0.08
+     },
      "head_hold": 0.85,
      "lean": 8.5,
      "lean_bob": 2.0,
+     "limb_damping": 0.3,
+     "limb_hz": {
+      "upper_arm.L": {
+       "arm": 0.945
+      },
+      "upper_arm.R": {
+       "arm": 0.945
+      }
+     },
      "pelvis_list": 3.0,
      "pelvis_turn": 9.0,
      "side_bend": 1.5,
@@ -949,6 +991,10 @@
    "Trot": {
     "action": "Figure_Trot",
     "adjustments": [],
+    "angular_momentum": {
+     "up_mean_abs": 0.0012,
+     "up_range": 0.00423
+    },
     "arm_clearance_m": 0.0162,
     "arm_pose": {
      "upper_arm.L": {
@@ -1093,6 +1139,11 @@
     "tolerance": 0.00883,
     "upper": {
      "arm_forward": -12.855,
+     "arm_lag": 0.5,
+     "arm_lag_cycles": {
+      "upper_arm.L": 0.5,
+      "upper_arm.R": 0.5
+     },
      "arm_out": {
       "upper_arm.L": 5.7,
       "upper_arm.R": 5.3
@@ -1121,9 +1172,23 @@
      "girdle_lag": 0.05,
      "hand_clearance": 0.015,
      "hand_in": 2.5,
+     "hand_lag": null,
+     "hand_lag_cycles": {
+      "upper_arm.L": 0.08,
+      "upper_arm.R": 0.08
+     },
      "head_hold": 0.85,
      "lean": 6.0,
      "lean_bob": 2.0,
+     "limb_damping": 0.3,
+     "limb_hz": {
+      "upper_arm.L": {
+       "arm": 0.945
+      },
+      "upper_arm.R": {
+       "arm": 0.945
+      }
+     },
      "pelvis_list": 3.0,
      "pelvis_turn": 7.0,
      "side_bend": 1.5,
@@ -1141,6 +1206,10 @@
    "Walk": {
     "action": "Figure_Walk",
     "adjustments": [],
+    "angular_momentum": {
+     "up_mean_abs": 0.00433,
+     "up_range": 0.02531
+    },
     "arm_clearance_m": 0.0171,
     "arm_pose": {
      "upper_arm.L": {
@@ -1285,6 +1354,11 @@
     "tolerance": 0.00883,
     "upper": {
      "arm_forward": 2.0,
+     "arm_lag": 0.5,
+     "arm_lag_cycles": {
+      "upper_arm.L": 0.5,
+      "upper_arm.R": 0.5
+     },
      "arm_out": {
       "upper_arm.L": 5.5,
       "upper_arm.R": 5.2
@@ -1313,9 +1387,23 @@
      "girdle_lag": 0.05,
      "hand_clearance": 0.015,
      "hand_in": 0.0,
+     "hand_lag": null,
+     "hand_lag_cycles": {
+      "upper_arm.L": 0.08,
+      "upper_arm.R": 0.08
+     },
      "head_hold": 0.85,
      "lean": 3.236,
      "lean_bob": 1.0,
+     "limb_damping": 0.3,
+     "limb_hz": {
+      "upper_arm.L": {
+       "arm": 0.945
+      },
+      "upper_arm.R": {
+       "arm": 0.945
+      }
+     },
      "pelvis_list": 4.0,
      "pelvis_turn": 4.236,
      "side_bend": 1.5,

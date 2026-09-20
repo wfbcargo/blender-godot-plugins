@@ -271,12 +271,38 @@ arthritic elder) rather than a per-clip hack.
      which would fight `thorax_turn` and every per-character `upper` override already tuned. The
      split is: amplitude is authored, timing is derived. Worth revisiting when 04's motion critic
      can arbitrate.
-   - Still owed by this step: the rest of the ladder. The head should lag the thorax (it needs
-     `upper.trunk` to take signals rather than scalars), and `HAND_LAG` and `girdle_lag` are still
-     two hand-set constants. The one that can be *derived* rather than fitted is the ARM: it is a
-     gravity pendulum, `w_n = sqrt(m g d / I)`, and step 1's mass model has all three terms - which
-     is the Collins/Adamczyk/Kuo result made load-bearing. It is also the riskiest, because the
-     arm-opposite-its-own-leg relationship is what every clip is tuned around.
+   - **The arm pendulum, 0.31.0.** `mass.pendulum` turns the mass model into a natural frequency:
+     the compound pendulum `w^2 = m g d / I`, every term measured, nothing fitted. On Belle the arm
+     comes out **0.91 Hz** and the hand **1.60 Hz** (Marco 0.90 and 1.56), which is where the
+     literature puts them - and is the check that the inertia tensors and their frames are the
+     right way round.
+   - The HAND's lag is now derived from it and `HAND_LAG` is gone. It lands at 0.099 of a cycle at
+     a walk against the 0.08 that had been set by eye, and unlike a constant it moves with speed
+     (0.076 at 0.92 m/s to 0.300 at 4.59).
+   - **The ARM's lag is deliberately NOT derived, and that was decided by measurement.** The same
+     treatment gives 0.33 of a cycle at a walk. Swept against whole-body angular momentum - the
+     thing arms are *for* - it is worse than the half cycle it would replace:
+
+     | arm_lag | 0.50 (today) | 0.45 | 0.40 | 0.375 | 0.35 | 0.30 | derived 0.326 |
+     |---|---|---|---|---|---|---|---|
+     | L range | 0.0604 | 0.0593 | **0.0590** | 0.0592 | 0.0600 | 0.0621 | 0.0609 |
+     | mean abs L | **0.0095** | 0.0096 | 0.0103 | 0.0108 | 0.0113 | 0.0123 | 0.0118 |
+
+     Half a cycle is at the optimum on mean and within 2% of it on range, which is exactly what the
+     biomechanics says - the arms are there to cancel the legs, and reversed phasing costs 26% more
+     energy. So the half cycle stays, but it is now a *measured* choice rather than a hard-coded
+     sign. The real speed dependence is not a phase lag inside 1:1 at all: it is a 2:1 to 1:1
+     transition between arm and leg near the arm's own resonance
+     ([Wagenaar & van Emmerik 2004](https://link.springer.com/article/10.1007/s00422-004-0503-5)),
+     which is a different and much larger change.
+   - **L2 arrived early, as the arbiter.** `mass.angular_momentum` reads whole-body angular
+     momentum off the baked clip about the COM, normalised `L / M H V`, and every gait clip reports
+     it. It settled the arm question, and it is meaningful across body plans: a quadruped's trot
+     sits at 0.008, a biped's walk at 0.060, a cricket's at 0.107. Reported, not gated - what a
+     healthy band is for a six-legged body is not known, and a check nobody can calibrate is worse
+     than a number somebody can read.
+   - Still owed: the head rung (it needs `upper.trunk` to take signals rather than scalars) and
+     `girdle_lag`, which is still hand-set because a clavicle is not a gravity pendulum.
 4. **L4 variability** - the cheapest visible win; can land before or after (3).
 5. **L2 momentum solve** - objective, solver, and an `L_vertical` check.
 6. **L3 joint springs** - widen `jiggle_modifier`; LOD gate.
