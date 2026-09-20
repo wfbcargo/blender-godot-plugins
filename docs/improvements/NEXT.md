@@ -34,13 +34,20 @@ support: [notebooks/benchmark/baseline-2026-09-19.md](notebooks/benchmark/baseli
 after each round with the same briefs and compare those two numbers.
 
 **Where to pick up - the user chooses** (ask, don't assume):
-- **Step 5 - motion**, starting with `U.running`. The benchmark upgraded this from cosmetic: the Run clip check
-  asks that the arm come back to hanging - the walk criterion - so **a new character does not build at all**
-  without `may_fail = ["Run"]`. It hit 2 of 3 briefs; the third passed by 0.8 degrees.
-- **Eyes, and then hair** - not in the plan above, and the benchmark's strongest look result. All three critics
-  put both in their top three. The eye catchlight and iris shading are **present in the Blender tile and absent
-  in Godot**, so it is a transfer loss in the eye material, small and well located. `long_loose` is not even
-  long (it stops at the shoulder).
+**Both of the benchmark's top two are done and shipped (2026-09-19)**: `U.running` (rig-anything 0.27.0) and
+the eye material preset (lookdev 0.12.0, humanform 0.16.0). The six figures are rebuilt on both and pushed
+(`grungist-creek` b91aa15).
+
+- **Hair** is now the benchmark's largest open look item, and every critic put it top three: `short_crop` reads
+  as a moulded cap on both bodies that use it, and `long_loose` is not even long - on Mei it stops at the
+  shoulder, with a cap seam over the crown and the ear covered by a flat plane.
+- **The rest of Step 5 - motion**: MovesController's turns (06 rank 15), the fingertip gaps, and the motion
+  critic on every clip. `U.running` was only its first item, and it also unblocks the crowd rebuild.
+- **An age layer** (benchmark finding): two briefs asked for 40s and 60s and both read twenty-plus years young.
+  The 58-year fit cap is not what stops it - slackness, lip thinning, hand tendons and posture are authorable
+  on top of a 58-year fit and none was attempted.
+- **Ancestry as a sheet field**: `sheet.new()` has no asian/caucasian/african, though `scaffold.create_macros`
+  reads exactly those keys off the sheet, so the layer under it already works. Plus a decision on "Hispanic".
 - Left over from Step 2, both small: `LookdevPresets.apply` leaves on the sun any light property the previous
   recipe set and this one does not name (this is what made overcast fail FLOOR_STRIPES after clear_midday; the
   symptom is gone only because overcast no longer casts a shadow), and the tone_shift controls under
@@ -81,14 +88,15 @@ Read these first, in this order:
 
 Installed copies in `~/.claude/skills` match the repo. **This is the one list of versions**; update it
 here and nowhere else:
-- rig-anything 0.26.0
+- rig-anything 0.27.0 (2026-09-19, moves-running-flag: a Run's arms judged as a run; installed and shipped)
 - animate-anything 0.10.1
 - follow-through 0.10.0
-- humanform 0.15.0 (2026-09-19: 0.13.0 skin-pores-distance, 0.14.0 skin-regions, 0.15.0 skin-finger-edges; installed and shipped)
+- humanform 0.16.0 (2026-09-19: 0.13.0 skin-pores-distance, 0.14.0 skin-regions, 0.15.0 skin-finger-edges,
+  0.16.0 eye-material; installed and shipped)
 - character-pipeline 0.15.0 (2026-09-19, skin-regions; installed and shipped)
 - wardrobe 0.5.2
 - lookdev 0.11.0 (2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance, 0.10.0 skin-finger-edges,
-  0.11.0 lookdev-overcast; installed and shipped)
+  0.11.0 lookdev-overcast, 0.12.0 eye-material; installed and shipped)
 - godot-lsp 0.1.0
 
 ---
