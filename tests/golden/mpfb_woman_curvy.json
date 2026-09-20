@@ -2,7 +2,7 @@
  "fixture": "mpfb_woman_curvy",
  "plugins": {
   "humanform": "0.17.0",
-  "rig-anything": "0.30.0"
+  "rig-anything": "0.32.0"
  },
  "report": {
   "bake": {
@@ -609,7 +609,7 @@
      "FixWoman_body",
      "FixWoman_rig"
     ],
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-qyx0c2z2\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-xmks1_ve\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "morph_targets": false,
     "options_dropped_by_this_blender": [],
     "skipped": [],
@@ -637,7 +637,7 @@
      "FixWoman_TurnR": 1.041667,
      "FixWoman_Walk": 1.0
     },
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-qyx0c2z2\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-xmks1_ve\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "generator": "Khronos glTF Blender I/O v5.2.40",
     "gltf_version": 2,
     "joints": 53,
@@ -703,7 +703,7 @@
      1548
     ],
     "count": 25,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-qyx0c2z2\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-xmks1_ve\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
     "frame_height_m": 2.1,
     "frames": {
      "FixWoman_Crouch": [
@@ -787,7 +787,7 @@
       21
      ]
     },
-    "seconds": 6.91,
+    "seconds": 11.54,
     "strips": {
      "FixWoman_Crouch": {
       "front": {
@@ -1052,7 +1052,7 @@
      "three_quarter"
     ]
    },
-   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-qyx0c2z2\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
+   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-xmks1_ve\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
    "stage": "done",
    "verified": {
     "durations_match": true,
@@ -1423,6 +1423,10 @@
       "upper_arm.R": 0.5
      },
      "head_hold": 0.85,
+     "head_hz": 1.089,
+     "head_lag": null,
+     "head_lag_cycles": 0.5,
+     "head_lag_deg": 180.0,
      "lean": 0.0,
      "lean_bob": 0.0,
      "limb_damping": 0.3,
@@ -1488,7 +1492,7 @@
     "adjustments": [],
     "angular_momentum": {
      "up_mean_abs": 0.00629,
-     "up_range": 0.01745
+     "up_range": 0.01747
     },
     "arm_clearance_m": 0.0247,
     "arm_pose": {
@@ -1629,6 +1633,7 @@
      1.0
     ],
     "sway_share": 0.0,
+    "thorax_head_phase_deg": -146.9,
     "tightest_joint_degrees": {
      "thigh.L": 84.3,
      "thigh.R": 84.3,
@@ -1677,6 +1682,10 @@
       "upper_arm.R": 0.2738
      },
      "head_hold": 0.85,
+     "head_hz": 1.089,
+     "head_lag": null,
+     "head_lag_cycles": 0.4063,
+     "head_lag_deg": 146.3,
      "lean": 8.071,
      "lean_bob": 2.0,
      "limb_damping": 0.3,
@@ -1837,6 +1846,10 @@
       "upper_arm.R": 0.5
      },
      "head_hold": 0.85,
+     "head_hz": 1.089,
+     "head_lag": null,
+     "head_lag_cycles": 0.5,
+     "head_lag_deg": 180.0,
      "lean": 0.0,
      "lean_bob": 0.0,
      "limb_damping": 0.3,
@@ -1995,6 +2008,10 @@
       "upper_arm.R": 0.5
      },
      "head_hold": 0.85,
+     "head_hz": 1.089,
+     "head_lag": null,
+     "head_lag_cycles": 0.5,
+     "head_lag_deg": 180.0,
      "lean": 0.0,
      "lean_bob": 0.0,
      "limb_damping": 0.3,
@@ -2025,7 +2042,7 @@
     "adjustments": [],
     "angular_momentum": {
      "up_mean_abs": 0.0062,
-     "up_range": 0.03996
+     "up_range": 0.03997
     },
     "arm_clearance_m": 0.0195,
     "arm_pose": {
@@ -2166,6 +2183,7 @@
      1.0
     ],
     "sway_share": 0.01,
+    "thorax_head_phase_deg": -85.9,
     "tightest_joint_degrees": {
      "thigh.L": 117.4,
      "thigh.R": 117.9,
@@ -2214,6 +2232,10 @@
       "upper_arm.R": 0.0974
      },
      "head_hold": 0.85,
+     "head_hz": 1.089,
+     "head_lag": null,
+     "head_lag_cycles": 0.2368,
+     "head_lag_deg": 85.3,
      "lean": 3.236,
      "lean_bob": 1.0,
      "limb_damping": 0.3,

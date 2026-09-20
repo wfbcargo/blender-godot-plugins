@@ -20,7 +20,10 @@ each leg sits on, never from a bone's roll)
 - side bend: the trunk leans over the stance leg (a waddle, when large)
 - lean and lean_bob: a held forward trunk lean, and a dip twice a stride
 - head hold: the neck and head take back that share of the trunk's turn,
-  roll and pitch, so the head keeps its orientation toward the world
+  roll and pitch, so the head keeps its orientation toward the world - and
+  they take it back LATE, reading the same drive `head_lag` of a cycle behind
+  the thorax as the thorax reads it behind the pelvis. That is the last rung
+  of the lag ladder, and `head_frequency` measures the segment it belongs to
 - arm swing: each arm swings opposite its own side's leg, the forward swing
   the larger, and the elbow bends further as the arm comes forward
 - shoulder girdle: each shoulder DROPS as its own side takes the body's weight,
@@ -55,7 +58,7 @@ PARAMS = ("arm_swing", "arm_forward", "arm_out", "elbow", "elbow_swing", "hand_i
           "pelvis_turn", "pelvis_list", "thorax_turn", "side_bend", "lean", "lean_bob",
           "head_hold", "hand_clearance", "breath",
           "girdle_drop", "girdle_forward", "girdle_lag",
-          "trunk_hz", "trunk_damping", "arm_lag", "hand_lag", "limb_damping")
+          "trunk_hz", "trunk_damping", "arm_lag", "hand_lag", "head_lag", "limb_damping")
 
 
 # The relaxed finger curl rides the arm swing (`Upper.cycle_key`): its share
@@ -120,39 +123,62 @@ def _fundamental(xs):
     return math.hypot(re, im), math.degrees(math.atan2(im, re))
 
 
+def _segment_twists(body, bm, evaluated, frames, name):
+    """The once-per-cycle (amplitude, phase) of one bone's rotation about `up`,
+    read off the BAKED clip, or None."""
+    rest = body.rest
+    if not name or name not in rest:
+        return None
+    up = bm["up_vec"]
+    xs = []
+    for f in range(1, frames + 1):
+        ev = evaluated.get(f)
+        if not ev or name not in ev:
+            return None
+        xs.append(_twist(ev[name], rest[name], up))
+    amp, ph = _fundamental(xs)
+    return None if amp < 1e-6 else (amp, ph)
+
+
+def _lead(a, b):
+    """b's phase relative to a's, wrapped to +-180."""
+    return round(((b - a + 180.0) % 360.0) - 180.0, 1)
+
+
 def relative_phase(body, bm, evaluated, frames):
-    """Pelvis-thorax relative phase in the transverse plane, in degrees, read
-    off the BAKED clip - Blender's own matrices, never the prediction.
+    """The axial chain's relative phases in the transverse plane, in degrees,
+    read off the BAKED clip - Blender's own matrices, never the prediction.
 
-    The relative Fourier phase the gait literature reports: the once-per-stride
-    component of each segment's rotation about `up`, thorax minus pelvis,
-    wrapped to +-180. 0 is the two turning together, +-180 is dead against each
-    other. Healthy walking runs from near in-phase at a slow walk toward
-    anti-phase as speed rises, so a clip set that reports the SAME number at
-    every speed is the thing this measures against.
+    Returns {"pelvis_thorax_phase_deg", "thorax_head_phase_deg"}, each present
+    only when both of its segments turn: the relative Fourier phase the gait
+    literature reports, the once-per-stride component of each segment's
+    rotation about `up`, the later segment minus its driver, wrapped to +-180.
+    0 is the two turning together, +-180 is dead against each other.
 
-    None when the body map cannot name a pelvis and a chest.
+    The chain is a LADDER: the legs drive the pelvis, the pelvis drives the
+    thorax, the thorax drives the head, and each rung is a mass hung on the one
+    below it that arrives late. Healthy walking runs from near in-phase at a
+    slow walk toward anti-phase as speed rises, so a clip set that reports the
+    SAME number at every speed is the thing this measures against - it is what
+    caught the thorax at a flat -179.3, and the head rung was found the same
+    way.
+
+    {} when the body map names none of the pairs.
     """
     roles = bm.get("roles") or {}
     pelvis, chest = roles.get("pelvis"), roles.get("chest")
-    if not pelvis or not chest or pelvis == chest:
-        return None
-    up = bm["up_vec"]
-    rest = body.rest
-    if pelvis not in rest or chest not in rest:
-        return None
-    ps, ts = [], []
-    for f in range(1, frames + 1):
-        ev = evaluated.get(f)
-        if not ev or pelvis not in ev or chest not in ev:
-            return None
-        ps.append(_twist(ev[pelvis], rest[pelvis], up))
-        ts.append(_twist(ev[chest], rest[chest], up))
-    ap, php = _fundamental(ps)
-    at, pht = _fundamental(ts)
-    if ap < 1e-6 or at < 1e-6:
-        return None
-    return round(((pht - php + 180.0) % 360.0) - 180.0, 1)
+    head = bm.get("head") or (bm.get("neck") or [None])[-1]
+    got = {}
+    p = _segment_twists(body, bm, evaluated, frames, pelvis) if pelvis else None
+    t = (_segment_twists(body, bm, evaluated, frames, chest)
+         if chest and chest != pelvis else None)
+    h = (_segment_twists(body, bm, evaluated, frames, head)
+         if head and head not in (pelvis, chest) else None)
+    if p and t:
+        got["pelvis_thorax_phase_deg"] = _lead(p[1], t[1])
+    if t and h:
+        got["thorax_head_phase_deg"] = _lead(t[1], h[1])
+    return got
 
 
 def limb_frequencies(poser):
@@ -203,6 +229,56 @@ def limb_frequencies(poser):
         out = {}
     body.__dict__["_limb_hz"] = out
     return out
+
+
+def head_frequency(poser):
+    """The natural frequency, in Hz, of what the axial chain carries at its top
+    - the neck and everything above it - swinging about the body's lateral axis
+    through the base of the neck. `mass.pendulum` on measured mass, cached on
+    the body; None when nothing up there carries any.
+
+    WHAT THE NUMBER IS, AND WHAT IT IS NOT. `mass.pendulum` returns
+    sqrt(m g d / I) / 2pi, and it reads `d` as a distance, unsigned. For
+    something that HANGS - everything `limb_frequencies` measures - the centre
+    of mass is below its pivot, gravity restores, and that is a resonance. What
+    the top of an upright chain carries sits ABOVE its pivot (measured: 0.19 m
+    on the lofted study body, 0.14 m on an MPFB one), so gravity there
+    destabilises instead, and the same expression is a divergence rate rather
+    than a free oscillation. The restoring stiffness is the neck's, and nobody
+    has that number - the same gap that leaves `trunk_hz` fitted.
+
+    It is still the right number to reach for, and the reason is that it is the
+    only one here that is MEASURED. Its size lands where the real thing does -
+    0.91 Hz on a 9.2 kg lofted top, 1.09 Hz on a 4.1 kg MPFB one, two bodies
+    that share no geometry - and a stride runs at 0.8 to 2 Hz, so the ratio
+    `response` needs sits in the interesting part of the curve instead of
+    pinned at either limit. Set `head_lag` to override it with a number, and
+    `head_lag=0.0` is the locked top this replaces.
+    """
+    body = poser.body
+    cached = body.__dict__.get("_head_hz")
+    if cached is not None:
+        return cached or None
+    hz = None
+    try:
+        from . import mass as mass_mod
+        bm = poser.bm
+        chain = list(bm.get("neck") or [])
+        root = chain[0] if chain else bm.get("head")
+        data = mass_mod.body_mass(body)
+        bones = body.rig.data.bones
+        if root and root in bones and data and "error" not in data:
+            carried, stack = [], [bones[root]]
+            while stack:
+                b = stack.pop()
+                carried.append(b.name)
+                stack.extend(b.children)
+            hz = mass_mod.pendulum(data, body.rig, carried,
+                                   bones[root].head_local, poser.lat)
+    except Exception:
+        hz = None
+    body.__dict__["_head_hz"] = hz or 0.0
+    return hz
 
 
 def _smooth(x):
@@ -286,6 +362,13 @@ def defaults(froude, duty):
         # much larger change. Set a number here to explore it.
         "arm_lag": 0.5,
         "hand_lag": None,
+        # The top of the axial chain's lag, as a fraction of a cycle. None
+        # derives it - `head_frequency` measures the segment, `response` turns
+        # that into a phase - which is what makes the last rung of the ladder
+        # move with speed instead of reading the same number at every one. A
+        # number here overrides it; 0.0 is the locked top this replaces, and is
+        # the control.
+        "head_lag": None,
         "limb_damping": 0.30,
     }
 
@@ -304,7 +387,7 @@ def idle_defaults():
         "girdle_drop": 0.0, "girdle_forward": 0.0, "girdle_lag": 0.0,
         # an idle has no stride to be driven at, so no coupling runs
         "trunk_hz": 0.82, "trunk_damping": 0.35,
-        "arm_lag": 0.5, "hand_lag": None, "limb_damping": 0.30,
+        "arm_lag": 0.5, "hand_lag": None, "head_lag": None, "limb_damping": 0.30,
     }
 
 
@@ -358,13 +441,26 @@ def leg_load(ph, duty):
 # the trunk
 # --------------------------------------------------------------------------
 
-def trunk(poser, pelvis_yaw, pelvis_roll, thorax_yaw, thorax_roll, pitch, head_hold):
+def trunk(poser, pelvis_yaw, pelvis_roll, thorax_yaw, thorax_roll, pitch, head_hold,
+          head=None):
     """Per axial bone totals {"pitch", "yaw", "roll"} for `Key.trunk`.
 
     The pelvis (and anything behind it) takes the pelvis values, the torso
     ramps to the thorax values by its top, and the neck and head hand back
-    `head_hold` of the thorax's by the head. `pitch` is carried by the torso
-    only, ramped the same way."""
+    `head_hold` of it by the head. `pitch` is carried by the torso only, ramped
+    the same way.
+
+    `head` is the TOP of the chain's own drive - {"yaw", "roll", "pitch"} read
+    wherever its own phase puts it - and it is the reason this takes a signal
+    instead of a scalar. Handing the top back a share of its driver's VALUE, as
+    this did, can only ever put it in phase with that driver: a value carries an
+    amplitude and nothing else, and the measured head phase came out flat at
+    every speed because of it. Given its own values, the top can read the same
+    drive one rung later, and one `response` call then supplies the lag.
+
+    None keeps the old behaviour exactly - the top reads its driver's value -
+    which is what every caller with nothing to say about phase (the idle) wants,
+    and is the control this change is measured against."""
     bm = poser.bm
     names = bm["axial"]
     n = len(names)
@@ -388,10 +484,14 @@ def trunk(poser, pelvis_yaw, pelvis_roll, thorax_yaw, thorax_roll, pitch, head_h
             f = 1.0
         for k, (a, b) in ends.items():
             out[k][i] = a + (b - a) * f
+    top = ends if head is None else {k: (0.0, head.get(k, ends[k][1])) for k in ends}
     for j, i in enumerate(top_i):
-        keep = 1.0 - head_hold * (j + 1) / float(len(top_i))
+        w = (j + 1) / float(len(top_i))
         for k in out:
-            out[k][i] = ends[k][1] * keep
+            # from the driver's own value at the base of the neck to the head's
+            # own, held back by `head_hold`, at the top
+            far = top[k][1] * (1.0 - head_hold)
+            out[k][i] = ends[k][1] + (far - ends[k][1]) * w
     return out
 
 
@@ -621,6 +721,20 @@ class Upper:
         # which is the physics agreeing with whoever tuned it.
         self.limb_hz = limb_frequencies(poser)
         d = self.params.get("limb_damping", 0.30)
+        # The last rung of the same ladder. The pelvis is driven by the legs,
+        # the thorax chases the pelvis, and what the chain carries at its top
+        # chases the thorax - measured the same way, by `head_frequency` on the
+        # mass model rather than by a number set here. `head_lag` given wins;
+        # 0.0 is the locked top this replaces, and is the control.
+        # A body with nothing skinned has no frequency to measure, and
+        # `response`'s own fallback is half a cycle - which is the right guess
+        # for something hung BELOW its driver and the wrong one here, where what
+        # is replaced is a locked top. Unmeasured keeps the locked top instead.
+        self.head_hz = head_frequency(poser) or 0.0
+        given = self.params.get("head_lag")
+        self.head_lag = (given if given is not None
+                         else (response(self.stride_hz, self.head_hz, d)[1]
+                               if self.head_hz else 0.0))
         self.arm_lag, self.hand_lag = {}, {}
         for arm in poser.arms:
             hz = self.limb_hz.get(arm["name"]) or {}
@@ -704,8 +818,19 @@ class Upper:
         pelvis_roll = prm["pelvis_list"] * lst * self.s_roll
         thorax_roll = prm["side_bend"] * lst_t * self.s_roll
         pitch = prm["lean"] + prm["lean_bob"] * math.cos(4.0 * math.pi * p0)
+        # The top of the chain is one rung further out: a mass carried on the
+        # thorax, so it reads the SAME drive one more lag back rather than
+        # copying the thorax's value. Its own signal is what `trunk` needs to
+        # place it at a phase of its own - the pitch is not lagged here, for the
+        # same reason the thorax's is not: the held lean and its twice-a-cycle
+        # bob are not the once-a-cycle drive `response` was solved for.
+        _f3, _l3, turn_h, lst_h = (drive((p0 - self.trunk_lag - self.head_lag) % 1.0)
+                                   if self.head_lag else (fwd_sig, load, turn_t, lst_t))
+        head_sig = {"yaw": prm["thorax_turn"] * turn_h * self.s_yaw,
+                    "roll": prm["side_bend"] * lst_h * self.s_roll,
+                    "pitch": pitch}
         tr = trunk(P, pelvis_yaw, pelvis_roll, thorax_yaw, thorax_roll, pitch,
-                   prm["head_hold"])
+                   prm["head_hold"], head=head_sig)
         drop = self.hip_half * math.sin(math.radians(abs(prm["pelvis_list"] * lst)))
         limbs, hands, girdle = {}, {}, {}
         g_lag = prm.get("girdle_lag", 0.0)
@@ -771,6 +896,11 @@ class Upper:
         out["trunk_lag_cycles"] = round(self.trunk_lag, 4)
         out["trunk_lag_deg"] = round(self.trunk_lag * 360.0, 1)
         out["trunk_gain"] = round(self.trunk_gain, 4)
+        # the last rung: the measured frequency of what the chain carries at its
+        # top, and the lag that frequency gives at this stride
+        out["head_hz"] = round(self.head_hz, 3)
+        out["head_lag_cycles"] = round(self.head_lag, 4)
+        out["head_lag_deg"] = round(self.head_lag * 360.0, 1)
         out["limb_hz"] = {k: {kk: round(vv, 3) for kk, vv in v.items()}
                           for k, v in getattr(self, "limb_hz", {}).items()}
         out["arm_lag_cycles"] = {k: round(v, 4) for k, v in getattr(self, "arm_lag", {}).items()}
