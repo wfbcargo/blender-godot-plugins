@@ -21,7 +21,7 @@ way. Blocked on SHAPE: `upper.trunk` takes scalars, so the neck and head bones a
   `upper.resolve` says so - upright, two legs - so the quadruped/cricket/bird/fish/radial paths
   never reach this code at all.
 
-## 2026-09-20 14:20 - the instrument, BEFORE the change
+## 2026-09-20 14:09 - the instrument, BEFORE the change
 
 Extended `upper.relative_phase` to return a dict of BOTH rungs
 (`pelvis_thorax_phase_deg`, `thorax_head_phase_deg`), measured the same way off the BAKED clip -
@@ -50,7 +50,7 @@ The same tell the trunk had at a flat -179.3: the head reports the SAME number a
 because it is a scaled copy of its driver rather than a segment with a phase of its own. The
 pelvis-thorax rung sweeps 83 degrees over the same range, which is 0.30.0 working.
 
-## 2026-09-20 15:10 - the change
+## 2026-09-20 14:15 - the change
 
 Two edits, and the first is the whole point:
 
@@ -91,3 +91,121 @@ size lands where the real thing does (0.91 Hz and 1.09 Hz on two bodies that sha
 so `r = drive/natural` lands in 0.7-1.9 - the part of the transfer function that actually sweeps,
 rather than pinned at either limit. The alternative is a hand-set constant, which is what 07 is
 trying to remove.
+
+### Why angular momentum could not arbitrate this one
+
+0.31.0 settled the arm by sweeping its lag against `mass.angular_momentum`, so I ran the same
+sweep here (`C:/Users/pauli/AppData/Local/Temp/rw/hr/lagsweep.py`), four head lags at a walk and a
+run:
+
+| gait | head lag | head_lag_deg | measured t->h | mean abs L | L range | passed |
+|---|---|---|---|---|---|---|
+| walk (fr 0.08) | locked (control) | 0.0 | -0.6 | 0.00481 | 0.02789 | yes |
+| walk | derived | 89.0 | -89.6 | 0.00482 | 0.02790 | yes |
+| walk | 0.25 | 90.0 | -90.6 | 0.00482 | 0.02790 | yes |
+| walk | 0.50 | 180.0 | 179.4 | 0.00482 | 0.02790 | yes |
+| run (fr 1.2) | locked (control) | 0.0 | -0.6 | 0.00118 | 0.00434 | yes |
+| run | derived | 151.9 | -152.5 | 0.00118 | 0.00437 | yes |
+| run | 0.25 | 90.0 | -90.6 | 0.00118 | 0.00435 | yes |
+| run | 0.50 | 180.0 | 179.4 | 0.00118 | 0.00437 | yes |
+
+Whole-body angular momentum does not move: 0.00481 -> 0.00482 walking, flat to five figures
+running, across the whole range of the parameter. **So `mass.angular_momentum` is not the arbiter
+for this rung** - this segment is too small and its amplitude is held at `1 - head_hold` = 0.15 of
+the thorax's whatever the phase, so there is nothing for the residual to see. That is worth writing
+down because the natural move was to reach for it: it vetoed a plausible change in 0.31.0, and here
+it is simply silent. What it DOES say is that the change costs nothing, and the phase measurement
+has to decide alone.
+
+The other thing that table shows is that the instrument is honest: the measured `t->h` tracks the
+lag that was asked for within about a degree at every setting, including 180 and including zero. It
+is reading the BAKED clip, and the clip carries what the signal asked for.
+
+## 2026-09-20 14:23 - AFTER, across the speed sweep, on two bodies
+
+Same instrument, same eight Froude numbers, same bodies built from nothing.
+
+### Rigify `Figure` - head_hz 0.9084, trunk_hz 0.82 (fitted)
+
+| froude | speed m/s | stride Hz | asked head_lag deg | BEFORE t->h | AFTER t->h | p->t |
+|---|---|---|---|---|---|---|
+| 0.03 | 0.483 | 0.743 | 55.9 | -0.7 | **-56.7** | -73.3 |
+| 0.08 | 0.764 | 0.903 | 89.0 | -0.6 | **-89.6** | -104.8 |
+| 0.15 | 1.077 | 1.025 | 111.9 | -0.6 | **-112.5** | -122.0 |
+| 0.25 | 1.369 | 1.135 | 126.8 | -0.6 | **-127.4** | -132.6 |
+| 0.40 | 1.734 | 1.247 | 137.0 | -0.7 | **-137.6** | -140.2 |
+| 0.70 | 2.279 | 1.394 | 145.8 | -0.7 | **-146.5** | -147.0 |
+| 1.20 | 3.014 | 1.553 | 151.9 | -0.6 | **-152.5** | -152.1 |
+| 2.00 | 3.748 | 1.720 | 156.3 | -0.6 | **-156.9** | -155.9 |
+
+Flat -0.6 becomes a 100-degree sweep, and the measured value sits within 0.8 degrees of what the
+transfer function asked for at every speed - the clip carries the signal. Every clip still passes.
+
+### MPFB woman (curvy, seed 7) - head_hz 1.0889
+
+| froude | speed m/s | stride Hz | asked head_lag deg | BEFORE t->h | AFTER t->h | p->t |
+|---|---|---|---|---|---|---|
+| 0.03 | 0.505 | 0.727 | 35.8 | -0.7 | **-36.6** | -70.1 |
+| 0.08 | 0.798 | 0.884 | 55.1 | -0.6 | **-55.7** | -101.4 |
+| 0.15 | 1.079 | 1.003 | 74.6 | -0.6 | **-75.2** | -119.3 |
+| 0.25 | 1.367 | 1.111 | 93.8 | -0.6 | **-94.4** | -130.6 |
+| 0.40 | 1.724 | 1.220 | 110.8 | -0.7 | **-111.4** | -138.6 |
+| 0.70 | 2.254 | 1.365 | 127.2 | -0.7 | **-127.8** | -145.9 |
+| 1.20 | 2.962 | 1.520 | 138.6 | -0.6 | **-139.2** | -151.2 |
+| 2.00 | 3.912 | 1.683 | 146.3 | -0.6 | **-146.9** | -155.2 |
+
+110 degrees of sweep, and on the body the game actually ships the two rungs are clearly SEPARATE
+ladders - -36.6 against -70.1 at a slow walk, converging as speed rises - because her head-and-neck
+sits at 1.09 Hz against the trunk's 0.82. On the lofted `Figure` the two nearly coincide, which is
+what two rungs at 0.91 and 0.82 Hz should do. The ladder is one expression, not three constants,
+and it separates or converges according to what was measured off each body.
+
+Both bodies' `pelvis_thorax_phase_deg` is unchanged to the tenth of a degree at every speed: this
+rung sits on top of 0.30.0's, it does not disturb it.
+
+## The control that must fail
+
+Two of them, and the fixture carries the permanent one.
+
+1. **In `tests/fixtures/rigify_human.py` (`HEAD_RUNG_CASES`)**: the same body walked at Froude 0.05
+   and 1.2, twice - once with the derived lag and once with `upper={"head_lag": 0.0}`, the locked
+   head `upper.trunk` gave before it took a signal. Each case reports both phases at both speeds,
+   the free value `sweep_deg` (how far the rung actually moved), the threshold `needs_deg` beside
+   it, and the verdict `moves_with_speed`. The control's `sweep_deg` is 0.0 and its verdict is
+   False; the derived case's is ~96 and True. The golden holds both, so a regression that flattens
+   the rung, or one that makes the control start passing, is a CHANGED key rather than a silence.
+2. **The measurement against the pre-change clip**: the BEFORE table above IS that control - the
+   instrument landed one commit before the behaviour and reported the flat -0.6 on the old code.
+
+## Not touched
+
+`upper.resolve` builds an `Upper` only for an upright body with two legs, so the quadruped,
+hopper (cricket, rabbit) and radial (starfish) paths never construct one - `Key.trunk` stays None
+and neither `trunk` nor `relative_phase` is reached. There is no bird or fish fixture in this repo;
+the same gate covers them. The other caller of `upper.trunk`, the idle at `actions.py:665`, passes
+positional arguments only, so `head` is None there and the expression is bit-identical.
+
+## What cost time, and what did not
+
+- **`tools/bump.py` refused**: "plugin.json says 0.31.0 and marketplace.json says 0.27.0: settle
+  that by hand first". The 0.28.0-0.31.0 commits edited `plugins/rig-anything/.claude-plugin/
+  plugin.json` by hand and never touched `.claude-plugin/marketplace.json`, which is the file
+  `/plugin marketplace update` reads - so every other machine still saw 0.27.0. Settled in its own
+  commit (43af2bf) by copying the four "Since" sentences plugin.json already carried and setting
+  the version, with a script that reparsed both files and compared every other field and every
+  other plugin before writing. **Worth knowing for the next round in this area**: a hand-edited
+  plugin.json blocks the next bump.
+- **Building the instrument first was again the cheap part and the whole case.** Extending
+  `relative_phase` took about fifteen minutes; the flat -0.6 it printed is the entire argument for
+  the change and the control for it, and it exists only because it landed one commit early.
+- **`response`'s fallback is a trap for a rung that replaces a LOCK.** With nothing measured it
+  returns half a cycle, which is right for the thorax (whose fast limit is anti-phase) and badly
+  wrong for the head (whose predecessor is zero lag). A rig with no skinned mass would have gone
+  from a locked head to an anti-phase one in silence. `Upper.__init__` now keeps the lock when
+  `head_hz` is unmeasured. Found by reading the fallback path, not by a fixture.
+- **The identity was worth checking as arithmetic, not as prose.** `T + (T(1-h) - T)w` against
+  `T(1 - hw)` for every neck length 1..4: equal to 1e-12, so `head=None` cannot drift from the
+  old behaviour.
+- **No dead ends in the derivation itself**, but one honest negative: `mass.angular_momentum`, the
+  arbiter that settled 0.31.0, has nothing to say here (table above). Reaching for it first was
+  right; believing it would answer would have been wrong.
