@@ -202,3 +202,190 @@ after `--headless --import`.
   ratio (17x measured, 5x required) rather than on an absolute floor.
 - No character spec in the game sets `[variability]` yet, so nothing in the game changes behaviour.
   The verifier injects the block itself, which is how it can run against pre-seam manifests.
+
+## Resumed 2026-09-20 17:11 CDT: main moved under the branch twice
+
+`motion-head-rung` merged to `main` while this was in flight and took **0.32.0**, which this
+branch had already claimed. `main` merged in cleanly except for `.claude-plugin/marketplace.json`
+(both sides had rewritten the rig-anything entry). Resolved by taking **main's** whole - its
+0.28.0-0.32.0 "Since" sentences are the settled ones, so the hand-written repair recorded under
+"Open" below is now `main`'s, not this branch's - and re-bumping on top with
+`tools/bump.py rig-anything 0.33.0`. SKILL.md's variability section moved to 0.33.0 with it.
+No code conflict: `main` changed the bake-side Python (`upper.py`, `locomotion.py`, two goldens),
+this branch the Godot addon.
+
+**Then it happened again.** `motion-asymmetry` - the bake half of this same L4 item, and the other
+side of this branch's seam - merged to `main` an hour later and took **0.33.0** with
+character-pipeline 0.16.0. Same resolution, same one conflicted file, and the runtime half is now
+**0.34.0**. Worth saying plainly for the next round: a branch that bumps a version while other
+branches are in flight will re-bump once per merge that lands under it, and the only cost is
+noticing. `tools/bump.py` makes each one about a minute; doing it by hand is what cost the
+previous round four versions of stale `marketplace.json`.
+
+### Re-measured after the merge, on the merged tree
+
+Every number below was taken today at 17:11-17:4x, against the game worktree
+(`grungist-creek/.worktrees/motion-jitter`, all six built characters) and the scratch game copy
+at `%TEMP%/rw/jit/gp`.
+
+- **All six characters, `verify_jitter` with `seconds=40 long=200`: `RA_JIT VERIFY PASSED`,
+  108 checks, 0 failures.**
+- **Control `spectrum=white`** on study_man: exit 1, FAILS *phase series DFA alpha 0.500*,
+  *amplitude series DFA alpha 0.532* and *planted-foot travel is no worse with jitter*
+  (0.0349 m on / 0.0261 off). Three checks, each one it is there to fail.
+- **Control `naive=1 long=400`** on study_man: exit 1, FAILS *stays inside the offset bound*
+  (0.4585 <= 0.2160 cycles, 0.598 m of ground after 411 cycles) and *the gap does not grow with
+  the run* (0.0360 cycles at 40 s -> 0.4585 at 400 s).
+- **A 15-minute run, which nothing in the round had done before.** study_man at `long=900`:
+  after **926 cycles** the gap is **0.0238 cycles** - 0.031 m of ground - against the 0.2160
+  bound, and *smaller* than the 0.0576 read at 200 s and larger than the 0.0157 at 40 s. The
+  controller's own `phi - theta` is -0.0101. A quantity that wanders inside a bound rather than
+  accumulating is exactly what the design claims, and the shape of those three numbers is the
+  evidence for it.
+- **The spectrum, re-measured by code that shares nothing with the shipped verifier**
+  (`%TEMP%/rw/jit/indep_dfa.py`: the generator rewritten in pure Python on Mersenne Twister
+  rather than Godot's PCG, DFA rewritten with its own least-squares detrend). 40 seeds x 4096
+  cycles: **persistent mean 0.806** (0.761-0.864), **0 of 40 outside the shipped [0.70, 0.90]
+  band**; **white mean 0.513** (0.446-0.571), **40 of 40 rejected by it**. Both agree with
+  `gait_jitter.dfa`'s 0.823 / 0.805 and 0.500 / 0.532 to within the seed spread.
+- **The seam read directly**, four manifest shapes through `GaitJitter.from_moves`
+  (`%TEMP%/rw/jit/seam_check.gd`, copied into the scratch project to run):
+
+      absent                            from_manifest=false enabled=false  seed 2033222413, all else 0.0
+      full block                        from_manifest=true  enabled=true   seed 12345, asym 0.3, phase 0.6, amp 0.4
+      jitter_phase only                 from_manifest=true  enabled=true   seed 416605310 (from the id), phase 0.5
+      asymmetry 5, phase -2, amp 3      clamped to           asym 1.0, phase 0.0, amp 1.0
+
+  `id_seed` is stable within and across runs (study_man 2033222413 twice, belle 810366055).
+- **The three demo selftests** in the game worktree after `--headless --import`:
+  `FIGURE_STUDY SELFTEST PASSED (0 failures)`, `BELLE_SELFTEST PASSED`, `PEOPLE SELFTEST PASSED`,
+  all exit 0, and `git status` clean afterwards (no `nora.walk.json` rewrite this time).
+- **Cost**, measured over 20000 calls against a do-nothing call, not asserted: phase warp
+  1.505-1.638 us and the arm modifier 1.206-1.328 us per character per frame on study_man,
+  study_woman and Belle (6 arm bones); 2.29 + 2.38 us on the 900 s run. LOD: the modifier runs
+  60/60 frames at 1 m and 0/60 past 30 m on all six.
+
+### The one real defect the re-measurement found, and the fix
+
+Pushing the drift run out to a **simulated hour** broke the verifier - not the jitter. The check
+was `d_long <= max(d_short, 0.02) * 3.0`: the gap at the end of the long run against the gap at the
+end of the short one. At `long=3600` study_man read 0.0659 against a 0.0600 threshold and **FAILED
+a run in which nothing had drifted** - the bound is 0.216, the controller's own `phi - theta` was
+0.032, and the same run at `long=900` read 0.0238. The check was comparing two single samples of a
+quantity that *wanders inside a bound*, so it reads as growth whenever the earlier sample happens
+to be small. At `long=200` it had been passing by 4% (0.0576 against 0.0600), which is how close
+it already was.
+
+Two changes, neither of them a widened tolerance - the ceiling is the same 0.216-cycle bound in
+both checks, and what changed is what gets measured:
+
+1. **The gap is now sampled once a second for the whole run** (`_gap`, 160-3600 samples), and the
+   two checks are *the worst gap it ever reached* (strictly stronger than the endpoint it
+   replaces) and *the least-squares trend through every sample, carried over the run*. A bounded
+   wander fits a slope near zero whatever its endpoints do; an accumulating error fits its own
+   rate. `_fitted_drift()` in `verify_jitter.gd`.
+2. **Every knot is clamped to 6 sigma** (`GaitJitter.KNOT_MAX`), inside `_draw_phase`/`_draw_amp`
+   so the live stream and the measured series clamp identically and `live_gap` stays 0.0. That is
+   what makes `PHASE_SPAN * jitter_phase * 6` a HARD bound rather than a statistical one: 4096
+   draws reached 4.18 sigma and 3706 cycles of walking reached 4.95, so a long enough run would
+   have eventually touched it. Clipping a 2e-9 tail changes nothing measurable - DFA stayed
+   0.823 / 0.805 and `max |x|` stayed 4.18, i.e. the clamp never fired at these lengths.
+
+Re-measured on the patched code:
+
+| run | worst gap / bound | fitted trend over the run | ends at |
+|---|---|---|---|
+| study_man 160 s (the regress row's length) | 0.1344 / 0.2160 | +0.0422 | 0.0210 |
+| study_man 200 s | 0.1408 / 0.2160 | +0.0441 | 0.0576 |
+| study_man 900 s | 0.1408 / 0.2160 | -0.0100 | 0.0238 |
+| **study_man 3600 s (one hour)** | **0.1783 / 0.2160** | **+0.0084** | 0.0659 |
+| **CONTROL `naive=1`, 400 s** | **0.4935 / 0.2160 FAIL** | **-0.5027 FAIL** | 0.4585 |
+| CONTROL `naive=1`, 3600 s (earlier, old check) | - | - | 4.6106 (6.01 m) |
+
+The fitted trend *shrinks* as the run lengthens (0.044 -> 0.008), which is the signature of a
+bounded wander and is the thing the old check could not see. And **all six characters over a simulated
+hour**, 3678-3889 cycles each (17:37-17:41, 4 min of wall time for the lot):
+
+| | cycles | worst gap / 0.2160 | fitted trend over 3600 s | ends at |
+|---|---|---|---|---|
+| study_man | 3706 | 0.1783 | +0.0084 | 0.0659 |
+| study_woman | 3863 | 0.1767 | +0.0101 | 0.0195 |
+| belle | 3833 | 0.1714 | +0.0101 | 0.0684 |
+| cast_marco | 3843 | 0.1669 | +0.0102 | 0.0300 |
+| cast_mei | 3678 | 0.1709 | +0.0076 | 0.0687 |
+| cast_ruth | 3889 | 0.1717 | +0.0092 | 0.0422 |
+
+`RA_JIT VERIFY PASSED`, 108 checks, 0 failures. Six bodies, six different stride frequencies, and
+the worst gap lands in 0.167-0.178 on every one of them - which is what a hard bound looks like
+from the outside, as against an endpoint that happens to be wherever the wander left it. All six characters at `long=160`:
+worst gap 0.127-0.135, trend +0.042 to +0.045, `RA_JIT VERIFY PASSED`, 108 checks. Both controls
+still fail, on exactly their own lines: `spectrum=white` on the two DFA checks and on foot skate
+(0.0349 / 0.0261), `naive=1` on both drift checks with 2.3x of margin where the old check had
+none to spare.
+
+### Foot skate, on against off, all six (17:13 run, the same estimator both sides)
+
+| | skate mean on / off (m) | worst stance on / off (m) | stride cv on | arm cv on | us/frame phase + arm |
+|---|---|---|---|---|---|
+| study_man | 0.0272 / 0.0261 (+4.3%) | 0.3089 / 0.3279 | 0.0259 | 0.0626 | 1.51 + 1.33 |
+| study_woman | 0.0270 / 0.0246 (+9.9%) | 0.3032 / 0.3217 | 0.0261 | 0.0637 | 1.64 + 1.32 |
+| belle | 0.0250 / 0.0233 (+7.0%) | 0.3035 / 0.3213 | 0.0261 | 0.0573 | 1.50 + 1.21 |
+| cast_marco | 0.0267 / 0.0259 (+3.1%) | 0.2852 / 0.3047 | 0.0261 | 0.0600 | 1.52 + 1.78 |
+| cast_mei | 0.0261 / 0.0247 (+5.3%) | 0.3338 / 0.3525 | 0.0261 | 0.0566 | 1.50 + 1.19 |
+| cast_ruth | 0.0274 / 0.0256 (+7.0%) | 0.2972 / 0.3155 | 0.0258 | 0.0617 | 1.54 + 1.77 |
+
+Said plainly rather than as a pass: the **mean** rises 3-10%, and the **worst stance falls** on
+every one of the six (by 4-6%). The check's ceiling is 25%, and the white-noise control sits at
++34% and fails it - so the margin is real but it is not zero, and "no more skate" is only true of
+the worst case. Both columns come from the same estimator on the same bones, and it counts the
+ankle rolling heel to toe, so 0.027 m is not 27 mm of sliding.
+
+### The seam, end to end - the other half landed on main mid-resume
+
+`motion-asymmetry` merged to `main` while this was being re-measured, so the producer is no longer
+hypothetical. `character_pipeline.stages.variability_block` writes exactly the agreed key and
+`rig_analysis.variability.resolve` returns exactly the agreed four fields - run on the merged tree,
+`resolve({'jitter_phase': 0.6, 'jitter_amp': 0.6}, 'study_man')` gives
+`{"seed": 5713945625152501342, "asymmetry": 0.0, "jitter_phase": 0.6, "jitter_amp": 0.6}`.
+
+Fed **verbatim** into the Godot consumer (`_interop.gd`, run in the game worktree and deleted):
+
+    shipped study_man.moves.json (no key)                 -> enabled false
+    {"seed": ...915, "asymmetry": 0.35, jitters 0}        -> from_manifest true, enabled FALSE,
+                                                             gains 0.0000 / 0.0000
+    {"seed": ...721, "asymmetry": 0.35, jitters 0.6}      -> enabled true, gains 0.0360 / 0.0900
+
+The middle line is the one worth having: an asymmetry-only character parses, is recognised as
+having asked for something, and still does **no runtime work at all** - asymmetry is baked, and
+this side correctly declines to act on it.
+
+But an **unstated** seed comes out as a 64-bit Python int, and **Godot's JSON parser returns a
+19-digit integer as a float**: the literal above parses as `5713945625152500736.0` (TYPE_FLOAT),
+so the engine seeds with 5713945625152500736, not ...1342. Nothing breaks - it is the same value
+on every parse, so a character's series is reproducible (two parses of that manifest give an
+identical 512-cycle series, worst gap 0.0, DFA 0.856) - and a seed only has to be *stable*, not to
+match. But the seed in the file and the seed the engine used are then not the same number, which
+will confuse the first person who tries to reproduce a walk from the manifest. The cheap fix is on
+the Python side: derive the seed under 2^53 (or 2^31, matching `GaitJitter.id_seed`) so it survives
+a double. Recorded for the merge step; not changed here, because that file is the other branch's.
+
+### Still open
+
+- **The LOD check drives `lod_override`, not a real camera.** `_lod_far()`'s camera lookup - and
+  its deliberate "no camera means run" fallback, which is what a headless game gets - is not
+  exercised by any check.
+- The phase warp is **not** LOD-gated by design (it is one multiply, 1.5-2.3 us per character per
+  frame, and gating it would snap the playhead when a character crossed the distance). A character
+  with no `variability` pays an early return and has no modifier built at all, so the cost is
+  bounded by the number of characters that opted in, not by the crowd.
+- **Nothing checks that the amplitude modifier never reaches a leg.** "Arms only" is the argument
+  that the amplitude jitter cannot add foot skate, and it rests on `arm_pose`'s roots plus
+  `MAX_DEPTH`. The report prints the roots and the bone count (6 on the study figures and Belle,
+  14 on Marco and Ruth, whose arm roots have more children inside the depth), and the foot-skate
+  check catches the consequence, but no check tests the claim directly - a rig whose `arm_pose`
+  named a thigh would build a modifier over the leg and only the skate number would notice. It
+  wants a check that no collected bone is a foot chain the manifest names, with a control that
+  points a root at one.
+- Tidy-up, deliberately not made after the final regress started so the log matches the shipped
+  bytes: `verify_jitter.gd` computes the bound as `phase_gain() * 6.0` with a literal, while the
+  6 is now `GaitJitter.KNOT_MAX`. Same number today; they should be one constant.
