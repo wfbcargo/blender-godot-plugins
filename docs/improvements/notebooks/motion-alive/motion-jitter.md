@@ -163,6 +163,27 @@ not consumed here (it is bake-time, and `motion-asymmetry` owns it). Absent mean
 means off, and `verify_jitter.gd` checks exactly that against a shipped manifest that has no such
 key - which is every character built before this round. Nothing here waits on that branch.
 
+## regress
+
+`python tools/regress.py --quick --jobs 4 --godot <scratch game>` (a `tools/scratch_project.py` copy
+of grungist-creek with this worktree's addons, at `%TEMP%/rw/jit/gp`, imported first):
+**`REGRESS DONE exit=0, 23 fixtures ok`, no change**, 31 min. `--quick` selects all 23 because
+`tools/regress.py` itself changed. The two new rows, on pipeline_woman:
+
+    ok  verify_jitter pipeline_woman: alpha phase 0.823 amp 0.805 | stride cv 0.0261 on / 0.000000 off
+        | swing cv 0.0597 on / 0.00487 off | drift 0.0652 of 0.2160 cycles over 160 s
+        | skate mean 0.0248 on / 0.0236 off m | 2.09 + 2.27 us per character per frame
+    ok  verify_jitter pipeline_woman spectrum=white (must fail): alpha phase 0.500 amp 0.532
+        | ... | skate mean 0.0327 on / 0.0236 off m
+          fixwoman: phase series DFA alpha 0.500 in [0.70, 0.90] over 4096 cycles
+          fixwoman: amplitude series DFA alpha 0.532 in [0.70, 0.90] over 4096 cycles
+          fixwoman: planted-foot travel is no worse with jitter (mean 0.0327 m on / 0.0236 off)
+
+Nothing else moved: verify_moves 12 manifests PASSED, verify_wardrobe, verify_flesh, the jiggle
+selftest, verify_strands and the lookdev rows all unchanged, every must-fail control still failing.
+The game's three demo selftests (figure_study, belle_demo, people_demo) pass in the game worktree
+after `--headless --import`.
+
 ## Open
 
 - The marketplace entry for rig-anything was at **0.27.0** while `plugin.json` said 0.31.0: the
