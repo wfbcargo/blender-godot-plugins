@@ -207,8 +207,8 @@ Two of them, and the fixture carries the permanent one.
    and 1.2, twice - once with the derived lag and once with `upper={"head_lag": 0.0}`, the locked
    head `upper.trunk` gave before it took a signal. Each case reports both phases at both speeds,
    the free value `sweep_deg` (how far the rung actually moved), the threshold `needs_deg` beside
-   it, and the verdict `moves_with_speed`. The control's `sweep_deg` is 0.0 and its verdict is
-   False; the derived case's is ~96 and True. The golden holds both, so a regression that flattens
+   it, and the verdict `moves_with_speed`. Recorded: the control's `sweep_deg` is **0.1** and
+   its verdict **false**; the derived case's is **80.2** and **true**, against `needs_deg` 20.0. The golden holds both, so a regression that flattens
    the rung, or one that makes the control start passing, is a CHANGED key rather than a silence.
 2. **The measurement against the pre-change clip**: the BEFORE table above IS that control - the
    instrument landed one commit before the behaviour and reported the flat -0.6 on the old code.
