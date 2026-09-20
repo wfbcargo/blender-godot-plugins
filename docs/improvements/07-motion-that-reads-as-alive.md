@@ -247,7 +247,7 @@ arthritic elder) rather than a per-clip hack.
      running, protraction at 0.22 of the arm swing. `girdle_lag` 0.05 is provisional in a
      stronger sense - step 3 derives every lag on the chain from segment inertia and should take
      this one with it rather than leaving a hand-set constant behind.
-3. **L1 lag** - *the trunk rung is done, rig-anything 0.30.0; the rest is open.*
+3. **L1 lag** - *the pelvis-thorax-head ladder is done (rig-anything 0.30.0, 0.31.0, 0.32.0); only `girdle_lag` is open.*
    `upper.response(drive_hz, natural_hz, damping)` is the driven-oscillator transfer function, and
    the thorax now reads its driver at `p0 - trunk_lag` instead of being `-k x` the pelvis at the
    same instant. **The sign is no longer written down anywhere**: a lag of half a cycle IS the old
@@ -301,8 +301,46 @@ arthritic elder) rather than a per-clip hack.
      sits at 0.008, a biped's walk at 0.060, a cricket's at 0.107. Reported, not gated - what a
      healthy band is for a six-legged body is not known, and a check nobody can calibrate is worse
      than a number somebody can read.
-   - Still owed: the head rung (it needs `upper.trunk` to take signals rather than scalars) and
-     `girdle_lag`, which is still hand-set because a clavicle is not a gravity pendulum.
+   - **The head rung, 0.32.0 - the ladder is complete.** `upper.trunk` takes `head=`, the top of
+     the chain's own drive, instead of handing the neck and head a share of the thorax's VALUE
+     (`ends[k][1] * keep`). A value carries an amplitude and no phase, which is why
+     `thorax_head_phase_deg` - measured the same way as the trunk's, off the BAKED clip, and
+     reported by every biped gait clip since - read **-0.6 at every speed**, the same flat line
+     the trunk gave at -179.3. With `head=None` the new expression is identical to the old one
+     (`T + (T(1-h) - T)w == T(1 - hw)`), so the idle path and every non-biped are untouched by
+     construction and `head_lag=0.0` is a clean control.
+   - The lag is DERIVED: `upper.head_frequency` runs `mass.pendulum` over the neck and everything
+     above it, about the lateral axis through the base of the neck, and `response` turns that into
+     a phase at the clip's stride. After, over eight Froude numbers:
+
+     | froude | 0.03 | 0.08 | 0.15 | 0.25 | 0.40 | 0.70 | 1.20 | 2.00 |
+     |---|---|---|---|---|---|---|---|---|
+     | Figure, head rung | -56.7 | -89.6 | -112.5 | -127.4 | -137.6 | -146.5 | -152.5 | -156.9 |
+     | MPFB woman, head rung | -36.6 | -55.7 | -75.2 | -94.4 | -111.4 | -127.8 | -139.2 | -146.9 |
+
+     (0.48 to 3.75 m/s on the figure, 0.50 to 3.91 on the woman.)
+     The two bodies sweep differently because their measured frequencies differ (0.9084 Hz on the
+     lofted figure, 1.0889 Hz on the MPFB woman), and the measured value sits within a degree of
+     the lag asked for at every point. `pelvis_thorax_phase_deg` is unchanged to the tenth of a
+     degree on both: this rung sits on top of the trunk's, it does not disturb it.
+   - **What that frequency is NOT, said plainly.** `mass.pendulum` reads its lever arm unsigned.
+     Everything `limb_frequencies` measures hangs BELOW its pivot, so gravity restores and the
+     number is a resonance. What an upright chain carries at its top sits ABOVE its pivot (0.191 m
+     and 0.141 m on the two bodies measured), so gravity there destabilises and the expression is
+     a divergence rate instead. The restoring stiffness is the neck's, which nobody has - the same
+     gap that leaves `trunk_hz` fitted. It is used because it is the only MEASURED number
+     available, its size lands where the real thing does on two unrelated bodies, and at strides of
+     0.74-1.72 Hz it puts `r = drive/natural` in the part of the curve that sweeps. This is a
+     weaker derivation than the hand's in 0.31.0 and the docstring says so.
+   - **`mass.angular_momentum` could not arbitrate this one.** Swept over head lags of 0, derived,
+     0.25 and 0.5: mean |L| 0.00481 -> 0.00482 walking and flat to five figures running. The
+     segment is too small and its amplitude is held at `1 - head_hold` whatever the phase, so the
+     residual sees nothing. The sweep still earns its keep - it says the change costs nothing.
+   - `rigify_human` carries the permanent control: the same body at Froude 0.05 and 1.2, once
+     derived and once with `head_lag` forced to 0, reporting the free value `sweep_deg` beside the
+     threshold it is read against. The control's sweep is 0.1 degrees against the 20 it needs, so it fails.
+   - Still owed: `girdle_lag`, which is still hand-set because a clavicle is not a gravity
+     pendulum.
 4. **L4 variability** - the cheapest visible win; can land before or after (3).
 5. **L2 momentum solve** - objective, solver, and an `L_vertical` check.
 6. **L3 joint springs** - widen `jiggle_modifier`; LOD gate.

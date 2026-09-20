@@ -1,7 +1,8 @@
 # motion-asymmetry - L4, the bake half: a fixed per-character left/right asymmetry
 
 Round: **motion-alive** (07 - motion that reads as alive). Branch `motion-asymmetry`,
-off `main` at `328fcbc`. rig-anything 0.32.0, character-pipeline 0.16.0.
+off `main` at `328fcbc`, with `main` merged in at `929ef47` after motion-head-rung landed.
+rig-anything 0.33.0, character-pipeline 0.16.0.
 
 Sibling branch `motion-jitter` owns the Godot side and only reads what this one writes.
 The seam was agreed before either started and is quoted verbatim in both tasks; it is
@@ -233,7 +234,7 @@ finding, not a person.
    committed in the fixture with their False verdicts in the golden, so the check fails if the
    side plumbing goes AND if a control stops working. `regress --quick --jobs 4` green. The
    goldens are additive only (the one non-added line in either is the `plugins:` version stamp,
-   which regress never compares). rig-anything 0.32.0, character-pipeline 0.16.0. This file.
+   which regress never compares). rig-anything 0.33.0, character-pipeline 0.16.0. This file.
 
 ## Open
 

@@ -16,7 +16,10 @@ What a person checks after a change is per role: passed and its failures, the hi
 limited it, balance, stride and implied speed, planted-foot drift and stance slip.
 
 It also drives `verify.arm_swing` over carry angles taken from real clips (`ARM_SWING_CASES`), so
-the branch that fails an arm carried out in front is exercised without needing a body built wrong.
+the branch that fails an arm carried out in front is exercised without needing a body built wrong,
+and it walks the same body at two speeds a decade apart to say whether the last rung of the axial
+lag ladder moves with speed (`HEAD_RUNG_CASES`), with the locked head it replaces as the control
+that must read a flat line.
 
 And it is where the fixed per-character left/right asymmetry is judged (`ASYM_IDS`, `_asymmetry`):
 four more walks on the same body, each MEASURED off its baked clip, at the default (which must
@@ -40,6 +43,19 @@ LOOPS = ("Idle", "Walk", "Trot", "Run", "CrouchWalk")     # the rest are one-sho
 HEADLINE = ("passed", "failures", "hip_drop_m", "max_drop_m", "drop_limited_by", "balance",
             "stride_m", "implied_speed_playback_mps", "planted_drift", "stance_slip", "loop_seam",
             "lowest_point", "skin_lowest", "tightest_joint_degrees")
+
+# The last rung of the lag ladder, and the control that must fail it. Every rung
+# of the axial chain lags the one below it by a phase that DEPENDS ON SPEED, so
+# the tell of a rung that is not really there is a relative phase that reads the
+# same number at every speed - the thorax was caught at a flat -179.3 that way,
+# and the head at a flat -0.6. Two clips a decade of Froude apart say whether the
+# rung moves. `head_lag` forced to 0 is the locked head that `upper.trunk` gave
+# before it took the head's own signal: it MUST come out flat and so MUST fail
+# the test the derived lag passes. `thorax_head_phase_deg` is measured off the
+# BAKED clip, never off the prediction.
+HEAD_RUNG_FROUDE = (0.05, 1.2)
+HEAD_RUNG_SWEEP_DEG = 20.0
+HEAD_RUNG_CASES = (("derived", None), ("control_locked_head", {"head_lag": 0.0}))
 
 # Walks in a style, and what each style must keep of its own (`locomotion.GAIT_STYLES`).
 STYLED_WALKS = ("child", "elderly_shuffle", "heavy")
@@ -123,6 +139,30 @@ def build():
         for style in STYLED_WALKS:
             r = locomotion.cycle(rig, froude=0.2, style=style, action_name=BODY + "_Style_" + style)
             styled[style] = H.stable({k: r.get(k) for k in STYLED_HEADLINE} if "error" not in r else r)
+        # The head rung and its control, after the export so these clips stay out
+        # of the glb as the styled walks do.
+        head_rung = {}
+        for label, upper in HEAD_RUNG_CASES:
+            got = {}
+            for froude in HEAD_RUNG_FROUDE:
+                r = locomotion.cycle(rig, froude=froude, upper=upper,
+                                     action_name="%s_HeadRung_%s_%s" % (BODY, label, froude))
+                u = r.get("upper") or {}
+                got[str(froude)] = H.stable({
+                    "speed_mps": r.get("implied_speed_playback_mps"),
+                    "stride_hz": u.get("stride_hz"), "head_hz": u.get("head_hz"),
+                    "head_lag_deg": u.get("head_lag_deg"),
+                    "pelvis_thorax_phase_deg": r.get("pelvis_thorax_phase_deg"),
+                    "thorax_head_phase_deg": r.get("thorax_head_phase_deg"),
+                    "passed": r.get("passed"), "failures": r.get("failures")})
+            ends = [got[str(f)].get("thorax_head_phase_deg") for f in HEAD_RUNG_FROUDE]
+            # the free value, not a clamped verdict: how far the rung moved over
+            # the sweep, beside the threshold it is read against
+            got["sweep_deg"] = None if None in ends else round(abs(ends[1] - ends[0]), 1)
+            got["needs_deg"] = HEAD_RUNG_SWEEP_DEG
+            got["moves_with_speed"] = bool(got["sweep_deg"] is not None
+                                           and got["sweep_deg"] >= HEAD_RUNG_SWEEP_DEG)
+            head_rung[label] = got
         asymmetry = H.stable(_asymmetry(rig))
     finally:
         window.scene = previous
@@ -136,6 +176,7 @@ def build():
                      for role in ROLES},
         "moves": {role: H.stable(moves[role]) for role in ROLES},
         "styled_walks": styled,
+        "head_rung": head_rung,
         "asymmetry": asymmetry,
         "export": {"exported": exported.get("exported"), "stage": exported.get("stage"),
                    "note": exported.get("note"), "dropped_clips": H.stable(exported.get("dropped_clips")),

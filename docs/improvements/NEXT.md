@@ -15,8 +15,8 @@ have it **look great** in Godot. The study figures are the test bench; the score
 (below): three brand-new characters built cold from their briefs, timed, and judged by an independent critic.
 Every round's ship step runs it, and every plan should say which of the two numbers it moves.
 
-State as of **2026-09-20**: the motion round (rig-anything 0.28.0-0.31.0) is four versions in and
-**unpushed on `motion-mass-model`** - see "Resuming the motion work" below.
+State as of **2026-09-20**: the motion round (rig-anything 0.28.0-0.32.0) is five versions in and
+**unpushed on `main`** - see "Resuming the motion work" below.
 
 The rest of this file is the state as of 2026-09-19, which the motion round did not touch.
 **The flesh round from the user's cast-demo review is done and shipped**: all seven plugin
@@ -52,7 +52,7 @@ the eye material preset (lookdev 0.12.0, humanform 0.16.0). The six figures are 
 - **The rest of Step 5 - motion**: MovesController's turns (06 rank 15), the fingertip gaps, and the motion
   critic on every clip. `U.running` was only its first item, and it also unblocks the crowd rebuild.
 - **Motion that reads as alive** - [07](07-motion-that-reads-as-alive.md). The user's "the movements
-  look good, but are very rigid". Four versions shipped 2026-09-20 (rig-anything 0.28.0-0.31.0) and the
+  look good, but are very rigid". Five versions shipped 2026-09-20 (rig-anything 0.28.0-0.32.0) and the
   thread is mid-flight: see **"Resuming the motion work"** below, which is written to be picked up cold.
 - **An age layer** (benchmark finding): two briefs asked for 40s and 60s and both read twenty-plus years young.
   The 58-year fit cap is not what stops it - slackness, lip thinning, hand tendons and posture are authorable
@@ -125,10 +125,20 @@ already settled one. Reach for it before reaching for an opinion.
 
 ### Next, in the order I would take it
 
-1. **The head rung** - the last piece of the lag ladder. The head should trail the thorax as the
-   thorax trails the pelvis. Blocked on shape, not physics: `upper.trunk()` takes scalars, so the
-   head's share is computed from the thorax's *value*; it needs to take signals so the head can read
-   its driver at a different phase. Small refactor, then one `response` call.
+1. **The head rung: done** (branch `motion-head-rung`, rig-anything 0.32.0, merged 2026-09-20).
+   `upper.trunk()` now takes `head=` - the top of the chain's own drive as a *signal* - instead of
+   scaling the thorax's *value*, and `upper.head_frequency` derives the lag from `mass.pendulum` over
+   the neck and everything above it (0.908 Hz on the lofted Rigify figure, 1.089 Hz on an MPFB woman).
+   Measured off the baked clip the rung sweeps 100-110 deg across Froude 0.03-2.0 where it read a flat
+   -0.6 before; `pelvis_thorax_phase_deg` is unchanged. The control is permanent in the fixture
+   (`HEAD_RUNG_CASES`, `head_lag = 0.0` reads flat and fails). **Caveat worth carrying:** on both
+   bodies the head-and-neck centre of mass sits *above* its pivot, so `sqrt(mgd/I)` there is a
+   divergence rate, not a free resonance - the restoring stiffness is the neck's, which nobody has,
+   the same gap that leaves `trunk_hz` fitted at 0.82. Recompute if a real neck stiffness appears.
+   `mass.angular_momentum` is flat across head lags, so nothing independent arbitrates this phase:
+   04's motion critic is the arbiter it wants, once the ship step rebuilds the characters.
+   `girdle_lag` (0.05) is now the last un-derived lag on the chain, and a clavicle is not a gravity
+   pendulum, so it needs a different argument than this one.
 2. **L4 variability** - the cheapest visible win in the whole item and still untouched. Per-cycle
    phase and amplitude jitter with a persistent (DFA alpha ~0.8) spectrum, plus a fixed per-character
    left/right asymmetry stored in the character spec as part of its identity. Kills the "it is a loop"
@@ -162,6 +172,10 @@ Then `--headless --import --path .` and the demo selftests. Belle takes ~45 s, t
 ### What cost time this round
 
 - **The marketplace cache is not the repo.** See the top of this section.
+- **Bump with `tools/bump.py`, not by hand.** The 0.28.0-0.31.0 commits edited only
+  `plugins/rig-anything/.claude-plugin/plugin.json` and left `.claude-plugin/marketplace.json` - the
+  file other machines read - stale at 0.27.0. `bump.py` then refused outright until the two were
+  settled by hand (commit 43af2bf on `motion-head-rung`).
 - **A version bump invalidates every stage hash**, so `from=moves` is refused with "rebuild from
   body" and the whole character rebuilds. Expected, but budget for it.
 - **Blender 5.2 actions are slotted**: `action.fcurves` is gone; go through
@@ -203,9 +217,12 @@ Read these first, in this order:
 
 Installed copies in `~/.claude/skills` match the repo. **This is the one list of versions**; update it
 here and nowhere else:
-- rig-anything 0.31.0 (2026-09-20, branch `motion-mass-model`, NOT pushed: 0.28.0 mass model, 0.29.0
-  shoulder girdle, 0.30.0 trunk lag, 0.31.0 limb pendulums and whole-body angular momentum; installed.
-  0.27.0 was 2026-09-19 moves-running-flag)
+- rig-anything 0.32.0 (2026-09-20, branches `motion-mass-model` and `motion-head-rung`, NOT pushed:
+  0.28.0 mass model, 0.29.0 shoulder girdle, 0.30.0 trunk lag, 0.31.0 limb pendulums and whole-body
+  angular momentum, 0.32.0 the head rung. 0.31.0 and earlier are installed; 0.32.0 is merged into
+  `main` but NOT yet installed - the ship step does that. 0.27.0 was 2026-09-19 moves-running-flag.
+  Bump with `tools/bump.py`: the 0.28.0-0.31.0 commits edited only plugin.json and left
+  `.claude-plugin/marketplace.json`, the file other machines read, stale at 0.27.0)
 - animate-anything 0.10.1
 - follow-through 0.10.0
 - humanform 0.17.0 (2026-09-19: 0.13.0 skin-pores-distance, 0.14.0 skin-regions, 0.15.0 skin-finger-edges,

@@ -1051,12 +1051,13 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
                 % (", ".join(clamped), pl["max_drop"], 100 * pl["max_drop"],
                    pl["drop_max"] * pl["scale"]))
         evaluated = ev["evaluated"]
-        # Measured off the playback, not predicted: how far the thorax runs
-        # behind the pelvis in the transverse plane. `upper.response` is what
-        # sets it, and this is the number that says whether it did.
+        # Measured off the playback, not predicted: how far each rung of the
+        # axial chain runs behind the one below it in the transverse plane -
+        # the thorax behind the pelvis, and the head behind the thorax.
+        # `upper.response` is what sets both, and these are the numbers that
+        # say whether it did.
         if U is not None:
-            r["pelvis_thorax_phase_deg"] = upper_mod.relative_phase(
-                body, bm, evaluated, frames)
+            r.update(upper_mod.relative_phase(body, bm, evaluated, frames))
         # Whole-body angular momentum, normalised: the residual the arms exist
         # to cancel. Reported rather than gated - what a healthy band is for a
         # body with six legs is not known, and a check nobody can calibrate is
