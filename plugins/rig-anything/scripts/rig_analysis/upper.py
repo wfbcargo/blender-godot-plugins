@@ -401,9 +401,13 @@ def clear_out(poser, limb, poses, margin, posture=None, stance=None, limit=45.0)
 class Upper:
     """Resolved parameters for one clip, and the per-key terms they give."""
 
-    def __init__(self, poser, params, posture=None, stance=None):
+    def __init__(self, poser, params, posture=None, stance=None, running=False):
         self.P = poser
         self.params = dict(params)
+        # Whether this clip is a run (duty < 0.5), for the arm checks: a run keeps both
+        # arms in front and is judged on hand rise and elbow instead of the swing-through
+        # -hanging a walk must show. Only the gait path knows it; idles and turns are False.
+        self.running = bool(running)
         side_legs = {}
         for l in poser.legs:
             side_legs.setdefault(_side(poser, l), []).append(l)
@@ -535,9 +539,10 @@ def author_clear(U, rig_name, bm, author, resample, tries=3):
         report["passed"] = False
     report["arm_clearance_m"] = closest
     # how the arms are carried: a walk's hand below the chest, a run's elbow bent
-    ap = verify.arm_pose(rig_name, action.name, running=getattr(U, "running", False), bm=bm)
+    ap = verify.arm_pose(rig_name, action.name, running=U.running, bm=bm)
     if "error" not in ap and "skipped" not in ap:
         report["arm_pose"] = ap["arms"]
+        report["arm_running"] = ap["running"]
         if ap["failures"]:
             report["failures"].extend(ap["failures"])
             report["passed"] = False

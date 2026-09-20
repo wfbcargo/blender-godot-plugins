@@ -1,8 +1,8 @@
 {
  "fixture": "mpfb_woman_curvy",
  "plugins": {
-  "humanform": "0.8.0",
-  "rig-anything": "0.23.0"
+  "humanform": "0.15.0",
+  "rig-anything": "0.27.0"
  },
  "report": {
   "bake": {
@@ -609,7 +609,7 @@
      "FixWoman_body",
      "FixWoman_rig"
     ],
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-a1088qf6\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-ilyjxd9i\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "morph_targets": false,
     "options_dropped_by_this_blender": [],
     "skipped": [],
@@ -637,7 +637,7 @@
      "FixWoman_TurnR": 1.041667,
      "FixWoman_Walk": 1.0
     },
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-a1088qf6\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-ilyjxd9i\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "generator": "Khronos glTF Blender I/O v5.2.40",
     "gltf_version": 2,
     "joints": 53,
@@ -649,7 +649,7 @@
      "last": "FixWoman_rig",
      "len": 55
     },
-    "size_bytes": 1596740,
+    "size_bytes": 1597884,
     "skins": 1
    },
    "forced_clips": {},
@@ -703,7 +703,7 @@
      1548
     ],
     "count": 25,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-a1088qf6\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-ilyjxd9i\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
     "frame_height_m": 2.1,
     "frames": {
      "FixWoman_Crouch": [
@@ -787,7 +787,7 @@
       21
      ]
     },
-    "seconds": 7.54,
+    "seconds": 4.56,
     "strips": {
      "FixWoman_Crouch": {
       "front": {
@@ -1052,7 +1052,7 @@
      "three_quarter"
     ]
    },
-   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-a1088qf6\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
+   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-ilyjxd9i\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
    "stage": "done",
    "verified": {
     "durations_match": true,
@@ -1347,6 +1347,7 @@
       ]
      }
     },
+    "arm_running": false,
     "balance": null,
     "end_height_m": 1.6991,
     "failures": [],
@@ -1496,6 +1497,7 @@
       ]
      }
     },
+    "arm_running": true,
     "attempts": 1,
     "balance": null,
     "bounce_scale": null,
@@ -1680,6 +1682,7 @@
       ]
      }
     },
+    "arm_running": false,
     "balance": null,
     "end_height_m": 1.6991,
     "failures": [],
@@ -1807,6 +1810,7 @@
       ]
      }
     },
+    "arm_running": false,
     "balance": null,
     "end_height_m": 1.6991,
     "failures": [],
@@ -1935,6 +1939,7 @@
       ]
      }
     },
+    "arm_running": false,
     "attempts": 1,
     "balance": null,
     "bounce_scale": null,
@@ -2081,6 +2086,13 @@
    }
   },
   "moves_json": {
+   "arm_gait_on_disk": {
+    "FixWoman_Idle": "walk",
+    "FixWoman_Run": "run",
+    "FixWoman_TurnL": "walk",
+    "FixWoman_TurnR": "walk",
+    "FixWoman_Walk": "walk"
+   },
    "arm_pose_on_disk": {
     "FixWoman_Idle": {
      "upper_arm.L": {
@@ -2299,6 +2311,7 @@
    },
    "dropped_clips": [],
    "fields": [
+    "arm_gait",
     "arm_pose",
     "clip_checks",
     "clips",

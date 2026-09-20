@@ -1,8 +1,8 @@
 {
  "fixture": "strand_ponytail",
  "plugins": {
-  "follow-through": "0.5.2",
-  "rig-anything": "0.23.0"
+  "follow-through": "0.10.0",
+  "rig-anything": "0.27.0"
  },
  "report": {
   "body_export": {
@@ -106,6 +106,10 @@
    "2": 400
   },
   "moves_json": {
+   "arm_gait_on_disk": {
+    "Figure_Idle": "walk",
+    "Figure_Run": "run"
+   },
    "arm_pose_on_disk": {
     "Figure_Idle": {
      "upper_arm.L": {
@@ -198,6 +202,7 @@
    },
    "dropped_clips": [],
    "fields": [
+    "arm_gait",
     "arm_pose",
     "clip_checks",
     "clips",

@@ -1,8 +1,8 @@
 {
  "fixture": "rigify_human",
  "plugins": {
-  "follow-through": "0.5.2",
-  "rig-anything": "0.23.0"
+  "follow-through": "0.10.0",
+  "rig-anything": "0.27.0"
  },
  "report": {
   "arm_swing": {
@@ -522,6 +522,7 @@
       ]
      }
     },
+    "arm_running": false,
     "balance": null,
     "end_height_m": 1.7573,
     "failures": [],
@@ -671,6 +672,7 @@
       ]
      }
     },
+    "arm_running": true,
     "attempts": 1,
     "balance": null,
     "bounce_scale": null,
@@ -969,6 +971,7 @@
       ]
      }
     },
+    "arm_running": true,
     "attempts": 1,
     "balance": null,
     "bounce_scale": null,
@@ -1150,6 +1153,7 @@
       ]
      }
     },
+    "arm_running": false,
     "attempts": 1,
     "balance": null,
     "bounce_scale": null,
@@ -1292,6 +1296,12 @@
    }
   },
   "moves_json": {
+   "arm_gait_on_disk": {
+    "Figure_Idle": "walk",
+    "Figure_Run": "run",
+    "Figure_Trot": "run",
+    "Figure_Walk": "walk"
+   },
    "arm_pose_on_disk": {
     "Figure_Idle": {
      "upper_arm.L": {
@@ -1472,6 +1482,7 @@
    },
    "dropped_clips": [],
    "fields": [
+    "arm_gait",
     "arm_pose",
     "clip_checks",
     "clips",

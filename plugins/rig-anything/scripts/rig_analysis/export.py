@@ -1043,6 +1043,11 @@ def export_character(mesh_name, rig_name, glb_path, name=None, reports=None, res
         # clip_checks). Written because the motion critic's keep-or-revert rule compares this
         # round's ranges against the previous version's, and the build report dies with the run.
         "arm_pose": {clip[r]: reports[r]["arm_pose"] for r in kept if reports[r].get("arm_pose")},
+        # which gait each clip's arms were judged as - a run keeps both arms in front and is
+        # exempt from the swing-through-hanging a walk must show. Recorded because the flag was
+        # silently False for every clip until rig-anything 0.27.0 and nothing showed it.
+        "arm_gait": {clip[r]: ("run" if reports[r]["arm_running"] else "walk")
+                     for r in kept if "arm_running" in reports[r]},
         # clips that failed their playback checks and were shipped only because force was passed
         "forced_clips": e.get("forced_clips", {}),
         # what each role's authoring reported failing
