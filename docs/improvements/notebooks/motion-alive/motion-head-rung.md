@@ -201,6 +201,51 @@ and neither `trunk` nor `relative_phase` is reached. There is no bird or fish fi
 the same gate covers them. The other caller of `upper.trunk`, the idle at `actions.py:665`, passes
 positional arguments only, so `head` is None there and the expression is bit-identical.
 
+## 2026-09-20 14:28 - regress --quick, and what the goldens say
+
+`python tools/regress.py --quick --jobs 4` selected all 23 fixtures (rig-anything changed):
+**21 ok, 2 CHANGED** - `rigify_human` (57 keys) and `mpfb_woman_curvy` (23). Full output in
+`C:/Users/pauli/AppData/Local/Temp/rw/hr/regress1.txt`, full diff in
+`C:/Users/pauli/AppData/Local/Temp/regress-diffs/regress-20260920-141829-52220.diff`.
+
+**Every creature fixture is `ok`**: quadruped, cricket, rabbit (hopper), starfish (radial). There
+is no bird and no fish fixture in this repo; the same `upper.resolve` gate covers them.
+
+Of the 80 changed keys, **75 are new reported keys** (`head_hz`, `head_lag`, `head_lag_cycles`,
+`head_lag_deg`, `thorax_head_phase_deg`, and the whole `head_rung` block). The only numbers that
+MOVED - the entire behavioural footprint of this change across 23 fixtures - are five whole-body
+angular momentum readings in the fifth decimal:
+
+| fixture / clip | key | was | now |
+|---|---|---|---|
+| rigify_human Run | `angular_momentum.up_mean_abs` | 0.00127 | 0.00128 |
+| rigify_human Run | `angular_momentum.up_range` | 0.00403 | 0.00406 |
+| rigify_human Trot | `angular_momentum.up_mean_abs` | 0.00120 | 0.00121 |
+| rigify_human Trot | `angular_momentum.up_range` | 0.00423 | 0.00425 |
+| mpfb_woman_curvy Run | `angular_momentum.up_range` | 0.01745 | 0.01747 |
+
+Nothing else: no hip drop, no balance, no stride, no planted drift, no arm clearance or pose, no
+export duration, no manifest. That is the head's own small contribution to L arriving at a
+different phase, and it is what a correct change of this size should look like. (Those five are
+the ones regress FLAGGED - above its numeric tolerance. Rewriting the goldens also recorded a
+couple of within-tolerance wobbles in the same key, e.g. the MPFB Walk's `up_range` 0.03996 ->
+0.03997, which is the same effect one decimal smaller.)
+
+The goldened clips themselves now show the rung moving with the gait, which is the point - the
+sweep script is scratch, these are shipped:
+
+| | Walk | Trot | Run |
+|---|---|---|---|
+| rigify_human `pelvis_thorax_phase_deg` | -128.3 | -150.6 | -158.4 |
+| rigify_human `thorax_head_phase_deg` | **-121.4** | **-150.7** | **-159.6** |
+| mpfb_woman_curvy `pelvis_thorax_phase_deg` | -126.0 | - | -155.2 |
+| mpfb_woman_curvy `thorax_head_phase_deg` | **-85.9** | - | **-146.9** |
+
+And the fixture's control, in `report.head_rung`: derived `sweep_deg` **80.2**,
+`moves_with_speed` **true**; `control_locked_head` `sweep_deg` **0.1**, `moves_with_speed`
+**false**, against `needs_deg` 20.0. Both cases report the same `pelvis_thorax_phase_deg` (-89.7
+and -152.1), so the new rung does not disturb the one below it.
+
 ## What cost time, and what did not
 
 - **`tools/bump.py` refused**: "plugin.json says 0.31.0 and marketplace.json says 0.27.0: settle
