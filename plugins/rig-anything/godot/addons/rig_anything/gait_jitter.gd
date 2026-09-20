@@ -57,9 +57,27 @@ const RATE_MAX := 1.4
 ## nothing measurable - the DFA exponent is unchanged, because the clamp is inside `_draw_*`
 ## and so applies identically to the live stream and to the series the verifier measures.
 const KNOT_MAX := 6.0
+## The constant knot `spectrum = "flat"` draws. Non-zero, so the playhead is genuinely warped and
+## the arm genuinely scaled - what it is not is DIFFERENT from one cycle to the next.
+const FLAT_KNOT := 1.0
 
-## "persistent" (shipped) or "white" (the control that must fail verify_jitter's DFA check).
+## "persistent" is the shipped generator. The others exist only as CONTROLS that must fail a
+## named check in `verify_jitter.gd`, and they are here rather than in the verifier so that a
+## control drives the real code path instead of a lookalike:
+##   "white" - one gaussian per cycle, what a naive randf() gives: DFA ~0.5, fails the spectrum
+##             check.
+##   "flat"  - the same knot every cycle. The series is still a series and the playhead is still
+##             warped, but nothing VARIES from stride to stride, so it fails the two checks that
+##             say stride timing and arm swing differ cycle to cycle. Those checks have no other
+##             control, and a "varies" check that has stopped measuring variation would otherwise
+##             pass a generator that produces none.
 var spectrum := "persistent"
+## CONTROL for the "absent means off" check, and nothing else. When this is greater than zero a
+## manifest with NO `variability` block resolves to this much jitter instead of to all zeros -
+## i.e. the thing the shipped code must never do, since every character built before the seam
+## existed has no block. Left at 0.0 in every shipped path; `verify_jitter.gd` sets it for one
+## run so the off-by-default check has a control that must fail it.
+static var absent_default := 0.0
 ## The resolved block, exactly as the manifest gave it (or all zeros when it had none).
 var resolved := {"seed": 0, "asymmetry": 0.0, "jitter_phase": 0.0, "jitter_amp": 0.0}
 ## True when the manifest actually carried a `variability` block.
@@ -100,8 +118,10 @@ static func from_moves(m: Dictionary, who := "") -> GaitJitter:
 		}
 	else:
 		# Every character built before the seam existed lands here. Absent is all zeros, and
-		# all zeros is off - not "pick something for them".
-		j.resolved = {"seed": id_seed(id), "asymmetry": 0.0, "jitter_phase": 0.0, "jitter_amp": 0.0}
+		# all zeros is off - not "pick something for them". `absent_default` is the control that
+		# breaks exactly that, and it is 0.0 everywhere but in one verify_jitter run.
+		var d0 := clampf(absent_default, 0.0, 1.0)
+		j.resolved = {"seed": id_seed(id), "asymmetry": 0.0, "jitter_phase": d0, "jitter_amp": d0}
 	j.reset()
 	return j
 
@@ -178,6 +198,8 @@ func _draw_phase() -> float:
 	if spectrum == "white":
 		# The control: what a naive randf() per cycle gives. DFA alpha ~0.5.
 		return clampf(_phase_rng.randfn(0.0, 1.0), -KNOT_MAX, KNOT_MAX)
+	if spectrum == "flat":
+		return FLAT_KNOT           # the control: a warp that never varies
 	var s := 0.0
 	for k in MODES:
 		_phase_state[k] = _pole[k] * _phase_state[k] + _kick[k] * _phase_rng.randfn(0.0, 1.0)
@@ -188,6 +210,8 @@ func _draw_phase() -> float:
 func _draw_amp() -> float:
 	if spectrum == "white":
 		return clampf(_amp_rng.randfn(0.0, 1.0), -KNOT_MAX, KNOT_MAX)
+	if spectrum == "flat":
+		return FLAT_KNOT
 	var s := 0.0
 	for k in MODES:
 		_amp_state[k] = _pole[k] * _amp_state[k] + _kick[k] * _amp_rng.randfn(0.0, 1.0)

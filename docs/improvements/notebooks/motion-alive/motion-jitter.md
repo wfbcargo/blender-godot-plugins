@@ -442,3 +442,169 @@ and so is everything else the Godot stage runs: verify_moves (12 manifests), ver
 rows with 3 must-fail), verify_flesh (4 rows with 1 must-fail), the jiggle spring selftest and its
 control, close-shot, edges and eyes with their controls. Both `verify_strands` must-fail controls
 still fail, though they now fail on the penetration line as well as their own.
+
+---
+
+## Critic round 1, the fix pass (2026-09-20, rig-anything 0.35.0)
+
+The critic's verdict was `pass: false`, `mergeable: true`, with one blocker that is **main's**
+(`verify_strands pipeline_ponytail`) and nine problems against this branch. What follows is what
+each one turned into. My own scratch copy for all of it:
+`C:/Users/pauli/AppData/Local/Temp/rw/jfix/gp`, made with `tools/scratch_project.py --who
+study_man,study_woman,belle` from this worktree.
+
+### The one that was a real bug: the gait-change path
+
+The critic's third problem - "the gait-change path is exercised by nothing" - was a coverage gap
+they could not turn into a finding, because their harness read 3.38 cycles on the shipped code and
+3.39 on its own zero-jitter control, so it was measuring gait-switch bookkeeping and they withdrew
+it. It **was** a bug, and the way to see it was not a new harness but the existing drift check with
+the gait changing under it.
+
+`switch=<seconds>` now alternates the commanded speed between the slowest and the fastest gait, on
+BOTH bodies at the same tick, so the clip changes over and over and the gap between the two
+playheads stays exactly the measurement it already was. The per-cycle checks (stride cv, arm-swing
+cv, mean pace, skate) are about one clip's cycle and are skipped in this mode; the drift checks are
+the point of it.
+
+The first run of it failed, on the shipped code:
+
+    FAIL  study_man: the jittered playhead stays inside the offset bound over 157 cycles
+          (worst gap 0.4491 <= 0.2160 cycles, 0.585 m of ground)
+    FAIL  study_man: the gap does not grow with the run (the trend through 120 samples
+          carries +0.4202 cycles over 120 s, bound 0.2160)
+
+17 gait changes, and the gap grew with them. The cause is the clip-change branch of
+`jitter_factor`:
+
+    _jit_phi = _jit_theta + jitter.phase_offset(fposmod(_jit_theta, 1.0))
+
+`_jit_phi` is the playhead the controller has been integrating; the tracking term drives the rate
+by `target - _jit_phi`, and at steady state `_jit_phi` sits one tracking lag behind the target
+(measured below: about 0.016 cycles). Snapping it TO the target on a clip change asserts that the
+real playhead is already there. It is not - nothing moved it - so that lag is thrown away and never
+corrected, and the next gait change throws away the next one. One lag per gait change, and a game
+character changes gait constantly. It is the plausible thing to write, which is why it was written.
+
+The fix is to re-anchor to where the playhead actually **is**. `_jit_phi` advances at exactly the
+rate the AnimationPlayer does (`r * f * dt` cycles against `base * f * dt` seconds over a clip of
+`length` seconds), so its fraction and the clip's stay locked together; realign that fraction,
+wrapped to +-0.5, and leave the tracking error alone:
+
+    var d := fposmod(_anim.current_animation_position / length, 1.0) - fposmod(_jit_phi, 1.0)
+    if d > 0.5: d -= 1.0
+    elif d < -0.5: d += 1.0
+    _jit_phi += d
+
+With `play_gait` carrying the phase across, `d` is ~0 and nothing happens; with a `play_role` that
+restarts the clip at 0, it snaps back. After the fix, 400 s and **57 gait changes**, all three
+characters in my scratch copy (`three-switch.log`, exit 0, 57 PASS / 0 FAIL):
+
+    PASS  study_man:    57 changes (1.3 <-> 4.2 m/s), worst gap 0.1162 <= 0.2160, trend +0.0178
+    PASS  study_woman:  57 changes (1.3 <-> 4.1 m/s), worst gap 0.1204 <= 0.2160, trend +0.0138
+    PASS  belle:        57 changes (1.3 <-> 4.1 m/s), worst gap 0.1233 <= 0.2160, trend +0.0161
+
+and the old shape is kept as the control (`reanchor=target`), which must fail those two lines - it
+reads worst gap 0.4491 and trend +0.4202, the numbers above.
+
+The single-clip runs are unchanged by the fix. Six-manifest equivalent on the three characters this
+scratch carries, `cycles=4096 seconds=40 long=160`: exit 0, 57 PASS, 0 FAIL. A simulated hour
+(`long=3600`, `three-hour.log`): exit 0, 57 PASS, 0 FAIL, worst gap 0.1375-0.1444 over 3706-3863
+cycles, trend +0.0084 to +0.0101.
+
+### Controls for the checks that had none (problem 2)
+
+Three of about twelve checks had a control. Now nine do, and every one of them was run and read:
+
+| control | what it breaks | the lines it must fail |
+|---|---|---|
+| `spectrum=white` (was) | a white generator | both DFA lines |
+| `naive=1` (was) | the warp read off the clip's own phase | both drift lines |
+| `reanchor=target` | the clip-change branch, above | both drift lines, with `switch=` |
+| `spectrum=flat` | the same knot every cycle | stride interval varies, arm swing varies |
+| `absent_on=0.6` | absent `variability` resolving to jitter | both "no variability" lines |
+| `lod_m=0` | the distance gate turned off | the LOD line |
+| `ctl=legs` | `arm_pose` pointed at the thighs | the new "reaches no leg" line |
+| `rate=1` | the bounded offset used as a playback RATE | mean stride time is unchanged |
+
+Measured, each on study_man in my own scratch copy (`ctl-*.log`):
+
+    flat    exit 1: stride cv 0.0001 (needs > 0.005), arm swing cv 0.0026 = 0.7x the off floor
+    absent  exit 1: both absent lines, and nothing else
+    lod     exit 1: "runs 60/60 frames at 1 m and 60/60 past 0 m"
+    legs    exit 1: "(thigh.L, shin.L, foot.L, thigh.R, shin.R, foot.R)", and the skate line
+                    too: mean 0.0463 m on / 0.0333 off
+    rate    exit 1: mean stride time 3.9038% off; worst gap 1.7924; trend -1.6753
+
+`spectrum = "flat"` and `absent_default` live in `gait_jitter.gd`, and `jitter_rate` /
+`jitter_reanchor_target` in `moves_controller.gd`, deliberately: a control that drives the real
+code path is worth more than one that drives a lookalike in the verifier. `absent_default` is set
+only around the absent check and put back afterwards, so that control fails that check and nothing
+else.
+
+The cost check still has no control (a ceiling with a free number under it), and the LOD check
+still drives `lod_override` rather than a camera. Both stay open, below.
+
+### "Arms only" is now checked by name, not by consequence (the author's own open item)
+
+`_legs()` walks up from every foot the manifest names, as far as the chain the arm roots hang from,
+adds the feet's descendants, and requires that the amplitude modifier collected none of it:
+
+    PASS  study_man: the modifier reaches no leg: 0 of its 6 bones are in the 8-bone leg chain
+          under ["upper_arm.L", "upper_arm.R"] (none)
+
+The critic built this control by hand (`crit_legroot.moves.json`) and found only the skate number
+noticed. Now `ctl=legs` builds it inside the verifier and the check names the bones it found.
+
+### The drift headroom (problem 4), answered with the numbers rather than a tolerance
+
+The critic found seed 2 at 0.1959 against the 0.2160 bound over a simulated hour - 91% - and asked
+whether the margin was thin. **No tolerance moved.** Instead the two halves of the gap are now
+tracked in `MovesController` and printed free: the largest offset the generator ever COMMANDED,
+and the largest the playhead ever LAGGED that command.
+
+    worst gap 0.1444 <= 0.2160 ... of that gap the commanded offset reached 0.1505
+                                   and the tracking lag 0.0167        (study_man, long=3600)
+
+So the gap IS the commanded offset - which is bounded by construction, the clamp being where the
+bound comes from - and the lag is 0.016, a ninth of it, and partly cancelling rather than adding.
+It is also why raising the tracking gain does nothing, which I checked rather than assumed: over
+900 s on study_man, `track=4` gives worst gap 0.1073 / 0.1069 / 0.1126 on seeds 2 / 7 / 101 and
+`track=12` gives 0.1070 / 0.1069 / 0.1127 - a difference in the fourth decimal. The headroom is the
+6-sigma clamp's and nothing else's, and that is now what the check's own text says.
+
+### Smaller ones
+
+- **Problem 10** (the literal 6.0): the bound is `phase_gain() * GaitJitter.KNOT_MAX`.
+- **Problem 6** (`worst_gap` cannot fail by construction on the shipped path): said out loud, in a
+  comment beside the bound - its remaining teeth are against a change of mechanism, which is what
+  `naive=1` and `reanchor=target` supply.
+- **Problem 8** (`cycle_u` came from the jitter's own phase counter): it now comes from the clip's
+  playhead, `fposmod(_anim.current_animation_position / length, 1.0)`. At steady state the two
+  agree within the offset; after a gait change they do not, and it is the clip the arm swing has
+  to be in step with.
+- **Problem 9** (plugin.json's description stops at 0.31.0): **not a defect.** `tools/bump.py` says
+  so in its own docstring - plugin.json's own description is left alone, and marketplace.json is
+  what `/plugin marketplace update` reads. Every plugin in the repo is like this. If the two
+  descriptions should be settled, that is a change to `bump.py`, on main, for all of them at once.
+- **Problem 5** (the second drift check's effective threshold moved in e2166fd): recorded as the
+  critic asks - it is a replaced test, not a widened tolerance, and the merge step should read it
+  as one. Nothing changed here.
+
+### Left open deliberately
+
+- **Problem 7, the 64-bit seed.** Confirmed, not fixed, and the reason is the rule about goldens.
+  `variability._MASK` is `(1 << 64) - 1`; the fix is to derive under 2^53 (or 2^31, matching
+  `GaitJitter.id_seed`). But `seed_from` feeds `_unit(seed, channel)`, so changing the mask changes
+  every drawn asymmetry, and `tests/golden/rigify_human.json` records both the seeds and the drawn
+  values - and `rigify_human`'s fixture asserts each draw clears zero's by `MARGIN`, so a re-record
+  could fail on a draw that lands small. That is a reviewed golden move with a real chance of a
+  second round in it, on a file this branch does not own. It wants one commit of its own, on main,
+  with `regress --only rigify_human --update --twice` and a look at the margins.
+- The cost check's missing control, and the LOD check's camera lookup (`_lod_far()`'s deliberate
+  "no camera means run" fallback, which is what a headless game gets) being exercised by nothing.
+- `switch=` alternates two gaits, both played through `play_gait`; it never settles to Idle through
+  `play_role`, which is the path where the playhead really is reset and where the new `d`
+  correction does its other job. Worth one more mode.
+- **Main's `verify_strands pipeline_ponytail` is still the blocker**, unchanged and unowned by this
+  branch: see the previous section for the reproduction on `main` d367a4b by itself.

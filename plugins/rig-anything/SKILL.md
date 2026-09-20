@@ -574,16 +574,38 @@ carries +0.008 cycles. The same run with `naive=1` reaches 4.61 cycles, 6.0 m of
 godot --headless --fixed-fps 60 --path <project> -s res://addons/rig_anything/verify_jitter.gd --     manifests=res://assets/humans/who.moves.json            # add spectrum=white for the control
 ```
 
-`verify_jitter.gd` measures all of the above and prints `RA_JIT VERIFY PASSED`, with two controls
-that must fail: `spectrum=white` swaps the bank for one gaussian per cycle - what a naive
-implementation gives - and fails the DFA check (0.50 against 0.82), and `naive=1` reads the warp's
-slope off the clip's own playing phase instead of the unjittered one, which accumulates about
-1.2 x gain^2 of phase per cycle and fails the drift check (over 400 s its worst gap is 0.494 and
-its fitted trend -0.503, both past the 0.216 bound; the shipped path reads 0.134 and +0.042). The
-drift check fits the trend through a sample a second over the whole run rather than comparing two
-endpoints, because a gap that wanders inside a bound and one that grows have the same endpoints
-often enough that the endpoint form false-failed a clean 3600 s run. `regress.py --godot` runs the verifier and both controls on
-`pipeline_woman`.
+`verify_jitter.gd` measures all of the above and prints `RA_JIT VERIFY PASSED`. **Since 0.35.0 it
+also drives gait changes**: `switch=<seconds>` alternates the commanded speed between the slowest
+and the fastest gait on both the jittered and the plain body, so `jitter_factor`'s clip-change
+branch fires over and over instead of once at startup. That is how the branch's one real drift bug
+was found - the clip-change branch re-anchored the tracked playhead to the TARGET, which throws
+away one tracking lag per gait change: 17 changes reached a 0.449-cycle gap with a +0.42 trend,
+past the same 0.216 bound. It now re-anchors to where the playhead actually is, and 57 gait changes
+over 400 s read worst gap 0.116-0.123 with a trend of +0.014 to +0.018.
+
+Eight controls, each of which must fail and must fail on its own named line:
+
+| control | what it breaks |
+|---|---|
+| `spectrum=white` | one gaussian per cycle - what a naive implementation gives: DFA 0.50 against 0.82 |
+| `spectrum=flat` | the same knot every cycle: stride cv 0.0001 and arm-swing cv 0.7x the off floor |
+| `naive=1` | the warp's slope read off the clip's own playing phase: over 400 s worst gap 0.494, trend -0.503 against the 0.216 bound (the shipped path reads 0.134 and +0.042) |
+| `reanchor=target` | the pre-0.35.0 clip-change branch, with `switch=`: worst gap 0.449, trend +0.420 |
+| `rate=1` | the bounded offset used as a playback RATE: mean stride time 3.90% off, worst gap 1.79 |
+| `absent_on=0.6` | a manifest with no `variability` resolving to jitter instead of to off |
+| `lod_m=0` | the distance gate turned off: the modifier runs 60/60 frames past the boundary |
+| `ctl=legs` | `arm_pose` pointed at the thighs, so the modifier builds over the leg chain |
+
+`ctl=legs` is the control for the check that "arms only" is true by NAME rather than by
+consequence: the verifier walks up from every foot the manifest names, as far as the chain the arm
+roots hang from, and requires the modifier collected none of it. The drift check fits the trend
+through a sample a second over the whole run rather than comparing two endpoints, because a gap
+that wanders inside a bound and one that grows have the same endpoints often enough that the
+endpoint form false-failed a clean 3600 s run; and it prints the two halves of the gap free - how
+large an offset was COMMANDED (bounded by construction) and how far the playhead ever LAGGED it
+(0.016 cycles, against a commanded 0.15) - so a run near the bound can be read as a large knot
+rather than as a slipping controller. `regress.py --godot` runs the verifier, the `switch=` run and
+all eight controls on `pipeline_woman`.
 
 **8. Wings: fold, flap, glide.** Any free limb whose skin is a sheet is a wing
 (see `animate-anything`'s `references/wings.md`):

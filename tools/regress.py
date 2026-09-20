@@ -461,12 +461,40 @@ GODOT_STRANDS = {
 # does not telescope (over 400 s study_man's worst gap is 0.494 cycles and the trend fitted through a
 # sample a second of it -0.503, both past the 0.216 bound, against 0.134 and +0.042 for the shipped one),
 # so a drift check that stops seeing accumulated phase error fails the harness too.
+# `also` is a second run that must ALSO pass: `switch=7` changes gait every 7 s for the whole run,
+# which is the only thing that drives `jitter_factor`'s clip-change branch more than once. Without
+# it the verifier drove one clip from start to finish while a real character changes gait
+# constantly, and the branch was wrong: re-anchoring the tracked playhead to the target threw away
+# one tracking lag per change, so 17 changes reached a 0.449-cycle gap with a +0.42 trend, past the
+# same 0.216 bound (rig-anything 0.35.0 fixes it; `reanchor=target` is that old shape, kept as the
+# control). Every other control below covers a check that had none: `spectrum=flat` warps the
+# playhead and scales the arm by the same amount every cycle, so the two "it varies" checks must
+# fail; `absent_on=0.6` makes a manifest with NO `variability` block resolve to jitter, which is
+# what off-by-default must never mean; `lod_m=0` turns the distance gate off; `ctl=legs` points
+# `arm_pose` at the thighs so the amplitude modifier builds over the legs - the one thing the
+# "arms only, so it cannot add foot skate" argument rules out; `rate=1` uses the bounded offset as
+# a playback-RATE multiplier, the other plausible first attempt, which moves the mean stride time.
 GODOT_JITTER = {
     "pipeline_woman": {"manifest": "fixwoman.moves.json",
                        "args": ["cycles=4096", "seconds=40", "long=160"],
+                       "also": [["cycles=1024", "seconds=20", "long=400", "switch=7"]],
                        "controls": [(["spectrum=white"], ["phase series DFA alpha",
                                                           "amplitude series DFA alpha"]),
-                                    (["naive=1", "long=400"], ["does not grow with the run"])]},
+                                    (["naive=1", "long=400"], ["does not grow with the run"]),
+                                    (["cycles=1024", "seconds=20", "long=120", "switch=7",
+                                      "reanchor=target"],
+                                     ["stays inside the offset bound", "does not grow with the run"]),
+                                    (["cycles=1024", "seconds=16", "long=16", "spectrum=flat"],
+                                     ["stride interval varies", "arm swing varies cycle to cycle"]),
+                                    (["cycles=1024", "seconds=16", "long=16", "absent_on=0.6"],
+                                     ["no `variability` in the shipped manifest",
+                                      "the rate factor is exactly 1.0"]),
+                                    (["cycles=1024", "seconds=16", "long=16", "lod_m=0"],
+                                     ["LOD: the amplitude modifier runs"]),
+                                    (["cycles=1024", "seconds=16", "long=16", "ctl=legs"],
+                                     ["the modifier reaches no leg"]),
+                                    (["cycles=1024", "seconds=16", "long=16", "rate=1"],
+                                     ["mean stride time is unchanged by jitter"])]},
 }
 # A fixture named here has its body looked at in Godot by lookdev's `close-shot` (the head, eye and hand
 # views and full, under one preset, beside the fixture's own Blender close set from the review stage when
@@ -837,6 +865,8 @@ def _run_jitter(godot, project, where, name):
     res = "manifests=res://" + found[0].relative_to(project).as_posix()
     rows = []
     runs = [("verify_jitter %s" % name, spec["args"], True, [])]
+    runs += [("verify_jitter %s %s" % (name, " ".join(a)), spec["args"] + a, True, [])
+             for a in spec.get("also", [])]
     runs += [("verify_jitter %s %s (must fail)" % (name, " ".join(ctl)), spec["args"] + ctl, False, must)
              for ctl, must in spec["controls"]]
     for label, args, should_pass, must in runs:

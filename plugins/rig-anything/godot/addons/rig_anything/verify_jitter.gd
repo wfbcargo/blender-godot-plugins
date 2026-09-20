@@ -78,6 +78,15 @@ var _gap := []
 var _short_ticks := 0
 var _total_ticks := 0
 var _short := {}
+## `switch=<seconds>` alternates the commanded speed between two gaits, so the clip changes over
+## and over: without it `_advance` drives ONE clip for the whole run and `jitter_factor`'s
+## re-anchor branch (`clip != _jit_clip`) fires once at startup and never again, while a real
+## character changes gait constantly. Both bodies switch on the same tick, so the gap between
+## their playheads stays the measurement it was. The stride-interval, arm-swing and skate checks
+## are about ONE clip's cycle and are skipped in this mode; the drift checks are the point of it.
+var _speed2 := 0.0
+var _speed_now := 0.0
+var _switches := 0
 
 
 ## An independent observer of what the skeleton's modifier pass actually produces. It is added to
@@ -189,17 +198,40 @@ func _start(path: String) -> void:
 		return
 	_role = gait["role"]
 	_speed = gait["speed"]
+	_speed_now = _speed
+	_speed2 = _speed
+	_switches = 0
+	if _switching():
+		# the fastest gait on the ladder, or Idle when there is only one
+		var fastest := 0.0
+		for r in _m.get("gaits", {}):
+			if _m.get("clips", {}).has(r):
+				fastest = maxf(fastest, float(_m["gaits"][r].get("natural_speed_mps", 0.0)))
+		_speed2 = fastest if fastest > _speed * 1.05 else 0.0
 
 	var off_m := _m.duplicate(true)
 	off_m.erase("variability")
 	_off = _body(off_m, "off")
+	if _opt.get("ctl", "") == "legs":
+		# the control: build the amplitude modifier over the LEGS, which is the one thing the
+		# "arms only" argument rules out. It must fail `_legs`, and it should show up in the
+		# skate number too.
+		var probe := _body(_m, "legprobe")
+		_m["arm_pose"] = _leg_roots(_m, probe._skeleton)
+		probe.queue_free()
+		_out["control_arm_pose"] = _m["arm_pose"]
 	_on = _body(_m, "on")
 	_on.jitter.spectrum = str(_opt.get("spectrum", "persistent"))
 	_on.jitter.reset()
 	_on.jitter_track = _f("track", 4.0)
 	_on.jitter_naive = _opt.get("naive", "0") == "1"     # the control: it must drift
+	_on.jitter_rate = _opt.get("rate", "0") == "1"       # the control: it must move the mean pace
+	# the control for the gait-change path: with `switch=` it must drift
+	_on.jitter_reanchor_target = _opt.get("reanchor", "") == "target"
 	_out["jitter_track"] = _on.jitter_track
 	_out["jitter_naive"] = _on.jitter_naive
+	_out["jitter_rate"] = _on.jitter_rate
+	_out["jitter_reanchor_target"] = _on.jitter_reanchor_target
 	var mod: Node = _on.jitter_modifier()
 	_out["modifier"] = mod.report if mod != null else {"built": false}
 	_check(mod != null and bool(mod.report.get("built", false)),
@@ -207,6 +239,10 @@ func _start(path: String) -> void:
 			% [_who, mod.report if mod != null else "not built"])
 	if mod != null:
 		mod.lod_override = 0.0          # headless: there is no camera, so measure it up close
+		# `lod_m=0` turns the gate off, which is the control for the LOD check: a gate that has
+		# stopped gating must be seen.
+		mod.lod_distance_m = _f("lod_m", 30.0)
+	_legs(mod)
 	_s_on = _sampler(_on)
 	_s_off = _sampler(_off)
 	_gap = []
@@ -271,7 +307,16 @@ func _spectrum() -> void:
 
 # ------------------------------------------------------------------ 2. the key is absent
 
+## `absent_on=<0..1>` is the control, and it is set only around this check so that the control
+## fails THIS check and nothing else: with it, a manifest that carries no `variability` block
+## resolves to that much jitter - which is what "off unless the manifest asks" must never mean.
 func _absent(path: String) -> void:
+	GaitJitter.absent_default = _f("absent_on", 0.0)
+	_absent_body(path)
+	GaitJitter.absent_default = 0.0
+
+
+func _absent_body(path: String) -> void:
 	var raw: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
 	var had: bool = raw.has("variability")
 	var j := GaitJitter.from_moves(raw)
@@ -291,6 +336,74 @@ func _absent(path: String) -> void:
 			"%s with no `variability` the rate factor is exactly 1.0 and no modifier is built (playing %s)"
 			% [_who, role])
 	body.queue_free()
+
+
+## The whole argument that amplitude jitter cannot add foot skate is that it scales ARMS: a leg
+## whose rotation is scaled plants its foot somewhere else. Nothing checked it - `arm_pose`'s roots
+## plus MAX_DEPTH were the only thing standing between the modifier and a thigh, and a manifest
+## that named one would be caught, if at all, by the skate number rather than by name. So: walk up
+## from every foot the manifest names, as far as the chain the arm roots hang from, and require
+## that the modifier collected none of it. The CONTROL is `ctl=legs`, which rewrites `arm_pose` to
+## name the leg roots before the modifier is built - the mistake this is watching for, made on
+## purpose.
+func _legs(mod: Node) -> void:
+	var skel: Skeleton3D = _on._skeleton
+	if mod == null or skel == null:
+		_check(false, "%s no modifier or skeleton to check the arm chain on" % _who)
+		return
+	var feet := _foot_bones(_m, _role, skel)
+	if feet.is_empty():
+		_check(false, "%s the manifest names no foot to check the modifier against" % _who)
+		return
+	# Everything above the arm roots: where the leg chain stops being a leg and becomes the trunk.
+	var trunk := {}
+	for r in GaitJitterModifier.arm_roots(_m):
+		var i := skel.find_bone(r)
+		if i < 0:
+			i = skel.find_bone(r.replace(".", "_"))
+		while i >= 0:
+			i = skel.get_bone_parent(i)
+			if i >= 0:
+				trunk[i] = true
+	var leg := {}
+	for f in feet:
+		var i: int = f
+		var guard := 0
+		while i >= 0 and not trunk.has(i) and guard < 32:
+			leg[i] = true
+			i = skel.get_bone_parent(i)
+			guard += 1
+		_descend(skel, f, leg)
+	var hit := PackedStringArray()
+	for b in mod.bones:
+		if leg.has(int(b)):
+			hit.append(skel.get_bone_name(int(b)))
+	_out["arm_only"] = {"leg_bones": leg.size(), "modifier_bones": mod.bones.size(),
+			"in_a_leg": hit}
+	_check(hit.is_empty(),
+			"%s the modifier reaches no leg: 0 of its %d bones are in the %d-bone leg chain under %s (%s)"
+			% [_who, mod.bones.size(), leg.size(), str(GaitJitterModifier.arm_roots(_m)),
+			"none" if hit.is_empty() else str(hit)])
+
+
+func _descend(skel: Skeleton3D, bone: int, into: Dictionary) -> void:
+	into[bone] = true
+	for c in skel.get_bone_children(bone):
+		_descend(skel, c, into)
+
+
+## The control for `_legs`: point `arm_pose` at the leg roots (two bones up from each foot, which
+## is the thigh on every rig here), so the modifier builds over the legs.
+func _leg_roots(m: Dictionary, skel: Skeleton3D) -> Dictionary:
+	var per := {}
+	for f in _foot_bones(m, _role, skel):
+		var i: int = f
+		for _d in 2:
+			var up := skel.get_bone_parent(i)
+			if up >= 0:
+				i = up
+		per[skel.get_bone_name(i)] = {}
+	return {"Walk": per}
 
 
 # ------------------------------------------------------------------ 3-5. driven on real frames
@@ -315,7 +428,18 @@ func _sampler(body: MovesController) -> Dictionary:
 			"sa": 0.0, "sb": 0.0, "sn": 0, "foot_xz": [[], []]}
 
 
+func _switching() -> bool:
+	return _f("switch", 0.0) > 0.0
+
+
 func _step(delta: float) -> void:
+	if _switching():
+		var half := _f("switch", 0.0)
+		var phase := int(floor((float(_tick) * TICK) / half))
+		var want: float = _speed if phase % 2 == 0 else _speed2
+		if want != _speed_now:
+			_switches += 1
+		_speed_now = want
 	_sample(_s_on)
 	_sample(_s_off)
 	_advance(_s_on, delta)
@@ -356,10 +480,10 @@ func _sample(s: Dictionary) -> void:
 func _advance(s: Dictionary, delta: float) -> void:
 	var body: MovesController = s["body"]
 	var anim: AnimationPlayer = body._anim
-	body.play_gait_for(_speed, -1.0, delta)
+	body.play_gait_for(_speed_now, -1.0, delta)
 	anim.advance(delta)
 	s["t"] = float(s["t"]) + delta
-	s["travelled"] = float(s["travelled"]) + _speed * delta
+	s["travelled"] = float(s["travelled"]) + _speed_now * delta
 	var len_s: float = anim.current_animation_length
 	var u: float = fposmod(anim.current_animation_position / len_s, 1.0) if len_s > 0.0 else 0.0
 	var last_u: float = s["last_u"]
@@ -512,22 +636,33 @@ func _finish() -> void:
 			"swing_on_m": _mean(on["cycle_amp"]), "swing_off_m": _mean(off["cycle_amp"]),
 			"modifier_frames": mod.counters() if mod != null else {},
 			"probe_frames": (_s_on["probe"] as PoseProbe).frames}
-	_check(cv_off < NO_VARY, "%s jitter off: stride interval is exactly periodic (cv %.6f < %.5f over %d strides)"
+	if _switching():
+		# Two clips of different lengths, alternating: "the stride interval" is not one quantity
+		# here and a cv over it would measure the ladder, not the jitter. This mode exists for the
+		# drift checks below, which are the ones the gait-change path can break.
+		_out["switched_gaits"] = _switches
+		_check(_switches >= 2, "%s the gait changed %d times during the run (%.1f m/s <-> %.1f m/s)"
+				% [_who, _switches, _speed, _speed2])
+	_check(_switching() or cv_off < NO_VARY, "%s jitter off: stride interval is exactly periodic (cv %.6f < %.5f over %d strides)"
 			% [_who, cv_off, NO_VARY, (off["intervals"] as Array).size()])
-	_check(cv_on > VARY_MIN, "%s jitter on: stride interval varies (cv %.4f > %.4f over %d strides, mean %.4f s)"
+	_check(_switching() or cv_on > VARY_MIN, "%s jitter on: stride interval varies (cv %.4f > %.4f over %d strides, mean %.4f s)"
 			% [_who, cv_on, VARY_MIN, (on["intervals"] as Array).size(), _mean(on["intervals"])])
-	_check(amp_off < AMP_FLOOR, "%s jitter off: arm swing is periodic to the estimator's floor (cv %.5f < %.3f, swing %.4f m)"
+	_check(_switching() or amp_off < AMP_FLOOR, "%s jitter off: arm swing is periodic to the estimator's floor (cv %.5f < %.3f, swing %.4f m)"
 			% [_who, amp_off, AMP_FLOOR, _mean(off["cycle_amp"])])
-	_check(amp_on > VARY_MIN and amp_on > amp_off * AMP_RATIO,
+	_check(_switching() or (amp_on > VARY_MIN and amp_on > amp_off * AMP_RATIO),
 			"%s jitter on: arm swing varies cycle to cycle (cv %.4f, %.1fx the off run's %.5f floor, swing %.4f m over %d cycles)"
 			% [_who, amp_on, amp_on / maxf(amp_off, 1e-9), amp_off, _mean(on["cycle_amp"]), (on["cycle_amp"] as Array).size()])
 	var pace := absf(_mean(on["intervals"]) / maxf(_mean(off["intervals"]), 1e-9) - 1.0)
 	_out["stride"]["mean_pace_error"] = pace
-	_check(pace < 0.01, "%s mean stride time is unchanged by jitter (%.4f%% off the unjittered mean)"
+	_check(_switching() or pace < 0.01, "%s mean stride time is unchanged by jitter (%.4f%% off the unjittered mean)"
 			% [_who, 100.0 * pace])
 
 	# ---- 4. no drift, measured on the two runs' real playheads
-	var bound: float = _on.jitter.phase_gain() * 6.0
+	# One constant, not a literal that happens to match it: the bound IS the clamp the generator
+	# draws under. Which also means `worst_gap <= bound` cannot fail on the shipped path because a
+	# knot came out too big - it is bounded by construction there. What it still has teeth against
+	# is a change of MECHANISM, which is what `naive=1` supplies and what it must catch.
+	var bound: float = _on.jitter.phase_gain() * GaitJitter.KNOT_MAX
 	var d_short: float = absf(float(on["played"]) - float(off["played"]))
 	var d_long: float = absf(float(long_on["played"]) - float(long_off["played"]))
 	var hz := maxf(float(_m.get("gaits", {}).get(_role, {}).get("stride_frequency_hz", 1.0)), 0.01)
@@ -542,11 +677,18 @@ func _finish() -> void:
 			"played_on": long_on["played"], "played_off": long_off["played"],
 			"bound_cycles": bound, "metres_at_long": d_long * _speed / hz,
 			"worst_gap_cycles": worst_gap, "fitted_drift_cycles": fitted,
-			"samples": _gap.size(), "controller_drift": float(_on.jitter_state()["drift"])}
+			"samples": _gap.size(), "controller_drift": float(_on.jitter_state()["drift"]),
+			"worst_offset_cycles": float(_on.jitter_state()["worst_offset"]),
+			"worst_lag_cycles": float(_on.jitter_state()["worst_lag"])}
+	# Both halves of the gap, free: how large an offset the generator actually COMMANDED (the
+	# bound is what it is allowed to command) and how far the playhead ever lagged that command.
+	# A worst gap near the bound with a small lag is a long run that drew a large knot, which is
+	# the mechanism working; the same number with a large lag would be the controller slipping.
 	_check(worst_gap <= bound,
-			"%s the jittered playhead stays inside the offset bound over %d cycles (worst gap %.4f <= %.4f cycles, %.3f m of ground; it ends at %.4f)"
+			"%s the jittered playhead stays inside the offset bound over %d cycles (worst gap %.4f <= %.4f cycles, %.3f m of ground; it ends at %.4f; of that gap the commanded offset reached %.4f and the tracking lag %.4f)"
 			% [_who, int(float(long_off["played"])), worst_gap, bound,
-			worst_gap * _speed / hz, d_long])
+			worst_gap * _speed / hz, d_long,
+			float(_on.jitter_state()["worst_offset"]), float(_on.jitter_state()["worst_lag"])])
 	_check(absf(fitted) <= bound,
 			"%s the gap does not grow with the run (the trend through %d samples carries %+.4f cycles over %.0f s, bound %.4f; the gap reads %.4f at %.0f s and %.4f at the end)"
 			% [_who, _gap.size(), fitted, float(long_on["seconds"]), bound, d_short,
@@ -564,7 +706,9 @@ func _finish() -> void:
 			sk_off = b
 	var ratio := _f("skate_ratio", 1.25)
 	_out["skate"] = {"on": sk_on, "off": sk_off, "ratio": ratio}
-	if int(sk_off["stances"]) > 0:
+	if _switching():
+		pass
+	elif int(sk_off["stances"]) > 0:
 		var ok: bool = float(sk_on["worst_m"]) <= float(sk_off["worst_m"]) * ratio + 0.0001 \
 				and float(sk_on["mean_m"]) <= float(sk_off["mean_m"]) * ratio + 0.0001
 		_check(ok, "%s planted-foot travel is no worse with jitter (mean %.4f m on / %.4f off, worst %.4f / %.4f, over %d/%d stances)"
@@ -585,8 +729,7 @@ func _finish() -> void:
 
 	# ---- 7. LOD
 	if mod != null:
-		mod.lod_distance_m = 30.0
-		mod.lod_override = 100.0
+		mod.lod_override = mod.lod_distance_m * 3.0 + 100.0
 		var before: int = int(mod.counters()["applied"])
 		for i in 60:
 			mod._process_modification_with_delta(TICK)
