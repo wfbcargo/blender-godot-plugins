@@ -403,6 +403,41 @@ def build():
     if not row["ok"] or not row["control_unseen"]:
         failed.append("spec [flesh] edit")
 
+    # [variability] rides the moves section, and it is only in the hash once a spec ASKS for
+    # something. An all-default table is what every character that never heard of the feature
+    # has, so it must move NOTHING - that is the bit-identical claim, at the hash.
+    all_default = dataclasses.replace(ch, variability=spec.Variability())
+    moved = [s for s in names["full"] if base[s] != plan(all_default)[s]]
+    row = {"spec": "full", "expect": None, "first": moved[0] if moved else None, "moved": moved,
+           "ok": not moved, "label": "spec:moves"}
+    out["spec [variability] all default"] = row
+    if not row["ok"]:
+        failed.append("spec [variability] all default")
+
+    # asking for an asymmetry moves moves (and export after it), never body, muscle, bake, hair
+    # or flesh: the clips are baked differently and the manifest carries the resolved block
+    asym = dataclasses.replace(ch, variability=spec.Variability(asymmetry=0.35))
+    moves_drop = {"moves": ["spec:moves"]}
+    control_base, control_edit = plan(ch, drop=moves_drop), plan(asym, drop=moves_drop)
+    moved = [s for s in names["full"] if base[s] != plan(asym)[s]]
+    row = {"spec": "full", "expect": "moves", "first": moved[0] if moved else None, "moved": moved,
+           "ok": bool(moved) and moved[0] == "moves", "label": "spec:moves",
+           "control_unseen": control_edit["moves"] == control_base["moves"]}
+    out["spec [variability] asymmetry"] = row
+    if not row["ok"] or not row["control_unseen"]:
+        failed.append("spec [variability] asymmetry")
+
+    # the seed alone changes no clip, but it changes the manifest's resolved block, so it is in
+    # the hash too - and a seed equal to the one the id derives is NOT the same as none, since
+    # what the spec asked for is what is hashed
+    seeded = dataclasses.replace(ch, variability=spec.Variability(seed=1234))
+    moved = [s for s in names["full"] if base[s] != plan(seeded)[s]]
+    row = {"spec": "full", "expect": "moves", "first": moved[0] if moved else None, "moved": moved,
+           "ok": bool(moved) and moved[0] == "moves", "label": "spec:moves"}
+    out["spec [variability] seed only"] = row
+    if not row["ok"]:
+        failed.append("spec [variability] seed only")
+
     # what each stage of the full spec reads, by label (the digests themselves move with every plugin edit)
     from character_pipeline import inputs
     reads = {s: sorted(inputs.stage_inputs(ch, s)) for s in names["full"]}

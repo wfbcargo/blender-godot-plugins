@@ -165,6 +165,42 @@ bipeds are untouched unless asked.
 `idle(style=...)`, `move_set(options={"Walk": {"style": "child"}})`; a style
 has "walk", "run" and "idle" sections, and any explicit argument beats it.
 
+**Nobody is symmetric** (`variability.py`, since 0.32.0). A generated walk is mirror-symmetric to
+the last digit, which is one of the tells that nobody walked it. `cycle(variability={...})` /
+`move_set(variability={...})` take a character's own `[variability]` - `seed`, `asymmetry`,
+`jitter_phase`, `jitter_amp`, **every default 0** - and bake a FIXED left/right asymmetry into the
+arm swing, step length, shoulder dip and arm lag: one small signed per-side multiplier per
+channel, not noise, the same in every clip of that character and in every build of it. It is
+identity, so it belongs in the spec beside the body's height.
+
+It is drawn once from the seed, and the seed is **SHA-256 of the character's id** - never
+`hash()` (Python salts that per process), the clock or the process id - with each channel drawn
+from `<seed>:<channel>` rather than from a stream, so nothing depends on the order anything is
+asked for. Two builds of one spec are identical; two ids differ. `asymmetry = 0`, the default, is
+the identity exactly: gain 1.0, offset 0.0, no `variability` block in the report, the clip that
+was baked before this existed. `variability.SENSIBLE` (0.35) is what a real person is worth -
+arm swing up to +-12%, the two stance lines up to +-1% of a stroke apart (a step-length
+asymmetry of a few percent, which is normal; over 10% is a limp), shoulder dip up to +-9%, arm
+lag up to +-1.4% of a cycle - and 1.0 is the dial's end, not a person.
+
+**Step length is where the foot PLANTS, not how far it sweeps.** Both planted feet have to move
+back at the body's speed or one of them skates - the exporter refuses exactly that (`thigh.L is
+planted at a different speed from the other feet`) - and each foot travels one full stride a
+cycle in any walk that does not drift. What differs in an asymmetric walk is where the two
+stance lines sit along the travel direction, so the step from one foot to the other is not the
+step back. So the whole of it is one shift of each leg's stance centre, and `measure` reports
+`stance_offset_m` (the free value it moves, one for one) beside each foot's own `stride_m`,
+which must stay equal on both sides.
+
+Only `locomotion.cycle`'s roles (Walk, Trot, Run) take it, because only a cycle has two sides
+taking turns. `jitter_phase` and `jitter_amp` are the runtime half and are carried through to
+`<who>.moves.json` untouched, under one top-level `"variability"` key holding the **resolved**
+values a build used. `variability.measure(rig, clip)` reads per-side arm swing, step length and
+shoulder dip back off the BAKED clip (never off the parameter), with a `ratio` and a symmetry
+index per measure; a non-zero clip's report carries it under `variability.measured`.
+`RA_ASYM_MIRROR=1` gives both sides one side's draw (the clip comes out symmetric again) and
+`RA_ASYM_NONDETERMINISTIC=1` takes the seed off the process: the two controls that must fail.
+
 **A clip lasts one natural stride** (since 0.24.0): `cycle` keys `round(period x fps)` frames,
 between 16 (12 running) and the old fixed 32 (24), so played at its own rate it moves at its
 natural speed. The fixed 32 frames had every adult walk 0.7 of its natural speed (StudyMan 0.82

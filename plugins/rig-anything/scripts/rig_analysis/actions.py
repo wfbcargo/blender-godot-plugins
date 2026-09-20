@@ -1222,7 +1222,7 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
                     "Slide", "SlideRecover", "SlideToCrouch"),
              # also known, not made unless asked: "TurnL", "TurnR" (`turn`)
              walk_froude="walk", trot_froude="trot", run_froude="sprint",
-             legacy_gaits=False, options=None):
+             legacy_gaits=False, options=None, variability=None):
     """Author a playable move set for one creature. Returns {role: report}.
 
     `options` is {role: {keyword: value}}, handed to that role's maker over its
@@ -1249,6 +1249,15 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
     the walk at several times its rate. `legacy_gaits=True` restores the old
     `gait_cycle` walk and run and drops the trot. CrouchWalk stays on
     `gait_cycle`, which is built on the crouch pose.
+
+    `variability` is this character's `[variability]` (`variability.py`): a fixed
+    left/right asymmetry drawn once from its seed and baked into the gait clips -
+    arm swing, step length, shoulder dip and arm lag. It reaches the roles
+    `locomotion.cycle` authors (Walk, Trot, Run) and nothing else, because only a
+    cycle has two sides taking turns; an idle, a crouch or a jump is unchanged. The
+    default is None, and `asymmetry = 0` is the identity, so a character that asks
+    for nothing gets the clips it always got. An explicit `variability` in `options`
+    for one role beats this.
 
     For the engine side, `locomotion.engine_manifest` turns these reports into
     the gait and contact-schedule entries a controller reads. Each report is also
@@ -1306,6 +1315,11 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
     unknown = set(options) - set(makers)
     if unknown:
         return {"error": "options for unknown roles: " + ", ".join(sorted(unknown))}
+    if variability:
+        from . import locomotion as loco_mod
+        for role, (fn, _kw) in makers.items():
+            if fn is loco_mod.cycle:
+                options[role] = dict({"variability": variability}, **options.get(role, {}))
     out = {}
     for role in roles:
         fn, kw = makers[role]
