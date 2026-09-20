@@ -1,7 +1,7 @@
 {
  "fixture": "mpfb_woman_curvy",
  "plugins": {
-  "humanform": "0.15.0",
+  "humanform": "0.16.0",
   "rig-anything": "0.27.0"
  },
  "report": {
@@ -193,11 +193,11 @@
        "loop_seam": 0.0,
        "lowest_bone": {
         "bone": "toe.L",
-        "frame": 7,
+        "frame": 9,
         "height": 0.011
        },
        "skin_lowest": {
-        "frame": 7,
+        "frame": 9,
         "height": -0.0
        },
        "stance_speed_mps": 0.6514
@@ -226,7 +226,7 @@
        "balance": {
         "com_source": "skin (2 meshes)",
         "frame": 35,
-        "margin_m": 0.0665
+        "margin_m": 0.067
        },
        "clearance": null,
        "contacts": {
@@ -285,7 +285,7 @@
       "loop_seam": null,
       "loops": false,
       "lowest_foot": 0.011,
-      "note": "one-shot, not a cycle - no speed reported (it travels 0.1599 m, but not per stride)",
+      "note": "one-shot, not a cycle - no speed reported (it travels 0.1603 m, but not per stride)",
       "passed": true,
       "recheck": {
        "balance": null,
@@ -322,11 +322,11 @@
        "loop_seam": null,
        "lowest_bone": {
         "bone": "toe.L",
-        "frame": 1,
+        "frame": 5,
         "height": 0.011
        },
        "skin_lowest": {
-        "frame": 1,
+        "frame": 5,
         "height": -0.0
        },
        "stance_speed_mps": -0.0
@@ -609,7 +609,7 @@
      "FixWoman_body",
      "FixWoman_rig"
     ],
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-ilyjxd9i\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-vr5a2qtt\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "morph_targets": false,
     "options_dropped_by_this_blender": [],
     "skipped": [],
@@ -637,7 +637,7 @@
      "FixWoman_TurnR": 1.041667,
      "FixWoman_Walk": 1.0
     },
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-ilyjxd9i\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-vr5a2qtt\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "generator": "Khronos glTF Blender I/O v5.2.40",
     "gltf_version": 2,
     "joints": 53,
@@ -703,7 +703,7 @@
      1548
     ],
     "count": 25,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-ilyjxd9i\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-vr5a2qtt\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
     "frame_height_m": 2.1,
     "frames": {
      "FixWoman_Crouch": [
@@ -787,7 +787,7 @@
       21
      ]
     },
-    "seconds": 4.56,
+    "seconds": 5.45,
     "strips": {
      "FixWoman_Crouch": {
       "front": {
@@ -1052,7 +1052,7 @@
      "three_quarter"
     ]
    },
-   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-ilyjxd9i\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
+   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-vr5a2qtt\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
    "stage": "done",
    "verified": {
     "durations_match": true,
@@ -1209,7 +1209,7 @@
     "action": "FixWoman_Crouch",
     "balance": {
      "com_fwd_end": 0.1558,
-     "com_fwd_start": 0.1354,
+     "com_fwd_start": 0.1346,
      "margin_m": 0.0699,
      "support_fwd": [
       0.0261,
@@ -1232,7 +1232,7 @@
      12
     ],
     "hip_drop_m": 0.2698,
-    "hip_shift_m": -0.3379,
+    "hip_shift_m": -0.3399,
     "lean_degrees": 45.0,
     "lowest_point": 0.011,
     "max_drop_m": 0.4496,
@@ -1247,8 +1247,8 @@
     "skin_lowest": -0.0,
     "standing_height_m": 1.6991,
     "tightest_joint_degrees": {
-     "thigh.L": 105.9,
-     "thigh.R": 105.9,
+     "thigh.L": 106.2,
+     "thigh.R": 106.2,
      "upper_arm.L": 122.4,
      "upper_arm.R": 122.4
     },
@@ -1287,7 +1287,7 @@
     "planted_drift": {},
     "prediction_error": 1e-06,
     "reach_shrunk": false,
-    "rest_error": 0.704284,
+    "rest_error": 0.706227,
     "rig": "FixWoman_rig",
     "skin_lowest": -0.0,
     "stance_slip": {
@@ -1297,8 +1297,8 @@
     "standing_height_m": 1.6991,
     "stride_m": 0.3257,
     "tightest_joint_degrees": {
-     "thigh.L": 83.5,
-     "thigh.R": 83.5,
+     "thigh.L": 83.6,
+     "thigh.R": 83.6,
      "upper_arm.L": 145.0,
      "upper_arm.R": 145.0
     },
@@ -2852,9 +2852,9 @@
     "set": "58de7a04623a"
    },
    "eyes_faces": {
-    "faces": 1024,
-    "order": "e92f4355445f",
-    "set": "a11d062304d9"
+    "faces": 2048,
+    "order": "e8365358c1e9",
+    "set": "f810302fb86e"
    }
   }
  }
