@@ -83,8 +83,10 @@ round, and `tools/install.py` run from it downgrades the installed skill.
 
 | Repo | Branch | Commits |
 |---|---|---|
-| blender-godot-plugins | `motion-mass-model` | 4, off `main` at 2558c5a |
-| grungist-creek | `girdle-rebuild` | 2, off `master` |
+| blender-godot-plugins | `motion-mass-model` | off `main` at 2558c5a - four version commits plus this handoff |
+| grungist-creek | `girdle-rebuild` | off `master` - two rebuild commits |
+
+`git log --oneline main..HEAD` in the plugins repo is the authoritative list; the counts above rot.
 
 The game's characters (Belle, Marco, Mei, Ruth) are built on **0.30.0**, one version behind. The only
 difference 0.31.0 makes to a shipped clip is finger-curl timing, so a rebuild is optional; do it with
