@@ -120,39 +120,62 @@ def _fundamental(xs):
     return math.hypot(re, im), math.degrees(math.atan2(im, re))
 
 
+def _segment_twists(body, bm, evaluated, frames, name):
+    """The once-per-cycle (amplitude, phase) of one bone's rotation about `up`,
+    read off the BAKED clip, or None."""
+    rest = body.rest
+    if not name or name not in rest:
+        return None
+    up = bm["up_vec"]
+    xs = []
+    for f in range(1, frames + 1):
+        ev = evaluated.get(f)
+        if not ev or name not in ev:
+            return None
+        xs.append(_twist(ev[name], rest[name], up))
+    amp, ph = _fundamental(xs)
+    return None if amp < 1e-6 else (amp, ph)
+
+
+def _lead(a, b):
+    """b's phase relative to a's, wrapped to +-180."""
+    return round(((b - a + 180.0) % 360.0) - 180.0, 1)
+
+
 def relative_phase(body, bm, evaluated, frames):
-    """Pelvis-thorax relative phase in the transverse plane, in degrees, read
-    off the BAKED clip - Blender's own matrices, never the prediction.
+    """The axial chain's relative phases in the transverse plane, in degrees,
+    read off the BAKED clip - Blender's own matrices, never the prediction.
 
-    The relative Fourier phase the gait literature reports: the once-per-stride
-    component of each segment's rotation about `up`, thorax minus pelvis,
-    wrapped to +-180. 0 is the two turning together, +-180 is dead against each
-    other. Healthy walking runs from near in-phase at a slow walk toward
-    anti-phase as speed rises, so a clip set that reports the SAME number at
-    every speed is the thing this measures against.
+    Returns {"pelvis_thorax_phase_deg", "thorax_head_phase_deg"}, each present
+    only when both of its segments turn: the relative Fourier phase the gait
+    literature reports, the once-per-stride component of each segment's
+    rotation about `up`, the later segment minus its driver, wrapped to +-180.
+    0 is the two turning together, +-180 is dead against each other.
 
-    None when the body map cannot name a pelvis and a chest.
+    The chain is a LADDER: the legs drive the pelvis, the pelvis drives the
+    thorax, the thorax drives the head, and each rung is a mass hung on the one
+    below it that arrives late. Healthy walking runs from near in-phase at a
+    slow walk toward anti-phase as speed rises, so a clip set that reports the
+    SAME number at every speed is the thing this measures against - it is what
+    caught the thorax at a flat -179.3, and the head rung was found the same
+    way.
+
+    {} when the body map names none of the pairs.
     """
     roles = bm.get("roles") or {}
     pelvis, chest = roles.get("pelvis"), roles.get("chest")
-    if not pelvis or not chest or pelvis == chest:
-        return None
-    up = bm["up_vec"]
-    rest = body.rest
-    if pelvis not in rest or chest not in rest:
-        return None
-    ps, ts = [], []
-    for f in range(1, frames + 1):
-        ev = evaluated.get(f)
-        if not ev or pelvis not in ev or chest not in ev:
-            return None
-        ps.append(_twist(ev[pelvis], rest[pelvis], up))
-        ts.append(_twist(ev[chest], rest[chest], up))
-    ap, php = _fundamental(ps)
-    at, pht = _fundamental(ts)
-    if ap < 1e-6 or at < 1e-6:
-        return None
-    return round(((pht - php + 180.0) % 360.0) - 180.0, 1)
+    head = bm.get("head") or (bm.get("neck") or [None])[-1]
+    got = {}
+    p = _segment_twists(body, bm, evaluated, frames, pelvis) if pelvis else None
+    t = (_segment_twists(body, bm, evaluated, frames, chest)
+         if chest and chest != pelvis else None)
+    h = (_segment_twists(body, bm, evaluated, frames, head)
+         if head and head not in (pelvis, chest) else None)
+    if p and t:
+        got["pelvis_thorax_phase_deg"] = _lead(p[1], t[1])
+    if t and h:
+        got["thorax_head_phase_deg"] = _lead(t[1], h[1])
+    return got
 
 
 def limb_frequencies(poser):
