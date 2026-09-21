@@ -105,6 +105,12 @@ def main(argv):
     ap.add_argument("--jobs", type=int, default=default_jobs())
     ap.add_argument("--logs", default=None)
     a = ap.parse_args(argv)
+    # characters/pipeline.toml is the project's settings (spec.PROJECT_CONFIG), not a character: a glob over
+    # characters/*.toml picks it up, and it failed as a spec with "unknown field(s) blend"
+    skipped = [s for s in a.specs if os.path.basename(s) == "pipeline.toml"]
+    a.specs = [s for s in a.specs if s not in skipped]
+    if skipped:
+        print(f"skipping {', '.join(skipped)}: the project's pipeline settings, not a character")
     missing = [s for s in a.specs if not os.path.isfile(s)]
     if missing:
         print(f"no such spec: {', '.join(missing)}", file=sys.stderr)
