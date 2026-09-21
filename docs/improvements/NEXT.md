@@ -56,9 +56,18 @@ the head-thorax rung is "NOT built yet". It was built in 0.32.0, so the comment 
 
 In the order I would take them:
 
-1. **Re-run the benchmark.** Its last numbers (73-93 s cold against 30 s) are from before 0.37.0 fixed
-   `moves`, and 0.7.0 has since added about 4 s to `garments` for anyone wearing a loose top. Nobody knows
-   the real end-to-end number. It is one ship-step command and needs no code (see "The benchmark").
+1. ~~**Re-run the benchmark.**~~ **Done 2026-09-21:
+   [rerun-2026-09-21.md](notebooks/benchmark/rerun-2026-09-21.md).**
+   - **Time:** cold median 43.5 / 42.3 / ~46 s. The 73-93 s regression is gone, but that is still no
+     nearer 30 s. `moves` is now the largest stage at 11-13 s.
+   - **Critics:** 12/18, 11/17, 13/18, and no character reads as real. Hair and dead eyes are on all
+     three, as before.
+   - **New:** a cell pattern on the forearms and hands, seen by all three critics and measured by nothing.
+     Ruth's full tile is 3.91% past white under clear_midday.
+   - **Blockers:** Marco builds clean. `check_placement` still has no escape, and it now drops the butt on
+     both women, Mei's by a one-sided 0.01.
+   - **Caveat:** Ruth's number is from 2 clean runs; another session's CPU load spoiled the rest.
+   - **To see them:** grungist-creek's `bench_demo.tscn`.
 2. **The trunk and the head, as one round.** Both sections below are measured and written to be picked up
    cold, and both need every character rebuilt, so doing them together pays for one rebuild, one full
    regress and one look critic:
@@ -754,6 +763,17 @@ against **30 s**), a warm rebuild and a one-line `[flesh]` edit; a Godot close-s
 the three slowest stages; and a **brief-fidelity** list - every part of the brief the tools could not express.
 An independent critic then scores the sheet on `lookdev/references/critic-look.md` (pass count), says whether it
 reads as a real person, and names each mismatch with the brief.
+
+**Runs so far:**
+- [baseline-2026-09-19.md](notebooks/benchmark/baseline-2026-09-19.md): 42.2 / ~41 / 41.7 s; critics
+  11/19, 11/18, 10/16.
+- 2026-09-20, recorded in [moves-mass-cache.md](notebooks/motion-alive/moves-mass-cache.md): 93.3 / 73.1 /
+  90.8 s, the `moves` regression.
+- [rerun-2026-09-21.md](notebooks/benchmark/rerun-2026-09-21.md): 43.5 / 42.3 / ~46 s; critics 12/18,
+  11/17, 13/18.
+
+**Time on an idle machine.** Another process pinning the CPU inflates every stage together, and it
+spoiled most of Ruth's runs on 09-21.
 
 Where it starts: the study figures build from nothing in 34-38 s with every stage rerun (Step 1 ship), and a
 fresh body fit alone took 11-14 s in the figure study round. Gaps the briefs will likely hit, from reading
