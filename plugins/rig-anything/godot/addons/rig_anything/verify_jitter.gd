@@ -40,6 +40,11 @@ extends SceneTree
 ## Prints `RA_JITTER <json>` per manifest and `RA_JIT VERIFY PASSED/FAILED`; exits 1 on failure.
 
 const TICK := 1.0 / 60.0
+## The tick the ANIMATION is advanced by, which `tick=<seconds>` may make coarser than the engine
+## frame. Both bodies advance by the same amount, so every gap between them stays the measurement
+## it was; what changes is how finely the phase warp is integrated. It is the condition the
+## tracking term exists for - see `_finish`'s lag check.
+var _dt := TICK
 ## The band the shipped generator must land in, and white noise must not.
 const ALPHA_MIN := 0.70
 const ALPHA_MAX := 0.90
@@ -87,6 +92,8 @@ var _short := {}
 var _speed2 := 0.0
 var _speed_now := 0.0
 var _switches := 0
+## How many manifests this run has already drawn a series for; it steps the injected seed.
+var _drawn := 0
 
 
 ## An independent observer of what the skeleton's modifier pass actually produces. It is added to
@@ -117,6 +124,7 @@ func _initialize() -> void:
 			_find(a.substr(4), _paths)
 		elif "=" in a:
 			_opt[a.get_slice("=", 0)] = a.substr(a.find("=") + 1)
+	_dt = _f("tick", TICK)
 	if _paths.is_empty():
 		print("RA_JIT VERIFY: give manifests=<a,b> or dir=<res://...>")
 		quit(2)
@@ -140,6 +148,15 @@ func _check(ok: bool, what: String) -> void:
 		_fails.append(what)
 
 
+## A check this mode cannot measure. It prints its own line and counts as neither pass nor fail.
+## A skipped check used to be written `_check(_switching() or ok, "... (cv %.6f < %.5f)")`, which
+## passes the row AND prints its bound as though it had been met: `switch=7` logged "stride
+## interval is exactly periodic (cv 0.217982 < 0.00050)" - 0.218 is not less than 0.0005. A reader
+## of that log is being told something false by a green run, which is worse than either verdict.
+func _skip(what: String) -> void:
+	print("RA_JIT  SKIP  %s" % what)
+
+
 func _process(delta: float) -> bool:
 	match _state:
 		"next":
@@ -158,10 +175,15 @@ func _process(delta: float) -> bool:
 ## The manifest as the game has it, plus the `variability` block this run asks for. The block is
 ## injected here rather than demanded of the asset, so the verifier runs against characters built
 ## before the seam existed - which is every one of them.
+## The seed is stepped once per manifest (`seed`, `seed+1`, `seed+2`, ...) so a run over several
+## characters is several DRAWS, not one draw measured several times: with a fixed seed every
+## character reported byte-identical DFA rows, and "the spectrum holds on three characters" then
+## rested on one series. A one-manifest run (which is what regress drives) is index 0 and its
+## numbers are unchanged. The resolved seed is in `RA_JITTER`'s `variability` block per character.
 func _with_variability(path: String) -> Dictionary:
 	var m: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
 	m["variability"] = {
-		"seed": int(_f("seed", 7.0)),
+		"seed": int(_f("seed", 7.0)) + _drawn,
 		"asymmetry": 0.0,
 		"jitter_phase": _f("jitter", 0.6),
 		"jitter_amp": _f("amp", 0.6),
@@ -186,6 +208,7 @@ func _body(m: Dictionary, tag: String) -> MovesController:
 
 func _start(path: String) -> void:
 	_m = _with_variability(path)
+	_drawn += 1
 	_who = "%s:" % str(_m.get("creature", path.get_file()))
 	_out = {"who": str(_m.get("creature", "")), "manifest": path,
 			"variability": _m["variability"], "spectrum": _opt.get("spectrum", "persistent")}
@@ -224,11 +247,14 @@ func _start(path: String) -> void:
 	_on.jitter.spectrum = str(_opt.get("spectrum", "persistent"))
 	_on.jitter.reset()
 	_on.jitter_track = _f("track", 4.0)
+	_on.jitter_track_lead = _opt.get("lead", "0") == "1"
 	_on.jitter_naive = _opt.get("naive", "0") == "1"     # the control: it must drift
 	_on.jitter_rate = _opt.get("rate", "0") == "1"       # the control: it must move the mean pace
 	# the control for the gait-change path: with `switch=` it must drift
 	_on.jitter_reanchor_target = _opt.get("reanchor", "") == "target"
 	_out["jitter_track"] = _on.jitter_track
+	_out["jitter_track_lead"] = _on.jitter_track_lead
+	_out["tick"] = _dt
 	_out["jitter_naive"] = _on.jitter_naive
 	_out["jitter_rate"] = _on.jitter_rate
 	_out["jitter_reanchor_target"] = _on.jitter_reanchor_target
@@ -247,8 +273,8 @@ func _start(path: String) -> void:
 	_s_off = _sampler(_off)
 	_gap = []
 	_tick = 0
-	_short_ticks = int(round(_f("seconds", 60.0) / TICK))
-	_total_ticks = maxi(int(round(_f("long", 300.0) / TICK)), _short_ticks)
+	_short_ticks = int(round(_f("seconds", 60.0) / _dt))
+	_total_ticks = maxi(int(round(_f("long", 300.0) / _dt)), _short_ticks)
 	_short = {}
 	_state = "drive"
 
@@ -432,10 +458,20 @@ func _switching() -> bool:
 	return _f("switch", 0.0) > 0.0
 
 
-func _step(delta: float) -> void:
+## Whether the one-clip, one-cycle checks can be measured at all this run. Two clips alternating
+## under `switch=` are not one cycle; and a tick coarser than the frame is too few samples per
+## cycle for the stride wrap and the first-harmonic arm-swing estimators (at `tick=0.0667` a
+## perfectly periodic swing already reads cv 0.0167, past the 0.01 floor the check rests on). Both
+## modes exist for the drift checks, which the tick and the gait change are what can break.
+func _cycle_checks() -> bool:
+	return not _switching() and _dt <= TICK * 1.5
+
+
+func _step(_delta: float) -> void:
+	var delta := _dt
 	if _switching():
 		var half := _f("switch", 0.0)
-		var phase := int(floor((float(_tick) * TICK) / half))
+		var phase := int(floor((float(_tick) * _dt) / half))
 		var want: float = _speed if phase % 2 == 0 else _speed2
 		if want != _speed_now:
 			_switches += 1
@@ -636,26 +672,32 @@ func _finish() -> void:
 			"swing_on_m": _mean(on["cycle_amp"]), "swing_off_m": _mean(off["cycle_amp"]),
 			"modifier_frames": mod.counters() if mod != null else {},
 			"probe_frames": (_s_on["probe"] as PoseProbe).frames}
-	if _switching():
-		# Two clips of different lengths, alternating: "the stride interval" is not one quantity
-		# here and a cv over it would measure the ladder, not the jitter. This mode exists for the
-		# drift checks below, which are the ones the gait-change path can break.
-		_out["switched_gaits"] = _switches
-		_check(_switches >= 2, "%s the gait changed %d times during the run (%.1f m/s <-> %.1f m/s)"
-				% [_who, _switches, _speed, _speed2])
-	_check(_switching() or cv_off < NO_VARY, "%s jitter off: stride interval is exactly periodic (cv %.6f < %.5f over %d strides)"
-			% [_who, cv_off, NO_VARY, (off["intervals"] as Array).size()])
-	_check(_switching() or cv_on > VARY_MIN, "%s jitter on: stride interval varies (cv %.4f > %.4f over %d strides, mean %.4f s)"
-			% [_who, cv_on, VARY_MIN, (on["intervals"] as Array).size(), _mean(on["intervals"])])
-	_check(_switching() or amp_off < AMP_FLOOR, "%s jitter off: arm swing is periodic to the estimator's floor (cv %.5f < %.3f, swing %.4f m)"
-			% [_who, amp_off, AMP_FLOOR, _mean(off["cycle_amp"])])
-	_check(_switching() or (amp_on > VARY_MIN and amp_on > amp_off * AMP_RATIO),
-			"%s jitter on: arm swing varies cycle to cycle (cv %.4f, %.1fx the off run's %.5f floor, swing %.4f m over %d cycles)"
-			% [_who, amp_on, amp_on / maxf(amp_off, 1e-9), amp_off, _mean(on["cycle_amp"]), (on["cycle_amp"] as Array).size()])
 	var pace := absf(_mean(on["intervals"]) / maxf(_mean(off["intervals"]), 1e-9) - 1.0)
 	_out["stride"]["mean_pace_error"] = pace
-	_check(_switching() or pace < 0.01, "%s mean stride time is unchanged by jitter (%.4f%% off the unjittered mean)"
-			% [_who, 100.0 * pace])
+	if not _cycle_checks():
+		# Two clips of different lengths, alternating: "the stride interval" is not one quantity
+		# here and a cv over it would measure the ladder, not the jitter. This mode exists for the
+		# drift checks below, which are the ones the gait-change path can break. The five cycle
+		# checks and the skate check are SKIPPED, by name and with their raw measurements beside
+		# them, rather than passed with a bound they did not meet.
+		if _switching():
+			_out["switched_gaits"] = _switches
+			_check(_switches >= 2, "%s the gait changed %d times during the run (%.1f m/s <-> %.1f m/s)"
+					% [_who, _switches, _speed, _speed2])
+		_skip("%s at tick %.4f s under `switch=%.1f` the one-clip checks do not apply and are not run: stride interval off (cv %.6f) and on (cv %.4f), arm swing off (cv %.5f) and on (cv %.4f), mean pace (%.4f%% off), planted-foot travel. Each of these measures the gait ladder or the sampling, not the jitter; the drift checks below are what these modes are for."
+				% [_who, _dt, _f("switch", 0.0), cv_off, cv_on, amp_off, amp_on, 100.0 * pace])
+	else:
+		_check(cv_off < NO_VARY, "%s jitter off: stride interval is exactly periodic (cv %.6f < %.5f over %d strides)"
+				% [_who, cv_off, NO_VARY, (off["intervals"] as Array).size()])
+		_check(cv_on > VARY_MIN, "%s jitter on: stride interval varies (cv %.4f > %.4f over %d strides, mean %.4f s)"
+				% [_who, cv_on, VARY_MIN, (on["intervals"] as Array).size(), _mean(on["intervals"])])
+		_check(amp_off < AMP_FLOOR, "%s jitter off: arm swing is periodic to the estimator's floor (cv %.5f < %.3f, swing %.4f m)"
+				% [_who, amp_off, AMP_FLOOR, _mean(off["cycle_amp"])])
+		_check(amp_on > VARY_MIN and amp_on > amp_off * AMP_RATIO,
+				"%s jitter on: arm swing varies cycle to cycle (cv %.4f, %.1fx the off run's %.5f floor, swing %.4f m over %d cycles)"
+				% [_who, amp_on, amp_on / maxf(amp_off, 1e-9), amp_off, _mean(on["cycle_amp"]), (on["cycle_amp"] as Array).size()])
+		_check(pace < 0.01, "%s mean stride time is unchanged by jitter (%.4f%% off the unjittered mean)"
+				% [_who, 100.0 * pace])
 
 	# ---- 4. no drift, measured on the two runs' real playheads
 	# One constant, not a literal that happens to match it: the bound IS the clamp the generator
@@ -706,8 +748,8 @@ func _finish() -> void:
 			sk_off = b
 	var ratio := _f("skate_ratio", 1.25)
 	_out["skate"] = {"on": sk_on, "off": sk_off, "ratio": ratio}
-	if _switching():
-		pass
+	if not _cycle_checks():
+		pass                                  # named in the SKIP line above, with the others
 	elif int(sk_off["stances"]) > 0:
 		var ok: bool = float(sk_on["worst_m"]) <= float(sk_off["worst_m"]) * ratio + 0.0001 \
 				and float(sk_on["mean_m"]) <= float(sk_off["mean_m"]) * ratio + 0.0001

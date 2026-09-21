@@ -82,6 +82,12 @@ var jitter_lod_distance_m := 30.0
 ## it to 0 leaves the offset applied open loop, which still telescopes because the slope is read at
 ## the UNJITTERED phase. `jitter_naive` is the one that drifts, and is the control.
 var jitter_track := 4.0
+## EXPERIMENT (off by default): measure the tracking error at the END of the tick instead of
+## across it. `_jit_theta` is advanced before the error is formed while `_jit_phi` is not, so the
+## error carries one tick of advance that is not error at all, and the loop settles one tick
+## behind - which is exactly the 0.0167-cycle steady-state lag at 60 Hz and 0.227 at 4 Hz.
+## See `jitter_factor`.
+var jitter_track_lead := false
 ## The control `verify_jitter.gd` ships for the drift check, and the implementation a first attempt
 ## gives: read the warp's slope off the clip's OWN playing phase and multiply the rate by it. The
 ## slope is then evaluated at the already-warped playhead, so the per-cycle advance is
@@ -335,7 +341,10 @@ func jitter_factor(base_rate: float, delta := -1.0) -> float:
 		var target := _jit_theta + off
 		_jit_worst_offset = maxf(_jit_worst_offset, absf(off))
 		_jit_worst_lag = maxf(_jit_worst_lag, absf(target - _jit_phi))
-		f = 1.0 + jitter.phase_slope(u) + jitter_track * (target - _jit_phi)
+		var err := target - _jit_phi
+		if jitter_track_lead:
+			err -= r * dt          # the experiment: the two sides of the error at the same instant
+		f = 1.0 + jitter.phase_slope(u) + jitter_track * err
 	f = clampf(f, GaitJitter.RATE_MIN, GaitJitter.RATE_MAX)
 	_jit_phi += r * f * dt
 	if _jit_mod != null:

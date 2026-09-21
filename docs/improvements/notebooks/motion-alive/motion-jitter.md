@@ -665,3 +665,116 @@ Two things the run itself taught:
 - `switch=` picks the fastest gait on the ladder and falls back to Idle only when there is one
   gait. On `pipeline_woman` it alternates Walk and Run, so the `play_role` reset path - the one the
   new wrapped-difference correction exists for - is still not what regress exercises.
+
+---
+
+## Fix pass after critic round 2 - rig-anything 0.36.0
+
+Five of the critic's problems were mine to fix; one of them turned into a finding about the
+controller, and one turned into a refusal.
+
+### 1. A skipped check must not print a bound it did not meet
+
+The critic read this line out of a GREEN run:
+
+    RA_JIT  PASS  study_man: jitter off: stride interval is exactly periodic (cv 0.217982 < 0.00050 over 23 strides)
+
+0.218 is not less than 0.0005. The check was written `_check(_switching() or cv_off < NO_VARY, "...")`,
+so under `switch=` the row passes and still formats its bound as though it had been met. The skate
+check under `switch=` skipped SILENTLY, which was the right shape and is why the critic could see
+the difference.
+
+There is now a third verdict. `_skip()` prints `RA_JIT  SKIP` with the raw measurements beside it
+and counts as neither pass nor fail, and `_cycle_checks()` decides once whether the one-clip
+checks can be measured at all:
+
+    RA_JIT  SKIP  study_man: at tick 0.0167 s under `switch=7.0` the one-clip checks do not apply
+    and are not run: stride interval off (cv 0.216378) and on (cv 0.2181), arm swing off (cv
+    0.04755) and on (cv 0.0568), mean pace (0.1013% off), planted-foot travel. Each of these
+    measures the gait ladder or the sampling, not the jitter; the drift checks below are what
+    these modes are for.
+
+The numbers are still in the log - a reader who wants them has them - but nothing claims they
+passed anything.
+
+### 2. The controls now declare every line they fail
+
+`how_to_check` said "Each MUST exit 1 and MUST fail on its own named line, nothing else ... regress
+checks exactly this." regress did not: `_run_jitter` only checked that the named lines were AMONG
+the failures. The critic found two controls failing undeclared extras (`spectrum=flat` five lines,
+`spectrum=white` three).
+
+Each control in `GODOT_JITTER` is now a triple - args, the lines it EXISTS to fail, and the lines
+it is ALLOWED to fail - and a failure outside both lists makes the row red, naming the line. The
+allowances are not a courtesy; each one is an argument:
+
+| control | allowed extra | why it is real |
+|---|---|---|
+| `spectrum=white` | the skate line | white noise steps the phase where the persistent series glides: 0.0345 m against the shipped 0.0281 |
+| `ctl=legs` | the skate line | the modifier over the thighs reads 0.0465 m against 0.0368 off - the whole "arms only" argument |
+| `spectrum=flat` | both DFA lines, boundedness | a constant series has no fluctuation to detrend (NaN) and sits at its own mean, not zero |
+| `naive=1`, `rate=1` | the other drift line(s) | a mechanism that accumulates fails both halves of the drift check |
+
+### 3. The author's own description of `spectrum=flat` was wrong
+
+The previous report said flat "passes the boundedness check and fails the two 'it varies' checks
+instead". It fails the boundedness check too (mean 1.0000, max |x| 1.00) and both DFA rows read
+`nan`. Measured, tabled above, and the control declares all three.
+
+### 4. Three characters are now three draws
+
+`_with_variability` injected a fixed seed (default 7) into every manifest, so study_man,
+study_woman and belle reported byte-identical DFA rows and "the spectrum holds on three
+characters" was one draw measured three times. The injected seed is now stepped once per manifest
+(`seed`, `seed+1`, ...). A one-manifest run - which is what regress drives - is index 0 and its
+numbers are unchanged to the last digit; the three-character run is three series:
+
+    study_man    phase 0.823  amp 0.805
+    study_woman  phase 0.825  amp 0.796
+    belle        phase 0.811  amp 0.805
+
+all inside [0.70, 0.90], `RA_JIT VERIFY PASSED`, 57 PASS / 0 FAIL, exit 0.
+
+### 5. `jitter_track`, and what a coarse tick showed
+
+The critic's sharpest problem: their own control `track=0` - the tracking term switched off
+entirely - still PASSED the 400 s, 57-gait-change run. One of the controller's two terms was
+unchecked by anything.
+
+`tick=<seconds>` now advances the animation by that much per frame on BOTH bodies instead of by
+the engine's 1/60 - what a throttled distant character gets. The gap between the two playheads
+stays exactly the measurement it was; what changes is how finely the warp is integrated. At 4 Hz:
+
+| run | worst gap (bound 0.216) | tracking lag |
+|---|---|---|
+| shipped, `tick=0.25` | **0.3164 - FAILS** | 0.2273 |
+| `track=0`, `tick=0.25` | 0.0866 | - |
+| `tick=0.0667` (15 Hz) | 0.1333 | 0.0351 |
+| 60 Hz | 0.1092 | 0.0167 |
+
+So the term is not inert - it is the largest single contributor to the gap, and past about 10 Hz
+it is what breaks the bound. My first guess was loop instability (`jitter_track * r * dt` reaching
+1), and capping the gain changed nothing: 0.3164 against 0.3162. The mechanism is an off-by-one
+tick. `_jit_theta` is advanced to the END of the tick before the error is formed, while `_jit_phi`
+is still at its START, so one tick of ordinary advance is counted as error and the loop settles
+exactly one tick behind - 0.0167 cycles at 60 Hz, 0.227 at 4 Hz. **That is the same 0.0167 the
+0.35.0 pass called an inherent steady-state lag, and it is not inherent.**
+
+`MovesController.jitter_track_lead` subtracts `r * dt` from the error, and `tick=0.25` then reads
+0.0590 instead of 0.3164. It ships **off**, deliberately, and this is the refusal: with the lag
+gone there is nothing for a gait change to throw away, so `reanchor=target` - the control that
+documents this branch's one real bug - stops failing (0.1102, exit 0). Retiring a control that
+records a real bug is a change to read on its own, with the reanchor control reshaped around it,
+not something to slip into a fix pass on the last round.
+
+What ships instead is the boundary, written down as a control: `tick=0.25` must FAIL "stays inside
+the offset bound". It says where the shipped controller stops holding, and the day someone fixes
+the lag the row goes red and the change gets read.
+
+### What I could not fix
+
+- **regress is still not green**, and still not because of this branch: `verify_strands
+  pipeline_ponytail`, main's. Unchanged by this pass.
+- The 64-bit seed truncation through Godot's JSON parser, the cost check with no control, and
+  `_lod_far()`'s camera lookup are all as the previous pass left them - each wants its own commit
+  on main or on a later branch, for the reasons recorded above.

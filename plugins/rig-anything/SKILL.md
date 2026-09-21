@@ -583,7 +583,26 @@ away one tracking lag per gait change: 17 changes reached a 0.449-cycle gap with
 past the same 0.216 bound. It now re-anchors to where the playhead actually is, and 57 gait changes
 over 400 s read worst gap 0.116-0.123 with a trend of +0.014 to +0.018.
 
-Eight controls, each of which must fail and must fail on its own named line:
+**Since 0.36.0 it also drives a coarse tick.** `tick=<seconds>` advances the animation by that
+much per frame on BOTH bodies instead of by the engine's 1/60, which is what a throttled distant
+character gets. It is the condition the tracking term is visible in, and what it shows is not
+flattering: the error `jitter_track` corrects is formed with `_jit_theta` already advanced to the
+end of the tick and `_jit_phi` still at its start, so one tick of ordinary advance is counted as
+error and the loop settles one tick behind. That lag is 0.0167 cycles at 60 Hz - small, and what
+`reanchor=target` throws away per gait change - and **0.227 cycles at 4 Hz, which is larger than
+the 0.216 bound**: at `tick=0.25` the shipped playhead leaves its bound (worst gap 0.316) while
+the same run with the tracking term off reads 0.087. At `tick=0.0667` (15 Hz) it still holds,
+worst gap 0.133. So 0.25 s ships as a control - the rate at which this stops working, written
+down - and `MovesController.jitter_track_lead`, which forms the error at one instant and makes
+that run pass at 0.059, ships **off**: it also makes `reanchor=target` stop failing, because
+there is then no lag to throw away, and retiring a control that documents a real bug is a change
+to read on its own rather than to slip into a fix pass. The one-clip checks (stride, arm swing,
+pace, skate) are SKIPPED under `tick=` and under `switch=`, by name and with their raw numbers
+beside them, because neither mode can measure them - a skipped check does not print a bound it
+did not meet.
+
+Nine controls, each of which must fail, must fail on its own named line, and must fail on
+**nothing the table below does not name** - `tools/regress.py` checks all three since 0.36.0:
 
 | control | what it breaks |
 |---|---|
@@ -594,7 +613,8 @@ Eight controls, each of which must fail and must fail on its own named line:
 | `rate=1` | the bounded offset used as a playback RATE: mean stride time 3.90% off, worst gap 1.79 |
 | `absent_on=0.6` | a manifest with no `variability` resolving to jitter instead of to off |
 | `lod_m=0` | the distance gate turned off: the modifier runs 60/60 frames past the boundary |
-| `ctl=legs` | `arm_pose` pointed at the thighs, so the modifier builds over the leg chain |
+| `ctl=legs` | `arm_pose` pointed at the thighs, so the modifier builds over the leg chain (it also fails the skate line, 0.0465 m against 0.0368 off - which is the whole "arms only" argument) |
+| `tick=0.25` | the animation advanced 4 times a second: the tracking term's one-tick lag, 0.227 cycles, is larger than the 0.216 bound (worst gap 0.316) |
 
 `ctl=legs` is the control for the check that "arms only" is true by NAME rather than by
 consequence: the verifier walks up from every foot the manifest names, as far as the chain the arm
