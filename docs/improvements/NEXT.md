@@ -1,165 +1,131 @@
-# Next: realism on the figure study (skin and motion done; the trunk, the head and the cloth next)
+# Next: realism on the figure study (skin, motion, asymmetry metric and loose cloth done; trunk and head next)
 
 A handoff for a fresh conversation. Start with:
 
-> Read `docs/improvements/NEXT.md`, ask which step to take next (it lists the choices), plan it, and run it the
-> way the flesh round ran (one branch at a time, an independent critic each) - or with the `plugin-round` workflow
-> if the user asks for multi-agent orchestration (see "Running the next session").
-
-**The motion round is CLOSED and pushed.** What it shipped and what each version established is in
-["Resuming the motion work"](#resuming-the-motion-work-2026-09-20---closed-kept-as-the-record) below,
-kept as the record. What it did
-NOT do is three sections below, each measured and each written to be picked up cold - and they are **one
-round**, because all three end in the same rebuild of the same six characters:
-["The head is held almost still"](#the-head-is-held-almost-still-measured-2026-09-21-built-by-nobody),
-["Cloth that hugs the skin"](#cloth-that-hugs-the-skin-measured-2026-09-21-built-by-nobody) and
-["The trunk's other two planes"](#the-trunks-other-two-planes-measured-2026-09-20-built-by-nobody).
+> Read `docs/improvements/NEXT.md`, ask which item under "Where to pick up" to take next, plan it, and run
+> it the way the cloth branches ran: one worktree per branch, measured before and after, and looked at in
+> Godot before it is called done. Use the `plugin-round` workflow only if the user asks for multi-agent
+> orchestration (see "Running the next session").
 
 **The goal of all this work:** tools that make a new human asset from a brief **in under 30 seconds** and
-have it **look great** in Godot. The study figures are the test bench; the scoreboard is the benchmark
-(below): three brand-new characters built cold from their briefs, timed, and judged by an independent critic.
-Every round's ship step runs it, and every plan should say which of the two numbers it moves.
+have it **look great** in Godot. The study figures are the test bench. The scoreboard is the benchmark
+(below): three brand-new characters built cold from their briefs, timed, and judged by an independent
+critic. Every plan should say which of those two numbers it moves.
 
-State as of **2026-09-21**: the motion round is **done, merged and PUSHED** - rig-anything
-0.28.0-0.37.0 and character-pipeline 0.16.0, via
-[plugins#2](https://github.com/wfbcargo/blender-godot-plugins/pull/2) and
-[grungist-creek#1](https://github.com/wfbcargo/grungist-creek/pull/1). All ten versions are installed, and
-**all six figures** - study_man, study_woman, Belle, Marco, Mei and Ruth - are rebuilt on them in the game,
-each carrying `[variability] asymmetry = 0.35` with a seed drawn from its own id.
+## State at the end of 2026-09-21
 
-`main` and `master` are clean and in sync with origin. The only open branch is the parked
-`fig-genital-anatomy` (`94ac682`) with its worktree; `~/.claude/skills` and the game's addons match `main`.
+**Everything is merged and pushed.** `main` (blender-godot-plugins) and `master` (grungist-creek) are
+clean and in sync with origin. `~/.claude/skills` and the game's addons match `main`. The only other
+branch is the parked `fig-genital-anatomy` (`94ac682`), which still has its worktree.
 
-**One row of the round's full regress is still red**: `verify_strands pipeline_ponytail`, diagnosed and not
-fixed - see "The one red row" below.
+Shipped on 2026-09-21, newest first:
 
-**0.37.0 is the round's own regression, fixed at its cause.** The benchmark caught `moves` at 2.2x its
-baseline, and it was one thing: `mass.body_mass` caches on the `motion.Body` it is handed, but every role
-builds its OWN Body, so the cache was empty every time and fell through to `load() or measure()` - and
-`load` reads a stamp that **nothing in the repo ever writes**. The 300k-voxel solve ran once per role on an
-unchanged body. Belle's seven-role set went from 4 `measure()` calls and 18.42 s to **1 and 12.28 s**, and
-Marco's `moves` stage from 9.9 s on 0.30.0 to **9.7 s on 0.37.0** - under the pre-regression number while
-carrying everything 0.32.0-0.36.0 added. Notebook:
-[notebooks/motion-alive/moves-mass-cache.md](notebooks/motion-alive/moves-mass-cache.md).
+| version | what | PRs |
+|---|---|---|
+| wardrobe 0.7.0 | Loose tops hang from the bust's apex instead of tucking under it. New: `fit.tuck` check, `tuck_limit`, a `skin` preset key, fixture `dressed_loose`. Ruth's tuck 17.2 -> 2.9 mm. | [plugins#6](https://github.com/wfbcargo/blender-godot-plugins/pull/6), [game#4](https://github.com/wfbcargo/grungist-creek/pull/4) |
+| wardrobe 0.6.0 | `tshirt` / `longsleeve` ease off the body's smoothed form, so nipples and belly no longer show through (traced 0.19 -> ~0.01). | [plugins#5](https://github.com/wfbcargo/blender-godot-plugins/pull/5), [game#3](https://github.com/wfbcargo/grungist-creek/pull/3) |
+| rig-anything 0.38.0 | `AsymmetryMeter`: each body's left against its right, measured in Godot. `motion_demo` prints it. | [plugins#5](https://github.com/wfbcargo/blender-godot-plugins/pull/5), [game#3](https://github.com/wfbcargo/grungist-creek/pull/3) |
 
-The rest of this file is the state as of 2026-09-19, which the motion round did not touch.
-**The flesh round from the user's cast-demo review is done and shipped**: all seven plugin
-changes (A-G) of [research-flesh-jiggle.md](research-flesh-jiggle.md) are merged, installed and in the game (see "The
-cast demo" below for what each did). Everything is pushed: this repo's `main` and `grungist-creek`'s `master`. The
-parked branch `fig-genital-anatomy` (`94ac682`) still has its worktree at `.worktrees/fig-genital-anatomy`; there are
-no other worktrees or open branches. `~/.claude/skills` and the game's addons match `main`.
+Before that: the motion round (rig-anything 0.28.0-0.37.0, character-pipeline 0.16.0, plugins#2 /
+game#1), Step 2 skin, and the flesh round. Their record is in the sections further down.
 
-**Step 2 - skin: five branches merged, shipped and pushed (2026-09-19)**: lookdev-golden-hour,
-skin-pores-distance, skin-regions, skin-finger-edges and lookdev-overcast (humanform 0.15.0, lookdev 0.11.0,
-character-pipeline 0.15.0), installed; the six figures rebuilt in the game from body (`grungist-creek` master, see
-"Where the figures are"); `regress --twice --jobs 4 --godot` on a copy of the game: `REGRESS DONE exit=0, 23 fixtures
-ok`, no change. **Step 2 is done**: lookdev-overcast took the last two items (specular under overcast, overcast
-exposure) and, in doing so, found clear_midday metered half a stop hot. Notebooks:
-[notebooks/realism-step2/ship.md](notebooks/realism-step2/ship.md),
-[lookdev-overcast.md](notebooks/realism-step2/lookdev-overcast.md).
+**Figures in the game:** all six (study_man, study_woman, Belle, Marco, Mei, Ruth) are on rig-anything
+0.37.0/0.38.0 with `[variability] asymmetry = 0.35`. **Marco and Ruth were rebuilt on wardrobe 0.7.0**; they
+are the two whose outfits use the changed presets. Backups of their previous blends and assets are in
+`%TEMP%/rw/cloth/backup/` (0.5.2) and `%TEMP%/rw/hang/backup/` (0.6.0). These are scratch folders, so do
+not count on them.
 
-**The benchmark has been run for the first time (2026-09-19)** - it had never been, despite being this file's
-scoreboard. Cold medians **42.2 / ~41 / 41.7 s against 30 s**; warm rebuild 2.0-2.1 s, so cold is the whole gap
-and it is `bake` (8-10 s) plus `moves` (7-10 s). **None of the three briefs built on the first attempt**, and the
-critics scored 11/19, 11/18, 10/16 with none reading as a real person. Full results and the ranked list they
-support: [notebooks/benchmark/baseline-2026-09-19.md](notebooks/benchmark/baseline-2026-09-19.md). Re-run it
-after each round with the same briefs and compare those two numbers.
+**One regress row is red and has been for two rounds:** `verify_strands pipeline_ponytail`, with
+swing_spread 1.050. It is diagnosed and not fixed; see "The one red row" further down. Every other row is
+green: `regress --quick --godot` on 0.7.0 reports 25 fixtures ok.
 
-**Second run, 2026-09-20** (the motion round's ship step), and it moved both numbers in opposite directions:
+### To preview where we are
 
-| | cold median | vs 30 s | critic |
-|---|---|---|---|
-| Marco | 42.2 -> **93.3 s** | FAIL 3.1x | 11/19 -> **14/19** |
-| Mei | ~41 -> **73.1 s** | FAIL 2.4x | 11/18 -> **14/18** |
-| Ruth | 41.7 -> **90.8 s** | FAIL 3.0x | 10/16 -> 10/17 |
+In grungist-creek (`GODOT` = the `_console` build, path in its CLAUDE.md):
 
-**Quality up, speed down 2.2x.** At baseline *none* of the three briefs built without a workaround; all three
-now build first time with `known_failures {}` and `forced_clips {}`. The speed half was the `moves` stage and
-is fixed in 0.37.0 (above), but **the benchmark has not been re-run since that fix** - do it first next round,
-because the number in this table is the pre-fix one and Marco's real-character stage time says it should now
-land near the baseline. None of the three reads as a real person yet; the critics name hair, eyes and
-hairline, and the absence of facial asymmetry or blemish.
+    "$GODOT" --path . cast_demo.tscn      # Marco, Mei, Ruth dressed (G toggles clothes). C + Tab = 1 m close-up, L = lighting
+    "$GODOT" --path . motion_demo.tscn    # four bodies side by side; 2 walk, 3 run, V top-down; the HUD shows left vs right
+    "$GODOT" --path . figure_study.tscn   # study_man and study_woman on turntables
 
-**Where to pick up - the user chooses** (ask, don't assume). Ordered by what I would take first:
+To see the cloth work, open `cast_demo`, pick Ruth with Tab, press C, and switch lighting with L. Her
+longsleeve should hang straight from the bust with no fold under it. There is a small crease at each apex
+under clear_midday, which is known (item 4 below). One stale comment: `motion_demo.gd`'s header still says
+the head-thorax rung is "NOT built yet". It was built in 0.32.0, so the comment is wrong, not the demo.
 
-1. **Re-run the benchmark.** It is the scoreboard and its last figures are pre-0.37.0, so nobody yet knows
-   what the round actually cost or saved end to end. One ship-step command, no code.
-2. **A left/right asymmetry metric - DONE** (branch `asym-godot-meter`, rig-anything 0.38.0, merged
-   2026-09-21, installed by the ship step 2026-09-21, NOT pushed). `AsymmetryMeter` (`asymmetry_meter.gd`)
-   measures arm swing, step length, stride, shoulder dip and arm lag per side off the playing Skeleton3D;
-   `verify_asymmetry.gd` and the `asym_meter` fixture gate it in `regress --godot` against
-   `variability.measure` on the same bake (asym 0.35 passes; asymmetry 0 and RA_ASYM_MIRROR=1 fail "is
-   asymmetric"; swap and poison controls). Open: Godot's default glb import (30 fps resample + keyframe
-   optimizer) erases the Run shoulder-dip asymmetry, so the game-import per-channel gate is behind
-   `RA_REGRESS_ASYM_GAME_CHANNELS=1` (off) until rig-anything ships an .import preset; Belle's Walk stride
-   index 0.016 against the 0.02 floor at the game import; `LEAF_HAND_SHARE=0.5` estimates the leaf hand;
-   the loop's duplicated last frame leaves ~0.006 cycles of lag on symmetric loops. Notebook:
-   [notebooks/asymmetry/asym-godot-meter.md](notebooks/asymmetry/asym-godot-meter.md).
-   **Pointed at the six real figures - DONE** (branch `asym-motion-demo`, merged 2026-09-21 into plugins
-   `main` (notebook only, no version) and grungist-creek `master` (motion_demo.gd + the 0.38.0 addon sync),
-   NOT pushed). `motion_demo.tscn -- --selftest` prints each line-up body's left against its right on Walk
-   and Run and requires a non-zero arm or lag reading (71 ok; `--control=mirror` fails exactly those 8 rows).
-   **Verdict: asymmetry 0.35 is subtle to inert, not visible, on the channels it draws.** Arm swing reads
-   ASI 0.03-15.6 against a healthy 39.5 +- 21.8 (Killeen 2018, *Sci Rep* 8:12803); Ruth's and Marco's arms
-   are effectively inert because the uniform draw can land near zero. Lag (1-9 deg) and shoulder dip
-   (1-10 %) have no published human range. Step length on Belle and Marco (ratio 1.09-1.11 in game, Belle's
-   bake 1.25) is past the healthy 1.08 cut-off (Patterson 2010/2012) and at the 9-12 % self-avatar
-   detection threshold (Willaert 2024) - but it is NOT the draw, it comes from the bake's gait solve, cause
-   unlocated. Next: widen the arm-swing spread with a draw that cannot land near zero (|u| in [0.5, 1],
-   random sign), diagnose the undrawn step asymmetry on a scratch build at asymmetry 0, and ship an
-   `.import` preset (the default glb import moves stance offset up to 25 mm, flipping its sign on
-   study_man). This **unblocks item 6**. Notebook:
-   [notebooks/asymmetry/asym-motion-demo.md](notebooks/asymmetry/asym-motion-demo.md).
-   **Shipped 2026-09-21** (not pushed): 0.38.0 installed, the game's addons already matched; all four
-   selftests, `verify_moves` on the six manifests and `verify_flesh` walk/run/jump on all six (18/18)
-   pass; the full `regress --twice --jobs 4 --godot` ends `REGRESS DONE exit=1, 24 fixtures ok`, the one
-   red row being the known `verify_strands pipeline_ponytail` (item 7), unchanged to 0.1 mm. No golden
-   moved. Notebook: [notebooks/asymmetry/ship.md](notebooks/asymmetry/ship.md). The original item:
-   `asymmetry = 0.35` is live on all six figures and **moves no metric
-   anything currently has** - Marco's shoulder dip 18.2 -> 18.1 mm, spine twist and pelvis yaw unchanged.
-   That is not evidence it is broken: `variability.measure` reads the draw back off the baked clip, but
-   nothing compares a body's own left against its right *in Godot*, and `motion_demo.gd` compares bodies.
-   Until that exists we cannot say whether 0.35 is subtle or inert, and the user asked for visible
-   imperfection. Small, and it unblocks judging every future variability change.
+## Where to pick up - the user chooses (ask, don't assume)
 
-   **Items 3, 4 and 5 are one round.** All three need every character rebuilt afterwards, and a rebuild is
-   ~45 s each plus a full regress and a benchmark, so running them together pays that once rather than
-   three times and lets one look critic judge motion and cloth off the same renders. Two of them share a
-   footstrike signal (see 3 and 4), which is a seam to agree up front rather than invent twice.
+In the order I would take them:
 
-3. **The trunk's other two planes** - measured and specified below. `spine_flex_deg` is 0.0 in every gait
-   entry, and lateral bend FALLS with speed.
-4. **The head is held almost still** - measured and specified below. `head_hold = 0.85` leaves the head
-   15% of the thorax's turn and 0.3 deg of nod at a walk. Same `upper.defaults` table as (3).
-5. **Cloth that hugs the skin** - **branch A DONE 2026-09-21** (wardrobe 0.6.0, `cloth-span-loose`), and not
-   the way it was specified: ungating `span` made loose tops worse; `smooth` 1.0 on `tshirt` and
-   `longsleeve` fixed them (traced 0.19 -> ~0.01; Marco and Ruth rebuilt). What is left is the cloth
-   tucking under the bust - see the section below. **The tuck is fixed too** (wardrobe 0.7.0,
-   `cloth-bust-hang`, 2026-09-21): Ruth 17.2 -> 2.9 mm. What is left is a small crease at each bust
-   apex that Godot's direct sun shows at 1 m.
-6. **Turn the runtime jitter on.** `jitter_phase`/`jitter_amp` ship at 0 so no golden moved, which was right
-   for reviewability but means the per-cycle half is dormant in every character. One reviewed commit sets
-   them in the specs and re-records; do it after (2), so there is an instrument to judge it by.
-7. **The ponytail root-bone blocker** - the one red regress row, diagnosed below, needs its own branch.
-8. **Hair** - the benchmark's largest open look item, and every critic still puts it top three: `short_crop`
-   reads as a moulded cap on both bodies that use it, and `long_loose` is not even long - on Mei it stops at
-   the shoulder, with a cap seam over the crown and the ear covered by a flat plane.
-9. **An age layer** (benchmark finding): two briefs asked for 40s and 60s and both read twenty-plus years
-   young. The 58-year fit cap is not what stops it - slackness, lip thinning, hand tendons and posture are
-   authorable on top of a 58-year fit and none was attempted.
-10. **Ancestry as a sheet field**: `sheet.new()` has no asian/caucasian/african, though
-    `scaffold.create_macros` reads exactly those keys off the sheet, so the layer under it already works.
-    Plus a decision on "Hispanic".
-11. **The rest of Step 5 - motion**: MovesController's turns (06 rank 15), the fingertip gaps, and the motion
-    critic on every clip. The motion critic is the arbiter 07 keeps asking for and nobody has built.
-12. Left over from Step 2, both small: `LookdevPresets.apply` leaves on the sun any light property the
-    previous recipe set and this one does not name (this is what made overcast fail FLOOR_STRIPES after
-    clear_midday; the symptom is gone only because overcast no longer casts a shadow), and the tone_shift
-    controls under `plugins/lookdev/bin/controls/tone_shift/` were rendered at clear_midday exposure 1.0, so
-    they no longer show what the shipped preset does - re-render them the next time that area is touched.
-13. Smaller open flesh items (below, under each branch): the jump-only course over its 10 % on-limit line for
-    the cast (10.2-11.4 %), walking in phase 0.69-0.85 against people's 0.66, study_woman's belly missed by
-    0.0001 m, the attachment check reading 0.0 on an empty window.
+1. **Re-run the benchmark.** Its last numbers (73-93 s cold against 30 s) are from before 0.37.0 fixed
+   `moves`, and 0.7.0 has since added about 4 s to `garments` for anyone wearing a loose top. Nobody knows
+   the real end-to-end number. It is one ship-step command and needs no code (see "The benchmark").
+2. **The trunk and the head, as one round.** Both sections below are measured and written to be picked up
+   cold, and both need every character rebuilt, so doing them together pays for one rebuild, one full
+   regress and one look critic:
+   - ["The trunk's other two planes"](#the-trunks-other-two-planes-measured-2026-09-20-built-by-nobody):
+     `spine_flex_deg` is 0.0 in every gait entry, and lateral bend FALLS with speed. Branches:
+     `motion-spine-flex`, `motion-frontal-plane`, `motion-girdle-per-body`.
+   - ["The head is held almost still"](#the-head-is-held-almost-still-measured-2026-09-21-built-by-nobody):
+     `head_hold = 0.85` leaves the head 15% of the thorax's turn and 0.3 deg of nod at a walk. Branch:
+     `motion-head-hold`.
+
+   The two share a footstrike signal, so agree that seam before either branch starts.
+   `motion_demo.tscn -- --selftest` already prints every before number.
+3. **Asymmetry follow-ups** (from 0.38.0's verdict that 0.35 is "subtle to inert"):
+   - Widen the arm-swing draw so it cannot land near zero: |u| in [0.5, 1] with a random sign.
+   - Find out why Belle's and Marco's step length is asymmetric even though the draw does not cause it:
+     build a scratch copy at asymmetry 0.
+   - Ship an `.import` preset. Godot's default glb import erases the run shoulder-dip asymmetry and moves
+     stance offset by up to 25 mm.
+
+   After those, **turn the runtime jitter on** (`jitter_phase` / `jitter_amp` are still 0 on every
+   character). There is now an instrument to judge it by. Notebooks:
+   [asym-godot-meter.md](notebooks/asymmetry/asym-godot-meter.md),
+   [asym-motion-demo.md](notebooks/asymmetry/asym-motion-demo.md).
+4. **The crease at each bust apex** (wardrobe 0.7.0's accepted open item). The convex hang field makes
+   the profile two straight lines meeting at the apex, and Godot's direct sun shows the corner at 1 m on
+   Ruth. Ten attempts at rounding it with offsets are recorded in
+   [cloth-bust-hang.md](notebooks/cloth-hug/cloth-bust-hang.md). The honest next step is cloth bending
+   stiffness, not another offset. Also from 0.7.0: Marco's poke-through doubled to 0.19% at a walk
+   (still under the 0.5% limit), and 48 relax iterations cost about 4 s per character.
+5. **The ponytail root-bone blocker**: the one red regress row. It is diagnosed further down and needs its
+   own branch.
+6. **Hair**: the benchmark's largest open look item, and every critic puts it in their top three.
+   `short_crop` reads as a moulded cap, and `long_loose` stops at the shoulder on Mei.
+7. **An age layer**: the 40s and 60s briefs both read twenty-plus years young. Slackness, lip thinning,
+   hand tendons and posture can all be authored on top of the 58-year fit.
+8. **Ancestry as a sheet field**, plus a decision on "Hispanic". `scaffold.create_macros` already reads
+   the keys.
+9. **The rest of Step 5 - motion**: MovesController's turns, the fingertip gaps, and a motion critic on
+   every clip.
+10. **Small leftovers:**
+    - `LookdevPresets.apply` leaves stale light properties on the sun.
+    - The tone_shift controls need re-rendering.
+    - Flesh items: the jump course sits at 10.2-11.4% against its 10% line, and walking phase is
+      0.69-0.85 against people's 0.66.
+    - wardrobe's `span` on a sleeved garment pushes the torso into the gap under the arm if a preset ever
+      asks for it. None does.
+
+## What this session learned (2026-09-21)
+
+- **Measure what you are fixing before you trust its diagnosis.** This file said `span` was "the heart
+  of" the cloth fix. It was built, measured and rendered, and made things worse. The cause was one layer
+  over, in `smooth`, which already existed. Keep a small re-dress harness: copy a character's blend, delete
+  the garment, run `presets.dress` with the worktree's wardrobe, and print `fit.detail`. A re-dress takes
+  2 s, against 60-80 s for a pipeline rebuild. The scripts are in `%TEMP%/rw/cloth/` (`redress.py`,
+  `run2.sh`, `tuck.py`, `shots.py`, `zoom.py`); rewrite them if that folder is gone.
+- **Blender Workbench hides what Godot's sun shows.** The 0.7.0 apex crease was invisible in front and 3/4
+  Workbench renders and plain in a Godot `close-shot --views bust` at 1 m under clear_midday. Judge cloth
+  from a 0.3 m orthographic close-up plus the Godot bust shot, never from a front render alone.
+- **Moving cloth breaks its cut skin weights.** A garment cut from the body keeps each vertex's weights.
+  Move the cloth centimetres, as hanging does, and those weights belong to skin that is no longer under
+  it, so the breast came through at 0.33%. Preset `"skin": {"transfer": true}` fixes it.
+- **The `plugin-round` workflow**: one round (asymmetry, 2 branches) cost 11 agents, 1.55 M subagent tokens
+  and 5 h 13 min. A hand-run branch ran in parallel beside it in its own worktree with no conflicts,
+  because the two touched different plugins. Its `COMMON` preamble now describes the chat state
+  generically, and `ship.rebuild: []` skips the rebuild and render steps.
+
+---
 
 ## The head is held almost still (measured 2026-09-21, built by nobody)
 

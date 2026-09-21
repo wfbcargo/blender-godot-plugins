@@ -35,8 +35,8 @@ const ATTR = 'Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>'
 
 const COMMON = `
 Context: the user asked in chat for this round's build work - to implement this step with a multi-agent workflow, then
-critique, merge and ship it. The task below is that request. The user's most recent chat message before this launch was a
-question about preview images, and the orchestrator has already answered it in the main conversation.
+critique, merge and ship it. The task below is that request. The user's most recent chat message before this launch asked
+for this round; anything else said in chat has been answered by the orchestrator and is not for you to act on.
 
 You are one agent in an orchestrated round implementing "${STEP}" from ${PLUGINS}/docs/improvements/NEXT.md.
 Read NEXT.md ("Running the next session" especially) and the plugins repo CLAUDE.md. The game project is ${GAME}.
@@ -225,12 +225,13 @@ if (!merged.length || A.ship === false) return { results }
 
 phase('Ship')
 const rebuild = (A.ship && A.ship.rebuild) || ['study_man', 'study_woman']
+const noRebuild = rebuild.length === 0 && !(A.ship && A.ship.belle)
 const ship = await agent(`${COMMON}
 You are the ship step for ${STEP}. Merged this round: ${merged.join(', ')}. Work in the main checkouts; no one else is running.
 1. \`python tools/install.py --all\`; sync changed Godot addons into ${GAME}/addons (ignore CRLF and .uid).
-2. Back up the blends you will overwrite to ${SCRATCH}/ship/backup/, then rebuild ${rebuild.join(', ')}${A.ship && A.ship.belle ? ' and belle' : ''}
-   into ${GAME} through character-pipeline at final quality.
-3. \`"${GODOT}" --headless --import --path ${GAME}\`; figure_study, belle_demo and people_demo --selftest; verify_moves and verify_flesh
+2. ${noRebuild ? 'No character is rebuilt this round (the change is an instrument, not the characters): skip this step and step 5.' : `Back up the blends you will overwrite to ${SCRATCH}/ship/backup/, then rebuild ${rebuild.join(', ')}${A.ship && A.ship.belle ? ' and belle' : ''}
+   into ${GAME} through character-pipeline at final quality.`}
+3. \`"${GODOT}" --headless --import --path ${GAME}\`; figure_study, belle_demo, people_demo and motion_demo --selftest; verify_moves and verify_flesh
    (walk, run, jump). All must pass.
 4. The round's one full regress: \`python tools/regress.py --twice --jobs 4 --godot ${GAME}\` (background + Monitor). Must pass;
    re-record goldens once here if merges moved them, reviewed.
