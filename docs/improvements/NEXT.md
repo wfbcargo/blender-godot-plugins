@@ -298,12 +298,14 @@ Read these first, in this order:
 
 Installed copies in `~/.claude/skills` match the repo. **This is the one list of versions**; update it
 here and nowhere else:
-- rig-anything 0.36.0 (2026-09-20, branches `motion-mass-model`, `motion-head-rung`,
-  `motion-asymmetry` and `motion-jitter`, NOT pushed: 0.28.0 mass model, 0.29.0 shoulder girdle,
+- rig-anything 0.37.0 (2026-09-20, branches `motion-mass-model`, `motion-head-rung`,
+  `motion-asymmetry`, `motion-jitter` and `moves-mass-cache`, NOT pushed: 0.28.0 mass model, 0.29.0 shoulder girdle,
   0.30.0 trunk lag, 0.31.0 limb pendulums and whole-body angular momentum, 0.32.0 the head rung,
   0.33.0 the fixed per-character left/right asymmetry, 0.34.0 the runtime per-cycle jitter with the
   drift check over the whole run, 0.35.0 a gait change no longer nudges the playhead behind, 0.36.0
-  a skipped check says so and every control declares what it fails. 0.31.0 and earlier are installed;
+  a skipped check says so and every control declares what it fails, 0.37.0 the body-mass model is
+  measured once per body rather than once per clip - the `moves` regression the benchmark caught,
+  fixed at its cause (4 measure() calls and 18.42 s to 1 and 12.28 s on Belle). 0.31.0 and earlier are installed;
   0.32.0-0.36.0 were installed by the ship step on 2026-09-20, and the game's addon copies already
   matched, so `~/.claude/skills` and `grungist-creek/addons` are both on 0.36.0. 0.27.0 was
   2026-09-19 moves-running-flag.
