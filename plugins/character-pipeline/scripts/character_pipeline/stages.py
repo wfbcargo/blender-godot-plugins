@@ -215,6 +215,9 @@ def run_body(ch, ctx):
     out["stature"] = _stature(res)
     out["library"] = res.get("path")                # reuse | warm | fresh: where the body's seconds went
     out["timing"] = res.get("timing")
+    likeness = (res.get("fit") or {}).get("likeness")
+    if likeness:                                    # a [body.face]: each measure as fitted against its target
+        out["likeness"] = likeness
     return out
 
 
@@ -700,8 +703,11 @@ def run_moves(ch, ctx):
                                        if k in c}
     failing = sorted(role for role in ch.moves.roles if out[role]["failures"] and role not in ch.moves.may_fail)
     if failing:
-        raise RuntimeError(f"moves: clips failing their checks: {failing} (list a role in moves.may_fail "
-                           "to export it forced)")
+        # each failing clip with what failed and by how much, so the fix (a [moves.per_gait.<role>] option, or
+        # may_fail) can be chosen from the message alone instead of by rebuilding to read the stored report
+        why = "; ".join(f"{role}: {' | '.join(res[role].get('failures') or out[role]['failures'])}" for role in failing)
+        raise RuntimeError(f"moves: clips failing their checks: {failing} - {why} (tune the role in "
+                           "[moves.per_gait.<role>], or list it in moves.may_fail to export it forced)")
     ctx["moves"] = res
     return out
 

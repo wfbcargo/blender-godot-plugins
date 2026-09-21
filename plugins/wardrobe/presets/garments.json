@@ -195,7 +195,7 @@
       "cut": "dress",
       "tailor": {"sleeve": -0.10, "neck": [-0.10, 0.08], "waist": 0.30, "length": 0.85, "flare": 1.3, "thigh": 0.0, "ease": 0.022},
       "paint": null,
-      "ease": null,
+      "ease": {"base": 0.011, "loose": 0.0, "hang": 0.0, "smooth": 1.0, "span": 0.8, "span_radius": 0.1, "settle": 0.14, "detail_limit": {"all": 0.06}},
       "hem": {"hem_bones": 24, "cuff_bones": 0, "fabric": "cotton_poplin"},
       "soft": {"fabric": "cotton"},
       "cover": {"max_gap": 0.1, "margin": 0.05, "agree": 0.5},
@@ -204,7 +204,7 @@
       "layer": 3,
       "colour": [0.16, 0.30, 0.22],
       "worn_over": ["bra", "briefs"],
-      "note": "A sleeveless bodice cut from the body down to the natural waist (0.30 torso lengths above the hips, eased 8 mm and hung), zipped to a skirt built from its hem to 0.85 of the way to the knee at 1.3x the widest hip girth, 24 poplin hem bones hung from the pelvis with thigh capsules, as skirt_knee. Cover hides the bodice's skin as a shirt's (about 1000 vertices) and nothing of the skirt. Walk, run and crouch every other frame pass on Mei, Nadia and Rosa: at most 6 of 2420 vertices inside a thigh (0.25%), no holes, poke at most 44 vertices (upper arms at the armholes, and a crouch's thighs past the hem). cut=0.04 opens 39 of its 3278 hidden vertices, which is the hole control a skirt cannot give (a skirt hides nothing). At length 1.0 a run put 14-16 inside the shins."
+      "note": "A sleeveless bodice cut from the body down to the natural waist (0.30 torso lengths above the hips, eased 8 mm and hung), zipped to a skirt built from its hem to 0.85 of the way to the knee at 1.3x the widest hip girth, 24 poplin hem bones hung from the pelvis with thigh capsules, as skirt_knee. Cover hides the bodice's skin as a shirt's (about 1000 vertices) and nothing of the skirt. Walk, run and crouch every other frame pass on Mei, Nadia and Rosa: at most 6 of 2420 vertices inside a thigh (0.25%), no holes, poke at most 44 vertices (upper arms at the armholes, and a crouch's thighs past the hem). cut=0.04 opens 39 of its 3278 hidden vertices, which is the hole control a skirt cannot give (a skirt hides nothing). At length 1.0 a run put 14-16 inside the shins. Eased off the body smoothed over 20 cm and spanned over the hollows (wardrobe 0.8.0; `ease` was null): cut with only the tailor's 22 mm offset it traced the body, and on a likeness NPC in Godot's midday sun the bust's apexes showed through as points. The tshirt's ease with `hang` hung the whole dress from the bust like a tent and lost the waist, so it does not hang; `span` 0.8 over 10 cm (as the sports top) rounds the apexes - a sleeveless cut has no arm for the hull to run to. It carries 0.034 mm of the skin's relief (limit 0.06)."
     }
   },
 

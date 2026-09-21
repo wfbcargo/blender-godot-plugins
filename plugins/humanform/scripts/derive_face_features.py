@@ -1,0 +1,142 @@
+"""Derive `data/face_features.json` from MPFB2's base mesh and targets: where a face's likeness is measured -
+the nose's wings, the lips and the mouth's slit.
+
+    blender -b --factory-startup --python-exit-code 1 --python derive_face_features.py -- [mpfb=<mpfb data dir>] [out=<json>]
+
+A baked humanform body keeps MPFB's body vertices 0..13379 in base-mesh order (see derive_face_regions.py), so
+vertices found on the base mesh by index are the same vertices on every body, and `measure` takes each body's
+extremes among them - a flared or widened feature is measured where it now is.
+
+- **nose** (`nose-flaring-incr`): the vertices MPFB's alar-flare target moves by more than `SHARE` of its
+  largest move - the alar wings. Their widest pair is the alar breadth, their mean height the nose's base.
+- **lips** (`mouth-upperlip-volume-incr`, `mouth-lowerlip-volume-incr`): the red of both lips, the same way.
+- **mouth**: the slit - the edge loop the lips meet along, walked from the middle of the lip line out to where
+  it turns back. Its widest pair is the mouth's corners (cheilion to cheilion): 48.8 mm on the neutral base
+  mesh, where the red of the lips stops at 40.6 mm. The corners lie past the lip region, so the lip region
+  cannot give the mouth's width.
+
+A separate file from face_regions.json, so that adding it moves no hair-stage hash.
+"""
+
+from __future__ import annotations
+
+import gzip
+import json
+import os
+import sys
+
+import numpy as np
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.normpath(os.path.join(HERE, "..", "data", "face_features.json"))
+MPFB = os.path.join(os.environ.get("APPDATA", ""), "Blender Foundation", "Blender", "5.2", "extensions",
+                    "user_default", "mpfb", "data")
+N_BODY = 13380
+SHARE = 0.25
+REGIONS = {
+    "nose": [("nose", "nose-flaring-incr")],
+    "lips": [("mouth", "mouth-upperlip-volume-incr"), ("mouth", "mouth-lowerlip-volume-incr")],
+}
+
+
+def base_mesh(path):
+    """(body vertices as an array, body faces as index lists) of the base mesh."""
+    verts, faces = [], []
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            if line.startswith("v "):
+                verts.append([float(t) for t in line.split()[1:4]])
+            elif line.startswith("f "):
+                ids = [int(t.split("/")[0]) - 1 for t in line.split()[1:]]
+                if all(i < N_BODY for i in ids):
+                    faces.append(ids)
+    return np.array(verts[:N_BODY]), faces
+
+
+def target(path):
+    """{vertex index: displacement} for the body vertices a target moves."""
+    moved = {}
+    with gzip.open(path, "rt", encoding="utf-8") as fh:
+        for line in fh:
+            p = line.split()
+            if len(p) == 4 and p[0].isdigit() and int(p[0]) < N_BODY:
+                moved[int(p[0])] = np.array([float(t) for t in p[1:]])
+    return moved
+
+
+def region(mpfb, entries):
+    idx = set()
+    for group, name in entries:
+        moved = target(os.path.join(mpfb, "targets", group, name + ".target.gz"))
+        top = max(np.linalg.norm(d) for d in moved.values())
+        idx |= {i for i, d in moved.items() if np.linalg.norm(d) > SHARE * top}
+    return sorted(idx)
+
+
+def mouth_slit(v, faces, lips):
+    """The lip line's edge loop, both halves: from the lip vertex just off the midline with an edge running
+    straight back into the mouth, through each quad to its opposite edge, outward until the loop turns back
+    (the corner, included). Base mesh axes: x across, y up, z forward."""
+    vf = {}
+    for fi, f in enumerate(faces):
+        for a in f:
+            vf.setdefault(a, []).append(fi)
+
+    def nbrs(a):
+        out = set()
+        for fi in vf[a]:
+            f = faces[fi]
+            k = f.index(a)
+            out.update((f[k - 1], f[(k + 1) % len(f)]))
+        return out
+
+    def into_mouth(i):
+        return any(v[j][2] - v[i][2] < -0.04 and abs(v[j][2] - v[i][2]) > 1.5 * np.hypot(*(v[j] - v[i])[:2])
+                   for j in nbrs(i))
+
+    lp = v[lips]
+    ymid = 0.5 * (lp[:, 1].min() + lp[:, 1].max())
+    out = []
+    for sign in (-1.0, 1.0):
+        seeds = [i for i in lips if 0.0 < sign * v[i][0] < 0.06 and into_mouth(i)]
+        a = min(seeds, key=lambda i: abs(v[i][1] - ymid))
+        b = max((j for j in nbrs(a) if abs(v[j][1] - v[a][1]) < 0.01 and sign * (v[j][0] - v[a][0]) > 0),
+                key=lambda j: sign * v[j][0])
+        path = [a, b]
+        while True:
+            a, b = path[-2], path[-1]
+            used = [fi for fi in vf[a] if b in faces[fi]]
+            nxt = [c for c in nbrs(b) if c != a and not any(c in faces[fi] for fi in used)]
+            if len(vf[b]) != 4 or len(nxt) != 1 or sign * v[nxt[0]][0] < sign * v[b][0]:
+                break
+            path.append(nxt[0])
+        out += path
+    return sorted(set(out))
+
+
+def main(args):
+    mpfb = args.get("mpfb", MPFB)
+    out = args.get("out", OUT)
+    v, faces = base_mesh(os.path.join(mpfb, "3dobjs", "base.obj"))
+    data = {"_": "Generated by humanform/scripts/derive_face_features.py from MPFB2's base mesh and targets - do not "
+                 "edit. Vertex indices are base-mesh indices (a baked body keeps its first 13380).",
+            "n_body": N_BODY, "share": SHARE,
+            "sources": dict({k: [n for _, n in e] for k, e in REGIONS.items()},
+                            mouth="the lip line's edge loop, from the middle of the lips out to each corner")}
+    for name, entries in REGIONS.items():
+        data[name] = region(mpfb, entries)
+        pts = v[data[name]]
+        print(f"{name}: {len(data[name])} vertices, x {pts[:, 0].min():.3f}..{pts[:, 0].max():.3f}, "
+              f"y {pts[:, 1].min():.3f}..{pts[:, 1].max():.3f}")
+    data["mouth"] = mouth_slit(v, faces, data["lips"])
+    print(f"mouth: {len(data['mouth'])} vertices on the lip line, corners at |x| "
+          f"{np.abs(v[data['mouth']][:, 0]).max():.3f}")
+    with open(out, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(data, fh, indent=1)
+        fh.write("\n")
+    print("wrote", out)
+
+
+if __name__ == "__main__":
+    argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+    main(dict(a.split("=", 1) for a in argv if "=" in a))

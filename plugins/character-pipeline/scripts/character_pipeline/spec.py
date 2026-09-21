@@ -111,6 +111,7 @@ DEPRECATED = {
 }
 HAIR_PRESETS = ("short_crop", "bob", "bun", "ponytail", "long_loose")   # humanform.sheet.HAIR_PRESETS
 BROW_SHAPES = ("natural", "straight", "arched", "soft")                   # humanform.sheet.BROW_SHAPES
+BEARD_STYLES = ("stubble", "short", "goatee", "moustache")               # humanform.brows.BEARD_STYLES
 MUSCLE_GROUPS = ("deltoids", "upper_arms", "pectorals", "abdominals", "obliques", "quadriceps", "calves",
                  "forearms", "relief", "bulk")                           # humanform.muscle.GROUPS
 MUSCLE_OUTPUTS = ("geometry", "normal")
@@ -154,15 +155,24 @@ class Hair:
     lashes: bool = False
     body_hair: bool = False
     brow_shape: str | None = None               # humanform.brows BROW_SHAPES; None: "natural"
+    beard: str | None = None                    # humanform.brows BEARD_STYLES; None: no facial hair
+    beard_colour: list | None = None            # screen (sRGB); None: the hair colour a little darker
+    fringe: bool = False                        # humanform.hair FRINGE across the forehead, over any preset
 
     FACE = ("brows", "lashes", "body_hair")
 
     def face(self):
-        """The humanform.brows switches that are on, and a brow shape other than the default, as hair.add
-        keywords."""
+        """The humanform.brows switches that are on, a brow shape other than the default and a beard, as
+        hair.add keywords."""
         out = {k: True for k in self.FACE if getattr(self, k)}
         if self.brow_shape and self.brow_shape != "natural":
             out["brow_shape"] = self.brow_shape
+        if self.beard:
+            out["beard"] = self.beard
+            if self.beard_colour is not None:
+                out["beard_colour"] = list(self.beard_colour)
+        if self.fringe:
+            out["fringe"] = True
         return out
 
 
@@ -293,6 +303,11 @@ class Character:
                     out.pop(k, None)
             if out.get("brow_shape") in (None, "natural"):
                 out.pop("brow_shape", None)         # the default hashes as before the field existed
+            for k in ("beard", "beard_colour"):     # no beard hashes as before beards existed
+                if out.get(k) is None:
+                    out.pop(k, None)
+            if not out.get("fringe"):
+                out.pop("fringe", None)
             return out
         if name == "moves":
             # [variability] rides the moves section rather than having one of its own, and only
@@ -313,32 +328,85 @@ class Character:
         return hashlib.sha1(text.encode()).hexdigest()[:16]
 
 
-def blend_dir(override=None):
-    """$BLEND_DIR (or `override`, when given) as an absolute path, or None when neither is set."""
+PROJECT_CONFIG = os.path.join("characters", "pipeline.toml")
+
+
+def project_config(project):
+    """The project's own pipeline settings, `<project>/characters/pipeline.toml`, as a dict ({} when absent):
+
+        [blend]
+        dir = "C:/Users/me/Blends"     # where relative `[export] blend`s live; relative is under the project
+        inside_godot = false           # true: saving a .blend inside a Godot project is intended
+
+    It is what a build script's own `os.environ.setdefault("BLEND_DIR", ...)` used to hold, so `run.sh`, a
+    project's build script and a scratch copy all resolve a spec's blend to the same file. $BLEND_DIR still
+    wins over it. Nothing in it is hashed: it says where a file lives, not what is built."""
+    if not project:
+        return {}
+    path = os.path.join(project, PROJECT_CONFIG)
+    if not os.path.isfile(path):
+        return {}
+    with open(path, "rb") as fh:
+        try:
+            data = tomllib.load(fh)
+        except tomllib.TOMLDecodeError as exc:
+            raise SpecError(f"{path}: {exc}") from None
+    blend = data.get("blend", {})
+    if not isinstance(blend, dict) or set(blend) - {"dir", "inside_godot"}:
+        raise SpecError(f"{path}: [blend] takes dir and inside_godot only (got {sorted(blend)})")
+    return data
+
+
+def blend_dir(override=None, project=None):
+    """$BLEND_DIR (or `override`, when given), else the project's `[blend] dir` (`project_config`), as an
+    absolute path, or None when none is set."""
     d = override or os.environ.get("BLEND_DIR")
+    if not d and project:
+        d = project_config(project).get("blend", {}).get("dir")
+        if d and not os.path.isabs(os.path.expanduser(d)):
+            d = os.path.join(project, d)
     return os.path.normpath(os.path.abspath(os.path.expanduser(d))) if d else None
 
 
 def resolve_blend(blend, project, blend_dir_override=None):
     """Where `[export] blend` points. Absolute: as written. Relative: under $BLEND_DIR when it is set (or
-    `blend_dir_override`, for a tool resolving another project's specs), else under `project` (the folder
-    holding `characters/`), else $PROJECT, else the working directory. None when the spec names no blend."""
+    `blend_dir_override`, for a tool resolving another project's specs), else under the project's `[blend] dir`
+    (`project_config`), else under `project` (the folder holding `characters/`), else $PROJECT, else the working
+    directory. None when the spec names no blend."""
     if not blend:
         return None
     blend = os.path.expanduser(blend)
     if os.path.isabs(blend):
         return os.path.normpath(blend)
-    base = blend_dir(blend_dir_override) or project or os.environ.get("PROJECT") or os.getcwd()
+    base = blend_dir(blend_dir_override, project) or project or os.environ.get("PROJECT") or os.getcwd()
     return os.path.normpath(os.path.join(os.path.abspath(base), blend))
 
 
 def save_roots(project):
-    """The folders a build saves under without being told otherwise: the project and $BLEND_DIR (if set)."""
+    """The folders a build saves under without being told otherwise: the project and $BLEND_DIR or the project's
+    `[blend] dir` (if set)."""
     roots = [os.path.normpath(os.path.abspath(project))] if project else []
-    d = blend_dir()
+    d = blend_dir(project=project)
     if d and d not in roots:
         roots.append(d)
     return roots
+
+
+def godot_project_of(path):
+    """The Godot project folder a file would sit in (the nearest folder at or above it holding `project.godot`)
+    when Godot would import it, else None. A `.gdignore` in any folder between hides the file from Godot, so a
+    path under one is None too. A .blend Godot sees is imported with its Blender importer: with no Blender path
+    in the editor settings a headless `--import` fails on it, and the glbs beside it are not imported either."""
+    d = os.path.dirname(os.path.normpath(os.path.abspath(path)))
+    while True:
+        if os.path.isfile(os.path.join(d, ".gdignore")):
+            return None
+        if os.path.isfile(os.path.join(d, "project.godot")):
+            return d
+        up = os.path.dirname(d)
+        if up == d:
+            return None
+        d = up
 
 
 def inside(path, roots):
@@ -451,7 +519,7 @@ def parse(data, path=None):
     if "hair" in data:
         h = dict(_take(data, "hair", dict))
         if "preset" in h:
-            _unknown(h, ("preset", "colour", "brow_shape") + Hair.FACE, "[hair]")
+            _unknown(h, ("preset", "colour", "brow_shape", "beard", "beard_colour", "fringe") + Hair.FACE, "[hair]")
             preset = _take(h, "preset", str, where="hair.")
             if preset not in HAIR_PRESETS:
                 raise SpecError(f"hair.preset {preset!r} is not one of {HAIR_PRESETS}")
@@ -467,8 +535,18 @@ def parse(data, path=None):
             brow_shape = _take(h, "brow_shape", str, where="hair.")
             if brow_shape is not None and brow_shape not in BROW_SHAPES:
                 raise SpecError(f"hair.brow_shape {brow_shape!r} is not one of {BROW_SHAPES}")
+            beard = _take(h, "beard", str, where="hair.")
+            if beard is not None and beard not in BEARD_STYLES:
+                raise SpecError(f"hair.beard {beard!r} is not one of {BEARD_STYLES}")
+            beard_colour = _take(h, "beard_colour", list, where="hair.")
+            if beard_colour is not None and (len(beard_colour) != 3 or not all(
+                    isinstance(c, (int, float)) and 0 <= c <= 1 for c in beard_colour)):
+                raise SpecError("hair.beard_colour must be [r, g, b], screen (sRGB) channels 0..1")
+            if beard_colour is not None and beard is None:
+                raise SpecError("hair.beard_colour needs hair.beard")
             hair = Hair(kind="preset", preset=preset, colour=[float(c) for c in colour] if colour else None,
-                        brow_shape=brow_shape, **switches)
+                        brow_shape=brow_shape, beard=beard, fringe=bool(_take(h, "fringe", bool, where="hair.")),
+                        beard_colour=[float(c) for c in beard_colour] if beard_colour else None, **switches)
         else:
             kind = h.pop("kind", None)
             if kind != "shell_bun":

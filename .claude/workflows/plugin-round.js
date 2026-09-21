@@ -7,7 +7,7 @@ export const meta = {
     { title: 'Critique', detail: 'independent critic, targeted checks only, no full regress' },
     { title: 'Fix', detail: 'at most two fix rounds per branch' },
     { title: 'Merge', detail: 'serial queue; --quick on the merged result; re-critic if the merge changed code' },
-    { title: 'Ship', detail: 'install, rebuild real figures, one full --twice --godot, Godot look critic' },
+    { title: 'Ship', detail: 'install, rebuild real figures fresh, demo selftests, Godot look critic' },
   ],
 }
 
@@ -110,9 +110,10 @@ ${br.task}
 Done when (an independent critic answers exactly these; answer them yourself with evidence):
 ${br.done}
 
-Checks: while iterating, \`python tools/regress.py --quick --jobs 4\` (add --godot <your game worktree> if a Godot addon or an export
-changed). Before returning, one final --quick run with its full output written to a file in your scratch folder. Do NOT run a full
---twice: the ship step runs it once for the whole round. Commit everything; leave the worktrees in place.`
+Checks: prove the change with a fresh build of the characters it affects (character-pipeline's build_many.py) and the game's demo
+selftests. The regression suite is optional (CLAUDE.md: the goal is plugins that produce assets, not perfect assets): run
+\`python tools/regress.py --quick --jobs 4\` only if the change reaches shared code you cannot build fresh, and read it for crashes and
+pass/fail flips only - a value that moved is expected. Never run a full --twice. Commit everything; leave the worktrees in place.`
 
 const criticPrompt = (br, built, round) => `${COMMON}
 You are the INDEPENDENT critic for ${br.key} (${br.title}), round ${round}. You did not write it. Do not fix or commit anything.
@@ -233,8 +234,7 @@ You are the ship step for ${STEP}. Merged this round: ${merged.join(', ')}. Work
    into ${GAME} through character-pipeline at final quality.`}
 3. \`"${GODOT}" --headless --import --path ${GAME}\`; figure_study, belle_demo, people_demo and motion_demo --selftest; verify_moves and verify_flesh
    (walk, run, jump). All must pass.
-4. The round's one full regress: \`python tools/regress.py --twice --jobs 4 --godot ${GAME}\` (background + Monitor). Must pass;
-   re-record goldens once here if merges moved them, reviewed.
+4. No full regress (CLAUDE.md: the suite is optional and never a merge gate). Goldens are left as they are.
 5. Godot look renders of each rebuilt figure with lookdev's close-shot command (NEXT.md "Where the figures are"): face, eyes and
    hands at 1 m and full body, clear_midday and overcast (plus face_3q/head_side if close-shot has them), into ${SCRATCH}/ship/look/<id>/.
 6. Update NEXT.md (step status, versions, "Where the figures are"); commit in both repos. Do not push.

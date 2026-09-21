@@ -203,6 +203,14 @@ def check_save_path(ch, path, save_outside=False):
         raise BuildRefused(f"[{ch.id}] refusing to save {path}: it is outside the project and $BLEND_DIR "
                            f"({', '.join(roots) or 'none known'}) - make [export] blend relative, set BLEND_DIR, "
                            "or pass save_outside=True")
+    godot = spec_mod.godot_project_of(path)
+    if godot and not spec_mod.project_config(ch.project).get("blend", {}).get("inside_godot"):
+        raise BuildRefused(
+            f"[{ch.id}] refusing to save {path}: it is inside the Godot project {godot}, which would import it "
+            "with its Blender importer (with no Blender path set, a headless --import fails there and the glbs "
+            f"are not imported). Set [blend] dir in {os.path.join(ch.project or godot, spec_mod.PROJECT_CONFIG)} "
+            "(or BLEND_DIR) to a folder outside it, put a .gdignore in the folder the blend goes to, or set "
+            "[blend] inside_godot = true there if Godot is meant to import it")
     return path
 
 
@@ -228,6 +236,21 @@ class _Restart(Exception):
     pass
 
 
+class StageFailed(RuntimeError):
+    """A stage raised while it ran. The message names the stage, how long it ran and the cause, and - raised out
+    of `build` - where the file was left: `saved_after` is the last stage whose checkpoint was saved in this
+    build (None when none was). The original exception is its `__cause__`."""
+
+    def __init__(self, message, stage=None, saved_after=None, seconds=None):
+        super().__init__(message)
+        self.stage, self.saved_after, self.seconds = stage, saved_after, seconds
+
+
+# Save the .blend after every stage that runs (when the build saves at all), so a failing stage costs only
+# itself on the next build. A save of a character's file is well under a second against stages of 1-70 s.
+CHECKPOINT = True
+
+
 # A whole build whose flesh must rerun on a dressed body takes the garments off (`stages.undress`) instead of
 # restarting from body. False restores the restart (the control in pipeline_woman's dressed flesh edit).
 UNDRESS_FOR_FLESH = True
@@ -248,13 +271,27 @@ def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=prin
         open_saved(ch, log=log)
     q = quality_mod.check(quality or ch.build.quality)
     t_build = time.time()
+    # after every stage that runs, the file is saved (when this build saves at all), so a stage that fails
+    # leaves the file as the last good stage left it: the next build resumes there instead of from body
+    checkpoint = (lambda: _save(ch, blend, save_outside)) if blend and CHECKPOINT else None
     try:
-        report = _build(ch, from_stage, to_stage, force, log, q, forced=())
-        restarted = None
-    except _Restart as why:
-        restarted = str(why)
-        log(f"[{ch.id}] {restarted}")
-        report = _build(ch, from_stage, to_stage, force, log, q, forced=("body",))
+        try:
+            report = _build(ch, from_stage, to_stage, force, log, q, forced=(), checkpoint=checkpoint)
+            restarted = None
+        except _Restart as why:
+            restarted = str(why)
+            log(f"[{ch.id}] {restarted}")
+            report = _build(ch, from_stage, to_stage, force, log, q, forced=("body",), checkpoint=checkpoint)
+    except StageFailed as failed:
+        saved = failed.saved_after
+        if saved and blend:
+            where = f"{blend} holds the build as {saved} left it; fix the cause and build again to resume at {failed.stage}"
+        elif blend and os.path.isfile(blend):
+            where = f"{blend} is as it was before this build; build again to resume at {failed.stage}"
+        else:
+            where = "no .blend was saved"
+        raise StageFailed(f"{failed} - {where}", stage=failed.stage, saved_after=saved,
+                          seconds=failed.seconds) from failed.__cause__
     ran = {k: v["seconds"] for k, v in report.items() if v.get("status") == "ran"}
     summary = {"quality": q, "stage_seconds": ran,
                "skipped": sorted(k for k, v in report.items() if v.get("status") != "ran"),
@@ -300,7 +337,7 @@ def _manifest_build(ch, summary):
         json.dump(manifest, fh, indent=2)
 
 
-def _build(ch, from_stage, to_stage, force, log, q, forced):
+def _build(ch, from_stage, to_stage, force, log, q, forced, checkpoint=None):
     plugins.use()
     versions = plugins.versions()
     wanted = [s for s in stages.STAGES if s[5](ch)]
@@ -315,6 +352,7 @@ def _build(ch, from_stage, to_stage, force, log, q, forced):
     done = {}                                   # stage -> input hash, as the file holds it or this run made it
     outs = {}                                   # stage -> digest of its output a later stage reads (inputs.outputs)
     report = {}
+    saved_after = None                          # the last stage checkpointed in this build
     ctx = {"scratch": tempfile.mkdtemp(prefix=f"pipeline_{ch.id}_"), "versions": versions, "quality": q}
     # a whole build of a brief body can start over from body; one started later cannot
     restartable = not forced and ch.body.source == "brief" and start <= names.index("body")
@@ -393,7 +431,15 @@ def _build(ch, from_stage, to_stage, force, log, q, forced):
             raise stages.StageRefused(f"[{ch.id}] {problem}")
         t0 = time.time()
         log(f"[{ch.id}] {name} ...")
-        out = run(ch, ctx)
+        try:
+            out = run(ch, ctx)
+        except (BuildRefused, stages.StageRefused, _Restart):
+            raise
+        except Exception as exc:
+            took = round(time.time() - t0, 1)
+            log(f"[{ch.id}] {name}: FAILED after {took}s: {exc}")
+            raise StageFailed(f"[{ch.id}] {name} failed after {took}s: {type(exc).__name__}: {exc}",
+                              stage=name, saved_after=saved_after, seconds=took) from exc
         took = round(time.time() - t0, 1)
         done[name] = h
         # what came after this stage was built on what it just replaced - except a stage that reads this one only
@@ -415,6 +461,11 @@ def _build(ch, from_stage, to_stage, force, log, q, forced):
         stored = records(ch)
         report[name] = {"status": "ran", "seconds": took, "report": out}
         log(f"[{ch.id}] {name}: done in {took}s")
+        if checkpoint is not None and i + 1 < stop:     # the last stage's file is saved by `build` itself
+            t1 = time.time()
+            checkpoint()
+            saved_after = name
+            log(f"[{ch.id}] {name}: checkpoint saved in {time.time() - t1:.1f}s")
     return report
 
 

@@ -77,7 +77,24 @@ LOOK = {
     "lashes": {"texture_px": [1024, 256], "mode": "card"},
     "body_hair": {"texture_px": [256, 512], "strands_per_tile": 48, "root_zone": [0.05, 0.4], "tip_zone": [0.6, 0.95],
                   "root_fade": [0.0, 0.2], "tip_mult": 1.15, "gap_mult": 0.5, "wave_px": 1.2},
+    "beard": {"texture_px": [256, 512], "strands_per_tile": 128, "root_zone": [0.02, 0.25], "tip_zone": [0.75, 0.98],
+              "root_fade": [0.0, 0.1], "tip_mult": 1.1, "gap_mult": 0.2, "wave_px": 2.5},
 }
+
+# Facial hair (`add(beard=...)`): a shell over the lower face, cut and textured the way body hair is but denser,
+# lifted further off the skin for a longer beard, over regions placed from the face's own features
+# (data/face_features.json: the mouth's slit and corners, the nose's base) and the head bone's weights, so it sits
+# where this face's mouth and chin are. Each style: the regions it covers, `lift_m` off the skin, the share of
+# strand bands kept (`keep`) and a strand's length on the skin (`strand_m`). A short beard keeps every band: at
+# 0.75 the dropped bands showed in Godot as square patches of skin (a strand is two texels wide).
+BEARD_STYLES = {
+    "stubble": {"regions": ("moustache", "chin", "jaw"), "lift_m": 0.0003, "keep": 0.45, "strand_m": 0.004},
+    "short": {"regions": ("moustache", "chin", "jaw"), "lift_m": 0.0025, "keep": 1.0, "strand_m": 0.012},
+    "goatee": {"regions": ("moustache", "chin"), "lift_m": 0.0025, "keep": 1.0, "strand_m": 0.012},
+    "moustache": {"regions": ("moustache",), "lift_m": 0.002, "keep": 1.0, "strand_m": 0.010},
+}
+BEARD_DARKEN = 0.95
+BEARD_AXIS_M = 0.07         # the beard's U runs round a vertical axis this far behind the mouth
 # Godot: no rim, backlight or anisotropic sheen on hairs this fine - at a grazing angle (a brow's tail round
 # the temple) they light a whole card's strands into a grey sliver
 CARD_GODOT = {"transparency": GODOT_BLEND, "rim_enabled": False, "backlight_enabled": False,
@@ -186,6 +203,11 @@ def _material(name, colour, uv_name, part, double_sided=False):
         p = ld_hair.preset("hair", **over)
         lin = _srgb_to_linear(np.asarray(colour[:3], np.float64))
         pixels = _sparse(*ld_hair.strand_texture(lin, p, seed=0))
+    elif part == "beard":
+        keep = over.pop("keep")
+        p = ld_hair.preset("hair", **over)
+        lin = _srgb_to_linear(np.asarray(colour[:3], np.float64))
+        pixels = _sparse(*ld_hair.strand_texture(lin, p, seed=0), keep=keep, per_tile=over["strands_per_tile"])
     over["godot"] = godot
     mat, rep = ld_hair.material(name, colour, uv_map=uv_name, pixels=pixels, **over)
     if card_rep is not None:
@@ -476,17 +498,18 @@ def _cards(ob, co, part, base, rig, colour, uv_name, head, brow_shape="natural")
 
 # ------------------------------------------------------------------------------------------ body hair
 
-def _sparse(px, npx, seed=3):
+def _sparse(px, npx, seed=3, keep=None, per_tile=None):
     """Thin the body hair's strand pixels (lookdev's, as `strand_texture` returns them) before they become the
-    material's images: keep BODY_HAIR_KEEP of its strand bands, each rolled along V at random so the kept
-    strands do not start on one row. Returns (colour, normal)."""
+    material's images: keep BODY_HAIR_KEEP (or `keep`) of its strand bands, each rolled along V at random so the
+    kept strands do not start on one row. Returns (colour, normal)."""
+    keep = BODY_HAIR_KEEP if keep is None else keep
     px, npx = np.array(px, np.float64), np.array(npx, np.float64)
     H, W = px.shape[:2]
     rng = np.random.RandomState(seed)
-    band = max(2, W // LOOK["body_hair"]["strands_per_tile"])
+    band = max(2, W // (per_tile or LOOK["body_hair"]["strands_per_tile"]))
     for x0 in range(0, W, band):
         cols = slice(x0, min(W, x0 + band))
-        if rng.uniform() > BODY_HAIR_KEEP:
+        if rng.uniform() > keep:
             px[:, cols, 3] = 0.0
             continue
         shift = int(rng.randint(0, H))
@@ -615,24 +638,157 @@ def _body_hair(ob, co, base, rig, colour, uv_name, sex):
                  "source_vertices": len(src)}
 
 
+def beard_regions(ob, co, normals, head_bone, neck_bone=None):
+    """({region: boolean vertex mask} over the body's first n_body vertices, the marks it placed them from):
+    `moustache` (between the nose's base and the upper lip, out to just past the mouth's corners), `chin` (below
+    the lower lip, over the chin and a little under it) and `jaw` (along the jaw from the chin back to in front of
+    the ears, below a line from the nose's base at the mouth's corner down to the mouth's height at the side of
+    the face). The lips' red, the mouth's slit and the nostrils are never covered. World space: z up, the face
+    towards -y."""
+    from mathutils.kdtree import KDTree
+    from . import measure as _measure
+    feats = _measure.face_features()
+    n = regions()["n_body"]
+    co, normals = co[:n], normals[:n]
+    W = _weights_array(ob, head_bone)[:n]
+    if neck_bone:
+        W = W + _weights_array(ob, neck_bone)[:n]
+    mouth, nose, lips = co[feats["mouth"]], co[feats["nose"]], co[feats["lips"]]
+    z_m, y_m = float(mouth[:, 2].mean()), float(mouth[:, 1].mean())
+    x_c = float(np.abs(mouth[:, 0]).max())
+    z_n = float(nose[:, 2].min())
+    front = -normals[:, 1]
+    down = -normals[:, 2]
+    ax = np.abs(co[:, 0])
+    behind = co[:, 1] - y_m                     # depth behind the mouth
+    mid = (ax < 0.006) & (W > 0.5) & (behind < 0.03)
+    chin_z = float(co[mid, 2].min()) if mid.any() else z_m - 0.05
+    # clear of the lips' red and the slit: at least 2.5 mm from any of their vertices
+    red = np.vstack([lips, mouth])
+    kd = KDTree(len(red))
+    for i, p in enumerate(red):
+        kd.insert(p, i)
+    kd.balance()
+    near = np.ones(len(co))
+    for i in np.nonzero((np.abs(co[:, 2] - z_m) < 0.04) & (ax < x_c + 0.02))[0]:
+        near[i] = kd.find(co[i])[2]
+    face = (W > 0.5) & (near > 0.0025)
+    out = {"moustache": face & (co[:, 2] > z_m + 0.003) & (co[:, 2] < z_n - 0.0015) & (ax < x_c + 0.006)
+           & (front > 0.3),
+           "chin": face & (co[:, 2] < z_m - 0.004) & (ax < x_c + 0.004) & (behind < 0.05)
+           & (((co[:, 2] >= chin_z) & ((front > -0.2) | (down > 0.3)))
+              | ((co[:, 2] < chin_z) & (co[:, 2] > chin_z - 0.012) & (down > 0.45)))}
+    # the jaw: below the cheek line (the nose's base at the corner, falling to the mouth's height by 7 cm out).
+    # Under the chin only the jaw's underside, which faces down: the neck's front faces forward, and taking
+    # forward-facing skin there ran the first beard down the throat to the collar.
+    t = np.clip((ax - (x_c + 0.006)) / max(0.07 - (x_c + 0.006), 1e-6), 0.0, 1.0)
+    cheek_line = z_n - 0.0015 + t * ((z_m - 0.005) - (z_n - 0.0015))
+    over_jaw = (co[:, 2] >= chin_z) & ((front > -0.1) | (down > 0.3))
+    under_jaw = (co[:, 2] < chin_z) & (co[:, 2] > chin_z - 0.025) & (down > 0.45)
+    out["jaw"] = (face & (co[:, 2] < cheek_line) & (ax < 0.085) & (behind < 0.085)
+                  & ~out["moustache"] & ~out["chin"] & (over_jaw | under_jaw))
+    marks = {"mouth_z": round(z_m, 4), "mouth_y": round(y_m, 4), "nose_base_z": round(z_n, 4),
+             "chin_z": round(chin_z, 4), "mouth_half_width": round(x_c, 4)}
+    return {k: v for k, v in out.items() if v.any()}, marks
+
+
+def _beard(ob, co, base, rig, colour, uv_name, style, head_bone):
+    """A beard shell in `style` (BEARD_STYLES): the body's faces over the style's regions, lifted `lift_m` along
+    the skin's normals, V down the face every `strand_m`, skinned like the face under it."""
+    spec = BEARD_STYLES[style]
+    me = ob.data
+    nrm = np.empty(len(me.vertices) * 3, np.float32)
+    me.vertices.foreach_get("normal", nrm)
+    m3 = np.array(ob.matrix_world.to_3x3(), np.float64)
+    nrm = nrm.reshape(-1, 3).astype(np.float64) @ m3.T
+    nrm /= np.maximum(np.linalg.norm(nrm, axis=1), 1e-9)[:, None]
+    neck = None
+    if rig is not None and head_bone in rig.data.bones and rig.data.bones[head_bone].parent is not None:
+        neck = rig.data.bones[head_bone].parent.name
+    masks, marks = beard_regions(ob, co, nrm, head_bone, neck)
+    n = regions()["n_body"]
+    wanted = np.zeros(len(me.vertices), bool)
+    for r in spec["regions"]:
+        if r in masks:
+            wanted[:n] |= masks[r]
+    saved = LOOK["beard"]
+    LOOK["beard"] = dict(saved, keep=spec["keep"])
+    try:
+        mat, mat_rep, tile = _material(f"{base}_beard", colour, uv_name, "beard")
+    finally:
+        LOOK["beard"] = saved
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.verts.ensure_lookup_table()
+    src_layer = bm.verts.layers.int.new("hf_src")
+    for v in bm.verts:
+        v[src_layer] = v.index
+    keep_set = {f for f in bm.faces if all(wanted[v.index] for v in f.verts)}
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f not in keep_set], context="FACES")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    for layer in list(bm.loops.layers.uv.values()):
+        bm.loops.layers.uv.remove(layer)
+    for layer in list(bm.loops.layers.color.values()):
+        bm.loops.layers.color.remove(layer)
+    dl = bm.verts.layers.deform.active
+    src = [v[src_layer] for v in bm.verts]
+    mw = ob.matrix_world
+    for v, i in zip(bm.verts, src):
+        v.co = mw @ v.co + Vector(nrm[i]) * spec["lift_m"]
+    bm.verts.layers.int.remove(src_layer)
+    uv = bm.loops.layers.uv.new(uv_name)
+    # U runs round the face (arc length about a vertical axis BEARD_AXIS_M behind the mouth), not along x: on the
+    # side of the jaw x hardly changes, and U from x smeared the strands into bands there. V hangs down the face.
+    yc = marks["mouth_y"] + BEARD_AXIS_M
+    for f in bm.faces:
+        f.smooth = True
+        for loop in f.loops:
+            p = loop.vert.co
+            u = math.atan2(p.x, -(p.y - yc)) * BEARD_AXIS_M
+            loop[uv].uv = (u / tile, -p.z / spec["strand_m"])
+    weights = {}
+    if dl is not None:
+        names_g = {g.index: g.name for g in ob.vertex_groups}
+        per = {}
+        for k, v in enumerate(bm.verts):
+            for gi, w in v[dl].items():
+                if gi in names_g and w > 1e-4:
+                    per.setdefault(names_g[gi], np.zeros(len(bm.verts)))[k] = w
+            v[dl].clear()
+        weights = per
+    bm.verts.index_update()
+    from .hair import _object
+    hob = _object(f"{base}_beard", bm, ob, rig, weights)
+    bm.free()
+    hob.data.materials.append(mat)
+    hob["humanform_hair"] = {"part": "beard", "style": style}
+    return hob, {"style": style, "faces": len(hob.data.polygons), "verts": len(hob.data.vertices),
+                 "regions": {k: int(v.sum()) for k, v in masks.items() if k in spec["regions"]},
+                 "marks": marks, "lift_m": spec["lift_m"],
+                 "material": {k: mat_rep.get(k) for k in ("material", "source", "gltf")}}
+
+
 # ------------------------------------------------------------------------------------------ entry
 
 def add(body, lm, colour, base, rig=None, uv_name="UVMap", brows=True, lashes=True, body_hair=False, sex=None,
-        brow_shape=None):
-    """Brows, lashes and (optionally) body hair on a baked MPFB body. `lm` is `hair.landmarks(body)`;
-    `colour` the scalp hair's screen (sRGB) colour; `brow_shape` one of `BROW_SHAPES` (None: "natural").
+        brow_shape=None, beard=None, beard_colour=None):
+    """Brows, lashes and (optionally) body hair and a beard on a baked MPFB body. `lm` is `hair.landmarks(body)`;
+    `colour` the scalp hair's screen (sRGB) colour; `brow_shape` one of `BROW_SHAPES` (None: "natural");
+    `beard` one of `BEARD_STYLES` (None: none), in `beard_colour` (None: the hair colour darkened by BEARD_DARKEN).
     Returns {objects, parts, skipped}."""
+    if beard is not None and beard not in BEARD_STYLES:
+        raise ValueError(f"beard {beard!r} is not one of {tuple(BEARD_STYLES)}")
     brow_shape = brow_shape or "natural"
     if brow_shape not in BROW_SHAPES:
         raise ValueError(f"brow_shape {brow_shape!r} is not one of {tuple(BROW_SHAPES)}")
     from . import body as _body
     ob = _body.obj(body)
     out = {"objects": {}, "parts": {}, "skipped": None}
-    if not (brows or lashes or body_hair):
+    if not (brows or lashes or body_hair or beard):
         return out
     if not is_mpfb(ob):
         out["skipped"] = f"{ob.name} has {len(ob.data.vertices)} vertices, fewer than an MPFB body's " \
-                         f"{regions()['n_body']}: no brows, lashes or body hair"
+                         f"{regions()['n_body']}: no brows, lashes, body hair or beard"
         return out
     co = lm["_co"]
     head = lm["head_bone"]
@@ -646,4 +802,9 @@ def add(body, lm, colour, base, rig=None, uv_name="UVMap", brows=True, lashes=Tr
         hob, rep = _body_hair(ob, co, base, rig, _darken(colour, BODY_HAIR_DARKEN), uv_name, sex)
         out["objects"]["body_hair"] = hob.name
         out["parts"]["body_hair"] = rep
+    if beard:
+        bcol = tuple(beard_colour) if beard_colour is not None else _darken(colour, BEARD_DARKEN)
+        bob, rep = _beard(ob, co, base, rig, bcol, uv_name, beard, head)
+        out["objects"]["beard"] = bob.name
+        out["parts"]["beard"] = rep
     return out

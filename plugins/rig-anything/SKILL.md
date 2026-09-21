@@ -343,7 +343,17 @@ nothing to something with no feet.
 probed per bone, and which way a mid-joint folds is measured from that limb's
 own rest shape - so a quadruped's front legs fold like arms and its rear legs
 like legs without anyone writing that down. See the rule below for why this is
-not optional.
+not optional. One exception, measured: an **upright leg** (root to effector within
+`bodymap.UPRIGHT_LEG_DEG`, 35 degrees, of straight down - a person's, a dog's, a
+bird's) bends in its own front-back plane once it folds (`plane_dev`, handed over
+by `motion.PLANE_FOLD`, 30: in plane by 3% of its reach, exactly its rest bend at
+rest length so a clip that starts at rest still does). A fitted skeleton's rest
+knee sits a few millimetres off the hip-ankle line, and its sideways part is where
+the fit put the joint, not a bow in the body: a 1.53 m woman's sat 10.9 mm out
+against 22.5 mm forward, and every clip bent her knees 26 degrees out at idle and
+45-48 on the run - bow-legged (8.7 and 13.9 cm out at a walk and run; 1.9 and 3.1
+now). A knee bent back keeps its sign, and a sprawled leg keeps its rest shape.
+The body map warns when a rest bend is 10 degrees or more across the leg.
 
 **7. Export, and get the playback speed with it.**
 
@@ -456,7 +466,10 @@ r = export.export_character("MyMesh", rig, r"C:/proj/assets/humans/ann/ann.glb",
   `clips` and `loops` (by role), `implied_speed_mps` (by role), `height_m` (`stand` is the mesh
   top, plus `crouch` and `crouch_walk` when those roles are exported), `gaits`, `contacts`,
   `verified`, `clip_checks`, `arm_pose` (per clip with arms, per arm: `hand_rise`,
-  `elbow_flex_deg`, `upper_arm_deg`, `arm_carry_deg`, `arm_swing_deg` - shipped so the motion
+  `elbow_flex_deg`, `upper_arm_deg`, `arm_carry_deg`, `arm_swing_deg` - measured along the body's own
+  heading each frame (`verify.body_headings`: the mean of the hip and shoulder lines), not the rig's rest
+  forward, since a turn ends a quarter turn round and an arm splayed to the side read there as a swing that
+  never came back to hanging (a phantom 22 degrees on a turn; walks moved by 0.3 at most) - shipped so the motion
   critic's keep-or-revert rule can compare a rebuild against the previous version after the build
   log is gone), `forced_clips`, `known_failures` (each role's authoring failures),
   `collider`, `turns` when a turn was exported (`{role: {yaw_deg, pivot_leg, pivot_m,
@@ -548,7 +561,8 @@ fails (`failed`, the pipeline's review stage raises) when the figure covers unde
 centroid of the view's own points projects more than 0.3 of the tile from its centre (`off_centre`), when any
 one of them - the wrist, each knuckle and fingertip; both eyes; each foot's heel, ankle and toe - is within
 0.04 of the tile's edge or outside it (`cut`; `subject_margin` is the worst point's free value), or when no
-figure is drawn at the centroid (`off_body`, body views). `hand_back` looks from the front and the hand's outer
+figure is drawn at the centroid nor under half the view's own points (`off_body`, body views; a spread hand's
+centroid falls between thumb and fingers). `hand_back` looks from the front and the hand's outer
 side, a little below the knuckles (the curled fingertips show their nails), and draws nothing further than
 the hand (the thigh). `aim_override={view: bone | (dx, dy, dz)}` is the control: a camera aimed from the wrong
 bone fails, and so does a palm camera moved 3 cm up the arm (`cut`: the fingertips at the edge). About 3-4 s

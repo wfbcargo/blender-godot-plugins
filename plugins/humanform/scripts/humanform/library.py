@@ -28,6 +28,8 @@ import os
 import re
 import shutil
 import sys
+import time
+from contextlib import contextmanager
 
 import numpy as np
 
@@ -68,19 +70,70 @@ def _index_path():
     return os.path.join(root(), "index.json")
 
 
-def index():
+# Several Blender processes may build characters at once (character-pipeline's build_many), each reading and
+# saving to one library. The index is read, changed and written back, so two unguarded writers lose one card,
+# and on Windows a replace fails while another process has the index open. Writers hold a lock file (created
+# exclusively; one older than LOCK_STALE_S is a crashed writer's and is broken), and a read or a replace that
+# meets the other side mid-way retries.
+LOCK_STALE_S = 120.0
+LOCK_WAIT_S = 60.0
+
+
+@contextmanager
+def _locked():
+    path = _index_path() + ".lock"
+    t0 = time.time()
+    while True:
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
+            break
+        except FileExistsError:
+            try:
+                if time.time() - os.path.getmtime(path) > LOCK_STALE_S:
+                    os.remove(path)
+                    continue
+            except OSError:
+                continue                        # released (or broken) between the two calls: try again
+            if time.time() - t0 > LOCK_WAIT_S:
+                raise TimeoutError(f"humanform library: {path} held for over {LOCK_WAIT_S:g} s - "
+                                   "delete it if no build is running")
+            time.sleep(0.05)
     try:
-        with open(_index_path(), encoding="utf-8") as fh:
-            return json.load(fh)
-    except FileNotFoundError:
-        return {"schema": SCHEMA, "items": []}
+        yield
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+def _retry(fn, tries=40):
+    for i in range(tries):
+        try:
+            return fn()
+        except (PermissionError, json.JSONDecodeError):
+            if i == tries - 1:
+                raise
+            time.sleep(0.05)
+
+
+def index():
+    def read():
+        try:
+            with open(_index_path(), encoding="utf-8") as fh:
+                return json.load(fh)
+        except FileNotFoundError:
+            return {"schema": SCHEMA, "items": []}
+    return _retry(read)
 
 
 def _write_index(ix):
-    tmp = _index_path() + ".tmp"
+    tmp = f"{_index_path()}.{os.getpid()}.tmp"      # per process: two writers never share one
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(ix, fh, indent=1)
-    os.replace(tmp, _index_path())
+    _retry(lambda: os.replace(tmp, _index_path()))
 
 
 def region_of(key_name):
@@ -119,12 +172,13 @@ def _store(card, thumb=None):
         card["files"] = {"thumb": "thumb.png"}
     with open(os.path.join(folder, "card.json"), "w", encoding="utf-8") as fh:
         json.dump(card, fh, indent=1)
-    ix = index()
-    ix["items"] = [c for c in ix["items"] if c["id"] != card["id"]]
     summary = {k: card.get(k) for k in ("id", "kind", "region", "name", "tags", "sex", "style", "build", "features",
                                         "quality", "created")}
-    ix["items"].append(summary)
-    _write_index(ix)
+    with _locked():
+        ix = index()
+        ix["items"] = [c for c in ix["items"] if c["id"] != card["id"]]
+        ix["items"].append(summary)
+        _write_index(ix)
     return card
 
 
@@ -263,6 +317,7 @@ def remove(card_id):
     folder = os.path.join(root(), "items", card_id)
     if os.path.isdir(folder):
         shutil.rmtree(folder)
-    ix = index()
-    ix["items"] = [c for c in ix["items"] if c["id"] != card_id]
-    _write_index(ix)
+    with _locked():
+        ix = index()
+        ix["items"] = [c for c in ix["items"] if c["id"] != card_id]
+        _write_index(ix)

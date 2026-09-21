@@ -45,8 +45,8 @@ and runs only the fixtures that change reaches:
   else: everything, since it is not known what reads it.
 
 It prints each changed path with what it selected, then every fixture it will run and why and every
-one it skips and why. `--quick` is for iterating and for a merge queue; run the full `--twice` before
-merging all the same.
+one it skips and why. `--quick` is for iterating. The suite is optional and never a merge gate (CLAUDE.md): a fresh build of
+the affected characters and the game's demo selftests are what prove a change.
 
 ## `--update`
 
