@@ -6,7 +6,8 @@
 
 The presets live in `presets/garments.json` in the plugin, each with a `note` saying where its
 numbers came from. `dress` runs tailor -> paint_ease -> ease -> skin -> hem -> cover -> spec ->
-export with a preset's arguments; a step whose arguments are null is skipped.
+export with a preset's arguments; a step whose arguments are null is skipped (`skin` is never
+skipped: absent or null, it keeps a cut garment's own weights).
 """
 
 from __future__ import annotations
@@ -79,7 +80,7 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
     painted = fit.paint_ease(g, **_args(p["paint"])) if p.get("paint") is not None else None
     # null ease: skipped - a built skirt carries its ease already, and relaxing a tube shrinks it off its flare
     er = fit.ease(g, body, over=over, **_args(p["ease"])) if p.get("ease") is not None else None
-    sk = fit.skin(g, body)
+    sk = fit.skin(g, body, **_args(p.get("skin")))
     hr = None
     cloth = None
     if soft:
@@ -125,6 +126,7 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
     # own relief than the limit fails - and so does one whose limited region was never measured.
     # A skirt or dress has no ease step (`er` None): there is no relief to have measured.
     detail = builtins.list(((er or {}).get("detail") or {}).get("problems") or [])
+    detail += ((er or {}).get("tuck") or {}).get("problems") or []
     if cr.get("drawn_over_cloth"):
         detail.append("cover: %d drawn body triangles still lie over the cloth after lifting it" % cr["drawn_over_cloth"])
     if problems:
