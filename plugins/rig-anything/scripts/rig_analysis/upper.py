@@ -17,10 +17,14 @@ each leg sits on, never from a bone's roll)
   further than it did
 - thorax turn: the chest turns against the pelvis, and the shoulders against
   the hips
-- side bend: the trunk leans over the stance leg (a waddle, when large)
-- lean and lean_bob: a held forward trunk lean, and a dip twice a stride
-- head hold: the neck and head take back that share of the trunk's turn,
-  roll and pitch, so the head keeps its orientation toward the world - and
+- side bend: the trunk leans over the stance leg (a waddle, when large),
+  against the pelvis, which lifts that hip
+- lean and lean_bob: a held forward trunk lean, and a pitch twice a stride
+  timed off each footstrike (`footstrike`, `lean_lag`)
+- head nod: the head keeps a little of the held lean, none of the bob, and
+  pitches to hold its gaze on a point `gaze_m` ahead as the body rises and falls
+- head hold: the neck and head take back that share of the trunk's turn and
+  roll, so the head keeps its orientation toward the world - and
   they take it back LATE, reading the same drive `head_lag` of a cycle behind
   the thorax as the thorax reads it behind the pelvis. That is the last rung
   of the lag ladder, and `head_frequency` measures the segment it belongs to
@@ -56,7 +60,7 @@ from mathutils import Vector
 # Every parameter `cycle(upper=...)` and `idle(upper=...)` take.
 PARAMS = ("arm_swing", "arm_forward", "arm_out", "elbow", "elbow_swing", "hand_in",
           "pelvis_turn", "pelvis_list", "thorax_turn", "side_bend", "lean", "lean_bob",
-          "head_hold", "hand_clearance", "breath",
+          "lean_lag", "head_hold", "gaze_m", "hand_clearance", "breath",
           "girdle_drop", "girdle_forward", "girdle_lag",
           "trunk_hz", "trunk_damping", "arm_lag", "hand_lag", "head_lag", "limb_damping")
 
@@ -65,6 +69,11 @@ PARAMS = ("arm_swing", "arm_forward", "arm_out", "elbow", "elbow_swing", "hand_i
 # goes 1 -+ HAND_SWING, HAND_LAG of a cycle behind the arm.
 HAND_LAG = 0.08
 HAND_SWING = 0.25
+
+# The share of the held trunk lean the head keeps - 1 - the 0.85 `head_hold`
+# every axis used to share. The lean is a posture, not a motion, so it keeps
+# its old number while the turn's share moves with speed.
+HEAD_LEAN_KEEP = 0.15
 
 
 def response(drive_hz, natural_hz, damping):
@@ -310,12 +319,35 @@ def defaults(froude, duty):
         "elbow_swing": 8.0 * (1.0 - run),
         "hand_in": 5.0 * _smooth((froude - 0.5) / 1.0),
         "pelvis_turn": 2.0 + 5.0 * min(u, 1.4),
-        "pelvis_list": 3.0 if running else 4.0,
+        # The frontal plane RISES with speed. Pelvic obliquity is ~9.5 deg peak-to-
+        # peak walking at 5 km/h and 14.5 / 22.4 running at 10 / 15 km/h (Ruiz-
+        # Malagon et al. 2023, Table 1), 8-16 running (Perpina-Martinez et al.
+        # 2023); the lab-frame trunk tilts over the STANCE leg, 3 deg slow to 10
+        # running (Thorstensson et al. 1984). These were 4 walking falling to 3
+        # running, and a flat 1.5 toward the swing side. Taken at the low end of
+        # the running range: the spread is wide and skin markers read spines large.
+        "pelvis_list": 4.5 + 1.5 * run,
         "thorax_turn": 1.5 + 4.0 * min(u, 1.4),
-        "side_bend": 1.5,
+        "side_bend": 2.0 + 2.0 * run,
         "lean": 1.0 + 5.0 * min(u, 1.5),
-        "lean_bob": 2.0 if running else 1.0,
-        "head_hold": 0.85,
+        # The trunk's twice-a-stride pitch, timed off footstrike: ~2-3 deg peak-to-
+        # peak walking with the forward peak at the start of support, ~5 running
+        # with the BACKWARD peak at footstrike (Thorstensson et al. 1984). `lean_lag`
+        # is where the forward peak sits after each footstrike, in cycles: 0 at a
+        # walk, a quarter (the next trough past the strike) at a run.
+        "lean_bob": 1.25 + 1.25 * run,
+        "lean_lag": 0.25 * run,
+        # How much of the thorax's turn and roll the head takes back, so the gaze
+        # holds. The head keeps ~64% of the shoulders' yaw walking (5.2 of 8.1 deg)
+        # and ~26% running (6.1 of 23.8), world frame (Pontzer et al. 2009): it
+        # holds more the faster the trunk turns. This was a flat 0.85 - 15% kept at
+        # every speed, a head read as locked.
+        "head_hold": 0.35 + 0.4 * run,
+        # The head's nod is not a share of the trunk's: it holds the eyes on a point
+        # about a metre ahead while the body rises and falls, so it pitches up as
+        # the head drops (Hirasaki et al. 1999; ~1 m at 1.67 m/s, Moore et al. 1999).
+        # Metres to that point; None is no nod, the head riding the held lean alone.
+        "gaze_m": 1.0,
         "hand_clearance": 0.015,
         "breath": 0.0,
         # The shoulder girdle. Tied to `arm_swing` rather than given its own
@@ -378,8 +410,8 @@ def idle_defaults():
     return {
         "arm_swing": 0.0, "arm_forward": 4.0, "arm_out": None, "elbow": 12.0,
         "elbow_swing": 0.0, "hand_in": 0.0, "pelvis_turn": 0.0, "pelvis_list": 0.0,
-        "thorax_turn": 0.0, "side_bend": 0.0, "lean": 0.0, "lean_bob": 0.0,
-        "head_hold": 0.85, "hand_clearance": 0.015,
+        "thorax_turn": 0.0, "side_bend": 0.0, "lean": 0.0, "lean_bob": 0.0, "lean_lag": 0.0,
+        "head_hold": 0.85, "gaze_m": None, "hand_clearance": 0.015,
         # degrees the arms drift with each breath
         "breath": 1.0,
         # nothing is carrying weight and no arm is swinging, so the shoulders
@@ -437,6 +469,32 @@ def leg_load(ph, duty):
     return math.sin(math.pi * ph / duty) if ph < duty else 0.0
 
 
+def strike_pulse(ph, lag, width):
+    """0..1: one leg's footstrike, a raised cosine peaking `lag` of a cycle
+    after its touchdown (ph = 0) and `width` of a cycle either side of that.
+
+    This is the signal the trunk's flexion and the head's nod share, so they
+    are timed off the same event rather than each off a phase of its own."""
+    x = (ph - lag + 0.5) % 1.0 - 0.5
+    return 0.5 * (1.0 + math.cos(math.pi * x / width)) if abs(x) < width else 0.0
+
+
+def footstrike(at, offsets, legs, lag, width=0.25):
+    """The body's footstrike signal at cycle phase `at`: every leg's
+    `strike_pulse` summed, its mean taken out, scaled so a biped reads -1..+1.
+
+    Zero-mean, so a held lean stays the lean it was asked for. For two legs half
+    a cycle apart and `width` 0.25 the pulses tile the cycle and the sum is
+    exactly cos(4 pi (at - lag)) - the twice-a-stride curve `lean_bob` used to
+    be written as, now placed after each footstrike instead of on it. With `lag`
+    0 it is that curve to the last digit, which is the control."""
+    if not legs:
+        return 0.0
+    s = sum(strike_pulse((at - offsets[l["name"]]) % 1.0, lag, width) for l in legs)
+    mean = width * len(legs)                  # a raised cosine's mean over the cycle
+    return 2.0 * (s - mean) * (2.0 / len(legs))
+
+
 # --------------------------------------------------------------------------
 # the trunk
 # --------------------------------------------------------------------------
@@ -485,12 +543,15 @@ def trunk(poser, pelvis_yaw, pelvis_roll, thorax_yaw, thorax_roll, pitch, head_h
         for k, (a, b) in ends.items():
             out[k][i] = a + (b - a) * f
     top = ends if head is None else {k: (0.0, head.get(k, ends[k][1])) for k in ends}
+    # one share for every axis, or {"yaw", "roll", "pitch"}: the gaze holds the
+    # turn and the roll, while the pitch is a nod of the head's own
+    hold = head_hold if isinstance(head_hold, dict) else dict.fromkeys(out, head_hold)
     for j, i in enumerate(top_i):
         w = (j + 1) / float(len(top_i))
         for k in out:
             # from the driver's own value at the base of the neck to the head's
             # own, held back by `head_hold`, at the top
-            far = top[k][1] * (1.0 - head_hold)
+            far = top[k][1] * (1.0 - hold[k])
             out[k][i] = ends[k][1] + (far - ends[k][1]) * w
     return out
 
@@ -798,8 +859,11 @@ class Upper:
         out = self.outs[arm["name"]] + 0.8 * breath
         return arm_spec(self.P, arm, forward, out, elbow, hand_in)
 
-    def cycle_key(self, p0, offsets, duty, legs):
-        """(trunk, limbs, extra drop) at cycle phase p0 of a gait."""
+    def cycle_key(self, p0, offsets, duty, legs, height=None):
+        """(trunk, limbs, extra drop) at cycle phase p0 of a gait.
+
+        `height(q)` is how high the body rides at cycle phase q, metres, + up;
+        the head nods against it. None (or no `gaze_m`) is no nod."""
         P, prm = self.P, self.params
         n = float(max(len(legs), 1))
 
@@ -825,21 +889,38 @@ class Upper:
         pelvis_yaw = prm["pelvis_turn"] * turn * self.s_yaw
         thorax_yaw = prm["thorax_turn"] * turn_t * self.s_yaw
         pelvis_roll = prm["pelvis_list"] * lst * self.s_roll
-        thorax_roll = prm["side_bend"] * lst_t * self.s_roll
-        pitch = prm["lean"] + prm["lean_bob"] * math.cos(4.0 * math.pi * p0)
+        # The trunk leans over the STANCE leg in the lab frame, against the
+        # pelvis, which lifts that hip (Thorstensson et al. 1984). It is not
+        # lagged: `trunk_lag` is the thorax chasing the pelvis's TURN, and reused
+        # here it put the roll ~120 deg behind the pelvis on every body - neither
+        # over the stance leg nor away from it.
+        thorax_roll = -prm["side_bend"] * lst * self.s_roll
+        # Forward and back twice a stride, off each footstrike (`footstrike`):
+        # the forward peak `lean_lag` of a cycle after it.
+        pitch = prm["lean"] + prm["lean_bob"] * footstrike(p0, offsets, legs,
+                                                           prm.get("lean_lag", 0.0))
         # The top of the chain is one rung further out: a mass carried on the
         # thorax, so it reads the SAME drive one more lag back rather than
         # copying the thorax's value. Its own signal is what `trunk` needs to
-        # place it at a phase of its own - the pitch is not lagged here, for the
-        # same reason the thorax's is not: the held lean and its twice-a-cycle
-        # bob are not the once-a-cycle drive `response` was solved for.
-        _f3, _l3, turn_h, lst_h = (drive((p0 - self.trunk_lag - self.head_lag) % 1.0)
-                                   if self.head_lag else (fwd_sig, load, turn_t, lst_t))
+        # place it at a phase of its own.
+        _f3, _l3, turn_h, _lh = (drive((p0 - self.trunk_lag - self.head_lag) % 1.0)
+                                 if self.head_lag else (fwd_sig, load, turn_t, lst_t))
+        lst_h = drive((p0 - self.head_lag) % 1.0)[3] if self.head_lag else lst
+        # The head's pitch is its own, not a share of the trunk's: it keeps a
+        # little of the held lean (as it always did) and none of the bob - the
+        # head-on-trunk pitch cancels the trunk's at a walk (Hirasaki et al.
+        # 1999) - and it nods to hold the eyes on a point `gaze_m` ahead as the
+        # body rises and falls: up as the head drops.
+        nod = self.nod(p0, height)
+        lo, hi = getattr(self, "nod_range", (nod, nod))
+        self.nod_range = (min(lo, nod), max(hi, nod))
+        head_pitch = HEAD_LEAN_KEEP * prm["lean"] + nod
         head_sig = {"yaw": prm["thorax_turn"] * turn_h * self.s_yaw,
-                    "roll": prm["side_bend"] * lst_h * self.s_roll,
-                    "pitch": pitch}
+                    "roll": -prm["side_bend"] * lst_h * self.s_roll,
+                    "pitch": head_pitch}
+        hold = prm["head_hold"]
         tr = trunk(P, pelvis_yaw, pelvis_roll, thorax_yaw, thorax_roll, pitch,
-                   prm["head_hold"], head=head_sig)
+                   {"yaw": hold, "roll": hold, "pitch": 0.0}, head=head_sig)
         drop = self.hip_half * math.sin(math.radians(abs(prm["pelvis_list"] * lst)))
         limbs, hands, girdle = {}, {}, {}
         g_lag = prm.get("girdle_lag", 0.0)
@@ -882,6 +963,17 @@ class Upper:
         self.girdle = girdle
         return tr, limbs, drop
 
+    def nod(self, p0, height, samples=48):
+        """Degrees the head pitches at cycle phase p0 to hold its gaze on a point
+        `gaze_m` ahead while the body rides `height`: + forward (down), so a head
+        below its mean height pitches up. 0 with no height or no gaze."""
+        gaze = self.params.get("gaze_m")
+        if height is None or not gaze:
+            return 0.0
+        mean = sum(height(i / float(samples)) for i in range(samples)) / samples
+        dz = height(p0 % 1.0) - mean
+        return math.degrees(math.atan2(dz, float(gaze)))
+
     def idle_key(self, t):
         """(limbs) at idle time t in 0..1: relaxed arms, a breath of drift."""
         b = self.params.get("breath", 0.0) * math.sin(2.0 * math.pi * t)
@@ -912,6 +1004,9 @@ class Upper:
         out["head_hz"] = round(self.head_hz, 3)
         out["head_lag_cycles"] = round(self.head_lag, 4)
         out["head_lag_deg"] = round(self.head_lag * 360.0, 1)
+        # the gaze's nod as keyed: peak-to-peak degrees over the keys this clip asked for
+        rng = getattr(self, "nod_range", None)
+        out["head_nod_deg_pp"] = round(rng[1] - rng[0], 2) if rng else 0.0
         out["limb_hz"] = {k: {kk: round(vv, 3) for kk, vv in v.items()}
                           for k, v in getattr(self, "limb_hz", {}).items()}
         out["arm_lag_cycles"] = {k: round(v, 4) for k, v in getattr(self, "arm_lag", {}).items()}
