@@ -68,6 +68,8 @@ def _make_child(s, r, t, t0, eyes, store, face_part, hand_part, foot_part):
             if part["region"] != "face":
                 notes.append(f"{part['id']}: its look is applied, its size offsets are not (a child has no fit)")
     rep = {"params": {}, "residuals": [], "history": [], "measurements": 0}
+    if s.get("face"):
+        notes.append("face: a child's body is not fitted, so its likeness ratios are not applied")
     if r["sheet"].get("stature"):
         rep["stature"] = scaffold.fit_stature(human, float(r["sheet"]["stature"]))
         if not rep["stature"]["reached"]:
@@ -101,7 +103,8 @@ def make(s, out_dir=None, store=False, use_library=True, contact_sheet=False, ta
     t["sheet"] = time.time() - t0
     if r["ansur"] == "child":
         return _make_child(s, r, t, t0, eyes, store, face_part, hand_part, foot_part)
-    lm = landmarks.from_measurements(r["values"], s["sex"], s["style"], name=s["name"])
+    face = s.get("face")
+    lm = landmarks.from_measurements(r["values"], s["sex"], s["style"], name=s["name"], face=face)
     t["sheet"] = time.time() - t0
 
     hits = library.find_bodies(r, k=1) if use_library else []
@@ -136,7 +139,7 @@ def make(s, out_dir=None, store=False, use_library=True, contact_sheet=False, ta
                     start[mname] = own[mname]
         jac = card.get("jacobians") or {}
         path = "warm"
-        if nearest[0] < REUSE:
+        if nearest[0] < REUSE and not face:     # a likeness is never in a stored body: always fitted
             # try the stored body as it is: one measurement decides
             target = landmarks.as_measurements(lm)
             tol = scaffold._tolerances(scaffold.RESIDUALS, __import__("humanform").presets()["presets"][s["style"]]["ratios"],
@@ -167,6 +170,7 @@ def make(s, out_dir=None, store=False, use_library=True, contact_sheet=False, ta
         library.apply(human, part)
         lm = parts.offset_landmarks(lm, part, s["sex"])     # a hand or foot design's size offsets
         rep = None                          # a new part means the stored fit no longer holds
+    shape_key = scaffold.apply_face_shape(human, face)      # over a face part: the likeness has the last word
     t2 = time.time()
     if rep is None:
         hold = ("muscle",) if s.get("muscle") is not None else ()
@@ -200,7 +204,21 @@ def make(s, out_dir=None, store=False, use_library=True, contact_sheet=False, ta
         thumb = f"{out_dir}/body.png"
         t["views"] = time.time() - t5
     card = None
-    if store and r["ansur"] != "measured":
+    if face:
+        rep["likeness"] = {"targets": {k: round(lm["measures"][k], 4) for k in lm.get("likeness", [])},
+                           "shape": shape_key}
+        # a lever at the end of MPFB's range could not give what the ratio asked: say which, so the brief (or
+        # the photo reading) is looked at again rather than the result trusted
+        params = (rep.get("face") or {}).get("params", {})
+        levers = {v[0]: k for k, v in scaffold.LIKENESS_FINE.items()}
+        at_limit = sorted(levers[n] for n, x in params.items() if n in levers and abs(x) >= 0.999)
+        if at_limit:
+            rep["likeness"]["at_limit"] = at_limit
+            notes.append(f"likeness: {', '.join(at_limit)} at the end of MPFB's range - the face asks for more "
+                         "than its target can give")
+    if store and face:
+        notes.append("not stored: a likeness (the brief's face) is one person's, not a body to start others from")
+    elif store and r["ansur"] != "measured":
         notes.append("not stored: the library holds bodies measured against ANSUR")
     elif store and (fit_iterations < 10 or not fit_detail):
         notes.append("not stored: a draft fit (%d iterations, detail %s)" % (fit_iterations, fit_detail))

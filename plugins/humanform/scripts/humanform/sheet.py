@@ -48,6 +48,22 @@ COLOUR_FIELDS = ("skin", "iris")
 HAIR_PRESETS = ("short_crop", "bob", "bun", "ponytail", "long_loose")
 # humanform.brows brow shapes a brief may name (`hair.brow_shape`); "natural" is MPFB's brow card as fitted
 BROW_SHAPES = ("natural", "straight", "arched", "soft")
+# MPFB's ancestry macros (`ancestry`): shares, normalised to sum to 1
+ANCESTRY = ("african", "asian", "caucasian")
+# A face's likeness (`face`), as ratios a frontal photo of the person gives directly - no scale needed. Each is
+# the ratio's plausible adult range; the fit (scaffold.fit_face) takes the body's own bizygomatic breadth, which
+# ANSUR sets from its size, and solves the rest of the face to these. Measured on the mesh by measure._head and
+# measure._face_features, the same way a photo is read:
+FACE_RATIOS = {
+    "width_to_height": (0.85, 1.45),    # bizygomatic (cheekbone) breadth / nasion-to-chin (menton-sellion)
+    "eye_spacing": (0.36, 0.58),        # pupil to pupil / bizygomatic
+    "nose_width": (0.18, 0.40),         # alar (nose-wing) breadth / bizygomatic
+    "mouth_width": (0.28, 0.50),        # mouth corner to corner / bizygomatic
+    "jaw_width": (0.65, 1.00),          # the face's outline across at the mouth / bizygomatic
+    "lower_face": (0.45, 0.70),         # the nose's base to the chin / nasion to the chin
+}
+# MPFB's whole-head shape targets a `face` may lean on (`shape`, at `shape_weight`, default 0.5)
+FACE_SHAPES = ("oval", "round", "square", "rectangular", "triangular", "invertedtriangular", "diamond")
 
 
 def ansur_path(age):
@@ -75,7 +91,8 @@ def anthropometry():
 
 def new(name="Human", sex="female", age=None, stature=None, weight=None, bmi=None, build="average",
         style="realistic", measurements=None, seed=None, variation=0.5, budget_tris=30000, notes="",
-        firmness=None, proportions=None, muscle=None, cupsize=None, skin=None, iris=None, hair=None):
+        firmness=None, proportions=None, muscle=None, cupsize=None, skin=None, iris=None, hair=None, face=None,
+        ancestry=None):
     """A sheet. Leave anything unknown as None; resolve() fills it and marks it guessed.
 
     `firmness` (soft 0 .. firm 1), `proportions` (MPFB's regular 0 .. idealised 1), `muscle` (0..1) and
@@ -84,8 +101,15 @@ def new(name="Human", sex="female", age=None, stature=None, weight=None, bmi=Non
     the fit starts and what its build prior holds it near. `skin` and `iris` are screen (sRGB) colours;
     None leaves the body clay and the eyes a mid brown. `hair` is `{"preset": ..., "colour": (r, g, b)}` -
     a `HAIR_PRESETS` name and a screen colour, and optionally `"brow_shape"`, one of `BROW_SHAPES` - read by
-    `hair.add(body, sheet=s)` after the body is baked; `pipeline.make` does not build it."""
-    return {"schema": SCHEMA, "name": name, "sex": sex, "age": age, "stature": stature, "weight": weight,
+    `hair.add(body, sheet=s)` after the body is baked; `pipeline.make` does not build it.
+
+    `ancestry` is `{"african": a, "asian": b, "caucasian": c}` (any of them; normalised to sum to 1): MPFB's
+    ancestry macros, which shape the face and body before any fit and are never moved by it. `face` is a
+    likeness: any of `FACE_RATIOS` (ratios read off a frontal photo of the person) and optionally `shape`, one
+    of `FACE_SHAPES`, with `shape_weight` (0..1, default 0.5). The ratios become targets for the face fit (see
+    `landmarks.from_measurements`); a body fitted to them is never stored in the library. Neither key is in a
+    sheet that does not give it, so an older brief's sheet is unchanged."""
+    s = {"schema": SCHEMA, "name": name, "sex": sex, "age": age, "stature": stature, "weight": weight,
             "bmi": bmi, "build": build, "style": style, "measurements": dict(measurements or {}),
             "seed": seed, "variation": variation, "budget_tris": budget_tris, "notes": notes,
             "firmness": firmness, "proportions": proportions, "muscle": muscle, "cupsize": cupsize,
@@ -94,6 +118,15 @@ def new(name="Human", sex="female", age=None, stature=None, weight=None, bmi=Non
                                                      "colour": None if hair.get("colour") is None else list(hair["colour"])},
                                                     **({"brow_shape": hair["brow_shape"]} if hair.get("brow_shape")
                                                        else {}))}
+    if face is not None:
+        s["face"] = dict(face)
+    if ancestry is not None:
+        s["ancestry"] = dict(ancestry)
+        total = sum(float(v) for v in ancestry.values() if isinstance(v, (int, float)) and v >= 0)
+        if total > 0 and set(ancestry) <= set(ANCESTRY):
+            for k in ANCESTRY:
+                s[k] = round(float(ancestry.get(k, 0.0)) / total, 4)     # scaffold.create_macros reads these
+    return s
 
 
 def validate(s):
@@ -135,6 +168,30 @@ def validate(s):
         # its own check, so a brief with a bad colour and a bad brow shape hears about both
         if isinstance(hair, dict) and hair.get("brow_shape") is not None and hair["brow_shape"] not in BROW_SHAPES:
             p.append(f"hair brow_shape {hair['brow_shape']!r} is not one of {BROW_SHAPES}")
+    anc = s.get("ancestry")
+    if anc is not None:
+        if not isinstance(anc, dict) or not anc or set(anc) - set(ANCESTRY):
+            p.append(f"ancestry must be a table of shares with keys from {ANCESTRY}")
+        elif any(not isinstance(v, (int, float)) or v < 0 for v in anc.values()) or sum(anc.values()) <= 0:
+            p.append("ancestry shares must be non-negative numbers, not all 0")
+    face = s.get("face")
+    if face is not None:
+        if not isinstance(face, dict):
+            p.append("face must be a table of FACE_RATIOS and optionally shape / shape_weight")
+        else:
+            for k, v in face.items():
+                if k in FACE_RATIOS:
+                    lo_r, hi_r = FACE_RATIOS[k]
+                    if not isinstance(v, (int, float)) or not lo_r <= v <= hi_r:
+                        p.append(f"face {k} {v} is outside {lo_r}-{hi_r} (see sheet.FACE_RATIOS for what it measures)")
+                elif k == "shape":
+                    if v not in FACE_SHAPES:
+                        p.append(f"face shape {v!r} is not one of {FACE_SHAPES}")
+                elif k == "shape_weight":
+                    if not isinstance(v, (int, float)) or not 0.0 <= v <= 1.0:
+                        p.append(f"face shape_weight {v} must be between 0 and 1")
+                else:
+                    p.append(f"face {k!r} is not one of {sorted(FACE_RATIOS)} or shape / shape_weight")
     names = set(anthropometry()["variables"])
     for k in s.get("measurements", {}):
         if k not in names:

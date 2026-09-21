@@ -47,6 +47,13 @@ def smoothstep(t):
     return t * t * (3.0 - 2.0 * t)
 
 
+# An upright leg with a sideways rest bend (bodymap `plane_dev`) bends in its own front-back plane once it has
+# folded by 1/PLANE_FOLD of its rest reach, and exactly as it rests at rest length. At 10 an idle and a walk,
+# which fold a few percent, stayed near the rest plane (a bow-legged walk at 22-24 degrees against 3-4 fully in
+# plane); at 30 a knee is in plane by 3%, and a clip starting at rest still starts exactly there.
+PLANE_FOLD = 30.0
+
+
 class Body:
     """A rig plus its body map, with the rest data the maths needs."""
 
@@ -496,7 +503,14 @@ class Body:
         dev = rot @ limb["rest_dev"]
         default = rot @ limb["default_pole"]
         if limb["pole_source"] == "rest shape":
-            return dev
+            plane = limb.get("plane_dev")
+            if plane is None or d is None:
+                return dev
+            # an upright leg (bodymap `plane_dev`): exactly its rest bend at rest length, so a first frame is rest,
+            # and bent in its own front-back plane once folded by 1/PLANE_FOLD of its length
+            d_rest = (limb["rest_eff"] - limb["rest_root"]).length
+            w = max(0.0, min(1.0, PLANE_FOLD * (1.0 - d / max(d_rest, 1e-9))))
+            return dev.lerp(rot @ plane, w)
         # A near-straight limb: start exactly on the rest shape so frame one
         # reproduces rest, and hand over to the role default as it folds.
         d_rest = (limb["rest_eff"] - limb["rest_root"]).length

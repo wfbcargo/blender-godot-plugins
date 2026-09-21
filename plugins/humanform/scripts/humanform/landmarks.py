@@ -40,7 +40,37 @@ def _warp(z, src, dst):
     return float(np.interp(z, src, dst))
 
 
-def from_measurements(v, sex, style="realistic", arm_angle=45.0, stance=0.02, name=None):
+FACE_MEASURES = ("nose_breadth", "mouth_breadth", "jaw_breadth", "nose_chin")
+
+
+def likeness(measures, face):
+    """A face's likeness ratios (sheet.FACE_RATIOS, read off a photo) as absolute targets, in place: the body's
+    own bizygomatic breadth - ANSUR's, for its size - is the scale, so the face stays the size of the body it is
+    on and only its proportions follow the photo. `width_to_height` sets menton-sellion from it, `lower_face`
+    then sets the nose's base to the chin from that. Returns the keys it set."""
+    face = face or {}
+    biz = measures["bizygomatic"]
+    set_ = []
+
+    def put(key, value):
+        measures[key] = value
+        set_.append(key)
+
+    if face.get("width_to_height"):
+        put("menton_sellion", biz / face["width_to_height"])
+    if face.get("eye_spacing"):
+        put("interpupillary", face["eye_spacing"] * biz)
+    for ratio, key in (("nose_width", "nose_breadth"), ("mouth_width", "mouth_breadth"), ("jaw_width", "jaw_breadth")):
+        if face.get(ratio):
+            put(key, face[ratio] * biz)
+    if face.get("lower_face"):
+        put("nose_chin", face["lower_face"] * measures["menton_sellion"])
+    return set_
+
+
+def from_measurements(v, sex, style="realistic", arm_angle=45.0, stance=0.02, name=None, face=None):
+    """Landmarks and target measures for a body from its ANSUR values. `face`: a brief's likeness ratios
+    (`likeness`), which replace or add head targets."""
     H = v["stature"]
     presets = _pkg.presets()["presets"]
     real, styl = presets["realistic"]["ratios"], presets["stylized"]["ratios"]
@@ -128,7 +158,7 @@ def from_measurements(v, sex, style="realistic", arm_angle=45.0, stance=0.02, na
         P[f"ball.{side}"] = (ax + s * 0.008, heel_y - L["ball"], 0.02 * H / 1.7)
         P[f"toe.{side}"] = (ax + s * 0.012, heel_y - L["foot"], 0.012 * H / 1.7)
 
-    return {"schema": SCHEMA, "name": name, "sex": sex, "style": style, "stature": H,
+    lm = {"schema": SCHEMA, "name": name, "sex": sex, "style": style, "stature": H,
             "arm_angle": arm_angle, "stance": stance,
             "points": {k: [round(float(c), 5) for c in p] for k, p in P.items()},
             "measures": {"hand": L["hand"], "foot": L["foot"], "shoulder_width": widths["shoulder_width"],
@@ -151,6 +181,9 @@ def from_measurements(v, sex, style="realistic", arm_angle=45.0, stance=0.02, na
                          "wrist_circ": v["wristcircumference"] * limb_scale["hand"],
                          "foot_breadth": v["footbreadthhorizontal"] * limb_scale["foot"],
                          "ankle_circ": v["anklecircumference"] * limb_scale["foot"]}}
+    if face:
+        lm["likeness"] = likeness(lm["measures"], face)
+    return lm
 
 
 EXTREMITIES = ("hand_breadth", "palm_length", "wrist_circ", "foot_breadth", "ankle_circ")
@@ -179,7 +212,8 @@ def as_measurements(lm):
          "chest_circ": ms["chest_circ"], "waist_breadth": ms["waist_breadth"], "waist_depth": ms["waist_depth"],
          "hip_depth": ms["hip_depth"], "chest_depth": ms["chest_depth"], "thigh_circ": ms["thigh_circ"],
          "calf_circ": ms["calf_circ"], "upper_arm_circ": ms["upper_arm_circ"], "neck_circ": ms["neck_circ"]}
-    for k in ("interpupillary", "head_breadth", "head_depth", "bizygomatic", "menton_sellion", "head_circ") + EXTREMITIES:
+    head = ("interpupillary", "head_breadth", "head_depth", "bizygomatic", "menton_sellion", "head_circ")
+    for k in head + EXTREMITIES + FACE_MEASURES:
         if k in ms:            # landmark sets saved before hands and feet were measured lack them
             m[k] = ms[k]
     m["head_length"] = H - m["chin_z"]
