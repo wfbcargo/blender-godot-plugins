@@ -85,7 +85,7 @@ hairline, and the absence of facial asymmetry or blemish.
 1. **Re-run the benchmark.** It is the scoreboard and its last figures are pre-0.37.0, so nobody yet knows
    what the round actually cost or saved end to end. One ship-step command, no code.
 2. **A left/right asymmetry metric - DONE** (branch `asym-godot-meter`, rig-anything 0.38.0, merged
-   2026-09-21, NOT installed or pushed yet - the ship step does that). `AsymmetryMeter` (`asymmetry_meter.gd`)
+   2026-09-21, installed by the ship step 2026-09-21, NOT pushed). `AsymmetryMeter` (`asymmetry_meter.gd`)
    measures arm swing, step length, stride, shoulder dip and arm lag per side off the playing Skeleton3D;
    `verify_asymmetry.gd` and the `asym_meter` fixture gate it in `regress --godot` against
    `variability.measure` on the same bake (asym 0.35 passes; asymmetry 0 and RA_ASYM_MIRROR=1 fail "is
@@ -109,7 +109,12 @@ hairline, and the absence of facial asymmetry or blemish.
    random sign), diagnose the undrawn step asymmetry on a scratch build at asymmetry 0, and ship an
    `.import` preset (the default glb import moves stance offset up to 25 mm, flipping its sign on
    study_man). This **unblocks item 6**. Notebook:
-   [notebooks/asymmetry/asym-motion-demo.md](notebooks/asymmetry/asym-motion-demo.md). The original item:
+   [notebooks/asymmetry/asym-motion-demo.md](notebooks/asymmetry/asym-motion-demo.md).
+   **Shipped 2026-09-21** (not pushed): 0.38.0 installed, the game's addons already matched; all four
+   selftests, `verify_moves` on the six manifests and `verify_flesh` walk/run/jump on all six (18/18)
+   pass; the full `regress --twice --jobs 4 --godot` ends `REGRESS DONE exit=1, 24 fixtures ok`, the one
+   red row being the known `verify_strands pipeline_ponytail` (item 7), unchanged to 0.1 mm. No golden
+   moved. Notebook: [notebooks/asymmetry/ship.md](notebooks/asymmetry/ship.md). The original item:
    `asymmetry = 0.35` is live on all six figures and **moves no metric
    anything currently has** - Marco's shoulder dip 18.2 -> 18.1 mm, spine twist and pelvis yaw unchanged.
    That is not evidence it is broken: `variability.measure` reads the draw back off the baked clip, but
@@ -606,12 +611,12 @@ Read these first, in this order:
 3. [HISTORY.md](HISTORY.md) only when you need the record of rounds one to three (merge log, old loose ends,
    every number). It was this file until now.
 
-Installed copies in `~/.claude/skills` match the repo except rig-anything 0.38.0 (merged, not yet installed). **This is the one list of versions**; update it
+Installed copies in `~/.claude/skills` match the repo (rig-anything 0.38.0 installed by the asymmetry ship step, 2026-09-21). **This is the one list of versions**; update it
 here and nowhere else:
-- rig-anything 0.38.0 (2026-09-21, branch `asym-godot-meter`, NOT installed, NOT pushed: a left/right
-  asymmetry meter in Godot, `AsymmetryMeter` + `verify_asymmetry.gd`, gated by the `asym_meter` fixture.
-  `~/.claude/skills` is where the 0.37.0 entry below leaves it until a ship step installs it; grungist-creek
-  `master`'s `addons/rig_anything` matches 0.38.0 since `asym-motion-demo` merged 2026-09-21, not pushed)
+- rig-anything 0.38.0 (2026-09-21, branch `asym-godot-meter`, installed by the ship step 2026-09-21, NOT
+  pushed: a left/right asymmetry meter in Godot, `AsymmetryMeter` + `verify_asymmetry.gd`, gated by the
+  `asym_meter` fixture. grungist-creek `master`'s `addons/rig_anything` matches 0.38.0 since
+  `asym-motion-demo` merged 2026-09-21, not pushed)
 - rig-anything 0.37.0 (2026-09-20, branches `motion-mass-model`, `motion-head-rung`,
   `motion-asymmetry`, `motion-jitter` and `moves-mass-cache`, NOT pushed: 0.28.0 mass model, 0.29.0 shoulder girdle,
   0.30.0 trunk lag, 0.31.0 limb pendulums and whole-body angular momentum, 0.32.0 the head rung,
@@ -659,7 +664,11 @@ close-up, Tab picks the figure), L lighting presets, T turntables, J flesh, H ha
 `verify_flesh` (full, walk, run and jump courses on all six: 24/24). Re-checked after the 2026-09-20 rebuild:
 `--headless --import` clean (0 ERROR lines), `figure_study`, `belle_demo` and `people_demo` selftests PASSED,
 `verify_moves` PASSED on study_man, study_woman and Belle, and `verify_flesh` walk/run/jump PASSED on all three
-(9/9, `require=within_body`). **`verify_strands` on study_woman FAILS** (0.0053 m into the head) - the round's
+(9/9, `require=within_body`). **Re-checked 2026-09-21 on rig-anything 0.38.0** (asymmetry ship step, no
+rebuild; notebook `notebooks/asymmetry/ship.md`): import 0 ERROR lines, `figure_study`, `belle_demo`,
+`people_demo` and `motion_demo` selftests PASSED, `verify_moves` PASSED on all six manifests and
+`verify_flesh` walk/run/jump PASSED on all six (18/18). No look renders were made: nothing was rebuilt.
+**`verify_strands` on study_woman FAILS** (0.0053 m into the head) - the round's
 one open row, above.
 
 To look at them: each build writes the Blender close-up set to
