@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import math
 import os
 import re
 
@@ -353,6 +354,15 @@ def _roles(rig, limbs, axial_names, pelvis_idx, legs, neck, head_idx, head_guess
     }
 
 
+UPRIGHT_LEG_DEG = 35.0   # a leg whose hip-to-ankle line is this near vertical bends in its front-back plane
+
+
+def upright_leg(span, upv):
+    """Whether a leg's root-to-effector line stands within UPRIGHT_LEG_DEG of straight down: a person's, a
+    dog's or a bird's, not a spider's or a lizard's sprawled one."""
+    return span.length > 1e-9 and span.angle(-upv) <= math.radians(UPRIGHT_LEG_DEG)
+
+
 def build(rig_name, forward="-Y", up="Z", floor=0.0, meshes=None):
     """Describe a rig's body. Everything positional is in ARMATURE space.
 
@@ -492,6 +502,21 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0, meshes=None):
         t = max(0.0, min(1.0, (l["rest_mid"] - l["rest_root"]).dot(span)
                          / max(span.dot(span), 1e-12)))
         dev = l["rest_mid"] - (l["rest_root"] + span * t)
+        l["rest_dev_raw"] = dev.copy()
+        l["rest_pole_out_deg"] = 0.0
+        if l["role"] == "leg" and upright_leg(span, upv):
+            # An upright leg bends in its own front-back plane. The rest bend of a fitted skeleton is a few
+            # millimetres, and its sideways part is where the fit happened to put the knee, not a bow the body
+            # has: a 1.53 m woman's knee sat 10.9 mm out against 22.5 mm forward, so every clip bent her knees
+            # 26 degrees out at idle and 45-48 on the run (bow-legged), and another body's sat 15 degrees in.
+            # Only the part of the bend across the leg (out of the plane of the span and forward) is dropped:
+            # a knee bent back (a bird's, a hock) keeps its sign, and a sprawled leg keeps its rest shape.
+            across = span.cross(fwd)
+            if across.length > 1e-9:
+                across.normalize()
+                l["rest_pole_out_deg"] = round(math.degrees(math.atan2(abs(dev.dot(across)),
+                                                                       max(abs(dev.dot(fwd)), 1e-12))), 1)
+                dev = dev - across * dev.dot(across)
         rel = dev.length / max(span.length, 1e-9)
         fwd_rel = abs(dev.dot(fwd)) / max(span.length, 1e-9)
         default = fwd.copy() if l["role"] == "leg" else -fwd
@@ -503,6 +528,11 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0, meshes=None):
         l["rest_pole"] = dev.normalized() if rel > 1e-6 else default
         l["default_pole"] = default
         l["rest_bend_rel"] = rel
+
+    for l in limbs:
+        if l["rest_pole_out_deg"] >= 10.0:
+            warnings.append("%s: the rest skeleton bends the knee %.0f degrees across the leg; bending it in the "
+                            "leg's front-back plane instead" % (l["name"], l["rest_pole_out_deg"]))
 
     # mirrored pairs should agree - flag, do not silently fix
     by_base = {}

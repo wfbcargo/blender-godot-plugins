@@ -313,32 +313,85 @@ class Character:
         return hashlib.sha1(text.encode()).hexdigest()[:16]
 
 
-def blend_dir(override=None):
-    """$BLEND_DIR (or `override`, when given) as an absolute path, or None when neither is set."""
+PROJECT_CONFIG = os.path.join("characters", "pipeline.toml")
+
+
+def project_config(project):
+    """The project's own pipeline settings, `<project>/characters/pipeline.toml`, as a dict ({} when absent):
+
+        [blend]
+        dir = "C:/Users/me/Blends"     # where relative `[export] blend`s live; relative is under the project
+        inside_godot = false           # true: saving a .blend inside a Godot project is intended
+
+    It is what a build script's own `os.environ.setdefault("BLEND_DIR", ...)` used to hold, so `run.sh`, a
+    project's build script and a scratch copy all resolve a spec's blend to the same file. $BLEND_DIR still
+    wins over it. Nothing in it is hashed: it says where a file lives, not what is built."""
+    if not project:
+        return {}
+    path = os.path.join(project, PROJECT_CONFIG)
+    if not os.path.isfile(path):
+        return {}
+    with open(path, "rb") as fh:
+        try:
+            data = tomllib.load(fh)
+        except tomllib.TOMLDecodeError as exc:
+            raise SpecError(f"{path}: {exc}") from None
+    blend = data.get("blend", {})
+    if not isinstance(blend, dict) or set(blend) - {"dir", "inside_godot"}:
+        raise SpecError(f"{path}: [blend] takes dir and inside_godot only (got {sorted(blend)})")
+    return data
+
+
+def blend_dir(override=None, project=None):
+    """$BLEND_DIR (or `override`, when given), else the project's `[blend] dir` (`project_config`), as an
+    absolute path, or None when none is set."""
     d = override or os.environ.get("BLEND_DIR")
+    if not d and project:
+        d = project_config(project).get("blend", {}).get("dir")
+        if d and not os.path.isabs(os.path.expanduser(d)):
+            d = os.path.join(project, d)
     return os.path.normpath(os.path.abspath(os.path.expanduser(d))) if d else None
 
 
 def resolve_blend(blend, project, blend_dir_override=None):
     """Where `[export] blend` points. Absolute: as written. Relative: under $BLEND_DIR when it is set (or
-    `blend_dir_override`, for a tool resolving another project's specs), else under `project` (the folder
-    holding `characters/`), else $PROJECT, else the working directory. None when the spec names no blend."""
+    `blend_dir_override`, for a tool resolving another project's specs), else under the project's `[blend] dir`
+    (`project_config`), else under `project` (the folder holding `characters/`), else $PROJECT, else the working
+    directory. None when the spec names no blend."""
     if not blend:
         return None
     blend = os.path.expanduser(blend)
     if os.path.isabs(blend):
         return os.path.normpath(blend)
-    base = blend_dir(blend_dir_override) or project or os.environ.get("PROJECT") or os.getcwd()
+    base = blend_dir(blend_dir_override, project) or project or os.environ.get("PROJECT") or os.getcwd()
     return os.path.normpath(os.path.join(os.path.abspath(base), blend))
 
 
 def save_roots(project):
-    """The folders a build saves under without being told otherwise: the project and $BLEND_DIR (if set)."""
+    """The folders a build saves under without being told otherwise: the project and $BLEND_DIR or the project's
+    `[blend] dir` (if set)."""
     roots = [os.path.normpath(os.path.abspath(project))] if project else []
-    d = blend_dir()
+    d = blend_dir(project=project)
     if d and d not in roots:
         roots.append(d)
     return roots
+
+
+def godot_project_of(path):
+    """The Godot project folder a file would sit in (the nearest folder at or above it holding `project.godot`)
+    when Godot would import it, else None. A `.gdignore` in any folder between hides the file from Godot, so a
+    path under one is None too. A .blend Godot sees is imported with its Blender importer: with no Blender path
+    in the editor settings a headless `--import` fails on it, and the glbs beside it are not imported either."""
+    d = os.path.dirname(os.path.normpath(os.path.abspath(path)))
+    while True:
+        if os.path.isfile(os.path.join(d, ".gdignore")):
+            return None
+        if os.path.isfile(os.path.join(d, "project.godot")):
+            return d
+        up = os.path.dirname(d)
+        if up == d:
+            return None
+        d = up
 
 
 def inside(path, roots):
