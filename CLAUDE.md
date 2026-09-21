@@ -39,7 +39,19 @@ project they are exercised on is `C:/Users/pauli/Code/GoDot/grungist-creek`. Pla
 - **Catch it upfront.** The goal is plugins that guide the work to a great design quickly, so a mistake found
   by a check before a build is worth far more than one found by looking after it. When a round finds a
   mistake by eye, add the check that would have caught it first (a spec refusal, a stage check, a warning
-  with the fix in it) - `docs/improvements/NEXT.md`, "Catch it upfront", lists the open ones.
+  with the fix in it) - `docs/improvements/NEXT.md`, "Catch it upfront", lists the open ones. Until those
+  checks exist, do by hand what they will do (each cost the likeness round rebuilds):
+  - **Judge the look in Godot, not in Blender's review tiles.** A dress showing the bust and a beard's
+    square patches looked fine or different in Blender and were obvious in the game. Import, run the demo,
+    orbit in close (the figure-study demos' camera), and use lookdev's `close-shot`.
+  - **Build an extreme body alongside the change** - petite, very tall, elderly or heavy. A 1.53 m body found
+    three problems the 1.57-1.80 m reference figures never showed.
+  - **Look at the rest skeleton before animating a new body.** A knee a few millimetres off the hip-ankle
+    line bowed every clip's legs (rig-anything's body map now warns: read its warnings).
+  - **A garment preset over the bust or belly needs an `ease` with a `detail_limit`**, or it traces the body.
+  - **A likeness takes a frontal photo.** A turned head hides a cheek and shortens every width: find another
+    photo rather than fit to it, and check the fit's `likeness.at_limit` before trusting the face.
+  - **A real person's likeness gets no breast or butt jiggle and no garment that shows the body.**
 - **Install only with `tools/install.py <plugin>` or `--all`.** It is the only path into
   `~/.claude/skills`, which is what Claude Code loads. It refuses to overwrite a copy that was edited
   in place: move that edit into the repo first. Other machines get a change by push and

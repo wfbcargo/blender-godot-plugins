@@ -1,22 +1,36 @@
-# Next: realism on the figure study (skin, motion, asymmetry metric and loose cloth done; trunk and head next)
+# Next: catch it upfront - the checks that stop a bad design before it is built (then trunk and head)
 
 A handoff for a fresh conversation. Start with:
 
-> Read `docs/improvements/NEXT.md`, ask which item under "Where to pick up" to take next, plan it, and run
-> it the way the cloth branches ran: one worktree per branch, measured before and after, and looked at in
-> Godot before it is called done. Use the `plugin-round` workflow only if the user asks for multi-agent
-> orchestration (see "Running the next session").
+> Read `docs/improvements/NEXT.md`, ask which item under "Where to pick up" to take next (item 1, "Catch it
+> upfront", is the recommendation), plan it, and run it the way the likeness round ran: one worktree per
+> branch, proven by a fresh `build_many` of the characters it affects and the game's demo selftests, looked
+> at in Godot before it is called done. The regression suite is optional and never a gate (CLAUDE.md). Use
+> the `plugin-round` workflow only if the user asks for multi-agent orchestration (see "Running the next
+> session").
 
 **The goal of all this work:** tools that make a new human asset from a brief **in under 30 seconds** and
 have it **look great** in Godot. The study figures are the test bench. The scoreboard is the benchmark
 (below): three brand-new characters built cold from their briefs, timed, and judged by an independent
 critic. Every plan should say which of those two numbers it moves.
 
+**How we get there (the user's rules, 2026-09-21):** the plugins should *guide* the work to a great design
+quickly, so **catch a mistake upfront** - a spec that refuses, a stage check that fails with the fix in its
+message, a warning before a build - rather than find it by eye after a build and correct it. When a round
+does find something by eye, the fix is not done until the check that would have caught it first exists.
+The goal is plugins that produce assets, not perfect assets: capture the improvement, build fresh, move on;
+do not spend a round on small numeric drift.
+
 ## State at the end of 2026-09-21
 
 **Everything is merged and pushed.** `main` (blender-godot-plugins) and `master` (grungist-creek) are
 clean and in sync with origin. `~/.claude/skills` and the game's addons match `main`. The only other
 branch is the parked `fig-genital-anatomy` (`94ac682`), which still has its worktree.
+
+The last rounds of the day: the likeness round ([plugins#7](https://github.com/wfbcargo/blender-godot-plugins/pull/7),
+[game#6](https://github.com/wfbcargo/grungist-creek/pull/6)), the regression rules and this list
+([plugins#8](https://github.com/wfbcargo/blender-godot-plugins/pull/8)), an orbit camera for the demos
+([game#7](https://github.com/wfbcargo/grungist-creek/pull/7)), and this handoff.
 
 Shipped on 2026-09-21, newest first:
 
@@ -88,11 +102,15 @@ green: `regress --quick --godot` on 0.7.0 reports 25 fixtures ok.
 
 In grungist-creek (`GODOT` = the `_console` build, path in its CLAUDE.md):
 
-    "$GODOT" --path . cast_demo.tscn      # Marco, Mei, Ruth dressed (G toggles clothes). C + Tab = 1 m close-up, L = lighting
+    "$GODOT" --path . likeness_demo.tscn  # Taylor, Morgan, Ariana: the likeness NPCs
+    "$GODOT" --path . cast_demo.tscn      # Marco, Mei, Ruth dressed (G toggles clothes). L = lighting
     "$GODOT" --path . motion_demo.tscn    # four bodies side by side; 2 walk, 3 run, V top-down; the HUD shows left vs right
     "$GODOT" --path . figure_study.tscn   # study_man and study_woman on turntables
 
-To see the cloth work, open `cast_demo`, pick Ruth with Tab, press C, and switch lighting with L. Her
+Every figure-study demo has an orbit camera: drag to orbit, middle-drag or Shift+drag to pan, the wheel to
+zoom (to 15 cm), arrows to orbit and to move the view point from face to feet, Z for the picked figure's
+whole body, C for its face, Tab for the next figure (keeping the angle). To see the cloth work, open
+`cast_demo`, pick Ruth with Tab, press C, and switch lighting with L. Her
 longsleeve should hang straight from the bust with no fold under it. There is a small crease at each apex
 under clear_midday, which is known (item 4 below). One stale comment: `motion_demo.gd`'s header still says
 the head-thorax rung is "NOT built yet". It was built in 0.32.0, so the comment is wrong, not the demo.
@@ -101,7 +119,22 @@ the head-thorax rung is "NOT built yet". It was built in 0.32.0, so the comment 
 
 In the order I would take them:
 
-1. ~~**Re-run the benchmark.**~~ **Done 2026-09-21:
+1. **Catch it upfront, round 1** - the top three of
+   ["Catch it upfront"](#catch-it-upfront-from-the-likeness-round-2026-09-21), which turn this round's
+   look problems into failures before a build. They serve both goals: fewer rebuild-and-look loops is the
+   30 seconds, and a check that knows what looks wrong is the "look great". Branches:
+   - `review-godot-look`: the review stage renders its close-up set through Godot's look (lookdev's
+     `close-shot`) as well as Blender's, and judges the Godot set. The dress's bust points and the beard's
+     square patches were only visible there; 7 rebuilds between them.
+   - `knee-plane-check`: humanform's humancheck fails a rest knee bent more than ~10 degrees across the leg,
+     with the fix in the message, before anything is animated (Ariana's bow legs).
+   - `extreme-body-smoke`: a petite, a very tall, an elderly and a heavy spec in the game (`characters/smoke_*.toml`)
+     that every round builds fresh with `build_many` alongside what it changed. The petite body alone found
+     three problems this round; the reference figures are all 1.57-1.80 m.
+
+   Then the rest of the list (garment relief lint, a photo-to-ratios helper, re-measuring a likeness after
+   ageing, a real-person spec field, the photo readings in the spec) as one or two more rounds.
+2. ~~**Re-run the benchmark.**~~ **Done 2026-09-21:
    [rerun-2026-09-21.md](notebooks/benchmark/rerun-2026-09-21.md).**
    - **Time:** cold median 43.5 / 42.3 / ~46 s. The 73-93 s regression is gone, but that is still no
      nearer 30 s. `moves` is now the largest stage at 11-13 s.
@@ -113,9 +146,9 @@ In the order I would take them:
      both women, Mei's by a one-sided 0.01.
    - **Caveat:** Ruth's number is from 2 clean runs; another session's CPU load spoiled the rest.
    - **To see them:** grungist-creek's `bench_demo.tscn`.
-2. **The trunk and the head, as one round.** Both sections below are measured and written to be picked up
-   cold, and both need every character rebuilt, so doing them together pays for one rebuild, one full
-   regress and one look critic:
+3. **The trunk and the head, as one round.** Both sections below are measured and written to be picked up
+   cold, and both need every character rebuilt, so doing them together pays for one rebuild and one look
+   critic:
    - ["The trunk's other two planes"](#the-trunks-other-two-planes-measured-2026-09-20-built-by-nobody):
      `spine_flex_deg` is 0.0 in every gait entry, and lateral bend FALLS with speed. Branches:
      `motion-spine-flex`, `motion-frontal-plane`, `motion-girdle-per-body`.
@@ -125,7 +158,7 @@ In the order I would take them:
 
    The two share a footstrike signal, so agree that seam before either branch starts.
    `motion_demo.tscn -- --selftest` already prints every before number.
-3. **Asymmetry follow-ups** (from 0.38.0's verdict that 0.35 is "subtle to inert"):
+4. **Asymmetry follow-ups** (from 0.38.0's verdict that 0.35 is "subtle to inert"):
    - Widen the arm-swing draw so it cannot land near zero: |u| in [0.5, 1] with a random sign.
    - Find out why Belle's and Marco's step length is asymmetric even though the draw does not cause it:
      build a scratch copy at asymmetry 0.
@@ -136,23 +169,25 @@ In the order I would take them:
    character). There is now an instrument to judge it by. Notebooks:
    [asym-godot-meter.md](notebooks/asymmetry/asym-godot-meter.md),
    [asym-motion-demo.md](notebooks/asymmetry/asym-motion-demo.md).
-4. **The crease at each bust apex** (wardrobe 0.7.0's accepted open item). The convex hang field makes
+5. **The crease at each bust apex** (wardrobe 0.7.0's accepted open item). The convex hang field makes
    the profile two straight lines meeting at the apex, and Godot's direct sun shows the corner at 1 m on
    Ruth. Ten attempts at rounding it with offsets are recorded in
    [cloth-bust-hang.md](notebooks/cloth-hug/cloth-bust-hang.md). The honest next step is cloth bending
    stiffness, not another offset. Also from 0.7.0: Marco's poke-through doubled to 0.19% at a walk
-   (still under the 0.5% limit), and 48 relax iterations cost about 4 s per character.
-5. **The ponytail root-bone blocker**: the one red regress row. It is diagnosed further down and needs its
+   (still under the 0.5% limit), and 48 relax iterations cost about 4 s per character. The likeness round's
+   dress spans the hollows (`span` 0.8) and hid the apexes; a sleeved top cannot use span as it is.
+6. **The ponytail root-bone blocker**: the one red regress row. It is diagnosed further down and needs its
    own branch.
-6. **Hair**: the benchmark's largest open look item, and every critic puts it in their top three.
-   `short_crop` reads as a moulded cap, and `long_loose` stops at the shoulder on Mei.
-7. **An age layer**: the 40s and 60s briefs both read twenty-plus years young. Slackness, lip thinning,
+7. **Hair**: the benchmark's largest open look item, and every critic puts it in their top three.
+   `short_crop` reads as a moulded cap (Morgan's white crop most of all), and `long_loose` stops at the
+   shoulder on Mei. The likeness round added beards and a fringe; the beard's back edge is saw-toothed.
+8. **An age layer**: the 40s and 60s briefs both read twenty-plus years young. Slackness, lip thinning,
    hand tendons and posture can all be authored on top of the 58-year fit.
-8. **Ancestry as a sheet field**, plus a decision on "Hispanic". `scaffold.create_macros` already reads
-   the keys.
-9. **The rest of Step 5 - motion**: MovesController's turns, the fingertip gaps, and a motion critic on
+9. ~~**Ancestry as a sheet field**~~ - done in humanform 0.18.0 (`ancestry`). Still open: a decision on
+   "Hispanic", which MPFB's three macros do not name.
+10. **The rest of Step 5 - motion**: MovesController's turns, the fingertip gaps, and a motion critic on
    every clip.
-10. **Small leftovers:**
+11. **Small leftovers:**
     - `LookdevPresets.apply` leaves stale light properties on the sun.
     - The tone_shift controls need re-rendering.
     - Flesh items: the jump course sits at 10.2-11.4% against its 10% line, and walking phase is
