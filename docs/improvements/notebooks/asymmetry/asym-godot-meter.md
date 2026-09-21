@@ -116,5 +116,26 @@ index 0.016 is the game import's resampling (the keyed fixture reads 0.0002), un
 
 - `python tools/test_tools.py`: all passed.
 - regress's Godot stage driven directly on the scratch game (asym_meter only): 12 rows ok, 1 m 53 s.
-- `regress --only asym_meter --twice --update --jobs 2`: see below.
-- final `regress --quick --jobs 4 --godot <scratch game>`: see below.
+- `regress --only asym_meter --twice --update --jobs 2`: RECORDED asym_meter [84 s + 83 s], the two
+  builds agree; `REGRESS DONE exit=0, 1 fixtures ok`.
+- final `regress --quick --jobs 4 --godot %TEMP%/rw/agm/game` on d2e5a23 (log:
+  `%TEMP%/rw/agm/final_quick_regress.log`): all 24 fixtures ok (no golden moved; rigify_human
+  unchanged by `lag_cycles`), every verify_asymmetry row ok (12), verify_moves 15 manifests PASSED.
+  **`REGRESS DONE exit=1`**, and the one red row is `verify_strands pipeline_ponytail`: 0.0060 /
+  0.0065 / 0.0067 / 0.0067 m into the head, swing_spread 1.050 - digit for digit the blocker NEXT.md
+  records as red on `main` ("The one red row the round ships with"). Not this branch's; not touched.
+  Started 01:27, done ~02:08 (the Godot stage alone ~35 min at --jobs 4).
+
+## Open
+
+- The run shipped exit=1 only because of the pre-existing ponytail row; it needs its own branch.
+- `LEAF_HAND_SHARE` is an estimate; if a rig with a leaf hand of a very different proportion appears,
+  arm swing agreement will move (0.07 deg per cm at a walk). A manifest-carried hand length would
+  remove it, at the price of every export golden's `fields`.
+- The game's default import (30 fps resample + keyframe optimizer) costs 5-23 mm of stride and up to
+  1 degree of swing against the bake on this fixture. Worth deciding whether rig-anything's exports
+  should ship with a `.import` preset (clip fps, optimizer off) - it is a playback-fidelity question
+  beyond this meter.
+- The played cycle's held duplicate frame puts a 0.006-cycle lag asymmetry into every symmetric
+  rig-anything loop in Godot. Small, real, and a candidate for the exporter (drop the duplicate or
+  shorten the clip by one interval).
