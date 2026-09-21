@@ -219,6 +219,65 @@ shoulder dip back off the BAKED clip (never off the parameter), with a `ratio` a
 index per measure; a non-zero clip's report carries it under `variability.measured`.
 `RA_ASYM_MIRROR=1` gives both sides one side's draw (the clip comes out symmetric again) and
 `RA_ASYM_NONDETERMINISTIC=1` takes the seed off the process: the two controls that must fail.
+Since 0.38.0 `measure` also reads `lag_cycles` - each arm's once-per-cycle phase behind its
+CONTRALATERAL leg, over the clip as an engine plays it (the duplicated last frame held for its
+interval) - whose +lat minus -lat is twice the drawn `lag`.
+
+**The engine's half: `AsymmetryMeter` (asymmetry_meter.gd, 0.38.0).** The same measures with the
+same definitions, reimplemented in GDScript and read off a PLAYING `Skeleton3D`, so a character's
+asymmetry can be judged where it is seen:
+
+```gdscript
+var meter := AsymmetryMeter.new(skeleton, manifest)       # manifest: the parsed .moves.json
+# every physics tick while a gait clip plays:
+meter.sample(fposmod(anim.current_animation_position / anim.current_animation_length, 1.0))
+# after a few strides (meter.cycles()):
+var r := meter.report()
+r["arm_swing_deg"]      # {plus_lat, minus_lat, ratio, index, diff}
+r["stance_offset_m"]    # +lat foot's stance position minus -lat's
+```
+
+Channels (`AsymmetryMeter.CHANNELS`): `arm_swing_deg`, `step_length_m`, `stride_m`,
+`shoulder_dip_m` (bake-time's: the arm root over the mean hip height), `shoulder_dip_chest_m`
+(engine-only: the arm root in a frame riding the chest - the frame grungist-creek's motion_demo
+needed four attempts to find) and `lag_cycles` (read `diff`: its ratio and index are
+ill-conditioned near zero). Each per-side signal's first-harmonic amplitude is under `fourier`,
+beside the peak-to-peak the channel reports, and every number is the free value. Only whole
+cycles are reported; `swap_sides = true` exchanges +lat and -lat (the side-swap control).
+
+It takes bone ROLES from the manifest the way MovesController and motion_demo do - the legs from
+`contacts.<gait>.feet` (`leg`, `bone`), the arms from the KEYS of `arm_pose` - and nothing else:
+never the `variability` block, never `arm_pose`'s values (the bake's own swing), `gaits` or the
+stance spans. Up, forward (where the foot bones point), lateral (up x forward, bake-time's `lat`)
+and each limb's side come from the skeleton's rest pose. A leaf hand has no length in the file,
+so the palm point takes half its forearm - the one estimate in it, worth under 0.1 degree of swing.
+
+```bash
+godot --headless --path <project> -s res://addons/rig_anything/verify_asymmetry.gd -- \
+    manifests=res://assets/belle/belle.moves.json          # [clips=Walk,Run] [cycles=12] [tick=...]
+```
+
+prints one `RA_ASYM` row per channel (+lat, -lat, ratio, index) per clip, a `RA_ASYM_REPORT` JSON
+line, and two checks: **stride** is even on both sides (index < 0.02, the no-skate invariant) and
+the body **is asymmetric** - arm swing and shoulder dip indices over 0.04 and |lag diff| over 0.012
+cycles, which a symmetric body must fail. `swap=1` and `poison=1` are its controls. On Belle
+(asymmetry 0.35, the game's own import at 60 Hz): arm swing 44.8 / 51.7 deg walking (index 0.14),
+lag 0.035 / 0.017 cycles, stance offset +18 mm, but shoulder dip only 1% apart - her draw on that
+channel is small, so she reads asymmetric on three channels of four and FAILS the all-channel check.
+
+`regress.py --godot` runs it on the `asym_meter` fixture (asymmetry 0.35 on an id whose draw is
+large on every channel, asymmetry 0, and `RA_ASYM_MIRROR=1`) and holds the engine against
+`variability.measure` on the same clips: at the clip's own keys (imported at its frame rate with
+Godot's keyframe optimizer off, so the engine plays Blender's frames to 1e-6 m) within 5e-5 on
+lengths and lag and 0.1 degree on arm swing; as the game imports it, the deviation is printed and
+only the verdicts are gated. The asymmetry-0 and mirror controls must read under the floor on
+EVERY channel of "is asymmetric", one at a time, not merely fail the AND. **At the game's default
+import the run's shoulder dip cannot be read at all**: the 30 fps resample and the keyframe optimizer
+together give a symmetric build an index of 0.041-0.050 against the asymmetric one's 0.043. Either
+setting alone restores it (import at the clip's fps, or the optimizer off), so judge dip on a keyed
+import. **Godot's default scene import resamples a 24 fps clip to 30 fps and
+drops keys within 0.01 rad**, which on the fixture shortens a stride by 5-23 mm and moves arm swing
+by up to 1 degree - a real, measured difference between what is baked and what is played.
 
 **A clip lasts one natural stride** (since 0.24.0): `cycle` keys `round(period x fps)` frames,
 between 16 (12 running) and the old fixed 32 (24), so played at its own rate it moves at its

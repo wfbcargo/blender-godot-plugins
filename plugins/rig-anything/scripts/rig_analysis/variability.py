@@ -231,6 +231,19 @@ def measure(rig_name, action_name, forward="-Y", up="Z", floor=0.0, bm=None):
                         body's own bounce is taken out and this side's own drop is left
       stride_m          each foot's OWN travel, which must stay the same on both sides: the
                         no-skate invariant, reported so a reader sees it rather than trusts it
+      lag_cycles        how far that side's arm swings behind its CONTRALATERAL leg, in cycles:
+                        the once-per-cycle Fourier phase of the leg's fore-aft position (off the
+                        hips) minus that of the arm's carry angle, wrapped to [-0.5, 0.5). The
+                        draw's `lag` channel moves the two sides apart by twice its value; the
+                        absolute number also carries the arm's own pendulum lag and the shape
+                        difference between a foot's and a palm's path, which are common to both
+                        sides. Its `ratio` and `index` are reported for the row's sake but are
+                        ill-conditioned near zero: read +lat minus -lat for this one.
+                        Taken over the clip AS AN ENGINE PLAYS IT: every keyed frame lo..hi,
+                        each 1/(hi-lo+1) of the cycle, the duplicated last frame included -
+                        glTF exports it, so the engine holds it for one frame interval
+                        (`verify`'s `playback_duration_s`). The stance mean above counts it the
+                        same way, so Godot's meter reads the same signal off the playing clip.
 
     and, not per side, `stance_offset_m`: the +lat foot's stance position along `fwd` minus the
     -lat foot's, both off the hips. That is the free value the asymmetry moves one for one, and
@@ -286,12 +299,14 @@ def measure(rig_name, action_name, forward="-Y", up="Z", floor=0.0, bm=None):
     # this measurement jump by 2-3 cm at a time when it was taken there.
     steps, strides = {}, {}
     stance_offset = None
+    leg_series, carry_series = {}, {}
     if len(legs) >= 2:
         hips = [sum(mats[f][g["upper"]].translation.dot(fwd) for g in legs) / len(legs)
                 for f in frames]
         pos, travel = {}, {}
         for l in legs:
             xs = [mats[f][l["end"]].translation.dot(fwd) - hips[i] for i, f in enumerate(frames)]
+            leg_series[l["name"]] = xs
             lo, hi = min(xs), max(xs)
             travel[l["name"]] = hi - lo
             # the planted half of the cycle is the forward half of the foot's travel; its mean
@@ -329,6 +344,24 @@ def measure(rig_name, action_name, forward="-Y", up="Z", floor=0.0, bm=None):
                 v = palm - sh
                 carry.append(math.degrees(math.atan2(v.dot(fwd), -v.dot(upv))))
             swings.setdefault(side_of(l), []).append(max(carry) - min(carry))
+            carry_series[l["name"]] = carry
+
+    # arm lag: each arm's once-per-cycle phase behind its CONTRALATERAL leg, over the clip as the
+    # engine plays it - every frame, the duplicated last one held for its interval like the rest
+    lags = {}
+    n = len(frames)
+    if n >= 4 and carry_series and leg_series:
+        def phase(xs):
+            re = sum(x * math.cos(2.0 * math.pi * k / n) for k, x in enumerate(xs[:n]))
+            im = -sum(x * math.sin(2.0 * math.pi * k / n) for k, x in enumerate(xs[:n]))
+            return math.atan2(im, re) / (2.0 * math.pi)
+        for l in arms:
+            other = [g for g in legs if side_of(g) != side_of(l)]
+            if not other or l["name"] not in carry_series:
+                continue
+            leg = min(other, key=lambda g: abs(g["forward_pos"] - l["forward_pos"]))
+            d = phase(leg_series[leg["name"]]) - phase(carry_series[l["name"]])
+            lags.setdefault(side_of(l), []).append((d + 0.5) % 1.0 - 0.5)
 
     def pair(per_side, digits):
         if len(per_side) < 2:
@@ -338,7 +371,7 @@ def measure(rig_name, action_name, forward="-Y", up="Z", floor=0.0, bm=None):
         tot = p + m
         return {"plus_lat": round(p, digits), "minus_lat": round(m, digits),
                 "ratio": round(p / m, 5) if abs(m) > 1e-12 else None,
-                "index": round(2.0 * abs(p - m) / tot, 5) if abs(tot) > 1e-12 else 0.0}
+                "index": round(2.0 * abs(p - m) / abs(tot), 5) if abs(tot) > 1e-12 else 0.0}
 
     out["step_length_m"] = pair(steps, 5)
     # the free values behind it: the offset the asymmetry moves directly, and each foot's own
@@ -348,6 +381,7 @@ def measure(rig_name, action_name, forward="-Y", up="Z", floor=0.0, bm=None):
     out["stride_m"] = pair(strides, 5)
     out["shoulder_dip_m"] = pair(dips, 5)
     out["arm_swing_deg"] = pair(swings, 3)
+    out["lag_cycles"] = pair(lags, 5)
     out["sides"] = {"legs": {l["name"]: side_of(l) for l in legs},
                     "arms": {l["name"]: side_of(l) for l in arms}}
     return out
@@ -359,7 +393,7 @@ def summarize(m):
         return m.get("error") or m.get("skipped")
     rows = []
     for key, unit in (("arm_swing_deg", "deg"), ("step_length_m", "m"), ("stride_m", "m"),
-                      ("shoulder_dip_m", "m")):
+                      ("shoulder_dip_m", "m"), ("lag_cycles", "cyc")):
         v = m.get(key)
         if not v:
             continue
