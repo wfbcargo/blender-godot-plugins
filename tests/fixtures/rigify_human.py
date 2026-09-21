@@ -57,6 +57,25 @@ HEAD_RUNG_FROUDE = (0.05, 1.2)
 HEAD_RUNG_SWEEP_DEG = 20.0
 HEAD_RUNG_CASES = (("derived", None), ("control_locked_head", {"head_lag": 0.0}))
 
+# The trunk's other two planes and the head (rig-anything 0.40.0), measured off the BAKED clip
+# by `upper.planes` at a walk and a run, each with a control that must fail its verdicts:
+#   default                the shipped defaults: the thorax leans over the stance leg (its roll
+#                          against the pelvis's at +-LEAN_OVER_DEG or further), the pelvis lists
+#                          more running than walking, the head lets through at least HEAD_KEEPS of
+#                          the chest's turn and nods at least HEAD_NOD_DEG walking
+#   control_locked_head    head_hold 1.0 and no gaze: the head 0.40.0 replaced, near enough - it
+#                          must read a flat yaw and a flat nod
+#   control_swing_side     side_bend negated: the trunk tilts toward the swing leg and must fail
+#                          the lean-over
+# The pelvis's rise with speed is not controlled here: it is a speed curve, read on the default.
+TRUNK_PLANE_FROUDE = (0.3, 1.2)
+TRUNK_PLANE_CASES = (("default", None),
+                     ("control_locked_head", {"head_hold": 1.0, "gaze_m": None}),
+                     ("control_swing_side", {"side_bend": -2.0}))
+LEAN_OVER_DEG = 135.0
+HEAD_KEEPS = 0.3
+HEAD_NOD_DEG = 1.0
+
 # The mass model is a property of the BODY, not of the clip, but every role
 # builds its own `motion.Body`, so before the cache a seven-role set solved the
 # same unchanged skin four separate times - 7.32 s of an 18.42 s move set on
@@ -123,6 +142,30 @@ ARM_SWING_CASES = (
 )
 
 
+def _trunk_planes(rig):
+    """TRUNK_PLANE_CASES at a walk and a run, each read off its baked clip, with the free values
+    beside every verdict."""
+    from rig_analysis import locomotion
+    keys = ("trunk_pitch_pp_deg", "pelvis_roll_pp_deg", "thorax_roll_pp_deg",
+            "thorax_pelvis_roll_deg", "head_yaw_keeps", "head_nod_pp_deg")
+    out = {}
+    for label, upper in TRUNK_PLANE_CASES:
+        got = {}
+        for froude in TRUNK_PLANE_FROUDE:
+            r = locomotion.cycle(rig, froude=froude, upper=upper,
+                                 action_name="%s_Planes_%s_%s" % (BODY, label, froude))
+            got[str(froude)] = {k: r.get(k) for k in keys + ("passed", "failures")}
+        walk, run = got[str(TRUNK_PLANE_FROUDE[0])], got[str(TRUNK_PLANE_FROUDE[1])]
+        rolls = [g.get("thorax_pelvis_roll_deg") for g in (walk, run)]
+        got["leans_over_stance"] = all(x is not None and abs(x) >= LEAN_OVER_DEG for x in rolls)
+        got["pelvis_list_rises"] = bool((run.get("pelvis_roll_pp_deg") or 0.0)
+                                        > (walk.get("pelvis_roll_pp_deg") or 0.0))
+        got["head_moves"] = bool((walk.get("head_yaw_keeps") or 0.0) >= HEAD_KEEPS
+                                 and (walk.get("head_nod_pp_deg") or 0.0) >= HEAD_NOD_DEG)
+        out[label] = got
+    return out
+
+
 def build():
     import bpy
     H.clear_scene()
@@ -178,6 +221,7 @@ def build():
             got["moves_with_speed"] = bool(got["sweep_deg"] is not None
                                            and got["sweep_deg"] >= HEAD_RUNG_SWEEP_DEG)
             head_rung[label] = got
+        trunk_planes = H.stable(_trunk_planes(rig))
         asymmetry = H.stable(_asymmetry(rig))
         mass_cache = H.stable(_mass_cache(rig))
     finally:
@@ -193,6 +237,7 @@ def build():
         "moves": {role: H.stable(moves[role]) for role in ROLES},
         "styled_walks": styled,
         "head_rung": head_rung,
+        "trunk_planes": trunk_planes,
         "asymmetry": asymmetry,
         "mass_cache": mass_cache,
         "export": {"exported": exported.get("exported"), "stage": exported.get("stage"),

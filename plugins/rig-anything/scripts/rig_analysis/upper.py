@@ -187,6 +187,67 @@ def relative_phase(body, bm, evaluated, frames):
         got["pelvis_thorax_phase_deg"] = _lead(p[1], t[1])
     if t and h:
         got["thorax_head_phase_deg"] = _lead(t[1], h[1])
+    got.update(planes(body, bm, evaluated, frames, pelvis, chest, head))
+    return got
+
+
+def _series(body, evaluated, frames, name, axis):
+    """One bone's rotation about `axis` relative to its rest, per frame, or None."""
+    rest = body.rest
+    if not name or name not in rest:
+        return None
+    xs = []
+    for f in range(1, frames + 1):
+        ev = evaluated.get(f)
+        if not ev or name not in ev:
+            return None
+        xs.append(_twist(ev[name], rest[name], axis))
+    return xs
+
+
+def planes(body, bm, evaluated, frames, pelvis, chest, head):
+    """The trunk's other two planes and the head, read off the BAKED clip, in
+    degrees peak-to-peak - never the prediction, so they say what was keyed.
+
+      trunk_pitch_pp_deg     the chest about the lateral axis (the lab-frame
+                             trunk pitch the literature reports: ~2-3 walking,
+                             ~5 running, Thorstensson et al. 1984)
+      pelvis_roll_pp_deg     obliquity; thorax_roll_pp_deg the chest's lab tilt
+      thorax_pelvis_roll_deg the chest's roll against the pelvis's, relative
+                             Fourier phase: +-180 leans over the stance leg (the
+                             pelvis lifts that hip), 0 away from it
+      head_yaw_keeps         the head's yaw range over the chest's: the share
+                             of the turn the gaze lets through
+      head_nod_pp_deg        the head about the lateral axis
+
+    Peak-to-peak and not a Fourier amplitude for the pitches, because they run
+    twice a stride and a once-a-stride fundamental reads them as ~0."""
+    got = {}
+    up, fwd, lat = bm.get("up_vec"), bm.get("fwd"), bm.get("lat")
+    if up is None or fwd is None or lat is None:
+        return got
+
+    def pp(xs):
+        return round(math.degrees(max(xs) - min(xs)), 2)
+
+    chest_pitch = _series(body, evaluated, frames, chest, lat) if chest else None
+    if chest_pitch:
+        got["trunk_pitch_pp_deg"] = pp(chest_pitch)
+    pr = _series(body, evaluated, frames, pelvis, fwd) if pelvis else None
+    tr = _series(body, evaluated, frames, chest, fwd) if chest and chest != pelvis else None
+    if pr and tr:
+        got["pelvis_roll_pp_deg"], got["thorax_roll_pp_deg"] = pp(pr), pp(tr)
+        a, b = _fundamental(pr), _fundamental(tr)
+        if a[0] > 1e-6 and b[0] > 1e-6:
+            got["thorax_pelvis_roll_deg"] = _lead(a[1], b[1])
+    if head and head not in (pelvis, chest):
+        hy = _series(body, evaluated, frames, head, up)
+        ty = _series(body, evaluated, frames, chest, up) if chest else None
+        if hy and ty and max(ty) - min(ty) > 1e-6:
+            got["head_yaw_keeps"] = round((max(hy) - min(hy)) / (max(ty) - min(ty)), 3)
+        hp = _series(body, evaluated, frames, head, lat)
+        if hp:
+            got["head_nod_pp_deg"] = pp(hp)
     return got
 
 
