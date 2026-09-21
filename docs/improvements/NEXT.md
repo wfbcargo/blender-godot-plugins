@@ -84,7 +84,19 @@ hairline, and the absence of facial asymmetry or blemish.
 
 1. **Re-run the benchmark.** It is the scoreboard and its last figures are pre-0.37.0, so nobody yet knows
    what the round actually cost or saved end to end. One ship-step command, no code.
-2. **A left/right asymmetry metric.** `asymmetry = 0.35` is live on all six figures and **moves no metric
+2. **A left/right asymmetry metric - DONE** (branch `asym-godot-meter`, rig-anything 0.38.0, merged
+   2026-09-21, NOT installed or pushed yet - the ship step does that). `AsymmetryMeter` (`asymmetry_meter.gd`)
+   measures arm swing, step length, stride, shoulder dip and arm lag per side off the playing Skeleton3D;
+   `verify_asymmetry.gd` and the `asym_meter` fixture gate it in `regress --godot` against
+   `variability.measure` on the same bake (asym 0.35 passes; asymmetry 0 and RA_ASYM_MIRROR=1 fail "is
+   asymmetric"; swap and poison controls). Open: Godot's default glb import (30 fps resample + keyframe
+   optimizer) erases the Run shoulder-dip asymmetry, so the game-import per-channel gate is behind
+   `RA_REGRESS_ASYM_GAME_CHANNELS=1` (off) until rig-anything ships an .import preset; Belle's Walk stride
+   index 0.016 against the 0.02 floor at the game import; `LEAF_HAND_SHARE=0.5` estimates the leaf hand;
+   the loop's duplicated last frame leaves ~0.006 cycles of lag on symmetric loops. The meter has not yet
+   been pointed at the six real figures - that is how to answer "is 0.35 subtle or inert". Notebook:
+   [notebooks/asymmetry/asym-godot-meter.md](notebooks/asymmetry/asym-godot-meter.md). The original item:
+   `asymmetry = 0.35` is live on all six figures and **moves no metric
    anything currently has** - Marco's shoulder dip 18.2 -> 18.1 mm, spine twist and pelvis yaw unchanged.
    That is not evidence it is broken: `variability.measure` reads the draw back off the baked clip, but
    nothing compares a body's own left against its right *in Godot*, and `motion_demo.gd` compares bodies.
@@ -580,8 +592,11 @@ Read these first, in this order:
 3. [HISTORY.md](HISTORY.md) only when you need the record of rounds one to three (merge log, old loose ends,
    every number). It was this file until now.
 
-Installed copies in `~/.claude/skills` match the repo. **This is the one list of versions**; update it
+Installed copies in `~/.claude/skills` match the repo except rig-anything 0.38.0 (merged, not yet installed). **This is the one list of versions**; update it
 here and nowhere else:
+- rig-anything 0.38.0 (2026-09-21, branch `asym-godot-meter`, NOT installed, NOT pushed: a left/right
+  asymmetry meter in Godot, `AsymmetryMeter` + `verify_asymmetry.gd`, gated by the `asym_meter` fixture.
+  `~/.claude/skills` and the game's addons are where the 0.37.0 entry below leaves them until a ship step installs it)
 - rig-anything 0.37.0 (2026-09-20, branches `motion-mass-model`, `motion-head-rung`,
   `motion-asymmetry`, `motion-jitter` and `moves-mass-cache`, NOT pushed: 0.28.0 mass model, 0.29.0 shoulder girdle,
   0.30.0 trunk lag, 0.31.0 limb pendulums and whole-body angular momentum, 0.32.0 the head rung,
