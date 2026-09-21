@@ -116,10 +116,11 @@ fitted to the feet afterwards:
 | Term | Signal | Default walk / run |
 |---|---|---|
 | pelvis turn (about `up_vec`) | hip over the forward foot forward: mean of side x `leg_forward(phase)` | 4 / 9 deg |
-| pelvis list (about `fwd`) | loaded hip up, pivoting on it so the stance leg reaches no further (the drop is added) | 4 / 3 deg |
-| thorax turn, side bend | chest against the pelvis; trunk over the stance leg | 3 / 7, 1.5 deg |
-| lean, lean_bob | held, and a dip twice a stride | 3 / 8, 1 / 2 deg |
-| head hold | neck and head take back this share of the chest's turn, roll and pitch | 0.85 |
+| pelvis list (about `fwd`) | loaded hip up, pivoting on it so the stance leg reaches no further (the drop is added) | 4.5 / 6 deg |
+| thorax turn, side bend | chest against the pelvis; trunk over the stance leg, in anti-phase with the list, unlagged | 3 / 7, 2 / 4 deg |
+| lean, lean_bob, lean_lag | held, and a pitch twice a stride off each footstrike (`footstrike`): forward peak at the strike walking, a quarter cycle after it running | 3 / 8, 1.25 / 2.5 deg, 0 / 0.25 |
+| head hold | neck and head take back this share of the chest's turn and roll (the head keeps ~64% walking, ~26% running: Pontzer et al. 2009) | 0.35 / 0.75 |
+| head nod (`gaze_m`) | the head keeps 15% of the held lean, none of the bob, and pitches to hold its gaze `gaze_m` ahead as the body rises and falls (Hirasaki et al. 1999) | 1.0 m |
 | arm swing | opposite the same-side leg, forward swing 15% larger; a run swings about a line 15 deg behind hanging | 16 / 25 deg each way |
 | elbow, elbow_swing | walking, more flexed as the arm comes forward; running, held | 15 / 85 deg, +8 / 0 |
 

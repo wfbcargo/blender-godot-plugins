@@ -44,6 +44,61 @@ Shipped on 2026-09-21, newest first:
 Before that: the motion round (rig-anything 0.28.0-0.37.0, character-pipeline 0.16.0, plugins#2 /
 game#1), Step 2 skin, and the flesh round. Their record is in the sections further down.
 
+### The trunk-and-head round (rig-anything 0.40.0, branch `trunk-and-head`, 2026-09-21)
+
+One branch, not four: all four items edit `upper.defaults` and `Upper.cycle_key`. **Every target now
+has a source** (a literature pass, cited in `upper.defaults`), and two of this file's diagnoses were wrong:
+
+- **The girdle's "6x spread" was the instrument.** `motion_demo`'s Fourier amplitude ran on the raw arm-root
+  height (~250 mm up the chest) over a window that was rarely a whole number of strides, so the offset
+  leaked in: Marco read 18.1 mm over 9.4 strides, Mei 3.2 over 9.0. With the mean taken out every body
+  dips 6.2-7.4 mm peak-to-peak walking and 15-19 running. No source gives a clavicle excursion in gait,
+  so `girdle_drop` is untouched. The same leak biased every Fourier number the demo printed (slightly).
+- **`spine_flex_deg` is not the biped's sagittal plane**: it is a quadruped gallop's arch, 0 on every
+  upright body by design. The biped's is `lean_bob`, and its walking size was already right (Thorstensson
+  et al. 1984: 2-3 deg lab-frame); the "4 walking, 6-8 running" targets above had no source. What was wrong
+  was the RUN's timing - it must peak backward at footstrike - and the run's size.
+
+What changed, baked-clip numbers from `rigify_human` (walk / run) and Godot (`motion_demo`):
+
+| | before | now | source |
+|---|---|---|---|
+| trunk pitch, lab, p-p | 2 / 4, peak at strike | 2.5 / 5.1, `lean_lag` 0 / 0.25 | Thorstensson 1984 |
+| pelvic obliquity p-p | 8.0 / 5.7 (fell) | 8.9 / 10.8-11.9 | Ruiz-Malagon 2023, Perpina-Martinez 2023 |
+| thorax lab tilt | 3 flat, ~120 deg behind the pelvis | 3.9 / 7.5, over the stance leg (-167..-178) | Thorstensson 1984 |
+| head keeps of the thorax's turn | 15% flat | 64-65% / 20-29% | Pontzer et al. 2009 |
+| head nod p-p | 0.3 / 0.6 | 1.5-1.6 / 1.7-1.9 (Godot), gaze held 1 m ahead | Hirasaki 1999, Moore 1999 |
+
+- `upper.footstrike` is the shared timing signal; two legs half a cycle apart at width 0.25 give exactly
+  `cos(4 pi (p0 - lag))`, so lag 0 is the old `lean_bob` to 1e-15. The head's nod does NOT use it: the
+  literature says the nod compensates vertical head travel, so `locomotion` hands `cycle_key` the body's
+  height through the cycle and the head pitches `atan(dz / gaze_m)`.
+- `upper.planes` measures all of it off the baked clip into the gait report; `rigify_human`'s
+  `trunk_planes` runs the defaults and two must-fail controls (`control_locked_head`: head_hold 1.0, no
+  gaze -> head_moves False; `control_swing_side`: side_bend negated -> leans_over_stance False).
+- `motion_demo -- --selftest` gates the lean-over, the pelvis's rise with speed, and the walking head.
+  **It caught Belle**: her spec pinned `head_hold = 0.85` (and the old side_bend, lean_bob) per gait, so her
+  head stayed at 16%. Those three are gone from `belle.toml`.
+- Styles keep their meaning against the new default: `relaxed` head_hold 0.75 -> 0.2, `elderly_shuffle`
+  0.9 -> 0.6.
+- Built fresh: the nine figures plus Hugo (heavy) and Nadia (relaxed), 11 ok in 249 s at 3 jobs; the five
+  demo selftests pass.
+
+**Open from this round:**
+- **Our walk bobs more than our run.** The nod follows the body's height, and it came out 5.1 deg walking
+  and 1.6 running on the Rigify figure (1.5-1.9 on the MPFB cast) - the vault walk rises and falls more than
+  the run, where a real run's COM travels ~6-10 cm against a walk's ~4-5. Worth measuring the hip height
+  p-p per gait against published COM excursion.
+- **No pelvic tilt plane.** The pelvis never pitches; published pelvic tilt ROM is ~7 deg walking and
+  running (Ruiz-Malagon 2023). Its phase needs a source before it is built.
+- **A spec that pins a sourced default** (Belle) is only caught after a build, by the demo. A pipeline
+  warning when a spec's `upper` overrides `head_hold`, `side_bend`, `lean_bob` or `pelvis_list` would catch
+  it upfront.
+- `quadruped`, `dressed_skirts` and `rabbit` read CHANGED against their goldens on `main` itself (angular
+  momentum, the dress's cover, flipped faces): pre-existing drift, not this round's, left unrecorded.
+- The run's pelvic obliquity (10.8-11.9) sits under Ruiz-Malagon's 14.5 at 10 km/h; chosen at the low end
+  of a wide range on purpose.
+
 **The likeness round's open items.** Morgan Freeman's likeness misses by 2.7 mm at the mouth and 7 mm at the
 jaw (aged after the fit, and the photo's jaw is under a beard). The beard's back edge is saw-toothed (it follows
 whole faces). Reading a photo's ratios is by hand (a canvas grid in the browser, ~5 min a face; see humanform
@@ -146,7 +201,8 @@ In the order I would take them:
      both women, Mei's by a one-sided 0.01.
    - **Caveat:** Ruth's number is from 2 clean runs; another session's CPU load spoiled the rest.
    - **To see them:** grungist-creek's `bench_demo.tscn`.
-3. **The trunk and the head, as one round.** Both sections below are measured and written to be picked up
+3. ~~**The trunk and the head, as one round.**~~ **Done 2026-09-21 (rig-anything 0.40.0)** - see
+   "The trunk-and-head round" above; the record below is kept for its measurements. Both sections below are measured and written to be picked up
    cold, and both need every character rebuilt, so doing them together pays for one rebuild and one look
    critic:
    - ["The trunk's other two planes"](#the-trunks-other-two-planes-measured-2026-09-20-built-by-nobody):

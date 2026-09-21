@@ -128,7 +128,9 @@ GAIT_STYLES = {
                  "sway": 0.012, "extension": 0.94, "max_drop": 0.06, "vault": False,
                  "upper": {"arm_swing": 5.0, "arm_forward": -8.0, "elbow": 20.0, "elbow_swing": 3.0,
                            "hand_in": 3.0, "pelvis_turn": 1.5, "thorax_turn": 2.0, "side_bend": 2.0,
-                           "lean": 0.0, "lean_bob": 0.5, "head_hold": 0.9}},
+                           "lean": 0.0, "lean_bob": 0.5,
+                           # a stiffer neck than an adult walk's 0.35
+                           "head_hold": 0.6}},
         "run": {"stride_scale": 0.8, "lift_scale": 0.7, "max_drop": 0.07},
         "idle": {"upper": {"arm_forward": -8.0, "elbow": 18.0}},
     },
@@ -166,7 +168,8 @@ GAIT_STYLES = {
     "relaxed": {
         "walk": {"stride_scale": 0.95, "lift_scale": 0.85, "bounce_scale": 0.9, "max_drop": 0.035,
                  "upper": {"arm_swing": 13.0, "elbow": 12.0, "elbow_swing": 6.0, "lean": 1.0,
-                           "head_hold": 0.75}},
+                           # under an adult walk's 0.35: the head rides the trunk
+                           "head_hold": 0.2}},
         "run": {"max_drop": 0.07, "upper": {"lean": 6.0}},
     },
 }
@@ -960,20 +963,27 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
                 "planted": plant,
                 "tilt": (lambda p, limb, posed, t, folded=folded: sum(folded(p, limb, posed))),
             }
-        bounce = pl["bounce"] * state["bounce"] * height_signal(p0) * (1.0 if running else -1.0)
+        def sink(q):
+            """(drop, bounce) at cycle phase q: how far the hips sit below rest."""
+            if vaulting:
+                # the vault is the walk's rise and fall; a retry's extra drop still adds
+                return vault_drop(q) + (state["drop"] - pl["drop"]), 0.0
+            return (state["drop"],
+                    pl["bounce"] * state["bounce"] * height_signal(q) * (1.0 if running else -1.0))
+
         flex = state["flex"] * math.cos(2.0 * math.pi * (p0 - ext_phase)) * -1.0
         side = 1.0 if (first_leg["rest_root"] - P.centre).dot(P.lat) > 0 else -1.0
+        drop, bounce = sink(p0)
         # The upper body rides the same phases: pelvis and thorax turn and
         # list, the head holds, the arms swing against their own side's leg,
-        # and each shoulder drops as its own side takes the weight.
+        # and each shoulder drops as its own side takes the weight. It is told
+        # how high the body rides through the cycle (+ up), so the head can nod
+        # against the rise and fall the way a gaze held ahead makes it.
         trunk, list_drop = None, 0.0
         if U is not None:
-            trunk, arm_limbs, list_drop = U.cycle_key(p0, offsets, duty, legs)
+            trunk, arm_limbs, list_drop = U.cycle_key(p0, offsets, duty, legs,
+                                                      height=lambda q: -sum(sink(q)))
             limbs.update(arm_limbs)
-        drop = state["drop"]
-        if vaulting:
-            # the vault is the walk's rise and fall; a retry's extra drop still adds
-            drop, bounce = vault_drop(p0) + (state["drop"] - pl["drop"]), 0.0
         return kp.Key(drop=drop + bounce + list_drop, limbs=limbs, flex=flex,
                       sway=sway_amp * math.sin(2.0 * math.pi * p0) * side,
                       tail_lift=tail_lift + 0.8 * flex,
