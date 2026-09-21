@@ -134,7 +134,9 @@ hairline, and the absence of facial asymmetry or blemish.
 5. **Cloth that hugs the skin** - **branch A DONE 2026-09-21** (wardrobe 0.6.0, `cloth-span-loose`), and not
    the way it was specified: ungating `span` made loose tops worse; `smooth` 1.0 on `tshirt` and
    `longsleeve` fixed them (traced 0.19 -> ~0.01; Marco and Ruth rebuilt). What is left is the cloth
-   tucking under the bust - see the section below.
+   tucking under the bust - see the section below. **The tuck is fixed too** (wardrobe 0.7.0,
+   `cloth-bust-hang`, 2026-09-21): Ruth 17.2 -> 2.9 mm. What is left is a small crease at each bust
+   apex that Godot's direct sun shows at 1 m.
 6. **Turn the runtime jitter on.** `jitter_phase`/`jitter_amp` ship at 0 so no golden moved, which was right
    for reviewability but means the per-cycle half is dormant in every character. One reviewed commit sets
    them in the specs and re-records; do it after (2), so there is an instrument to judge it by.
@@ -235,7 +237,16 @@ Ruth 0.191 -> 0.011 (breast 0.096 -> 0.004 mm), Marco 0.189 -> ~0, Belle in a te
 / crouch / jump, holes unchanged. Notebook:
 [notebooks/cloth-hug/cloth-span-loose.md](notebooks/cloth-hug/cloth-span-loose.md).
 
-**Still open, and now the visible one: the cloth tucks under the bust** instead of hanging straight from
+**Fixed 2026-09-21 in wardrobe 0.7.0 (branch `cloth-bust-hang`)**: hanging starts 0.1 of the way down
+instead of 0.3, rows and columns are made convex, heights are evened between pushes, and the skin
+weights are transferred. The new check is `fit.tuck`, gated by `tuck_limit`, and the new fixture is
+`dressed_loose`, whose control fails at 34.1 mm. Tuck: Ruth 17.2 -> 2.9, Marco 7.1 -> 1.4, the sample
+figure 34.1 -> 3.7 mm. **Left open:** a small horizontal crease at each apex where the hung sheet meets the
+breast above it, visible in Godot under clear_midday at 1 m on Ruth. Ten attempts at rounding it are in
+[notebooks/cloth-hug/cloth-bust-hang.md](notebooks/cloth-hug/cloth-bust-hang.md); the honest next step is
+bending stiffness, not another offset. The garments stage costs about 4 s more.
+
+What it was: **the cloth tucked under the bust** instead of hanging straight from
 its apex (Blender side view and the Godot bust shot both). `hang` is on for these presets but fades in only
 below `shoulder_z - 0.3 * (shoulder_z - hip_z)` (`fit._hang_setup`), which is about where the bust sits.
 That is branch B's ground; it moves every hanging garment, so re-record the dressed fixtures - and **no
@@ -659,8 +670,9 @@ here and nowhere else:
 - character-pipeline 0.16.0 (2026-09-20, branch `motion-asymmetry`: the `[variability]` spec table and
   the manifest's `variability` block. 0.15.0 was 2026-09-19 skin-regions, installed and shipped;
   0.16.0 was installed by the ship step on 2026-09-20)
-- wardrobe 0.6.0 (2026-09-21, branch `cloth-span-loose`: `smooth` and a detail limit on `tshirt` and
-  `longsleeve`; installed, Marco and Ruth rebuilt)
+- wardrobe 0.7.0 (2026-09-21, branch `cloth-bust-hang`: loose tops hang from the bust apex, `fit.tuck`
+  and `tuck_limit`, preset `skin` args, fixture `dressed_loose`; installed, Marco and Ruth rebuilt).
+  0.6.0 was `cloth-span-loose`: `smooth` and a detail limit on `tshirt` and `longsleeve`
 - lookdev 0.12.0 (2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance, 0.10.0 skin-finger-edges,
   0.11.0 lookdev-overcast, 0.12.0 eye-material; installed and shipped)
 - godot-lsp 0.1.0
