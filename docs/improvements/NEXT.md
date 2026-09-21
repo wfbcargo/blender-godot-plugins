@@ -16,8 +16,10 @@ have it **look great** in Godot. The study figures are the test bench; the score
 Every round's ship step runs it, and every plan should say which of the two numbers it moves.
 
 State as of **2026-09-20**: the motion round (rig-anything 0.28.0-0.36.0, character-pipeline 0.16.0)
-is nine versions in and
-**unpushed on `main`** - see "Resuming the motion work" below.
+is **shipped and unpushed on `main`** - nine versions, all installed, with study_man, study_woman and
+Belle rebuilt on them in the game and carrying `[variability] asymmetry = 0.35`. One row of the
+round's full regress is still red and is named below: `verify_strands pipeline_ponytail`. See
+"Resuming the motion work".
 
 The rest of this file is the state as of 2026-09-19, which the motion round did not touch.
 **The flesh round from the user's cast-demo review is done and shipped**: all seven plugin
@@ -53,8 +55,10 @@ the eye material preset (lookdev 0.12.0, humanform 0.16.0). The six figures are 
 - **The rest of Step 5 - motion**: MovesController's turns (06 rank 15), the fingertip gaps, and the motion
   critic on every clip. `U.running` was only its first item, and it also unblocks the crowd rebuild.
 - **Motion that reads as alive** - [07](07-motion-that-reads-as-alive.md). The user's "the movements
-  look good, but are very rigid". Nine versions shipped 2026-09-20 (rig-anything 0.28.0-0.36.0) and the
-  thread is mid-flight: see **"Resuming the motion work"** below, which is written to be picked up cold.
+  look good, but are very rigid". Nine versions shipped 2026-09-20 (rig-anything 0.28.0-0.36.0), installed,
+  and three figures rebuilt on them with `asymmetry = 0.35`; L2, L3 and L5 are still open, no motion critic
+  has looked at the result, and one regress row is red. See **"Resuming the motion work"** below, which is
+  written to be picked up cold.
 - **An age layer** (benchmark finding): two briefs asked for 40s and 60s and both read twenty-plus years young.
   The 58-year fit cap is not what stops it - slackness, lip thinning, hand tendons and posture are authorable
   on top of a 58-year fit and none was attempted.
@@ -65,7 +69,8 @@ the eye material preset (lookdev 0.12.0, humanform 0.16.0). The six figures are 
   symptom is gone only because overcast no longer casts a shadow), and the tone_shift controls under
   `plugins/lookdev/bin/controls/tone_shift/` were rendered at clear_midday exposure 1.0, so they no longer show
   what the shipped preset does - re-render them the next time that area is touched.
-- **Step 5 - motion**: the user's "walking and running are very stiff" - UNDER WAY since 2026-09-20, four versions shipped; see "Resuming the motion work" above.
+- **Step 5 - motion**: the user's "walking and running are very stiff" - UNDER WAY since 2026-09-20, nine
+  versions shipped and in the game; see "Resuming the motion work" above.
 - Smaller open flesh items (below, under each branch): the jump-only course over its 10 % on-limit line for the cast
   (10.2-11.4 %), walking in phase 0.69-0.85 against people's 0.66, study_woman's belly missed by 0.0001 m, the
   attachment check reading 0.0 on an empty window.
@@ -80,18 +85,13 @@ Written to be picked up cold. The design and the reasoning are in
 like the repo, has its own git, and will happily let you commit into it. An hour went into that this
 round, and `tools/install.py` run from it downgrades the installed skill.
 
-**Branch state - nothing is pushed.**
+**Branch state - everything is merged into `main` and `master`, and nothing is pushed.** The round's
+branches (`motion-mass-model`, `motion-head-rung`, `motion-asymmetry`, `motion-jitter` and the game's
+`girdle-rebuild`) are all merged; `git log --oneline origin/main..HEAD` is the authoritative list.
 
-| Repo | Branch | Commits |
-|---|---|---|
-| blender-godot-plugins | `motion-mass-model` | off `main` at 2558c5a - four version commits plus this handoff |
-| grungist-creek | `girdle-rebuild` | off `master` - two rebuild commits |
-
-`git log --oneline main..HEAD` in the plugins repo is the authoritative list; the counts above rot.
-
-The game's characters (Belle, Marco, Mei, Ruth) are built on **0.30.0**, one version behind. The only
-difference 0.31.0 makes to a shipped clip is finger-curl timing, so a rebuild is optional; do it with
-the loop under "Rebuilding a character" below.
+study_man, study_woman and Belle are built on **0.36.0** (ship step, 2026-09-20, see "Where the
+figures are"). **The cast - Marco, Mei and Ruth - is still on 0.30.0** and has no `[variability]`;
+rebuild them with the loop under "Rebuilding a character" below when the cast is next wanted.
 
 ### What shipped, and what each one established
 
@@ -124,16 +124,38 @@ report (so in `tests/golden/`):
 `mass.angular_momentum` is the arbiter for any "should this move differently?" question, and it has
 already settled one. Reach for it before reaching for an opinion.
 
-### The round does not ship until this is fixed (blocker on `main`, 2026-09-20)
+### The one red row the round ships with (blocker on `main`, 2026-09-20)
 
-`regress --godot` is red on `main` by itself: **`verify_strands pipeline_ponytail`** - a strand goes
-0.0060/0.0065/0.0067/0.0067 m into the head at 30/60/120/240 fps, with `swing_spread` 1.050. It read
-0.0038-0.0039 m and passed before `motion-head-rung` and `motion-asymmetry` merged, so the head rung's
-amplitude or the ponytail's collision radius is the cause - one is rig-anything's, the other
-follow-through's, and either fix moves a golden and needs its own `--godot` run. Three branches
-(`motion-head-rung`, `motion-asymmetry`, `motion-jitter`) and four critics have now each reproduced it
-from a clean checkout and confirmed their own branch does not touch a strand, follow-through, bake or
-golden file. Nobody owns it yet. Fix it before the ship step rebuilds anything.
+`regress --godot` is red on `main` by itself, and it was still red after the ship step: exactly one
+row, **`verify_strands pipeline_ponytail`** - a strand goes 0.0060/0.0065/0.0067/0.0067 m into the
+head at 30/60/120/240 fps against a 0.005 bound, `swing_spread` 1.050. It read 0.0038-0.0039 m and
+passed before `motion-head-rung` and `motion-asymmetry` merged.
+
+**It is a live defect, not only a fixture's.** The ship step ran `verify_strands.gd` on the game's
+own rebuilt `study_woman` at 60 fps: `run_head_penetration_m` **0.0053**, failing the same check.
+
+**Where it is, measured** (ship notebook section 6). `run_penetration_at` names the bone:
+`ft_strand_StudyWoman_hair_strand_00` - the strand's **root**, 0.001 m outside the skin at rest, with
+`run_limit_hits` 643 and `run_peak_bone_angle_deg` 53.94 against a 60 deg root limit. The collision
+solver keeps four sample points *along each bone's centreline* (grown by the strand's radius and the
+4 mm margin) out of the colliders; the tie's skinned vertices swing wider than that centreline, and
+the penetration is measured against the **skin**. So the root's swing carries its vertices through a
+scalp its centreline never enters.
+
+**The head collider's size is ruled out, precisely.** The ship step grew the head ellipsoid until it
+enclosed the skin (7.4 % of study_woman's head skin stood outside the old one, worst 16.6 mm, at the
+nape). The collider moved as intended (`radius_m` 0.1191 -> 0.1355, `fit` 1.1375) and the settled
+swing moved 109.08 -> 113.91 deg, and **the penetration did not change by one digit**. Reading
+`strand_modifier.gd` back says why: each bone's limit is `minf(1.0, k_rest - eps)`, the collider's
+surface *or its rest gap, whichever is tighter*, so a root grown into the scalp is pinned to its rest
+gap and a bigger collider cannot move it. That attempt was reverted; the repo is back at `main`.
+
+**Still unowned.** The fix is the root's angular limit or keeping a bone's skinned envelope (not its
+centreline) out, either of which moves `tests/golden/pipeline_ponytail.json` and
+`strand_ponytail.json` and needs its own `--godot` run and its own control. Take it as a branch.
+
+The ship step's own notebook, with the rebuild numbers, every verifier line, the regress result and the
+blocker's diagnosis: [notebooks/motion-alive/ship.md](notebooks/motion-alive/ship.md).
 
 ### Next, in the order I would take it
 
@@ -194,9 +216,14 @@ golden file. Nobody owns it yet. Fix it before the ship step rebuilds anything.
    (Jump, TurnL/R) - turns are L5's. Godot's JSON parser truncates the manifest's 19-digit seed, so
    the series Godot draws is not the one Blender drew; the fix is `variability._MASK`'s file on main
    and it moves `tests/golden/rigify_human.json`, one reviewed commit with
-   `regress --only rigify_human --update --twice`. No real game character carries `[variability]` yet
-   and no motion critic has looked at an asymmetric or jittered walk in Godot - the ship step should
-   put `asymmetry = 0.35` on the cast, rebuild, and have one look.
+   `regress --only rigify_human --update --twice`. **The ship step put `asymmetry = 0.35` on
+   study_man, study_woman and Belle** (2026-09-20) and rebuilt all three: `verify_moves` PASSED on
+   all three manifests (so no foot skate and no "planted at a different speed" refusal),
+   `verify_flesh` walk/run/jump PASSED on all three, and the three demo selftests pass. `asymmetry`
+   costs nothing any existing check can see. `jitter_phase`/`jitter_amp` are still 0 everywhere, so
+   the runtime half has still never run on a game character, and **no motion critic has looked at an
+   asymmetric walk in Godot** - that look is still owed. The cast (Marco, Mei, Ruth) carries no
+   `[variability]` and is still on 0.30.0.
 3. **L2 proper** - the momentum measurement exists; the *solve* does not. Minimise the residual over
    the free DOFs (arm swing gain, thorax counter-rotation, tail sway) at bake. This is the step that
    makes counter-rotation body-plan agnostic instead of a constant per archetype.
@@ -277,17 +304,20 @@ here and nowhere else:
   0.33.0 the fixed per-character left/right asymmetry, 0.34.0 the runtime per-cycle jitter with the
   drift check over the whole run, 0.35.0 a gait change no longer nudges the playhead behind, 0.36.0
   a skipped check says so and every control declares what it fails. 0.31.0 and earlier are installed;
-  0.32.0-0.36.0 are merged into `main` but NOT yet installed - the ship step does that. 0.27.0 was
+  0.32.0-0.36.0 were installed by the ship step on 2026-09-20, and the game's addon copies already
+  matched, so `~/.claude/skills` and `grungist-creek/addons` are both on 0.36.0. 0.27.0 was
   2026-09-19 moves-running-flag.
   Bump with `tools/bump.py`: the 0.28.0-0.31.0 commits edited only plugin.json and left
   `.claude-plugin/marketplace.json`, the file other machines read, stale at 0.27.0)
 - animate-anything 0.10.1
-- follow-through 0.10.0
+- follow-through 0.10.0 (the ship step's attempt at the ponytail blocker - a 0.11.0 growing the head
+  collider until it encloses the skin - was reverted: it moved the collider and changed nothing the
+  check measures. See "The one red row the round ships with")
 - humanform 0.17.0 (2026-09-19: 0.13.0 skin-pores-distance, 0.14.0 skin-regions, 0.15.0 skin-finger-edges,
   0.16.0 eye-material; 2026-09-20: 0.17.0 skin-genital, PR #1; installed and shipped)
 - character-pipeline 0.16.0 (2026-09-20, branch `motion-asymmetry`: the `[variability]` spec table and
   the manifest's `variability` block. 0.15.0 was 2026-09-19 skin-regions, installed and shipped;
-  0.16.0 is merged into `main` but NOT yet installed - the ship step does that)
+  0.16.0 was installed by the ship step on 2026-09-20)
 - wardrobe 0.5.2
 - lookdev 0.12.0 (2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance, 0.10.0 skin-finger-edges,
   0.11.0 lookdev-overcast, 0.12.0 eye-material; installed and shipped)
@@ -299,14 +329,22 @@ here and nowhere else:
 
 `grungist-creek/characters/study_man.toml` and `study_woman.toml` build through character-pipeline at
 `quality = "final"` in about 32 s each from nothing (a resumed rebuild skips unchanged stages), into
-`assets/figure_study/`, with skin baked at 2048 px. They, Belle and the cast (Marco, Mei, Ruth) were rebuilt from
-body on 2026-09-19 by the Step 2 ship step on every version listed above (study_man 32.5 s, study_woman 31.5 s,
-Marco 39.1 s, Ruth 40.1 s, Mei 31.5 s to export, Belle 34.7 s), so all six carry regional tone, the pore octave,
-the T-zone and lip roughness and the finger-edge fixes. `figure_study.tscn` shows both on
+`assets/figure_study/`, with skin baked at 2048 px. **study_man, study_woman and Belle were rebuilt from body on
+2026-09-20** by the motion round's ship step, on rig-anything 0.36.0 and character-pipeline 0.16.0 (study_man
+56 s, study_woman 56 s, Belle 55 s wall; every stage ran, because a version bump invalidates every stage hash).
+All three now carry `[variability] asymmetry = 0.35` - a fixed left/right asymmetry drawn from the character's
+id and baked into every gait - with `jitter_phase`/`jitter_amp` left at 0. **The cast (Marco, Mei, Ruth) was NOT
+rebuilt and is still on rig-anything 0.30.0 with no `[variability]`**; it was last rebuilt from body on
+2026-09-19 by the Step 2 ship step (Marco 39.1 s, Ruth 40.1 s, Mei 31.5 s to export). All six carry regional
+tone, the pore octave, the T-zone and lip roughness and the finger-edge fixes. `figure_study.tscn` shows both on
 turntables: keys 1-7 clips (Idle, Walk, Run, Crouch, Jump, TurnL, TurnR), F/S/B/Q/C views (C is a 1 m
 close-up, Tab picks the figure), L lighting presets, T turntables, J flesh, H hair strands. Its
 `--selftest` passes, as do `belle_demo`, `people_demo`, `cast_demo`, `verify_moves` (six manifests) and
-`verify_flesh` (full, walk, run and jump courses on all six: 24/24).
+`verify_flesh` (full, walk, run and jump courses on all six: 24/24). Re-checked after the 2026-09-20 rebuild:
+`--headless --import` clean (0 ERROR lines), `figure_study`, `belle_demo` and `people_demo` selftests PASSED,
+`verify_moves` PASSED on study_man, study_woman and Belle, and `verify_flesh` walk/run/jump PASSED on all three
+(9/9, `require=within_body`). **`verify_strands` on study_woman FAILS** (0.0053 m into the head) - the round's
+one open row, above.
 
 To look at them: each build writes the Blender close-up set to
 `assets/figure_study/<id>/review/<id>/close/` (`sheet.png`, 16 tiles, `close.json`; the folder is git-ignored).
@@ -317,13 +355,15 @@ In Godot,
 writes a sheet with one row per view (face, face_3q, eyes, head_side, head_back, the four hand views, full),
 the Blender close-set tile first and one column per preset, in about 20 s (Belle needs `--garments
 res://assets/belle/belle_sportstop.glb,res://assets/belle/belle_shorts.glb`). Run it on a copy of the project
-(`tools/scratch_project.py`, or a tar copy), not the game itself. The Step 2 ship step's sheets (study_man,
-study_woman, belle, cast_marco, cast_mei, cast_ruth; face, face_3q, eyes, head_side, head_back and hands at 1 m, full
-body at 4 m; clear_midday and overcast; paired with the Blender close set) are in
-`%TEMP%/rw/ship/look/<id>/sheet.png` (a scratch folder; regenerate rather than rely on it). Every run exits 1 on one
-tile, overcast full, FLOOR_STRIPES at 1.20-1.54 % against 1.20 % - a close-shot artefact, not the figures: the
-pre-ship glb reads the same (1.24-1.30 %) when overcast follows clear_midday in one run, and both read 0.68-0.86 %
-with overcast alone. First look (not an independent critic): pore grain now shows across the face at 1 m; lips and
+(`tools/scratch_project.py`, or a tar copy), not the game itself. The sheets live in `%TEMP%/rw/ship/look/<id>/sheet.png`
+(a scratch folder; regenerate rather than rely on it). The motion round's ship step re-rendered **study_man,
+study_woman and belle** there on 2026-09-20 (face, face_3q, eyes, head_side and hands at 1 m, full body at 4 m;
+clear_midday and overcast; paired with the Blender close set); `cast_marco`, `cast_mei` and `cast_ruth` beside
+them are still the Step 2 sheets, which also carried head_back. study_man and study_woman now exit **0**: Step
+2's standing failure - overcast `full`, FLOOR_STRIPES at 1.20-1.54 % against 1.20 %, judged then to be a
+close-shot artefact rather than the figures - does not reproduce. belle exits 1 on one tile,
+`TONE_SHIFT: skin saturation moves -21.0 % from clear_midday to overcast (max 15 %)`, which is a
+lookdev-preset row rather than a figure one. Step 2's first look (not an independent critic): pore grain now shows across the face at 1 m; lips and
 cheeks read redder; the vertical specular band on the foreheads under overcast is still there, and overcast is still
 darker and flatter than clear_midday.
 
