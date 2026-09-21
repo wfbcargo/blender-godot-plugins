@@ -82,6 +82,17 @@ def test_pieces():
     finally:
         regress.DURATIONS.clear()
         regress.DURATIONS.update(saved)
+    def rep(arm, lag, stance):
+        r = {c: {"ratio": arm} for c in ("arm_swing_deg", "step_length_m", "stride_m", "shoulder_dip_m")}
+        r["lag_cycles"] = {"plus_lat": lag[0], "minus_lat": lag[1]}
+        r["stance_offset_m"] = stance
+        return r
+    plain = rep(1.28, (0.21, 0.19), 0.02)
+    check("asym swap: a true swap passes", regress._asym_swap_why("Run", rep(1 / 1.28, (0.19, 0.21), -0.02), plain) == [])
+    bad = regress._asym_swap_why("Run", rep(1 / 1.28, (0.21, 0.19), -0.02), plain)
+    check("control: a swap that left lag_cycles unswapped fails", len(bad) == 1 and "lag_cycles" in bad[0], str(bad))
+    bad = regress._asym_swap_why("Run", rep(1.28, (0.19, 0.21), 0.02), plain)
+    check("control: unswapped ratios and stance fail", len(bad) == 5, str(bad))
     check("done line", regress.done_line(1, 18) == "REGRESS DONE exit=1, 18 fixtures ok")
     check("done line, one", regress.done_line(0, 1) == "REGRESS DONE exit=0, 1 fixtures ok")
     warn = regress.volatile_blocks({"build_timing": {"stage": 1, "result": 2}, "a": [{"when": {"x": 1}}]})

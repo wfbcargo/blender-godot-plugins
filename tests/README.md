@@ -121,7 +121,7 @@ and runs the project's copies of the verifiers:
   three channels one at a time (the golden's `over_floor`, at the keys; at the game's import only with
   `RA_REGRESS_ASYM_GAME_CHANNELS=1`, off because that import cannot tell the run's shoulder dip apart - a row
   prints what it can and cannot), not only on the one that fails the AND; every
-  row prints the gated values against their floors and marks a margin within x1.25 `THIN`; `swap=1` must invert every ratio and
+  row prints the gated values against their floors and marks a margin within x1.25 `THIN`; `swap=1` must invert every ratio (lag_cycles: exchange its two sides exactly) and
   disagree with the unswapped bake; `poison=1` (the manifest's variability block and measured values
   rewritten) must not move a digit.
 - **`verify_moves.gd`** on every manifest. It checks MovesController's gait choice and playback rate

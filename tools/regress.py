@@ -545,7 +545,7 @@ GODOT_JITTER = {
 # with ASYM_GAME_CHANNELS, off by default: that import cannot tell the run's shoulder dip apart). Every
 # row prints each gated value against its floor, and marks THIN the ones within ASYM_THIN of it.
 # The engine's verdict must also equal the golden's for every case. Two more controls, both on `asym`:
-# `swap=1` (the meter told +lat is -lat) must invert every ratio and flip stance_offset, agree with the
+# `swap=1` (the meter told +lat is -lat) must invert every ratio (lag: exchange its sides) and flip stance_offset, agree with the
 # fixture's own Blender swap, and DISAGREE with asym's Blender numbers - so a comparison blind to sides
 # fails the harness; and `poison=1` (the manifest's variability block, arm_pose values, gaits and stance
 # spans rewritten before the meter sees them) must reproduce the plain run's numbers exactly, so a meter
@@ -1125,6 +1125,31 @@ def _asym_rows(godot_rep):
     return rows
 
 
+def _asym_swap_why(role, sw, plain):
+    """What a side-swapped report `sw` gets wrong against the unswapped `plain` of the same clip.
+
+    Four channels must invert their ratio. lag_cycles is judged by EXCHANGE instead (the swapped
+    +lat must be the unswapped -lat and back): its ratio is ill-conditioned near zero, so an
+    inversion test would pass or fail on noise, while its per-side values are the same samples
+    relabelled and must match to the digit. stance_offset must flip sign."""
+    why = []
+    for c in ("arm_swing_deg", "step_length_m", "stride_m", "shoulder_dip_m"):
+        prod = sw[c]["ratio"] * plain[c]["ratio"]
+        if abs(prod - 1.0) > 1e-6:
+            why.append("%s %s: ratio did not invert (%.6f x %.6f)" % (role, c, sw[c]["ratio"], plain[c]["ratio"]))
+    a, b = sw.get("lag_cycles") or {}, plain.get("lag_cycles") or {}
+    if not a or not b:
+        why.append("%s lag_cycles: missing from a report" % role)
+    elif abs(a["plus_lat"] - b["minus_lat"]) > 1e-9 or abs(a["minus_lat"] - b["plus_lat"]) > 1e-9:
+        why.append("%s lag_cycles: sides did not exchange (swapped +lat %.6f -lat %.6f, unswapped +lat %.6f -lat %.6f)"
+                   % (role, a["plus_lat"], a["minus_lat"], b["plus_lat"], b["minus_lat"]))
+    if (abs(sw["stance_offset_m"] + plain["stance_offset_m"]) > 1e-9
+            or sw["stance_offset_m"] * plain["stance_offset_m"] >= 0.0):
+        why.append("%s: stance_offset did not flip (%+.5f against %+.5f)"
+                   % (role, sw["stance_offset_m"], plain["stance_offset_m"]))
+    return why
+
+
 def _run_asym(godot, project, where, src, name):
     """GODOT_ASYM's runs on one fixture: [(check, passed, detail)]."""
     spec = GODOT_ASYM[name]
@@ -1260,14 +1285,7 @@ def _run_asym(godot, project, where, src, name):
     for role, r in sorted(reps.items()):
         plain = got[("keys", base)][role]["report"]
         sw = r["report"]
-        for c in ("arm_swing_deg", "step_length_m", "stride_m", "shoulder_dip_m"):
-            prod = sw[c]["ratio"] * plain[c]["ratio"]
-            if abs(prod - 1.0) > 1e-6:
-                why.append("%s %s: ratio did not invert (%.6f x %.6f)" % (role, c, sw[c]["ratio"], plain[c]["ratio"]))
-        if (abs(sw["stance_offset_m"] + plain["stance_offset_m"]) > 1e-9
-                or sw["stance_offset_m"] * plain["stance_offset_m"] >= 0.0):
-            why.append("%s: stance_offset did not flip (%+.5f against %+.5f)"
-                       % (role, sw["stance_offset_m"], plain["stance_offset_m"]))
+        why += _asym_swap_why(role, sw, plain)
         own = _asym_gaps(sw, cases["swap"]["measured"][role])
         wrong = _asym_gaps(sw, cases[base]["measured"][role])
         over_own = [c for c, g in own.items() if g > ASYM_TOL[c]]

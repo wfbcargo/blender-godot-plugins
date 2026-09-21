@@ -210,3 +210,24 @@ Not a meter defect (at the keys it matches the bake to 1e-5), and the floors do 
   verdict on asym Run at that import is still gated but passes on a channel that cannot tell.
 - Belle Walk stride index 0.016 against 0.02 (ad hoc, game import; ungated) - same import cause.
 - LEAF_HAND_SHARE, the held duplicate loop frame, Belle's small dip draw: as before.
+
+## Critic round 2 fixes (2026-09-21, 03:12-03:55)
+
+The critic passed questions 1-4 and failed 5 only on main's ponytail row. Its problems, one by one:
+
+- **Swap control did not check lag_cycles.** Fixed. The swap checks moved into
+  `regress._asym_swap_why`. lag_cycles is judged by EXCHANGE (swapped +lat == unswapped -lat and
+  back, to 1e-9), not by ratio inversion: the ratio is ill-conditioned near zero, while the per-side
+  values are the same samples relabelled. Unit test in `test_tools.test_pieces` with its controls:
+  a true swap passes, a swap that left lag unswapped fails on exactly lag_cycles, an unswapped report
+  fails on all five. On the real Godot reports the exchange held to the digit (swap row ok below).
+- **exit=0** - still main's `verify_strands pipeline_ponytail`; not this branch's to fix.
+- **Game-import Run dip cannot tell builds apart** - unchanged, already behind
+  `RA_REGRESS_ASYM_GAME_CHANNELS=1` (off) and printed THIN / CANNOT TELL APART. Open.
+- **Game-import rows gate verdicts only, the keys rows carry correctness** - by design; documented. Open.
+
+Final `regress --quick --jobs 4 --godot %TEMP%/rw/agm/game` on this commit's tree (log
+`%TEMP%/rw/agm/final_quick_regress3.log`): all 11 verify_asymmetry rows ok, swap row ok,
+`REGRESS DONE exit=1, 24 fixtures ok` - the one red row is again `verify_strands pipeline_ponytail`,
+swing_spread 1.050, same numbers as main. `tools/test_tools.py`: all passed. No golden, floor or
+tolerance moved; no plugin code changed (regress and tests only), so no version bump.
