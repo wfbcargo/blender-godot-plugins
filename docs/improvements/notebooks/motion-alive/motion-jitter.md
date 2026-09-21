@@ -608,3 +608,60 @@ It is also why raising the tracking gain does nothing, which I checked rather th
   correction does its other job. Worth one more mode.
 - **Main's `verify_strands pipeline_ponytail` is still the blocker**, unchanged and unowned by this
   branch: see the previous section for the reproduction on `main` d367a4b by itself.
+
+### The fix pass's own `--quick --godot` run
+
+`C:/Users/pauli/AppData/Local/Temp/rw/jfix/regress-0.35.0-run3.log`, run 19:14-19:37 from this
+worktree against a freshly made scratch copy (`tools/scratch_project.py .../gp2 --who
+study_man,study_woman,belle --force`, imported by that tool):
+
+    REGRESS DONE exit=1, 23 fixtures ok
+
+All 23 Blender fixtures pass and **no golden moved** - the diff file
+(`regress-diffs/regress-20260920-191400-22760.diff`, 12 lines) contains the one red Godot row and
+nothing else. All **ten** `verify_jitter` rows are ok: the base run, the new `switch=7 long=400`
+run that must also pass, and all eight controls, each failing on its own named lines:
+
+    ok  verify_jitter pipeline_woman: alpha phase 0.823 amp 0.805 | stride cv 0.0259 on / 0.000000 off
+        | swing cv 0.0585 on / 0.00487 off | drift 0.0313 of 0.2160 cycles over 160 s
+        | skate mean 0.0253 on / 0.0236 off m | 1.57 + 1.38 us per character per frame
+    ok  verify_jitter pipeline_woman cycles=1024 seconds=20 long=400 switch=7: ... drift 0.0484 of 0.2160
+    ok  verify_jitter ... spectrum=white (must fail): alpha phase 0.500 amp 0.532
+    ok  verify_jitter ... naive=1 long=400 (must fail): drift 0.5185 of 0.2160
+    ok  verify_jitter ... long=120 switch=7 reanchor=target (must fail): drift 0.4199 of 0.2160
+    ok  verify_jitter ... spectrum=flat (must fail): stride cv 0.0003, swing cv 0.0039 / 0.00498 off
+    ok  verify_jitter ... absent_on=0.6 (must fail)
+    ok  verify_jitter ... lod_m=0 (must fail)
+    ok  verify_jitter ... ctl=legs (must fail): skate mean 0.0442 on / 0.0336 off
+    ok  verify_jitter ... rate=1 (must fail): drift 0.6746 of 0.2160 over 16 s
+
+The single red row is **`verify_strands pipeline_ponytail`**, unchanged and still main's:
+`swing_spread=1.050`, head 0.0060 / 0.0065 / 0.0067 / 0.0067 m at 30 / 60 / 120 / 240 fps - the
+same four numbers the author measured and the critic reproduced on `main` d367a4b by itself. This
+branch adds no Blender, bake or strand code. It is the merge/ship step's, and it blocks the round,
+not this branch.
+
+Two things the run itself taught:
+
+- **`spectrum=flat` writes `null` where a number goes.** A constant series has no fluctuation to
+  detrend, so its DFA exponent is NAN, and Godot's `JSON.stringify` writes NAN as `null`.
+  `regress.py`'s `_run_jitter` formatted it with `%.3f` and raised `TypeError`, which would have
+  taken the whole run down on a control that was failing exactly as it should. Every number in
+  that row now goes through a lookup that gives NaN for a missing or null one. A control is a test
+  of the harness; the harness has to survive it.
+- **Two regress runs at `--jobs 4` on one Windows session is one too many.** An earlier attempt
+  (`regress-final-0.35.0.log`) reported `exit=1, 5 fixtures ok` with 19 fixtures dying at
+  `exit 3221225794` - `0xC0000142`, STATUS_DLL_INIT_FAILED, which is session resource exhaustion,
+  not a fixture failure. A killed run's Blender and Godot children outlive the shell that started
+  them, and the leftovers from a previous agent's headless Godot were still there too. Re-running
+  at `--jobs 3` on a fresh scratch copy gave the clean log above. If a regress run reports
+  `3221225794` on many fixtures at once, count the processes before believing any of it.
+
+### Two more open items from this pass
+
+- `_jit_worst_offset` and `_jit_worst_lag` are only updated on the shipped path, so the two control
+  implementations (`jitter_naive`, `jitter_rate`) print `0.0000` for both in the drift line. The
+  controls fail on the gap itself, so nothing is wrong - but the line reads oddly in their logs.
+- `switch=` picks the fastest gait on the ladder and falls back to Idle only when there is one
+  gait. On `pipeline_woman` it alternates Walk and Run, so the `play_role` reset path - the one the
+  new wrapped-difference correction exists for - is still not what regress exercises.
