@@ -2,7 +2,7 @@
  "fixture": "rigify_human",
  "plugins": {
   "follow-through": "0.10.0",
-  "rig-anything": "0.32.0"
+  "rig-anything": "0.37.0"
  },
  "report": {
   "arm_swing": {
@@ -650,6 +650,22 @@
      "upper_arm.L": 157.0,
      "upper_arm.R": 157.0
     }
+   }
+  },
+  "mass_cache": {
+   "control_pinned_key": {
+    "measure_calls_for_two_bodies": 1,
+    "measures_once_when_unchanged": true,
+    "noticed_the_edit": false,
+    "total_kg": 65.6964,
+    "total_kg_after_edit": 65.6964
+   },
+   "keyed_on_the_body": {
+    "measure_calls_for_two_bodies": 1,
+    "measures_once_when_unchanged": true,
+    "noticed_the_edit": true,
+    "total_kg": 65.6964,
+    "total_kg_after_edit": 65.697
    }
   },
   "mesh": {

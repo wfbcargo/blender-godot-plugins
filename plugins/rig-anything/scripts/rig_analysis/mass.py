@@ -757,16 +757,74 @@ def pendulum(data, rig, bones, pivot, axis):
     return math.sqrt(total * G * d / inertia) / (2.0 * math.pi)
 
 
+# Bodies already measured in this process, keyed by `_fingerprint`. The
+# per-Body cache below is not enough on its own: every role in a move set builds
+# its OWN `motion.Body` (actions.py and locomotion.py each construct one), so a
+# seven-role character measured the same unchanged skin and skeleton seven times
+# over. That is what took the `moves` stage from 9.9 s to 17.5 s on Belle and
+# from 8.8 s to 27-36 s on the benchmark bodies: a measurement is seconds of
+# voxel solve, and five of the seven roles reach the upper chain.
+#
+# A cache and not `stamp`, deliberately. The stamp exists and would survive into
+# the saved .blend, but object custom properties are exported as glTF node
+# extras (`export_extras`, which follow-through needs), so stamping would write a
+# per-bone mass, COM and inertia table into every glb the pipeline ships. A
+# process-level memo costs nothing on disk and cannot go stale in a file.
+_MEASURED = {}
+
+
+def _fingerprint(rig_name):
+    """A key that changes whenever anything `measure` reads changes.
+
+    Cheap, but not structural only: vertex COORDINATES are hashed, because the
+    flesh stage moves a body without changing any count, and a mass model taken
+    before that move would be wrong in a way nothing downstream would notice.
+    None when the rig cannot be fingerprinted, which disables the cache for it
+    rather than guessing.
+    """
+    import bpy
+    rig = bpy.data.objects.get(rig_name)
+    if rig is None or rig.type != "ARMATURE":
+        return None
+    try:
+        import array
+        import hashlib
+        h = hashlib.blake2b(digest_size=16)
+        h.update(rig_name.encode("utf-8"))
+        h.update(("bones:%d" % len(rig.data.bones)).encode("utf-8"))
+        h.update(repr(tuple(round(v, 6) for v in rig.matrix_world.to_scale())).encode("utf-8"))
+        for o in sorted(_meshes_for(rig), key=lambda m: m.name):
+            me = o.data
+            n = len(me.vertices)
+            h.update(("%s:%d:%d" % (o.name, n, len(me.polygons))).encode("utf-8"))
+            co = array.array("f", [0.0]) * (3 * n)
+            me.vertices.foreach_get("co", co)
+            h.update(co.tobytes())
+            # the weights are the other half of what the partition reads, and
+            # the flesh stage rewrites them without moving a single vertex
+            for vg in sorted(o.vertex_groups, key=lambda g: g.name):
+                h.update(vg.name.encode("utf-8"))
+        return h.hexdigest()
+    except Exception:                                           # pragma: no cover
+        return None
+
+
 def body_mass(body):
     """The mass model for a `motion.Body`, measured once and kept on it.
 
     A character builds several clips off one body and the measurement is a
     property of the body, not of the clip, so it is taken from the rig's stamp
-    when there is one and otherwise measured and cached. None when the body
-    carries no skinned mass.
+    when there is one, then from this process's cache of bodies already
+    measured, and only otherwise measured afresh. None when the body carries no
+    skinned mass.
     """
     got = body.__dict__.get("_mass_data")
     if got is not None:
+        return got or None
+    key = _fingerprint(body.rig.name)
+    if key is not None and key in _MEASURED:
+        got = _MEASURED[key]
+        body.__dict__["_mass_data"] = got or {}
         return got or None
     try:
         got = load(body.rig.name) or measure(body.rig.name)
@@ -774,6 +832,8 @@ def body_mass(body):
         got = None
     if got is not None and "error" in got:
         got = None
+    if key is not None:
+        _MEASURED[key] = got
     body.__dict__["_mass_data"] = got or {}
     return got
 
