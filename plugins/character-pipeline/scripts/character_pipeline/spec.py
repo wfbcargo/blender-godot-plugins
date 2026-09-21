@@ -111,6 +111,7 @@ DEPRECATED = {
 }
 HAIR_PRESETS = ("short_crop", "bob", "bun", "ponytail", "long_loose")   # humanform.sheet.HAIR_PRESETS
 BROW_SHAPES = ("natural", "straight", "arched", "soft")                   # humanform.sheet.BROW_SHAPES
+BEARD_STYLES = ("stubble", "short", "goatee", "moustache")               # humanform.brows.BEARD_STYLES
 MUSCLE_GROUPS = ("deltoids", "upper_arms", "pectorals", "abdominals", "obliques", "quadriceps", "calves",
                  "forearms", "relief", "bulk")                           # humanform.muscle.GROUPS
 MUSCLE_OUTPUTS = ("geometry", "normal")
@@ -154,15 +155,24 @@ class Hair:
     lashes: bool = False
     body_hair: bool = False
     brow_shape: str | None = None               # humanform.brows BROW_SHAPES; None: "natural"
+    beard: str | None = None                    # humanform.brows BEARD_STYLES; None: no facial hair
+    beard_colour: list | None = None            # screen (sRGB); None: the hair colour a little darker
+    fringe: bool = False                        # humanform.hair FRINGE across the forehead, over any preset
 
     FACE = ("brows", "lashes", "body_hair")
 
     def face(self):
-        """The humanform.brows switches that are on, and a brow shape other than the default, as hair.add
-        keywords."""
+        """The humanform.brows switches that are on, a brow shape other than the default and a beard, as
+        hair.add keywords."""
         out = {k: True for k in self.FACE if getattr(self, k)}
         if self.brow_shape and self.brow_shape != "natural":
             out["brow_shape"] = self.brow_shape
+        if self.beard:
+            out["beard"] = self.beard
+            if self.beard_colour is not None:
+                out["beard_colour"] = list(self.beard_colour)
+        if self.fringe:
+            out["fringe"] = True
         return out
 
 
@@ -293,6 +303,11 @@ class Character:
                     out.pop(k, None)
             if out.get("brow_shape") in (None, "natural"):
                 out.pop("brow_shape", None)         # the default hashes as before the field existed
+            for k in ("beard", "beard_colour"):     # no beard hashes as before beards existed
+                if out.get(k) is None:
+                    out.pop(k, None)
+            if not out.get("fringe"):
+                out.pop("fringe", None)
             return out
         if name == "moves":
             # [variability] rides the moves section rather than having one of its own, and only
@@ -504,7 +519,7 @@ def parse(data, path=None):
     if "hair" in data:
         h = dict(_take(data, "hair", dict))
         if "preset" in h:
-            _unknown(h, ("preset", "colour", "brow_shape") + Hair.FACE, "[hair]")
+            _unknown(h, ("preset", "colour", "brow_shape", "beard", "beard_colour", "fringe") + Hair.FACE, "[hair]")
             preset = _take(h, "preset", str, where="hair.")
             if preset not in HAIR_PRESETS:
                 raise SpecError(f"hair.preset {preset!r} is not one of {HAIR_PRESETS}")
@@ -520,8 +535,18 @@ def parse(data, path=None):
             brow_shape = _take(h, "brow_shape", str, where="hair.")
             if brow_shape is not None and brow_shape not in BROW_SHAPES:
                 raise SpecError(f"hair.brow_shape {brow_shape!r} is not one of {BROW_SHAPES}")
+            beard = _take(h, "beard", str, where="hair.")
+            if beard is not None and beard not in BEARD_STYLES:
+                raise SpecError(f"hair.beard {beard!r} is not one of {BEARD_STYLES}")
+            beard_colour = _take(h, "beard_colour", list, where="hair.")
+            if beard_colour is not None and (len(beard_colour) != 3 or not all(
+                    isinstance(c, (int, float)) and 0 <= c <= 1 for c in beard_colour)):
+                raise SpecError("hair.beard_colour must be [r, g, b], screen (sRGB) channels 0..1")
+            if beard_colour is not None and beard is None:
+                raise SpecError("hair.beard_colour needs hair.beard")
             hair = Hair(kind="preset", preset=preset, colour=[float(c) for c in colour] if colour else None,
-                        brow_shape=brow_shape, **switches)
+                        brow_shape=brow_shape, beard=beard, fringe=bool(_take(h, "fringe", bool, where="hair.")),
+                        beard_colour=[float(c) for c in beard_colour] if beard_colour else None, **switches)
         else:
             kind = h.pop("kind", None)
             if kind != "shell_bun":

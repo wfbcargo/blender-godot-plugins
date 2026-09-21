@@ -106,21 +106,30 @@ FACE_RESIDUALS = [
     ("menton_sellion", "menton_sellion", None),
     ("head_circ", "head_circ", None),
 ]
-# A likeness (a brief's `face`, landmarks.likeness): one lever per measure, added to the face stage only when the
-# brief gives that measure's ratio, so a brief without a face solves exactly as before. Measured on a 1.68 m
-# woman, each lever moves its own measure and nothing else in the face set: nose-scale-horiz the alar breadth
+# A likeness (a brief's `face`, landmarks.likeness): levers per measure, added to the face stage only when the
+# brief gives that measure's ratio, so a brief without a face solves exactly as before. The first lever of each
+# moves its own measure and nothing else in the face set (a 1.68 m woman): nose-scale-horiz the alar breadth
 # (+6.2 / -8.8 mm), mouth-scale-horiz the mouth (+9.0 / -9.6), chin-bones the outline at the mouth (+6.7 / -4.8)
-# and nose-base the nose's base to the chin (+4.1 / -4.9). nose-trans was not used for the last: it moves the nose
-# tip, and the nasion search hangs off the tip, so menton-sellion moved with it and, with chin-height, the lower
-# face could not be set apart from the whole face.
+# and nose-base the nose's base to the chin (+4.1 / -4.9). One lever was not enough range for a face worth
+# recognising: Morgan Freeman's nose, mouth and jaw, Taylor Swift's jaw and Ariana Grande's short lower face all
+# ran their lever to its end. The rest add range the same way (a 1.75 m man): nose-width3 (+9.6 / -5.0) and
+# nose-flaring (+5.3 / -1.2) the nose, mouth-upperlip-width the mouth (+6.0), head-fat the outline (+23.7 / -7.4,
+# and the nose's base to the chin +-4, which nose-base takes back), nose-scale-vert the lower face (-4.6 / +6.6).
+# They carry a stronger prior (LIKENESS_SECOND_PRIOR), so the first lever is spent before them. nose-trans was
+# not used for the lower face: it moves the nose tip, and the nasion search hangs off the tip, so menton-sellion
+# moved with it and, with chin-height, the lower face could not be set apart from the whole face.
 LIKENESS_FINE = {
-    "nose_breadth": ("nose_width", "nose", "nose-scale-horiz", False),
-    "mouth_breadth": ("mouth_width", "mouth", "mouth-scale-horiz", False),
-    "jaw_breadth": ("jaw_width", "chin", "chin-bones", False),
-    "nose_chin": ("nose_base", "nose", "nose-base", False, ("up", "down")),
+    "nose_breadth": [("nose_width", "nose", "nose-scale-horiz", False), ("nose_width3", "nose", "nose-width3", False),
+                     ("nose_flare", "nose", "nose-flaring", False)],
+    "mouth_breadth": [("mouth_width", "mouth", "mouth-scale-horiz", False),
+                      ("mouth_upperlip", "mouth", "mouth-upperlip-width", False)],
+    "jaw_breadth": [("jaw_width", "chin", "chin-bones", False), ("face_fat", "head", "head-fat", False)],
+    "nose_chin": [("nose_base", "nose", "nose-base", False, ("up", "down")),
+                  ("nose_length", "nose", "nose-scale-vert", False)],
 }
 ABS_TOL.update({"nose_breadth": 0.0015, "mouth_breadth": 0.002, "jaw_breadth": 0.003, "nose_chin": 0.002})
 LIKENESS_PRIOR = {"nose_width": 0.3, "mouth_width": 0.3, "jaw_width": 0.3, "nose_base": 0.3}
+LIKENESS_SECOND_PRIOR = 1.0
 
 # hands and feet: every lever MPFB has that changes a measured size. Finger length trades palm for
 # fingers at a fixed hand length (with hand scale), foot width is the only lever on foot breadth.
@@ -517,13 +526,17 @@ def fit(human, lm, iterations=10, damping=0.3, verbose=True, build=None, start=N
 def fit_face(human, lm, iterations=8, verbose=True, start=None, jacobian=None):
     """L4 face stage: head breadth and depth, eye spacing, cheekbones, face height - its own small
     solve after the body, so the body's Jacobian never pays for the face. A landmark set with a likeness
-    (`lm["likeness"]`, from a brief's `face`) adds a lever and a residual for each likeness measure it sets
+    (`lm["likeness"]`, from a brief's `face`) adds the levers and a residual for each likeness measure it sets
     (LIKENESS_FINE); its ratios for the eyes and the face's height are already in the targets."""
     target = _landmarks.as_measurements(lm)
     extra = [k for k in LIKENESS_FINE if k in (lm.get("likeness") or ())]
-    fine = FACE_FINE + [LIKENESS_FINE[k] for k in extra]
+    levers = [e for k in extra for e in LIKENESS_FINE[k]]
+    fine = FACE_FINE + levers
     spec = FACE_RESIDUALS + [(k, k, None) for k in extra]
-    st = _State(human, (), fine, dict(FACE_PRIOR, **LIKENESS_PRIOR))
+    prior = dict(FACE_PRIOR)
+    prior.update({e[0]: LIKENESS_SECOND_PRIOR for e in levers})
+    prior.update(LIKENESS_PRIOR)                    # each measure's first lever is spent before the rest
+    st = _State(human, (), fine, prior)
     if start:
         st.set([start.get(n, v) for n, v in zip(st.names, st.x)])
     tol = {k: ABS_TOL[k] for k, _, _ in spec}

@@ -207,11 +207,16 @@ def make(s, out_dir=None, store=False, use_library=True, contact_sheet=False, ta
     if face:
         rep["likeness"] = {"targets": {k: round(lm["measures"][k], 4) for k in lm.get("likeness", [])},
                            "shape": shape_key}
-        # a lever at the end of MPFB's range could not give what the ratio asked: say which, so the brief (or
-        # the photo reading) is looked at again rather than the result trusted
-        params = (rep.get("face") or {}).get("params", {})
-        levers = {v[0]: k for k, v in scaffold.LIKENESS_FINE.items()}
-        at_limit = sorted(levers[n] for n, x in params.items() if n in levers and abs(x) >= 0.999)
+        # each likeness measure as fitted, and any the fit could not reach with every one of its levers at the end
+        # of MPFB's range: said, so the brief (or the photo reading) is looked at again rather than the result trusted
+        face_rep = rep.get("face") or {}
+        params = face_rep.get("params", {})
+        rows = {r["measure"]: r for r in face_rep.get("residuals", [])}
+        rep["likeness"]["fit"] = {k: {"value": rows[k]["value"], "target": rows[k]["target"], "tol": rows[k]["tol"]}
+                                  for k in lm.get("likeness", []) if k in rows}
+        at_limit = sorted(k for k, levers in scaffold.LIKENESS_FINE.items()
+                          if k in rows and abs(rows[k]["tol"]) > 1.0
+                          and all(abs(params.get(e[0], 0.0)) >= 0.999 for e in levers))
         if at_limit:
             rep["likeness"]["at_limit"] = at_limit
             notes.append(f"likeness: {', '.join(at_limit)} at the end of MPFB's range - the face asks for more "

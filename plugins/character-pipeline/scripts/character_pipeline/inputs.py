@@ -19,6 +19,7 @@ into the stage's record in the .blend (so a rerun can say which input moved - `c
     hair      preset:<name>                                   humanform's resolved hair preset (hair_presets.json)
               code:humanform.hair, code:humanform.brows       the hair geometry (cap, ear cut, parts, cards)
               data:humanform.face_regions                     brow and lash placement (only with a face switch on)
+              data:humanform.face_features                    beard placement: mouth, nose, lips (only with a beard)
               code:lookdev_blender.hair, data:lookdev.hair    the hair material and its preset (materials.json)
               code:character_pipeline.hair                    instead of all that for a deprecated shell_bun
     flesh     data:follow_through.registry                    the merged type registry: built-in and user
@@ -96,6 +97,8 @@ def _hair(ch):
            "code:humanform.hair": code("humanform.hair"), "code:humanform.brows": code("humanform.brows")}
     if ch.hair.face():
         out["data:humanform.face_regions"] = json_file(os.path.join(humanform.DATA, "face_regions.json"))
+    if ch.hair.beard:                           # the beard is placed from the mouth, nose and chin
+        out["data:humanform.face_features"] = json_file(os.path.join(humanform.DATA, "face_features.json"))
     if _lookdev():
         from lookdev_blender import hair as ld_hair
         out["code:lookdev_blender.hair"] = code("lookdev_blender.hair")

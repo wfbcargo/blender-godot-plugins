@@ -215,6 +215,9 @@ def run_body(ch, ctx):
     out["stature"] = _stature(res)
     out["library"] = res.get("path")                # reuse | warm | fresh: where the body's seconds went
     out["timing"] = res.get("timing")
+    likeness = (res.get("fit") or {}).get("likeness")
+    if likeness:                                    # a [body.face]: each measure as fitted against its target
+        out["likeness"] = likeness
     return out
 
 
