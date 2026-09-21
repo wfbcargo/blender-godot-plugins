@@ -188,3 +188,25 @@ Not a meter defect (at the keys it matches the bake to 1e-5), and the floors do 
 - a new always-printed row, "what the game's default import can tell apart", gives every clip and
   channel as asym against the controls' worst, and marks `CANNOT TELL APART`;
 - SKILL.md and tests/README say so.
+
+### Checks after the fix
+
+- `RA_REGRESS_ASYM_GAME_CHANNELS` off, Godot stage on the kept exports: 11 verify_asymmetry rows ok,
+  with the ungated per-channel lines printed on the zero and mirror game rows. The same run with it
+  `=1`: exactly those two rows go red (the switch's must-fail control).
+- `python tools/test_tools.py`: all passed.
+- final `regress --quick --jobs 4 --godot %TEMP%/rw/agm/game` on e3a4398, 02:26-03:04 (log
+  `%TEMP%/rw/agm/final_quick_regress2.log`): 24 fixtures ok, all 11 verify_asymmetry rows ok,
+  `REGRESS DONE exit=1` - its one red row again `verify_strands pipeline_ponytail`, swing_spread
+  1.050, head 0.006/0.0065 m, main's blocker. THIN printed on asym Run dip (x1.08) and mirror Run
+  dip at the game import (x1.03); CANNOT TELL APART on Run shoulder_dip_m at the game import.
+
+## Open (updated)
+
+- exit=0 needs the ponytail branch (main's red row).
+- The game's default import erases the run's shoulder-dip asymmetry (table above). The fix is an
+  import preset shipped with rig-anything exports (clip fps, or the optimizer off); until then the
+  per-channel gate at that import stays behind `RA_REGRESS_ASYM_GAME_CHANNELS=1`, and the old AND
+  verdict on asym Run at that import is still gated but passes on a channel that cannot tell.
+- Belle Walk stride index 0.016 against 0.02 (ad hoc, game import; ungated) - same import cause.
+- LEAF_HAND_SHARE, the held duplicate loop frame, Belle's small dip draw: as before.
