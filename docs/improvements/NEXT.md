@@ -15,8 +15,8 @@ have it **look great** in Godot. The study figures are the test bench; the score
 (below): three brand-new characters built cold from their briefs, timed, and judged by an independent critic.
 Every round's ship step runs it, and every plan should say which of the two numbers it moves.
 
-State as of **2026-09-20**: the motion round (rig-anything 0.28.0-0.33.0, character-pipeline 0.16.0)
-is six versions in and
+State as of **2026-09-20**: the motion round (rig-anything 0.28.0-0.36.0, character-pipeline 0.16.0)
+is nine versions in and
 **unpushed on `main`** - see "Resuming the motion work" below.
 
 The rest of this file is the state as of 2026-09-19, which the motion round did not touch.
@@ -53,7 +53,7 @@ the eye material preset (lookdev 0.12.0, humanform 0.16.0). The six figures are 
 - **The rest of Step 5 - motion**: MovesController's turns (06 rank 15), the fingertip gaps, and the motion
   critic on every clip. `U.running` was only its first item, and it also unblocks the crowd rebuild.
 - **Motion that reads as alive** - [07](07-motion-that-reads-as-alive.md). The user's "the movements
-  look good, but are very rigid". Six versions shipped 2026-09-20 (rig-anything 0.28.0-0.33.0) and the
+  look good, but are very rigid". Nine versions shipped 2026-09-20 (rig-anything 0.28.0-0.36.0) and the
   thread is mid-flight: see **"Resuming the motion work"** below, which is written to be picked up cold.
 - **An age layer** (benchmark finding): two briefs asked for 40s and 60s and both read twenty-plus years young.
   The 58-year fit cap is not what stops it - slackness, lip thinning, hand tendons and posture are authorable
@@ -124,6 +124,17 @@ report (so in `tests/golden/`):
 `mass.angular_momentum` is the arbiter for any "should this move differently?" question, and it has
 already settled one. Reach for it before reaching for an opinion.
 
+### The round does not ship until this is fixed (blocker on `main`, 2026-09-20)
+
+`regress --godot` is red on `main` by itself: **`verify_strands pipeline_ponytail`** - a strand goes
+0.0060/0.0065/0.0067/0.0067 m into the head at 30/60/120/240 fps, with `swing_spread` 1.050. It read
+0.0038-0.0039 m and passed before `motion-head-rung` and `motion-asymmetry` merged, so the head rung's
+amplitude or the ponytail's collision radius is the cause - one is rig-anything's, the other
+follow-through's, and either fix moves a golden and needs its own `--godot` run. Three branches
+(`motion-head-rung`, `motion-asymmetry`, `motion-jitter`) and four critics have now each reproduced it
+from a clean checkout and confirmed their own branch does not touch a strand, follow-through, bake or
+golden file. Nobody owns it yet. Fix it before the ship step rebuilds anything.
+
 ### Next, in the order I would take it
 
 1. **The head rung: done** (branch `motion-head-rung`, rig-anything 0.32.0, merged 2026-09-20).
@@ -154,13 +165,38 @@ already settled one. Reach for it before reaching for an opinion.
    **Step length is the part to remember:** scaling each side's stroke made the exporter refuse every
    gait ("planted at a different speed"), and it was right - both planted feet sweep back at the
    body's speed. What differs is *where* each foot plants, so it is one shift of `pl["centres"]`.
-   **Still open here:** `jitter_phase` and `jitter_amp` are parsed, hashed, resolved and written to
-   the manifest but nothing bakes them - that is the per-cycle half, with the persistent (DFA alpha
-   ~0.8) spectrum, and it is the next piece. Only `locomotion.cycle`'s roles (Walk, Trot, Run) take
-   the asymmetry; Idle, Crouch, Jump and the Turns are still exactly mirror-symmetric, and an idle is
-   where a viewer looks longest. No real game character carries `[variability]` yet and no motion
-   critic has looked at an asymmetric walk in Godot - the ship step should put `asymmetry = 0.35` on
-   the cast, rebuild, and have one look.
+   **The per-cycle half is now done too** (branch `motion-jitter`, rig-anything 0.34.0-0.36.0, merged
+   2026-09-20). `jitter_phase` and `jitter_amp` are no longer parsed-and-ignored: the runtime
+   `GaitJitter` warps phase and modulates amplitude per cycle from a seeded persistent series (DFA
+   alpha 0.81-0.83 on the three figures, against 0.50 for the white-noise control), off by default,
+   LOD-gated past 30 m, and costing 1.5-2.8 us of phase warp and 1.3-2.1 us of modifier per character
+   per frame. Stride interval cv 0.026-0.029 on against 0.000000 off; no accumulated drift over an
+   hour (worst gap 0.1444 of a 0.2160 bound, trend +0.0084 cycles over 3600 s). Nine must-fail
+   controls ship, each declaring every line it fails, and a check the mode cannot measure now reports
+   `RA_JIT  SKIP` with the raw numbers instead of passing and printing a bound it did not meet.
+   **Two things to decide next round, both about the tracking term:**
+   `MovesController.jitter_track = 4.0` is documented as the thing that stops the open-loop offset
+   telescoping, and no run supports that - with the term off an hour-long 60 Hz run reads 0.1606
+   against 0.1444 with it on, and at 4 Hz the term is the largest contributor to the gap (0.3164 on,
+   0.0866 off). And `jitter_track_lead` ships OFF: the error is formed with `_jit_theta` already at
+   the end of the tick while `_jit_phi` is still at its start, so the loop settles exactly one tick
+   behind - the 0.0167 cycles 0.35.0 called inherent, and it is not. Turning it on also stops the
+   `reanchor=target` control failing, so adopting it means reshaping that control: one reviewed
+   commit. Until then the 4 Hz limit ships as a control (`tick=0.25` must FAIL "stays inside the
+   offset bound"), which is a shipped control encoding a known limitation - read it that way.
+   Two smaller ones carried from the critic: the SKIP line names `switch=0.0` even in a tick-only run
+   where there is no gait change, and the skate check is named "planted-foot travel is no worse"
+   while it enforces 1.25x - on study_man both mean and worst rise with jitter on (0.0360/0.0333 and
+   0.3367/0.3279), so the honest wording is "within 25%". SKILL.md's prose still says eight controls
+   where there are nine.
+   **Still open across both halves:** only `locomotion.cycle`'s roles (Walk, Trot, Run) take the
+   asymmetry, and jitter reaches Idle and `play_gait_for` but not one-shot roles through `play_role`
+   (Jump, TurnL/R) - turns are L5's. Godot's JSON parser truncates the manifest's 19-digit seed, so
+   the series Godot draws is not the one Blender drew; the fix is `variability._MASK`'s file on main
+   and it moves `tests/golden/rigify_human.json`, one reviewed commit with
+   `regress --only rigify_human --update --twice`. No real game character carries `[variability]` yet
+   and no motion critic has looked at an asymmetric or jittered walk in Godot - the ship step should
+   put `asymmetry = 0.35` on the cast, rebuild, and have one look.
 3. **L2 proper** - the momentum measurement exists; the *solve* does not. Minimise the residual over
    the free DOFs (arm swing gain, thorax counter-rotation, tail sway) at bake. This is the step that
    makes counter-rotation body-plan agnostic instead of a constant per archetype.
@@ -235,11 +271,14 @@ Read these first, in this order:
 
 Installed copies in `~/.claude/skills` match the repo. **This is the one list of versions**; update it
 here and nowhere else:
-- rig-anything 0.33.0 (2026-09-20, branches `motion-mass-model`, `motion-head-rung` and
-  `motion-asymmetry`, NOT pushed: 0.28.0 mass model, 0.29.0 shoulder girdle, 0.30.0 trunk lag,
-  0.31.0 limb pendulums and whole-body angular momentum, 0.32.0 the head rung, 0.33.0 the fixed
-  per-character left/right asymmetry. 0.31.0 and earlier are installed; 0.32.0 and 0.33.0 are merged
-  into `main` but NOT yet installed - the ship step does that. 0.27.0 was 2026-09-19 moves-running-flag.
+- rig-anything 0.36.0 (2026-09-20, branches `motion-mass-model`, `motion-head-rung`,
+  `motion-asymmetry` and `motion-jitter`, NOT pushed: 0.28.0 mass model, 0.29.0 shoulder girdle,
+  0.30.0 trunk lag, 0.31.0 limb pendulums and whole-body angular momentum, 0.32.0 the head rung,
+  0.33.0 the fixed per-character left/right asymmetry, 0.34.0 the runtime per-cycle jitter with the
+  drift check over the whole run, 0.35.0 a gait change no longer nudges the playhead behind, 0.36.0
+  a skipped check says so and every control declares what it fails. 0.31.0 and earlier are installed;
+  0.32.0-0.36.0 are merged into `main` but NOT yet installed - the ship step does that. 0.27.0 was
+  2026-09-19 moves-running-flag.
   Bump with `tools/bump.py`: the 0.28.0-0.31.0 commits edited only plugin.json and left
   `.claude-plugin/marketplace.json`, the file other machines read, stale at 0.27.0)
 - animate-anything 0.10.1
