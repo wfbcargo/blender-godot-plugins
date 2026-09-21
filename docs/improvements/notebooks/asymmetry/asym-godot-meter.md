@@ -139,3 +139,52 @@ index 0.016 is the game import's resampling (the keyed fixture reads 0.0002), un
 - The played cycle's held duplicate frame puts a 0.006-cycle lag asymmetry into every symmetric
   rig-anything loop in Godot. Small, real, and a candidate for the exporter (drop the duplicate or
   shorten the clip by one interval).
+
+## Critic round 1, and the fixes (started 02:16)
+
+The critic passed questions 1-4 and failed 5 on `REGRESS DONE exit=1` (the ponytail row on main).
+Its soundness notes, and what I did with each:
+
+1. **The controls fail an AND.** "is asymmetric" is arm AND dip AND lag, so zero and mirror failing it
+   only proves ONE channel is under its floor. Fixed: the fixture's verdicts gain `over_floor`
+   (`{arm_swing_deg, shoulder_dip_m, lag_cycles}`, each against its own floor) and `asymmetric` is
+   now `all(over_floor)`. regress (`_asym_over`) computes the same three from the engine's report,
+   in BOTH imports, and gates: each must equal the golden's, and a `must_fail` case must read under
+   its floor on every channel. The golden moves by the new `over_floor` keys only (re-recorded,
+   `--twice`).
+2. **Thin margins** (asym Run dip index 0.0431 on the game import against 0.04; Belle Walk stride
+   0.016 against 0.02). Floors are not moved. Every asym row now prints each gated free value against
+   its floor as `value (xR of floor)`, and marks `THIN` any within x1.25 either side (`ASYM_THIN`,
+   printed, never gated), so a verdict that could flip is visible in the log rather than hidden
+   behind "ok". The cause of the game-import dip drop is the keyframe optimizer (open item below).
+3. **Notebook folder** `asymmetry/`: kept. This round's other branch uses a topic folder too
+   (`notebooks/cloth-hug/cloth-span-loose.md`), so it matches; the merge step can move both.
+4. **exit=0**: not reachable on this branch - the ponytail row is main's, and needs its own branch.
+
+### What the per-channel gate found (02:19)
+
+`regress --only asym_meter --twice --update --godot` with `over_floor` gated in both imports:
+RECORDED (two builds agree; the golden moved by the 8 new `over_floor` blocks only), and two rows
+went **red**: zero and mirror *as the game imports it*, `Run shoulder_dip_m: the engine says over
+its floor=True, the golden False`. The free values (dip index, Run):
+
+| import | asym | zero | mirror |
+|---|---|---|---|
+| at the keys (24 fps, optimizer off) | 0.120 | 0.019 | 0.022 |
+| game default (30 fps resample + optimizer) | **0.043** | **0.050** | **0.041** |
+| ad hoc: 30 fps, optimizer off | 0.070 | 0.033 | 0.032 |
+| ad hoc: 24 fps, optimizer on | 0.130 | 0.029 | 0.033 |
+
+So the critic's thin 0.0431 was worse than thin: at the game's default import **a symmetric body
+reads MORE run shoulder dip asymmetry than the asymmetric one** - that channel cannot be told apart
+there, and the old AND verdict on asym Run passed by luck. Walk dip, arm swing and lag all still
+separate by x2-x40 at the game import. It is the two import defaults together; either alone restores
+the channel (script: `%TEMP%/rw/agm/adhoc_import.py`, on the kept exports `k2/a`).
+
+Not a meter defect (at the keys it matches the bake to 1e-5), and the floors do not move. What I did:
+- the per-channel gate stays ON at the keys (engine = bake), and is behind
+  `RA_REGRESS_ASYM_GAME_CHANNELS=1` (off by default) at the game import, where its findings print as
+  `(ungated, ASYM_GAME_CHANNELS off)` lines on the row;
+- a new always-printed row, "what the game's default import can tell apart", gives every clip and
+  channel as asym against the controls' worst, and marks `CANNOT TELL APART`;
+- SKILL.md and tests/README say so.

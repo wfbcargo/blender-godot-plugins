@@ -31,6 +31,9 @@ floors `verify_asymmetry.gd` is handed by regress, so the bake and the engine ju
   asymmetric    arm swing and shoulder dip indices over INDEX, and |lag +lat - lag -lat| over LAG.
                 True for asym, and FALSE for zero and mirror: those two verdicts are the controls,
                 recorded here so the day either one reads True the golden moves
+  over_floor    the same three, one channel at a time. "asymmetric" is their AND, so one channel under
+                its floor is enough to fail it; a control must be under the floor on EVERY channel
+                (all three False for zero and mirror), which regress also holds the engine to
   step_moved    step length's part, judged as the stance offset MOVING against zero's by more than
                 STEP_M (the Figure's own feet plant 10 mm apart at asymmetry 0, so its step index is
                 not zero on a symmetric build - rigify_human judges it the same way). False for
@@ -74,10 +77,13 @@ FLOORS = {"INDEX": 0.04, "LAG": 0.012, "STRIDE_INDEX": 0.02, "STEP_M": 0.002}
 
 def _verdicts(m, zero=None):
     arm, dip, lag, st = m["arm_swing_deg"], m["shoulder_dip_m"], m["lag_cycles"], m["stride_m"]
+    over = {"arm_swing_deg": arm["index"] > FLOORS["INDEX"],
+            "shoulder_dip_m": dip["index"] > FLOORS["INDEX"],
+            "lag_cycles": abs(lag["plus_lat"] - lag["minus_lat"]) > FLOORS["LAG"]}
     out = {"stride_even": st["index"] < FLOORS["STRIDE_INDEX"],
            "lag_diff_cycles": round(lag["plus_lat"] - lag["minus_lat"], 5),
-           "asymmetric": (arm["index"] > FLOORS["INDEX"] and dip["index"] > FLOORS["INDEX"]
-                          and abs(lag["plus_lat"] - lag["minus_lat"]) > FLOORS["LAG"])}
+           "over_floor": over,
+           "asymmetric": all(over.values())}
     if zero is not None:
         out["stance_offset_moved_m"] = round(m["stance_offset_m"] - zero["stance_offset_m"], 5)
         out["step_moved"] = abs(out["stance_offset_moved_m"]) > FLOORS["STEP_M"]

@@ -540,6 +540,10 @@ GODOT_JITTER = {
 #
 # `must_fail` names the cases whose "is asymmetric" check MUST FAIL on every clip (and nothing else may
 # fail): the asymmetry-0 build and the RA_ASYM_MIRROR=1 build, whose False verdicts are in the golden.
+# Because that check is an AND, a control must also read under its floor on EVERY channel (arm swing,
+# shoulder dip, lag), one at a time - the golden's `over_floor` - at the keys (at the game's import only
+# with ASYM_GAME_CHANNELS, off by default: that import cannot tell the run's shoulder dip apart). Every
+# row prints each gated value against its floor, and marks THIN the ones within ASYM_THIN of it.
 # The engine's verdict must also equal the golden's for every case. Two more controls, both on `asym`:
 # `swap=1` (the meter told +lat is -lat) must invert every ratio and flip stance_offset, agree with the
 # fixture's own Blender swap, and DISAGREE with asym's Blender numbers - so a comparison blind to sides
@@ -1061,6 +1065,53 @@ def _asym_gaps(godot_rep, bake):
     return gaps
 
 
+def _asym_over(godot_rep, floors):
+    """{channel: over its floor?} for the three channels "is asymmetric" ANDs, from the engine's report."""
+    lag = godot_rep.get("lag_cycles") or {}
+    return {"arm_swing_deg": (godot_rep.get("arm_swing_deg") or {}).get("index", 0.0) > floors["INDEX"],
+            "shoulder_dip_m": (godot_rep.get("shoulder_dip_m") or {}).get("index", 0.0) > floors["INDEX"],
+            "lag_cycles": bool(lag) and abs(lag["plus_lat"] - lag["minus_lat"]) > floors["LAG"]}
+
+
+def _asym_values(godot_rep):
+    """The three gated free values of "is asymmetric", by channel."""
+    lag = godot_rep.get("lag_cycles") or {}
+    return {"arm_swing_deg": (godot_rep.get("arm_swing_deg") or {}).get("index", 0.0),
+            "shoulder_dip_m": (godot_rep.get("shoulder_dip_m") or {}).get("index", 0.0),
+            "lag_cycles": abs(lag["plus_lat"] - lag["minus_lat"]) if lag else 0.0}
+
+
+# The per-channel over_floor gate at the GAME's default import. Off: that import (30 fps resample AND
+# the keyframe optimizer, together) makes a SYMMETRIC build's run read a shoulder-dip index of
+# 0.050 (zero) / 0.041 (mirror) against the asymmetric build's 0.043 - the channel cannot be told
+# apart there at all, so its verdict is noise, not a meter defect (at the keys the same builds read
+# 0.019 / 0.022 / 0.120). Measured ad hoc: either setting alone restores it (optimizer off at 30 fps:
+# 0.033 / 0.032 / 0.070; 24 fps with the optimizer on: 0.029 / 0.033 / 0.130).
+# RA_REGRESS_ASYM_GAME_CHANNELS=1 turns the gate on; it goes red on exactly that until the exports
+# ship an import preset. The row "what the game's default import can tell apart" prints it either way.
+ASYM_GAME_CHANNELS = os.environ.get("RA_REGRESS_ASYM_GAME_CHANNELS") == "1"
+# A free value within this factor of its floor, on either side, is printed THIN: a verdict that small
+# import or tick changes could flip. Printed, never gated - the floors are the fixture's.
+ASYM_THIN = 1.25
+
+
+def _asym_margins(godot_rep, floors):
+    """Each gated free value against its floor, as value / floor, so a thin margin is visible."""
+    lag = godot_rep.get("lag_cycles") or {}
+    vals = (("arm index", (godot_rep.get("arm_swing_deg") or {}).get("index"), floors["INDEX"]),
+            ("dip index", (godot_rep.get("shoulder_dip_m") or {}).get("index"), floors["INDEX"]),
+            ("|lag diff|", abs(lag["plus_lat"] - lag["minus_lat"]) if lag else None, floors["LAG"]),
+            ("stride index", (godot_rep.get("stride_m") or {}).get("index"), floors["STRIDE_INDEX"]))
+    out = []
+    for what, v, f in vals:
+        if v is None:
+            out.append("%s -" % what)
+            continue
+        r = v / f
+        out.append("%s %.5f (x%.2f of %g)%s" % (what, v, r, f, " THIN" if 1.0 / ASYM_THIN < r < ASYM_THIN else ""))
+    return ", ".join(out)
+
+
 def _asym_rows(godot_rep):
     rows = ""
     for c in ASYM_CHANNELS:
@@ -1102,7 +1153,7 @@ def _run_asym(godot, project, where, src, name):
             reps, fails, verdict, code = _asym_play(godot, project, path, args)
             got[(mode, case)] = reps
             bake = cases.get(case, {}).get("measured", {})
-            why = []
+            why, notes = [], []
             roles = sorted(bake)
             if sorted(reps) != roles:
                 why.append("measured %s, the bake has %s" % (sorted(reps), roles))
@@ -1118,10 +1169,34 @@ def _run_asym(godot, project, where, src, name):
                     why.append("%s: the engine says asymmetric=%s, the bake (golden) %s" % (role, said, golden))
                 if must and said:
                     why.append("%s: a control that must fail 'is asymmetric' passed it" % role)
+                # one channel at a time: "is asymmetric" is an AND, so a control fails it on ONE channel
+                # under its floor; it must be under on EVERY channel, and each channel must say what the
+                # golden's over_floor says
+                if role not in reps:
+                    continue
+                over = _asym_over(reps[role]["report"], floors)
+                gold = bake[role]["verdicts"].get("over_floor")
+                # at the keys the engine plays the bake, so this is gated; at the game's import it is
+                # gated only with ASYM_GAME_CHANNELS (off: see there), and otherwise printed
+                chan = []
+                if gold is None:
+                    chan.append("%s: the golden has no per-channel over_floor verdicts" % role)
+                else:
+                    for c, v in over.items():
+                        if v != gold.get(c):
+                            chan.append("%s %s: the engine says over its floor=%s, the golden %s" % (role, c, v, gold.get(c)))
+                if must and any(over.values()):
+                    chan.append("%s: a control reads over its floor on %s" % (
+                        role, ", ".join(c for c, v in over.items() if v)))
+                if mode == "keys" or ASYM_GAME_CHANNELS:
+                    why += chan
+                else:
+                    notes += ["(ungated, ASYM_GAME_CHANNELS off) " + c for c in chan]
             detail = ""
             for role in roles:
                 if role not in reps:
                     continue
+                detail += "\n          %s against the floors: %s" % (role, _asym_margins(reps[role]["report"], floors))
                 gaps = _asym_gaps(reps[role]["report"], bake[role])
                 over = [c for c, g in gaps.items() if g > ASYM_TOL[c]]
                 detail += "\n          %s against the bake, worst side: %s" % (role, ", ".join(
@@ -1131,7 +1206,26 @@ def _run_asym(godot, project, where, src, name):
                     why.append("%s disagrees with the bake beyond tolerance on %s" % (role, ", ".join(over)))
                 if case == spec["cases"][0]:
                     detail += _asym_rows(reps[role]["report"])
-            rows.append((label, not why, verdict + "".join("\n          " + w for w in why) + detail))
+            rows.append((label, not why, verdict + "".join("\n          " + w for w in why + notes) + detail))
+
+    # what the game's import can still tell apart: per clip and channel, the asymmetric build's value
+    # against the largest a symmetric control reads there. Printed, never gated (free values)
+    base = spec["swap_of"]
+    if ("game", base) in got:
+        lines = []
+        for role in sorted(got[("game", base)]):
+            a = _asym_values(got[("game", base)][role]["report"])
+            ctl = [_asym_values(got[("game", c)][role]["report"]) for c in spec["must_fail"]
+                   if role in got.get(("game", c), {})]
+            for c in a:
+                worst = max((v[c] for v in ctl), default=None)
+                if worst is None:
+                    continue
+                lines.append("%s %s: %s %.5f against the controls' worst %.5f (x%.2f)%s" % (
+                    role, c, base, a[c], worst, a[c] / worst if worst else float("inf"),
+                    "  CANNOT TELL APART" if a[c] <= worst else ""))
+        rows.append(("verify_asymmetry %s what the game's default import can tell apart (printed, not gated)" % name,
+                     True, "".join("\n          " + l for l in lines)))
 
     # step length: the stance offset MOVES against the zero build (asym), and does not (mirror)
     zero = got.get(("keys", spec["zero"]), {})

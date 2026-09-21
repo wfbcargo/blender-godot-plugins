@@ -270,7 +270,12 @@ large on every channel, asymmetry 0, and `RA_ASYM_MIRROR=1`) and holds the engin
 `variability.measure` on the same clips: at the clip's own keys (imported at its frame rate with
 Godot's keyframe optimizer off, so the engine plays Blender's frames to 1e-6 m) within 5e-5 on
 lengths and lag and 0.1 degree on arm swing; as the game imports it, the deviation is printed and
-only the verdicts are gated. **Godot's default scene import resamples a 24 fps clip to 30 fps and
+only the verdicts are gated. The asymmetry-0 and mirror controls must read under the floor on
+EVERY channel of "is asymmetric", one at a time, not merely fail the AND. **At the game's default
+import the run's shoulder dip cannot be read at all**: the 30 fps resample and the keyframe optimizer
+together give a symmetric build an index of 0.041-0.050 against the asymmetric one's 0.043. Either
+setting alone restores it (import at the clip's fps, or the optimizer off), so judge dip on a keyed
+import. **Godot's default scene import resamples a 24 fps clip to 30 fps and
 drops keys within 0.01 rad**, which on the fixture shortens a stride by 5-23 mm and moves arm swing
 by up to 1 degree - a real, measured difference between what is baked and what is played.
 

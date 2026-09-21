@@ -53,6 +53,11 @@
       "verdicts": {
        "asymmetric": true,
        "lag_diff_cycles": -0.0203,
+       "over_floor": {
+        "arm_swing_deg": true,
+        "lag_cycles": true,
+        "shoulder_dip_m": true
+       },
        "stance_offset_moved_m": 0.01228,
        "step_moved": true,
        "stride_even": true
@@ -103,6 +108,11 @@
       "verdicts": {
        "asymmetric": true,
        "lag_diff_cycles": -0.03002,
+       "over_floor": {
+        "arm_swing_deg": true,
+        "lag_cycles": true,
+        "shoulder_dip_m": true
+       },
        "stance_offset_moved_m": 0.01051,
        "step_moved": true,
        "stride_even": true
@@ -350,6 +360,11 @@
       "verdicts": {
        "asymmetric": false,
        "lag_diff_cycles": 0.00377,
+       "over_floor": {
+        "arm_swing_deg": false,
+        "lag_cycles": false,
+        "shoulder_dip_m": false
+       },
        "stance_offset_moved_m": 0.0,
        "step_moved": false,
        "stride_even": true
@@ -400,6 +415,11 @@
       "verdicts": {
        "asymmetric": false,
        "lag_diff_cycles": -0.00604,
+       "over_floor": {
+        "arm_swing_deg": false,
+        "lag_cycles": false,
+        "shoulder_dip_m": false
+       },
        "stance_offset_moved_m": 0.0,
        "step_moved": false,
        "stride_even": true
@@ -639,6 +659,11 @@
       "verdicts": {
        "asymmetric": true,
        "lag_diff_cycles": 0.0203,
+       "over_floor": {
+        "arm_swing_deg": true,
+        "lag_cycles": true,
+        "shoulder_dip_m": true
+       },
        "ratios_inverted": true,
        "stance_offset_flipped": true,
        "stance_offset_moved_m": -0.0287,
@@ -683,6 +708,11 @@
       "verdicts": {
        "asymmetric": true,
        "lag_diff_cycles": 0.03002,
+       "over_floor": {
+        "arm_swing_deg": true,
+        "lag_cycles": true,
+        "shoulder_dip_m": true
+       },
        "ratios_inverted": true,
        "stance_offset_flipped": true,
        "stance_offset_moved_m": -0.03149,
@@ -734,6 +764,11 @@
       "verdicts": {
        "asymmetric": false,
        "lag_diff_cycles": 0.00344,
+       "over_floor": {
+        "arm_swing_deg": false,
+        "lag_cycles": false,
+        "shoulder_dip_m": false
+       },
        "stride_even": true
       }
      },
@@ -777,6 +812,11 @@
       "verdicts": {
        "asymmetric": false,
        "lag_diff_cycles": -0.00602,
+       "over_floor": {
+        "arm_swing_deg": false,
+        "lag_cycles": false,
+        "shoulder_dip_m": false
+       },
        "stride_even": true
       }
      }

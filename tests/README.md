@@ -117,7 +117,11 @@ and runs the project's copies of the verifiers:
   against right off the playing skeleton and held against the fixture's own `variability.measure` numbers
   for the same clips, at the clip's keys (a second copy imported at its own frame rate with the keyframe
   optimizer off) within `ASYM_TOL`, and as the game imports it (verdicts only). The asymmetry-0 and mirror
-  builds must fail "is asymmetric" on every clip and nothing else; `swap=1` must invert every ratio and
+  builds must fail "is asymmetric" on every clip and nothing else, and read under the floor on each of its
+  three channels one at a time (the golden's `over_floor`, at the keys; at the game's import only with
+  `RA_REGRESS_ASYM_GAME_CHANNELS=1`, off because that import cannot tell the run's shoulder dip apart - a row
+  prints what it can and cannot), not only on the one that fails the AND; every
+  row prints the gated values against their floors and marks a margin within x1.25 `THIN`; `swap=1` must invert every ratio and
   disagree with the unswapped bake; `poison=1` (the manifest's variability block and measured values
   rewritten) must not move a digit.
 - **`verify_moves.gd`** on every manifest. It checks MovesController's gait choice and playback rate
