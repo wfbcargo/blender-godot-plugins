@@ -131,8 +131,10 @@ hairline, and the absence of facial asymmetry or blemish.
    entry, and lateral bend FALLS with speed.
 4. **The head is held almost still** - measured and specified below. `head_hold = 0.85` leaves the head
    15% of the thorax's turn and 0.3 deg of nod at a walk. Same `upper.defaults` table as (3).
-5. **Cloth that hugs the skin** - measured and specified below. A loose tee traces the body 30x more than
-   a compression top does, which is exactly backwards.
+5. **Cloth that hugs the skin** - **branch A DONE 2026-09-21** (wardrobe 0.6.0, `cloth-span-loose`), and not
+   the way it was specified: ungating `span` made loose tops worse; `smooth` 1.0 on `tshirt` and
+   `longsleeve` fixed them (traced 0.19 -> ~0.01; Marco and Ruth rebuilt). What is left is the cloth
+   tucking under the bust - see the section below.
 6. **Turn the runtime jitter on.** `jitter_phase`/`jitter_amp` ship at 0 so no golden moved, which was right
    for reviewability but means the per-cycle half is dormant in every character. One reviewed commit sets
    them in the specs and re-records; do it after (2), so there is an instrument to judge it by.
@@ -221,6 +223,24 @@ them, and the share the head keeps - for four bodies at two speeds, live off the
 figures did not need rebuilding to produce it, so the before is already recorded here.
 
 ## Cloth that hugs the skin (measured 2026-09-21, built by nobody)
+
+**Status 2026-09-21: branch A shipped as wardrobe 0.6.0, and the diagnosis below was half wrong.** `span`
+was the wrong tool: ungated across a sleeved garment it pushed cloth into the gap under the arm (gap_min
+-19 mm, 13-18 folds), and over the torso alone it left a ridge under the bust and never reduced the
+breast's traced relief (0.16 -> 0.24). `detail` measures relief at 3 cm - a nipple, a navel - and a bump
+on a convex surface is not a hollow. What fixes it is reason 1 below: the loose presets now carry
+`smooth` 1.0 (ease off the body's form, not its skin) and the sports top's `detail_limit` of 0.06 mm.
+Ruth 0.191 -> 0.011 (breast 0.096 -> 0.004 mm), Marco 0.189 -> ~0, Belle in a tee (stress) breast 0.134
+-> 0.019 mm; `smooth` 0 fails the new limit. `verify_wardrobe` passes on both rebuilt figures, walk / run
+/ crouch / jump, holes unchanged. Notebook:
+[notebooks/cloth-hug/cloth-span-loose.md](notebooks/cloth-hug/cloth-span-loose.md).
+
+**Still open, and now the visible one: the cloth tucks under the bust** instead of hanging straight from
+its apex (Blender side view and the Godot bust shot both). `hang` is on for these presets but fades in only
+below `shoulder_z - 0.3 * (shoulder_z - hip_z)` (`fit._hang_setup`), which is about where the bust sits.
+That is branch B's ground; it moves every hanging garment, so re-record the dressed fixtures - and **no
+fixture dresses `tshirt` or `longsleeve` today**, so add one on a body with a bust in the same branch.
+Branch C was not needed and not checked.
 
 **Origin:** the user, on the shipped figures - "on some clothing it is hugging to the skin too much and
 not accounting for softness. Breasts are fully visible in outline beneath the clothes instead of acting
@@ -639,7 +659,8 @@ here and nowhere else:
 - character-pipeline 0.16.0 (2026-09-20, branch `motion-asymmetry`: the `[variability]` spec table and
   the manifest's `variability` block. 0.15.0 was 2026-09-19 skin-regions, installed and shipped;
   0.16.0 was installed by the ship step on 2026-09-20)
-- wardrobe 0.5.2
+- wardrobe 0.6.0 (2026-09-21, branch `cloth-span-loose`: `smooth` and a detail limit on `tshirt` and
+  `longsleeve`; installed, Marco and Ruth rebuilt)
 - lookdev 0.12.0 (2026-09-19: 0.8.0 lookdev-golden-hour, 0.9.0 skin-pores-distance, 0.10.0 skin-finger-edges,
   0.11.0 lookdev-overcast, 0.12.0 eye-material; installed and shipped)
 - godot-lsp 0.1.0
