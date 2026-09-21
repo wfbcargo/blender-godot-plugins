@@ -196,6 +196,25 @@ def build():
         except spec.SpecError as exc:
             overrides_refused[label] = str(exc)
 
+    # a spec pinning an upper-body parameter rig-anything derives from a source: warned before building, not
+    # refused. The spec as it is carries no warning; the same spec with a per-gait head_hold carries one
+    import tomllib
+    pinned = spec.parse(tomllib.loads(SPEC.replace(
+        "[moves]", "[moves.per_gait.Walk]\nupper = { head_hold = 0.85, arm_swing = 18.0 }\n\n[moves]", 1)))
+    sourced_pins = {"as_is": spec.parse(tomllib.loads(SPEC)).warnings, "pinned": pinned.warnings}
+    # a flesh type the registry does not have is refused at load, before a body is built ('moobs' was not)
+    try:
+        spec.parse(tomllib.loads(SPEC.replace('types = ["breast", "butt"]', 'types = ["breast", "moobs"]')))
+        unknown_flesh_type = "accepted (it must be refused)"
+    except spec.SpecError as exc:
+        unknown_flesh_type = str(exc)
+    # a brief with no skin colour is refused (it would ship in MPFB's untextured white)
+    try:
+        spec.parse(tomllib.loads(SPEC.replace("skin = [0.62, 0.45, 0.36]", "")))
+        no_skin = "accepted (it must be refused)"
+    except spec.SpecError as exc:
+        no_skin = str(exc)
+
     # a type the spec asks for that the body has no mass for: the stage's judgment on this body's own
     # measure, failing without may_miss and passing with it. find_regions only reads the body.
     import dataclasses
@@ -299,6 +318,9 @@ def build():
         "may_miss_stray": may_miss_stray,
         "flesh_overrides": ch.flesh.overrides,
         "flesh_overrides_refused": overrides_refused,
+        "sourced_pins": sourced_pins,
+        "unknown_flesh_type": unknown_flesh_type,
+        "no_skin": no_skin,
         "manifest_flesh": H.stable({"types": manifest.get("flesh", {}).get("types"),
                                     "missed": manifest.get("flesh", {}).get("missed"),
                                     "regions": [{k: r.get(k) for k in ("name", "type", "bone", "parent", "material",

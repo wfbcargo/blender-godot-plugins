@@ -76,6 +76,15 @@ LEAN_OVER_DEG = 135.0
 HEAD_KEEPS = 0.3
 HEAD_NOD_DEG = 1.0
 
+# A knee that rests a little out of its leg's plane - where a fit happened to put it, the way a 1.53 m
+# body's sat 10.9 mm out - must still fold forward (`motion.PLANE_FOLD`), and the gait check must fail
+# when it does not. Run LAST, because it moves the rig's knees: KNEE_OUT_M outward on both legs, then
+# a walk and a run as shipped (in_plane True, knee_plane_deg under KNEE_PLANE_MAX_DEG) and with
+# PLANE_FOLD 0 - the knee kept on its rest bend however far it folds, the bug - as the control, whose
+# in_plane is False and whose clips carry the failure.
+KNEE_OUT_M = 0.012
+KNEE_PLANE_FROUDE = (0.3, 1.2)
+
 # The mass model is a property of the BODY, not of the clip, but every role
 # builds its own `motion.Body`, so before the cache a seven-role set solved the
 # same unchanged skin four separate times - 7.32 s of an 18.42 s move set on
@@ -166,6 +175,38 @@ def _trunk_planes(rig):
     return out
 
 
+def _knee_plane(rig):
+    import bpy
+    from rig_analysis import locomotion, motion
+    ob = bpy.data.objects[rig]
+    bpy.context.view_layer.objects.active = ob
+    bpy.ops.object.mode_set(mode="EDIT")
+    for side, sign in (("L", 1.0), ("R", -1.0)):
+        for name, end in (("shin." + side, "head"), ("thigh." + side, "tail")):
+            eb = ob.data.edit_bones.get(name)
+            if eb is not None:
+                v = getattr(eb, end)
+                v.x += sign * KNEE_OUT_M
+    bpy.ops.object.mode_set(mode="OBJECT")
+    out = {}
+    shipped = motion.PLANE_FOLD
+    for label, fold in (("in_plane", shipped), ("control_rest_plane", 0.0)):
+        motion.PLANE_FOLD = fold
+        try:
+            got = {}
+            for froude in KNEE_PLANE_FROUDE:
+                r = locomotion.cycle(rig, froude=froude, action_name="%s_Knee_%s_%s" % (BODY, label, froude))
+                got[str(froude)] = {"knee_plane_deg": r.get("knee_plane_deg"), "passed": r.get("passed"),
+                                    "knee_failures": [f for f in r.get("failures") or [] if "across the leg" in f]}
+        finally:
+            motion.PLANE_FOLD = shipped
+        worst = max((d for g in got.values() for d in (g["knee_plane_deg"] or {}).values()), default=None)
+        got["worst_deg"], got["max_deg"] = worst, locomotion.KNEE_PLANE_MAX_DEG
+        got["in_plane"] = bool(worst is not None and worst <= locomotion.KNEE_PLANE_MAX_DEG)
+        out[label] = got
+    return out
+
+
 def build():
     import bpy
     H.clear_scene()
@@ -224,6 +265,8 @@ def build():
         trunk_planes = H.stable(_trunk_planes(rig))
         asymmetry = H.stable(_asymmetry(rig))
         mass_cache = H.stable(_mass_cache(rig))
+        # last: it moves the rig's knees
+        knee_plane = H.stable(_knee_plane(rig))
     finally:
         window.scene = previous
 
@@ -240,6 +283,7 @@ def build():
         "trunk_planes": trunk_planes,
         "asymmetry": asymmetry,
         "mass_cache": mass_cache,
+        "knee_plane": knee_plane,
         "export": {"exported": exported.get("exported"), "stage": exported.get("stage"),
                    "note": exported.get("note"), "dropped_clips": H.stable(exported.get("dropped_clips")),
                    "verified": H.stable(exported.get("verified")),

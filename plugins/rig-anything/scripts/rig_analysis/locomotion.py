@@ -598,6 +598,57 @@ def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
     }
 
 
+# The most a gait's knee may bend across its leg at the deepest fold, in degrees. In plane reads 3-4;
+# the bow-legged walk that shipped on a 1.53 m body (knee rest 10.9 mm out) read 22-24, and 45-48 running.
+KNEE_PLANE_MAX_DEG = 12.0
+
+
+def knee_plane(body, bm, evaluated, frames, legs):
+    """{leg: degrees} the knee bends ACROSS an upright leg, read off the baked clip at the leg's deepest
+    fold: the knee's offset from the hip-ankle line, split into the part forward (in the leg's front-back
+    plane, carried round by the leg's attach bone) and the part across it. 0 is a knee folding straight
+    forward; 90 is one folding straight out. Legs that are not upright, or never fold past their rest
+    bend, are left out."""
+    upv, fwd0 = bm.get("up_vec"), bm.get("fwd")
+    if upv is None or fwd0 is None:
+        return {}
+    out = {}
+    for l in legs:
+        up_b, lo_b, end_b = l.get("upper"), l.get("lower"), l.get("end")
+        if not (up_b and lo_b and end_b) or l.get("role") != "leg":
+            continue
+        span0 = l["rest_eff"] - l["rest_root"]
+        if abs(span0.normalized().dot(upv)) < 0.7:
+            continue
+        rest_off = (l["rest_mid"] - l["rest_root"]) - span0.normalized() * (l["rest_mid"] - l["rest_root"]).dot(span0.normalized())
+        best, best_len = None, max(2.0 * rest_off.length, 1e-4)
+        for f in range(1, frames + 1):
+            ev = evaluated.get(f)
+            if not ev or any(b not in ev for b in (up_b, lo_b, end_b)):
+                break
+            hip, knee, ank = ev[up_b].translation, ev[lo_b].translation, ev[end_b].translation
+            span = ank - hip
+            if span.length < 1e-9:
+                continue
+            a = span.normalized()
+            off = (knee - hip) - a * (knee - hip).dot(a)
+            if off.length <= best_len:
+                continue
+            att = l.get("attach")
+            fwd = fwd0
+            if att and att in ev and att in body.rest:
+                fwd = (ev[att].to_3x3() @ body.rest[att].to_3x3().inverted()) @ fwd0
+            across = a.cross(fwd)
+            if across.length < 1e-9:
+                continue
+            across.normalize()
+            best_len = off.length
+            best = math.degrees(math.atan2(abs(off.dot(across)), abs(off.dot(a.cross(across)))))
+        if best is not None:
+            out[l["name"]] = round(best, 1)
+    return out
+
+
 def body_bounce(froude, duty):
     """Peak-to-peak body height change, as a fraction of hip height. Dynamic
     similarity makes it a function of Fr; the numbers are modest on purpose."""
@@ -1081,6 +1132,17 @@ def cycle(rig_name, froude="walk", speed=None, gait_name=None, frames=None,
                     pl["speed_mps"])
         except Exception as e:                                  # pragma: no cover
             r["angular_momentum"] = {"error": str(e)[:80]}
+        # An upright leg bends in its own front-back plane (`motion.PLANE_FOLD`). Read off the playback:
+        # nothing else failed when it did not, and a bow-legged walk at 22-24 degrees passed every check.
+        kp = knee_plane(body, bm, evaluated, frames, legs)
+        if kp:
+            r["knee_plane_deg"] = kp
+            for leg, deg in sorted(kp.items()):
+                if deg > KNEE_PLANE_MAX_DEG:
+                    r["failures"].append(
+                        "%s: the knee bends %.1f degrees across the leg at its deepest fold (max %.0f) - "
+                        "it walks bow-legged or knock-kneed; the leg must fold in its own front-back plane "
+                        "(motion.PLANE_FOLD, bodymap plane_dev)" % (leg, deg, KNEE_PLANE_MAX_DEG))
         seam, seam_bone = _pose_gap(rig, evaluated[1], evaluated[frames + 1])
         if seam > 1e-4:
             r["failures"].append("loop seam %.5f on %s" % (seam, seam_bone))

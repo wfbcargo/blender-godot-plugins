@@ -652,6 +652,56 @@
     }
    }
   },
+  "knee_plane": {
+   "control_rest_plane": {
+    "0.3": {
+     "knee_failures": [
+      "thigh.L: the knee bends 44.6 degrees across the leg at its deepest fold (max 12) - it walks bow-legged or knock-kneed; the leg must fold in its own front-back plane (motion.PLANE_FOLD, bodymap plane_dev)",
+      "thigh.R: the knee bends 43.2 degrees across the leg at its deepest fold (max 12) - it walks bow-legged or knock-kneed; the leg must fold in its own front-back plane (motion.PLANE_FOLD, bodymap plane_dev)"
+     ],
+     "knee_plane_deg": {
+      "thigh.L": 44.6,
+      "thigh.R": 43.2
+     },
+     "passed": false
+    },
+    "1.2": {
+     "knee_failures": [
+      "thigh.L: the knee bends 44.5 degrees across the leg at its deepest fold (max 12) - it walks bow-legged or knock-kneed; the leg must fold in its own front-back plane (motion.PLANE_FOLD, bodymap plane_dev)",
+      "thigh.R: the knee bends 43.7 degrees across the leg at its deepest fold (max 12) - it walks bow-legged or knock-kneed; the leg must fold in its own front-back plane (motion.PLANE_FOLD, bodymap plane_dev)"
+     ],
+     "knee_plane_deg": {
+      "thigh.L": 44.5,
+      "thigh.R": 43.7
+     },
+     "passed": false
+    },
+    "in_plane": false,
+    "max_deg": 12.0,
+    "worst_deg": 44.6
+   },
+   "in_plane": {
+    "0.3": {
+     "knee_failures": [],
+     "knee_plane_deg": {
+      "thigh.L": 0.0,
+      "thigh.R": 0.0
+     },
+     "passed": true
+    },
+    "1.2": {
+     "knee_failures": [],
+     "knee_plane_deg": {
+      "thigh.L": 0.0,
+      "thigh.R": 0.0
+     },
+     "passed": true
+    },
+    "in_plane": true,
+    "max_deg": 12.0,
+    "worst_deg": 0.0
+   }
+  },
   "mass_cache": {
    "control_pinned_key": {
     "measure_calls_for_two_bodies": 1,
@@ -1052,6 +1102,10 @@
     "hip_height_m": 0.8272,
     "implied_speed_cycle_mps": 4.8835,
     "implied_speed_playback_mps": 4.5347,
+    "knee_plane_deg": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "lift_m": 0.1961,
     "lift_scale": null,
     "limited_by": [],
@@ -1398,6 +1452,10 @@
     "hip_height_m": 0.8272,
     "implied_speed_cycle_mps": 2.8538,
     "implied_speed_playback_mps": 2.6859,
+    "knee_plane_deg": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "lift_m": 0.1394,
     "lift_scale": null,
     "limited_by": [],
@@ -1627,6 +1685,10 @@
     "hip_height_m": 0.8272,
     "implied_speed_cycle_mps": 1.2806,
     "implied_speed_playback_mps": 1.225,
+    "knee_plane_deg": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "lift_m": 0.0966,
     "lift_scale": null,
     "limited_by": [],

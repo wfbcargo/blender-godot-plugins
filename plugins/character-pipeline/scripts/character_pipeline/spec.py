@@ -263,6 +263,7 @@ class Character:
     variability: Variability | None = None
     path: str | None = None                  # the spec file
     project: str | None = None               # the project it builds into
+    warnings: list = field(default_factory=list)   # allowed, but worth a look before building (never hashed)
 
     # object names
     @property
@@ -441,9 +442,63 @@ def _unknown(table, allowed, where):
         raise SpecError(f"{where}: unknown field(s) {', '.join(extra)}")
 
 
+# rig-anything's upper-body parameters whose defaults are derived - from speed, and each from a published
+# number cited in `upper.defaults` (0.40.0). A spec that pins one keeps an older or hand-set value while every
+# other body moves on: Belle's per-gait `head_hold = 0.85` held her head at 16% of the thorax's turn after the
+# default became 64% walking, and only the motion demo's gate caught it, after a build. Pinning one is allowed -
+# a character may be meant to move differently - so it is a warning, printed before anything is built.
+SOURCED_UPPER = ("pelvis_list", "side_bend", "lean_bob", "lean_lag", "head_hold", "gaze_m")
+
+
+def _sourced_pins(per_gait):
+    """Warnings for every SOURCED_UPPER parameter a `[moves.per_gait.<role>] upper` table pins."""
+    out = []
+    for role, opts in per_gait.items():
+        upper = opts.get("upper") if isinstance(opts, dict) else None
+        if not isinstance(upper, dict):
+            continue
+        for k in SOURCED_UPPER:
+            if k in upper:
+                out.append(f"moves.per_gait.{role}.upper pins {k} = {upper[k]!r}; rig-anything derives it from "
+                           f"speed and a published source (upper.defaults) - drop it unless this character is "
+                           f"meant to move differently, and say why beside it")
+    return out
+
+
 # the jiggle parameters `[flesh] overrides` may set (follow-through's jiggle_block / set_params)
 FLESH_OVERRIDE_KEYS = ("frequency_hz", "damping_ratio", "squash", "gravity_scale", "aim", "translate", "response",
                        "frequency_down_ratio", "frequency_ap_ratio", "max_offset")
+
+
+def _flesh_types():
+    """The flesh type names follow-through's registry knows (built-ins and taught), or None when follow-through
+    is not where the build would take it from. Its registry module is plain Python and loaded by file, so a spec
+    is checked without Blender."""
+    import importlib.util
+    from . import plugins
+    path = os.path.join(plugins.scripts("follow_through"), "follow_through", "registry.py")
+    if not os.path.isfile(path):
+        return None
+    try:
+        mod_spec = importlib.util.spec_from_file_location("_ft_registry_for_spec", path)
+        reg = importlib.util.module_from_spec(mod_spec)
+        mod_spec.loader.exec_module(reg)
+        return sorted(k for k, v in reg.load()["types"].items() if "flesh" in (v.get("classes") or []))
+    except Exception:                       # a registry that cannot be read is the flesh stage's to report
+        return None
+
+
+def _check_flesh_types(flesh):
+    """`[flesh] types`: each a flesh type follow-through's registry has. Refused here, before a body is built:
+    a smoke spec's `moobs` (a NAME of the breast type, and plural) was accepted and failed the flesh stage after
+    the body and bake had run."""
+    known = _flesh_types()
+    if known is None:
+        return
+    bad = [t for t in flesh.types if t not in known]
+    if bad:
+        raise SpecError(f"[flesh] types {bad}: not flesh types follow-through's registry has (one of {known}); "
+                        "a name like 'moob' or 'gut' is recognised on a mesh, but a spec names the type")
 
 
 def _check_overrides(flesh):
@@ -486,6 +541,12 @@ def parse(data, path=None):
     skin = b.get("skin") if source == "brief" else b.pop("skin", None)
     if source == "blend" and not obj:
         raise SpecError("body.object is required when body.source = \"blend\"")
+    if source == "brief" and b.get("skin") is None:
+        # without one humanform never applies its skin look and the body ships in MPFB's untextured material:
+        # the first smoke bodies came out chalk white, 5-9% of the figure past white in Godot's review
+        raise SpecError("body.skin is required: a screen (sRGB) colour, e.g. [0.87, 0.72, 0.60] light, "
+                        "[0.62, 0.45, 0.36] medium, [0.30, 0.19, 0.13] deep - without it the body keeps MPFB's "
+                        "untextured white material")
     if source == "brief":
         b.setdefault("name", name)
         if b["name"] != name:
@@ -565,6 +626,7 @@ def parse(data, path=None):
         stray = [t for t in flesh.may_miss if t not in flesh.types]
         if stray:
             raise SpecError(f"[flesh] may_miss names {stray}, which types does not ask for ({flesh.types})")
+        _check_flesh_types(flesh)
         _check_overrides(flesh)
     outfit = []
     for i, g in enumerate(_take(data, "outfit", list, default=[])):
@@ -647,7 +709,8 @@ def parse(data, path=None):
     return Character(id=cid, name=name, body=body, moves=moves, export=export, hair=hair, flesh=flesh,
                      outfit=outfit, review=review, muscle=muscle, build=Build(quality=quality),
                      variability=variability,
-                     path=os.path.abspath(path) if path else None, project=project)
+                     path=os.path.abspath(path) if path else None, project=project,
+                     warnings=_sourced_pins(per_gait))
 
 
 def load(path):

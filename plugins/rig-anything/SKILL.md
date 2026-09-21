@@ -353,7 +353,12 @@ the fit put the joint, not a bow in the body: a 1.53 m woman's sat 10.9 mm out
 against 22.5 mm forward, and every clip bent her knees 26 degrees out at idle and
 45-48 on the run - bow-legged (8.7 and 13.9 cm out at a walk and run; 1.9 and 3.1
 now). A knee bent back keeps its sign, and a sprawled leg keeps its rest shape.
-The body map warns when a rest bend is 10 degrees or more across the leg.
+The body map warns when a rest bend is 10 degrees or more across the leg - a warning, not a
+failure: the shipped cast rests at up to 28 degrees (Morgan 16.5 mm out, Ruth 7.5 mm in) with the joint
+centred in a leg that really is a little bowed or knock-kneed. What fails is the CLIP: every gait reads
+`knee_plane_deg` per leg off its playback, the knee's bend across the leg at its deepest fold, and fails
+over `locomotion.KNEE_PLANE_MAX_DEG` (12; in plane reads 0-4, the bow-legged walk 22-24 and 44 with
+`PLANE_FOLD` 0, rigify_human's `knee_plane` control).
 
 **7. Export, and get the playback speed with it.**
 
