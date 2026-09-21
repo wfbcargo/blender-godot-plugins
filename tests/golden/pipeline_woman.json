@@ -1,12 +1,12 @@
 {
  "fixture": "pipeline_woman",
  "plugins": {
-  "character-pipeline": "0.15.0",
+  "character-pipeline": "0.17.0",
   "follow-through": "0.10.0",
-  "humanform": "0.17.0",
+  "humanform": "0.18.0",
   "lookdev": "0.12.0",
-  "rig-anything": "0.30.0",
-  "wardrobe": "0.5.2"
+  "rig-anything": "0.40.0",
+  "wardrobe": "0.8.0"
  },
  "report": {
   "body_stature": 1.6985,
@@ -166,7 +166,7 @@
      "coverage": 0.24,
      "distance_m": 1.0,
      "ok": true,
-     "on_body": false,
+     "on_body": true,
      "subject_margin": 0.23,
      "subject_off": 0.01
     },
@@ -254,7 +254,7 @@
      "coverage": 0.45,
      "distance_m": 0.8,
      "ok": true,
-     "on_body": false,
+     "on_body": true,
      "subject_margin": 0.32,
      "subject_off": 0.0
     },
@@ -631,80 +631,80 @@
     "FixWoman_Run": {
      "upper_arm.L": {
       "arm_carry_deg": [
-       1.3,
+       1.5,
        53.2
       ],
-      "arm_swing_deg": 52.0,
+      "arm_swing_deg": 51.6,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.135,
-       0.468
+       0.137,
+       0.471
       ],
       "upper_arm_deg": [
-       -40.0,
-       13.7
+       -39.8,
+       13.5
       ]
      },
      "upper_arm.R": {
       "arm_carry_deg": [
-       1.3,
+       1.5,
        53.2
       ],
-      "arm_swing_deg": 52.0,
+      "arm_swing_deg": 51.6,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.135,
-       0.468
+       0.137,
+       0.471
       ],
       "upper_arm_deg": [
-       -40.0,
-       13.7
+       -39.8,
+       13.5
       ]
      }
     },
     "FixWoman_Walk": {
      "upper_arm.L": {
       "arm_carry_deg": [
-       -10.0,
+       -9.9,
        31.5
       ],
-      "arm_swing_deg": 41.5,
+      "arm_swing_deg": 41.4,
       "elbow_flex_deg": [
        7.1,
        23.0
       ],
       "hand_rise": [
-       -0.188,
-       0.017
+       -0.191,
+       0.009
       ],
       "upper_arm_deg": [
-       -13.7,
+       -13.6,
        20.2
       ]
      },
      "upper_arm.R": {
       "arm_carry_deg": [
        -10.1,
-       31.4
+       31.3
       ],
-      "arm_swing_deg": 41.5,
+      "arm_swing_deg": 41.4,
       "elbow_flex_deg": [
        7.0,
        22.9
       ],
       "hand_rise": [
-       -0.188,
-       0.016
+       -0.192,
+       0.01
       ],
       "upper_arm_deg": [
        -13.8,
-       20.1
+       20.0
       ]
      }
     }

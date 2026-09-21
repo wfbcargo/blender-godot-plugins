@@ -2,7 +2,7 @@
  "fixture": "flesh_figure",
  "plugins": {
   "follow-through": "0.10.0",
-  "rig-anything": "0.29.0"
+  "rig-anything": "0.40.0"
  },
  "report": {
   "bodies": {
@@ -27,40 +27,40 @@
       "BloaterWalk": {
        "upper_arm.L": {
         "arm_carry_deg": [
-         -10.4,
-         30.7
+         -10.3,
+         30.6
         ],
-        "arm_swing_deg": 41.2,
+        "arm_swing_deg": 40.9,
         "elbow_flex_deg": [
          7.1,
          23.0
         ],
         "hand_rise": [
-         -0.392,
-         -0.151
+         -0.397,
+         -0.161
         ],
         "upper_arm_deg": [
-         -13.7,
-         20.2
+         -13.6,
+         20.1
         ]
        },
        "upper_arm.R": {
         "arm_carry_deg": [
-         -10.7,
+         -10.5,
          30.3
         ],
-        "arm_swing_deg": 41.0,
+        "arm_swing_deg": 40.8,
         "elbow_flex_deg": [
          7.0,
          22.9
         ],
         "hand_rise": [
-         -0.408,
-         -0.164
+         -0.414,
+         -0.173
         ],
         "upper_arm_deg": [
-         -13.8,
-         20.1
+         -13.7,
+         20.0
         ]
        }
       },
@@ -749,7 +749,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-6ah_shvl\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-zb8t46u1\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -1528,8 +1528,8 @@
       "FigureWalk": {
        "upper_arm.L": {
         "arm_carry_deg": [
-         -10.7,
-         30.2
+         -10.6,
+         30.1
         ],
         "arm_swing_deg": 40.8,
         "elbow_flex_deg": [
@@ -1537,30 +1537,30 @@
          23.0
         ],
         "hand_rise": [
-         -0.408,
-         -0.165
+         -0.416,
+         -0.176
         ],
         "upper_arm_deg": [
-         -13.8,
+         -13.7,
          20.1
         ]
        },
        "upper_arm.R": {
         "arm_carry_deg": [
-         -10.8,
+         -10.7,
          29.9
         ],
-        "arm_swing_deg": 40.7,
+        "arm_swing_deg": 40.6,
         "elbow_flex_deg": [
          7.0,
          23.0
         ],
         "hand_rise": [
-         -0.427,
-         -0.184
+         -0.435,
+         -0.195
         ],
         "upper_arm_deg": [
-         -13.8,
+         -13.7,
          20.1
         ]
        }
@@ -2226,7 +2226,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-6ah_shvl\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-zb8t46u1\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",
