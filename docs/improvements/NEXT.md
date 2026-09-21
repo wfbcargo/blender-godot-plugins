@@ -93,9 +93,23 @@ hairline, and the absence of facial asymmetry or blemish.
    optimizer) erases the Run shoulder-dip asymmetry, so the game-import per-channel gate is behind
    `RA_REGRESS_ASYM_GAME_CHANNELS=1` (off) until rig-anything ships an .import preset; Belle's Walk stride
    index 0.016 against the 0.02 floor at the game import; `LEAF_HAND_SHARE=0.5` estimates the leaf hand;
-   the loop's duplicated last frame leaves ~0.006 cycles of lag on symmetric loops. The meter has not yet
-   been pointed at the six real figures - that is how to answer "is 0.35 subtle or inert". Notebook:
-   [notebooks/asymmetry/asym-godot-meter.md](notebooks/asymmetry/asym-godot-meter.md). The original item:
+   the loop's duplicated last frame leaves ~0.006 cycles of lag on symmetric loops. Notebook:
+   [notebooks/asymmetry/asym-godot-meter.md](notebooks/asymmetry/asym-godot-meter.md).
+   **Pointed at the six real figures - DONE** (branch `asym-motion-demo`, merged 2026-09-21 into plugins
+   `main` (notebook only, no version) and grungist-creek `master` (motion_demo.gd + the 0.38.0 addon sync),
+   NOT pushed). `motion_demo.tscn -- --selftest` prints each line-up body's left against its right on Walk
+   and Run and requires a non-zero arm or lag reading (71 ok; `--control=mirror` fails exactly those 8 rows).
+   **Verdict: asymmetry 0.35 is subtle to inert, not visible, on the channels it draws.** Arm swing reads
+   ASI 0.03-15.6 against a healthy 39.5 +- 21.8 (Killeen 2018, *Sci Rep* 8:12803); Ruth's and Marco's arms
+   are effectively inert because the uniform draw can land near zero. Lag (1-9 deg) and shoulder dip
+   (1-10 %) have no published human range. Step length on Belle and Marco (ratio 1.09-1.11 in game, Belle's
+   bake 1.25) is past the healthy 1.08 cut-off (Patterson 2010/2012) and at the 9-12 % self-avatar
+   detection threshold (Willaert 2024) - but it is NOT the draw, it comes from the bake's gait solve, cause
+   unlocated. Next: widen the arm-swing spread with a draw that cannot land near zero (|u| in [0.5, 1],
+   random sign), diagnose the undrawn step asymmetry on a scratch build at asymmetry 0, and ship an
+   `.import` preset (the default glb import moves stance offset up to 25 mm, flipping its sign on
+   study_man). This **unblocks item 6**. Notebook:
+   [notebooks/asymmetry/asym-motion-demo.md](notebooks/asymmetry/asym-motion-demo.md). The original item:
    `asymmetry = 0.35` is live on all six figures and **moves no metric
    anything currently has** - Marco's shoulder dip 18.2 -> 18.1 mm, spine twist and pelvis yaw unchanged.
    That is not evidence it is broken: `variability.measure` reads the draw back off the baked clip, but
@@ -596,7 +610,8 @@ Installed copies in `~/.claude/skills` match the repo except rig-anything 0.38.0
 here and nowhere else:
 - rig-anything 0.38.0 (2026-09-21, branch `asym-godot-meter`, NOT installed, NOT pushed: a left/right
   asymmetry meter in Godot, `AsymmetryMeter` + `verify_asymmetry.gd`, gated by the `asym_meter` fixture.
-  `~/.claude/skills` and the game's addons are where the 0.37.0 entry below leaves them until a ship step installs it)
+  `~/.claude/skills` is where the 0.37.0 entry below leaves it until a ship step installs it; grungist-creek
+  `master`'s `addons/rig_anything` matches 0.38.0 since `asym-motion-demo` merged 2026-09-21, not pushed)
 - rig-anything 0.37.0 (2026-09-20, branches `motion-mass-model`, `motion-head-rung`,
   `motion-asymmetry`, `motion-jitter` and `moves-mass-cache`, NOT pushed: 0.28.0 mass model, 0.29.0 shoulder girdle,
   0.30.0 trunk lag, 0.31.0 limb pendulums and whole-body angular momentum, 0.32.0 the head rung,
