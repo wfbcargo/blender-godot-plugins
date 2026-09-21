@@ -94,7 +94,7 @@ DURATIONS = {  # 2026-09-18, `--jobs 2` on main at 5a218d3
     "dressed_skirts": 55, "flesh_figure": 54, "traced_detail": 53, "rigify_human": 230, "quadruped": 49,
     "mpfb_woman_curvy": 49, "pipeline_ponytail": 40, "dressed_figure": 38, "hair_presets": 36,
     "strand_ponytail": 32, "muscle_definition": 31, "mixamo_names": 21, "skin_detail": 18,
-    "review_sheet": 9, "starfish": 6, "pipeline_paths": 28,
+    "review_sheet": 9, "starfish": 6, "pipeline_paths": 28, "asym_meter": 95,
 }
 UNKNOWN_DURATION = 10 ** 6
 
@@ -524,6 +524,42 @@ GODOT_JITTER = {
                                      ["mean stride time is unchanged by jitter"],
                                      ["stays inside the offset bound", "does not grow with the run"])]},
 }
+# A fixture named here has its exports measured LEFT AGAINST RIGHT in Godot by rig-anything's
+# `verify_asymmetry.gd` (the meter is `asymmetry_meter.gd`), and the engine's numbers are held against the
+# bake-time `variability.measure` numbers the fixture's own report carries for the same clips - read from
+# this build's report, never the golden, so it is always one baked clip measured by two engines.
+#
+# Two imports of each export. `keys`: a copy imported at the clip's own frame rate with Godot's keyframe
+# optimizer off, and sampled at exactly those key instants (tick = 1/fps) - the poses the engine plays are
+# then Blender's frames to float32 (measured: every bone within 9e-7 m), so what is left between the two
+# meters is the meters. That is the run check 1 is gated on, within ASYM_TOL. `game`: the export as the
+# game imports it (resampled to 30 fps, keyframe-reduced) and sampled at 60 Hz, the numbers a character
+# actually reads in play: its deviation from the bake is printed as free values, and it is gated on the
+# verdicts only (stride even; is asymmetric where the golden says so), because resampling a 24 fps clip at
+# 30 fps and reducing its keys moves a turnaround by up to a key - 5-23 mm of stride, 1 degree of swing.
+#
+# `must_fail` names the cases whose "is asymmetric" check MUST FAIL on every clip (and nothing else may
+# fail): the asymmetry-0 build and the RA_ASYM_MIRROR=1 build, whose False verdicts are in the golden.
+# The engine's verdict must also equal the golden's for every case. Two more controls, both on `asym`:
+# `swap=1` (the meter told +lat is -lat) must invert every ratio and flip stance_offset, agree with the
+# fixture's own Blender swap, and DISAGREE with asym's Blender numbers - so a comparison blind to sides
+# fails the harness; and `poison=1` (the manifest's variability block, arm_pose values, gaits and stance
+# spans rewritten before the meter sees them) must reproduce the plain run's numbers exactly, so a meter
+# that reads the answer fails the harness. Step length joins "is asymmetric" here, on the Python side:
+# its stance offset must MOVE against the zero build's by more than the fixture's STEP_M (asym) and must
+# not (mirror).
+GODOT_ASYM = {
+    "asym_meter": {"cases": ("asym", "zero", "mirror"), "must_fail": ("zero", "mirror"),
+                   "swap_of": "asym", "zero": "zero"},
+}
+# Engine against bake at the keys, per side. Blender rounds lengths and lag to 1e-5 and angles to 1e-3, and
+# at the keys the poses agree to 1e-6 m, so lengths and lag get 5e-5 (rounding plus float32). Arm swing
+# gets 0.1 degree: the palm point sits half a hand past the wrist and a leaf hand's length is not in the
+# file - the meter takes half its forearm (0.100 m against the Figure's 0.106), and a centimetre of hand
+# moves a walk's swing by about 0.07 degree (measured: -0.05 / -0.06 on the walk, +0.01 on the run).
+ASYM_TOL = {"arm_swing_deg": 0.1, "step_length_m": 5e-5, "stride_m": 5e-5, "shoulder_dip_m": 5e-5,
+            "lag_cycles": 5e-5, "stance_offset_m": 5e-5}
+ASYM_KEYS = "_keys"
 # A fixture named here has its body looked at in Godot by lookdev's `close-shot` (the head, eye and hand
 # views and full, under one preset, beside the fixture's own Blender close set from the review stage when
 # it wrote one), and must pass every tile check; each of `controls` is the same run with its own args and
@@ -721,6 +757,7 @@ def run_godot(godot, project, out_root, names):
     stage = project / GODOT_STAGE
     shutil.rmtree(stage, ignore_errors=True)
     results, manifests, wardrobe, flesh, strands, lookdev, jitter = [], [], [], [], [], [], []
+    asym = []
     try:
         for name in names:
             src = out_root / name
@@ -762,7 +799,10 @@ def run_godot(godot, project, out_root, names):
                 jitter.append(name)
             if name in GODOT_LOOKDEV:
                 lookdev.append(name)
-        if not manifests and not wardrobe and not flesh and not strands and not lookdev and not jitter:
+            if name in GODOT_ASYM:
+                _stage_asym_keys(src, dst, name)
+                asym.append(name)
+        if not (manifests or wardrobe or flesh or strands or lookdev or jitter or asym):
             return results or [("godot", True, "no fixture in this run exports anything Godot checks")]
 
         code, out = _godot(godot, project, "--import")
@@ -813,6 +853,8 @@ def run_godot(godot, project, out_root, names):
             results += _run_strands(godot, project, stage / name, name)
         for name in jitter:
             results += _run_jitter(godot, project, stage / name, name)
+        for name in asym:
+            results += _run_asym(godot, project, stage / name, out_root / name, name)
         for k, name in enumerate(lookdev):
             results += _run_lookdev(godot, project, stage / name, out_root / name, out_root / "_lookdev" / name,
                                     name, selftest=k == 0)
@@ -957,6 +999,209 @@ def _run_jitter(godot, project, where, name):
                      num("cost_us_per_frame", "amp"))
                   + "".join("\n            " + f for f in fails[:6]))
         rows.append((label, passed == should_pass, detail))
+    return rows
+
+
+def _asym_report(src, name):
+    with open(src / (name + ".json"), encoding="utf-8") as fh:
+        return json.load(fh).get("report") or {}
+
+
+def _stage_asym_keys(src, dst, name):
+    """A second copy of each case's export under `_keys/`, with a `.import` written first so Godot
+    imports it at the clip's own frame rate and keeps every key (GODOT_ASYM)."""
+    fps = _asym_report(src, name).get("fps") or 24
+    for case in GODOT_ASYM[name]["cases"]:
+        for moves in sorted((src / case).glob("*.moves.json")):
+            with open(moves, encoding="utf-8") as fh:
+                m = json.load(fh)
+            glb = src / case / m["scene"].rsplit("/", 1)[-1]
+            to = dst / ASYM_KEYS / case
+            to.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(glb, to / glb.name)
+            with open(to / (glb.name + ".import"), "w", encoding="utf-8") as fh:
+                fh.write('[remap]\n\nimporter="scene"\n\n[params]\n\nanimation/fps=%s\n'
+                         '_subresources={"nodes": {"PATH:AnimationPlayer": {"optimizer/enabled": false}}}\n'
+                         % fps)
+            m["scene"] = "res://%s/%s/%s/%s/%s" % (GODOT_STAGE, name, ASYM_KEYS, case, glb.name)
+            with open(to / moves.name, "w", encoding="utf-8") as fh:
+                json.dump(m, fh, indent=1)
+
+
+def _asym_play(godot, project, manifest, args):
+    """One verify_asymmetry.gd run: ({role: report line}, [FAIL lines], verdict line, exit code)."""
+    res = "res://" + manifest.relative_to(project).as_posix()
+    code, out = _godot(godot, project, "-s", "res://addons/rig_anything/verify_asymmetry.gd", "--",
+                       "manifests=" + res, *args)
+    reps = {}
+    for l in out.splitlines():
+        if l.startswith("RA_ASYM_REPORT "):
+            r = json.loads(l[len("RA_ASYM_REPORT "):])
+            reps[r["role"]] = r
+    fails = [l.split("FAIL", 1)[1].strip() for l in out.splitlines() if l.startswith("RA_ASYM  FAIL")]
+    verdict = ([l for l in out.splitlines() if l.startswith("RA_ASYM VERIFY")] or
+               ["no verdict, exit %s: %s" % (code, " | ".join(out.strip().splitlines()[-3:]))])[-1]
+    return reps, fails, verdict, code
+
+
+ASYM_CHANNELS = ("arm_swing_deg", "step_length_m", "stride_m", "shoulder_dip_m", "lag_cycles")
+
+
+def _asym_gaps(godot_rep, bake):
+    """{channel: worst |engine - bake| over the two sides}, and stance_offset_m's."""
+    gaps = {}
+    for c in ASYM_CHANNELS:
+        g, b = godot_rep.get(c) or {}, bake.get(c) or {}
+        if not g or not b:
+            gaps[c] = float("inf")
+            continue
+        gaps[c] = max(abs(g["plus_lat"] - b["plus_lat"]), abs(g["minus_lat"] - b["minus_lat"]))
+    g, b = godot_rep.get("stance_offset_m"), bake.get("stance_offset_m")
+    gaps["stance_offset_m"] = float("inf") if g is None or b is None else abs(g - b)
+    return gaps
+
+
+def _asym_rows(godot_rep):
+    rows = ""
+    for c in ASYM_CHANNELS:
+        v = godot_rep.get(c) or {}
+        if v:
+            rows += "\n            %-15s +lat %.5f -lat %.5f ratio %s index %.5f" % (
+                c, v["plus_lat"], v["minus_lat"], "-" if v.get("ratio") is None else "%.5f" % v["ratio"],
+                v["index"])
+    if "stance_offset_m" in godot_rep:
+        rows += "\n            stance_offset   %+.5f m" % godot_rep["stance_offset_m"]
+    return rows
+
+
+def _run_asym(godot, project, where, src, name):
+    """GODOT_ASYM's runs on one fixture: [(check, passed, detail)]."""
+    spec = GODOT_ASYM[name]
+    rep = _asym_report(src, name)
+    cases, floors, fps = rep.get("cases") or {}, rep.get("floors") or {}, rep.get("fps") or 24
+    if not cases or not floors:
+        return [("verify_asymmetry %s" % name, False, "the fixture's report has no cases or floors")]
+    judge = ["floor_index=%s" % floors["INDEX"], "floor_lag=%s" % floors["LAG"],
+             "stride_index=%s" % floors["STRIDE_INDEX"]]
+    at_keys = judge + ["tick=%r" % (1.0 / fps), "cycles=3"]
+    in_game = judge + ["cycles=12"]
+    rows, got = [], {}
+
+    def manifest(case, keyed):
+        found = sorted((where / ASYM_KEYS / case if keyed else where / case).glob("*.moves.json"))
+        return found[0] if found else None
+
+    for mode, args in (("keys", at_keys), ("game", in_game)):
+        for case in spec["cases"]:
+            label = "verify_asymmetry %s %s (%s)" % (name, case, "at its keys, against the bake" if mode == "keys"
+                                                        else "as the game imports it, at 60 Hz")
+            path = manifest(case, mode == "keys")
+            if path is None:
+                rows.append((label, False, "the fixture did not export %s" % case))
+                continue
+            reps, fails, verdict, code = _asym_play(godot, project, path, args)
+            got[(mode, case)] = reps
+            bake = cases.get(case, {}).get("measured", {})
+            why = []
+            roles = sorted(bake)
+            if sorted(reps) != roles:
+                why.append("measured %s, the bake has %s" % (sorted(reps), roles))
+            # every FAIL must be a declared one, and a must-fail case must fail it on every clip
+            must = case in spec["must_fail"]
+            extra = [f for f in fails if not (must and "is asymmetric" in f)]
+            if extra:
+                why.append("failed %d undeclared line(s): %s" % (len(extra), " | ".join(e[:110] for e in extra[:3])))
+            for role in roles:
+                said = not any(("%s: is asymmetric" % role) in f for f in fails)
+                golden = bake[role]["verdicts"]["asymmetric"]
+                if said != golden:
+                    why.append("%s: the engine says asymmetric=%s, the bake (golden) %s" % (role, said, golden))
+                if must and said:
+                    why.append("%s: a control that must fail 'is asymmetric' passed it" % role)
+            detail = ""
+            for role in roles:
+                if role not in reps:
+                    continue
+                gaps = _asym_gaps(reps[role]["report"], bake[role])
+                over = [c for c, g in gaps.items() if g > ASYM_TOL[c]]
+                detail += "\n          %s against the bake, worst side: %s" % (role, ", ".join(
+                    "%s %.5f%s" % (c, g, " (> %g)" % ASYM_TOL[c] if mode == "keys" and c in over else "")
+                    for c, g in gaps.items()))
+                if mode == "keys" and over:
+                    why.append("%s disagrees with the bake beyond tolerance on %s" % (role, ", ".join(over)))
+                if case == spec["cases"][0]:
+                    detail += _asym_rows(reps[role]["report"])
+            rows.append((label, not why, verdict + "".join("\n          " + w for w in why) + detail))
+
+    # step length: the stance offset MOVES against the zero build (asym), and does not (mirror)
+    zero = got.get(("keys", spec["zero"]), {})
+    for case in spec["cases"]:
+        if case == spec["zero"] or ("keys", case) not in got:
+            continue
+        why, detail = [], ""
+        for role, r in sorted(got[("keys", case)].items()):
+            if role not in zero:
+                why.append("%s: no zero build to measure against" % role)
+                continue
+            moved = r["report"]["stance_offset_m"] - zero[role]["report"]["stance_offset_m"]
+            said = abs(moved) > floors["STEP_M"]
+            golden = cases[case]["measured"][role]["verdicts"]["step_moved"]
+            detail += "\n          %s stance offset moved %+.5f m against zero's (floor %.3f): %s, golden %s" % (
+                role, moved, floors["STEP_M"], said, golden)
+            if said != golden:
+                why.append("%s: the engine says step moved=%s, the golden %s" % (role, said, golden))
+        rows.append(("verify_asymmetry %s %s step length moved against zero" % (name, case), not why,
+                     "; ".join(why) + detail))
+
+    base = spec["swap_of"]
+    path = manifest(base, True)
+    if path is None or ("keys", base) not in got:
+        return rows
+    # the side-swap control: ratios invert, stance flips, and the bake's own swap agrees while
+    # the unswapped bake must NOT - a comparison that cannot see sides fails here
+    reps, fails, verdict, code = _asym_play(godot, project, path, at_keys + ["swap=1"])
+    why, detail = [], ""
+    if not reps:
+        why.append("no RA_ASYM_REPORT: " + verdict)
+    for role, r in sorted(reps.items()):
+        plain = got[("keys", base)][role]["report"]
+        sw = r["report"]
+        for c in ("arm_swing_deg", "step_length_m", "stride_m", "shoulder_dip_m"):
+            prod = sw[c]["ratio"] * plain[c]["ratio"]
+            if abs(prod - 1.0) > 1e-6:
+                why.append("%s %s: ratio did not invert (%.6f x %.6f)" % (role, c, sw[c]["ratio"], plain[c]["ratio"]))
+        if (abs(sw["stance_offset_m"] + plain["stance_offset_m"]) > 1e-9
+                or sw["stance_offset_m"] * plain["stance_offset_m"] >= 0.0):
+            why.append("%s: stance_offset did not flip (%+.5f against %+.5f)"
+                       % (role, sw["stance_offset_m"], plain["stance_offset_m"]))
+        own = _asym_gaps(sw, cases["swap"]["measured"][role])
+        wrong = _asym_gaps(sw, cases[base]["measured"][role])
+        over_own = [c for c, g in own.items() if g > ASYM_TOL[c]]
+        over_wrong = [c for c, g in wrong.items() if g > ASYM_TOL[c]]
+        if over_own:
+            why.append("%s: disagrees with the bake's own swap on %s" % (role, ", ".join(over_own)))
+        if not over_wrong:
+            why.append("%s: a swapped meter AGREED with the unswapped bake - the comparison cannot see sides" % role)
+        detail += ("\n          %s ratios arm %.5f step %.5f dip %.5f (unswapped %.5f %.5f %.5f), stance %+.5f "
+                   "(unswapped %+.5f); against the unswapped bake it is off on %s" % (
+                       role, sw["arm_swing_deg"]["ratio"], sw["step_length_m"]["ratio"], sw["shoulder_dip_m"]["ratio"],
+                       plain["arm_swing_deg"]["ratio"], plain["step_length_m"]["ratio"],
+                       plain["shoulder_dip_m"]["ratio"], sw["stance_offset_m"], plain["stance_offset_m"],
+                       ", ".join(over_wrong) or "nothing"))
+    rows.append(("verify_asymmetry %s %s swap=1 (sides exchanged: ratios invert, stance flips)" % (name, base),
+                 not why, "; ".join(why) + detail))
+
+    # the poison control: nothing the meter must not read may move a digit
+    reps_p, fails_p, verdict_p, code_p = _asym_play(godot, project, path, at_keys + ["poison=1"])
+    why = []
+    for role, r in sorted(got[("keys", base)].items()):
+        if role not in reps_p:
+            why.append("%s: not measured with the poisoned manifest" % role)
+        elif reps_p[role]["hash"] != r["hash"]:
+            why.append("%s: the numbers MOVED when the manifest's variability, arm_pose values, gaits and "
+                       "stance spans were rewritten - the meter reads something it must not" % role)
+    rows.append(("verify_asymmetry %s %s poison=1 (the answer rewritten: numbers must not move)" % (name, base),
+                 not why, "; ".join(why) or "identical report hash on %s" % ", ".join(sorted(reps_p))))
     return rows
 
 

@@ -75,7 +75,7 @@ on every fixture rather than on one character, and that accepting it is a review
 ## Fixtures
 
 Each is a script Blender runs in its own process, building from nothing — no `.blend`, no stored
-asset — and writing a report of what it got. There are twenty-three of them (the table lists every one), and a `--twice --jobs 2` run
+asset — and writing a report of what it got. There are twenty-four of them (the table lists every one), and a `--twice --jobs 2` run
 takes about half an hour; the rabbit and the cricket are the biggest single builds (over two minutes
 each alone), because a voxel remesh is slow, and since rig-anything 0.22.0 every export renders a
 review sheet as well (4-12 s a character).
@@ -105,6 +105,7 @@ review sheet as well (4-12 s a character).
 | `pipeline_paths` | one draft body (`to_stage="body"`) from a spec with a relative `[export] blend`, the spec copied byte for byte into a second project, then specs whose blend leaves the project | specs safe to copy (06 rank 2, character-pipeline 0.11.0): each build saves only under its own project (every .blend listed after each build), under `$BLEND_DIR` when set, a copy plans the same stage hashes (control: an absolute blend moves export); an absolute, a `../` and a prefix-sibling blend are refused before any stage runs, each with a `save_outside=True` control that saves there. `PIPELINE_PATHS_NO_GUARD=1` must fail it |
 | `limit_influences` | 64 loose vertices on an eight-bone armature with one to eight bone weights each, in varied group order, beside non-bone groups | follow-through's `flesh.limit_influences` (0.6.1): at most four influences, the four strongest kept, each vertex's total bone weight kept (`max_total_lost`, the free value), non-bone groups and vertices with four or fewer untouched. Its control, the pre-0.6.1 stale-element write, must lose weight (0.31) |
 | `skin_detail` | a seeded MPFB human with a deep skin tone, exported unbaked, baked with lookdev unavailable, and baked for real at 512 px | humanform's `look.skin`: the flat fallback material and its `baseColorFactor` in the glb, no `COLOR_n`, and the baked maps (albedo mean held to the tone, lips and areolae darker and redder, palms and soles paler, the embedded map the same pixels); regional contrast (humanform 0.14.0): each floored region's CIELAB dE, dL and red/green against plain skin must clear `skin.CONTRAST_FLOOR` (`contrast_ok`), and the T-zone's and lips' baked roughness is higher than 0.12.0's. Its control, a copy of the human marked and baked with `HF_SKIN_LEGACY_REGIONS=1`, must fail the floor (`control_legacy`) |
+| `asym_meter` | follow-through's `Figure` given Idle/Walk/Run three times - `[variability] asymmetry = 0.35` on an id whose draw is large on every channel, 0, and 0.35 with `RA_ASYM_MIRROR=1` - each exported as its own character | `variability.measure` per side on Walk and Run (arm swing, step length, stride, shoulder dip, arm lag, stance offset), a side-swap measurement (the body map's `lat` negated), and the verdicts Godot's `verify_asymmetry.gd` must reproduce: asymmetric True at 0.35 and **False at 0 and for the mirror** (the controls), stride even everywhere, the stance offset moved against 0's at 0.35 and not for the mirror (rig-anything 0.38.0) |
 
 ## In the engine: `--godot <project>`
 
@@ -112,6 +113,13 @@ A glb that Blender wrote correctly can still play wrongly in Godot. `--godot` ta
 built, copies its `.glb` and `.moves.json` files into `<project>/_regress/<fixture>/`, imports them,
 and runs the project's copies of the verifiers:
 
+- **`verify_asymmetry.gd`** for the fixtures in `GODOT_ASYM` (`asym_meter`): each export measured left
+  against right off the playing skeleton and held against the fixture's own `variability.measure` numbers
+  for the same clips, at the clip's keys (a second copy imported at its own frame rate with the keyframe
+  optimizer off) within `ASYM_TOL`, and as the game imports it (verdicts only). The asymmetry-0 and mirror
+  builds must fail "is asymmetric" on every clip and nothing else; `swap=1` must invert every ratio and
+  disagree with the unswapped bake; `poison=1` (the manifest's variability block and measured values
+  rewritten) must not move a digit.
 - **`verify_moves.gd`** on every manifest. It checks MovesController's gait choice and playback rate
   from standing to the fastest gait and back, the hysteresis around each change of gait, and the
   stride phase carried across it. A manifest's `scene` is repointed at the glb beside it.
