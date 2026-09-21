@@ -12,23 +12,23 @@ project they are exercised on is `C:/Users/pauli/Code/GoDot/grungist-creek`. Pla
   and the branch. Parallel agents in one checkout have overwritten each other's edits before.
 - **One scratch folder per agent.** Nothing in the repo root, a shared temp folder or the project:
   loose logs and blends from a shared folder have been mistaken for another agent's results.
-- **Run the fixtures before calling a change done**, and before changing shared code:
+- **The goal is plugins that produce assets, not perfect assets** (the user's rule, 2026-09-21). Capture
+  the improvement, build fresh, and move on; do not spend a round scrutinising small numeric drift. What
+  proves a change is a fresh build of the characters it affects (`character-pipeline/scripts/build_many.py`)
+  and the game's demo self-tests passing in Godot - not the regression suite.
+- **The regression suite is optional, and never a merge gate.** It was consistently the slowest part of a
+  round (10-20+ minutes for `--twice --godot`) and the least useful. Run `--quick` only when a change
+  touches shared code whose other callers you cannot build fresh (a creature rig, a fixture-only path),
+  and read it for **crashes and pass/fail flips**, not for values that moved:
 
   ```
-  python tools/regress.py --quick --jobs 2                                  # while iterating: only the
-                                                                            # fixtures the change reaches
-  python tools/regress.py --jobs 2                                          # every edit that matters
-  python tools/regress.py --twice --jobs 2                                  # before merging
-  python tools/regress.py --twice --jobs 2 --godot C:/Users/pauli/Code/GoDot/grungist-creek
-                                                                            # when a Godot addon or an
-                                                                            # export changed
+  python tools/regress.py --quick --jobs 2      # optional: only the fixtures the change reaches
   ```
 
-  A golden moves only in a reviewed commit (`--update`, then read `git diff tests/golden`), and a
-  new golden is recorded with `--twice`. Never widen a tolerance to make a change pass: find why it
-  moved. A full `--twice --godot` run takes about 10 minutes. Every run ends with the line
-  `REGRESS DONE exit=N, K fixtures ok` (wait on it), and prints the path of a file with the full diff.
-  `--quick --dry-run` says what `--quick` would run and skip, and why. See `tests/README.md`.
+  A CHANGED row whose checks still pass is expected when behaviour was meant to change - do not chase it,
+  and do not block a merge on it. Goldens go stale between rounds; refresh them (`--update`) only when
+  someone is about to rely on the suite. Never widen a tolerance to hide a real failure. Every run ends
+  with `REGRESS DONE exit=N, K fixtures ok` and prints the path of the full diff. See `tests/README.md`.
 - **Install only with `tools/install.py <plugin>` or `--all`.** It is the only path into
   `~/.claude/skills`, which is what Claude Code loads. It refuses to overwrite a copy that was edited
   in place: move that edit into the repo first. Other machines get a change by push and

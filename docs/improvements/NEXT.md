@@ -22,6 +22,7 @@ Shipped on 2026-09-21, newest first:
 
 | version | what | PRs |
 |---|---|---|
+| rig-anything 0.39.0, humanform 0.18.0, character-pipeline 0.17.0, wardrobe 0.8.0 | **The likeness round** (branch `likeness-round`, from building three likeness NPCs in grungist-creek - Taylor Swift, Morgan Freeman, Ariana Grande - and fixing what got in the way). *Accuracy:* a brief's `face` (ratios read off a frontal photo, fitted with a lever group per measure; `face_features.json`) and `ancestry`; beards (`stubble`/`short`/`goatee`/`moustache`) and a fringe over any preset; the dress eases off the body. *Motion:* an upright leg bends in its own front-back plane as it folds (Ariana ran bow-legged: knee 13.9 -> 3.1 cm out on the run); `arm_pose` measures along the body's heading (a turn failed on a phantom 22 degree swing). *Pipeline:* per-stage checkpoints and `StageFailed` (a failed stage resumes: Mei's review reran alone in 7.7 s), moves failures carry their reasons, `characters/pipeline.toml` `[blend] dir` and a refusal to save a .blend inside a Godot project, `build_many.py` (nine figures in 189 s at 3 jobs), a locked library index. Close-up `on_body` by points. Game: `likeness_demo.tscn`, the figure study's self-test warms up (a cold first run failed 10 timing checks) and takes figures with no flesh or fewer clips. | this round's PRs |
 | wardrobe 0.7.0 | Loose tops hang from the bust's apex instead of tucking under it. New: `fit.tuck` check, `tuck_limit`, a `skin` preset key, fixture `dressed_loose`. Ruth's tuck 17.2 -> 2.9 mm. | [plugins#6](https://github.com/wfbcargo/blender-godot-plugins/pull/6), [game#4](https://github.com/wfbcargo/grungist-creek/pull/4) |
 | wardrobe 0.6.0 | `tshirt` / `longsleeve` ease off the body's smoothed form, so nipples and belly no longer show through (traced 0.19 -> ~0.01). | [plugins#5](https://github.com/wfbcargo/blender-godot-plugins/pull/5), [game#3](https://github.com/wfbcargo/grungist-creek/pull/3) |
 | rig-anything 0.38.0 | `AsymmetryMeter`: each body's left against its right, measured in Godot. `motion_demo` prints it. | [plugins#5](https://github.com/wfbcargo/blender-godot-plugins/pull/5), [game#3](https://github.com/wfbcargo/grungist-creek/pull/3) |
@@ -29,8 +30,17 @@ Shipped on 2026-09-21, newest first:
 Before that: the motion round (rig-anything 0.28.0-0.37.0, character-pipeline 0.16.0, plugins#2 /
 game#1), Step 2 skin, and the flesh round. Their record is in the sections further down.
 
-**Figures in the game:** all six (study_man, study_woman, Belle, Marco, Mei, Ruth) are on rig-anything
-0.37.0/0.38.0 with `[variability] asymmetry = 0.35`. **Marco and Ruth were rebuilt on wardrobe 0.7.0**; they
+**The likeness round's open items.** Morgan Freeman's likeness misses by 2.7 mm at the mouth and 7 mm at the
+jaw (aged after the fit, and the photo's jaw is under a beard). The beard's back edge is saw-toothed (it follows
+whole faces). Reading a photo's ratios is by hand (a canvas grid in the browser, ~5 min a face; see humanform
+SKILL.md) - a landmark detector would make it one call. Likenesses set proportions, not identity: skin detail,
+expression and makeup are still missing. The first builds' review took 61-73 s against 6-9 s since: a cold
+cache on first use, not a steady cost.
+
+**Figures in the game:** all nine (study_man, study_woman, Belle, Marco, Mei, Ruth, and the likeness NPCs
+Taylor, Morgan, Ariana) are on rig-anything 0.39.0 with `[variability] asymmetry = 0.35`, built by
+`build_many.py`; the blends live in `C:/Users/pauli/Code/Blender` (the game's `characters/pipeline.toml`).
+Before that, all six were on rig-anything 0.37.0/0.38.0 with `[variability] asymmetry = 0.35`. **Marco and Ruth were rebuilt on wardrobe 0.7.0**; they
 are the two whose outfits use the changed presets. Backups of their previous blends and assets are in
 `%TEMP%/rw/cloth/backup/` (0.5.2) and `%TEMP%/rw/hang/backup/` (0.6.0). These are scratch folders, so do
 not count on them.
