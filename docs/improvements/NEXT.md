@@ -1,4 +1,4 @@
-# Next: realism on the figure study (skin and motion done; the trunk's other two planes next)
+# Next: realism on the figure study (skin and motion done; the trunk, the head and the cloth next)
 
 A handoff for a fresh conversation. Start with:
 
@@ -9,9 +9,11 @@ A handoff for a fresh conversation. Start with:
 **The motion round is CLOSED and pushed.** What it shipped and what each version established is in
 ["Resuming the motion work"](#resuming-the-motion-work-2026-09-20---closed-kept-as-the-record) below,
 kept as the record. What it did
-NOT do - two of the trunk's three planes - is in
-["The trunk's other two planes"](#the-trunks-other-two-planes-measured-2026-09-20-built-by-nobody), which is
-the next round and is written to be picked up cold.
+NOT do is three sections below, each measured and each written to be picked up cold - and they are **one
+round**, because all three end in the same rebuild of the same six characters:
+["The head is held almost still"](#the-head-is-held-almost-still-measured-2026-09-21-built-by-nobody),
+["Cloth that hugs the skin"](#cloth-that-hugs-the-skin-measured-2026-09-21-built-by-nobody) and
+["The trunk's other two planes"](#the-trunks-other-two-planes-measured-2026-09-20-built-by-nobody).
 
 **The goal of all this work:** tools that make a new human asset from a brief **in under 30 seconds** and
 have it **look great** in Godot. The study figures are the test bench; the scoreboard is the benchmark
@@ -88,30 +90,190 @@ hairline, and the absence of facial asymmetry or blemish.
    nothing compares a body's own left against its right *in Godot*, and `motion_demo.gd` compares bodies.
    Until that exists we cannot say whether 0.35 is subtle or inert, and the user asked for visible
    imperfection. Small, and it unblocks judging every future variability change.
-3. **The trunk's other two planes** - the next round, measured and specified below.
-4. **The ponytail root-bone blocker** - the one red regress row, diagnosed below, needs its own branch.
-5. **Turn the runtime jitter on.** `jitter_phase`/`jitter_amp` ship at 0 so no golden moved, which was right
+
+   **Items 3, 4 and 5 are one round.** All three need every character rebuilt afterwards, and a rebuild is
+   ~45 s each plus a full regress and a benchmark, so running them together pays that once rather than
+   three times and lets one look critic judge motion and cloth off the same renders. Two of them share a
+   footstrike signal (see 3 and 4), which is a seam to agree up front rather than invent twice.
+
+3. **The trunk's other two planes** - measured and specified below. `spine_flex_deg` is 0.0 in every gait
+   entry, and lateral bend FALLS with speed.
+4. **The head is held almost still** - measured and specified below. `head_hold = 0.85` leaves the head
+   15% of the thorax's turn and 0.3 deg of nod at a walk. Same `upper.defaults` table as (3).
+5. **Cloth that hugs the skin** - measured and specified below. A loose tee traces the body 30x more than
+   a compression top does, which is exactly backwards.
+6. **Turn the runtime jitter on.** `jitter_phase`/`jitter_amp` ship at 0 so no golden moved, which was right
    for reviewability but means the per-cycle half is dormant in every character. One reviewed commit sets
    them in the specs and re-records; do it after (2), so there is an instrument to judge it by.
-6. **Hair** - the benchmark's largest open look item, and every critic still puts it top three: `short_crop`
+7. **The ponytail root-bone blocker** - the one red regress row, diagnosed below, needs its own branch.
+8. **Hair** - the benchmark's largest open look item, and every critic still puts it top three: `short_crop`
    reads as a moulded cap on both bodies that use it, and `long_loose` is not even long - on Mei it stops at
    the shoulder, with a cap seam over the crown and the ear covered by a flat plane.
-7. **An age layer** (benchmark finding): two briefs asked for 40s and 60s and both read twenty-plus years
+9. **An age layer** (benchmark finding): two briefs asked for 40s and 60s and both read twenty-plus years
    young. The 58-year fit cap is not what stops it - slackness, lip thinning, hand tendons and posture are
    authorable on top of a 58-year fit and none was attempted.
-8. **Ancestry as a sheet field**: `sheet.new()` has no asian/caucasian/african, though
-   `scaffold.create_macros` reads exactly those keys off the sheet, so the layer under it already works.
-   Plus a decision on "Hispanic".
-9. **The rest of Step 5 - motion**: MovesController's turns (06 rank 15), the fingertip gaps, and the motion
-   critic on every clip. The motion critic is the arbiter 07 keeps asking for and nobody has built.
-10. Left over from Step 2, both small: `LookdevPresets.apply` leaves on the sun any light property the
+10. **Ancestry as a sheet field**: `sheet.new()` has no asian/caucasian/african, though
+    `scaffold.create_macros` reads exactly those keys off the sheet, so the layer under it already works.
+    Plus a decision on "Hispanic".
+11. **The rest of Step 5 - motion**: MovesController's turns (06 rank 15), the fingertip gaps, and the motion
+    critic on every clip. The motion critic is the arbiter 07 keeps asking for and nobody has built.
+12. Left over from Step 2, both small: `LookdevPresets.apply` leaves on the sun any light property the
     previous recipe set and this one does not name (this is what made overcast fail FLOOR_STRIPES after
     clear_midday; the symptom is gone only because overcast no longer casts a shadow), and the tone_shift
     controls under `plugins/lookdev/bin/controls/tone_shift/` were rendered at clear_midday exposure 1.0, so
     they no longer show what the shipped preset does - re-render them the next time that area is touched.
-11. Smaller open flesh items (below, under each branch): the jump-only course over its 10 % on-limit line for
+13. Smaller open flesh items (below, under each branch): the jump-only course over its 10 % on-limit line for
     the cast (10.2-11.4 %), walking in phase 0.69-0.85 against people's 0.66, study_woman's belly missed by
     0.0001 m, the attachment check reading 0.0 on an empty window.
+
+## The head is held almost still (measured 2026-09-21, built by nobody)
+
+**Origin:** the user, on the shipped figures - "during all of the animations the heads are perfectly
+still".
+
+They are, and it is one constant. `upper.defaults` sets `head_hold = 0.85`, and `upper.trunk` gives the
+top of the chain `keep = 1.0 - head_hold * (j + 1) / len(top_i)`, so with a neck and a head above the
+thorax the head keeps **0.15** of the thorax's turn. Measured off the baked clips of four bodies
+(`motion_demo.tscn -- --selftest`, which now reports it), peak-to-peak degrees over a stride:
+
+| | head yaw | head nod | thorax yaw | head keeps |
+|---|---|---|---|---|
+| Walk (Marco/Mei/Belle/Ruth) | 1.00 / 1.13 / 1.60 / 0.99 | **0.32 / 0.30 / 0.30 / 0.29** | 6.51 / 6.51 / 9.89 / 6.50 | 15-17% |
+| Run | 2.10 / 2.09 / 3.56 / 2.10 | 0.57 / 0.59 / 0.76 / 0.57 | 13.77 / 13.87 / 17.46 / 13.78 | 15-20% |
+
+The measurement lands on 15% on every body at both speeds, which is exactly `1 - head_hold`: the
+prediction and the baked clip agree, so there is no mystery here to solve, only a number to choose
+better. **A third of a degree of nod at a walk is invisible.**
+
+### What is right about it, and what is not
+
+`head_hold` is a gaze-stabilisation model, and gaze stabilisation is real - a walking head does hold
+still against the trunk's turn, which is why this was written in the first place. Three things are
+wrong with it as it stands:
+
+- **It is one flat constant at every speed**, where the real attenuation is not. The same tell the
+  thorax had at a flat -179.3 deg and the head had at a flat -0.6.
+- **It stabilises the wrong axes together.** Holding gaze on a target is about rotation around
+  VERTICAL. It says nothing about the nod, and a real head pitches with each footstrike - our 0.29 deg
+  is not attenuation, it is absence.
+- **The head rung gave the head a phase, never an amplitude.** 0.32.0 derived *when* the head turns
+  (`upper.head_frequency` -> `response`), and 0.30.0 says outright that `response`'s gain is
+  deliberately not applied - "amplitude is authored, timing is derived". So the head's amplitude has
+  never been derived by anything; `head_hold = 0.85` is a hand-set number and always was.
+
+### The branch: `motion-head-hold`
+
+Split `head_hold` into what it is actually doing, and make the part that should move with speed do so:
+
+1. Keep strong stabilisation about **up** (gaze), but let the share vary with speed rather than sitting
+   at 0.85 for a stroll and a sprint alike.
+2. Give the head its own **nod**, driven at twice a stride by footstrike, not derived from the thorax's
+   yaw at all. This is the one the eye will notice first, and it is the same signal `motion-spine-flex`
+   needs, so **the two branches should agree their footstrike signal up front** rather than each
+   inventing one.
+3. Leave the phase alone. 0.32.0's lag ladder is measured and correct, and
+   `thorax_head_phase_deg` must not move: it is goldened, it sweeps -79 to -147 across the figures
+   today, and nothing in this item is about timing.
+
+**Targets need a source, not a guess.** Published walking values put head yaw well above 15% of trunk
+yaw and head pitch at a few degrees a stride rather than a third of one, but the numbers here should be
+fitted to a named reference the way `trunk_hz` was fitted to van Emmerik et al. - and the fit recorded,
+with the same honesty the head-rung notebook used about what was measured and what was chosen.
+
+**The control that must fail** writes itself and mirrors the head rung's: `head_hold = 1.0` is the
+perfectly locked head, and it must read a flat nod and a flat yaw and fail whatever check this ships.
+
+### How to measure it
+
+`motion_demo.tscn -- --selftest` prints the table above - head yaw, head nod, the thorax's yaw beside
+them, and the share the head keeps - for four bodies at two speeds, live off the playing skeleton. The
+figures did not need rebuilding to produce it, so the before is already recorded here.
+
+## Cloth that hugs the skin (measured 2026-09-21, built by nobody)
+
+**Origin:** the user, on the shipped figures - "on some clothing it is hugging to the skin too much and
+not accounting for softness. Breasts are fully visible in outline beneath the clothes instead of acting
+like a fabric, it is almost adhering to the skin".
+
+### What the measurement said
+
+`fit.detail(garment, body)` is the instrument wardrobe already ships for this - `traced` is the
+area-weighted slope of the cloth's relief on the skin's relief sampled under it, and `relief_mm` is the
+millimetres of the body's own relief the cloth carries. One call per garment, no new code:
+
+| garment | preset | smooth / span | `traced` | relief_mm | region |
+|---|---|---|---|---|---|
+| Belle SportsTop | `sports_top` | 1.0 / 0.8 | **-0.002** | 0.000 | breast 0.011 |
+| Mei Leggings | `leggings` | 1.0 / - | **-0.005** | 0.000 | butt 0.000 |
+| Mei SportsTop | `sports_top` | 1.0 / 0.8 | **0.006** | 0.006 | breast 0.002 |
+| Marco Jeans | `trousers` | none | 0.100 | 0.090 | butt 0.095 |
+| Ruth Trousers | `trousers` | none | 0.099 | 0.099 | butt 0.013 |
+| **Ruth Longsleeve** | `longsleeve` | **none** | **0.191** | **0.143** | **breast 0.096** |
+| **Marco Tshirt** | `tshirt` | **none** | **0.189** | **0.164** | belly 0.082 |
+| Belle Shorts | `shorts_mid_thigh` | none | 0.143 | 0.174 | butt 0.080 |
+
+**It is exactly backwards.** A compression garment - the kind that in reality IS painted onto you -
+reproduces essentially none of the body's relief. A loose tee or longsleeve reproduces about a fifth of
+it. Ruth's longsleeve carries 0.096 mm over the breast, which would **fail the 0.06 mm limit the sports
+top is held to** and is six times what that sports top actually achieves there.
+
+### Why, in three places
+
+1. **The loose presets get none of the machinery.** `tshirt` and `longsleeve` set `smooth: null`,
+   `span: null`, `flatten: null` - only an 11 mm base gap. Every bit of the sophistication went into the
+   compression garments, whose preset notes run to paragraphs.
+2. **`span` is gated behind compression.** `fit.py`: `if compressing and span and span > 0:`. Spanning is
+   the mechanism that bridges a cleft - the `sports_top` note describes it as spanning "80% of the way to
+   its own convex hull around the hollows a 10 cm ball does not reach into" - and a loose garment
+   **cannot use it even if a preset asks**. This is a code change, not a tuning change, and it is the
+   heart of the item.
+3. **`loose` never reaches the torso.** `fit.paint_ease` paints `wd_ease` on the hem, cuff and neck bands
+   only, so the 22-25 mm of `loose` lands at the openings and the chest gets the 11 mm base. A real tee
+   stands further off the bust than that and spans the cleft completely.
+
+### The target, chosen 2026-09-21: span the hollows, keep the silhouette
+
+A loose garment should bridge the intermammary cleft and the underbust fold, and stand off the chest, so
+that the bust still shapes the garment's **outline** the way a real shirt does while the cloth stops
+reproducing the **surface** between and under the breasts. **`traced` below ~0.05 on a loose garment,
+against 0.19 today**, with a `detail_limit` in the preset so it is gated from then on rather than
+measured once.
+
+Deliberately NOT the sports top's near-zero: that would have a woven tee ignore the body almost
+entirely, which is the most physically correct answer for cotton but the largest change to how the
+characters currently look. Per-fabric tracing (a knit tee traces more than a woven shirt) was considered
+and is the honest long answer; it needs a fabric parameter threaded through `ease` and every preset
+retuned and remeasured, so it is a later round, not this one.
+
+### The branches
+
+**A. `cloth-span-loose`** - ungate `span` (and consider `settle`) from `compressing` in `fit.ease`, then
+give `tshirt` and `longsleeve` a `span`, a `span_radius` and a `detail_limit`. The sports top's numbers
+(`span` 0.8, `span_radius` 0.1, `settle` 0.14, limit 0.06 mm) are the worked example to start from, but
+they were tuned for cloth measured against a *compressed* body, so expect to retune rather than copy.
+Ungating must not move any compression garment: prove that with the table above, which is four
+characters' worth of before.
+
+**B. `cloth-torso-ease`** - let `paint_ease` put ease over the torso, not only at the openings, so a
+loose garment stands off the chest instead of sitting at the base gap. Interacts with (A); agree which
+one owns the chest gap before both start.
+
+**C. Re-check a claim before trusting it.** The `sports_top` note says `flatten` is unusable on
+character-pipeline bodies because "follow-through's breast search lands on the jaw". `fit.detail` found a
+real breast region on both Ruth and Mei while measuring the table above, so that note may be stale. If it
+is, `flatten` becomes available to the loose presets too and (A) may need less work.
+
+### How to measure it
+
+One call, on the built blend, no rebuild needed:
+
+    from wardrobe import fit
+    rep = fit.detail(garment, body)      # regions, traced, relief_mm
+
+The table above came from running exactly that over each character's `.blend` in
+`C:/Users/pauli/Code/Blender/`, picking garments out as the meshes carrying a `wardrobe_cut` property.
+`verify_wardrobe` in Godot stays the other half of the check: spanning cloth off the body is the failure
+mode that lets skin through, and the sports top's note records that history in detail.
 
 ## The trunk's other two planes (measured 2026-09-20, built by nobody)
 
