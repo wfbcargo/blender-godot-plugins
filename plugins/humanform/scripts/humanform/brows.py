@@ -85,7 +85,8 @@ LOOK = {
 # lifted further off the skin for a longer beard, over regions placed from the face's own features
 # (data/face_features.json: the mouth's slit and corners, the nose's base) and the head bone's weights, so it sits
 # where this face's mouth and chin are. Each style: the regions it covers, `lift_m` off the skin, the share of
-# strand bands kept (`keep`) and a strand's length on the skin (`strand_m`).
+# strand bands kept (`keep`) and a strand's length on the skin (`strand_m`). A short beard keeps every band: at
+# 0.75 the dropped bands showed in Godot as square patches of skin (a strand is two texels wide).
 BEARD_STYLES = {
     "stubble": {"regions": ("moustache", "chin", "jaw"), "lift_m": 0.0003, "keep": 0.45, "strand_m": 0.004},
     "short": {"regions": ("moustache", "chin", "jaw"), "lift_m": 0.0025, "keep": 1.0, "strand_m": 0.012},

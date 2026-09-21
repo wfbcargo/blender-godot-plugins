@@ -1,6 +1,6 @@
 ---
 name: character-pipeline
-description: Build a whole character for Godot 4.7 from one TOML spec - a humanform body from a brief, baked, with hair, follow-through flesh, rig-anything's move set and wardrobe garments, exported as the glb, .moves.json and garment glbs. Stages check the file before they run, so doing them in the wrong order (garments before moves, flesh after garments) refuses and names the order; each stage records an input hash in the .blend, so a rebuild skips what has not changed and a fresh Blender session resumes from a saved file. Use when asked to build, rebuild or add a character, person, NPC or crowd member from a description; to write or change a character spec; to rebuild one stage of a character (its moves, its outfit); or when a build script calls humanform, rig-anything, follow-through and wardrobe in sequence by hand.
+description: Build a whole character for Godot 4.7 from one TOML spec - a humanform body from a brief, baked, with hair, follow-through flesh, rig-anything's move set and wardrobe garments, exported as the glb, .moves.json and garment glbs. Stages check the file before they run, so doing them in the wrong order (garments before moves, flesh after garments) refuses and names the order; each stage records an input hash in the .blend, so a rebuild skips what has not changed and a fresh Blender session resumes from a saved file. Use when asked to build, rebuild or add a character, person, NPC or crowd member from a description; to write or change a character spec; to rebuild one stage of a character (its moves, its outfit); or when a build script calls humanform, rig-anything, follow-through and wardrobe in sequence by hand; to build several characters at once and time them (build_many); or when a build failed and should resume where it stopped.
 ---
 
 # character-pipeline
@@ -60,8 +60,18 @@ cupsize = 1.0
 measurements = { chestcircumference = 1.02, waistcircumference = 0.72, buttockcircumference = 1.07 }
 skin = [0.78, 0.58, 0.47]
 iris = [0.36, 0.45, 0.30]
+ancestry = { caucasian = 1.0 }     # optional: MPFB's african / asian / caucasian shares, normalised
 [body.parts]                       # humanform library parts
 face = "face-female-11-1-49f17892"
+[body.face]                        # optional: a likeness, ratios read off a frontal photo (humanform
+width_to_height = 1.18             #   SKILL.md, "A likeness from a photo"); fitted by the face stage,
+eye_spacing = 0.49                 #   never reused from or stored in the library. The body stage's
+nose_width = 0.26                  #   report has `likeness.fit`, each measure against its target
+mouth_width = 0.35
+jaw_width = 0.82
+lower_face = 0.56
+shape = "oval"                     # an MPFB head shape, at shape_weight (default 0.5)
+shape_weight = 0.3
 
 [moves]                            # rig-anything move_set
 roles = ["Idle", "Walk", "Trot", "Run", "Crouch", "CrouchWalk", "Jump"]
@@ -103,6 +113,9 @@ colour = [0.17, 0.10, 0.06]        # screen (sRGB)
 brows = true                       # optional, default false: humanform.brows' brow and lash cards and
 lashes = true                      #   light body hair, in the hair colour darkened, joined with the hair
 body_hair = false                  #   (a switch left false hashes as before, so no build restarts)
+beard = "short"                    # optional: stubble, short, goatee, moustache (humanform.brows)
+beard_colour = [0.70, 0.69, 0.68]  # optional, screen (sRGB); default the hair colour a little darker
+fringe = true                      # optional: a fringe across the forehead to the brows, over any preset
 
 [flesh]                            # follow-through; limit shares come from the type registry
 types = ["breast", "butt"]
@@ -127,8 +140,42 @@ colour = [0.035, 0.16, 0.20]
 [export]
 dir = "assets/belle"               # under the project (characters/ sits in it)
 res_dir = "res://assets/belle"
-blend = "belle_realistic.blend"    # relative: under $BLEND_DIR when set, else the project
+blend = "belle_realistic.blend"    # relative: under $BLEND_DIR, else characters/pipeline.toml's
+                                   #   [blend] dir, else the project
 ```
+
+**Where the .blend files live** (`characters/pipeline.toml`, optional, never hashed):
+
+```toml
+[blend]
+dir = "C:/Users/me/Blends"         # relative [export] blends resolve here; relative is under the project
+inside_godot = false               # true: a .blend inside the Godot project is meant to be imported
+```
+
+`$BLEND_DIR` still wins over it. A build **refuses to save a .blend inside a Godot project** (a folder with
+`project.godot` above it and no `.gdignore` between) unless `inside_godot = true`: Godot imports any .blend it
+finds with its Blender importer, and with no Blender path in the editor settings a headless `--import` fails
+there and the glbs beside it are not imported - the demo then loads no figures (a likeness build's blends in
+grungist-creek's root, 2026-09-21). The refusal names the file and the fixes.
+
+**A stage that fails** raises `runner.StageFailed`: `[<id>] <stage> failed after <s>s: <cause> - <where the file
+was left>`. The build saves the .blend after every stage that runs (`runner.CHECKPOINT`, 0.0-0.3 s a save), so
+the file on disk holds the build as the last good stage left it and the next build resumes at the failed stage:
+Mei's review failed on a close-up tile, the check was fixed, and the rebuild ran review alone in 7.7 s. The moves
+stage's failure lists each failing clip's own failures (`TurnL: upper_arm.R: the arm swings 9 degrees ...`),
+so the fix - a `[moves.per_gait.<role>]` option or `may_fail` - is chosen from the message.
+
+**Several characters at once:** `scripts/build_many.py` (plain Python, no bpy) runs one Blender per spec,
+`--jobs` at a time (default half the cores, at most 4), passes anything after `--` to every `build.py`, writes
+each log to `--logs`, and prints a table - status, wall seconds, the build's own seconds and its three slowest
+stages, or a failure's `StageFailed` line - ending `BUILD_MANY DONE <ok> ok, <failed> failed, <s> s wall`. Its
+exit code is the number of failures. humanform's library locks its index, so the builds can share it.
+
+```
+python <cp>/scripts/build_many.py characters/a.toml characters/b.toml characters/c.toml --jobs 3 -- fresh=1
+```
+
+Three likeness NPCs built cold took 58.5 s wall together (53-58 s each); nine figures, 189 s at `--jobs 3`.
 
 **The flesh stage says what it found.** The build log gets `flesh: found <type>: <regions>` and
 `flesh: MISSED <type>: <reason with numbers>` (follow-through's `missed`), the stage report `found`

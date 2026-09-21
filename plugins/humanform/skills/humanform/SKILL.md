@@ -1,6 +1,6 @@
 ---
 name: humanform
-description: Build adult human bodies in Blender that look right and work downstream in Godot 4.7 - layer by layer from a character brief through proportions and landmarks, a clean MPFB2 base mesh (quads, UVs, rig), primary and secondary anatomical forms, face, hands and feet, surface detail and skin, to a rig handed to rig-anything, follow-through, wardrobe and lookdev - with a measured gate and a critic between every layer so a detail pass never hides a structural mistake. Use when asked to make, model, sculpt, generate or improve a human, person, man, woman, character body, base mesh or figure in Blender; to choose realistic or stylized proportions; to use MPFB or MakeHuman from a script; or to plan how a character should be built before modelling starts.
+description: Build adult human bodies in Blender that look right and work downstream in Godot 4.7 - layer by layer from a character brief through proportions and landmarks, a clean MPFB2 base mesh (quads, UVs, rig), primary and secondary anatomical forms, face, hands and feet, surface detail and skin, to a rig handed to rig-anything, follow-through, wardrobe and lookdev - with a measured gate and a critic between every layer so a detail pass never hides a structural mistake. Use when asked to make, model, sculpt, generate or improve a human, person, man, woman, character body, base mesh or figure in Blender; to choose realistic or stylized proportions; to use MPFB or MakeHuman from a script; to make a character look like a real person from a photo (face proportions read off a frontal photo, ancestry); to give a character a beard, moustache, goatee, stubble or a fringe (bangs); or to plan how a character should be built before modelling starts.
 ---
 
 # humanform
@@ -76,6 +76,44 @@ sheet.save(r["sheet"], r"C:/proj/assets/people/mara.sheet.json")
 | `cupsize` | MPFB macro 0..1, a woman's bust (small .. full); `None` is MPFB's 0.5. Never fitted, like firmness: ANSUR's chest girth is fitted around it |
 | `muscle` | MPFB macro 0..1; `None` takes the build's. Given outright, the fit holds it (Dante's 1.0 ends at 0.95, not the muscular prior's 0.72) |
 | `skin`, `iris` | screen (sRGB) colours `(r, g, b)`, 0..1 - see *Colour* |
+| `ancestry` | `{"african": a, "asian": b, "caucasian": c}`, any of them, normalised to sum to 1: MPFB's ancestry macros, which shape the face and body before the fit and are never moved by it. Absent from a sheet that does not give it |
+| `face` | a likeness read off a photo - see *A likeness from a photo*. Absent from a sheet that does not give it |
+
+**A likeness from a photo.** A brief's `face` holds ratios read off a *frontal* photo of the person, so no
+scale is needed (`sheet.FACE_RATIOS`, each with its plausible adult range):
+
+| ratio | = | typical |
+|---|---|---|
+| `width_to_height` | cheekbone breadth (ear root to ear root) / nasion (the bridge between the eyes) to chin | 1.1-1.3 |
+| `eye_spacing` | pupil to pupil / cheekbone breadth | 0.44-0.50 |
+| `nose_width` | the nose's wings, outside to outside / cheekbone breadth | 0.25-0.36 |
+| `mouth_width` | mouth corner to corner / cheekbone breadth | 0.34-0.47 |
+| `jaw_width` | the face's outline across at the mouth's height / cheekbone breadth | 0.75-0.87 |
+| `lower_face` | the nose's base to the chin / nasion to chin | 0.49-0.64 |
+
+plus optionally `shape`, one of MPFB's head shapes (`sheet.FACE_SHAPES`: oval, round, square, rectangular,
+triangular, invertedtriangular, diamond) at `shape_weight` (0..1, default 0.5; 0.3 reads as a leaning).
+
+How to read them: take a photo that looks straight at the face (a head turned 20 degrees hides a cheek and
+foreshortens every width - pick another photo), at least ~400 px across the face, neutral or nearly (a smile
+widens the mouth ~10%: take that off). Load it in the browser, draw a labelled pixel grid over a crop of each
+band (eyes and cheekbones; mouth, jaw and chin) with a canvas, and read the landmarks' pixel coordinates off
+the grid. Beards and hair hide edges: read the bony chin and the ear roots, not the beard's or hair's outline.
+Morgan Freeman, Taylor Swift and Ariana Grande read as above in about 5 minutes each (the three specs in
+grungist-creek's `characters/cast_{morgan,taylor,ariana}.toml` say which photo and what was measured).
+
+`landmarks.likeness` turns the ratios into targets with the body's own ANSUR bizygomatic breadth as the scale
+(the face stays the size of the body), and the face stage (`scaffold.fit_face`) adds, for each measure given,
+a group of MPFB levers (`scaffold.LIKENESS_FINE`) - the first moves only its own measure, the rest add range
+behind a stronger prior - and a residual measured on the mesh (`measure._face_features`: alar breadth,
+mouth corners, the outline at the mouth, nose base to chin, from `data/face_features.json`, which
+`scripts/derive_face_features.py` writes from MPFB's base mesh and targets). A likeness is always fitted
+(never reused) and never stored in the library. The fit's report has `likeness.fit` (each measure against its
+target, in tolerances) and names in `likeness.at_limit` (and a note) any measure that ran every one of its
+levers to the end of MPFB's range - the face asks for more than MPFB can give; check the photo reading.
+Measured: Taylor Swift and Ariana Grande within tolerance on every measure; Morgan Freeman's mouth 2.7 mm
+narrow and his jaw 7 mm wide (an aged body, fitted at 58 and then aged; and his beard hides the jaw's edge).
+It sets proportions, not identity: skin detail, expression, makeup and hair do the rest.
 
 **Ages ANSUR did not measure.** `sheet.resolve` returns `ansur`: `"measured"` for 17-58, `"aged"`
 above, `"child"` below, and for the last two a note containing `sheet.NOT_MEASURED` ("not measured
@@ -310,6 +348,22 @@ the hair stage joins them into the body with the rest of the hair.
 - **Body hair** (off unless asked) is a shell 0.3 mm off the skin cut by bone weight (and facing, on the
   torso), with the hair texture thinned to 22% of its strand bands, each staggered, repeating every 14 mm
   along the limb so it reads as short hairs.
+- **Beard** (`hair.add(beard=, beard_colour=)`, a brief's `hair.beard`, a spec's `[hair] beard` /
+  `beard_colour`; off unless asked): `brows.BEARD_STYLES` - `stubble` (0.3 mm off the skin), `short` (2.5 mm,
+  every strand band), `goatee` and `moustache`. A shell cut like body hair over regions placed from the face's
+  own features (`brows.beard_regions`: the mouth's slit and corners and the nose's base from
+  `face_features.json`, the chin as the lowest front point of the head, the head and neck weights):
+  `moustache` between the nose's base and the upper lip, `chin` below the lower lip, `jaw` along the jaw below a
+  line from the nose's base at the mouth's corner to the mouth's height 7 cm out; never the lips' red, the slit
+  or the nostrils, and below the chin only the jaw's underside (skin facing down - the neck's front faces
+  forward, and the first beard ran down the throat). U runs round the face about a vertical axis 7 cm behind
+  the mouth (U from x smeared strands into bands on the side of the jaw); V hangs down. Colour: the hair colour
+  times 0.95 unless `beard_colour`. The report's `face.parts.beard` has the regions' vertex counts and the marks.
+- **Fringe** (`hair.add(fringe=True)` or a dict over `hair.FRINGE`, a brief's `hair.fringe`, a spec's
+  `[hair] fringe = true`): a sheet over any preset from near the crown (0.95 h) down to the brows (0.2 h),
+  62 degrees either side of the front, hung straight down from the widest point above (over the brow ridge,
+  not into the hollow under it), 3 mm off the forehead at its ends, thinning to nothing at its sides under the
+  fall, its ends 8 mm ragged. Its numbers merge in only when asked, so no preset's hash moves.
 - **Colour and material:** the `[hair]` colour's sRGB times 0.6 for brows, 0.35 for lashes, 0.8 for body hair;
   lookdev's hair material with per-part strand settings (`brows.LOOK`), so glTF carries MASK, the strand and
   normal textures and the `lookdev` extras. They ask Godot for **alpha scissor** (`transparency` 2) instead of

@@ -49,8 +49,9 @@ values reported (`tiles[view]`):
 - `subject_margin` - how far the worst of those points is inside the tile's nearest edge (negative outside);
   under `MARGIN` the tile cuts off part of what it is for (`cut`, naming the points) - a palm camera 3 cm up
   the arm keeps the centroid central and puts the fingertips on the edge;
-- `on_body` - whether the figure covers the tile at that projected centroid, for views whose subject is
-  on the body (not the gap between the feet or the thighs) (`off_body`).
+- `on_body` - whether the figure covers the tile at that projected centroid, or else under at least
+  `ON_BODY_SHARE` of the subject's own points (a spread hand's centroid falls between thumb and fingers), for
+  views whose subject is on the body (not the gap between the feet or the thighs) (`off_body`).
 A failed tile is still written and labelled; `failed` lists `view: reason` and the caller decides (the
 pipeline's review stage raises). `aim_override` moves a view's target onto another bone or by a world
 offset while the checks keep the view's own subject: the control that a wrongly aimed camera fails.
@@ -88,6 +89,7 @@ OFF_BODY_OK = ("feet", "crotch", "knees")
 MIN_COVERAGE = 0.05       # a tile the figure covers less of shows no body
 CENTRAL = 0.3             # the subject's centroid within this of the centre (0.5 = the tile's edge), each axis
 MARGIN = 0.04             # every subject point at least this far inside the tile's edges (0.5 = the centre)
+ON_BODY_SHARE = 0.5       # a body view whose centroid misses the figure passes if this share of its points hit it
 # hand_back's camera direction, as weights of (the back of the hand's normal, the body's front, world up): from
 # the outside front, a little below the knuckles - from above, the curled fingertips hide the nails
 HAND_BACK = (1.0, 0.8, -0.4)
@@ -707,13 +709,20 @@ def look_set(meshes, rig_name, out_dir, views=None, action=None, frame=None, und
                 if off > CENTRAL:
                     reasons.append("off_centre (subject centroid %.3f from the centre > %.2f)" % (off, CENTRAL))
                 h, w = mask.shape
-                x, y = int(cu * (w - 1)), int(cv * (h - 1))
-                if 0 <= x < w and 0 <= y < h:
-                    on_body = bool(mask[max(0, y - 2):y + 3, max(0, x - 2):x + 3].any())
-                else:
-                    on_body = False
+
+                def covered(u, v):
+                    x, y = int(u * (w - 1)), int(v * (h - 1))
+                    return 0 <= x < w and 0 <= y < h and bool(mask[max(0, y - 2):y + 3, max(0, x - 2):x + 3].any())
+
+                # the centroid, or else most of the subject's own points: a hand with its thumb spread puts the
+                # centroid of its wrist, knuckles and fingertips in the gap between thumb and fingers (Mei's left
+                # hand, 2026-09-21, the whole hand in the tile), while a camera aimed off the part it names puts
+                # its points on the backdrop as well
+                point_share = sum(covered(u, v) for u, v in uvs.values()) / len(uvs)
+                on_body = covered(cu, cv) or point_share >= ON_BODY_SHARE
                 if a["body"] and not on_body:
-                    reasons.append("off_body (no figure at the subject's centroid)")
+                    reasons.append("off_body (no figure at the subject's centroid, and %.0f%% of its points on "
+                                   "the figure < %.0f%%)" % (100 * point_share, 100 * ON_BODY_SHARE))
             path = os.path.join(out_dir, "%s.png" % view)
             _save_png(path, np.concatenate([rgb, band], axis=0))      # row 0 is the bottom: label on top
             files.append(path)
