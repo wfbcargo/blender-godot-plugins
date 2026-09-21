@@ -937,14 +937,23 @@ def _run_jitter(godot, project, where, name):
                 v = v.get(k) if isinstance(v, dict) else None
             return float("nan") if v is None else float(v)
 
-        detail = ("alpha phase %.3f amp %.3f | stride cv %.4f on / %.6f off | swing cv %.4f on / %.5f off"
-                  " | drift %.4f of %.4f cycles over %.0f s | skate mean %.4f on / %.4f off m"
+        # A run under `switch=` or a coarse `tick=` does not measure the one-clip cycle: the
+        # verifier SKIPS those checks there, and the row must not print their numbers as though
+        # they meant what they mean at 60 Hz on one clip (a green row read "stride cv 0.2244 on /
+        # 0.217367 off", which is the gait ladder, not the jitter).
+        coarse = any(a.startswith("switch=") for a in args) or any(
+            a.startswith("tick=") and float(a[5:]) > 1.5 / 60.0 for a in args)
+        cycle = ("[stride, swing and skate not measured under %s]"
+                 % " ".join(a for a in args if a.startswith(("switch=", "tick="))) if coarse else
+                 "stride cv %.4f on / %.6f off | swing cv %.4f on / %.5f off | skate mean %.4f on / %.4f off m"
+                 % (num("stride", "cv_on"), num("stride", "cv_off"), num("amplitude", "cv_on"),
+                    num("amplitude", "cv_off"), num("skate", "on", "mean_m"),
+                    num("skate", "off", "mean_m")))
+        detail = ("alpha phase %.3f amp %.3f | %s | drift %.4f of %.4f cycles over %.0f s"
                   " | %.2f + %.2f us per character per frame"
-                  % (num("dfa", "phase"), num("dfa", "amp"), num("stride", "cv_on"),
-                     num("stride", "cv_off"), num("amplitude", "cv_on"), num("amplitude", "cv_off"),
+                  % (num("dfa", "phase"), num("dfa", "amp"), cycle,
                      num("drift", "cycles_at_long"), num("drift", "bound_cycles"),
-                     num("drift", "seconds_long"), num("skate", "on", "mean_m"),
-                     num("skate", "off", "mean_m"), num("cost_us_per_frame", "phase"),
+                     num("drift", "seconds_long"), num("cost_us_per_frame", "phase"),
                      num("cost_us_per_frame", "amp"))
                   + "".join("\n            " + f for f in fails[:6]))
         rows.append((label, passed == should_pass, detail))

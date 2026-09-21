@@ -778,3 +778,39 @@ the lag the row goes red and the change gets read.
 - The 64-bit seed truncation through Godot's JSON parser, the cost check with no control, and
   `_lod_far()`'s camera lookup are all as the previous pass left them - each wants its own commit
   on main or on a later branch, for the reasons recorded above.
+
+### The 0.36.0 `--quick --jobs 3 --godot` run
+
+`C:/Users/pauli/AppData/Local/Temp/rw/jfix2/regress-0.36.0.log`, run 19:57-20:22 from the branch
+worktree against a scratch copy made and imported by `tools/scratch_project.py`
+(`C:/Users/pauli/AppData/Local/Temp/rw/jfix2/gp2`):
+
+    REGRESS DONE exit=1, 23 fixtures ok
+
+All 23 Blender fixtures green, **no golden moved** (the diff file is 12 lines and holds only the
+strand failure). **Eleven `verify_jitter` rows, all ok**: the base run, two `also` runs (`switch=7`
+and the new `tick=0.0667`) and nine must-fail controls - each now checked for failing on its named
+lines AND on nothing it has not declared:
+
+    ok  verify_jitter pipeline_woman: alpha phase 0.823 amp 0.805 | stride cv 0.0259 on / 0.000000 off
+    ok  verify_jitter pipeline_woman ... tick=0.0667: alpha phase 0.859 amp 0.825 | drift 0.0888 of 0.2160
+    ok  verify_jitter pipeline_woman ... tick=0.25 (must fail): worst gap 0.3380 <= 0.2160 cycles
+    ok  verify_jitter pipeline_woman ... spectrum=flat (must fail): 5 declared lines, nothing else
+    ok  verify_jitter pipeline_woman ... reanchor=target (must fail): worst gap 0.4289, trend +0.4200
+
+The single red row is **`verify_strands pipeline_ponytail`**, unchanged and still main's: 0.0060 /
+0.0065 / 0.0067 / 0.0067 m into the head at 30 / 60 / 120 / 240 fps, `swing_spread=1.050`. This
+branch touches no strand, follow-through or bake code. It blocks the round, not this branch.
+
+Selftests, after `--headless --import`, all exit 0 with no ERROR line: `FIGURE_STUDY SELFTEST
+PASSED (0 failures)` and `BELLE_SELFTEST PASSED` in my own scratch copy
+(`C:/Users/pauli/AppData/Local/Temp/rw/jfix2/gp`), `PEOPLE SELFTEST PASSED` in the branch's game
+worktree (which `scratch_project.py` leaves out on purpose). Both worktrees `git status --short`
+clean afterwards; the four addon `.gd` files are md5-identical between them.
+
+One last display fix, after that run: a `verify_jitter` row under `switch=` or a coarse `tick=`
+printed `stride cv 0.2244 on / 0.217367 off` - the verifier had SKIPPED those checks, and the row
+was still printing their numbers as though they meant what they mean at 60 Hz on one clip. Such a
+row now reads `[stride, swing and skate not measured under switch=7]`. The log above predates that
+change (it is display only, and no verdict depends on it); the row as it reads now is in
+`C:/Users/pauli/AppData/Local/Temp/rw/jfix2/regress-jitter-row.log`.
