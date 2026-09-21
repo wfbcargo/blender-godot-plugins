@@ -157,6 +157,25 @@ arms would tip the body forward. `cycle(upper={...})` / `idle(upper={...})`
 override, `upper=False` leaves the rest pose; bodies other than upright
 bipeds are untouched unless asked.
 
+**The axial chain is a lag ladder** (0.30.0, completed in 0.32.0). The legs
+drive the pelvis, the thorax chases the pelvis, and what the chain carries at
+its top chases the thorax - each rung reading the same drive a little later
+rather than mirroring the rung below it, by the lag `upper.response` (a driven
+damped oscillator) gives at that clip's stride frequency. No sign is written
+down anywhere: half a cycle of lag IS anti-phase, and it falls out as the fast
+limit. The segment frequencies are measured, not set - `mass.pendulum` on the
+mass model, through `upper.limb_frequencies` and `upper.head_frequency`
+(whose caveat is in its docstring: what sits on top of an upright chain is
+above its pivot, so its number is a gravitational time scale rather than a
+resonance). `trunk_hz`, `trunk_damping`, `arm_lag`, `hand_lag`, `head_lag` and
+`limb_damping` override; `head_lag=0.0` is the locked top that predates
+0.32.0. Every gait clip reports what it resolved to (`head_hz`,
+`head_lag_deg`, `trunk_lag_deg`) and, measured off the BAKED clip rather than
+off the prediction, what came out: `pelvis_thorax_phase_deg` and
+`thorax_head_phase_deg` (`upper.relative_phase`). Both should MOVE with speed -
+a rung that reads the same number at every speed is a rung that is not really
+there.
+
 **Gait styles** say how a body walks at a speed: `duty`, `stride_scale`,
 `lift_scale`, `bounce_scale`, `sway`, `min_knee` (and `extension`) on
 `plan`/`cycle`, gathered with `upper`, `posture`, `stance_width` and
@@ -164,6 +183,42 @@ bipeds are untouched unless asked.
 `child`, `brisk`, `relaxed`. `cycle(style="heavy")`,
 `idle(style=...)`, `move_set(options={"Walk": {"style": "child"}})`; a style
 has "walk", "run" and "idle" sections, and any explicit argument beats it.
+
+**Nobody is symmetric** (`variability.py`, since 0.33.0). A generated walk is mirror-symmetric to
+the last digit, which is one of the tells that nobody walked it. `cycle(variability={...})` /
+`move_set(variability={...})` take a character's own `[variability]` - `seed`, `asymmetry`,
+`jitter_phase`, `jitter_amp`, **every default 0** - and bake a FIXED left/right asymmetry into the
+arm swing, step length, shoulder dip and arm lag: one small signed per-side multiplier per
+channel, not noise, the same in every clip of that character and in every build of it. It is
+identity, so it belongs in the spec beside the body's height.
+
+It is drawn once from the seed, and the seed is **SHA-256 of the character's id** - never
+`hash()` (Python salts that per process), the clock or the process id - with each channel drawn
+from `<seed>:<channel>` rather than from a stream, so nothing depends on the order anything is
+asked for. Two builds of one spec are identical; two ids differ. `asymmetry = 0`, the default, is
+the identity exactly: gain 1.0, offset 0.0, no `variability` block in the report, the clip that
+was baked before this existed. `variability.SENSIBLE` (0.35) is what a real person is worth -
+arm swing up to +-12%, the two stance lines up to +-1% of a stroke apart (a step-length
+asymmetry of a few percent, which is normal; over 10% is a limp), shoulder dip up to +-9%, arm
+lag up to +-1.4% of a cycle - and 1.0 is the dial's end, not a person.
+
+**Step length is where the foot PLANTS, not how far it sweeps.** Both planted feet have to move
+back at the body's speed or one of them skates - the exporter refuses exactly that (`thigh.L is
+planted at a different speed from the other feet`) - and each foot travels one full stride a
+cycle in any walk that does not drift. What differs in an asymmetric walk is where the two
+stance lines sit along the travel direction, so the step from one foot to the other is not the
+step back. So the whole of it is one shift of each leg's stance centre, and `measure` reports
+`stance_offset_m` (the free value it moves, one for one) beside each foot's own `stride_m`,
+which must stay equal on both sides.
+
+Only `locomotion.cycle`'s roles (Walk, Trot, Run) take it, because only a cycle has two sides
+taking turns. `jitter_phase` and `jitter_amp` are the runtime half and are carried through to
+`<who>.moves.json` untouched, under one top-level `"variability"` key holding the **resolved**
+values a build used. `variability.measure(rig, clip)` reads per-side arm swing, step length and
+shoulder dip back off the BAKED clip (never off the parameter), with a `ratio` and a symmetry
+index per measure; a non-zero clip's report carries it under `variability.measured`.
+`RA_ASYM_MIRROR=1` gives both sides one side's draw (the clip comes out symmetric again) and
+`RA_ASYM_NONDETERMINISTIC=1` takes the seed off the process: the two controls that must fail.
 
 **A clip lasts one natural stride** (since 0.24.0): `cycle` keys `round(period x fps)` frames,
 between 16 (12 running) and the old fixed 32 (24), so played at its own rate it moves at its
@@ -477,6 +532,100 @@ godot --headless --path <project> -s res://addons/rig_anything/verify_moves.gd -
 
 It drives 0 -> walk -> each change-up -> run -> back down -> 0 and checks role, rate,
 hysteresis and phase at every step (`MOVES VERIFY PASSED`).
+
+**Per-cycle variability, so a looping clip stops reading as a loop (0.34.0).** The bake
+samples ONE cycle and Godot loops it, so nothing put inside a clip can differ from stride
+to stride: the variation has to be added at runtime. A manifest may carry
+
+```json
+"variability": {"seed": 11, "asymmetry": 0.0, "jitter_phase": 0.6, "jitter_amp": 0.6}
+```
+
+(the character pipeline resolves it from the spec's `[variability]` table). `MovesController`
+reads it into `gait_jitter.gd` and **does nothing at all when the key is absent**, which is
+every character built before it existed - absent is all zeros, and zero is off.
+
+Per cycle it draws two scalars. **Their spectrum is the point**: human stride intervals are
+persistent, with a detrended-fluctuation exponent (DFA alpha) near 0.8, not the 0.5 a naive
+`randf()` gives. A bank of 7 relaxations with time constants 1..729 cycles, weighted
+`tau^((beta-1)/2)` at beta 0.40, measures 0.80 +- 0.05 over 4096 cycles, for 7 multiply-adds
+per cycle (not per frame).
+
+- `jitter_phase` warps the playhead **inside** the stride: the timing of a footfall moves by
+  up to `0.06 x jitter_phase` cycles, and `MovesController.jitter_factor()` steers the
+  playhead onto (base phase + that bounded offset) rather than integrating a rate, so it
+  cannot accumulate. The mean stride time, and with it `implied_speed` time scaling and
+  planted feet, are unchanged over any run length.
+- `jitter_amp` scales the arm swing by `1 +- 0.15 x jitter_amp` through
+  `jitter_modifier.gd`, a `SkeletonModifier3D` over the arm roots `arm_pose` names and their
+  chains (6 bones on a human). **Arms only, deliberately**: scaling a leg would move where
+  the foot lands, which is the foot skate this must not add. It is LOD-gated on
+  `jitter_lod_distance_m` (30 m); the phase warp is one multiply and is not gated.
+
+Measured on study_man at 60 Hz, `jitter_phase = jitter_amp = 0.6`: stride-interval cv 0.026
+on / 0 off, arm-swing cv 0.063 on / 0.0036 off (the estimator's own floor), planted-foot
+travel 0.0272 m on against 0.0261 off (worst stance 0.309 against 0.328), 1.5 + 1.3 us per
+character per frame. The playhead gap does not accumulate, which is the claim that needs a long
+run rather than a tolerance: over **3706 cycles - one simulated hour of walking** - the gap
+never exceeds 0.178 of its 0.216-cycle bound and the trend fitted through 3600 samples of it
+carries +0.008 cycles. The same run with `naive=1` reaches 4.61 cycles, 6.0 m of ground.
+
+```bash
+godot --headless --fixed-fps 60 --path <project> -s res://addons/rig_anything/verify_jitter.gd --     manifests=res://assets/humans/who.moves.json            # add spectrum=white for the control
+```
+
+`verify_jitter.gd` measures all of the above and prints `RA_JIT VERIFY PASSED`. **Since 0.35.0 it
+also drives gait changes**: `switch=<seconds>` alternates the commanded speed between the slowest
+and the fastest gait on both the jittered and the plain body, so `jitter_factor`'s clip-change
+branch fires over and over instead of once at startup. That is how the branch's one real drift bug
+was found - the clip-change branch re-anchored the tracked playhead to the TARGET, which throws
+away one tracking lag per gait change: 17 changes reached a 0.449-cycle gap with a +0.42 trend,
+past the same 0.216 bound. It now re-anchors to where the playhead actually is, and 57 gait changes
+over 400 s read worst gap 0.116-0.123 with a trend of +0.014 to +0.018.
+
+**Since 0.36.0 it also drives a coarse tick.** `tick=<seconds>` advances the animation by that
+much per frame on BOTH bodies instead of by the engine's 1/60, which is what a throttled distant
+character gets. It is the condition the tracking term is visible in, and what it shows is not
+flattering: the error `jitter_track` corrects is formed with `_jit_theta` already advanced to the
+end of the tick and `_jit_phi` still at its start, so one tick of ordinary advance is counted as
+error and the loop settles one tick behind. That lag is 0.0167 cycles at 60 Hz - small, and what
+`reanchor=target` throws away per gait change - and **0.227 cycles at 4 Hz, which is larger than
+the 0.216 bound**: at `tick=0.25` the shipped playhead leaves its bound (worst gap 0.316) while
+the same run with the tracking term off reads 0.087. At `tick=0.0667` (15 Hz) it still holds,
+worst gap 0.133. So 0.25 s ships as a control - the rate at which this stops working, written
+down - and `MovesController.jitter_track_lead`, which forms the error at one instant and makes
+that run pass at 0.059, ships **off**: it also makes `reanchor=target` stop failing, because
+there is then no lag to throw away, and retiring a control that documents a real bug is a change
+to read on its own rather than to slip into a fix pass. The one-clip checks (stride, arm swing,
+pace, skate) are SKIPPED under `tick=` and under `switch=`, by name and with their raw numbers
+beside them, because neither mode can measure them - a skipped check does not print a bound it
+did not meet.
+
+Nine controls, each of which must fail, must fail on its own named line, and must fail on
+**nothing the table below does not name** - `tools/regress.py` checks all three since 0.36.0:
+
+| control | what it breaks |
+|---|---|
+| `spectrum=white` | one gaussian per cycle - what a naive implementation gives: DFA 0.50 against 0.82 |
+| `spectrum=flat` | the same knot every cycle: stride cv 0.0001 and arm-swing cv 0.7x the off floor |
+| `naive=1` | the warp's slope read off the clip's own playing phase: over 400 s worst gap 0.494, trend -0.503 against the 0.216 bound (the shipped path reads 0.134 and +0.042) |
+| `reanchor=target` | the pre-0.35.0 clip-change branch, with `switch=`: worst gap 0.449, trend +0.420 |
+| `rate=1` | the bounded offset used as a playback RATE: mean stride time 3.90% off, worst gap 1.79 |
+| `absent_on=0.6` | a manifest with no `variability` resolving to jitter instead of to off |
+| `lod_m=0` | the distance gate turned off: the modifier runs 60/60 frames past the boundary |
+| `ctl=legs` | `arm_pose` pointed at the thighs, so the modifier builds over the leg chain (it also fails the skate line, 0.0465 m against 0.0368 off - which is the whole "arms only" argument) |
+| `tick=0.25` | the animation advanced 4 times a second: the tracking term's one-tick lag, 0.227 cycles, is larger than the 0.216 bound (worst gap 0.316) |
+
+`ctl=legs` is the control for the check that "arms only" is true by NAME rather than by
+consequence: the verifier walks up from every foot the manifest names, as far as the chain the arm
+roots hang from, and requires the modifier collected none of it. The drift check fits the trend
+through a sample a second over the whole run rather than comparing two endpoints, because a gap
+that wanders inside a bound and one that grows have the same endpoints often enough that the
+endpoint form false-failed a clean 3600 s run; and it prints the two halves of the gap free - how
+large an offset was COMMANDED (bounded by construction) and how far the playhead ever LAGGED it
+(0.016 cycles, against a commanded 0.15) - so a run near the bound can be read as a large knot
+rather than as a slipping controller. `regress.py --godot` runs the verifier, the `switch=` run and
+all eight controls on `pipeline_woman`.
 
 **8. Wings: fold, flap, glide.** Any free limb whose skin is a sheet is a wing
 (see `animate-anything`'s `references/wings.md`):

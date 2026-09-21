@@ -675,7 +675,10 @@ def run_moves(ch, ctx):
         options[role] = dict(held, froude=froude)
     for role, extra in ch.moves.per_gait.items():
         options[role] = dict(options.get(role, {}), **extra)
-    res = actions.move_set(ch.rig, prefix=ch.name, roles=tuple(ch.moves.roles), options=options)
+    # This character's own fixed left/right asymmetry, drawn from its identity. None or
+    # `asymmetry = 0` (the default) is the identity and every clip is the one it always was.
+    res = actions.move_set(ch.rig, prefix=ch.name, roles=tuple(ch.moves.roles), options=options,
+                           variability=variability_block(ch))
     if "error" in res:
         raise RuntimeError(f"moves: {res['error']}")
     out = {}
@@ -687,6 +690,10 @@ def run_moves(ch, ctx):
         out[role] = {"action": r["action"], "passed": r.get("passed"), "failures": r.get("failures", [])[:4],
                      "stance_width": r.get("stance_width"), "drop_m": r.get("drop_m"),
                      "arm_out": up.get("arm_out"), "arm_clearance_m": r.get("arm_clearance_m")}
+        if r.get("variability"):
+            # what the asymmetry did, measured off the baked clip - only present when a spec
+            # opted in, so a character at the default reports exactly what it always reported
+            out[role]["variability"] = r["variability"]
     for role in ch.moves.clearance_check:
         c = verify.limb_clearance(ch.rig, res[role]["action"], mesh_name=ch.mesh, every=2)
         out[role]["limb_clearance"] = {k: c.get(k) for k in ("closest_m", "at_frame", "samples_inside", "error")
@@ -792,6 +799,27 @@ def check_export(ch):
     return None
 
 
+def variability_block(ch):
+    """The seam's `variability` block for this character: the RESOLVED values a build used, or
+    None when the spec has no `[variability]`.
+
+    {"seed": int, "asymmetry": float, "jitter_phase": float, "jitter_amp": float}. An unstated
+    seed is derived from `character.id`, so it is the same in every build of this spec and
+    different for every other character. rig-anything bakes `asymmetry`; the two jitter dials
+    are the runtime half and are carried through untouched for the engine to read."""
+    if ch.variability is None or not ch.variability.asked():
+        # An empty `[variability]` table asks for nothing, so it is nothing: it is left out of
+        # the moves hash (`spec.Character.section`) and it writes no manifest key either, or the
+        # two would disagree - a spec that added the empty table would hash the same, skip
+        # export, and never grow the key it had just asked for.
+        return None
+    from rig_analysis import variability as ra_var
+    try:
+        return ra_var.resolve(ch.variability.table(), ch.id)
+    except ra_var.VariabilityError as e:
+        raise RuntimeError(f"[variability]: {e}") from e
+
+
 def run_export(ch, ctx):
     from rig_analysis import export as ra_export, stored
     from wardrobe import presets
@@ -822,6 +850,12 @@ def run_export(ch, ctx):
         extra["strands"] = [f"{ch.export.res_dir}/{ch.id}_hair.glb"]
     if ch.body.source == "brief":
         extra["brief"] = dict(ch.body.brief, name=ch.name)
+    # The seam: ONE top-level key, holding the resolved values this build actually used. Written
+    # only for a spec with a [variability] table, so every manifest built before this key existed
+    # stays byte-for-byte what it was.
+    var = variability_block(ch)
+    if var is not None:
+        extra["variability"] = var
     e = ra_export.export_character(ch.mesh, ch.rig, glb, name=ch.name, creature=ch.id, reports=reports,
                                    res_path=f"{ch.export.res_dir}/{ch.id}.glb", roles=list(ch.moves.roles),
                                    loops=list(ch.moves.loops), gaits=list(ch.moves.export_gaits),

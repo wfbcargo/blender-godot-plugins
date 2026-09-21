@@ -91,7 +91,7 @@ DEFAULT_TOLERANCE = 1e-3
 # starts early rather than at the tail.
 DURATIONS = {  # 2026-09-18, `--jobs 2` on main at 5a218d3
     "rabbit": 193, "cricket": 182, "pipeline_muscle": 130, "dressed_presets": 69, "pipeline_woman": 67,
-    "dressed_skirts": 55, "flesh_figure": 54, "traced_detail": 53, "rigify_human": 53, "quadruped": 49,
+    "dressed_skirts": 55, "flesh_figure": 54, "traced_detail": 53, "rigify_human": 230, "quadruped": 49,
     "mpfb_woman_curvy": 49, "pipeline_ponytail": 40, "dressed_figure": 38, "hair_presets": 36,
     "strand_ponytail": 32, "muscle_definition": 31, "mixamo_names": 21, "skin_detail": 18,
     "review_sheet": 9, "starfish": 6, "pipeline_paths": 28,
@@ -448,6 +448,82 @@ GODOT_STRANDS = {
                                        (["mod=smooth_hz:0"],
                                         ["starting swing differs across frame rates"])]},
 }
+# A fixture named here has its gait jittered by rig-anything's `verify_jitter.gd`: the per-cycle phase
+# and amplitude series' DFA exponent, whether stride timing and arm swing actually vary cycle to cycle
+# (and are exactly periodic with jitter off), that the jittered playhead never drifts from the plain one,
+# that planted feet travel no further, what it costs per frame, and that a manifest with no `variability`
+# key - every character built before the seam - reads as all zeros and off. Two controls, each of which
+# must fail and must fail on the lines named with it - a control that failed for some other reason would
+# prove nothing. `spectrum=white` is one gaussian per cycle, what a naive randf() gives (it reads DFA 0.50
+# against the shipped 0.82), so a DFA check that stops telling a persistent series from a white one fails
+# the harness. `naive=1` reads the warp's slope off the clip's own playing phase instead of the
+# unjittered one - the implementation a first attempt gives - whose per-cycle bias of about 1.2 x gain^2
+# does not telescope (over 400 s study_man's worst gap is 0.494 cycles and the trend fitted through a
+# sample a second of it -0.503, both past the 0.216 bound, against 0.134 and +0.042 for the shipped one),
+# so a drift check that stops seeing accumulated phase error fails the harness too.
+# `also` is a second run that must ALSO pass: `switch=7` changes gait every 7 s for the whole run,
+# which is the only thing that drives `jitter_factor`'s clip-change branch more than once. Without
+# it the verifier drove one clip from start to finish while a real character changes gait
+# constantly, and the branch was wrong: re-anchoring the tracked playhead to the target threw away
+# one tracking lag per change, so 17 changes reached a 0.449-cycle gap with a +0.42 trend, past the
+# same 0.216 bound (rig-anything 0.35.0 fixes it; `reanchor=target` is that old shape, kept as the
+# control). Every other control below covers a check that had none: `spectrum=flat` warps the
+# playhead and scales the arm by the same amount every cycle, so the two "it varies" checks must
+# fail; `absent_on=0.6` makes a manifest with NO `variability` block resolve to jitter, which is
+# what off-by-default must never mean; `lod_m=0` turns the distance gate off; `ctl=legs` points
+# `arm_pose` at the thighs so the amplitude modifier builds over the legs - the one thing the
+# "arms only, so it cannot add foot skate" argument rules out; `rate=1` uses the bounded offset as
+# a playback-RATE multiplier, the other plausible first attempt, which moves the mean stride time;
+# `tick=0.25` advances the animation 4 times a second instead of 60, which is what a throttled
+# distant character gets, and there the tracking term's one-tick lag is larger than the bound.
+GODOT_JITTER = {
+    "pipeline_woman": {"manifest": "fixwoman.moves.json",
+                       "args": ["cycles=4096", "seconds=40", "long=160"],
+                       "also": [["cycles=1024", "seconds=20", "long=400", "switch=7"],
+                                ["cycles=1024", "seconds=20", "long=400", "tick=0.0667"]],
+                       # (control args, the lines it EXISTS to fail, the lines it is also allowed
+                       # to fail). The third list is not a courtesy: every failure a control
+                       # produces has to be named, or the control has stopped being one thing.
+                       "controls": [(["spectrum=white"], ["phase series DFA alpha",
+                                                          "amplitude series DFA alpha"],
+                                     # white noise steps the phase where the persistent series
+                                     # glides, and the foot pays for it: this same control reads
+                                     # 0.0345 m of skate against the shipped 0.0281
+                                     ["planted-foot travel is no worse"]),
+                                    (["naive=1", "long=400"], ["does not grow with the run"],
+                                     ["stays inside the offset bound"]),
+                                    (["cycles=1024", "seconds=20", "long=120", "switch=7",
+                                      "reanchor=target"],
+                                     ["stays inside the offset bound", "does not grow with the run"],
+                                     []),
+                                    # a tick coarse enough that the tracking term's one-tick lag
+                                    # (0.227 cycles at 4 Hz, against 0.0167 at 60) is most of the
+                                    # gap. This is where the shipped controller stops holding its
+                                    # bound, and it is a control so that the day it holds - the
+                                    # `jitter_track_lead` experiment does hold it, at 0.059 - the
+                                    # row goes red and the change gets read rather than absorbed.
+                                    (["cycles=1024", "seconds=20", "long=400", "tick=0.25"],
+                                     ["stays inside the offset bound"], []),
+                                    (["cycles=1024", "seconds=16", "long=16", "spectrum=flat"],
+                                     ["stride interval varies", "arm swing varies cycle to cycle"],
+                                     # a constant series has no fluctuation to detrend (DFA is NaN)
+                                     # and sits at its own mean rather than zero
+                                     ["phase series DFA alpha", "amplitude series DFA alpha",
+                                      "phase series is bounded and centred"]),
+                                    (["cycles=1024", "seconds=16", "long=16", "absent_on=0.6"],
+                                     ["no `variability` in the shipped manifest",
+                                      "the rate factor is exactly 1.0"], []),
+                                    (["cycles=1024", "seconds=16", "long=16", "lod_m=0"],
+                                     ["LOD: the amplitude modifier runs"], []),
+                                    (["cycles=1024", "seconds=16", "long=16", "ctl=legs"],
+                                     ["the modifier reaches no leg"],
+                                     # the whole point of "arms only": a modifier over the thighs
+                                     # reads 0.0465 m of skate against 0.0368 off
+                                     ["planted-foot travel is no worse"]),
+                                    (["cycles=1024", "seconds=16", "long=16", "rate=1"],
+                                     ["mean stride time is unchanged by jitter"],
+                                     ["stays inside the offset bound", "does not grow with the run"])]},
+}
 # A fixture named here has its body looked at in Godot by lookdev's `close-shot` (the head, eye and hand
 # views and full, under one preset, beside the fixture's own Blender close set from the review stage when
 # it wrote one), and must pass every tile check; each of `controls` is the same run with its own args and
@@ -644,7 +720,7 @@ def run_godot(godot, project, out_root, names):
     Returns [(fixture or check, passed, one-line detail)]."""
     stage = project / GODOT_STAGE
     shutil.rmtree(stage, ignore_errors=True)
-    results, manifests, wardrobe, flesh, strands, lookdev = [], [], [], [], [], []
+    results, manifests, wardrobe, flesh, strands, lookdev, jitter = [], [], [], [], [], [], []
     try:
         for name in names:
             src = out_root / name
@@ -682,9 +758,11 @@ def run_godot(godot, project, out_root, names):
                 flesh.append(name)
             if name in GODOT_STRANDS:
                 strands.append(name)
+            if name in GODOT_JITTER:
+                jitter.append(name)
             if name in GODOT_LOOKDEV:
                 lookdev.append(name)
-        if not manifests and not wardrobe and not flesh and not strands and not lookdev:
+        if not manifests and not wardrobe and not flesh and not strands and not lookdev and not jitter:
             return results or [("godot", True, "no fixture in this run exports anything Godot checks")]
 
         code, out = _godot(godot, project, "--import")
@@ -733,6 +811,8 @@ def run_godot(godot, project, out_root, names):
             results += _run_jiggle_selftest(godot, project)
         for name in strands:
             results += _run_strands(godot, project, stage / name, name)
+        for name in jitter:
+            results += _run_jitter(godot, project, stage / name, name)
         for k, name in enumerate(lookdev):
             results += _run_lookdev(godot, project, stage / name, out_root / name, out_root / "_lookdev" / name,
                                     name, selftest=k == 0)
@@ -800,6 +880,82 @@ def _run_jiggle_selftest(godot, project):
             passed = True            # failed, but not on the spring's shape: that is not the control failing
         detail = verdict[-1] + "".join("\n            %s fps: below/above %s, ap/side %s" % (k, v.get("down_up"), v.get("ap_side"))
                                        for k, v in sorted(r.get("rates", {}).items())) + "".join("\n            " + f for f in fails[:4])
+        rows.append((label, passed == should_pass, detail))
+    return rows
+
+
+def _run_jitter(godot, project, where, name):
+    """GODOT_JITTER's run on one fixture's manifest and its must-fail control: [(check, passed, detail)]."""
+    spec = GODOT_JITTER[name]
+    found = sorted(where.rglob(spec["manifest"]))
+    if not found:
+        return [("verify_jitter %s" % name, False, "the fixture did not export %s" % spec["manifest"])]
+    res = "manifests=res://" + found[0].relative_to(project).as_posix()
+    rows = []
+    runs = [("verify_jitter %s" % name, spec["args"], True, [], [])]
+    runs += [("verify_jitter %s %s" % (name, " ".join(a)), spec["args"] + a, True, [], [])
+             for a in spec.get("also", [])]
+    runs += [("verify_jitter %s %s (must fail)" % (name, " ".join(ctl)), spec["args"] + ctl, False, must, allowed)
+             for ctl, must, allowed in spec["controls"]]
+    for label, args, should_pass, must, allowed in runs:
+        code, out = _godot(godot, project, "--fixed-fps", "60", "-s",
+                           "res://addons/rig_anything/verify_jitter.gd", "--", res, *args)
+        verdict = [l for l in out.splitlines() if l.startswith("RA_JIT VERIFY")]
+        line = [l for l in out.splitlines() if l.startswith("RA_JITTER ")]
+        if not verdict or not line:
+            rows.append((label, False, "no RA_JITTER / RA_JIT VERIFY, exit %s: %s"
+                         % (code, " | ".join(out.strip().splitlines()[-3:]))))
+            continue
+        r = json.loads(line[-1][len("RA_JITTER "):])
+        passed = code == 0 and "PASSED" in verdict[-1]
+        fails = [l.split("FAIL", 1)[1].strip() for l in out.splitlines() if l.startswith("RA_JIT  FAIL")]
+        if not should_pass:
+            # A control has to fail on ITS OWN line, and on nothing the spec has not named. The
+            # first half was here; the second was claimed in a report and not enforced, and two
+            # controls did quietly fail extra lines (`spectrum=flat` failed five, `spectrum=white`
+            # three). A consequence a control genuinely has is declared beside it in `allowed`, so
+            # the log says which failures were expected; anything else makes the row red, because
+            # a control that fails for a second, unnoticed reason has stopped proving what it is
+            # here to prove.
+            missing = [w for w in must if not any(w in f for f in fails)]
+            extra = [f for f in fails if not any(w in f for w in must + allowed)]
+            if missing or extra:
+                why = []
+                if missing:
+                    why.append("it did not fail on " + " and ".join(missing))
+                if extra:
+                    why.append("it also failed on %d line(s) the control does not declare: %s"
+                               % (len(extra), " | ".join(e[:90] for e in extra[:3])))
+                rows.append((label, False, "; ".join(why) + " - that is not this control failing"))
+                continue
+        # A control may leave a measurement undefined - `spectrum=flat` has no DFA exponent,
+        # because a constant series has no fluctuation to detrend - and Godot writes that as null.
+        # Printing the row must not be what decides whether the control counted.
+        def num(*keys):
+            v = r
+            for k in keys:
+                v = v.get(k) if isinstance(v, dict) else None
+            return float("nan") if v is None else float(v)
+
+        # A run under `switch=` or a coarse `tick=` does not measure the one-clip cycle: the
+        # verifier SKIPS those checks there, and the row must not print their numbers as though
+        # they meant what they mean at 60 Hz on one clip (a green row read "stride cv 0.2244 on /
+        # 0.217367 off", which is the gait ladder, not the jitter).
+        coarse = any(a.startswith("switch=") for a in args) or any(
+            a.startswith("tick=") and float(a[5:]) > 1.5 / 60.0 for a in args)
+        cycle = ("[stride, swing and skate not measured under %s]"
+                 % " ".join(a for a in args if a.startswith(("switch=", "tick="))) if coarse else
+                 "stride cv %.4f on / %.6f off | swing cv %.4f on / %.5f off | skate mean %.4f on / %.4f off m"
+                 % (num("stride", "cv_on"), num("stride", "cv_off"), num("amplitude", "cv_on"),
+                    num("amplitude", "cv_off"), num("skate", "on", "mean_m"),
+                    num("skate", "off", "mean_m")))
+        detail = ("alpha phase %.3f amp %.3f | %s | drift %.4f of %.4f cycles over %.0f s"
+                  " | %.2f + %.2f us per character per frame"
+                  % (num("dfa", "phase"), num("dfa", "amp"), cycle,
+                     num("drift", "cycles_at_long"), num("drift", "bound_cycles"),
+                     num("drift", "seconds_long"), num("cost_us_per_frame", "phase"),
+                     num("cost_us_per_frame", "amp"))
+                  + "".join("\n            " + f for f in fails[:6]))
         rows.append((label, passed == should_pass, detail))
     return rows
 
