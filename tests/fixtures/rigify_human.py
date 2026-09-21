@@ -57,6 +57,21 @@ HEAD_RUNG_FROUDE = (0.05, 1.2)
 HEAD_RUNG_SWEEP_DEG = 20.0
 HEAD_RUNG_CASES = (("derived", None), ("control_locked_head", {"head_lag": 0.0}))
 
+# The mass model is a property of the BODY, not of the clip, but every role
+# builds its own `motion.Body`, so before the cache a seven-role set solved the
+# same unchanged skin four separate times - 7.32 s of an 18.42 s move set on
+# Belle, and the whole of the `moves` regression the benchmark caught.
+#
+# A cache is only ever as good as the thing that invalidates it, so invalidation
+# is what is checked here, not the speed. Move one vertex and the model must be
+# taken again. `control_pinned_key` is the control that MUST fail: it holds the
+# fingerprint still - exactly the bug a careless key would have - and so serves
+# the STALE mass for a body that has changed. Its verdicts are False in the
+# golden, so this check fails if invalidation ever breaks AND if the control ever
+# stops working.
+MASS_CACHE_LIFT_M = 0.05
+MASS_CACHE_CASES = (("keyed_on_the_body", False), ("control_pinned_key", True))
+
 # Walks in a style, and what each style must keep of its own (`locomotion.GAIT_STYLES`).
 STYLED_WALKS = ("child", "elderly_shuffle", "heavy")
 STYLED_HEADLINE = ("passed", "failures", "stance_knee_flex_deg", "vault", "vault_drop_m", "drop_m",
@@ -164,6 +179,7 @@ def build():
                                            and got["sweep_deg"] >= HEAD_RUNG_SWEEP_DEG)
             head_rung[label] = got
         asymmetry = H.stable(_asymmetry(rig))
+        mass_cache = H.stable(_mass_cache(rig))
     finally:
         window.scene = previous
 
@@ -178,6 +194,7 @@ def build():
         "styled_walks": styled,
         "head_rung": head_rung,
         "asymmetry": asymmetry,
+        "mass_cache": mass_cache,
         "export": {"exported": exported.get("exported"), "stage": exported.get("stage"),
                    "note": exported.get("note"), "dropped_clips": H.stable(exported.get("dropped_clips")),
                    "verified": H.stable(exported.get("verified")),
@@ -192,6 +209,64 @@ def build():
         "moves_json": H.moves_manifest(char),
         "review": H.review_sheet(char.get("review")),
     }
+
+
+def _mass_cache(rig):
+    """Does the body-mass cache reuse an unchanged body, and drop a changed one?
+
+    Both cases move the SAME vertex by the same amount; they differ only in
+    whether the key is allowed to notice. `measure` is counted rather than timed,
+    because a count is the same number on every machine.
+    """
+    import bpy
+    from rig_analysis import bodymap, mass, motion
+
+    bm = bodymap.build(rig, forward="-Y", up="Z")
+    rig_object = bpy.data.objects[rig]          # `rig` is a NAME here, as move_set takes one
+    real_measure, real_fingerprint = mass.measure, mass._fingerprint
+    calls = {"n": 0}
+
+    def counted(*a, **k):
+        calls["n"] += 1
+        return real_measure(*a, **k)
+
+    def fresh():
+        """A new Body, as every role's maker makes one - no per-Body cache to hit."""
+        return motion.Body(rig_object, bm)
+
+    out = {}
+    mesh = bpy.data.objects[BODY].data
+    home = tuple(mesh.vertices[0].co)
+    try:
+        mass.measure = counted
+        for label, pinned in MASS_CACHE_CASES:
+            mass._MEASURED.clear()
+            mesh.vertices[0].co = home
+            if pinned:
+                mass._fingerprint = lambda name: "pinned"
+            else:
+                mass._fingerprint = real_fingerprint
+            calls["n"] = 0
+            first = mass.body_mass(fresh())
+            again = mass.body_mass(fresh())          # unchanged: must NOT measure again
+            reused = calls["n"]
+            mesh.vertices[0].co = (home[0], home[1], home[2] + MASS_CACHE_LIFT_M)
+            after = mass.body_mass(fresh())          # changed: MUST measure again
+            out[label] = {
+                "measures_once_when_unchanged": bool(reused == 1),
+                "measure_calls_for_two_bodies": reused,
+                "total_kg": None if not first else round(first.get("total_mass", 0.0), 4),
+                "total_kg_after_edit": None if not after else round(after.get("total_mass", 0.0), 4),
+                # the free values above, the verdict below
+                "noticed_the_edit": bool(first and after
+                                         and first.get("total_mass") != after.get("total_mass")),
+            }
+            assert again is not None or first is None
+    finally:
+        mass.measure, mass._fingerprint = real_measure, real_fingerprint
+        mass._MEASURED.clear()
+        mesh.vertices[0].co = home
+    return out
 
 
 def _asymmetry(rig):
