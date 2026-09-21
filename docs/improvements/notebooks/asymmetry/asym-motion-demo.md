@@ -258,3 +258,12 @@ Per channel, on what the game plays:
   duplicate frame (~0.006 on a symmetric loop), the bake reads 0.0117.
 - No third-person perceptibility threshold for arm swing asymmetry was found; the arm-swing verdict rests
   on the normal range, not on perception.
+
+## Final checks (05:07)
+
+- `python tools/regress.py --quick --jobs 4 --godot <game worktree>` (log
+  `%TEMP%/rw/amd/final_quick_regress.log`): the only changed path is this notebook, so it selects 0 of 24
+  fixtures - `REGRESS DONE exit=0, 0 fixtures ok`. No plugin code changed; the ship step's full run covers
+  the round.
+- Nothing under `assets/`, `characters/` or any blend changed: `git diff --stat master..HEAD` in the game
+  lists `motion_demo.gd` and the four addon files only. The blends read here were scratch copies.
