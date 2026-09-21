@@ -17,18 +17,29 @@ project they are exercised on is `C:/Users/pauli/Code/GoDot/grungist-creek`. Pla
   proves a change is a fresh build of the characters it affects (`character-pipeline/scripts/build_many.py`)
   and the game's demo self-tests passing in Godot - not the regression suite.
 - **The regression suite is optional, and never a merge gate.** It was consistently the slowest part of a
-  round (10-20+ minutes for `--twice --godot`) and the least useful. Run `--quick` only when a change
-  touches shared code whose other callers you cannot build fresh (a creature rig, a fixture-only path),
-  and read it for **crashes and pass/fail flips**, not for values that moved:
+  round (10-20+ minutes for `--twice --godot`) and the least useful. Keep what it is good at, cheaply:
+  - **Run `--quick` in the background and never wait on it.** Start it when a change touches shared code,
+    carry on building and looking, and when it ends read it for **crashes and pass/fail flips** only - a value
+    that moved is expected when behaviour was meant to change; do not chase it or block a merge on it. It
+    earns its keep there: in the likeness round it alone caught a knee change that took a crouch, a jump and
+    a slide off the rest pose (a fresh build of the humans did not show it).
+  - **Re-record the goldens at the end of every round, unreviewed** (`--update`, one command, run in the
+    background), so the next round's run is quiet and a real flip stands out. A suite nobody refreshes fills
+    with CHANGED rows until no one can see a failure in it.
+  - **When a change touches shared rig code, also build one creature fresh** (the cricket, rabbit or quadruped
+    fixture), not only humans: they share rig-anything's legs and a human round never rebuilds them.
 
   ```
-  python tools/regress.py --quick --jobs 2      # optional: only the fixtures the change reaches
+  python tools/regress.py --quick --jobs 2      # background: only the fixtures the change reaches
+  python tools/regress.py --update --jobs 2     # background, end of round: goldens follow what shipped
   ```
 
-  A CHANGED row whose checks still pass is expected when behaviour was meant to change - do not chase it,
-  and do not block a merge on it. Goldens go stale between rounds; refresh them (`--update`) only when
-  someone is about to rely on the suite. Never widen a tolerance to hide a real failure. Every run ends
-  with `REGRESS DONE exit=N, K fixtures ok` and prints the path of the full diff. See `tests/README.md`.
+  Never widen a tolerance to hide a real failure. Every run ends with `REGRESS DONE exit=N, K fixtures ok`
+  and prints the path of the full diff. See `tests/README.md`.
+- **Catch it upfront.** The goal is plugins that guide the work to a great design quickly, so a mistake found
+  by a check before a build is worth far more than one found by looking after it. When a round finds a
+  mistake by eye, add the check that would have caught it first (a spec refusal, a stage check, a warning
+  with the fix in it) - `docs/improvements/NEXT.md`, "Catch it upfront", lists the open ones.
 - **Install only with `tools/install.py <plugin>` or `--all`.** It is the only path into
   `~/.claude/skills`, which is what Claude Code loads. It refuses to overwrite a copy that was edited
   in place: move that edit into the repo first. Other machines get a change by push and

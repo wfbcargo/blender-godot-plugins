@@ -37,6 +37,41 @@ SKILL.md) - a landmark detector would make it one call. Likenesses set proportio
 expression and makeup are still missing. The first builds' review took 61-73 s against 6-9 s since: a cold
 cache on first use, not a steady cost.
 
+### Catch it upfront (from the likeness round, 2026-09-21)
+
+The goal is plugins that guide the work to a great design quickly - catch a mistake before a build rather than
+correct it after. Each item below cost this round one or more rebuild-and-look loops; each says the check that
+would have caught it first. Highest value first:
+
+1. **Review in Godot's look, not only Blender's.** The dress's bust points and the beard's square patches were
+   invisible or different in the review stage's Blender close-ups and obvious in Godot (4 rebuilds for the beard,
+   3 for the dress). Render the review close-up set through lookdev's Godot `close-shot` (or add it beside the
+   Blender set), so what is judged is what ships.
+2. **A body check for the knee's bend plane.** Ariana's bow legs came from her fitted rest skeleton (knee 10.9 mm
+   out against 22.5 forward). rig-anything now bends in plane and warns, but humanform's humancheck should fail a
+   rest knee more than ~10 degrees across the leg before anything is animated.
+3. **Build an extreme body in every round's smoke test.** A 1.53 m petite woman found two false failures (turns,
+   close-up `off_body`) and the bow legs; the six reference figures are all 1.57-1.80 m and none is petite. Keep
+   a small set - petite, very tall, elderly, heavy - in `build_many` as the round's fresh-build check.
+4. **Lint garment presets for relief.** `dress_sleeveless` had no ease and no `detail_limit`, so nothing measured
+   what it carried of the body. Any preset over the bust or belly should have to declare `detail_limit`, and a
+   preset without one should refuse to load.
+5. **A likeness helper instead of hand-reading photos.** Reading six ratios took ~5 minutes a face through a
+   browser canvas grid, and the first photo of two of the three people was unusable (turned). A script (or a
+   face-landmark model) that takes a photo, checks it is frontal, and returns the ratios would make it one call;
+   the pipeline could then refuse a turned photo instead of fitting to one.
+6. **Say when a likeness is fitted and then changed.** Morgan's face is fitted at 58 and aged after; the fit's
+   `likeness.fit` reports the pre-ageing numbers. Re-measure after ageing and report both.
+7. **Policy for real people up front.** Nothing in a spec says a character is a real person's likeness; the build
+   decided by hand to leave out breast and butt jiggle and to fix a dress that showed the body. A spec field
+   (`[character] likeness = true`) could make flesh refuse those types and require garments with a detail limit.
+8. **Name the photo and its readings in the spec.** The specs carry them as comments; a `[body.face] source`
+   field (file, pixel readings) would let a later round re-check a reading without redoing it.
+
+Tooling friction that was not the plugins (worth knowing, not fixing here): bash heredocs broke on apostrophes
+three times (write a patch file and run it instead); the browser pane's screenshots time out while it is hidden
+(retry); Wikimedia serves only its standard thumbnail widths (500, 960, 1280...).
+
 **Figures in the game:** all nine (study_man, study_woman, Belle, Marco, Mei, Ruth, and the likeness NPCs
 Taylor, Morgan, Ariana) are on rig-anything 0.39.0 with `[variability] asymmetry = 0.35`, built by
 `build_many.py`; the blends live in `C:/Users/pauli/Code/Blender` (the game's `characters/pipeline.toml`).
