@@ -94,7 +94,7 @@ DURATIONS = {  # 2026-09-18, `--jobs 2` on main at 5a218d3
     "dressed_skirts": 55, "flesh_figure": 54, "traced_detail": 53, "rigify_human": 230, "quadruped": 49,
     "mpfb_woman_curvy": 49, "pipeline_ponytail": 40, "dressed_figure": 38, "hair_presets": 36,
     "strand_ponytail": 32, "muscle_definition": 31, "mixamo_names": 21, "skin_detail": 18,
-    "review_sheet": 9, "starfish": 6, "pipeline_paths": 28, "asym_meter": 95,
+    "review_sheet": 9, "starfish": 6, "pipeline_paths": 28, "asym_meter": 95, "dressed_loose": 70,
 }
 UNKNOWN_DURATION = 10 ** 6
 
@@ -399,6 +399,9 @@ GODOT_WARDROBE = {
                        "controls": [["cut=0.04"]]},
     "dressed_presets": {"body": "figure.glb", "garment": "sports_top.glb,shorts_mid_thigh.glb",
                         "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
+    # the loose tee hung from the bust's apex (wardrobe 0.7.0): hanging it further out must not open holes
+    "dressed_loose": {"body": "figure.glb", "garment": "tshirt.glb",
+                      "args": ["frames=240", "every=8", "hem=true", "jiggle=true"]},
     # every=4: a thigh goes through a skirt for a few frames of a stride, and every=8 can step over them.
     # The mini, not the knee skirt: this Figure's walk crosses its feet over the midline and a knee-length
     # hem between the legs is inside a thigh there whatever the colliders do (12 of 1152 vertices, 1.04%,
