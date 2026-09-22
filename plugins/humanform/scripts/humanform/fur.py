@@ -110,6 +110,8 @@ PATTERN_AMOUNT = (0.0, 1.0)
 LAY = (0.0, 1.0)               # how far the fur lies over: 0 stands straight out, 1 lies flat
 LAY_DEFAULT = 0.55
 BLEND_SHARP = 3.0              # how sharply a region keeps its own length against its neighbours' (see `apply`)
+BLEND_COLOUR = 1.0             # ... and how gently its colour crosses into theirs
+EDGE_LENGTH = 0.25             # the share of its length fur keeps at the very edge of its coverage
 RIM = (0.25, 0.60)             # an area weight is remapped through this: solid inside, feathered at the rim
 
 COVER_DENSITY = 0.75           # skin under fur at least this dense is not drawn (the base coat covers it)
@@ -118,8 +120,17 @@ MIN_DENSITY = 0.02             # under this a vertex carries no fur at all
 TILE_M = 0.040                 # the strand mask's tile on the skin
 MASK_PX = 512
 MAP_PX = 1024
-STRAND_MM = 0.45               # a strand's width on the skin
-STRANDS_PER_CM2 = 900.0        # seeds per square centimetre of skin at density 1
+# A coat, not a speckle. At 900 strands a square centimetre and 0.45 mm across, a texel was a strand and
+# the pelt read at 2 m as dirt on skin rather than as fur: the eye was given per-texel noise, which is what
+# dirt looks like. Fur reads as fur by its *clumps* - it parts, and each clump lies together - so the
+# strands are fewer and wider, gathered into clumps a few millimetres apart, and each strand carries its
+# own tone along its whole length instead of the mask varying texel to texel.
+STRAND_MM = 0.95               # a strand's width on the skin
+STRANDS_PER_CM2 = 230.0        # seeds per square centimetre of skin at density 1
+CLUMP_MM = 4.2                 # how far apart the clumps sit
+CLUMP_PULL = 0.45              # how far a strand is drawn toward its clump's centre
+CLUMP_SHARE = 0.6              # how much of a strand's length its clump decides, the rest its own
+STRAND_TONE = 0.55             # the spread of tone between strands (1 = black to white)
 STRAND_PX_MIN = 1.0            # a strand narrower than this at 0.6 m is a wash, not hair
 CONSERVATIVE_PX = 0.75         # how far past its edges a triangle may claim an unclaimed texel
 
@@ -278,6 +289,24 @@ def _vdc(i, base=2):
 def _smooth(e0, e1, x):
     t = np.clip((np.asarray(x, np.float64) - e0) / (e1 - e0 if e1 != e0 else 1e-9), 0.0, 1.0)
     return t * t * (3 - 2 * t)
+
+
+def _rings(bare, faces, rings, n):
+    """0 on a bare vertex, rising to 1 `rings` edges away from the nearest bare one - how far into the fur a
+    vertex is, in rings of the mesh. The fur's colour and its length are feathered on this."""
+    d = _delta()
+    r, c = d.neighbours(faces)
+    out = np.full(d.BODY_VERTS, float(rings))
+    front = np.zeros(d.BODY_VERTS, bool)
+    front[:n] = bare[:n]
+    out[front] = 0.0
+    for k in range(1, rings):
+        grown = front.copy()
+        grown[r[front[c]]] = True
+        new = grown & ~front
+        out[new] = float(k)
+        front = grown
+    return np.clip(out[:n] / float(rings), 0.0, 1.0)
 
 
 def _seg_distance(p, pts):
@@ -469,10 +498,19 @@ def apply(ob, block, base_colour=None):
         ws.append(m)
         per.append({"name": r["name"], "vertices": int((m > MIN_DENSITY).sum()),
                     "length_m": r["length_m"], "density": r["density"], "flow": r["flow"]})
-    W = np.stack([w ** BLEND_SHARP for w in ws])
-    tot = W.sum(axis=0)
-    on = tot > 1e-9
-    W[:, on] /= tot[on]
+    # Two blends, because length and colour want opposite things. Length wants a region to keep its own
+    # (BLEND_SHARP), or a 45 mm ruff averages into a 12 mm pelt and stops being a ruff. Colour wants the
+    # gentlest blend there is: a ruff's tone against a pelt's stepped by 0.065 in luma across one edge of
+    # the mesh where they met, which is a seam the eye reads as a line (`edge_tone`).
+    def _norm(p_):
+        W_ = np.stack([w ** p_ for w in ws])
+        t_ = W_.sum(axis=0)
+        k_ = t_ > 1e-9
+        W_[:, k_] /= t_[k_]
+        return W_, k_
+
+    W, on = _norm(BLEND_SHARP)
+    W_col, _ = _norm(BLEND_COLOUR)
     length = np.zeros(n)
     flow = np.zeros((n, 3))
     col = np.tile(default, (n, 1))
@@ -482,13 +520,27 @@ def apply(ob, block, base_colour=None):
         length += w * r["length_m"]
         flow += w[:, None] * ctx["flow_" + r["flow"]]
         c = np.asarray(_linear(r["colour"]) if r.get("colour") is not None else default)
-        col += w[:, None] * (c - default)          # the weights sum to 1 where any region reaches
+        col += W_col[i][:, None] * (c - default)   # the weights sum to 1 where any region reaches
         pat += w * (r["pattern"]["amount"] if r.get("pattern") else 0.0)
     L = np.linalg.norm(flow, axis=1)
     flow[L < 1e-6] = ctx["flow_down"][L < 1e-6]
     flow /= np.maximum(np.linalg.norm(flow, axis=1), 1e-9)[:, None]
     den = np.clip(_delta().smooth(den, ctx["faces"], iterations=2, share=0.5)[:n], 0, 1)
     length = _delta().smooth(length, ctx["faces"], iterations=4, share=0.5)[:n]
+    # Where the fur ends it must end into the skin, not against it. Drawn at full length and full colour up
+    # to the last furred vertex, a pelt left a dark ring at every wrist and ankle and a dark band at the
+    # hairline: a step in tone across a boundary, which `edge_tone` now measures. So over the band where the
+    # skin is still drawn under the fur, the fur shortens to nothing and its colour goes to the skin's.
+    # The feather follows distance from bare skin, not density: density rises from nothing to solid over a
+    # vertex or two at a region's rim, and a colour blended on it still stepped by 0.07 in luma across one
+    # edge of the mesh - a ring. Rings of the mesh are a real distance (hm08's vertices are 8-15 mm apart).
+    # from where the skin still shows through (COVER_DENSITY), not from bare skin: a vertex at density 0.03
+    # is "furred" by the map and bare to the eye, and feathering from MIN_DENSITY left the fur's own colour
+    # full strength one vertex away from skin
+    reach = _rings(den < COVER_DENSITY, ctx["faces"], EDGE_RINGS, n)
+    reach = np.clip(_delta().smooth(reach, ctx["faces"], iterations=2, share=0.5)[:n], 0, 1)
+    col = default * (1.0 - reach[:, None]) + col * reach[:, None]
+    length = length * (EDGE_LENGTH + (1.0 - EDGE_LENGTH) * reach)
     den[den < MIN_DENSITY] = 0.0
     length[den <= 0.0] = 0.0
     me = ob.data
@@ -515,6 +567,10 @@ def apply(ob, block, base_colour=None):
     _v(FLOW, flow)
     _v(COL, col)
     spec = dict(b)
+    # the skin the fur ends into, kept here because a species body's stored sheet has no skin: the tone is
+    # drawn from the species palette and put on after the warp (`pipeline._make_species`)
+    spec["skin_tone"] = [round(float(c), 4) for c in (base_colour if base_colour is not None
+                                                      else (0.35, 0.26, 0.18))]
     spec["length_max_m"] = round(float(length.max()) if len(length) else 0.0, 5)
     spec["vertices"] = int((den > 0).sum())
     spec["covered_vertices"] = int((den >= COVER_DENSITY).sum())
@@ -762,24 +818,40 @@ def _dilate(img, cov, passes=2):
     return out
 
 
-def strand_mask(px=MASK_PX, tile_m=TILE_M, seed=0, density=STRANDS_PER_CM2, width_mm=STRAND_MM):
-    """The tiled strand mask: per texel the height up the fur (0..1) the strand there reaches, 0 for bare
-    skin. It wraps in both directions, so the tile repeats without a seam. A shell at height t keeps the
-    texels over t: the strands taper by themselves and no two shells share an outline (which is what
-    banding is)."""
+def strand_mask(px=MASK_PX, tile_m=TILE_M, seed=0, density=STRANDS_PER_CM2, width_mm=STRAND_MM,
+                clump_mm=CLUMP_MM):
+    """The tiled strand mask, (px, px, 2): R the height up the fur (0..1) the strand at that texel reaches,
+    0 for bare skin; G that strand's own tone, the same the whole way along it. It wraps in both
+    directions, so the tile repeats without a seam. A shell at height t keeps the texels over t, so the
+    strands taper by themselves and no two shells share an outline (which is what banding is).
+
+    The strands are gathered into **clumps** `clump_mm` apart: each is drawn `CLUMP_PULL` of the way to its
+    clump's centre, and `CLUMP_SHARE` of its length is its clump's. Real fur parts into clumps and each
+    clump lies together; without that a shell stack reads as felt up close and as speckled dirt at 2 m."""
     rng = np.random.default_rng(seed + 104729)
     cm2 = (tile_m * 100.0) ** 2
     k = max(8, int(round(density * cm2)))
+    nc = max(1, int(round(cm2 / (clump_mm * 0.1) ** 2)))
+    clump_xy = rng.random((nc, 2))
+    clump_h = rng.random(nc)
+    clump_tone = rng.random(nc)
     seeds = rng.random((k, 2))
-    heights = 0.45 + 0.55 * rng.random(k)       # every strand a different length: no shared outline
+    mine = rng.integers(0, nc, k)
+    # toward the clump's centre, by the shortest way round the wrap
+    dxy = clump_xy[mine] - seeds
+    dxy -= np.round(dxy)
+    seeds = (seeds + CLUMP_PULL * dxy) % 1.0
+    heights = 0.42 + 0.58 * (CLUMP_SHARE * clump_h[mine] + (1 - CLUMP_SHARE) * rng.random(k))
+    tone = np.clip(0.5 + STRAND_TONE * (CLUMP_SHARE * (clump_tone[mine] - 0.5)
+                                        + (1 - CLUMP_SHARE) * (rng.random(k) - 0.5)), 0.0, 1.0)
     r = (width_mm * 1e-3 / tile_m) * 0.5        # the strand's radius in tile units
     g = (np.arange(px) + 0.5) / px
     gx, gy = np.meshgrid(g, g)
-    out = np.zeros((px, px), np.float64)
+    out = np.zeros((px, px, 2), np.float64)
     # wrap by testing the nine offsets: a strand near an edge reaches over it
     for ox in (-1.0, 0.0, 1.0):
         for oy in (-1.0, 0.0, 1.0):
-            for (sx, sy), h in zip(seeds, heights):
+            for (sx, sy), h, tn in zip(seeds, heights, tone):
                 cx, cy = sx + ox, sy + oy
                 if cx < -2 * r or cx > 1 + 2 * r or cy < -2 * r or cy > 1 + 2 * r:
                     continue
@@ -793,7 +865,11 @@ def strand_mask(px=MASK_PX, tile_m=TILE_M, seed=0, density=STRANDS_PER_CM2, widt
                 # a round strand, its own height at the core and tapering to nothing at the rim: the
                 # taper is what gives a soft edge instead of a disc
                 v = h * np.clip(3.0 * (1.0 - d), 0.0, 1.0)
-                out[y0:y1, x0:x1] = np.maximum(out[y0:y1, x0:x1], v)
+                win = out[y0:y1, x0:x1]
+                take = v > win[..., 0]
+                win[..., 0] = np.where(take, v, win[..., 0])
+                win[..., 1] = np.where(take, tn, win[..., 1])   # the tone follows the strand, not the texel
+    out[..., 1] = np.where(out[..., 0] > 0, out[..., 1], 0.5)
     return out
 
 
@@ -952,8 +1028,9 @@ def mip_check(ob, mask=None, heights=(0.25, 0.5, 0.75), **kw):
     UV = uv[on] * scale
     kw.setdefault("max_patchy", 1.0)             # see the docstring: the base coat is the opaque under-layer
     worst = None
+    hm = mask[..., 0] if mask.ndim == 3 else mask
     for t in heights:
-        alpha = (mask >= t).astype(np.float64)
+        alpha = (hm >= t).astype(np.float64)
         if alpha.mean() < 1e-4:
             continue
         rep = hairtex.mip_check(P=P, UV=UV, A=None, alpha=alpha, cutoff=0.5, **kw)
@@ -1040,6 +1117,74 @@ def silhouette_check(ob, distances_m=SIL_DISTANCES_M, vfov_deg=None, image_px=No
     return out
 
 
+EDGE_TOL = 0.04                # sRGB luma: the biggest step in the fur's tone across one edge of the mesh
+EDGE_RINGS = 5                 # how far from the edge of the fur its colour and length are feathered
+
+
+def edge_tone(ob, tone=None):
+    """The step in the fur's tone across the mesh's own edges, near where the fur ends - `skin.seam_tone`'s
+    question asked of a fur boundary instead of a graft's seam. A wrist, an ankle and a hairline are all the
+    same boundary: fur on one side, skin on the other, and the eye reads a step in tone there as a dark ring
+    however good the fur is.
+
+    Measured locally, between neighbouring vertices, not by binning the whole body: binned, the bands mix
+    regions - a face nap at density 0.7 with its own paler colour sat in the middle band and read as a step
+    that was not there. hm08's vertices are 8-15 mm apart, so a colour that changes over a few centimetres
+    passes and a ring does not. Returns free numbers plus a `fail` sentence, never an exception."""
+    import json as _json
+    den, col = _attr(ob, DEN), _attr(ob, COL, 3)
+    if den is None or col is None:
+        return {"fail": "edge_tone: the body carries no fur map"}
+    if tone is None:
+        tone = (read(ob) or {}).get("skin_tone")
+    if tone is None:
+        sheet = ob.get("humanform_sheet")
+        if sheet:
+            try:
+                tone = (_json.loads(sheet) if isinstance(sheet, str) else dict(sheet)).get("skin")
+            except Exception:
+                tone = None
+    d = _delta()
+    n = min(len(den), d.BODY_VERTS)
+    faces = d.body_faces(ob)
+    r, c = d.neighbours(faces)
+    # the skin's own colour stands in for a bare vertex, so the last step - fur to skin - is measured too
+    lin = col[:n].copy()
+    bare = den[:n] < MIN_DENSITY
+    if tone is not None:
+        lin[bare] = _linear(tone)
+    luma = _srgb(np.clip(lin, 0, 1)) @ np.array([0.2126, 0.7152, 0.0722])
+    near = bare.copy()
+    for _ in range(EDGE_RINGS):
+        grown = near.copy()
+        grown[r[near[c]]] = True
+        near = grown
+    keep = (r < n) & (c < n)
+    r, c = r[keep], c[keep]
+    at_edge = near[r] & near[c] & ~(bare[r] & bare[c])
+    if not at_edge.any():
+        return {"edges": 0, "step": 0.0, "tol": EDGE_TOL, "note": "no fur boundary on this body"}
+    step = np.abs(luma[r[at_edge]] - luma[c[at_edge]])
+    out = {"edges": int(at_edge.sum()), "tol": EDGE_TOL,
+           "step": round(float(np.quantile(step, 0.99)), 4),
+           "step_max": round(float(step.max()), 4),
+           "step_median": round(float(np.median(step)), 4),
+           "skin": round(float(_luma_srgb(_linear(tone))), 4) if tone is not None else None}
+    if out["step"] > EDGE_TOL:
+        i = int(np.argmax(step))
+        out["fail"] = (f"the fur's tone steps by {out['step']:.3f} across one edge of the mesh where the fur "
+                       f"ends (99th percentile of {out['edges']} edges, worst {out['step_max']:.3f}), over "
+                       f"{EDGE_TOL}: that draws as a dark ring at a wrist, an ankle or a hairline - feather "
+                       "the colour into the skin's over the band where the skin is still drawn "
+                       "(fur.EDGE_LENGTH and the `edge` blend in fur.apply)")
+    return out
+
+
+def _luma_srgb(lin):
+    lin = np.asarray(lin, float)
+    return float(_srgb(np.array([float(lin[0]), float(lin[1]), float(lin[2])])) @ [0.2126, 0.7152, 0.0722])
+
+
 def covered(ob):
     """The body vertex indices under fur dense enough to hide the skin (`COVER_DENSITY`), the way
     wardrobe lists the skin a garment covers. Empty when the block turns cover off."""
@@ -1115,7 +1260,8 @@ def bake(ob, out_dir, base=None, size=MAP_PX, mask_px=MASK_PX, checks=True):
     mask = strand_mask(mask_px, float(spec.get("tile_m") or TILE_M), int(spec.get("seed", 0)))
     names = {"colour": f"{base}_fur_colour.png", "strands": f"{base}_fur_strands.png"}
     _png(os.path.join(out_dir, names["colour"]), col_img)
-    _png(os.path.join(out_dir, names["strands"]), mask, greyscale=True)
+    _png(os.path.join(out_dir, names["strands"]),
+         np.stack([mask[..., 0], mask[..., 1], np.zeros_like(mask[..., 0])], axis=-1))
     scale, m_per_uv = uv_scale(ob)
     idx = covered(ob)
     spec = dict(spec)
@@ -1130,13 +1276,17 @@ def bake(ob, out_dir, base=None, size=MAP_PX, mask_px=MASK_PX, checks=True):
                     "positions_f32": gltf_positions(ob, idx), "tolerance_m": 0.0005}
     rep = {"fur": spec, "maps": m_rep, "textures": names,
            "mask": {"px": mask_px, "tile_m": spec.get("tile_m", TILE_M),
-                    "coverage_at_half": round(float((mask >= 0.5).mean()), 3)},
+                    "strand_mm": STRAND_MM, "clump_mm": CLUMP_MM,
+                    "coverage_at_half": round(float((mask[..., 0] >= 0.5).mean()), 3),
+                    "coverage_at_root": round(float((mask[..., 0] > 0).mean()), 3)},
            "covered": int(len(idx))}
     if checks:
         rep["atlas"] = atlas_overlap(ob)
         rep["mip"] = mip_check(ob, mask=mask)
         rep["silhouette"] = silhouette_check(ob)
-        bad = list(rep["mip"].get("problems") or []) + list(rep["silhouette"].get("problems") or [])
+        rep["edge"] = edge_tone(ob)
+        bad = (list(rep["mip"].get("problems") or []) + list(rep["silhouette"].get("problems") or [])
+               + ([rep["edge"]["fail"]] if rep["edge"].get("fail") else []))
         if bad:
             rep["fail"] = "; ".join(([rep["fail"]] if rep.get("fail") else []) + bad)
     ob[PROP] = json.loads(json.dumps(spec))

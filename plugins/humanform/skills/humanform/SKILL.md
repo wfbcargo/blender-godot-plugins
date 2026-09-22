@@ -616,6 +616,10 @@ body mesh as node extras.
   test and a strand that would be under a screen pixel at 0.6 m.
 - `silhouette_check` - the fur's length and the gap between two shells, in screen pixels, on the outline at
   0.6 m and 4 m: too short at 4 m is a fuzz, too far apart combs, and the message says how many shells.
+- `edge_tone` - `skin.seam_tone`'s question asked of a fur boundary: the step in the fur's tone across one
+  edge of the mesh where the fur ends. A step there reads as a dark ring at a wrist, an ankle or a hairline
+  however good the fur is. The colour and the length are feathered over `EDGE_RINGS` rings from where the
+  skin still shows through, so it passes.
 - `atlas_overlap` - recorded, and why the map is a vertex colour.
 - the anatomy inventory (`species.inventory`): fur is a part in `species_design.ANATOMY`, so a body whose
   species says it has fur and carries no map fails.
