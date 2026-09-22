@@ -374,10 +374,22 @@ def run_bake(ch, ctx):
     ob = _obj(ch.mesh)
     _obj(ch.rig).data.pose_position = "POSE"
     skin = ch.body.brief.get("skin") if ch.body.source == "brief" else ch.body.skin
+    species_skin = None
+    sp_ref = ch.body.brief.get("species") if ch.body.source == "brief" else None
+    if sp_ref not in (None, "human"):
+        # a species body: its preset's (or inline table's) skin block, and a tone drawn from its palette when
+        # the spec gives none - the same draw humanform.species.pre_warp made. A human passes None: the
+        # skin takes exactly the path it always did
+        from humanform import species as hf_species
+        sp = hf_species.load(sp_ref)
+        species_skin = hf_species.skin_block(sp)
+        if skin is None:
+            skin = hf_species.draw_skin(sp, ch.body.brief)
     if skin is not None:
         # the maps' size is the build quality's (2048 px final, 1024 preview and draft): humanform's own
         # default is 1024, which every final build shipped until this was passed (06 rank 12)
-        look.skin(ob, skin, name=f"{ch.name}_skin", size=quality_mod.settings(ctx["quality"], "skin")["size"])
+        look.skin(ob, skin, name=f"{ch.name}_skin", size=quality_mod.settings(ctx["quality"], "skin")["size"],
+                  species_skin=species_skin)
     eyes = _obj(ch.eyes)
     if eyes is not None:
         with bpy.context.temp_override(active_object=ob, selected_editable_objects=[ob, eyes], object=ob,
