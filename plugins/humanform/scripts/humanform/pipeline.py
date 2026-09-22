@@ -215,21 +215,42 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw)
             from . import look
             look.skin(human, tone, species_skin=species.skin_block(sp))
         t["graft"] = time.time() - t5
-    if sp.get("legs") not in (None, "plantigrade") or sp.get("tail") not in (None, False):
+    if (sp.get("legs") not in (None, "plantigrade") or sp.get("foot") not in (None, "human")
+            or sp.get("tail") not in (None, False)):
         # The rest of the body plan, after the check for the same reason the graft is: the species preset
-        # describes a body's proportions, and a leg plan is what the leg DOES with them. The legs first,
-        # because the tail is measured against them (`tail`, the clearance check).
+        # describes a body's proportions, and a leg plan is what the leg DOES with them. In order: the legs
+        # (which point the segments and move the toes), then the feet (which reshape the toes and stand the
+        # body on its pads), then the tail, which is measured against the legs (`tail`, the clearance check).
+        from . import feet as feet_mod
+        nails0 = feet_mod.nail_over_foot(human)
         t6 = time.time()
         if sp.get("legs") not in (None, "plantigrade"):
             from . import legs as legs_mod
-            rep["legs"] = legs_mod.apply(human, sp["legs"], verbose=verbose)
+            lspec = sp["legs"]
+            want = feet_mod.LEG_RATIOS.get(feet_mod.normalise(sp.get("foot"))["plan"])
+            if want and not (isinstance(lspec, dict) and lspec.get("ratios")):
+                # a paw belongs on a dog's leg and a hoof on a goat's: the foot plan names the leg ratios its
+                # own silhouette needs, and the species may still say otherwise
+                lspec = dict({"plan": lspec} if isinstance(lspec, str) else lspec, ratios=want)
+            rep["legs"] = legs_mod.apply(human, lspec, verbose=verbose)
             t["legs"] = time.time() - t6
+        if sp.get("foot") not in (None, "human"):
+            t6b = time.time()
+            rep["feet"] = feet_mod.apply(human, sp["foot"], verbose=verbose)
+            t["feet"] = time.time() - t6b
         if sp.get("tail") not in (None, False):
             t7 = time.time()
             from . import tail as tail_mod
             rep["tail"] = tail_mod.apply(human, sp["tail"], verbose=verbose)
             t["tail"] = time.time() - t7
-        rep["anatomy"] = species.inventory(human, sp, reference=before)
+        # a foot plan draws hm08's five toenails together onto however many toes the plan ends in: that is
+        # the change it is meant to make, so the inventory grades them against it (`expected`), as it does the
+        # eyes against their allometry
+        expect = {"eyes": (rep.get("eyes") or {}).get("ratio", 1.0)}
+        nails1 = feet_mod.nail_over_foot(human)
+        if nails0 and nails1:
+            expect["nails.toes"] = round(nails1 / nails0, 4)
+        rep["anatomy"] = species.inventory(human, sp, reference=before, expected=expect)
         if tone is not None:
             from . import look
             look.skin(human, tone, species_skin=species.skin_block(sp))

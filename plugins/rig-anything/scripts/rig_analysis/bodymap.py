@@ -542,6 +542,15 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0, meshes=None):
         l["ground"] = l["a"] + l["b"] + l["stand"]
         l["stand_deg"] = round(deg, 1)
         l["plan"] = "digitigrade" if share > 0.5 else "plantigrade"
+        # The SILHOUETTE: what share of the straightened limb each segment is. A leg reads as an animal's or a
+        # person's from these four numbers, whatever is on the end of it, so they belong in the body map beside
+        # the leg plan (humanform.legs RATIOS: a dog's 0.32/0.34/0.27/0.07, a goat's 0.30/0.35/0.31/0.04, a
+        # person's 0.39/0.40/0.14/0.07).
+        dig = sum(rig.data.bones[n].length for n in (l["digits"] or []))
+        limb = l["a"] + l["b"] + b.length + dig
+        if limb > 1e-9:
+            l["shares"] = {"femur": round(l["a"] / limb, 3), "tibia": round(l["b"] / limb, 3),
+                           "metatarsus": round(b.length / limb, 3), "digits": round(dig / limb, 3)}
         if l["plan"] == "digitigrade":
             # read the plan back off the rig and say so before a clip is baked: a hock on the floor has
             # no room to fold, and one carried past the knee's own height is not a leg any more
@@ -875,8 +884,11 @@ def summary(bm):
     for t in bm["tails"]:
         lines.append("  tail   " + " > ".join(t))
     for l in bm["limbs"]:
-        plan = ("  %s (end stands %.0f deg off the leg, effective leg %.3f)"
-                % (l["plan"], l.get("stand_deg", 90.0), l["ground"])) if l.get("plan") else ""
+        plan = ("  %s (end stands %.0f deg off the leg, effective leg %.3f%s)"
+                % (l["plan"], l.get("stand_deg", 90.0), l["ground"],
+                   (", shares f/t/m/d %.2f/%.2f/%.2f/%.2f"
+                    % tuple(l["shares"][q] for q in ("femur", "tibia", "metatarsus", "digits")))
+                   if l.get("shares") else "")) if l.get("plan") else ""
         lines.append("  %-4s %-10s %s%s > %s > %s   on %s  a=%.3f b=%.3f  pole: %s%s"
                      % (l["role"], l["name"],
                         (l["girdle"] + " > ") if l["girdle"] else "",
