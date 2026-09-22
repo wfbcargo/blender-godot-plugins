@@ -1,17 +1,379 @@
 {
  "fixture": "hair_presets",
  "plugins": {
-  "character-pipeline": "0.5.0",
-  "follow-through": "0.5.2",
-  "humanform": "0.8.0",
-  "lookdev": "0.2.0",
-  "rig-anything": "0.23.0",
-  "wardrobe": "0.4.0"
+  "character-pipeline": "0.15.0",
+  "follow-through": "0.10.0",
+  "humanform": "0.16.0",
+  "lookdev": "0.12.0",
+  "rig-anything": "0.27.0",
+  "wardrobe": "0.5.2"
  },
  "report": {
   "brief_refusal": [
-   "hair must be {'preset': one of ('short_crop', 'bob', 'bun', 'ponytail', 'long_loose'), 'colour': (r, g, b)}"
+   "hair must be {'preset': one of ('short_crop', 'bob', 'bun', 'ponytail', 'long_loose'), 'colour': (r, g, b)}",
+   "hair brow_shape 'bushy' is not one of ('natural', 'straight', 'arched', 'soft')",
+   "hair colour must be an (r, g, b) screen colour with channels 0..1",
+   "hair brow_shape 'bushy' is not one of ('natural', 'straight', 'arched', 'soft')"
   ],
+  "face": {
+   "brow_shapes": {
+    "arched_outer_lift_mm": 2.05,
+    "control_arched_flat_lift_mm": -0.01,
+    "control_fails": true,
+    "min_mm": 1.0,
+    "natural_unchanged": true,
+    "ok": true,
+    "shapes": {
+     "arched": {
+      "moved_max_mm": 2.622,
+      "moved_mm": [
+       0.23,
+       0.78,
+       1.87,
+       2.05,
+       0.18
+      ],
+      "natural_profile_mm": [
+       0.0,
+       1.76,
+       1.59,
+       0.04,
+       -2.72
+      ],
+      "shape": "arched",
+      "shape_profile_mm": [
+       0.0,
+       2.31,
+       3.24,
+       1.87,
+       -2.77
+      ]
+     },
+     "natural": {
+      "moved_max_mm": 0.0,
+      "shape": "natural",
+      "shape_profile_mm": [
+       0.0,
+       1.76,
+       1.59,
+       0.04,
+       -2.72
+      ]
+     },
+     "soft": {
+      "moved_max_mm": 0.893,
+      "moved_mm": [
+       0.17,
+       0.55,
+       0.76,
+       0.2,
+       -0.32
+      ],
+      "natural_profile_mm": [
+       0.0,
+       1.76,
+       1.59,
+       0.04,
+       -2.72
+      ],
+      "shape": "soft",
+      "shape_profile_mm": [
+       0.0,
+       2.14,
+       2.18,
+       0.07,
+       -3.21
+      ]
+     },
+     "straight": {
+      "moved_max_mm": 1.829,
+      "moved_mm": [
+       -0.29,
+       -0.89,
+       -1.58,
+       -1.53,
+       -0.23
+      ],
+      "natural_profile_mm": [
+       0.0,
+       1.76,
+       1.59,
+       0.04,
+       -2.72
+      ],
+      "shape": "straight",
+      "shape_profile_mm": [
+       0.0,
+       1.16,
+       0.31,
+       -1.19,
+       -2.66
+      ]
+     }
+    }
+   },
+   "ear_covered_verts": 0,
+   "ear_covered_verts_without_ear_cut": 430,
+   "face_order": {
+    "HairWoman_body_hair": {
+     "faces": 807,
+     "order": "9e8017a71f8d",
+     "set": "343f736bf089"
+    },
+    "HairWoman_brows": {
+     "faces": 90,
+     "order": "b8f65343eaa1",
+     "set": "b8f65343eaa1"
+    },
+    "HairWoman_lashes": {
+     "faces": 184,
+     "order": "201bb5c2ceb0",
+     "set": "1dac9062c5bf"
+    }
+   },
+   "gltf": {
+    "body_hair": {
+     "alphaMode": "MASK",
+     "base_colour_texture": true,
+     "doubleSided": false,
+     "godot_sheen": {
+      "anisotropy_enabled": true,
+      "backlight_enabled": true,
+      "rim_enabled": true
+     },
+     "godot_transparency": 2,
+     "lookdev_preset": "hair",
+     "normal_texture": true,
+     "texture_hash": "f1a5f961f339"
+    },
+    "brows": {
+     "alphaMode": "MASK",
+     "base_colour_texture": true,
+     "doubleSided": false,
+     "godot_sheen": {
+      "anisotropy_enabled": false,
+      "backlight_enabled": false,
+      "rim_enabled": false
+     },
+     "godot_transparency": 1,
+     "lookdev_preset": "hair",
+     "normal_texture": true,
+     "texture_hash": "8a3165cc464b"
+    },
+    "lashes": {
+     "alphaMode": "MASK",
+     "base_colour_texture": true,
+     "doubleSided": true,
+     "godot_sheen": {
+      "anisotropy_enabled": false,
+      "backlight_enabled": false,
+      "rim_enabled": false
+     },
+     "godot_transparency": 1,
+     "lookdev_preset": "hair",
+     "normal_texture": true,
+     "texture_hash": "e83eb3e907e8"
+    }
+   },
+   "hairline_feather": {
+    "bob": {
+     "edge_wander_mm": 0.0,
+     "feather_mm": 9.18,
+     "fringe_ok": false,
+     "fringe_ratio": 0.0478,
+     "fringe_rows": 53,
+     "ok": false,
+     "v_10_90": [
+      0.0278,
+      0.0737
+     ]
+    },
+    "control_fails": true,
+    "control_short_crop_comb": {
+     "edge_wander_mm": 2.21,
+     "feather_mm": 10.55,
+     "fringe_ok": false,
+     "fringe_ratio": 0.0497,
+     "fringe_rows": 61,
+     "ok": true,
+     "v_10_90": [
+      0.0425,
+      0.0952
+     ]
+    },
+    "control_short_crop_without_look": {
+     "edge_wander_mm": 0.0,
+     "feather_mm": 9.18,
+     "fringe_ok": false,
+     "fringe_ratio": 0.0478,
+     "fringe_rows": 53,
+     "ok": false,
+     "v_10_90": [
+      0.0278,
+      0.0737
+     ]
+    },
+    "edge_wobble": {
+     "control_fails": true,
+     "control_wobble_off_mm": 0.0,
+     "edge_wobble_m": 0.003,
+     "loops": 9824,
+     "loops_moved": 6777,
+     "min_mm": 1.0,
+     "moved_max_mm": 3.0,
+     "ok": true
+    },
+    "fringe_control_fails": true,
+    "line_u": {
+     "control_fails": true,
+     "control_line_u_off": {
+      "faces": 783,
+      "line_u": null,
+      "median_deg": 35.53,
+      "share_under_45": 0.5951
+     },
+     "min_median_deg": 50.0,
+     "ok": true,
+     "on": {
+      "faces": 783,
+      "line_u": {
+       "line_u_m": 0.03,
+       "turned_deg_max": 19.73,
+       "verts": 1968
+      },
+      "median_deg": 57.72,
+      "share_under_45": 0.3461
+     }
+    },
+    "min_fringe_ratio": 0.1,
+    "min_wander_mm": 1.0,
+    "short_crop": {
+     "edge_wander_mm": 2.34,
+     "feather_mm": 10.94,
+     "fringe_ok": true,
+     "fringe_ratio": 0.1607,
+     "fringe_rows": 62,
+     "ok": true,
+     "v_10_90": [
+      0.0376,
+      0.0923
+     ]
+    }
+   },
+   "lash_root": {
+    "control_fails": true,
+    "control_step0_share": 0.5134,
+    "min": 0.65,
+    "ok": true,
+    "upper_root_share": 0.7362
+   },
+   "objects": [
+    "body_hair",
+    "brows",
+    "hair",
+    "lashes"
+   ],
+   "parts": {
+    "body_hair": {
+     "faces": 807,
+     "regions": {
+      "forearms": 403,
+      "pubic": 22,
+      "shins": 382
+     },
+     "verts": 917
+    },
+    "brows": {
+     "colour": [
+      0.28,
+      0.176,
+      0.096
+     ],
+     "faces": 90,
+     "texture": {
+      "coverage": 0.3879,
+      "seed": 5,
+      "texture_px": [
+       1024,
+       256
+      ]
+     },
+     "transparent_shadow": true,
+     "verts": 128,
+     "weights": [
+      "spine.005"
+     ]
+    },
+    "lashes": {
+     "colour": [
+      0.14,
+      0.088,
+      0.048
+     ],
+     "faces": 184,
+     "lid_cards": {
+      "lower": 2,
+      "upper": 2
+     },
+     "texture": {
+      "coverage": 0.1437,
+      "seed": 5,
+      "texture_px": [
+       1024,
+       256
+      ]
+     },
+     "transparent_shadow": true,
+     "verts": 250,
+     "weights": [
+      "spine.005"
+     ]
+    }
+   },
+   "skin_distance_mm": {
+    "brows": [
+     0.21,
+     0.6
+    ],
+    "lashes": [
+     0.0,
+     5.78
+    ]
+   },
+   "skipped": null
+  },
+  "face_spec": {
+   "bad_value": "hair.brows must be bool, not str",
+   "brow_shape": {
+    "bad_value": "hair.brow_shape 'bushy' is not one of ('natural', 'straight', 'arched', 'soft')",
+    "face": {
+     "brow_shape": "arched",
+     "brows": true
+    },
+    "natural_same_digest": true,
+    "parsed": "arched"
+   },
+   "parsed": {
+    "body_hair": false,
+    "brows": true,
+    "face": {
+     "brows": true,
+     "lashes": true
+    },
+    "lashes": true
+   },
+   "plain_section": {
+    "colour": [
+     0.1,
+     0.1,
+     0.1
+    ],
+    "kind": "preset",
+    "params": {},
+    "preset": "bun"
+   },
+   "switch_off_same_digest": true
+  },
   "gltf": {
    "alphaCutoff": 0.5,
    "alphaMode": "MASK",
@@ -22,6 +384,10 @@
    ],
    "extras": {
     "lookdev": {
+     "alpha": {
+      "coverage_mips": 0.5,
+      "edge": 0.25
+     },
      "godot": {
       "anisotropy": 0.5,
       "anisotropy_enabled": true,
@@ -46,7 +412,7 @@
      "preset": "hair"
     }
    },
-   "images": 2,
+   "images": 5,
    "normal_hash": "54727e40b766",
    "normal_texture": true,
    "strand_extras_keys": [
@@ -81,6 +447,7 @@
     "bake": [
      "follow-through",
      "humanform",
+     "lookdev",
      "rig-anything",
      "wardrobe"
     ],
@@ -138,13 +505,15 @@
     "cap": {
      "boundary_d_mm": [
       -21.1,
-      2.7
+      12.0
      ],
      "boundary_offset_mm_max": 0.6,
      "boundary_v_max": 0.003,
-     "boundary_verts": 204,
-     "faces": 4816,
-     "faces_from_body": 1204,
+     "boundary_verts": 412,
+     "ear_covered_verts": 0,
+     "faces": 2544,
+     "faces_from_body": 636,
+     "line_u": null,
      "strand_turns": 14,
      "thick_mm": [
       0.6,
@@ -153,21 +522,21 @@
      "uv_handedness": {
       "flat": 0,
       "flipped": 4,
-      "same": 608
+      "same": 604
      },
-     "verts": 4923
+     "verts": 2753
     },
     "face_order": {
      "HairWoman_hair": {
-      "faces": 6375,
-      "order": "db437f3c9275",
-      "set": "ff73e4e0b9e0"
+      "faces": 4103,
+      "order": "7873b7073dd8",
+      "set": "ab1657429b99"
      }
     },
     "hair": {
-     "cap_min_clearance_m": 0.0003,
-     "faces": 6375,
-     "verts": 6523
+     "cap_min_clearance_m": -0.00018,
+     "faces": 4103,
+     "verts": 4353
     },
     "landmarks": {
      "chin": 1.458354,
@@ -187,6 +556,7 @@
        0.024
       ]
      },
+     "ear_vertices": 518,
      "eye": [
       0.0,
       -0.12194,
@@ -214,9 +584,9 @@
     },
     "uv_tangent_turn": {
      "hair": {
-      "max_deg": 79.4,
-      "over_35_deg": 230,
-      "tris": 12750
+      "max_deg": 77.2,
+      "over_35_deg": 111,
+      "tris": 8206
      }
     }
    },
@@ -224,13 +594,15 @@
     "cap": {
      "boundary_d_mm": [
       -21.1,
-      2.7
+      12.0
      ],
      "boundary_offset_mm_max": 0.6,
      "boundary_v_max": 0.003,
-     "boundary_verts": 204,
-     "faces": 4816,
-     "faces_from_body": 1204,
+     "boundary_verts": 412,
+     "ear_covered_verts": 0,
+     "faces": 2544,
+     "faces_from_body": 636,
+     "line_u": null,
      "strand_turns": 14,
      "thick_mm": [
       0.6,
@@ -239,21 +611,21 @@
      "uv_handedness": {
       "flat": 0,
       "flipped": 6,
-      "same": 606
+      "same": 602
      },
-     "verts": 4923
+     "verts": 2753
     },
     "face_order": {
      "HairWoman_hair": {
-      "faces": 5546,
-      "order": "d2ab71bc0f16",
-      "set": "03c4347cf70b"
+      "faces": 3274,
+      "order": "0abdc2f593a7",
+      "set": "3adf8c25ef1f"
      }
     },
     "hair": {
-     "cap_min_clearance_m": 0.0003,
-     "faces": 5546,
-     "verts": 5645
+     "cap_min_clearance_m": -0.00018,
+     "faces": 3274,
+     "verts": 3475
     },
     "landmarks": {
      "chin": 1.458354,
@@ -273,6 +645,7 @@
        0.024
       ]
      },
+     "ear_vertices": 518,
      "eye": [
       0.0,
       -0.12194,
@@ -301,9 +674,9 @@
     },
     "uv_tangent_turn": {
      "hair": {
-      "max_deg": 86.7,
-      "over_35_deg": 336,
-      "tris": 11072
+      "max_deg": 81.5,
+      "over_35_deg": 213,
+      "tris": 6528
      }
     }
    },
@@ -311,13 +684,15 @@
     "cap": {
      "boundary_d_mm": [
       -21.1,
-      2.7
+      12.0
      ],
      "boundary_offset_mm_max": 0.6,
      "boundary_v_max": 0.003,
-     "boundary_verts": 204,
-     "faces": 4816,
-     "faces_from_body": 1204,
+     "boundary_verts": 412,
+     "ear_covered_verts": 0,
+     "faces": 2544,
+     "faces_from_body": 636,
+     "line_u": null,
      "strand_turns": 14,
      "thick_mm": [
       0.6,
@@ -326,9 +701,9 @@
      "uv_handedness": {
       "flat": 0,
       "flipped": 4,
-      "same": 608
+      "same": 604
      },
-     "verts": 4923
+     "verts": 2753
     },
     "contract": {
      "ft_root_bone": "spine.005",
@@ -348,9 +723,9 @@
     },
     "face_order": {
      "HairWoman_hair": {
-      "faces": 6695,
-      "order": "bda68b35a826",
-      "set": "36ffa18494d4"
+      "faces": 4423,
+      "order": "9faffd754a82",
+      "set": "57995862114f"
      },
      "HairWoman_hair_strand": {
       "faces": 350,
@@ -359,9 +734,9 @@
      }
     },
     "hair": {
-     "cap_min_clearance_m": 0.0003,
-     "faces": 6695,
-     "verts": 6843
+     "cap_min_clearance_m": -0.00018,
+     "faces": 4423,
+     "verts": 4673
     },
     "landmarks": {
      "chin": 1.458354,
@@ -381,6 +756,7 @@
        0.024
       ]
      },
+     "ear_vertices": 518,
      "eye": [
       0.0,
       -0.12194,
@@ -432,9 +808,9 @@
     },
     "uv_tangent_turn": {
      "hair": {
-      "max_deg": 81.7,
-      "over_35_deg": 232,
-      "tris": 13390
+      "max_deg": 77.5,
+      "over_35_deg": 119,
+      "tris": 8846
      },
      "hair_strand": {
       "max_deg": 58.0,
@@ -447,13 +823,15 @@
     "cap": {
      "boundary_d_mm": [
       -21.1,
-      2.7
+      12.0
      ],
      "boundary_offset_mm_max": 0.6,
      "boundary_v_max": 0.003,
-     "boundary_verts": 204,
-     "faces": 4816,
-     "faces_from_body": 1204,
+     "boundary_verts": 412,
+     "ear_covered_verts": 0,
+     "faces": 2544,
+     "faces_from_body": 636,
+     "line_u": null,
      "strand_turns": 14,
      "thick_mm": [
       0.6,
@@ -462,9 +840,9 @@
      "uv_handedness": {
       "flat": 0,
       "flipped": 5,
-      "same": 607
+      "same": 603
      },
-     "verts": 4923
+     "verts": 2753
     },
     "contract": {
      "ft_root_bone": "spine.005",
@@ -484,9 +862,9 @@
     },
     "face_order": {
      "HairWoman_hair": {
-      "faces": 4960,
-      "order": "1553538067f4",
-      "set": "96d53e8dd4d2"
+      "faces": 2688,
+      "order": "deeb117aa12a",
+      "set": "dc8e1f070280"
      },
      "HairWoman_hair_strand": {
       "faces": 444,
@@ -495,9 +873,9 @@
      }
     },
     "hair": {
-     "cap_min_clearance_m": 0.0003,
-     "faces": 4960,
-     "verts": 5067
+     "cap_min_clearance_m": -0.00018,
+     "faces": 2688,
+     "verts": 2897
     },
     "landmarks": {
      "chin": 1.458354,
@@ -517,6 +895,7 @@
        0.024
       ]
      },
+     "ear_vertices": 518,
      "eye": [
       0.0,
       -0.12194,
@@ -568,8 +947,8 @@
     "uv_tangent_turn": {
      "hair": {
       "max_deg": 80.2,
-      "over_35_deg": 120,
-      "tris": 9920
+      "over_35_deg": 32,
+      "tris": 5376
      },
      "hair_strand": {
       "max_deg": 30.2,
@@ -582,13 +961,19 @@
     "cap": {
      "boundary_d_mm": [
       -20.4,
-      2.7
+      12.0
      ],
      "boundary_offset_mm_max": 0.6,
      "boundary_v_max": 0.003,
-     "boundary_verts": 228,
-     "faces": 4704,
-     "faces_from_body": 1176,
+     "boundary_verts": 396,
+     "ear_covered_verts": 0,
+     "faces": 2456,
+     "faces_from_body": 614,
+     "line_u": {
+      "line_u_m": 0.03,
+      "turned_deg_max": 19.73,
+      "verts": 1968
+     },
      "strand_turns": 14,
      "thick_mm": [
       0.6,
@@ -597,21 +982,21 @@
      "uv_handedness": {
       "flat": 0,
       "flipped": 7,
-      "same": 605
+      "same": 601
      },
-     "verts": 4821
+     "verts": 2659
     },
     "face_order": {
      "HairWoman_hair": {
-      "faces": 4704,
-      "order": "e017d0f18c27",
-      "set": "23bc77ce5e93"
+      "faces": 2456,
+      "order": "0fb558f51598",
+      "set": "8a09c423c9bd"
      }
     },
     "hair": {
-     "cap_min_clearance_m": 0.00042,
-     "faces": 4704,
-     "verts": 4821
+     "cap_min_clearance_m": -0.00018,
+     "faces": 2456,
+     "verts": 2659
     },
     "landmarks": {
      "chin": 1.458354,
@@ -631,6 +1016,7 @@
        0.024
       ]
      },
+     "ear_vertices": 518,
      "eye": [
       0.0,
       -0.12194,
@@ -648,9 +1034,9 @@
     "parts": {},
     "uv_tangent_turn": {
      "hair": {
-      "max_deg": 78.4,
-      "over_35_deg": 201,
-      "tris": 9408
+      "max_deg": 86.2,
+      "over_35_deg": 246,
+      "tris": 4912
      }
     }
    }
@@ -662,7 +1048,7 @@
     "HairWoman_hair_strand"
    ],
    "refused": "[hairwoman] hair is already in this file (HairWoman_body, HairWoman_hair_strand) and the hair stage joins a layer on rather than replacing it - rebuild from body (from_stage=\"body\") to change [hair]",
-   "verts": 19411,
+   "verts": 18265,
    "with_another_character": [
     "HairWoman_body",
     "HairWoman_hair_strand"
@@ -689,7 +1075,7 @@
   },
   "stage": {
    "body_has_ft_strand": false,
-   "body_verts": 19411,
+   "body_verts": 18265,
    "joined": [
     "HairWoman_hair"
    ],
@@ -700,6 +1086,7 @@
     "HairWoman_skin",
     "HF_sclera",
     "HF_iris_HairWoman_eyes",
+    "HF_limbal_HairWoman_eyes",
     "HF_pupil",
     "HairWoman_hair"
    ],

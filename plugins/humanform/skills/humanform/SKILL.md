@@ -1,6 +1,6 @@
 ---
 name: humanform
-description: Build adult human bodies in Blender that look right and work downstream in Godot 4.7 - layer by layer from a character brief through proportions and landmarks, a clean MPFB2 base mesh (quads, UVs, rig), primary and secondary anatomical forms, face, hands and feet, surface detail and skin, to a rig handed to rig-anything, follow-through, wardrobe and lookdev - with a measured gate and a critic between every layer so a detail pass never hides a structural mistake. Use when asked to make, model, sculpt, generate or improve a human, person, man, woman, character body, base mesh or figure in Blender; to choose realistic or stylized proportions; to use MPFB or MakeHuman from a script; or to plan how a character should be built before modelling starts.
+description: Build adult human bodies in Blender that look right and work downstream in Godot 4.7 - layer by layer from a character brief through proportions and landmarks, a clean MPFB2 base mesh (quads, UVs, rig), primary and secondary anatomical forms, face, hands and feet, surface detail and skin, to a rig handed to rig-anything, follow-through, wardrobe and lookdev - with a measured gate and a critic between every layer so a detail pass never hides a structural mistake. Use when asked to make, model, sculpt, generate or improve a human, person, man, woman, character body, base mesh or figure in Blender; to choose realistic or stylized proportions; to use MPFB or MakeHuman from a script; to make a character look like a real person from a photo (face proportions read off a frontal photo, ancestry); to give a character a beard, moustache, goatee, stubble or a fringe (bangs); or to plan how a character should be built before modelling starts.
 ---
 
 # humanform
@@ -77,6 +77,44 @@ sheet.save(r["sheet"], r"C:/proj/assets/people/mara.sheet.json")
 | `cupsize` | MPFB macro 0..1, a woman's bust (small .. full); `None` is MPFB's 0.5. Never fitted, like firmness: ANSUR's chest girth is fitted around it |
 | `muscle` | MPFB macro 0..1; `None` takes the build's. Given outright, the fit holds it (Dante's 1.0 ends at 0.95, not the muscular prior's 0.72) |
 | `skin`, `iris` | screen (sRGB) colours `(r, g, b)`, 0..1 - see *Colour* |
+| `ancestry` | `{"african": a, "asian": b, "caucasian": c}`, any of them, normalised to sum to 1: MPFB's ancestry macros, which shape the face and body before the fit and are never moved by it. Absent from a sheet that does not give it |
+| `face` | a likeness read off a photo - see *A likeness from a photo*. Absent from a sheet that does not give it |
+
+**A likeness from a photo.** A brief's `face` holds ratios read off a *frontal* photo of the person, so no
+scale is needed (`sheet.FACE_RATIOS`, each with its plausible adult range):
+
+| ratio | = | typical |
+|---|---|---|
+| `width_to_height` | cheekbone breadth (ear root to ear root) / nasion (the bridge between the eyes) to chin | 1.1-1.3 |
+| `eye_spacing` | pupil to pupil / cheekbone breadth | 0.44-0.50 |
+| `nose_width` | the nose's wings, outside to outside / cheekbone breadth | 0.25-0.36 |
+| `mouth_width` | mouth corner to corner / cheekbone breadth | 0.34-0.47 |
+| `jaw_width` | the face's outline across at the mouth's height / cheekbone breadth | 0.75-0.87 |
+| `lower_face` | the nose's base to the chin / nasion to chin | 0.49-0.64 |
+
+plus optionally `shape`, one of MPFB's head shapes (`sheet.FACE_SHAPES`: oval, round, square, rectangular,
+triangular, invertedtriangular, diamond) at `shape_weight` (0..1, default 0.5; 0.3 reads as a leaning).
+
+How to read them: take a photo that looks straight at the face (a head turned 20 degrees hides a cheek and
+foreshortens every width - pick another photo), at least ~400 px across the face, neutral or nearly (a smile
+widens the mouth ~10%: take that off). Load it in the browser, draw a labelled pixel grid over a crop of each
+band (eyes and cheekbones; mouth, jaw and chin) with a canvas, and read the landmarks' pixel coordinates off
+the grid. Beards and hair hide edges: read the bony chin and the ear roots, not the beard's or hair's outline.
+Morgan Freeman, Taylor Swift and Ariana Grande read as above in about 5 minutes each (the three specs in
+grungist-creek's `characters/cast_{morgan,taylor,ariana}.toml` say which photo and what was measured).
+
+`landmarks.likeness` turns the ratios into targets with the body's own ANSUR bizygomatic breadth as the scale
+(the face stays the size of the body), and the face stage (`scaffold.fit_face`) adds, for each measure given,
+a group of MPFB levers (`scaffold.LIKENESS_FINE`) - the first moves only its own measure, the rest add range
+behind a stronger prior - and a residual measured on the mesh (`measure._face_features`: alar breadth,
+mouth corners, the outline at the mouth, nose base to chin, from `data/face_features.json`, which
+`scripts/derive_face_features.py` writes from MPFB's base mesh and targets). A likeness is always fitted
+(never reused) and never stored in the library. The fit's report has `likeness.fit` (each measure against its
+target, in tolerances) and names in `likeness.at_limit` (and a note) any measure that ran every one of its
+levers to the end of MPFB's range - the face asks for more than MPFB can give; check the photo reading.
+Measured: Taylor Swift and Ariana Grande within tolerance on every measure; Morgan Freeman's mouth 2.7 mm
+narrow and his jaw 7 mm wide (an aged body, fitted at 58 and then aged; and his beard hides the jaw's edge).
+It sets proportions, not identity: skin detail, expression, makeup and hair do the rest.
 
 **Ages ANSUR did not measure.** `sheet.resolve` returns `ansur`: `"measured"` for 17-58, `"aged"`
 above, `"child"` below, and for the last two a note containing `sheet.NOT_MEASURED` ("not measured
@@ -93,9 +131,18 @@ body's humancheck still runs, but what it measures is MPFB's ageing, not data - 
 **Colour.** Briefs and every humanform API take screen (sRGB) colours - what a picker, a photo or a
 person means by a colour - and `look.srgb_to_linear` converts them with the exact piecewise curve for
 Blender's linear Base Color (and glTF's). `c ** 2.2` is 2% off at mid-grey but a third of the true
-value at 0.05, where dark irises and deep skin tones sit. `look.skin(human, srgb)` gives a body one flat
-Principled material (`<name>_skin`, roughness 0.55); `pipeline.make` applies the brief's `skin` and
-`iris`. Flat colour only - lookdev owns real skin.
+value at 0.05, where dark irises and deep skin tones sit. `look.skin(human, srgb)` gives a body real skin (`humanform.skin`): on
+the MPFB human it marks regions as point attributes (lips, areolae and nipples, genital skin, knees, elbows,
+knuckles darker and redder; palms and soles paler; cheeks, nose tip and ears flushed; an oily T-zone, drier
+limbs) and gives it a FLAT Principled skin (the tone as Base Color, subsurface with Jensen skin radii in mm,
+scale 0.001), so a body exported without a bake still arrives in its colour; on a game mesh (after rig-anything's
+`bake_for_game`, which keeps the marks) it bakes a procedural skin with seeded mottling and a fine bump into
+albedo, ORM and normal maps with lookdev (`look.SKIN_MAP_PX`, 1024; the albedo's covered mean is held to the
+brief's `skin` within 0.03 sRGB) and adds the `hf_detail` UV map lookdev's Godot pores tile on. The report is
+the material's `humanform_skin` (with each region's baked tone under `regions`). If lookdev cannot be imported the
+material stays flat (`stage` "flat", `error` set) - never procedural, which the glTF exporter writes as white. The
+marks are not colour attributes (`hf_skin_tint` is a vector, `hf_skin_region` an int), because the exporter writes
+every colour attribute out as COLOR_n. `look.skin(..., realistic=False)` is the old flat material.
 
 **How it resolves.** ANSUR II per sex is a multivariate normal over 65 variables. What the sheet
 fixes is conditioned on, and a build's leanings are applied in conditional standard deviations,
@@ -233,6 +280,101 @@ crown). Round an ear and at the feather the frame still turns, since V runs away
 of a hole; Godot's `LookdevMaterials.apply` gives hair tangents from U alone for that - per face, then
 averaged mod 180 degrees over the faces meeting at each position, which is what keeps the strands running to
 the bun's axis from faceting into dark polygons.
+
+**short_crop's feathered hairline (humanform 0.12.0).** At 1 m in Godot the short crop read as a helmet with a
+hard, spiky fringe: every strand rooted in the same 13 mm band of V and the opaque middle started on one straight
+line of V, so the hairline was a ruled edge with a comb of dark spikes hanging from it. The preset now carries a
+`look` block (overrides of lookdev's `hair` strand settings, passed to `hair.material`) - roots spread to
+`root_zone` [0.004, 0.075] and skewed away from the edge (`root_power` 0.8), the dense hair starting up to 6 mm
+further in, strand by strand (`root_ragged` 0.03), blunter roots, a stronger root fade and 60 fine short hairs
+per tile - and `edge_wobble_m` (3 mm) moves V near the line with a sum of sines round the head, so the texture's
+own ragged edge does not repeat every tile. Other presets keep lookdev's defaults. The `hair_presets` fixture
+measures it (`face.hairline_feather`: where the hair turns dense wanders 0 mm on a default texture, several mm on
+the short crop; the control, short_crop without its `look`, must fail).
+
+That first pass still read as a comb at 1 m, and from the side as a helmet with a spiky rim. Two more changes,
+still in humanform 0.12.0. **Edge hairs:** the `look` block now roots the long strands close to the dense start
+(`root_power` 0.15) and scatters 900 short, thin, leaning hairs per tile in front of it instead (lookdev's
+`edge_hairs`, `edge_depth`, `edge_power`, `edge_lean`, `edge_len`, `edge_width`, `edge_tone`), with a little
+more lock and strand variation on the dome. **`line_u_m` (3 cm, off at the defaults; short_crop only):** U around
+the strand axis meets V at a slant where the hairline runs steeply (the temples, the sideburns: a median 26
+degrees on study_man's sides), so the thinning root zone sheared into long diagonal spikes. Within `line_u_m`
+of the line, U is now the axis's angle at the point of the line the vertex lies across from, relaxed over the
+mesh (`line_u_relax` passes) and eased back to the axis's U further in. The fixture reports both
+(`face.hairline_feather.fringe_ratio` against the round-1 comb look as control, and `face.hairline_feather.line_u`
+with `line_u_m` 0 as control, plus `edge_wobble`, which checks `edge_wobble_m` moves the cap's V near the line).
+
+**The ears are cut round, not covered.** On an MPFB body (`brows.is_mpfb`: at least 13380 vertices, which a
+baked body keeps in base-mesh order) the hairline also knows the ears themselves: `data/face_regions.json`
+lists the vertices MPFB's ear flap, wing and lobe targets bend (259 a side), the cap drops every face that
+touches one, and the signed distance is at most the distance to the nearest ear vertex minus `ear_clear_m`
+(-3 mm), so the feather runs out round the ear instead of across it. Before, the ellipse alone left the
+whole ear inside the cap - 568 of a curvy woman's 1204 cap faces were ear, and the strand texture ran over
+the helix and the back of both ears. `cap.ear_covered_verts` counts the ear vertices facing out of the head
+whose normal meets the cap within 2 cm: 0 on every preset (430 with `ear_cut=False`, the old cap, as a
+control in the `hair_presets` fixture).
+
+### Brows, lashes and body hair (`humanform.brows`)
+
+```python
+rep = hair.add("Mara_body", preset="short_crop", colour=c, brows=True, lashes=True)   # off by default
+rep["objects"]     # {"hair": ..., "brows": "Mara_brows", "lashes": "Mara_lashes"}
+rep["face"]        # {"parts": {"brows": {faces, verts, weights, material, colour}, ...}, "skipped": None}
+hair.add(..., body_hair=True, sex="male")    # + "Mara_body_hair": forearms, shins, pubic; chest, belly, thighs on a man
+```
+
+A spec turns them on with `[hair] brows = true`, `lashes = true`, `body_hair = true` (character-pipeline);
+the hair stage joins them into the body with the rest of the hair.
+- **Lashes** are MPFB's own eyelash cards (`helper-{l,r}-eyelashes-{1,2}`, upper and lower lid, 92 quads a
+  side), which the bake deletes with the other helpers. `scripts/derive_face_regions.py` stores each card
+  vertex as a proxy fit (a triangle of body vertices, barycentric weights, an offset along its normal in
+  units of its size, refit error 0.8 um), so the cards follow the lids through every target and fit. The
+  lower card is drawn in to 45% of its length (MPFB's is as long as the upper one and read as eyeliner). V
+  runs from the lid to the tips per lid; two-sided.
+- **Brows** are a generated 16 x 4 card on each ridge, laid on the neutral face from the eye (MPFB has brow
+  shape targets but no brow geometry) and stored the same way: 10.5 mm tall at the head, 2 mm at the tail,
+  6 cm long. Its strands lean along it - V across from the lower edge (roots) to the upper (tips), U
+  sheared from upright at the head to 14 degrees by the tail.
+- **Brow shape** (`hair.add(brow_shape=)`, a brief's `hair.brow_shape`, a spec's `[hair] brow_shape`): one of
+  `brows.BROW_SHAPES` - `natural` (the default: the card as fitted, untouched, so a spec that does not ask is
+  unchanged), `straight` (the rise taken out, the tail lifted), `arched` (the outer third lifted about 2.5 mm,
+  the tail dropped), `soft` (a low, round arch). Each vertex moves along the skin by the shape's offset at its
+  place along the brow and keeps its height over the skin. The report's `face.parts.brows.shape.<side>` has the
+  card's height profile along the brow and `moved_mm` against the natural brow.
+- **Lash density (humanform 0.12.0).** Seen from the front the upper card is steep to the eye (its tips rise
+  about 16 degrees; turning it further up runs it into the lid), so a lash is a few screen pixels long, and 170
+  lashes gathered into clumps read as a few dark streaks on the lid. `brows.LASHES` now draws 260 long lashes
+  gathered less (0.25) and 160 short ones packed at the root, which make the dark lash line; the cards filter
+  anisotropically in Godot (`texture_filter` 5), since the upper card is seen at a grazing angle.
+- **Body hair** (off unless asked) is a shell 0.3 mm off the skin cut by bone weight (and facing, on the
+  torso), with the hair texture thinned to 22% of its strand bands, each staggered, repeating every 14 mm
+  along the limb so it reads as short hairs.
+- **Beard** (`hair.add(beard=, beard_colour=)`, a brief's `hair.beard`, a spec's `[hair] beard` /
+  `beard_colour`; off unless asked): `brows.BEARD_STYLES` - `stubble` (0.3 mm off the skin), `short` (2.5 mm,
+  every strand band), `goatee` and `moustache`. A shell cut like body hair over regions placed from the face's
+  own features (`brows.beard_regions`: the mouth's slit and corners and the nose's base from
+  `face_features.json`, the chin as the lowest front point of the head, the head and neck weights):
+  `moustache` between the nose's base and the upper lip, `chin` below the lower lip, `jaw` along the jaw below a
+  line from the nose's base at the mouth's corner to the mouth's height 7 cm out; never the lips' red, the slit
+  or the nostrils, and below the chin only the jaw's underside (skin facing down - the neck's front faces
+  forward, and the first beard ran down the throat). U runs round the face about a vertical axis 7 cm behind
+  the mouth (U from x smeared strands into bands on the side of the jaw); V hangs down. Colour: the hair colour
+  times 0.95 unless `beard_colour`. The report's `face.parts.beard` has the regions' vertex counts and the marks.
+- **Fringe** (`hair.add(fringe=True)` or a dict over `hair.FRINGE`, a brief's `hair.fringe`, a spec's
+  `[hair] fringe = true`): a sheet over any preset from near the crown (0.95 h) down to the brows (0.2 h),
+  62 degrees either side of the front, hung straight down from the widest point above (over the brow ridge,
+  not into the hollow under it), 3 mm off the forehead at its ends, thinning to nothing at its sides under the
+  fall, its ends 8 mm ragged. Its numbers merge in only when asked, so no preset's hash moves.
+- **Colour and material:** the `[hair]` colour's sRGB times 0.6 for brows, 0.35 for lashes, 0.8 for body hair;
+  lookdev's hair material with per-part strand settings (`brows.LOOK`), so glTF carries MASK, the strand and
+  normal textures and the `lookdev` extras. They ask Godot for **alpha scissor** (`transparency` 2) instead of
+  the scalp's depth pre-pass: a card this fine, this close to the skin, blends its sub-cutoff strand fringes
+  into a grey haze (eyeshadow round the lashes, a smudge under the brow).
+- Weights are interpolated from the triangle each vertex rides (the head bone on the draft study figures).
+
+`scripts/derive_face_regions.py` regenerates the data from MPFB's `base.obj`
+(`blender -b --factory-startup --python-exit-code 1 --python derive_face_regions.py`, 4 s). A body that is not
+MPFB's gets no brows, lashes, body hair or ear cut, and `rep["face"]["skipped"]` says why.
 
 **Material:** `lookdev_blender.hair.material` (see lookdev's `references/hair.md`): strand texture with a
 root-to-tip gradient and alpha-thinned ends (MASK), a strand normal map, anisotropy, and `lookdev` extras
@@ -441,7 +583,8 @@ rig = HumanService.add_builtin_rig(human, "game_engine")          # 0.09 s, 53 b
 problems to every garment, jiggle zone and animation built on it; face detail does not help.
 
 **Numbers outrank pictures, pictures outrank intentions.** What the builder meant to make is not
-evidence. Measure, render, then ask a critic that did not build it.
+evidence. Measure, render, then ask a critic that did not build it. A round's questions come from
+`${CLAUDE_PLUGIN_ROOT}/references/critic-body.md` (each names the finding or tile that answers it).
 
 **Keep the rest pose games rig in:** arms about 45 deg down, legs apart below the crotch (wardrobe
 measured shirts folding into spikes at a T-posed armpit).

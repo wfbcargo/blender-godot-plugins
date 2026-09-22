@@ -113,10 +113,14 @@ def moves_manifest(result):
     if result.get("moves") and os.path.isfile(result["moves"]):
         with open(result["moves"], encoding="utf-8") as fh:
             on_disk = json.load(fh)
-    return stable({"fields": sorted(m), "clips": m["clips"], "loops": m["loops"],
-                   "height_m": m["height_m"], "gaits": m["gaits"], "collider": m["collider"],
-                   "arm_pose_on_disk": on_disk.get("arm_pose", {}),
-                   "dropped_clips": sorted(m.get("dropped_clips", {})), "problems": result["problems"]})
+    out = stable({"clips": m["clips"], "loops": m["loops"],
+                  "height_m": m["height_m"], "gaits": m["gaits"], "collider": m["collider"],
+                  "arm_pose_on_disk": on_disk.get("arm_pose", {}),
+                  "arm_gait_on_disk": on_disk.get("arm_gait", {}),
+                  "dropped_clips": sorted(m.get("dropped_clips", {})), "problems": result["problems"]})
+    # every field name, however many: `stable`'s list cap would keep only the ends, and a field lost
+    # while another was added would go unseen
+    return dict(out, fields=sorted(m))
 
 
 def review_sheet(review):

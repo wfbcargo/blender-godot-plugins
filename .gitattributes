@@ -1,3 +1,7 @@
 # Shell scripts must keep LF endings on every platform — a CRLF checkout on
 # Windows breaks the shebang line with `\r: command not found`.
 *.sh text eol=lf
+
+# Python keeps LF too: a CRLF rewrite of one file made git treat it as
+# binary (-text) and turned a 100-line change into a whole-file diff.
+*.py text eol=lf

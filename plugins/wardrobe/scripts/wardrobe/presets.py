@@ -6,7 +6,8 @@
 
 The presets live in `presets/garments.json` in the plugin, each with a `note` saying where its
 numbers came from. `dress` runs tailor -> paint_ease -> ease -> skin -> hem -> cover -> spec ->
-export with a preset's arguments; a step whose arguments are null is skipped.
+export with a preset's arguments; a step whose arguments are null is skipped (`skin` is never
+skipped: absent or null, it keeps a cut garment's own weights).
 """
 
 from __future__ import annotations
@@ -79,7 +80,7 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
     painted = fit.paint_ease(g, **_args(p["paint"])) if p.get("paint") is not None else None
     # null ease: skipped - a built skirt carries its ease already, and relaxing a tube shrinks it off its flare
     er = fit.ease(g, body, over=over, **_args(p["ease"])) if p.get("ease") is not None else None
-    sk = fit.skin(g, body)
+    sk = fit.skin(g, body, **_args(p.get("skin")))
     hr = None
     cloth = None
     if soft:
@@ -96,7 +97,9 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
             tris = cover.drawn_over_cloth(g, body, cr, reach=behind)
             if not tris:
                 break
-            lifted.append({"tris": len(tris), "verts_moved": fit.lift_over(g, body, tris, (p.get("ease") or {}).get("base", 0.006))})
+            lift = p.get("lift") or {}
+            gap = lift.get("gap", (p.get("ease") or {}).get("base", 0.006))
+            lifted.append({"tris": len(tris), "verts_moved": fit.lift_over(g, body, tris, gap, smooth=lift.get("smooth", 0.0))})
             cr = cover.compute(g, body, **_args(p.get("cover")))
         if lifted and er is not None:
             er["detail"] = fit.detail(g, body, limit=(p.get("ease") or {}).get("detail_limit"))   # of the cloth as lifted
@@ -109,6 +112,9 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
         "verts": len(g.data.vertices), "groups": len(g.vertex_groups),
         "cut": dict(g["wardrobe_cut_report"]), "painted": painted, "ease": er, "skin": sk,
         **({"lifted": lifted} if lifted is not None else {}),
+        # folds in the cloth (see fit.folds): lift_over's per-corner cones and the cloth tucked into
+        # the fold under Belle's bust made a faceted, pointed shelf there (improvements NEXT 9)
+        **fit.folds(g),
         "hem": hr["rings"] if hr else None, "hem_bones": len(hr["block"]["bones"]) if hr else 0,
         "cover": cover.summarize(cr), "cover_report": {k: v for k, v in cr.items() if not k.startswith("_")},
         "layers": {o.name: {"hidden": r["hidden"], "tris_hidden": r["tris_hidden"]} for o, r in layers.items()},
@@ -120,6 +126,7 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
     # own relief than the limit fails - and so does one whose limited region was never measured.
     # A skirt or dress has no ease step (`er` None): there is no relief to have measured.
     detail = builtins.list(((er or {}).get("detail") or {}).get("problems") or [])
+    detail += ((er or {}).get("tuck") or {}).get("problems") or []
     if cr.get("drawn_over_cloth"):
         detail.append("cover: %d drawn body triangles still lie over the cloth after lifting it" % cr["drawn_over_cloth"])
     if problems:

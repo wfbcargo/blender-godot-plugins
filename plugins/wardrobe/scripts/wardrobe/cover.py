@@ -31,6 +31,14 @@ from mathutils.bvhtree import BVHTree
 
 from . import fit, rigmap
 
+# drawn_over_cloth: skin counts as over the cloth only where the cloth's face and the skin's normal agree at
+# least this much - `compute`'s rule for cloth it reaches ahead of the skin. Measured on the sample Figure's sports
+# top: skin beside an armhole's rim 0.01-0.22 (and -0.6 on the other side), skin through the cloth over a pressed
+# bump 0.72-0.93. WD_LEGACY_OVER_CLOTH=1 drops the test, as the control that must fail (traced_detail's top).
+FACING_MIN = 0.3
+if __import__("os").environ.get("WD_LEGACY_OVER_CLOTH") == "1":
+    FACING_MIN = -2.0
+
 
 def garment_bvh(garment):
     g = rigmap._obj(garment)
@@ -48,7 +56,7 @@ def _weights(obj):
 
 
 def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True, floor_z=None, max_front=None,
-            behind=0.0):
+            behind=0.0, crease=0.0):
     """`agree`: the least share of skinning the skin and the cloth over it must have in common
     for that skin to be hidden. Skin on a thigh under a hem hung from the torso, or on an arm
     under a cuff hung from cuff bones, moves out from under the cloth: it stays drawn.
@@ -155,7 +163,8 @@ def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True, flo
             if nd < dist[j] and nd <= margin:
                 dist[j] = nd
                 heapq.heappush(heap, (nd, j))
-    hidden = [covered[i] and agrees[i] and dist[i] > margin for i in range(len(covered))]
+    creased = _creased(b, covered, crease) if crease > 0 else [False] * len(covered)
+    hidden = [covered[i] and agrees[i] and dist[i] > margin and not creased[i] for i in range(len(covered))]
     edge = [covered[i] and not hidden[i] for i in range(len(covered))]
     disagree = [i for i in range(len(covered)) if covered[i] and not agrees[i]]
 
@@ -178,6 +187,7 @@ def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True, flo
             "hidden_gap_max_m": round(gaps[-1], 4) if gaps else None,
             "max_gap": max_gap, "margin": margin, **({"floor_z": floor_z} if floor_z is not None else {}),
             **({"max_front": max_front} if max_front is not None else {}),
+            **({"crease": crease, "creased": sum(creased)} if crease > 0 else {}),
             **({"behind": behind, "inside": sum(1 for i in range(len(gap)) if covered[i] and gap[i] < 0),
                 "drawn_over_cloth": len(drawn_over_cloth(g, b, {"_hidden": [i for i, f in enumerate(hidden) if f],
                                                                   "_edge": [i for i, f in enumerate(edge) if f],
@@ -186,6 +196,24 @@ def compute(garment, body, max_gap=0.1, margin=0.03, agree=0.7, groups=True, flo
                if behind > 0 else {}),
             "_hidden": [i for i, f in enumerate(hidden) if f], "_edge": [i for i, f in enumerate(edge) if f],
             "_disagree": disagree}
+
+
+def _creased(b, covered, reach):
+    """Covered skin that faces other skin across a fold within `reach` (its normal line meets the
+    body turned back at it): the fold under a heavy breast, which a compression garment spans. Such
+    skin is kept drawn - it lies inside the cloth, so drawing it shows nothing - and it is not a
+    margin source, so the skin around it is still hidden. Hidden, it was a hole: under Belle's bust
+    (improvements NEXT 9) the verifier saw into 5-7 such vertices from grazing views along the fold,
+    0.52-0.73% of the hidden skin against a 0.5% limit."""
+    bvh, _verts, _tris = fit.body_bvh(b)
+    out = [False] * len(covered)
+    for v in b.data.vertices:
+        if not covered[v.index]:
+            continue
+        n = v.normal
+        h = bvh.ray_cast(v.co + n * 0.001, n, reach)
+        out[v.index] = h[0] is not None and h[1].dot(n) < 0.0
+    return out
 
 
 def drawn_over_cloth(garment, body, rep, reach=0.03, tol=0.0005):
@@ -218,7 +246,12 @@ def drawn_over_cloth(garment, body, rep, reach=0.03, tol=0.0005):
                 co = bme.vertices[i].co
                 h = bvh.find_nearest(co, reach)
                 over[i] = False
-                if h[0] is not None and h[3] > 1e-9:
+                # the cloth must face the way the skin does, as `compute` asks of cloth it counts as covering:
+                # an armhole's rim, turned sideways at the garment's edge, has skin facing forward and down
+                # over its face (normals 120-130 deg apart) - skin beside the opening, not through the cloth.
+                # Counted, each lift turned more rim toward more skin: 18 -> 274 triangles over four lifts on
+                # the sample Figure's sports top once the cut's armhole sat where the arm starts
+                if h[0] is not None and h[3] > 1e-9 and h[1].dot(bme.vertices[i].normal) >= FACING_MIN:
                     side = (co - h[0]).dot(h[1])
                     over[i] = side > tol and side > 0.7 * h[3]
             bad = bad or over[i]

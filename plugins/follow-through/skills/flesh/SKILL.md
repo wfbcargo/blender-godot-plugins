@@ -35,7 +35,17 @@ res = flesh.render_heat("Bloater", r"C:/scratch/flesh", regions=found["regions"]
   butt.L         soft_fat   217 verts, stands 0.123 m out, 0.9% of the body, on spine.001 (height 0.29, facing 142, spine)
   ...
   - belly: 0 bulging vertices in its zone
+  MISSED belly: its zone's bulge (1016 seed vertices) was already taken by bloater_belly (1016 vertices), looked
+  for before it: in its zone the skin stands at most 0.0000 m out (a seed needs 0.0213 m = 0.012 x height 1.77 m) ...
 ```
+
+**A type looked for and not found says why, with the numbers.** `found["missed"]` (and `prepare`'s
+report) has one entry per such type: `reason` is `zone_empty` (no searched vertex in its zone),
+`claimed` (an earlier type in `ORDER` took the zone's bulge - `claimed_by` names it and counts),
+`below_threshold` (the zone's peak `peak_excess_m` under `seed_excess_m` = 0.012 x height, or its
+`peak_relative` under 0.25), `too_small` (fewer seed vertices than `min_size`) or `too_little` (built,
+but under the type's `when` volume or peak). A figure study's belly came back `claimed`: the breasts
+grow 0.1 below their zone and took 190 of the belly zone's 298 vertices.
 
 **Read the heat renders** (white lean, red standing out, blue a found region, green not
 searched). The measure is good at *where and how far*; it is weaker at *what*: on the test
@@ -93,11 +103,25 @@ influences a vertex), and writes the `jiggle` block. Re-running replaces them.
 
 | material | Hz | damping | squash | translate | gravity | used by |
 |---|---|---|---|---|---|---|
-| soft_fat | 2.7 | 0.25 | 0.5 | 0.35 | 1.0 | breast, belly, butt, love_handle, arm_flab |
+| soft_fat | 2.4 up, 6.7 down, 3.4 front-back | 0.25 | 0.5 | 0.35 | 1.0 | breast, belly, butt, love_handle, arm_flab |
 | firm_flesh | 6 | 0.6 | 0.2 | 0.15 | 0.5 | thigh, genital |
 | bloated | 1.8 | 0.18 | 0.75 | 0.6 | 1.2 | bloater_belly |
 
-soft_fat's 2.7 Hz is breast adipose tissue (E 3.25 kPa, Samani 2007) as a dome of 10 cm.
+soft_fat's frequency was 2.7 Hz, breast adipose tissue (E 3.25 kPa, Samani 2007) as a dome of 10 cm, the
+same every way. **It is not symmetric** (follow-through 0.9.0; research-flesh-jiggle.md D): a breast floats
+up and stops hard at the bottom (Cai 2018: 73.5 N/m above rest, 658 below), so `frequency_hz` is the spring
+above rest (2.4) and `frequency_down_ratio` (2.8) multiplies it below; front to back it is stiffer than up or
+to the side (`frequency_ap_ratio` 1.4, twice the stiffness). The modifier solves each axis - up against
+gravity, front-back along the bone, the side - exactly, substepped at 240 Hz where the vertical spring crosses
+rest; both ratios at 1 is the old isotropic spring. `jiggle_selftest.gd` kicks it (below/above half-period
+0.345-0.360 at 30, 60 and 144 fps against 1/2.8; the linear control fails) and runs in `regress --godot`.
+`verify_flesh.gd` prints each region's `vertical range` (its offset along up, relative to the trunk) and
+`in phase with the trunk` (the share of moving ticks the mass goes up or down with the trunk: about 0.66
+unbraced, over 0.9 braced, Williams 2024). On the cast, 2.4 Hz gave running breasts 5.6-5.9 cm of vertical
+range, 0.72-0.78 in phase; lower up-frequencies swung more but pinned the jump course on the limit (2.0 Hz:
+31-33 % of its ticks), so the swing limit, not the spring, bounds the amplitude on these bodies. For the same
+reason `mass_exponent` (frequency x (mass_ref_kg / mass_kg)^exponent) ships at 0.
+
 `genital` (humanform's kept male shell, anchored on the pelvis, zone on the midline below the hips) is
 firm_flesh, not soft_fat: a small mass hung at 2.7 Hz sags g/(2 pi f)^2 = 3.4 cm under gravity, and
 verify_flesh held the study man's on its 1.7 cm limit (0.3 x peak) 16.7% of the course; at 6 Hz 0.5%, with
@@ -147,6 +171,9 @@ for rep in FollowThrough.apply(body, {"routes": ["jiggle_bones"]}):
 `jiggle.kick(Vector3(0, 1.5, 0))` knocks every region (a landing, a punch);
 `jiggle.paused = true` holds them at rest; `jiggle.region_offsets()` reads them.
 
+A round's done-when or a critic picks its flesh questions from `${CLAUDE_PLUGIN_ROOT}/references/critic-flesh.md`:
+each names the `verify_flesh` course and key, manifest field, heat render or fixture that answers it.
+
 **Verify - always:**
 
 ```bash
@@ -194,9 +221,15 @@ How it works:
   the limit is tightened onto the loosest measured rung inside it when that still keeps the region
   out of the band's top; when nothing can do both, the row is `capped`, the limit is left alone, and
   it names what to change instead - `response`, `gravity_scale`, `frequency_hz`, `damping_ratio`. A
-  region smaller than g/(2 pi f)^2 (3.4 cm at `soft_fat`'s 2.7 Hz) hangs off its limit whatever the
-  body does, and the row says so.
+  region smaller than g/(2 pi f)^2 (4.3 cm at `soft_fat`'s 2.4 Hz up, 0.55 cm at 6.7 Hz down) hangs off its
+  limit whatever the body does, and the row says so.
 - `verify_flesh.gd` also fails a region whose peak offset passed its own stand-out (`within_body`).
+  `course=walk|run|jump` drives one motion alone on the body's own clip (a jump plays the Jump clip,
+  takes off at its highest hips, holds that pose through the flight and lands on the rest), so a
+  failure names the motion; `require=within_body` makes only that check decide, printing the rest as
+  `NOTE ... advisory`. On a jump-only course on_limit's 10% line is not decisive: it was drawn on the
+  mixed course, and the Jump clip's take-off crouch put a figure study's breasts on the limit 10.6% of
+  a jump-only run (0.9% on the full course). `regress.py --godot` runs both on `pipeline_woman`.
 - The band is Belle's: her self-test fails at 10%, and her eye-approved regions sit at 7.5-9% there and
   4.4-4.9% on this course (`references/flesh.md` "Swing limits from Godot").
 - Tune at the `response` the game plays at.
@@ -207,6 +240,46 @@ How it works:
   refuses to apply. A run that measured nothing is not a run that passed.
 
 ## Rules
+
+**Every region is checked for where it landed.** `prepare`'s report has `placement`
+(`flesh.check_placement`): per region, its bone tail and weight centre must be below the chin (`chin_z`,
+the lowest vertex skinned mostly to the head or a bone under it) and inside its type's zone height grown
+by 0.1 (0 hip joints, 1 shoulder joints), and `head_share`, the share of its weight on those face
+vertices, must be at most 0.02. character-pipeline fails the flesh stage on any problem there. Face
+vertices never seed or grow a region (`tissue`'s `head_skinned`; they still shape the lean envelope), and
+a type with `"patches": "nearest"` (breast) keeps, per side, the one bulging patch nearest its zone's
+centre instead of merging every patch in the zone. Before this the cast's slim Mei and Ruth got their
+breast bones on the chin (1.66-1.71 m, lips weighted 100 % to them, breasts rigid) and passed every
+check; `FT_FLESH_LEGACY_PLACEMENT=1` puts that placement back, as the check's control that must fail.
+The breast zone keeps its 1.45 top: 1.0 changed nothing on Mei, Ruth or study_woman once the face was
+out, and cut the sample Figure's breasts (shoulder joints near its bust) from 687 to 458 vertices, which
+failed its sports top's cover check.
+
+**Breasts and buttocks hang from above.** A type with `"attachment": "upper"` (breast, butt) pivots where
+it is attached, not at its own height (`flesh._hang_from_above`): the tail on the apex (the mean of the
+region's most outward vertices), the head 2 cm under the lean surface there and 3-6 cm above the apex
+(0.6 x the region's height above it, clipped), and the weight is the measured feathering times a smoothstep
+along head -> tail (0 for the first 0.3 of the way) times 0 on vertices half or more skinned to a leg,
+normalised so the apex's 2 cm is full weight. So a bounce moves the lower pole and the apex while the upper
+chest and the small of the back stay; the buttock no longer creases the back of the thigh. Before, the tail
+sat 5-8 cm inside the surface, the head level with it or below (study_woman's breast 3 cm below) and the
+weight was a plateau from 14 cm above the nipple. `check_placement` tests it: pivot rise >= 3 cm, weight
+>= 0.9 within 2 cm of the tail, <= 0.3 10 cm above it, <= 0.05 on leg-dominant vertices
+(`pivot_rise_m`, `weight_at_apex`, `weight_10cm_above`, `weight_on_thigh`, free values);
+`FT_FLESH_LEGACY_ATTACHMENT=1` puts the old bone and weights back as its must-fail control. The longer lever
+raises a jump-only course's time on the limit (the cast's breasts 9.9 -> 10.6-10.9 %), over that course's own
+10 % line: run one-motion courses with `require=within_body`. A second `prepare` straight on a fleshed body can
+fail the check (open; the pipeline restores the unfleshed mesh first).
+
+**A belly hangs from above too** (follow-through 0.10.0): from the lower ribs, so it takes the same
+`"attachment": "upper"` with a longer reach - `attach_rise_m` [0.03, 0.12] for its pivot and `attach_above_m` 0.15
+for check_placement's reading above the apex (a type's own; breast and butt keep 3-6 cm and 10 cm). Its zone stops
+at 0.6 of the hip-to-shoulder span: at 0.75 (0.85 grown) it took a man's pecs - Marco's belly weighted from 0.92
+to 1.31 m, chest and stomach swinging as one slab, study_man's belly bone at chest height. Now Marco's is 0.85-1.11 m
+at weight over 0.5, nothing above the nipple line. It ships `limit_share` 0.6: the material's 1.2 x stand-out let
+a jump carry it past its own stand-out (0.193 m against 0.161). A firm belly is a spec's `[flesh] overrides`
+(character-pipeline 0.14.0): Marco's at 4.5 Hz / 0.6 swings 1.2 cm walking and 1.3 running, against 4.6 and 6.2 cm
+on soft_fat.
 
 **Buttocks ride the pelvis.** A type's `"anchor"` names a **bone role** from rig-anything's body map
 (`bodymap.build(...)["roles"]`: `pelvis`, `chest`, `head`, ...), and its jiggle bone is parented to

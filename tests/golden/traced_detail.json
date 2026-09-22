@@ -1,19 +1,19 @@
 {
  "fixture": "traced_detail",
  "plugins": {
-  "follow-through": "0.5.2",
-  "rig-anything": "0.23.0",
-  "wardrobe": "0.4.0"
+  "follow-through": "0.10.0",
+  "rig-anything": "0.26.0",
+  "wardrobe": "0.5.2"
  },
  "report": {
   "body": {
    "bump_m": 0.012,
    "bump_sigma_m": 0.018,
    "peaks": {
-    "breast.L": 8843,
-    "breast.R": 2843,
-    "butt.L": 14131,
-    "butt.R": 8005
+    "breast.L": 8799,
+    "breast.R": 2743,
+    "butt.L": 14114,
+    "butt.R": 8006
    },
    "vertices": 17112
   },
@@ -21,6 +21,11 @@
    "exported": true
   },
   "garments": {
+   "control_facing_test": {
+    "dropped_by_test": 10,
+    "flagged_with_test": 0,
+    "flagged_without_test": 10
+   },
    "shorts_compressed": {
     "compression": {
      "flatten": {
@@ -29,17 +34,18 @@
         "ft_jiggle_butt.L",
         "ft_jiggle_butt.R"
        ],
-       "moved_max_m": 0.0027,
-       "projection_max_m": 0.028,
+       "moved_max_m": 0.0019,
+       "projection_max_m": 0.0207,
        "share": 0.1,
-       "verts": 828
+       "verts": 307
       }
      },
      "inside_skin_verts": 1,
-     "moved_max_m": 0.0061,
-     "moved_p95_m": 0.0037,
+     "moved_max_m": 0.0071,
+     "moved_p95_m": 0.0038,
      "passes": 370
     },
+    "creased": null,
     "detail": {
      "band_m": 0.03,
      "limit": {
@@ -55,42 +61,53 @@
      "reach_m": 0.03,
      "regions": {
       "all": {
-       "cloth_relief_mm": 0.05,
-       "cloth_verts": 2211,
-       "relief_mm": 0.01,
-       "skin_relief_mm": 0.108,
-       "skin_verts": 2104,
-       "traced": 0.093
+       "cloth_relief_mm": 0.051,
+       "cloth_verts": 2212,
+       "relief_mm": 0.008,
+       "skin_relief_mm": 0.115,
+       "skin_verts": 2107,
+       "traced": 0.066
+      },
+      "belly": {
+       "cloth_relief_mm": 0.04,
+       "cloth_verts": 72,
+       "relief_mm": 0.022,
+       "skin_relief_mm": 0.056,
+       "skin_verts": 59,
+       "traced": 0.384
       },
       "butt": {
-       "cloth_relief_mm": 0.076,
-       "cloth_verts": 257,
-       "relief_mm": 0.004,
-       "skin_relief_mm": 0.308,
-       "skin_verts": 242,
-       "traced": 0.013
+       "cloth_relief_mm": 0.086,
+       "cloth_verts": 152,
+       "relief_mm": 0.0,
+       "skin_relief_mm": 0.399,
+       "skin_verts": 144,
+       "traced": -0.005
       },
       "thigh": {
-       "cloth_relief_mm": 0.054,
-       "cloth_verts": 34,
-       "relief_mm": 0.016,
+       "cloth_relief_mm": 0.061,
+       "cloth_verts": 35,
+       "relief_mm": 0.019,
        "skin_relief_mm": 0.021,
        "skin_verts": 22,
-       "traced": 0.762
+       "traced": 0.924
       }
      }
     },
     "drawn_over_cloth": 0,
     "exported": true,
+    "folded_faces": 0,
     "hidden": 2391,
-    "inside": 2,
+    "inside": 1,
     "lifted": [],
     "passed": true,
     "problems": [],
+    "sharp_edges": 12,
     "vertices": 2964
    },
    "shorts_uncompressed": {
     "compression": {},
+    "creased": null,
     "detail": {
      "band_m": 0.03,
      "limit": {
@@ -103,56 +120,80 @@
       "skin": 9
      },
      "problems": [
-      "detail all: the cloth carries 0.091 mm of the skin's relief, limit 0.060 mm",
-      "detail butt: the cloth carries 0.258 mm of the skin's relief, limit 0.100 mm"
+      "detail all: the cloth carries 0.089 mm of the skin's relief, limit 0.060 mm",
+      "detail butt: the cloth carries 0.315 mm of the skin's relief, limit 0.100 mm"
      ],
      "reach_m": 0.03,
      "regions": {
       "all": {
-       "cloth_relief_mm": 0.101,
+       "cloth_relief_mm": 0.106,
        "cloth_verts": 2217,
-       "relief_mm": 0.091,
-       "skin_relief_mm": 0.109,
-       "skin_verts": 2041,
-       "traced": 0.835
+       "relief_mm": 0.089,
+       "skin_relief_mm": 0.117,
+       "skin_verts": 2040,
+       "traced": 0.762
+      },
+      "belly": {
+       "cloth_relief_mm": 0.063,
+       "cloth_verts": 74,
+       "relief_mm": 0.07,
+       "skin_relief_mm": 0.056,
+       "skin_verts": 60,
+       "traced": 1.248
       },
       "butt": {
-       "cloth_relief_mm": 0.275,
-       "cloth_verts": 256,
-       "relief_mm": 0.258,
-       "skin_relief_mm": 0.308,
-       "skin_verts": 242,
-       "traced": 0.837
+       "cloth_relief_mm": 0.351,
+       "cloth_verts": 150,
+       "relief_mm": 0.315,
+       "skin_relief_mm": 0.401,
+       "skin_verts": 143,
+       "traced": 0.785
       },
       "thigh": {
-       "cloth_relief_mm": 0.02,
-       "cloth_verts": 34,
-       "relief_mm": 0.004,
+       "cloth_relief_mm": 0.021,
+       "cloth_verts": 35,
+       "relief_mm": 0.005,
        "skin_relief_mm": 0.022,
        "skin_verts": 14,
-       "traced": 0.205
+       "traced": 0.252
       }
      }
     },
     "drawn_over_cloth": null,
     "exported": true,
+    "folded_faces": 0,
     "hidden": 2325,
     "inside": null,
     "lifted": null,
     "passed": false,
     "problems": [
-     "detail all: the cloth carries 0.091 mm of the skin's relief, limit 0.060 mm",
-     "detail butt: the cloth carries 0.258 mm of the skin's relief, limit 0.100 mm"
+     "detail all: the cloth carries 0.089 mm of the skin's relief, limit 0.060 mm",
+     "detail butt: the cloth carries 0.315 mm of the skin's relief, limit 0.100 mm"
     ],
+    "sharp_edges": 13,
     "vertices": 2964
    },
    "top_compressed": {
     "compression": {
      "inside_skin_verts": 0,
-     "moved_max_m": 0.0095,
-     "moved_p95_m": 0.0044,
-     "passes": 382
+     "moved_max_m": 0.0077,
+     "moved_p95_m": 0.0045,
+     "passes": 383,
+     "settle": {
+      "moved_max_m": 0.0163,
+      "passes": 169,
+      "reach_m": 0.14
+     },
+     "span": {
+      "hollow_verts": 606,
+      "moved_max_m": 0.0414,
+      "moved_p95_m": 0.029,
+      "passes": 24,
+      "radius_m": 0.1,
+      "share": 0.8
+     }
     },
+    "creased": 0,
     "detail": {
      "band_m": 0.03,
      "limit": {
@@ -167,39 +208,55 @@
      "reach_m": 0.03,
      "regions": {
       "all": {
-       "cloth_relief_mm": 0.096,
-       "cloth_verts": 2635,
-       "relief_mm": 0.019,
-       "skin_relief_mm": 0.101,
-       "skin_verts": 2526,
-       "traced": 0.188
+       "cloth_relief_mm": 0.05,
+       "cloth_verts": 2481,
+       "relief_mm": 0.002,
+       "skin_relief_mm": 0.1,
+       "skin_verts": 2420,
+       "traced": 0.015
       },
       "breast": {
-       "cloth_relief_mm": 0.18,
-       "cloth_verts": 684,
-       "relief_mm": 0.031,
-       "skin_relief_mm": 0.19,
-       "skin_verts": 672,
-       "traced": 0.162
+       "cloth_relief_mm": 0.034,
+       "cloth_verts": 414,
+       "relief_mm": 0.007,
+       "skin_relief_mm": 0.248,
+       "skin_verts": 413,
+       "traced": 0.027
       }
      }
     },
     "drawn_over_cloth": 0,
     "exported": true,
-    "hidden": 2849,
+    "folded_faces": 0,
+    "hidden": 2520,
     "inside": 2,
     "lifted": [],
     "passed": true,
     "problems": [],
-    "vertices": 3546
+    "sharp_edges": 10,
+    "vertices": 3370
    },
    "top_limit_elsewhere": {
     "compression": {
      "inside_skin_verts": 0,
-     "moved_max_m": 0.0095,
-     "moved_p95_m": 0.0044,
-     "passes": 382
+     "moved_max_m": 0.0077,
+     "moved_p95_m": 0.0045,
+     "passes": 383,
+     "settle": {
+      "moved_max_m": 0.0163,
+      "passes": 169,
+      "reach_m": 0.14
+     },
+     "span": {
+      "hollow_verts": 606,
+      "moved_max_m": 0.0414,
+      "moved_p95_m": 0.029,
+      "passes": 24,
+      "radius_m": 0.1,
+      "share": 0.8
+     }
     },
+    "creased": 0,
     "detail": {
      "band_m": 0.03,
      "limit": {
@@ -211,41 +268,43 @@
       "skin": 9
      },
      "problems": [
-      "detail butt: 1 cloth, 0 skin verts under the garment (least 12): not measured, so the limit is unmet"
+      "detail butt: 0 cloth, 0 skin verts under the garment (least 12): not measured, so the limit is unmet"
      ],
      "reach_m": 0.03,
      "regions": {
       "all": {
-       "cloth_relief_mm": 0.096,
-       "cloth_verts": 2635,
-       "relief_mm": 0.019,
-       "skin_relief_mm": 0.101,
-       "skin_verts": 2526,
-       "traced": 0.188
+       "cloth_relief_mm": 0.05,
+       "cloth_verts": 2481,
+       "relief_mm": 0.002,
+       "skin_relief_mm": 0.1,
+       "skin_verts": 2420,
+       "traced": 0.015
       },
       "breast": {
-       "cloth_relief_mm": 0.18,
-       "cloth_verts": 684,
-       "relief_mm": 0.031,
-       "skin_relief_mm": 0.19,
-       "skin_verts": 672,
-       "traced": 0.162
+       "cloth_relief_mm": 0.034,
+       "cloth_verts": 414,
+       "relief_mm": 0.007,
+       "skin_relief_mm": 0.248,
+       "skin_verts": 413,
+       "traced": 0.027
       }
      },
      "unmeasured": [
-      "butt: 1 cloth, 0 skin verts under the garment (least 12)"
+      "butt: 0 cloth, 0 skin verts under the garment (least 12)"
      ]
     },
     "drawn_over_cloth": 0,
     "exported": true,
-    "hidden": 2849,
+    "folded_faces": 0,
+    "hidden": 2520,
     "inside": 2,
     "lifted": [],
     "passed": false,
     "problems": [
-     "detail butt: 1 cloth, 0 skin verts under the garment (least 12): not measured, so the limit is unmet"
+     "detail butt: 0 cloth, 0 skin verts under the garment (least 12): not measured, so the limit is unmet"
     ],
-    "vertices": 3546
+    "sharp_edges": 10,
+    "vertices": 3370
    },
    "top_pressed": {
     "compression": {
@@ -255,17 +314,31 @@
         "ft_jiggle_breast.L",
         "ft_jiggle_breast.R"
        ],
-       "moved_max_m": 0.0287,
-       "projection_max_m": 0.0594,
+       "moved_max_m": 0.0272,
+       "projection_max_m": 0.0561,
        "share": 0.5,
-       "verts": 1179
+       "verts": 886
       }
      },
-     "inside_skin_verts": 297,
-     "moved_max_m": 0.0262,
-     "moved_p95_m": 0.013,
-     "passes": 382
+     "inside_skin_verts": 169,
+     "moved_max_m": 0.0259,
+     "moved_p95_m": 0.01,
+     "passes": 383,
+     "settle": {
+      "moved_max_m": 0.0096,
+      "passes": 179,
+      "reach_m": 0.14
+     },
+     "span": {
+      "hollow_verts": 216,
+      "moved_max_m": 0.0329,
+      "moved_p95_m": 0.013,
+      "passes": 24,
+      "radius_m": 0.1,
+      "share": 0.8
+     }
     },
+    "creased": 0,
     "detail": {
      "band_m": 0.03,
      "limit": {
@@ -281,43 +354,123 @@
      "reach_m": 0.03,
      "regions": {
       "all": {
-       "cloth_relief_mm": 0.205,
-       "cloth_verts": 2636,
-       "relief_mm": 0.05,
-       "skin_relief_mm": 0.101,
-       "skin_verts": 2509,
-       "traced": 0.49
+       "cloth_relief_mm": 0.047,
+       "cloth_verts": 2486,
+       "relief_mm": 0.002,
+       "skin_relief_mm": 0.1,
+       "skin_verts": 2415,
+       "traced": 0.022
       },
       "breast": {
-       "cloth_relief_mm": 0.412,
-       "cloth_verts": 710,
-       "relief_mm": 0.084,
-       "skin_relief_mm": 0.193,
-       "skin_verts": 656,
-       "traced": 0.436
+       "cloth_relief_mm": 0.041,
+       "cloth_verts": 432,
+       "relief_mm": 0.0,
+       "skin_relief_mm": 0.248,
+       "skin_verts": 413,
+       "traced": -0.013
       }
      }
     },
     "drawn_over_cloth": 0,
     "exported": true,
-    "hidden": 2836,
-    "inside": 257,
+    "folded_faces": 0,
+    "hidden": 2615,
+    "inside": 130,
     "lifted": [
      {
-      "tris": 30,
-      "verts_moved": 656
-     },
-     {
-      "tris": 14,
-      "verts_moved": 524
+      "tris": 16,
+      "verts_moved": 644
      }
     ],
     "passed": true,
     "problems": [],
-    "vertices": 3546
+    "sharp_edges": 9,
+    "vertices": 3370
+   },
+   "top_pressed_cone_lift": {
+    "compression": {
+     "flatten": {
+      "breast": {
+       "groups": [
+        "ft_jiggle_breast.L",
+        "ft_jiggle_breast.R"
+       ],
+       "moved_max_m": 0.0272,
+       "projection_max_m": 0.0561,
+       "share": 0.5,
+       "verts": 886
+      }
+     },
+     "inside_skin_verts": 169,
+     "moved_max_m": 0.0259,
+     "moved_p95_m": 0.01,
+     "passes": 383,
+     "settle": {
+      "moved_max_m": 0.0096,
+      "passes": 179,
+      "reach_m": 0.14
+     },
+     "span": {
+      "hollow_verts": 216,
+      "moved_max_m": 0.0329,
+      "moved_p95_m": 0.013,
+      "passes": 24,
+      "radius_m": 0.1,
+      "share": 0.8
+     }
+    },
+    "creased": 0,
+    "detail": {
+     "band_m": 0.03,
+     "limit": {
+      "all": 0.06,
+      "breast": 0.1
+     },
+     "passed": true,
+     "passes": {
+      "cloth": 8,
+      "skin": 9
+     },
+     "problems": [],
+     "reach_m": 0.03,
+     "regions": {
+      "all": {
+       "cloth_relief_mm": 0.098,
+       "cloth_verts": 2486,
+       "relief_mm": 0.002,
+       "skin_relief_mm": 0.1,
+       "skin_verts": 2416,
+       "traced": 0.019
+      },
+      "breast": {
+       "cloth_relief_mm": 0.234,
+       "cloth_verts": 432,
+       "relief_mm": 0.0,
+       "skin_relief_mm": 0.248,
+       "skin_verts": 413,
+       "traced": -0.027
+      }
+     }
+    },
+    "drawn_over_cloth": 0,
+    "exported": true,
+    "folded_faces": 0,
+    "hidden": 2617,
+    "inside": 150,
+    "lifted": [
+     {
+      "tris": 16,
+      "verts_moved": 611
+     }
+    ],
+    "passed": true,
+    "problems": [],
+    "sharp_edges": 16,
+    "vertices": 3370
    },
    "top_uncompressed": {
     "compression": {},
+    "creased": 0,
     "detail": {
      "band_m": 0.03,
      "limit": {
@@ -329,38 +482,95 @@
       "skin": 9
      },
      "problems": [
-      "detail all: the cloth carries 0.099 mm of the skin's relief, limit 0.060 mm"
+      "detail all: the cloth carries 0.084 mm of the skin's relief, limit 0.060 mm"
      ],
      "reach_m": 0.03,
      "regions": {
       "all": {
-       "cloth_relief_mm": 0.125,
-       "cloth_verts": 2633,
-       "relief_mm": 0.099,
-       "skin_relief_mm": 0.101,
-       "skin_verts": 2499,
-       "traced": 0.978
+       "cloth_relief_mm": 0.103,
+       "cloth_verts": 2462,
+       "relief_mm": 0.084,
+       "skin_relief_mm": 0.102,
+       "skin_verts": 2319,
+       "traced": 0.824
       },
       "breast": {
-       "cloth_relief_mm": 0.247,
-       "cloth_verts": 682,
-       "relief_mm": 0.192,
-       "skin_relief_mm": 0.191,
-       "skin_verts": 668,
-       "traced": 1.003
+       "cloth_relief_mm": 0.254,
+       "cloth_verts": 414,
+       "relief_mm": 0.205,
+       "skin_relief_mm": 0.249,
+       "skin_verts": 412,
+       "traced": 0.824
       }
      }
     },
     "drawn_over_cloth": null,
     "exported": true,
-    "hidden": 2686,
+    "folded_faces": 0,
+    "hidden": 2558,
     "inside": null,
     "lifted": null,
     "passed": false,
     "problems": [
-     "detail all: the cloth carries 0.099 mm of the skin's relief, limit 0.060 mm"
+     "detail all: the cloth carries 0.084 mm of the skin's relief, limit 0.060 mm"
     ],
-    "vertices": 3546
+    "sharp_edges": 4,
+    "vertices": 3370
+   },
+   "top_unspanned": {
+    "compression": {
+     "inside_skin_verts": 0,
+     "moved_max_m": 0.0077,
+     "moved_p95_m": 0.0045,
+     "passes": 383,
+     "settle": {
+      "moved_max_m": 0.0052,
+      "passes": 179,
+      "reach_m": 0.14
+     }
+    },
+    "creased": 0,
+    "detail": {
+     "band_m": 0.03,
+     "limit": {
+      "all": 0.06
+     },
+     "passed": true,
+     "passes": {
+      "cloth": 8,
+      "skin": 9
+     },
+     "problems": [],
+     "reach_m": 0.03,
+     "regions": {
+      "all": {
+       "cloth_relief_mm": 0.04,
+       "cloth_verts": 2462,
+       "relief_mm": 0.01,
+       "skin_relief_mm": 0.101,
+       "skin_verts": 2391,
+       "traced": 0.104
+      },
+      "breast": {
+       "cloth_relief_mm": 0.057,
+       "cloth_verts": 414,
+       "relief_mm": 0.012,
+       "skin_relief_mm": 0.248,
+       "skin_verts": 414,
+       "traced": 0.048
+      }
+     }
+    },
+    "drawn_over_cloth": 0,
+    "exported": true,
+    "folded_faces": 0,
+    "hidden": 2745,
+    "inside": 3,
+    "lifted": [],
+    "passed": true,
+    "problems": [],
+    "sharp_edges": 0,
+    "vertices": 3370
    }
   }
  }

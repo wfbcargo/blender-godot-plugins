@@ -15,7 +15,9 @@
     garments  wardrobe presets, cut from the fleshed skin (optional)
     export    the glb, .moves.json, the hair strand's own glb and the garment glbs, and the .blend
     review    the review sheet: every clip as 8-frame strips of the dressed character (on unless the spec
-              says `[review] enabled = false`)
+              says `[review] enabled = false`), and the close-up look set: lit EEVEE close-ups of the face,
+              eyes, head, hands, bust, crotch and feet in `review/<id>/close/` (`[review] close = false`
+              leaves it out; the quality picks the views)
 
 Each stage names the stages it needs and checks the file itself before it runs, so a stage run out of
 order refuses with the order rather than producing a wrong result. The orders below were each found
@@ -219,6 +221,9 @@ def run_body(ch, ctx):
     out["stature"] = _stature(res)
     out["library"] = res.get("path")                # reuse | warm | fresh: where the body's seconds went
     out["timing"] = res.get("timing")
+    likeness = (res.get("fit") or {}).get("likeness")
+    if likeness:                                    # a [body.face]: each measure as fitted against its target
+        out["likeness"] = likeness
     return out
 
 
@@ -314,10 +319,50 @@ def _bake_muscle_normal(ch, ctx):
             "over_5deg": round(nm["stats"]["over_5deg"], 3)}
 
 
+def _separate_joined(ch):
+    """Before a rebake of an already baked mesh: take off the faces an earlier bake joined in (the eyes: every
+    face whose material is not the skin's) as the `ch.eyes` object again, so `look.skin` - which gives every face
+    the skin material - skins the body alone, and the join below puts them back with their own materials, as a
+    first bake does. Without it a from=bake rerun gave the eyes the skin material and baked their UVs into the
+    skin maps (study_woman's unmarked skin tone moved 0.858 -> 0.772). Returns the face count taken off."""
+    ob = _obj(ch.mesh)
+    if ob is None or _obj(ch.eyes) is not None:
+        return 0
+    skin = f"{ch.name}_skin"
+    other = {i for i, m in enumerate(ob.data.materials) if m is None or m.name != skin}
+    me = ob.data
+    faces = [p.material_index in other for p in me.polygons]
+    if not any(faces) or all(faces):
+        return 0
+    # a copy keeps the joined faces, the body keeps the rest: bmesh deletes carry vertex groups and attributes
+    import bmesh
+    part = ob.copy()
+    part.data = me.copy()
+    for c in ob.users_collection:
+        c.objects.link(part)
+    for target, drop in ((me, [i for i, f in enumerate(faces) if f]), (part.data, [i for i, f in enumerate(faces) if not f])):
+        bm = bmesh.new()
+        bm.from_mesh(target)
+        bm.faces.ensure_lookup_table()
+        bmesh.ops.delete(bm, geom=[bm.faces[i] for i in drop], context="FACES")
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+        bm.to_mesh(target)
+        bm.free()
+        target.update()
+    part.name = ch.eyes
+    return sum(faces)
+
+
 def check_bake(ch):
-    if _obj(ch.rig) is not None and (_obj(ch.name) is not None or baked(ch)):
-        return None
-    return "bake needs body: no %s with its %s in the file - run body first" % (ch.name, ch.rig)
+    if _obj(ch.rig) is None or (_obj(ch.name) is None and not baked(ch)):
+        return "bake needs body: no %s with its %s in the file - run body first" % (ch.name, ch.rig)
+    already = haired(ch)
+    if already:
+        # measured on study_woman: a from=bake on her haired body baked a near-black albedo (tone error 0.79, every
+        # region grey) - look.skin gives the hair and eye faces the skin material and the bake reads their UVs
+        return ("bake on a body that already has hair joined (%s) would re-skin the hair and eyes and bake a broken "
+                "albedo - rebuild from body (a whole build does this by itself)" % ", ".join(already))
+    return None
 
 
 def run_bake(ch, ctx):
@@ -329,6 +374,9 @@ def run_bake(ch, ctx):
             raise RuntimeError(f"bake: {b['error']}")
     else:
         b = {"note": "already baked"}
+        split = _separate_joined(ch)
+        if split:
+            b["separated_for_rebake"] = split
     ob = _obj(ch.mesh)
     _obj(ch.rig).data.pose_position = "POSE"
     fused = None
@@ -344,7 +392,9 @@ def run_bake(ch, ctx):
             fused["muscle_high"] = genitals.refit_high(ob, high, pre)
     skin = ch.body.brief.get("skin") if ch.body.source == "brief" else ch.body.skin
     if skin is not None:
-        look.skin(ob, skin, name=f"{ch.name}_skin")
+        # the maps' size is the build quality's (2048 px final, 1024 preview and draft): humanform's own
+        # default is 1024, which every final build shipped until this was passed (06 rank 12)
+        look.skin(ob, skin, name=f"{ch.name}_skin", size=quality_mod.settings(ctx["quality"], "skin")["size"])
     eyes = _obj(ch.eyes)
     if eyes is not None:
         with bpy.context.temp_override(active_object=ob, selected_editable_objects=[ob, eyes], object=ob,
@@ -353,6 +403,9 @@ def run_bake(ch, ctx):
     unweighted = sum(1 for v in ob.data.vertices if not any(g.weight > 1e-4 for g in v.groups))
     out = {"verts": len(ob.data.vertices), "groups": len(ob.vertex_groups), "unweighted": unweighted,
            "materials": [m.name for m in ob.data.materials if m], "baked": b}
+    sk = skin_manifest(ch)
+    if sk is not None:
+        out["skin"] = sk
     if fused is not None:
         out["genitals"] = fused
     if ch.muscle is not None:
@@ -368,7 +421,8 @@ def check_not_dressed(stage):
             return f"{stage} needs bake: {ch.mesh} is not a baked mesh - run bake first"
         worn = garments_bound(ch)
         if worn:
-            return (f"garments are bound to the rig ({', '.join(worn)}) - run {stage} before garments"
+            return (f"garments are bound to the rig ({', '.join(worn)}) - run {stage} before garments, or build "
+                    "from body (a whole build restarts there by itself; fresh=1 builds from nothing)"
                     + (": rig-anything measures arm hang against every mesh on the rig" if stage == "moves"
                        else ": a garment cut first carries no jiggle weights" if stage == "flesh" else ""))
         return None
@@ -419,8 +473,11 @@ def run_hair(ch, ctx):
         return out
     from humanform import hair as hf_hair
     _rest(ch)
+    face = ch.hair.face()
+    if face.get("body_hair"):
+        face["sex"] = ch.body.brief.get("sex") if ch.body.source == "brief" else None
     rep = hf_hair.add(ch.mesh, preset=ch.hair.preset, colour=ch.hair.colour, name=ch.name,
-                      **quality_mod.settings(ctx["quality"], "hair"))
+                      **face, **quality_mod.settings(ctx["quality"], "hair"))
     ob = _obj(ch.mesh)
     made = dict(rep["objects"])
     strand = made.pop("strand") if "strand" in made and hair_has_chain(ch) else None
@@ -432,6 +489,8 @@ def run_hair(ch, ctx):
     out = {"preset": rep["preset"], "colour": rep["colour"], "joined": sorted(made.values()),
            "head": rep["landmarks"]["head_bone"], "cap": rep["cap"], "hair": rep["hair"],
            "parts": rep["parts"], "material": {k: rep["material"].get(k) for k in ("material", "source", "gltf")}}
+    if "face" in rep:
+        out["face"] = rep["face"]
     out["strand_object"] = strand                   # None: there is none, or it was joined like the rest
     out["strand_kind"] = hair_strand_kind(ch)
     if "contract" in rep:
@@ -442,12 +501,162 @@ def run_hair(ch, ctx):
     return out
 
 
+def judge_flesh(ch, r, asked=None):
+    """What the flesh stage says it did: {"found": {type: [region names]}, "missed": [miss]}, printed to
+    the build log, raising RuntimeError when a type the spec asks for found no mass and is not in
+    `[flesh] may_miss`. `r` is follow-through's `flesh.prepare` (or `find_regions`) report; each miss is
+    its `missed` entry - why, with the numbers - or `not_looked_for` for a type the registry lacks.
+
+    A type named in the spec that finds no mass used to be dropped with no line in the log, the report
+    or the manifest (study_woman's belly)."""
+    asked = list(ch.flesh.types) if asked is None else asked
+    found = {}
+    for g in r.get("regions", []):
+        found.setdefault(str(g["type"]), []).append(str(g["name"]))
+    missed = [dict(m) for m in r.get("missed", []) if m["type"] in asked]
+    for t in asked:
+        if t not in found and not any(m["type"] == t for m in missed):
+            missed.append({"type": t, "reason": "not_looked_for",
+                           "message": f"{t}: not a flesh type follow-through's registry has, so never looked for"})
+    out = {"found": {t: sorted(v) for t, v in sorted(found.items())}, "missed": missed}
+    for t, names in out["found"].items():
+        print(f"[{ch.id}] flesh: found {t}: {', '.join(names)}")
+    # where each region's bone and weight landed on the body (follow-through's check_placement): a breast
+    # bone on the chin passed every other check in the cast builds
+    placement = r.get("placement") or {}
+    misplaced = [p for row in placement.get("regions", []) for p in row["problems"]]
+    if placement.get("regions"):
+        out["placement"] = [{k: row[k] for k in ("name", "tail_height", "centre_height", "head_share", "ok")}
+                            for row in placement["regions"]]
+    if misplaced:
+        for p in misplaced:
+            print(f"[{ch.id}] flesh: MISPLACED {p}")
+        raise RuntimeError("flesh: regions outside their anatomical zone: %s" % "; ".join(misplaced))
+    for m in missed:
+        allowed = m["type"] in ch.flesh.may_miss
+        print(f"[{ch.id}] flesh: MISSED {m['message']}" + (" (allowed: [flesh] may_miss)" if allowed else ""))
+    fatal = [m for m in missed if m["type"] not in ch.flesh.may_miss]
+    if fatal:
+        raise RuntimeError("flesh: the spec asks for %s and the body has none: %s. Add the type to [flesh] may_miss "
+                           "to build without it" % ([m["type"] for m in fatal],
+                                                     "; ".join(m["message"] for m in fatal)))
+    return out
+
+
+def undress(ch):
+    """Take this character's garments off, so flesh can run again on a dressed body instead of the build restarting
+    from body: every garment bound to the rig (`garments_bound`) with its mesh and the materials only it used, the
+    hem bones wardrobe hung on the rig (`wd_role`), and the groups wardrobe's cover wrote on the body
+    (`wd_hide_*`, `wd_edge_*`). The garments stage cuts them again from the new flesh. Returns what went, and
+    `left`: anything of wardrobe's still in the file (then the caller restarts from body instead)."""
+    rig = _obj(ch.rig)
+    body = _obj(ch.mesh)
+    worn = garments_bound(ch)
+    meshes, mats = [], set()
+    for name in worn:
+        o = _obj(name)
+        meshes.append(o.data)
+        mats |= {m for m in o.data.materials if m is not None}
+        bpy.data.objects.remove(o, do_unlink=True)
+    for me in meshes:
+        if me.users == 0:
+            bpy.data.meshes.remove(me)
+    for m in mats:
+        if m.users == 0:
+            bpy.data.materials.remove(m)
+    hem = [b.name for b in rig.data.bones if b.get("wd_role") is not None]
+    if hem:
+        prev = bpy.context.view_layer.objects.active
+        bpy.context.view_layer.objects.active = rig
+        bpy.ops.object.mode_set(mode="EDIT")
+        try:
+            for n in hem:
+                eb = rig.data.edit_bones.get(n)
+                if eb is not None:
+                    rig.data.edit_bones.remove(eb)
+        finally:
+            bpy.ops.object.mode_set(mode="OBJECT")
+            if prev is not None and prev.name in bpy.context.view_layer.objects:
+                bpy.context.view_layer.objects.active = prev
+    groups = [g.name for g in body.vertex_groups if g.name.startswith(("wd_hide_", "wd_edge_"))]
+    for n in groups:
+        body.vertex_groups.remove(body.vertex_groups[n])
+    left = garments_bound(ch) + [b.name for b in rig.data.bones if b.get("wd_role") is not None] + \
+        [g.name for g in body.vertex_groups if g.name.startswith("wd_")]
+    return {"garments": worn, "hem_bones": len(hem), "body_groups": groups, "left": left}
+
+
+def preflesh_name(ch):
+    """The mesh datablock that keeps the body as it was before its first jiggle bones (`_preflesh`)."""
+    return f"{ch.mesh}:preflesh"
+
+
+def _geometry_digest(me):
+    import hashlib
+    import numpy as np
+    co = np.empty(len(me.vertices) * 3, dtype=np.float64)
+    me.vertices.foreach_get("co", co)
+    loops = np.empty(len(me.loops), dtype=np.int64)
+    me.loops.foreach_get("vertex_index", loops)
+    return hashlib.sha1(np.round(co, 6).tobytes() + loops.tobytes()).hexdigest()[:16]
+
+
+def _preflesh(ch):
+    """Put the body back exactly as it was before the flesh stage first ran on it, or keep a copy of it as it is.
+
+    follow-through takes each jiggle weight out of a vertex's other weights and then keeps the four strongest
+    influences (`limit_influences`), so a second `flesh.prepare` can give back only what was not dropped: a rerun
+    weighted study_man within 0.020 of a fresh build, and the moves stage, which reads the weights, had to rerun
+    after every [flesh] edit. So the first flesh run keeps the unfleshed mesh (a copy of its data with a fake
+    user, linked to no object, so no exporter sees it), and a rerun swaps it back in - geometry, materials and
+    every weight exactly as bake and hair left them - before `prepare`. Only when it still fits: the same
+    vertices and faces, and the object's vertex groups starting with the ones the copy was taken with (jiggle
+    groups come after them); otherwise follow-through's own give-back is used, as before.
+    Returns "kept", "restored" or why neither."""
+    ob = _obj(ch.mesh)
+    name = preflesh_name(ch)
+    snap = bpy.data.meshes.get(name)
+    jiggle = [g.name for g in ob.vertex_groups if g.name.startswith("ft_jiggle_")]
+    if not jiggle:
+        if snap is not None:
+            bpy.data.meshes.remove(snap)
+        snap = ob.data.copy()
+        snap.name = name
+        snap.use_fake_user = True
+        snap["cp_groups"] = [g.name for g in ob.vertex_groups]
+        snap["cp_geometry"] = _geometry_digest(ob.data)
+        return "kept"
+    if snap is None:
+        return "no copy of the unfleshed body in this file (built before character-pipeline 0.10.0)"
+    groups = list(snap.get("cp_groups") or [])
+    names = [g.name for g in ob.vertex_groups]
+    if names[:len(groups)] != groups or any(not n.startswith("ft_jiggle_") for n in names[len(groups):]):
+        return "the body's vertex groups are not the copy's plus jiggle groups"
+    if len(snap.vertices) != len(ob.data.vertices) or snap.get("cp_geometry") != _geometry_digest(ob.data):
+        return "the body's geometry is not the copy's"
+    old = ob.data
+    keep = old.name
+    fresh = snap.copy()
+    fresh.use_fake_user = False
+    for k in ("cp_groups", "cp_geometry"):
+        if k in fresh:
+            del fresh[k]
+    ob.data = fresh
+    bpy.data.meshes.remove(old)
+    fresh.name = keep
+    for g in [g for g in ob.vertex_groups if g.name.startswith("ft_jiggle_")]:
+        ob.vertex_groups.remove(g)
+    return "restored"
+
+
 def run_flesh(ch, ctx):
     from follow_through import flesh as ft_flesh
     from follow_through import marks
     _rest(ch)
     regions = None
-    out = {}
+    out = {"unfleshed": _preflesh(ch)}
+    if ctx.get("undressed"):
+        out["undressed"] = ctx.pop("undressed")
     if ch.flesh.zones:
         sheet_dir = os.path.join(ctx["scratch"], "flesh_sheet")
         sheet = marks.render(ch.mesh, sheet_dir, views=("front", "right", "back"), focus="torso")
@@ -455,9 +664,11 @@ def run_flesh(ch, ctx):
         regions = found["regions"]
         out["zones"] = len(ch.flesh.zones)
     r = ft_flesh.prepare(ch.mesh, rig_name=ch.rig, regions=regions,
-                         types=ch.flesh.types or None if regions is None else None)
+                         types=ch.flesh.types or None if regions is None else None,
+                         overrides=ch.flesh.overrides or None)
     if "error" in r:
         raise RuntimeError(f"flesh: {r['error']}")
+    out.update(judge_flesh(ch, r, asked=list(ch.flesh.types) if regions is None else []))
     # copied out first: set_params replaces the object's `follow_through` property, and iterating the
     # old one while that happens reads freed memory (it crashed Blender)
     spec_regions = [(str(g["name"]), str(g["type"]), float(g["peak_m"]))
@@ -486,7 +697,10 @@ def run_moves(ch, ctx):
         options[role] = dict(held, froude=froude)
     for role, extra in ch.moves.per_gait.items():
         options[role] = dict(options.get(role, {}), **extra)
-    res = actions.move_set(ch.rig, prefix=ch.name, roles=tuple(ch.moves.roles), options=options)
+    # This character's own fixed left/right asymmetry, drawn from its identity. None or
+    # `asymmetry = 0` (the default) is the identity and every clip is the one it always was.
+    res = actions.move_set(ch.rig, prefix=ch.name, roles=tuple(ch.moves.roles), options=options,
+                           variability=variability_block(ch))
     if "error" in res:
         raise RuntimeError(f"moves: {res['error']}")
     out = {}
@@ -498,6 +712,10 @@ def run_moves(ch, ctx):
         out[role] = {"action": r["action"], "passed": r.get("passed"), "failures": r.get("failures", [])[:4],
                      "stance_width": r.get("stance_width"), "drop_m": r.get("drop_m"),
                      "arm_out": up.get("arm_out"), "arm_clearance_m": r.get("arm_clearance_m")}
+        if r.get("variability"):
+            # what the asymmetry did, measured off the baked clip - only present when a spec
+            # opted in, so a character at the default reports exactly what it always reported
+            out[role]["variability"] = r["variability"]
     if ch.body.genitals and ch.body.brief.get("sex") == "male":
         # the thighs sweep through the scrotum in every clip: humanform keys its corrective bones per frame
         from humanform import genitals
@@ -508,8 +726,11 @@ def run_moves(ch, ctx):
                                        if k in c}
     failing = sorted(role for role in ch.moves.roles if out[role]["failures"] and role not in ch.moves.may_fail)
     if failing:
-        raise RuntimeError(f"moves: clips failing their checks: {failing} (list a role in moves.may_fail "
-                           "to export it forced)")
+        # each failing clip with what failed and by how much, so the fix (a [moves.per_gait.<role>] option, or
+        # may_fail) can be chosen from the message alone instead of by rebuilding to read the stored report
+        why = "; ".join(f"{role}: {' | '.join(res[role].get('failures') or out[role]['failures'])}" for role in failing)
+        raise RuntimeError(f"moves: clips failing their checks: {failing} - {why} (tune the role in "
+                           "[moves.per_gait.<role>], or list it in moves.may_fail to export it forced)")
     ctx["moves"] = res
     return out
 
@@ -607,6 +828,27 @@ def check_export(ch):
     return None
 
 
+def variability_block(ch):
+    """The seam's `variability` block for this character: the RESOLVED values a build used, or
+    None when the spec has no `[variability]`.
+
+    {"seed": int, "asymmetry": float, "jitter_phase": float, "jitter_amp": float}. An unstated
+    seed is derived from `character.id`, so it is the same in every build of this spec and
+    different for every other character. rig-anything bakes `asymmetry`; the two jitter dials
+    are the runtime half and are carried through untouched for the engine to read."""
+    if ch.variability is None or not ch.variability.asked():
+        # An empty `[variability]` table asks for nothing, so it is nothing: it is left out of
+        # the moves hash (`spec.Character.section`) and it writes no manifest key either, or the
+        # two would disagree - a spec that added the empty table would hash the same, skip
+        # export, and never grow the key it had just asked for.
+        return None
+    from rig_analysis import variability as ra_var
+    try:
+        return ra_var.resolve(ch.variability.table(), ch.id)
+    except ra_var.VariabilityError as e:
+        raise RuntimeError(f"[variability]: {e}") from e
+
+
 def run_export(ch, ctx):
     from rig_analysis import export as ra_export, stored
     from wardrobe import presets
@@ -637,6 +879,12 @@ def run_export(ch, ctx):
         extra["strands"] = [f"{ch.export.res_dir}/{ch.id}_hair.glb"]
     if ch.body.source == "brief":
         extra["brief"] = dict(ch.body.brief, name=ch.name)
+    # The seam: ONE top-level key, holding the resolved values this build actually used. Written
+    # only for a spec with a [variability] table, so every manifest built before this key existed
+    # stays byte-for-byte what it was.
+    var = variability_block(ch)
+    if var is not None:
+        extra["variability"] = var
     e = ra_export.export_character(ch.mesh, ch.rig, glb, name=ch.name, creature=ch.id, reports=reports,
                                    res_path=f"{ch.export.res_dir}/{ch.id}.glb", roles=list(ch.moves.roles),
                                    loops=list(ch.moves.loops), gaits=list(ch.moves.export_gaits),
@@ -656,7 +904,20 @@ def run_export(ch, ctx):
     with open(e["moves"], "w", encoding="utf-8") as fh:
         json.dump(manifest, fh, indent=2)
     e["manifest"]["height_m"]["stand"] = stand
+    fl = flesh_manifest(ch)
+    sk = skin_manifest(ch)
+    for key, block in (("flesh", fl), ("skin", sk)):
+        if block is not None:
+            manifest[key] = block
+            e["manifest"][key] = block
+    if fl is not None or sk is not None:
+        with open(e["moves"], "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
     out = {k: e.get(k) for k in ("glb", "moves", "verified", "clips", "bones", "problems")}
+    if fl is not None:
+        out["flesh"] = fl
+    if sk is not None:
+        out["skin"] = sk
     if strands:
         from follow_through import strand as ft_strand
         s = ft_strand.export(strand_glb, strands, ch.rig)
@@ -667,6 +928,74 @@ def run_export(ch, ctx):
                           "specs": [{k: c.get(k) for k in ("node", "route", "strand_chains", "strand_bones",
                                                            "strand_head_error_m", "problems")}
                                     for c in s.get("specs", [])]}
+    return out
+
+
+def flesh_manifest(ch):
+    """The manifest's `flesh` block: what the glb's jiggle bones are and how they are sprung, and what
+    the spec asked for that the flesh stage did not find. None for a spec with no [flesh].
+
+    {"regions": [{name, type, bone, parent, peak_m, max_offset_m, material, frequency_hz,
+    damping_ratio}], "missed": [{type, reason}]}. A game reads it without opening the glb; the Godot
+    verifier (verify_flesh.gd) checks each bone's swing against its peak_m."""
+    if ch.flesh is None:
+        return None
+    spec = _obj(ch.mesh).get("follow_through")
+    regions = []
+    if spec is not None and "jiggle" in spec:
+        for g in spec["jiggle"]["regions"]:
+            g = {k: g[k] for k in g.keys()}
+            row = {"name": str(g["name"]), "type": str(g["type"]), "bone": str(g["bone"]),
+                   "parent": str(g.get("parent", "")), "peak_m": round(float(g["peak_m"]), 4),
+                   "max_offset_m": round(float(g["max_offset_m"]), 4),
+                   "material": str(g["material"]) if g.get("material") is not None else None}
+            for k in ("frequency_hz", "damping_ratio"):
+                if g.get(k) is not None:
+                    row[k] = round(float(g[k]), 4)
+            regions.append(row)
+    # the reasons are in the flesh stage's stored report when it fitted there; which types are
+    # missing is read from the bones themselves, so it holds whatever the record kept
+    from . import runner
+    rec = (runner.records(ch).get("flesh") or {}).get("report") or {}
+    why = {m.get("type"): m.get("reason") for m in rec.get("missed") or [] if isinstance(m, dict)}
+    have = {r["type"] for r in regions}
+    missed = [{"type": t, "reason": why.get(t), "allowed": t in ch.flesh.may_miss}
+              for t in ch.flesh.types if t not in have]
+    return {"types": list(ch.flesh.types), "regions": regions, "missed": missed}
+
+
+def skin_manifest(ch):
+    """The manifest's `skin` block: how the skin shipped, read from the skin material in the file (humanform's
+    `humanform_skin` record), not from a stage report - `{stage, map_px, tone_ok, tone_error, regions, contrast,
+    contrast_ok, roughness}`.
+    `stage` is "baked" (maps of `map_px` square), "flat" (no maps: the bake failed or lookdev was absent, with
+    its `error`) or "marked" (an unbaked MPFB body). None when the body has no skin material of humanform's."""
+    mat = bpy.data.materials.get(f"{ch.name}_skin")
+    rec = mat.get("humanform_skin") if mat is not None else None
+    if rec is None:
+        return None
+    rec = rec.to_dict() if hasattr(rec, "to_dict") else dict(rec)
+    stage = str(rec.get("stage", ""))
+    out = {"stage": "marked" if stage == "flat" and rec.get("marked") and "size" not in rec else stage,
+           "map_px": int(rec["size"]) if stage == "baked" and rec.get("size") is not None else None}
+    if rec.get("tone_ok") is not None:
+        out["tone_ok"] = bool(rec["tone_ok"])
+        out["tone_error"] = round(float(rec.get("tone_error", 0.0)), 4)
+    if rec.get("regions"):
+        # each marked region's tone in the baked albedo (sRGB): a bake that lost the marks has them all equal
+        out["regions"] = {str(k): [round(float(x), 3) for x in v] for k, v in dict(rec["regions"]).items()}
+    if rec.get("contrast"):
+        # each region against plain skin in the baked albedo: CIELAB dE, lightness and red/green (humanform 0.14.0),
+        # and whether every floored region reached humanform's CONTRAST_FLOOR (the failures listed when not)
+        out["contrast"] = {str(k): {str(a): float(b) for a, b in dict(v).items()} for k, v in dict(rec["contrast"]).items()}
+        out["contrast_ok"] = bool(rec.get("contrast_ok"))
+        if rec.get("contrast_fail"):
+            out["contrast_fail"] = [str(x) for x in rec["contrast_fail"]]
+    if rec.get("roughness"):
+        # the baked roughness over each region's texels, the T-zone's and plain skin's
+        out["roughness"] = {str(k): round(float(v), 3) for k, v in dict(rec["roughness"]).items()}
+    if rec.get("error"):
+        out["error"] = str(rec["error"])
     return out
 
 
@@ -685,10 +1014,49 @@ def check_review(ch):
     return None
 
 
+def close_dir(ch):
+    """Where the close-up look set goes: `<export dir>/review/<id>/close/`."""
+    return os.path.join(review_dir(ch), "close")
+
+
+def wears_top(ch):
+    """Whether the outfit has a garment over the bust: a wardrobe preset cut as a shirt or a dress."""
+    if not ch.outfit:
+        return False
+    from wardrobe import presets
+    return any(presets.get(g.preset).get("cut") in ("shirt", "dress")
+               for g in ch.outfit)
+
+
+def close_pose(ch):
+    """The clip and frame the close-up set is posed on: the Idle's first frame, else the first role's."""
+    roles = list(ch.moves.roles)
+    role = "Idle" if "Idle" in roles else (roles[0] if roles else None)
+    return f"{ch.name}_{role}" if role else None
+
+
+def run_close(ch, ctx, meshes, aim_override=None):
+    """rig-anything's close-up look set of the dressed character (`closeups.look_set`), at this quality's views;
+    raises when a tile shows no body or its camera is not on the part it names. `aim_override` is the stage
+    test's control only (a camera aimed from the wrong bone must fail)."""
+    from rig_analysis import closeups
+    q = quality_mod.settings(ctx["quality"], "close")
+    r = closeups.look_set(meshes, ch.rig, close_dir(ch), views=q["views"], action=close_pose(ch),
+                          under_bust=bool(q["under_bust"]) and wears_top(ch), title=ch.name,
+                          aim_override=aim_override)
+    if "error" in r:
+        raise RuntimeError(f"review: close-up set: {r['error']}")
+    if r["failed"]:
+        raise RuntimeError(f"review: close-up tiles that do not show their part: {r['failed']}")
+    return closeups.summary(r)
+
+
 def run_review(ch, ctx):
     """rig-anything's review sheet of the character as the game shows it: the body with its hair and every
-    garment bound to the rig, each clip the export shipped, at the shared scale (2.1 m for a person)."""
+    garment bound to the rig, each clip the export shipped, at the shared scale (2.1 m for a person) - then
+    the close-up look set (`run_close`), unless `[review] close = false`."""
     import json
+    import time
     from rig_analysis import review
     with open(os.path.join(ch.out_dir(), f"{ch.id}.moves.json"), encoding="utf-8") as fh:
         manifest = json.load(fh)
@@ -710,7 +1078,30 @@ def run_review(ch, ctx):
         raise RuntimeError(f"review: strips whose body reaches the edge of the picture: {cut}")
     out = review.summary(r)
     out["meshes"] = meshes
+    if ch.review.close:
+        t0 = time.time()
+        out["close"] = run_close(ch, ctx, meshes)
+        out["close"]["stage_seconds"] = round(time.time() - t0, 2)
+    else:
+        removed = clear_close(ch)
+        if removed:
+            out["close_removed"] = removed
     return out
+
+
+def clear_close(ch):
+    """`[review] close = false`: take away a close-up set an earlier build wrote, so nothing reads a stale
+    one as this build's. Only what `closeups.look_set` writes (pngs, close.json, .gdignore) is removed, then the
+    folder if that left it empty. Returns the folder removed, or None when there was none."""
+    d = close_dir(ch)
+    if not os.path.isdir(d):
+        return None
+    for f in os.listdir(d):
+        if f.endswith(".png") or f in ("close.json", ".gdignore"):
+            os.remove(os.path.join(d, f))
+    if not os.listdir(d):
+        os.rmdir(d)
+    return d
 
 
 # (name, needs, spec sections its hash covers, precondition check, run, applies to this spec)
@@ -736,4 +1127,15 @@ ORDER = [s[0] for s in STAGES]
 # - is no longer in the spec and the body still carries it.
 CARRIED = {"hair": lambda ch: bool(haired(ch)), "muscle": muscled}
 RESTARTS_FROM_BODY = {"hair": CARRIED["hair"],
-                      "muscle": lambda ch: muscled(ch) or (_obj(ch.name) is None and baked(ch))}
+                      "muscle": lambda ch: muscled(ch) or (_obj(ch.name) is None and baked(ch)),
+                      # a bake that has to run again on a body that already has hair joined: humanform's look.skin
+                      # gives every face the skin material (the hair's and eyes' too), and hair must follow it anyway
+                      # and cannot go on twice - so start from body rather than bake, re-skin, then restart at hair
+                      "bake": CARRIED["hair"],
+                      # flesh and moves on a dressed body: the garments were cut from (and weighted by) the body
+                      # before, and flesh/moves refuse while they are bound - a resumed build of a dressed spec
+                      # whose [moves] changed starts over from body, as the build did before builds resumed from
+                      # the saved blend; flesh's garments are taken off first (runner.UNDRESS_FOR_FLESH,
+                      # `undress`), so flesh restarts from body only when that is turned off or leaves something
+                      "flesh": lambda ch: bool(garments_bound(ch)),
+                      "moves": lambda ch: bool(garments_bound(ch))}

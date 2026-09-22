@@ -52,7 +52,9 @@ def build():
     # root bone lies on the floor and carries no skin, and a crouch that takes it for the belly
     # drops no hips at all. Jump is here because it used to put a toe through the floor at the
     # one frame between its load and its launch (05's 5.1), and exports unforced now.
-    roles = ("Idle",) + tuple(GAITS) + ("Crouch", "CrouchWalk", "Jump")
+    # TurnL and TurnR turn 90 degrees on the spot about a planted foot's ball (rig-anything 0.24.0):
+    # the floor-skid check follows the pivot and the stepping foot through every frame.
+    roles = ("Idle",) + tuple(GAITS) + ("Crouch", "CrouchWalk", "Jump", "TurnL", "TurnR")
     moves = ra_actions.move_set(rig, prefix=NAME, roles=roles, options=options)
     if "error" in moves:
         raise RuntimeError("move_set: " + moves["error"])
@@ -67,6 +69,12 @@ def build():
     exported = char.get("export", {})
     loco = {"collider": char["manifest"]["collider"], "gaits": char["manifest"]["gaits"],
             "problems": char["problems"]} if "manifest" in char else {"problems": [char["error"]]}
+
+    # the relaxed hand every clip poses (`keyposes.hand_digits`): which bones curl, by how much, found
+    # from the skeleton's shape - a change in which bone reads as the thumb shows here
+    from rig_analysis import bodymap as ra_bodymap, keyposes as ra_kp, motion as ra_motion
+    poser = ra_kp.Poser(ra_motion.Body(bpy.data.objects[rig], ra_bodymap.build(rig, forward="-Y")))
+    hands = {arm: [[n, deg] for n, _, deg in digits] for arm, digits in sorted(poser.hands.items())}
 
     eyes = bpy.data.objects.get(NAME + "_eyes")
     return {
@@ -83,12 +91,35 @@ def build():
                                                                  for v in mesh.data.vertices), 4),
                  "report": H.stable(baked)},
         "moves": {role: H.stable(moves[role]) for role in roles},
+        "hands": hands,
         "export": H.stable(exported),
         "review": H.review_sheet(exported.get("review")),
         "engine": {"collider": H.stable(loco.get("collider")), "gaits": H.stable(loco.get("gaits")),
                    "problems": loco.get("problems")},
         "moves_json": H.moves_manifest(char),
+        "skin_export": _skin_export(os.path.join(out, NAME.lower() + ".glb")),
     }
+
+
+def _skin_export(glb):
+    """The skin as the glb carries it. This body is exported without a bake, so its skin must still be the
+    brief's tone as baseColorFactor, and no helper attribute may ride along as a vertex colour: a procedural
+    material and a colour attribute once exported as a factorless material and COLOR_0/1, white in Godot."""
+    import json as _json
+    import struct
+    if not os.path.exists(glb):
+        return {"missing": True}
+    with open(glb, "rb") as fh:
+        b = fh.read()
+    g = _json.loads(b[20:20 + struct.unpack_from("<I", b, 12)[0]])
+    m = next((x for x in g.get("materials", []) if x["name"] == NAME + "_skin"), None)
+    if m is None:
+        return {"material": None}
+    pbr = m.get("pbrMetallicRoughness", {})
+    return {"baseColorFactor": [round(v, 4) for v in pbr.get("baseColorFactor", [1, 1, 1, 1])],
+            "baseColorTexture": "baseColorTexture" in pbr,
+            "colour_sets": sorted({k for me in g["meshes"] for p in me["primitives"] for k in p["attributes"]
+                                   if k.startswith("COLOR_")})}
 
 
 H.run("mpfb_woman_curvy", build)

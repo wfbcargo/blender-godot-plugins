@@ -779,6 +779,47 @@ def arm_swing(carry, running):
     return out
 
 
+def body_headings(rig, bm, mats, arms, legs):
+    """{frame: the body's own forward, horizontal and unit, in the pose matrices' (armature) space} - what "in
+    front of hanging" is measured along.
+
+    The rig's rest forward (`bm["fwd"]`) is the body's forward only while the body faces it. A turn clip ends a
+    quarter turn round, and measured along the rest axis an arm splayed out to the side (`arm_out`: 17.5 degrees on
+    a 1.53 m woman) reads as carried forward or back as the body turns under it: her outer arm showed a 9 degree
+    "swing" that never came "back to hanging", and failed both turns (2026-09-21), while it never moved against her
+    body. The heading is the horizontal perpendicular to the mean of the hip line and the shoulder line, each the
+    unit line from the right limb root to the left. In a walk the pelvis and the thorax counter-rotate, so their
+    mean stays near the direction of travel; in a turn it turns with the body. The sign is fixed once, from the
+    rest pose against `bm["fwd"]`. With no left/right pair the rest forward is used, as before."""
+    upv, fwd0 = bm["up_vec"], bm["fwd"]
+
+    def pair(limbs):
+        by = {l.get("side"): l["upper"] for l in limbs}
+        return (by["L"], by["R"]) if "L" in by and "R" in by else None
+
+    pairs = [p for p in (pair(legs), pair(arms)) if p]
+    if not pairs:
+        return {f: fwd0 for f in mats}
+
+    def heading(points):
+        line = Vector()
+        for a, b in pairs:
+            d = points(a) - points(b)
+            d -= upv * d.dot(upv)
+            if d.length > 1e-9:
+                line += d.normalized()
+        h = upv.cross(line)
+        return h.normalized() if h.length > 1e-9 else None
+
+    rest = heading(lambda n: rig.data.bones[n].head_local)
+    sign = -1.0 if rest is not None and rest.dot(fwd0) < 0.0 else 1.0
+    out = {}
+    for f, m in mats.items():
+        h = heading(lambda n: m[n].translation)
+        out[f] = sign * h if h is not None else fwd0
+    return out
+
+
 def arm_pose(rig_name, action_name, running=False, forward="-Y", up="Z", floor=0.0,
              bm=None):
     """How each free arm is carried over a clip, on Blender's playback, and
@@ -814,12 +855,14 @@ def arm_pose(rig_name, action_name, running=False, forward="-Y", up="Z", floor=0
     mats, _, binding = _play(rig, action, list(range(lo, hi + 1)))
     if mats is None:
         return {"error": binding["note"]}
-    upv, fwd = bm["up_vec"], bm["fwd"]
+    upv = bm["up_vec"]
     bones = rig.data.bones
+    headings = body_headings(rig, bm, mats, arms, legs)
     out = {"running": running, "arms": {}, "failures": []}
     for l in arms:
         ua, fl, rise, carry = [], [], [], []
         for f, m in mats.items():
+            fwd = headings[f]
             sh = m[l["upper"]].translation
             el = m[l["lower"]].translation
             wr = m[l["end"]].translation

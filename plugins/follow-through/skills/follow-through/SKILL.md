@@ -140,8 +140,8 @@ and kept across plugin updates.
 | water_balloon | volume | loose | water_balloon | |
 | rubber_ball | volume | loose | rubber | |
 | rock | volume | loose, mounted | rigid - nothing moves | |
-| breast (paired) | volume | flesh | soft_fat | spine, height 0.5-1.45, front |
-| belly | volume | flesh | soft_fat | spine, height 0.2-0.75, front |
+| breast (paired) | volume | flesh | soft_fat | spine, height 0.5-1.45, front; nearest patch a side |
+| belly | volume | flesh | soft_fat | spine, height 0.05-0.6, front; hangs from the lower ribs, limit 0.6 x stand-out |
 | bloater_belly | volume | flesh | bloated | a belly named so, or 20% of the body and 8% of its height out |
 | butt (paired) | volume | flesh | soft_fat | hips, back |
 | love_handle (paired) | volume | flesh | soft_fat | waist, sides |
@@ -265,5 +265,10 @@ had never seen. `export.export` deselects its scene, rig-anything's export passe
   120 and 240 fps (swing spread 1.014 and 1.050, head penetration 1.3 and 3.7 mm), and through a stalled
   0.75 s frame, which simulates at most 16 substeps of the 90 it is worth and seeds the skipped time
   rather than being pushed by it.
+- **0.6.3** - strands simulate against the body's motion low-passed at 10 Hz, so a run swings alike
+  at every rate from 30 fps up, as it starts and once settled (study_woman 1.04 / 1.04, was 1.26),
+  with each bone's response times `SMOOTH_GAIN` 1.1 to make up the jolts the filter removes (44-46 deg
+  on the run); `verify_strands` measures both windows, `legacy_integration=true` and
+  `mod=smooth_hz:0` are its must-fail controls.
 - Next: strap and tail chains, volume-volume and two-way collision, wind, proxy meshes for dense
   cloth.

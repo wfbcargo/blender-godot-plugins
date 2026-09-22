@@ -13,7 +13,60 @@ python tools/regress.py --plugins <checkout>  # run the fixtures against another
 python tools/regress.py --update              # rewrite the goldens, then review the diff
 python tools/regress.py --twice --jobs 2      # build each fixture twice; the builds must agree
 python tools/regress.py --godot <project>     # then play the exports in Godot's verifiers
+python tools/regress.py --quick --jobs 2      # only the fixtures the branch's changes reach
+python tools/regress.py --quick --dry-run     # what --quick would run and skip, and why
+python tools/test_tools.py                    # regress's and bump.py's own checks, no Blender
 ```
+
+Every run ends with exactly one line, `REGRESS DONE exit=N, K fixtures ok`: wait on that line when a run
+is in the background. The longest fixtures start first (`DURATIONS` in `regress.py`, measured; a fixture
+missing from it starts before all of them), and each result is printed and flushed the moment its
+builds are in, so a slow fixture no longer holds back the ones after it. A `CHANGED` result shows its
+first 40 keys; the full diff of every fixture goes to a file whose path the run prints (`--diff FILE`
+to choose it, else the `--keep` folder or `<temp>/regress-diffs/`). A pipeline fixture's exported
+manifests record how long each character-pipeline stage took, and the result line is followed by
+them, so a slow run explains itself. `--keep` warns when its folder plus the deepest fixture output
+comes within 20 characters of Windows' 260-character MAX_PATH.
+
+## `--quick`
+
+`--quick` lists what changed against `main` - `git diff --name-only main...HEAD`, plus staged,
+unstaged and untracked files (`--base` for another ref, `--changed PATH...` to name them yourself) -
+and runs only the fixtures that change reaches:
+
+- `plugins/<name>/...`: every fixture that uses that plugin, directly (`H.use`, or any `*_SCRIPTS` it
+  reads) or through another plugin's imports, scanned from the plugin sources at run time (humanform
+  imports wardrobe and lookdev, so a wardrobe change also runs `mpfb_woman_curvy`). A plugin no
+  fixture reaches (godot-lsp, animate-anything) runs nothing.
+- `tests/fixtures/<name>.py` or `tests/golden/<name>.json`: that fixture. A helper
+  `tests/fixtures/_<x>.py`: every fixture that names it, so `_harness.py` runs all of them and
+  `_export_only.py` runs `rabbit`.
+- `tools/`: everything. Documentation (`*.md`, `docs/`) and `.claude-plugin/`: nothing. Anything
+  else: everything, since it is not known what reads it.
+
+It prints each changed path with what it selected, then every fixture it will run and why and every
+one it skips and why. `--quick` is for iterating. The suite is optional and never a merge gate (CLAUDE.md): a fresh build of
+the affected characters and the game's demo selftests are what prove a change.
+
+## `--update`
+
+`--update` rewrites the goldens whose report moved. A golden whose fresh report is within tolerance of
+it is left as it was (`ok ... (golden within tolerance, kept)`), so re-recording after a change that
+moved three fixtures touches three files, not twenty with rounding noise and new version stamps.
+
+## Bumping a version: `tools/bump.py`
+
+```
+python tools/bump.py wardrobe 0.6.0 "skirts fold with the thighs."
+```
+
+edits `plugins/<plugin>/.claude-plugin/plugin.json`'s `version`, and that plugin's `version` and
+description in `.claude-plugin/marketplace.json`, appending "Since 0.6.0 skirts fold with the thighs."
+It edits text, keeping line endings and layout, and re-parses both files to prove nothing else moved.
+It refuses (and writes nothing) on a version that is not `x.y.z` or not above the current one, an
+unknown plugin, versions that already disagree between the two files, or a description that already
+has that version's sentence. Goldens record the versions that built them (`plugins`), but regress
+never compares that stamp and there is no restamp mechanism, so bump.py leaves `tests/golden` alone.
 
 A change is not by itself a failure — a fix moves numbers. The point is that the move is **seen**,
 on every fixture rather than on one character, and that accepting it is a reviewed commit to
@@ -22,7 +75,7 @@ on every fixture rather than on one character, and that accepting it is a review
 ## Fixtures
 
 Each is a script Blender runs in its own process, building from nothing — no `.blend`, no stored
-asset — and writing a report of what it got. There are nineteen of them, and a `--twice --jobs 2` run
+asset — and writing a report of what it got. There are twenty-four of them (the table lists every one), and a `--twice --jobs 2` run
 takes about half an hour; the rabbit and the cricket are the biggest single builds (over two minutes
 each alone), because a voxel remesh is slow, and since rig-anything 0.22.0 every export renders a
 review sheet as well (4-12 s a character).
@@ -34,7 +87,7 @@ review sheet as well (4-12 s a character).
 | `flesh_figure` | follow-through's `Figure` and `Bloater`, rigged, walked, fleshed, exported | `fit_basic_human`, bind coverage, `flesh.prepare` region placement (end rings fitted from wall vertices), the glTF read back |
 | `dressed_figure` | a shirt cut onto the fleshed `Figure`, and that body exported walking | `tailor`/`fit`/`hem`/`cover`, the flesh-before-garments order, and (with `--godot`) the shirt worn in Godot |
 | `dressed_presets` | the fleshed `Figure` dressed through `wardrobe.dress` in `sports_top` and `shorts_mid_thigh`, body exported | wardrobe's garment presets reproduce the hand calls, two garments worn together in Godot |
-| `pipeline_woman` | a curvy MPFB woman from a TOML spec with flesh and two presets, through every stage; rerun, a refused out-of-order stage, and export resumed in a second Blender | character-pipeline's stages, records, refusals and fresh-session resume; `height_m.stand` taken from the stored Idle clip (`idle_standing_height_m`), a spec naming `export.height` refused (`height_field`), the body's `body_stature`; the spec-built character in Godot |
+| `pipeline_woman` | a curvy MPFB woman from a TOML spec with flesh and two presets, through every stage; rerun, a refused out-of-order stage, and export resumed in a second Blender | character-pipeline's stages, records, refusals and fresh-session resume; `height_m.stand` taken from the stored Idle clip (`idle_standing_height_m`), a spec naming `export.height` refused (`height_field`), the body's `body_stature`; a `[flesh]` edit on the dressed file taking the garments off and skipping moves (`dressed_flesh_edit`; controls: without the undress it restarts from body, and without either it refuses); the spec-built character in Godot |
 | `cricket` | `hopper_samples.cricket`, detected, rigged, skinned, walked, jumped, exported | six-leg detection against the sample's known joints, the orthopteran branch of `hop.move_set` (Idle, Walk, JumpLaunch/Air/Land), `export_creature`'s refusal of a failed clip |
 | `starfish` | `radial_samples.starfish`, detected as `asteroid`, rigged, skinned, crawled, exported | `radial.detect`'s hub and arms, `radial.build`'s one bone count per appendage kind (all five arms 4 bones), `radial.skin`'s coverage read back off the mesh (`vertices_unweighted`, cross-checked by the fixture's own count), `radial_moves` Crawl and Idle, the `radial` manifest |
 | `rigify_human` | follow-through's `Figure`, unfleshed, given every biped move, exported | `fit_basic_human` with Rigify off, `move_set`'s ten default roles on a rig with no ground root, the export re-check. The three slides fail their floor checks and are dropped from the export with the reasons in the golden. `verify.arm_swing` over carry angles from real clips (`ARM_SWING_CASES`: a walk through hanging passes, the pre-fix Walter walk carried in front fails), and each clip's `arm_pose` read back off the written `.moves.json` (`arm_pose_on_disk`, also recorded by every other export fixture) |
@@ -48,6 +101,11 @@ review sheet as well (4-12 s a character).
 | `pipeline_ponytail` | a woman from a TOML spec with `[hair] preset = "ponytail"` through every stage, Run included | character-pipeline's `strand` stage between moves and garments: the tail left loose by the hair stage, `follow_through.strand.prepare` hanging its chain on the head bone, `<id>_hair.glb` and the manifest's `strands`, both glbs read back; export refused before the strand stage and the strand stage refused before the moves. The swing itself is Godot's (`verify_strands.gd`, run by hand - see follow-through's strands reference) |
 | `muscle_definition` | the definition delta authored from nothing on MPFB's default male, weighted onto Dante, a soft body and Freya, as geometry and as a baked map | humanform's `sdf` / `delta` / `muscle`: per-group and composite `spike_um` (the guard runs on the sum the mesh carries), `muscle.weights` falling away with body fat, humancheck before and after, and lookdev's `detail.bake_normal_from_high` on the baked mesh with the eyes joined in |
 | `pipeline_muscle` | a lean muscular man (Dante's brief, no forced muscle macro) from a TOML spec with `[muscle] output = "geometry"`, `[hair] preset = "bun"` and `[build] quality = "draft"`, then edited as a person would: hair to `short_crop`, muscle to `"normal"`, muscle dropped | character-pipeline's `muscle` stage (per-group weights, body fat, the composite `spike_um`, the baked `hfd:muscle` keys), the `build` record in the report, the manifest and the .blend, a whole build restarting from body when `[hair]` or `[muscle]` changes (one hair layer: the vertex count equals a fresh build's), the normal-map bake and its removal, and the quality table |
+| `pipeline_hashes` | nothing: `runner.plan` on four small specs against copies of the plugins, each copy edited one file at a time | every file a character-pipeline stage reads is in its input hash: each flip moves its stage first and nothing before it, each unrelated edit moves nothing, and each flip has a drop-control (the input left out of the hash, the flip must go unseen) - including the plugin version, the final skin map size, the final close-up views and a spec `[flesh]` edit, which the fixture leaves out itself (`_left_out`). `PIPELINE_HASHES_DROP=<stage>:<label>` must fail it. Then what moves reads of flesh's output (`inputs.outputs`, `runner.view_hash`) on a small rig and skinned cube: 15 flips (bones, tags, pose constraints, a jiggle bone's rotation mode, the rig's place, a second bound mesh, geometry, a weight, a group, a modifier, the follow-through route, a wardrobe mark, a material, a shape key) each move their labels and moves' view, each with a drop-control, and 4 unrelated edits (a swing limit, a body bone's rotation mode, a pose, an action) move nothing; `PIPELINE_HASHES_DROP=flesh:output:<label>` must fail it |
+| `pipeline_paths` | one draft body (`to_stage="body"`) from a spec with a relative `[export] blend`, the spec copied byte for byte into a second project, then specs whose blend leaves the project | specs safe to copy (06 rank 2, character-pipeline 0.11.0): each build saves only under its own project (every .blend listed after each build), under `$BLEND_DIR` when set, a copy plans the same stage hashes (control: an absolute blend moves export); an absolute, a `../` and a prefix-sibling blend are refused before any stage runs, each with a `save_outside=True` control that saves there. `PIPELINE_PATHS_NO_GUARD=1` must fail it |
+| `limit_influences` | 64 loose vertices on an eight-bone armature with one to eight bone weights each, in varied group order, beside non-bone groups | follow-through's `flesh.limit_influences` (0.6.1): at most four influences, the four strongest kept, each vertex's total bone weight kept (`max_total_lost`, the free value), non-bone groups and vertices with four or fewer untouched. Its control, the pre-0.6.1 stale-element write, must lose weight (0.31) |
+| `skin_detail` | a seeded MPFB human with a deep skin tone, exported unbaked, baked with lookdev unavailable, and baked for real at 512 px | humanform's `look.skin`: the flat fallback material and its `baseColorFactor` in the glb, no `COLOR_n`, and the baked maps (albedo mean held to the tone, lips and areolae darker and redder, palms and soles paler, the embedded map the same pixels); regional contrast (humanform 0.14.0): each floored region's CIELAB dE, dL and red/green against plain skin must clear `skin.CONTRAST_FLOOR` (`contrast_ok`), and the T-zone's and lips' baked roughness is higher than 0.12.0's. Its control, a copy of the human marked and baked with `HF_SKIN_LEGACY_REGIONS=1`, must fail the floor (`control_legacy`) |
+| `asym_meter` | follow-through's `Figure` given Idle/Walk/Run three times - `[variability] asymmetry = 0.35` on an id whose draw is large on every channel, 0, and 0.35 with `RA_ASYM_MIRROR=1` - each exported as its own character | `variability.measure` per side on Walk and Run (arm swing, step length, stride, shoulder dip, arm lag, stance offset), a side-swap measurement (the body map's `lat` negated), and the verdicts Godot's `verify_asymmetry.gd` must reproduce: asymmetric True at 0.35 and **False at 0 and for the mirror** (the controls), stride even everywhere, the stance offset moved against 0's at 0.35 and not for the mirror (rig-anything 0.38.0) |
 
 ## In the engine: `--godot <project>`
 
@@ -55,6 +113,17 @@ A glb that Blender wrote correctly can still play wrongly in Godot. `--godot` ta
 built, copies its `.glb` and `.moves.json` files into `<project>/_regress/<fixture>/`, imports them,
 and runs the project's copies of the verifiers:
 
+- **`verify_asymmetry.gd`** for the fixtures in `GODOT_ASYM` (`asym_meter`): each export measured left
+  against right off the playing skeleton and held against the fixture's own `variability.measure` numbers
+  for the same clips, at the clip's keys (a second copy imported at its own frame rate with the keyframe
+  optimizer off) within `ASYM_TOL`, and as the game imports it (verdicts only). The asymmetry-0 and mirror
+  builds must fail "is asymmetric" on every clip and nothing else, and read under the floor on each of its
+  three channels one at a time (the golden's `over_floor`, at the keys; at the game's import only with
+  `RA_REGRESS_ASYM_GAME_CHANNELS=1`, off because that import cannot tell the run's shoulder dip apart - a row
+  prints what it can and cannot), not only on the one that fails the AND; every
+  row prints the gated values against their floors and marks a margin within x1.25 `THIN`; `swap=1` must invert every ratio (lag_cycles: exchange its two sides exactly) and
+  disagree with the unswapped bake; `poison=1` (the manifest's variability block and measured values
+  rewritten) must not move a digit.
 - **`verify_moves.gd`** on every manifest. It checks MovesController's gait choice and playback rate
   from standing to the fastest gait and back, the hysteresis around each change of gait, and the
   stride phase carried across it. A manifest's `scene` is repointed at the glb beside it.

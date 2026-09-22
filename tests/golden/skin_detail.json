@@ -1,0 +1,312 @@
+{
+ "fixture": "skin_detail",
+ "plugins": {
+  "humanform": "0.17.0",
+  "lookdev": "0.12.0",
+  "rig-anything": "0.27.0"
+ },
+ "report": {
+  "baked": {
+   "baseColorFactor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "colour_sets": [],
+   "detail": "pores",
+   "genital_darker": true,
+   "glb_map_is_baked_map": true,
+   "godot_sss": true,
+   "godot_transmittance_depth": 0.03,
+   "lips_redder_darker": true,
+   "lookdev_preset": "skin",
+   "nipple_darker": true,
+   "palm_paler": true,
+   "region_tones": {
+    "elbow": [
+     0.41,
+     0.24,
+     0.17
+    ],
+    "flush": [
+     0.45,
+     0.26,
+     0.19
+    ],
+    "genital": [
+     0.4,
+     0.23,
+     0.17
+    ],
+    "knee": [
+     0.41,
+     0.25,
+     0.18
+    ],
+    "knuckle": [
+     0.41,
+     0.25,
+     0.18
+    ],
+    "lips": [
+     0.41,
+     0.21,
+     0.16
+    ],
+    "nail": [
+     0.46,
+     0.3,
+     0.22
+    ],
+    "nipple": [
+     0.38,
+     0.22,
+     0.15
+    ],
+    "palm": [
+     0.62,
+     0.44,
+     0.32
+    ],
+    "skin": [
+     0.45,
+     0.31,
+     0.23
+    ],
+    "sole": [
+     0.62,
+     0.44,
+     0.32
+    ]
+   },
+   "size": 512,
+   "sole_paler": true,
+   "stage": "baked",
+   "textures": {
+    "base_color": true,
+    "normal": true,
+    "roughness": true
+   },
+   "tone_baked": [
+    0.45,
+    0.31,
+    0.23
+   ],
+   "tone_ok": true,
+   "tone_target": [
+    0.45,
+    0.31,
+    0.23
+   ],
+   "uv_sets": [
+    "TEXCOORD_0",
+    "TEXCOORD_1"
+   ]
+  },
+  "contrast": {
+   "contrast": {
+    "elbow": {
+     "dE": 7.22,
+     "dL": -6.1,
+     "rg": 1.15
+    },
+    "flush": {
+     "dE": 6.96,
+     "dL": -3.43,
+     "rg": 1.172
+    },
+    "genital": {
+     "dE": 8.34,
+     "dL": -7.12,
+     "rg": 1.178
+    },
+    "knee": {
+     "dE": 6.24,
+     "dL": -5.27,
+     "rg": 1.125
+    },
+    "knuckle": {
+     "dE": 7.0,
+     "dL": -5.89,
+     "rg": 1.145
+    },
+    "lips": {
+     "dE": 11.99,
+     "dL": -8.06,
+     "rg": 1.337
+    },
+    "nail": {
+     "dE": 2.64,
+     "dL": -0.36,
+     "rg": 1.057
+    },
+    "nipple": {
+     "dE": 9.29,
+     "dL": -8.68,
+     "rg": 1.172
+    },
+    "palm": {
+     "dE": 15.5,
+     "dL": 14.18,
+     "rg": 0.984
+    },
+    "sole": {
+     "dE": 15.73,
+     "dL": 14.22,
+     "rg": 0.971
+    }
+   },
+   "contrast_fail": [],
+   "contrast_ok": true,
+   "control_legacy": {
+    "contrast": {
+     "elbow": {
+      "dE": 2.94,
+      "dL": -2.68,
+      "rg": 1.047
+     },
+     "flush": {
+      "dE": 2.76,
+      "dL": -1.13,
+      "rg": 1.062
+     },
+     "genital": {
+      "dE": 8.3,
+      "dL": -6.92,
+      "rg": 1.181
+     },
+     "knee": {
+      "dE": 2.29,
+      "dL": -2.07,
+      "rg": 1.036
+     },
+     "knuckle": {
+      "dE": 2.71,
+      "dL": -2.39,
+      "rg": 1.046
+     },
+     "lips": {
+      "dE": 7.42,
+      "dL": -4.74,
+      "rg": 1.18
+     },
+     "nail": {
+      "dE": 3.11,
+      "dL": -0.17,
+      "rg": 1.065
+     },
+     "nipple": {
+      "dE": 9.2,
+      "dL": -8.37,
+      "rg": 1.181
+     },
+     "palm": {
+      "dE": 3.35,
+      "dL": 1.34,
+      "rg": 1.042
+     },
+     "sole": {
+      "dE": 3.76,
+      "dL": 1.32,
+      "rg": 1.034
+     }
+    },
+    "contrast_ok": false,
+    "fail": [
+     "elbow: dE 2.94 < 5.0",
+     "flush: dE 2.76 < 4.0",
+     "knee: dE 2.29 < 5.0",
+     "knuckle: dE 2.71 < 5.0",
+     "lips: dE 7.42 < 8.0",
+     "palm: dE 3.35 < 5.0",
+     "palm: not paler than skin (dL 1.34 < 3.0)",
+     "palm: redder than skin (rg 1.042 > 1.02)",
+     "sole: dE 3.76 < 5.0",
+     "sole: not paler than skin (dL 1.32 < 3.0)",
+     "sole: redder than skin (rg 1.034 > 1.02)"
+    ],
+    "judged": "failed: 11 floor(s) missed",
+    "roughness": {
+     "lips": 0.367,
+     "skin": 0.514,
+     "t_zone": 0.405
+    }
+   },
+   "control_missing_knee": {
+    "fail": [
+     "knee: no texels"
+    ],
+    "judged": "failed"
+   },
+   "pale": {
+    "palm": 16.0,
+    "sole": 16.0
+   },
+   "rougher_than_legacy": {
+    "lips": true,
+    "t_zone": true
+   },
+   "roughness": {
+    "lips": 0.453,
+    "skin": 0.525,
+    "t_zone": 0.468
+   }
+  },
+  "marked": {
+   "attributes": {
+    "hf_skin_oil": [
+     "FLOAT",
+     "POINT"
+    ],
+    "hf_skin_region": [
+     "INT",
+     "POINT"
+    ],
+    "hf_skin_tint": [
+     "FLOAT_VECTOR",
+     "POINT"
+    ]
+   },
+   "base_color": [
+    0.1706,
+    0.0783,
+    0.0432
+   ],
+   "base_color_linked": false,
+   "colour_attributes": [],
+   "regions": {
+    "elbow": 82.0,
+    "flush": 780.0,
+    "genital": 53.0,
+    "knee": 50.0,
+    "knuckle": 808.0,
+    "lips": 328.0,
+    "nail": 438.0,
+    "nipple": 96.0,
+    "palm": 1140.0,
+    "sole": 522.0
+   },
+   "stage": "flat",
+   "subsurface_weight": 1.0
+  },
+  "no_lookdev": {
+   "base_color_is_tone": true,
+   "base_color_linked": false,
+   "error": true,
+   "marks_kept": true,
+   "stage": "flat"
+  },
+  "unbaked_export": {
+   "baseColorFactor": [
+    0.1706,
+    0.0783,
+    0.0432
+   ],
+   "baseColorTexture": false,
+   "colour_sets": [],
+   "factor_is_tone": true,
+   "godot_sss": true,
+   "lookdev_preset": "skin"
+  }
+ }
+}

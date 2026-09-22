@@ -74,6 +74,7 @@ from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
 
 from . import body as _body
+from . import brows as _brows
 from . import eyes as _eyes
 from . import look
 from .sheet import HAIR_PRESETS as PRESETS
@@ -191,11 +192,21 @@ def landmarks(ob):
     front = hp[hp[:, 1] < cy - 0.4 * h]
     chin = float(front[:, 2].min()) if len(front) else ez - 1.0 * h
     centre = np.array([0.0, cy, ez + 0.1 * h])
+    # the ears themselves, on an MPFB body: every vertex MPFB's ear targets bend (humanform.brows)
+    ear_idx = _brows.ear_vertices(ob)
+    ear_all = np.array(sorted(ear_idx["L"] + ear_idx["R"]), np.int64) if ear_idx else np.zeros(0, np.int64)
+    ear_kd = None
+    if len(ear_all):
+        from mathutils.kdtree import KDTree
+        ear_kd = KDTree(len(ear_all))
+        for k, i in enumerate(ear_all):
+            ear_kd.insert(Vector(co[i]), k)
+        ear_kd.balance()
     return {"head_bone": head, "rig": rig.name if rig else None, "top": top, "eye": [0.0, float(eye[1]), ez],
             "eye_source": eye_source, "h": h, "cy": cy, "ear_L": ears["L"].tolist(), "ear_R": ears["R"].tolist(),
-            "ear_half_m": ear_boxes,
+            "ear_half_m": ear_boxes, "ear_vertices": int(len(ear_all)),
             "chin": chin, "centre": centre.tolist(), "back_y": float(hp[:, 1].max()),
-            "_co": co, "_eye_vertices": eyes_idx}
+            "_co": co, "_eye_vertices": eyes_idx, "_ear_vertices": ear_all, "_ear_kd": ear_kd}
 
 
 # ------------------------------------------------------------------------------------------ hairline
@@ -241,6 +252,12 @@ def signed_distance(p, lm, hp):
         lateral = (p[sel, 0] * sign) > (abs(ear[0]) - 0.035)
         ear_d = (q - 1.0) * min(ry, rz)
         d[sel] = np.where(lateral, np.minimum(dz, ear_d), dz)
+    kd = lm.get("_ear_kd")
+    if kd is not None:
+        # the ear itself: no hair within `ear_clear_m` of any ear vertex, the feather running out from there
+        clear = hp.get("ear_clear_m", 0.004)
+        near = np.array([kd.find(Vector(q))[2] for q in p])
+        d = np.minimum(d, near - clear)
     return d
 
 
@@ -315,10 +332,13 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
     bm.from_mesh(ob.data)
     bm.verts.ensure_lookup_table()
     feather = p["feather_m"]
+    ear = np.zeros(len(co), bool)
+    if p.get("ear_cut", True):
+        ear[lm.get("_ear_vertices", np.zeros(0, np.int64))] = True
     keep = []
     for f in bm.faces:
         idx = [v.index for v in f.verts]
-        if all(near[i] for i in idx) and float(np.mean(d_all[idx])) > -feather:
+        if all(near[i] for i in idx) and not any(ear[i] for i in idx) and float(np.mean(d_all[idx])) > -feather:
             keep.append(f)
     faces_from_body = len(keep)
     keep_set = set(keep)
@@ -459,6 +479,18 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
     far = max(float(g.max()), d1 + 1e-3)
     slope2 = max((v_max - v1) / (far - d1), 0.0)
     v_of = np.where(g <= d1, v_h + g / span, v1 + (g - d1) * slope2)
+    wobble = p.get("edge_wobble_m", 0.0)
+    if wobble:
+        # the hairline wanders: V near the line moves by up to `edge_wobble_m` (as distance) with a sum of sines
+        # round the head whose shortest wavelength is about a texture tile, so the texture's own ragged edge,
+        # which repeats every tile, does not show as a repeat
+        wrng = np.random.RandomState(p.get("edge_seed", 3))
+        az = np.radians(_azimuth(pts, lm["cy"]))
+        wav = np.zeros(len(pts))
+        for k in range(3, 15):
+            wav += wrng.normal() / k * np.sin(k * az + wrng.uniform(0, 2 * math.pi))
+        wav /= max(float(np.abs(wav).max()), 1e-9)
+        v_of = v_of + wobble * wav * (1 - _smooth(0.01, 0.035, d)) / span
     v_of = np.maximum(v_of, 0.001)
     v_of = np.where(boundary, np.minimum(v_of, 0.003), v_of)
     uv = bm.loops.layers.uv.new(uv_name)
@@ -467,10 +499,52 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
         q = Vector(pt) - centre
         return math.atan2(q.dot(r1), q.dot(r0))
 
+    angles = np.array([ang(q) for q in pts])
+    line_u = p.get("line_u_m", 0.0)
+    line_rep = None
+    if line_u:
+        # U carried straight off the hairline (off at the defaults): within `line_u_m` of the line, U is the
+        # strand axis's angle at the point of the line the vertex lies across from (a Newton step down the
+        # gradient of `d` over the skin), so U runs along the line and V straight across it. Around the axis alone,
+        # U and V meet at a slant where the line runs steeply (the temples, a sideburn) and the texture's
+        # thinning root zone shears into long diagonal spikes. Past `line_u_m` it eases back to the axis's U.
+        sel = np.nonzero(d < line_u)[0]
+        bm.verts.ensure_lookup_table()
+        bm.normal_update()
+        if len(sel):
+            nrm = np.array([tuple(bm.verts[i].normal) for i in sel])
+            eps = 0.001
+            grad = np.zeros((len(sel), 3))
+            for k in range(3):
+                e = np.zeros(3)
+                e[k] = eps
+                grad[:, k] = (signed_distance(pts[sel] + e, lm, hp) - signed_distance(pts[sel] - e, lm, hp)) / (2 * eps)
+            grad -= nrm * np.sum(grad * nrm, axis=1)[:, None]          # along the skin
+            g2 = np.maximum(np.sum(grad * grad, axis=1), 0.25)          # |grad d| is ~1; never a long jump
+            foot = pts[sel] - (d[sel] / g2)[:, None] * grad
+            a_foot = np.array([ang(q) for q in foot])
+            diff = (angles[sel] - a_foot + math.pi) % (2 * math.pi) - math.pi
+            w = _smooth(0.3 * line_u, line_u, d[sel])
+            # the turn, relaxed over the mesh: `d`'s gradient jumps where the ear's distance takes over, and a
+            # foot that jumps between neighbours folds the UVs into facets
+            turn = np.zeros(len(pts))
+            turn[sel] = -(1 - w) * diff
+            inside = np.zeros(len(pts), bool)
+            inside[sel] = True
+            nbrs = [[e.other_vert(bm.verts[i]).index for e in bm.verts[i].link_edges] for i in sel]
+            # held at the line itself (where U must run along it), free from 0.3 `line_u_m` in
+            hold = 0.5 * _smooth(0.0, 0.3 * line_u, d[sel])
+            for _ in range(int(p.get("line_u_relax", 16))):
+                avg = np.array([turn[nb].mean() if nb else turn[i] for i, nb in zip(sel, nbrs)])
+                turn[sel] = (1 - hold) * turn[sel] + hold * avg
+            angles[sel] = angles[sel] + turn[sel]
+            line_rep = {"verts": int(len(sel)), "line_u_m": line_u,
+                        "turned_deg_max": round(float(np.degrees(np.abs(turn[sel])).max()), 2)}
+
     for f in bm.faces:
         base = None
         for loop in f.loops:
-            t = ang(pts[loop.vert.index])
+            t = float(angles[loop.vert.index])
             if base is None:
                 base = t
             while t - base > math.pi:
@@ -485,8 +559,34 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
            if boundary.any() else None,
            "boundary_v_max": round(float(v_of[boundary].max()), 4) if boundary.any() else None,
            "thick_mm": [round(float(thick.min()) * 1000, 2), round(float(thick.max()) * 1000, 2)],
-           "strand_turns": turns, "uv_handedness": _handedness(bm, uv, d, 0.03)}
+           "strand_turns": turns, "uv_handedness": _handedness(bm, uv, d, 0.03), "line_u": line_rep,
+           "ear_covered_verts": ear_coverage(bm, lm, ob)}
     return bm, rep, (pts, d, v_of, boundary)
+
+
+def ear_coverage(bm, lm, ob, within=0.02):
+    """How many of the body's ear vertices the cap lies over: an ear vertex facing out of the head (its normal
+    within 78 degrees of the direction from the head's centre) whose normal, followed out for `within` metres,
+    meets the cap. The back of the ear faces the scalp, which is hair, so it is not counted. 0 is the goal;
+    None on a body with no known ears."""
+    idx = lm.get("_ear_vertices")
+    if idx is None or not len(idx):
+        return None
+    bm.verts.ensure_lookup_table()
+    bm.faces.ensure_lookup_table()
+    tree = BVHTree.FromBMesh(bm)
+    centre = Vector(lm["centre"])
+    rot = ob.matrix_world.to_3x3()
+    covered = 0
+    for i in idx:
+        p = Vector(lm["_co"][i])
+        n = (rot @ ob.data.vertices[int(i)].normal).normalized()
+        if n.dot((p - centre).normalized()) < 0.2:
+            continue
+        hit = tree.ray_cast(p + n * 0.0003, n, within)
+        if hit[0] is not None:
+            covered += 1
+    return covered
 
 
 def _handedness(bm, uv, d, beyond):
@@ -708,6 +808,83 @@ def _fall(bm, uv, lm, p, bvh, tile):
             round(float(r.max()), 4)], "flare_mm": round(float(off.max()) * 1000, 1)}
 
 
+# A fringe (bangs, `add(fringe=...)`): a sheet across the front of the head from the cap down over the forehead,
+# in head units h like the presets (0 at the eyes; the hairline is at 0.55 h at the front). Any preset can wear
+# one, and these numbers are merged in only when a build asks, so no preset's resolved parameters (and no build's
+# hash) move without it. `width_deg` either side of the front; `top_h` where it leaves the cap (near the crown:
+# at 0.8 h the step onto the cap showed as a line across the head), `bottom_h` where
+# it ends (0.2 h: at the brows); it lies `off_m` off the forehead at its ends, thickens to `thick_m`, and its ends
+# are `ragged_m` uneven.
+FRINGE = {"width_deg": 62.0, "top_h": 0.95, "bottom_h": 0.2, "off_m": 0.003, "thick_m": 0.005, "ragged_m": 0.008,
+          "edge_taper_deg": 16.0, "columns": 30, "rows": 12, "v": [0.55, 0.985], "seed": 11}
+
+
+def _fringe(bm, uv, lm, p, bvh, tile, fp):
+    """The fringe's outer and inner sheets and its rim, hung straight down from the widest point above (over the
+    brow ridge, not into the hollow under it) and thinning to nothing at its sides, where the fall takes over."""
+    ez, h, cy = lm["eye"][2], lm["h"], lm["cy"]
+    ncol, nrow = int(fp["columns"]), int(fp["rows"])
+    s = np.linspace(0, 1, nrow)
+    zs = np.linspace(ez + fp["top_h"] * h, ez + fp["bottom_h"] * h, nrow)
+    azs = np.linspace(-fp["width_deg"], fp["width_deg"], ncol)
+    r = np.zeros((nrow, ncol))
+    for j, a_deg in enumerate(azs):
+        a = math.radians(a_deg)
+        dvec = Vector((math.sin(a), -math.cos(a), 0.0))
+        for i, z in enumerate(zs):
+            loc, _n, _k, _d = bvh.ray_cast(Vector((0.0, cy, z)) + dvec * 0.4, -dvec, 0.4)
+            r[i, j] = Vector((loc.x, loc.y - cy, 0.0)).length if loc is not None else (r[i - 1, j] if i else 0.08)
+    r = np.maximum.accumulate(r, axis=0)
+    under = p["cap_thick_m"] + p["crown_extra_m"] + 0.0005
+    # on the cap at the top, easing down onto the forehead by half way, then lying `off_m` off it
+    off = under + (fp["off_m"] - under) * _smooth(0.0, 0.5, s)
+    thick = 0.0008 + (fp["thick_m"] - 0.0008) * _smooth(0.0, 0.4, s)
+    edge_deg = np.minimum(azs + fp["width_deg"], fp["width_deg"] - azs)
+    edges = _smooth(0.0, fp["edge_taper_deg"], edge_deg)
+    rng = np.random.RandomState(int(fp.get("seed", 11)))
+    ragged = fp["ragged_m"] * rng.uniform(0.0, 1.0, ncol)
+    ragged = np.convolve(np.concatenate([ragged[:1], ragged, ragged[-1:]]), np.ones(3) / 3, mode="valid")
+    outer, inner = [], []
+    for i, z in enumerate(zs):
+        orow, irow = [], []
+        for j, a_deg in enumerate(azs):
+            a = math.radians(a_deg)
+            dvec = Vector((math.sin(a), -math.cos(a), 0.0))
+            e = edges[j]
+            o = under + (off[i] - under) * e            # at its sides it stays on the cap, under the fall
+            t = 0.0005 + (thick[i] - 0.0005) * e
+            base = Vector((0.0, cy, z - ragged[j] * float(_smooth(0.6, 1.0, s[i]))))
+            orow.append(bm.verts.new(base + dvec * (r[i, j] + o)))
+            irow.append(bm.verts.new(base + dvec * (r[i, j] + max(o - t, 0.0005))))
+        outer.append(orow)
+        inner.append(irow)
+    r_nom = 0.1
+    v0, v1 = fp["v"]
+
+    def u_of(j):
+        return math.radians(azs[j]) * r_nom / tile
+
+    def v_of(i):
+        return v0 + (v1 - v0) * s[i]
+
+    faces = 0
+    for grid, flip in ((outer, True), (inner, False)):
+        for f, corners in _grid_faces(bm, grid, flip=flip):
+            for loop, (i, j) in zip(f.loops, corners):
+                loop[uv].uv = (u_of(j), v_of(i))
+            f.smooth = True
+            faces += 1
+    last = nrow - 1
+    for j in range(ncol - 1):                           # the ends: strand tips
+        f = bm.faces.new([inner[last][j], inner[last][j + 1], outer[last][j + 1], outer[last][j]])
+        for loop, (jj, vv) in zip(f.loops, ((j, v1), (j + 1, v1), (j + 1, 0.99), (j, 0.99))):
+            loop[uv].uv = (u_of(jj), vv)
+        f.smooth = True
+        faces += 1
+    return {"faces": faces, "top_z": round(float(zs[0]), 4), "bottom_z": round(float(zs[-1]), 4),
+            "width_deg": fp["width_deg"], "off_mm": round(float(off[-1]) * 1000, 1)}
+
+
 def _resample(points, n):
     pts = np.asarray(points, np.float64)
     seg = np.linalg.norm(np.diff(pts, axis=0), axis=1)
@@ -927,13 +1104,15 @@ def _object(name, bm, body, rig, weights):
     return ob
 
 
-def _material(name, colour, uv_name):
+def _material(name, colour, uv_name, look=None):
+    """lookdev's hair material; `look` is the preset's overrides of lookdev's `hair` strand settings (short_crop's
+    feathered hairline)."""
     try:
         from lookdev_blender import hair as ld_hair
     except ImportError:
         ld_hair = None
     if ld_hair is not None:
-        mat, rep = ld_hair.material(name, colour, uv_map=uv_name)
+        mat, rep = ld_hair.material(name, colour, uv_map=uv_name, **(look or {}))
         return mat, dict(rep, source="lookdev"), rep["tile_m"]
     mat = look.material(name, srgb=colour, roughness=0.45)
     return mat, {"material": mat.name, "source": "flat (lookdev_blender not importable)"}, TILE_M
@@ -954,20 +1133,34 @@ def _clearance(bvh, verts, samples=400):
     return round(worst, 5)
 
 
-def add(body, preset=None, colour=None, sheet=None, name=None, **overrides):
+def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lashes=False, body_hair=False, sex=None,
+        brow_shape=None, beard=None, beard_colour=None, fringe=None, **overrides):
     """Hair on a baked body. `preset` and `colour` (a screen sRGB colour) default to `sheet["hair"]`, then
-    `bun`-less `short_crop` and the preset's colour. Returns a report with the objects made."""
+    `bun`-less `short_crop` and the preset's colour. Returns a report with the objects made.
+
+    `brows`, `lashes` and `body_hair` add `humanform.brows`' layers in the hair colour darkened (off by default,
+    so a build that does not ask is unchanged); `sex` ("male" / "female", else the sheet's) picks the body hair
+    regions. `brow_shape` (else the brief's `hair.brow_shape`, else "natural": the brow card as MPFB fits it) is
+    one of `brows.BROW_SHAPES`. `beard` (else the brief's `hair.beard`; None: none) is one of
+    `brows.BEARD_STYLES`, in `beard_colour` (a screen colour; None: the hair colour a little darker). `fringe`
+    (else the brief's `hair.fringe`) hangs a fringe across the forehead: True for FRINGE, or a dict over it."""
     ob = _body.obj(body)
     brief = (sheet or {}).get("hair") or {}
+    brow_shape = brow_shape or brief.get("brow_shape")
+    beard = beard or brief.get("beard")
+    fringe = fringe if fringe is not None else brief.get("fringe")
     preset = preset or brief.get("preset") or "short_crop"
     p = params(preset, **overrides)
     colour = tuple(colour if colour is not None else brief.get("colour") or p["colour"])
     base = name or (ob.name[:-5] if ob.name.endswith("_body") else ob.name)
     lm = landmarks(ob)
+    if not p.get("ear_cut", True):
+        # measured but not cut round (a control: what the cap did before it knew where the ears were)
+        lm["_ear_kd"] = None
     rig = _body.rig_of(ob)
     bvh = _bvh(lm["_co"], ob, lm["_eye_vertices"])
     uv_name = ob.data.uv_layers.active.name if ob.data.uv_layers.active else "UVMap"
-    mat, mat_rep, tile = _material(f"{base}_hair", colour, uv_name)
+    mat, mat_rep, tile = _material(f"{base}_hair", colour, uv_name, p.get("look"))
 
     centre = Vector(lm["centre"])
     targets = {}
@@ -1005,6 +1198,9 @@ def add(body, preset=None, colour=None, sheet=None, name=None, **overrides):
         report["parts"]["tie"] = {"faces": faces, "centre": [round(x, 4) for x in c]}
     if "fall" in p["parts"]:
         report["parts"]["fall"] = _fall(bm, uv, lm, p, bvh, tile)
+    if fringe:
+        fp = dict(FRINGE, **(fringe if isinstance(fringe, dict) else {}))
+        report["parts"]["fringe"] = _fringe(bm, uv, lm, p, bvh, tile, fp)
     for f in bm.faces:
         f.material_index = 0
     head = lm["head_bone"]
@@ -1013,6 +1209,12 @@ def add(body, preset=None, colour=None, sheet=None, name=None, **overrides):
     hair_ob.data.materials.append(mat)
     hair_ob["humanform_hair"] = {"preset": preset, "part": "rigid"}
     objects = {"hair": hair_ob.name}
+    if brows or lashes or body_hair or beard:
+        face = _brows.add(ob, lm, colour, base, rig=rig, uv_name=uv_name, brows=brows, lashes=lashes,
+                          body_hair=body_hair, sex=sex or (sheet or {}).get("sex"), brow_shape=brow_shape,
+                          beard=beard, beard_colour=beard_colour)
+        objects.update(face["objects"])
+        report["face"] = {"parts": face["parts"], "skipped": face["skipped"]}
     # the cap's clearance: a fall's inner sheet and the underside of a bun or tie are tucked under the cap and
     # into the scalp on purpose, so only the cap is measured here
     report["hair"] = {"verts": len(hair_ob.data.vertices), "faces": len(hair_ob.data.polygons),
@@ -1081,6 +1283,15 @@ def add(body, preset=None, colour=None, sheet=None, name=None, **overrides):
                                      "min_clearance_m": _clearance(bvh, strand_verts),     # below 15% of its length
                                      "weights": sorted(weights)}
         report["contract"] = contract(strand_ob)
+    # the hair carries only its own UV map: a body UV layer that reached a part (the skin's `hf_detail`)
+    # would otherwise become its active map and the strand texture would sample the body's UVs
+    for _n in objects.values():
+        _me = bpy.data.objects[_n].data
+        for _layer in [u.name for u in _me.uv_layers if u.name != uv_name]:
+            _me.uv_layers.remove(_me.uv_layers[_layer])
+        if uv_name in _me.uv_layers:
+            _me.uv_layers.active = _me.uv_layers[uv_name]
+            _me.uv_layers[uv_name].active_render = True
     report["objects"] = objects
     return report
 

@@ -349,6 +349,20 @@ def _our_texture(bsdf, img):
     return None
 
 
+def _skin_texture(mat, bsdf):
+    """humanform's baked skin normal (`<material>_normal`, see `bake.bake_material`) is fine relief only: a
+    detail bake of real geometry (muscle definition) replaces it. Its Image Texture node, else None."""
+    if "humanform_skin" not in mat.keys():
+        return None
+    nm = bsdf.inputs["Normal"].links[0].from_node
+    if nm.type != "NORMAL_MAP" or not nm.inputs["Color"].is_linked:
+        return None
+    tex = nm.inputs["Color"].links[0].from_node
+    if tex.type == "TEX_IMAGE" and tex.image is not None and tex.image.name == f"{mat.name}_normal":
+        return tex
+    return None
+
+
 def bake_normal_from_high(low, high, out_dir, size=2048, material=None, extrusion=0.012, max_ray=0.03,
                           attach=True, name=None, samples=1, margin=None, device="CPU", strength=1.0, clean=True,
                           max_deg=MAX_DEG, method="auto"):
@@ -443,8 +457,11 @@ def bake_normal_from_high(low, high, out_dir, size=2048, material=None, extrusio
                 skipped.append(f"{mname}: no Principled BSDF")
                 continue
             tree = mat.node_tree
+            if bsdf.inputs["Normal"].is_linked and "humanform_skin" in mat.keys()                     and bsdf.inputs["Normal"].links[0].from_node.type == "BUMP":
+                # humanform's procedural skin bump (not yet baked): real geometry detail takes its place
+                tree.links.remove(bsdf.inputs["Normal"].links[0])
             if bsdf.inputs["Normal"].is_linked:
-                tex = _our_texture(bsdf, img)
+                tex = _our_texture(bsdf, img) or _skin_texture(mat, bsdf)
                 if tex is None:
                     skipped.append(f"{mname}: its Normal input is already linked")
                     continue

@@ -1,10 +1,12 @@
 {
-  "_comment": "Lighting recipes. 'environment' applies in both light-unit modes; 'environment_physical'/'environment_relative' and sun lux/energy apply per the project's rendering/lights_and_shadows/use_physical_light_units. Physical values follow real-world measurements (Filament, Unity HDRP, Godot docs). Relative energies are calibrated with lookdev capture against an 18% grey probe - see references/recipes.md for how, and re-check with a capture after applying.",
+  "_comment": "Lighting recipes. 'environment' applies in both light-unit modes; 'environment_physical'/'environment_relative' and sun lux/energy apply per the project's rendering/lights_and_shadows/use_physical_light_units. Physical values follow real-world measurements (Filament, Unity HDRP, Godot docs). Relative energies are calibrated with lookdev capture against an 18% grey probe - see references/recipes.md for how, and re-check with a capture after applying. Shipped inside the Godot addon: lookdev_presets.gd applies these at runtime and apply_preset.gd (lookdev.mjs preset) calls it. 'needs' names the stage a recipe requires; tools refuse it elsewhere unless forced.",
   "presets": {
     "clear_midday": {
       "kind": "day",
       "description": "Clear sky, high sun. Hard shadows, cool blue fill, warm-white key.",
+      "_clear_midday": "lookdev 0.11.0: exposure 0.94, metered on the 18% probe (key 1.008; 1.0 read key 1.073 with median display luma 0.61 and the grey probe 0.62, both over the day limits). close-shot's backdrop left GI in 0.9.0, so the stage no longer hides the sky and the old half-stop of extra key showed as study_woman past white on the shoulders and upper chest (1.42% of the figure, limit 1%; 0.01% at 0.94).",
       "sun": {
+        "soft_shadow_filter_quality": 4,
         "elevation": 58,
         "kelvin": 5600,
         "lux": 100000,
@@ -51,24 +53,27 @@
         "fog_sky_affect": 0.2,
         "fog_sun_scatter": 0.05
       },
-      "environment_relative": { "tonemap_exposure": 1.0 },
+      "environment_relative": { "tonemap_exposure": 0.94 },
       "environment_physical": { "background_intensity": 30000.0 },
       "camera_physical": { "exposure_aperture": 16.0, "exposure_shutter_speed": 60.0, "exposure_sensitivity": 100.0 }
     },
     "golden_hour": {
       "kind": "golden",
-      "description": "Low warm sun, long soft-edged shadows, strong warm/cool contrast, light haze.",
+      "description": "Low warm sun, long shadows, strong warm/cool contrast, light haze. Exposed half a stop under the key, as golden hour is shot.",
+      "_shadows": "The sun is 7 degrees up, so the floor meets its light almost edge-on and each shadow-map texel spans a long run of floor depth. At light_angular_distance 1.0 the soft-shadow (PCSS) kernel reaches twice as far across that slope as at 0.5 and the floor shadowed itself in bands (FLOOR_STRIPES: contrast 2.96% at 1.0, 0.25% at 0.5; normal bias 1.5). 0.5 is also the sun's real size (0.53 deg). Normal bias 3.0 keeps the floor clean down to a 2-degree sun (at 1.5 the bands come back below about 4 degrees); feet keep their contact shadows.",
+      "_exposure": "Relative mode: tonemap_exposure 0.7 (-0.5 stop). At 1.0 a skin facing this sun was exposed past diffuse white - a white card facing the key read 0.83-1.02, with the sky fill on top - so pale skin (study_woman, albedo luma 0.47) ran into AgX's shoulder and washed out to a pale glow (4.1% of the figure past white; 0% now). Physical mode already metered half a stop darker (key 0.61) and is unchanged.",
       "sun": {
+        "soft_shadow_filter_quality": 4,
         "elevation": 7,
         "kelvin": 3000,
         "lux": 25000,
         "energy": 3.0,
         "light": {
           "shadow_enabled": true,
-          "light_angular_distance": 1.0,
+          "light_angular_distance": 0.5,
           "directional_shadow_max_distance": 150.0,
           "shadow_bias": 0.05,
-          "shadow_normal_bias": 1.5
+          "shadow_normal_bias": 3.0
         }
       },
       "sky": {
@@ -105,33 +110,34 @@
         "fog_sky_affect": 0.3,
         "fog_sun_scatter": 0.35
       },
-      "environment_relative": { "tonemap_exposure": 1.0 },
+      "environment_relative": { "tonemap_exposure": 0.7 },
       "environment_physical": { "background_intensity": 14000.0 },
       "camera_physical": { "exposure_aperture": 8.0, "exposure_shutter_speed": 50.0, "exposure_sensitivity": 100.0 }
     },
     "overcast": {
       "kind": "overcast",
       "description": "Uniform grey sky, no hard shadows. Shape comes from AO and GI; low contrast, denser haze.",
+      "_overcast": "lookdev 0.9.0: the sun casts no shadow (a 20 deg disc's shadow map drew a hard-edged, mirror-like band down every forehead and nose), the sky is neutral grey (the blue-grey one moved skin hue 1 deg and saturation 8% down; the rest of the muddy tone was the stage's backdrop in SDFGI, see references/recipes.md), and exposure is metered on the 18% probe (0.75).",
       "sun": {
+        "soft_shadow_filter_quality": 4,
         "elevation": 55,
         "kelvin": 6800,
         "lux": 300,
         "energy": 0.25,
         "light": {
-          "shadow_enabled": true,
+          "shadow_enabled": false,
           "light_angular_distance": 20.0,
-          "shadow_opacity": 0.6,
           "directional_shadow_max_distance": 80.0
         }
       },
       "sky": {
         "type": "procedural",
         "material": {
-          "sky_top_color": "Color(0.62, 0.65, 0.69, 1)",
-          "sky_horizon_color": "Color(0.72, 0.74, 0.76, 1)",
+          "sky_top_color": "Color(0.66, 0.67, 0.68, 1)",
+          "sky_horizon_color": "Color(0.74, 0.74, 0.74, 1)",
           "sky_curve": 0.25,
           "ground_bottom_color": "Color(0.2, 0.2, 0.2, 1)",
-          "ground_horizon_color": "Color(0.72, 0.74, 0.76, 1)",
+          "ground_horizon_color": "Color(0.74, 0.74, 0.74, 1)",
           "sun_angle_max": 0.0
         },
         "material_relative": { "sky_energy_multiplier": 1.6, "ground_energy_multiplier": 1.6 },
@@ -156,14 +162,17 @@
         "fog_sky_affect": 0.5,
         "fog_sun_scatter": 0.0
       },
-      "environment_relative": { "tonemap_exposure": 1.0 },
+      "environment_relative": { "tonemap_exposure": 0.75 },
       "environment_physical": { "background_intensity": 4000.0 },
       "camera_physical": { "exposure_aperture": 5.6, "exposure_shutter_speed": 40.0, "exposure_sensitivity": 100.0 }
     },
     "interior_daylight": {
       "kind": "interior",
+      "needs": "interior",
+      "_needs": "Opens exposure about 4.5 stops for light entering a room through openings. On an open stage (sky overhead) everything clips to white, so the tools refuse it there unless forced.",
       "description": "Sun and sky entering through openings. GI does the work; exposure opens up ~4.5 stops over exterior and windows are allowed to clip.",
       "sun": {
+        "soft_shadow_filter_quality": 4,
         "elevation": 40,
         "kelvin": 5600,
         "lux": 100000,
@@ -208,6 +217,7 @@
       "kind": "night",
       "description": "Moonlight as a dim cool key over a near-black sky. Expects practical lights (lumens at 2000-3000 K) to be placed by hand.",
       "sun": {
+        "soft_shadow_filter_quality": 4,
         "elevation": 35,
         "kelvin": 7500,
         "lux": 0.3,
@@ -253,5 +263,5 @@
       "camera_physical": { "exposure_aperture": 1.4, "exposure_shutter_speed": 4.0, "exposure_sensitivity": 3200.0 }
     }
   },
-  "_calibration": "Calibrated in Godot 4.7.2 (Forward+, D3D12) with lookdev capture --probes. Exteriors on an open ground plane, interior_daylight in a 8x6x3 m room with one 2x1.6 m window. Relative mode: clear_midday key 1.06 / key-fill 2.5 stops; golden_hour 1.02 / 2.6; overcast ~0.6-0.9 / ~0.2; night 0.20 / 3.1; interior median display luma ~0.25. Physical mode: clear_midday key 1.20 / 2.3; golden_hour ~1.0 / ~2.3; overcast ~0.7 / 1.1; night 0.17 / 3.0; interior median ~0.43. Godot's physical exposure lands about one stop darker than Sunny-16 arithmetic predicts, hence 1/60 s at f/16 for midday sun. Scenes with dark ground, heavy occlusion or big interiors will differ: re-measure and move exposure first."
+  "_calibration": "Calibrated in Godot 4.7.2 (Forward+, D3D12) with lookdev capture --probes. Exteriors on an open ground plane, interior_daylight in a 8x6x3 m room with one 2x1.6 m window. Relative mode: clear_midday key 1.01 / key-fill 2.5 stops (lookdev 0.11.0: exposure 0.94; at 1.0 the key read 1.073 and the open stage tripped EXPOSURE and GREY_PROBE); golden_hour 0.58 / 3.4 (tonemap_exposure 0.7: exposed half a stop under the key; on the figure stage with study_woman, capture median luma 0.47); overcast 0.60 / 0.3 (lookdev 0.9.0: exposure 0.75, grey probe 0.56 display; 1.0 read 0.60, over the 0.58 limit); night 0.20 / 3.1; interior median display luma ~0.25. Physical mode: clear_midday key 1.20 / 2.3; golden_hour ~1.0 / ~2.3 (0.61 / 3.2 re-measured on the figure stage with study_woman); overcast ~0.7 / 1.1 (measured before 0.9.0, not re-measured); night 0.17 / 3.0; interior median ~0.43. Godot's physical exposure lands about one stop darker than Sunny-16 arithmetic predicts, hence 1/60 s at f/16 for midday sun. Scenes with dark ground, heavy occlusion or big interiors will differ: re-measure and move exposure first."
 }

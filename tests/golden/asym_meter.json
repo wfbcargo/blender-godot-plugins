@@ -1,0 +1,1024 @@
+{
+ "fixture": "asym_meter",
+ "plugins": {
+  "follow-through": "0.10.0",
+  "rig-anything": "0.40.0"
+ },
+ "report": {
+  "cases": {
+   "asym": {
+    "measured": {
+     "Run": {
+      "arm_swing_deg": {
+       "index": 0.24571,
+       "minus_lat": 46.398,
+       "plus_lat": 59.396,
+       "ratio": 1.28013
+      },
+      "clip": "Figure_asym_Run",
+      "drawn": {
+       "arm_swing": 0.12193,
+       "lag": -0.01232,
+       "shoulder_dip": -0.07159,
+       "step_length": 0.00686
+      },
+      "failures": [],
+      "frames": 14,
+      "lag_cycles": {
+       "index": 0.56461,
+       "minus_lat": 0.04608,
+       "plus_lat": 0.02579,
+       "ratio": 0.55969
+      },
+      "passed": true,
+      "shoulder_dip_m": {
+       "index": 0.097,
+       "minus_lat": 0.04714,
+       "plus_lat": 0.04278,
+       "ratio": 0.90749
+      },
+      "stance_offset_m": 0.02049,
+      "step_length_m": {
+       "index": 0.08757,
+       "minus_lat": 0.44758,
+       "plus_lat": 0.48856,
+       "ratio": 1.09158
+      },
+      "stride_m": {
+       "index": 0.00989,
+       "minus_lat": 0.93151,
+       "plus_lat": 0.94077,
+       "ratio": 1.00994
+      },
+      "verdicts": {
+       "asymmetric": true,
+       "lag_diff_cycles": -0.02029,
+       "over_floor": {
+        "arm_swing_deg": true,
+        "lag_cycles": true,
+        "shoulder_dip_m": true
+       },
+       "stance_offset_moved_m": 0.01228,
+       "step_moved": true,
+       "stride_even": true
+      }
+     },
+     "Walk": {
+      "arm_swing_deg": {
+       "index": 0.20141,
+       "minus_lat": 36.7,
+       "plus_lat": 44.919,
+       "ratio": 1.22397
+      },
+      "clip": "Figure_asym_Walk",
+      "drawn": {
+       "arm_swing": 0.12193,
+       "lag": -0.01232,
+       "shoulder_dip": -0.07159,
+       "step_length": 0.00686
+      },
+      "failures": [],
+      "frames": 23,
+      "lag_cycles": {
+       "index": 1.23657,
+       "minus_lat": 0.03931,
+       "plus_lat": 0.00927,
+       "ratio": 0.23588
+      },
+      "passed": true,
+      "shoulder_dip_m": {
+       "index": 0.05899,
+       "minus_lat": 0.02201,
+       "plus_lat": 0.02075,
+       "ratio": 0.9427
+      },
+      "stance_offset_m": 0.021,
+      "step_length_m": {
+       "index": 0.11182,
+       "minus_lat": 0.35465,
+       "plus_lat": 0.39666,
+       "ratio": 1.11844
+      },
+      "stride_m": {
+       "index": 0.00023,
+       "minus_lat": 0.7514,
+       "plus_lat": 0.75122,
+       "ratio": 0.99977
+      },
+      "verdicts": {
+       "asymmetric": true,
+       "lag_diff_cycles": -0.03004,
+       "over_floor": {
+        "arm_swing_deg": true,
+        "lag_cycles": true,
+        "shoulder_dip_m": true
+       },
+       "stance_offset_moved_m": 0.01051,
+       "step_moved": true,
+       "stride_even": true
+      }
+     }
+    },
+    "moves_json": {
+     "arm_gait_on_disk": {
+      "Figure_asym_Idle": "walk",
+      "Figure_asym_Run": "run",
+      "Figure_asym_Walk": "walk"
+     },
+     "arm_pose_on_disk": {
+      "Figure_asym_Idle": {
+       "upper_arm.L": {
+        "arm_carry_deg": [
+         8.3,
+         10.3
+        ],
+        "arm_swing_deg": 2.0,
+        "elbow_flex_deg": [
+         12.0,
+         12.0
+        ],
+        "hand_rise": [
+         -0.364,
+         -0.349
+        ],
+        "upper_arm_deg": [
+         3.0,
+         5.0
+        ]
+       },
+       "upper_arm.R": {
+        "arm_carry_deg": [
+         8.1,
+         10.1
+        ],
+        "arm_swing_deg": 2.0,
+        "elbow_flex_deg": [
+         12.0,
+         12.0
+        ],
+        "hand_rise": [
+         -0.382,
+         -0.367
+        ],
+        "upper_arm_deg": [
+         3.0,
+         5.0
+        ]
+       }
+      },
+      "Figure_asym_Run": {
+       "upper_arm.L": {
+        "arm_carry_deg": [
+         -6.7,
+         52.6
+        ],
+        "arm_swing_deg": 59.3,
+        "elbow_flex_deg": [
+         85.0,
+         85.0
+        ],
+        "hand_rise": [
+         -0.045,
+         0.376
+        ],
+        "upper_arm_deg": [
+         -42.8,
+         16.8
+        ]
+       },
+       "upper_arm.R": {
+        "arm_carry_deg": [
+         -1.5,
+         44.7
+        ],
+        "arm_swing_deg": 46.3,
+        "elbow_flex_deg": [
+         85.0,
+         85.0
+        ],
+        "hand_rise": [
+         -0.08,
+         0.261
+        ],
+        "upper_arm_deg": [
+         -36.5,
+         10.1
+        ]
+       }
+      },
+      "Figure_asym_Walk": {
+       "upper_arm.L": {
+        "arm_carry_deg": [
+         -12.5,
+         32.3
+        ],
+        "arm_swing_deg": 44.8,
+        "elbow_flex_deg": [
+         7.0,
+         23.0
+        ],
+        "hand_rise": [
+         -0.412,
+         -0.151
+        ],
+        "upper_arm_deg": [
+         -15.6,
+         22.3
+        ]
+       },
+       "upper_arm.R": {
+        "arm_carry_deg": [
+         -8.9,
+         27.8
+        ],
+        "arm_swing_deg": 36.6,
+        "elbow_flex_deg": [
+         7.0,
+         23.0
+        ],
+        "hand_rise": [
+         -0.438,
+         -0.218
+        ],
+        "upper_arm_deg": [
+         -11.9,
+         18.0
+        ]
+       }
+      }
+     },
+     "clips": {
+      "Idle": "Figure_asym_Idle",
+      "Run": "Figure_asym_Run",
+      "Walk": "Figure_asym_Walk"
+     },
+     "collider": {
+      "height": 1.7668,
+      "radius": 0.1753
+     },
+     "dropped_clips": [],
+     "fields": {
+      "first": "arm_gait",
+      "last": "verified",
+      "len": 18
+     },
+     "gaits": {
+      "Run": {
+       "duty_factor": 0.338,
+       "froude": 3.0,
+       "gait": "run",
+       "hip_height_m": 0.8272,
+       "natural_speed_mps": 4.934,
+       "spine_flex_deg": 0.0,
+       "stance_knee_flex_deg": {
+        "thigh.L": 70.5,
+        "thigh.R": 66.8
+       },
+       "stride_frequency_hz": 1.865,
+       "stride_m": 2.6452,
+       "stroke_m": 0.8948,
+       "vault": false
+      },
+      "Walk": {
+       "duty_factor": 0.651,
+       "froude": 0.2,
+       "gait": "walk",
+       "hip_height_m": 0.8272,
+       "natural_speed_mps": 1.2739,
+       "spine_flex_deg": 0.0,
+       "stance_knee_flex_deg": {
+        "thigh.L": 11.5,
+        "thigh.R": 11.5
+       },
+       "stride_frequency_hz": 1.085,
+       "stride_m": 1.1739,
+       "stroke_m": 0.7638,
+       "vault": true
+      }
+     },
+     "height_m": {
+      "stand": 1.7668
+     },
+     "loops": [
+      "Figure_asym_Idle",
+      "Figure_asym_Walk",
+      "Figure_asym_Run"
+     ],
+     "problems": []
+    },
+    "resolved": {
+     "asymmetry": 0.35,
+     "jitter_amp": 0.0,
+     "jitter_phase": 0.0,
+     "seed": 6565393968472959737
+    }
+   },
+   "mirror": {
+    "measured": {
+     "Run": {
+      "arm_swing_deg": {
+       "index": 0.00064,
+       "minus_lat": 59.408,
+       "plus_lat": 59.37,
+       "ratio": 0.99936
+      },
+      "clip": "Figure_mirror_Run",
+      "drawn": {
+       "arm_swing": 0.12193,
+       "lag": -0.01232,
+       "shoulder_dip": -0.07159,
+       "step_length": 0.00686
+      },
+      "failures": [],
+      "frames": 14,
+      "lag_cycles": {
+       "index": 0.1564,
+       "minus_lat": 0.02219,
+       "plus_lat": 0.02596,
+       "ratio": 1.16966
+      },
+      "passed": true,
+      "shoulder_dip_m": {
+       "index": 0.03826,
+       "minus_lat": 0.04444,
+       "plus_lat": 0.04278,
+       "ratio": 0.96246
+      },
+      "stance_offset_m": 0.00821,
+      "step_length_m": {
+       "index": 0.03492,
+       "minus_lat": 0.46193,
+       "plus_lat": 0.47835,
+       "ratio": 1.03554
+      },
+      "stride_m": {
+       "index": 0.00104,
+       "minus_lat": 0.93979,
+       "plus_lat": 0.94077,
+       "ratio": 1.00104
+      },
+      "verdicts": {
+       "asymmetric": false,
+       "lag_diff_cycles": 0.00377,
+       "over_floor": {
+        "arm_swing_deg": false,
+        "lag_cycles": false,
+        "shoulder_dip_m": false
+       },
+       "stance_offset_moved_m": 0.0,
+       "step_moved": false,
+       "stride_even": true
+      }
+     },
+     "Walk": {
+      "arm_swing_deg": {
+       "index": 0.00409,
+       "minus_lat": 44.736,
+       "plus_lat": 44.919,
+       "ratio": 1.0041
+      },
+      "clip": "Figure_mirror_Walk",
+      "drawn": {
+       "arm_swing": 0.12193,
+       "lag": -0.01232,
+       "shoulder_dip": -0.07159,
+       "step_length": 0.00686
+      },
+      "failures": [],
+      "frames": 23,
+      "lag_cycles": {
+       "index": 0.49219,
+       "minus_lat": 0.01524,
+       "plus_lat": 0.00922,
+       "ratio": 0.60501
+      },
+      "passed": true,
+      "shoulder_dip_m": {
+       "index": 0.00571,
+       "minus_lat": 0.02087,
+       "plus_lat": 0.02075,
+       "ratio": 0.99431
+      },
+      "stance_offset_m": 0.01049,
+      "step_length_m": {
+       "index": 0.05585,
+       "minus_lat": 0.36519,
+       "plus_lat": 0.38617,
+       "ratio": 1.05745
+      },
+      "stride_m": {
+       "index": 0.00035,
+       "minus_lat": 0.75148,
+       "plus_lat": 0.75122,
+       "ratio": 0.99965
+      },
+      "verdicts": {
+       "asymmetric": false,
+       "lag_diff_cycles": -0.00602,
+       "over_floor": {
+        "arm_swing_deg": false,
+        "lag_cycles": false,
+        "shoulder_dip_m": false
+       },
+       "stance_offset_moved_m": 0.0,
+       "step_moved": false,
+       "stride_even": true
+      }
+     }
+    },
+    "moves_json": {
+     "arm_gait_on_disk": {
+      "Figure_mirror_Idle": "walk",
+      "Figure_mirror_Run": "run",
+      "Figure_mirror_Walk": "walk"
+     },
+     "arm_pose_on_disk": {
+      "Figure_mirror_Idle": {
+       "upper_arm.L": {
+        "arm_carry_deg": [
+         8.3,
+         10.3
+        ],
+        "arm_swing_deg": 2.0,
+        "elbow_flex_deg": [
+         12.0,
+         12.0
+        ],
+        "hand_rise": [
+         -0.364,
+         -0.349
+        ],
+        "upper_arm_deg": [
+         3.0,
+         5.0
+        ]
+       },
+       "upper_arm.R": {
+        "arm_carry_deg": [
+         8.1,
+         10.1
+        ],
+        "arm_swing_deg": 2.0,
+        "elbow_flex_deg": [
+         12.0,
+         12.0
+        ],
+        "hand_rise": [
+         -0.382,
+         -0.367
+        ],
+        "upper_arm_deg": [
+         3.0,
+         5.0
+        ]
+       }
+      },
+      "Figure_mirror_Run": {
+       "upper_arm.L": {
+        "arm_carry_deg": [
+         -6.7,
+         52.6
+        ],
+        "arm_swing_deg": 59.2,
+        "elbow_flex_deg": [
+         85.0,
+         85.0
+        ],
+        "hand_rise": [
+         -0.045,
+         0.376
+        ],
+        "upper_arm_deg": [
+         -42.8,
+         16.8
+        ]
+       },
+       "upper_arm.R": {
+        "arm_carry_deg": [
+         -7.7,
+         51.6
+        ],
+        "arm_swing_deg": 59.2,
+        "elbow_flex_deg": [
+         85.0,
+         85.0
+        ],
+        "hand_rise": [
+         -0.069,
+         0.353
+        ],
+        "upper_arm_deg": [
+         -42.7,
+         17.0
+        ]
+       }
+      },
+      "Figure_mirror_Walk": {
+       "upper_arm.L": {
+        "arm_carry_deg": [
+         -12.5,
+         32.3
+        ],
+        "arm_swing_deg": 44.8,
+        "elbow_flex_deg": [
+         7.0,
+         23.0
+        ],
+        "hand_rise": [
+         -0.412,
+         -0.151
+        ],
+        "upper_arm_deg": [
+         -15.6,
+         22.3
+        ]
+       },
+       "upper_arm.R": {
+        "arm_carry_deg": [
+         -12.6,
+         32.0
+        ],
+        "arm_swing_deg": 44.6,
+        "elbow_flex_deg": [
+         7.0,
+         23.0
+        ],
+        "hand_rise": [
+         -0.432,
+         -0.17
+        ],
+        "upper_arm_deg": [
+         -15.6,
+         22.3
+        ]
+       }
+      }
+     },
+     "clips": {
+      "Idle": "Figure_mirror_Idle",
+      "Run": "Figure_mirror_Run",
+      "Walk": "Figure_mirror_Walk"
+     },
+     "collider": {
+      "height": 1.7668,
+      "radius": 0.1753
+     },
+     "dropped_clips": [],
+     "fields": {
+      "first": "arm_gait",
+      "last": "verified",
+      "len": 18
+     },
+     "gaits": {
+      "Run": {
+       "duty_factor": 0.338,
+       "froude": 3.0,
+       "gait": "run",
+       "hip_height_m": 0.8272,
+       "natural_speed_mps": 4.934,
+       "spine_flex_deg": 0.0,
+       "stance_knee_flex_deg": {
+        "thigh.L": 70.5,
+        "thigh.R": 67.5
+       },
+       "stride_frequency_hz": 1.865,
+       "stride_m": 2.6452,
+       "stroke_m": 0.8948,
+       "vault": false
+      },
+      "Walk": {
+       "duty_factor": 0.651,
+       "froude": 0.2,
+       "gait": "walk",
+       "hip_height_m": 0.8272,
+       "natural_speed_mps": 1.2739,
+       "spine_flex_deg": 0.0,
+       "stance_knee_flex_deg": {
+        "thigh.L": 11.5,
+        "thigh.R": 11.5
+       },
+       "stride_frequency_hz": 1.085,
+       "stride_m": 1.1739,
+       "stroke_m": 0.7638,
+       "vault": true
+      }
+     },
+     "height_m": {
+      "stand": 1.7668
+     },
+     "loops": [
+      "Figure_mirror_Idle",
+      "Figure_mirror_Walk",
+      "Figure_mirror_Run"
+     ],
+     "problems": []
+    },
+    "resolved": {
+     "asymmetry": 0.35,
+     "jitter_amp": 0.0,
+     "jitter_phase": 0.0,
+     "seed": 6565393968472959737
+    }
+   },
+   "swap": {
+    "measured": {
+     "Run": {
+      "arm_swing_deg": {
+       "index": 0.24571,
+       "minus_lat": 59.396,
+       "plus_lat": 46.398,
+       "ratio": 0.78117
+      },
+      "clip": "Figure_asym_Run",
+      "frames": 14,
+      "lag_cycles": {
+       "index": 0.56461,
+       "minus_lat": 0.02579,
+       "plus_lat": 0.04608,
+       "ratio": 1.78669
+      },
+      "shoulder_dip_m": {
+       "index": 0.097,
+       "minus_lat": 0.04278,
+       "plus_lat": 0.04714,
+       "ratio": 1.10194
+      },
+      "stance_offset_m": -0.02049,
+      "step_length_m": {
+       "index": 0.08757,
+       "minus_lat": 0.48856,
+       "plus_lat": 0.44758,
+       "ratio": 0.91611
+      },
+      "stride_m": {
+       "index": 0.00989,
+       "minus_lat": 0.94077,
+       "plus_lat": 0.93151,
+       "ratio": 0.99016
+      },
+      "verdicts": {
+       "asymmetric": true,
+       "lag_diff_cycles": 0.02029,
+       "over_floor": {
+        "arm_swing_deg": true,
+        "lag_cycles": true,
+        "shoulder_dip_m": true
+       },
+       "ratios_inverted": true,
+       "stance_offset_flipped": true,
+       "stance_offset_moved_m": -0.0287,
+       "step_moved": true,
+       "stride_even": true
+      }
+     },
+     "Walk": {
+      "arm_swing_deg": {
+       "index": 0.20141,
+       "minus_lat": 44.919,
+       "plus_lat": 36.7,
+       "ratio": 0.81701
+      },
+      "clip": "Figure_asym_Walk",
+      "frames": 23,
+      "lag_cycles": {
+       "index": 1.23657,
+       "minus_lat": 0.00927,
+       "plus_lat": 0.03931,
+       "ratio": 4.23948
+      },
+      "shoulder_dip_m": {
+       "index": 0.05899,
+       "minus_lat": 0.02075,
+       "plus_lat": 0.02201,
+       "ratio": 1.06079
+      },
+      "stance_offset_m": -0.021,
+      "step_length_m": {
+       "index": 0.11182,
+       "minus_lat": 0.39666,
+       "plus_lat": 0.35465,
+       "ratio": 0.8941
+      },
+      "stride_m": {
+       "index": 0.00023,
+       "minus_lat": 0.75122,
+       "plus_lat": 0.7514,
+       "ratio": 1.00023
+      },
+      "verdicts": {
+       "asymmetric": true,
+       "lag_diff_cycles": 0.03004,
+       "over_floor": {
+        "arm_swing_deg": true,
+        "lag_cycles": true,
+        "shoulder_dip_m": true
+       },
+       "ratios_inverted": true,
+       "stance_offset_flipped": true,
+       "stance_offset_moved_m": -0.03149,
+       "step_moved": true,
+       "stride_even": true
+      }
+     }
+    }
+   },
+   "zero": {
+    "measured": {
+     "Run": {
+      "arm_swing_deg": {
+       "index": 0.00178,
+       "minus_lat": 52.742,
+       "plus_lat": 52.648,
+       "ratio": 0.99822
+      },
+      "clip": "Figure_zero_Run",
+      "drawn": null,
+      "failures": [],
+      "frames": 14,
+      "lag_cycles": {
+       "index": 0.09609,
+       "minus_lat": 0.03415,
+       "plus_lat": 0.03759,
+       "ratio": 1.10094
+      },
+      "passed": true,
+      "shoulder_dip_m": {
+       "index": 0.03585,
+       "minus_lat": 0.04579,
+       "plus_lat": 0.04418,
+       "ratio": 0.96478
+      },
+      "stance_offset_m": 0.00821,
+      "step_length_m": {
+       "index": 0.035,
+       "minus_lat": 0.46092,
+       "plus_lat": 0.47734,
+       "ratio": 1.03562
+      },
+      "stride_m": {
+       "index": 0.00535,
+       "minus_lat": 0.93575,
+       "plus_lat": 0.94077,
+       "ratio": 1.00536
+      },
+      "verdicts": {
+       "asymmetric": false,
+       "lag_diff_cycles": 0.00344,
+       "over_floor": {
+        "arm_swing_deg": false,
+        "lag_cycles": false,
+        "shoulder_dip_m": false
+       },
+       "stride_even": true
+      }
+     },
+     "Walk": {
+      "arm_swing_deg": {
+       "index": 0.00451,
+       "minus_lat": 40.662,
+       "plus_lat": 40.846,
+       "ratio": 1.00452
+      },
+      "clip": "Figure_zero_Walk",
+      "drawn": null,
+      "failures": [],
+      "frames": 23,
+      "lag_cycles": {
+       "index": 0.24829,
+       "minus_lat": 0.02727,
+       "plus_lat": 0.02124,
+       "ratio": 0.77913
+      },
+      "passed": true,
+      "shoulder_dip_m": {
+       "index": 0.00557,
+       "minus_lat": 0.02144,
+       "plus_lat": 0.02132,
+       "ratio": 0.99445
+      },
+      "stance_offset_m": 0.01049,
+      "step_length_m": {
+       "index": 0.05587,
+       "minus_lat": 0.36509,
+       "plus_lat": 0.38607,
+       "ratio": 1.05748
+      },
+      "stride_m": {
+       "index": 0.00087,
+       "minus_lat": 0.75148,
+       "plus_lat": 0.75083,
+       "ratio": 0.99913
+      },
+      "verdicts": {
+       "asymmetric": false,
+       "lag_diff_cycles": -0.00603,
+       "over_floor": {
+        "arm_swing_deg": false,
+        "lag_cycles": false,
+        "shoulder_dip_m": false
+       },
+       "stride_even": true
+      }
+     }
+    },
+    "moves_json": {
+     "arm_gait_on_disk": {
+      "Figure_zero_Idle": "walk",
+      "Figure_zero_Run": "run",
+      "Figure_zero_Walk": "walk"
+     },
+     "arm_pose_on_disk": {
+      "Figure_zero_Idle": {
+       "upper_arm.L": {
+        "arm_carry_deg": [
+         8.3,
+         10.3
+        ],
+        "arm_swing_deg": 2.0,
+        "elbow_flex_deg": [
+         12.0,
+         12.0
+        ],
+        "hand_rise": [
+         -0.364,
+         -0.349
+        ],
+        "upper_arm_deg": [
+         3.0,
+         5.0
+        ]
+       },
+       "upper_arm.R": {
+        "arm_carry_deg": [
+         8.1,
+         10.1
+        ],
+        "arm_swing_deg": 2.0,
+        "elbow_flex_deg": [
+         12.0,
+         12.0
+        ],
+        "hand_rise": [
+         -0.382,
+         -0.367
+        ],
+        "upper_arm_deg": [
+         3.0,
+         5.0
+        ]
+       }
+      },
+      "Figure_zero_Run": {
+       "upper_arm.L": {
+        "arm_carry_deg": [
+         -3.8,
+         48.7
+        ],
+        "arm_swing_deg": 52.5,
+        "elbow_flex_deg": [
+         85.0,
+         85.0
+        ],
+        "hand_rise": [
+         -0.046,
+         0.323
+        ],
+        "upper_arm_deg": [
+         -39.9,
+         13.0
+        ]
+       },
+       "upper_arm.R": {
+        "arm_carry_deg": [
+         -4.4,
+         48.2
+        ],
+        "arm_swing_deg": 52.6,
+        "elbow_flex_deg": [
+         85.0,
+         85.0
+        ],
+        "hand_rise": [
+         -0.075,
+         0.307
+        ],
+        "upper_arm_deg": [
+         -39.3,
+         13.6
+        ]
+       }
+      },
+      "Figure_zero_Walk": {
+       "upper_arm.L": {
+        "arm_carry_deg": [
+         -10.6,
+         30.1
+        ],
+        "arm_swing_deg": 40.8,
+        "elbow_flex_deg": [
+         7.0,
+         23.0
+        ],
+        "hand_rise": [
+         -0.416,
+         -0.176
+        ],
+        "upper_arm_deg": [
+         -13.7,
+         20.1
+        ]
+       },
+       "upper_arm.R": {
+        "arm_carry_deg": [
+         -10.7,
+         29.9
+        ],
+        "arm_swing_deg": 40.6,
+        "elbow_flex_deg": [
+         7.0,
+         23.0
+        ],
+        "hand_rise": [
+         -0.435,
+         -0.195
+        ],
+        "upper_arm_deg": [
+         -13.7,
+         20.1
+        ]
+       }
+      }
+     },
+     "clips": {
+      "Idle": "Figure_zero_Idle",
+      "Run": "Figure_zero_Run",
+      "Walk": "Figure_zero_Walk"
+     },
+     "collider": {
+      "height": 1.7668,
+      "radius": 0.1753
+     },
+     "dropped_clips": [],
+     "fields": {
+      "first": "arm_gait",
+      "last": "verified",
+      "len": 17
+     },
+     "gaits": {
+      "Run": {
+       "duty_factor": 0.338,
+       "froude": 3.0,
+       "gait": "run",
+       "hip_height_m": 0.8272,
+       "natural_speed_mps": 4.934,
+       "spine_flex_deg": 0.0,
+       "stance_knee_flex_deg": {
+        "thigh.L": 70.4,
+        "thigh.R": 67.1
+       },
+       "stride_frequency_hz": 1.865,
+       "stride_m": 2.6452,
+       "stroke_m": 0.8948,
+       "vault": false
+      },
+      "Walk": {
+       "duty_factor": 0.651,
+       "froude": 0.2,
+       "gait": "walk",
+       "hip_height_m": 0.8272,
+       "natural_speed_mps": 1.2739,
+       "spine_flex_deg": 0.0,
+       "stance_knee_flex_deg": {
+        "thigh.L": 11.5,
+        "thigh.R": 11.5
+       },
+       "stride_frequency_hz": 1.085,
+       "stride_m": 1.1739,
+       "stroke_m": 0.7638,
+       "vault": true
+      }
+     },
+     "height_m": {
+      "stand": 1.7668
+     },
+     "loops": [
+      "Figure_zero_Idle",
+      "Figure_zero_Walk",
+      "Figure_zero_Run"
+     ],
+     "problems": []
+    },
+    "resolved": null
+   }
+  },
+  "dial": 0.35,
+  "floors": {
+   "INDEX": 0.04,
+   "LAG": 0.012,
+   "STEP_M": 0.002,
+   "STRIDE_INDEX": 0.02
+  },
+  "fps": 24,
+  "identity": "asym_meter_169"
+ }
+}

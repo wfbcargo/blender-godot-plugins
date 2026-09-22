@@ -1,9 +1,9 @@
 {
  "fixture": "dressed_figure",
  "plugins": {
-  "follow-through": "0.5.2",
-  "rig-anything": "0.23.0",
-  "wardrobe": "0.4.0"
+  "follow-through": "0.10.0",
+  "rig-anything": "0.26.0",
+  "wardrobe": "0.5.2"
  },
  "report": {
   "body": {
@@ -18,16 +18,16 @@
   "cover": {
    "body": "Figure",
    "body_verts": 17112,
-   "covered": 5906,
-   "disagree": 882,
-   "edge": 1655,
+   "covered": 5753,
+   "disagree": 834,
+   "edge": 1455,
    "garment": "Shirt",
-   "hidden": 4251,
+   "hidden": 4298,
    "hidden_gap_max_m": 0.0257,
-   "hidden_gap_median_m": 0.0055,
+   "hidden_gap_median_m": 0.0056,
    "margin": 0.03,
    "max_gap": 0.1,
-   "tris_hidden": 8140,
+   "tris_hidden": 8296,
    "tris_total": 34220
   },
   "ease": {
@@ -41,70 +41,70 @@
     "regions": {
      "all": {
       "cloth_relief_mm": 0.089,
-      "cloth_verts": 5326,
-      "relief_mm": 0.034,
-      "skin_relief_mm": 0.048,
-      "skin_verts": 5097,
-      "traced": 0.716
+      "cloth_verts": 5148,
+      "relief_mm": 0.033,
+      "skin_relief_mm": 0.047,
+      "skin_verts": 4892,
+      "traced": 0.712
      },
      "arm_flab": {
-      "cloth_relief_mm": 0.087,
-      "cloth_verts": 26,
+      "cloth_relief_mm": 0.088,
+      "cloth_verts": 27,
       "relief_mm": 0.0,
       "skin_relief_mm": 0.017,
-      "skin_verts": 20,
-      "traced": -0.576
+      "skin_verts": 21,
+      "traced": -0.387
      },
      "belly": {
-      "cloth_relief_mm": 0.037,
-      "cloth_verts": 139,
-      "relief_mm": 0.007,
-      "skin_relief_mm": 0.021,
-      "skin_verts": 139,
-      "traced": 0.333
+      "cloth_relief_mm": 0.033,
+      "cloth_verts": 199,
+      "relief_mm": 0.005,
+      "skin_relief_mm": 0.02,
+      "skin_verts": 184,
+      "traced": 0.253
      },
      "breast": {
-      "cloth_relief_mm": 0.088,
-      "cloth_verts": 733,
-      "relief_mm": 0.04,
+      "cloth_relief_mm": 0.111,
+      "cloth_verts": 414,
+      "relief_mm": 0.049,
       "skin_relief_mm": 0.054,
-      "skin_verts": 727,
-      "traced": 0.73
+      "skin_verts": 413,
+      "traced": 0.905
      },
      "butt": {
-      "cloth_relief_mm": 0.131,
-      "cloth_verts": 454,
-      "relief_mm": 0.009,
-      "skin_relief_mm": 0.05,
-      "skin_verts": 382,
-      "traced": 0.185
+      "cloth_relief_mm": 0.157,
+      "cloth_verts": 250,
+      "relief_mm": 0.0,
+      "skin_relief_mm": 0.047,
+      "skin_verts": 210,
+      "traced": -0.066
      }
     }
    },
    "gap_max_m": 0.0684,
-   "gap_median_m": 0.0068,
+   "gap_median_m": 0.007,
    "gap_min_m": 0.0058,
-   "gap_p95_m": 0.0397,
-   "verts": 6265
+   "gap_p95_m": 0.0401,
+   "verts": 6106
   },
   "export": {
-   "edge": 1655,
+   "edge": 1455,
    "exported": true,
-   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\dressed_figure\\dressed_figure\\shirt.glb",
+   "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0sc1s9x8\\a\\dressed_figure\\dressed_figure\\shirt.glb",
    "garment": "Shirt",
    "hem_bones": 16,
    "hem_head_error_m": 1e-06,
-   "hidden": 4251,
+   "hidden": 4298,
    "joints": 54,
    "passed": true,
    "problems": [],
-   "size_bytes": 469380,
+   "size_bytes": 458028,
    "weight_sum_min": 1.0
   },
   "exported": true,
   "garment": {
    "groups": 55,
-   "vertices": 6265
+   "vertices": 6106
   },
   "hem_rings": [
    {

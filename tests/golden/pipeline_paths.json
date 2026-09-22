@@ -1,0 +1,84 @@
+{
+ "fixture": "pipeline_paths",
+ "plugins": {
+  "character-pipeline": "0.10.0",
+  "follow-through": "0.6.2",
+  "humanform": "0.10.1",
+  "rig-anything": "0.25.0",
+  "wardrobe": "0.5.1"
+ },
+ "report": {
+  "a": {
+   "body": "ran",
+   "saved": "a/fixpath.blend"
+  },
+  "a_untouched_by_b": true,
+  "absolute_outside": {
+   "refused": {
+    "names_save_outside": true,
+    "refused": true,
+    "stage_lines": 0
+   },
+   "save_outside": {
+    "body": "ran",
+    "saved": "outside/fixpath.blend"
+   }
+  },
+  "after_a": [
+   "a/fixpath.blend"
+  ],
+  "after_all": [
+   "a/fixpath.blend",
+   "b/fixpath.blend",
+   "blends/fixpath.blend",
+   "c2/fixpath.blend",
+   "outside/fixpath.blend",
+   "outside_up/fixpath.blend"
+  ],
+  "after_b": [
+   "a/fixpath.blend",
+   "b/fixpath.blend"
+  ],
+  "after_env_build": [
+   "a/fixpath.blend",
+   "b/fixpath.blend",
+   "blends/fixpath.blend"
+  ],
+  "b": {
+   "body": "unchanged",
+   "saved": "b/fixpath.blend"
+  },
+  "env_resolves_to": "blends/fixpath.blend",
+  "plan_control_moved": [
+   "export",
+   "review"
+  ],
+  "plan_copy_equal": true,
+  "prefix_sibling": {
+   "refused": {
+    "names_save_outside": true,
+    "refused": true,
+    "stage_lines": 0
+   },
+   "save_outside": {
+    "body": "ran",
+    "saved": "c2/fixpath.blend"
+   }
+  },
+  "relative_up": {
+   "refused": {
+    "names_save_outside": true,
+    "refused": true,
+    "stage_lines": 0
+   },
+   "save_outside": {
+    "body": "ran",
+    "saved": "outside_up/fixpath.blend"
+   }
+  },
+  "with_env": {
+   "body": "unchanged",
+   "saved": "blends/fixpath.blend"
+  }
+ }
+}

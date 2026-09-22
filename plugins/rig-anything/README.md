@@ -191,6 +191,8 @@ scripts/rig_analysis/
 godot/addons/rig_anything/
   moves_controller.gd  MovesController: any .moves.json walks, trots, runs in Godot
   verify_moves.gd      headless check of its gait choice, rates, hysteresis and phase
+  asymmetry_meter.gd   AsymmetryMeter: a body's own left against its right, off the playing skeleton
+  verify_asymmetry.gd  headless per-side table of it on each gait clip, with the stride and asymmetry checks
 references/
   archetypes.md          Rigify templates measured, and what evidence picks one
   joint-conventions.md   which way each joint bends, and the quadruped trap

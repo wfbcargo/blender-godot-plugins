@@ -245,6 +245,41 @@ def _ratio(var, sex, default):
     return sheet.anthropometry()["sexes"][sex]["variables"][var]["ratio_mean"]
 
 
+_FEATURES = None
+
+
+def face_features():
+    """data/face_features.json: base-mesh vertex indices of the nose's wings, the lips and the mouth's slit
+    (scripts/derive_face_features.py)."""
+    global _FEATURES
+    if _FEATURES is None:
+        with open(os.path.join(_pkg.DATA, "face_features.json"), encoding="utf-8") as fh:
+            _FEATURES = json.load(fh)
+    return _FEATURES
+
+
+def _face_features(b, m, fw, face_front, depth, chin):
+    """The measures a face's likeness is fitted to beyond ANSUR's head set, on an MPFB body (its joint groups
+    still on, so its first vertices are the base mesh's): alar breadth (`nose_breadth`), the mouth's corners
+    (`mouth_breadth`), the face's outline across at the mouth (`jaw_breadth`, taken as bizygomatic is: skin within
+    40% of the head's depth behind the face) and the nose's base to the chin (`nose_chin`). A mesh that is not
+    MPFB's gets none of them: base-mesh indices would name arbitrary vertices on it."""
+    co = getattr(b, "co_unmasked", None)
+    feats = face_features()
+    if not getattr(b, "mpfb", None) or co is None or len(co) < feats["n_body"]:
+        return
+    nose = co[feats["nose"]]
+    mouth = co[feats["mouth"]]
+    m["nose_breadth"] = float(nose[:, 0].max() - nose[:, 0].min())
+    m["mouth_breadth"] = float(mouth[:, 0].max() - mouth[:, 0].min())
+    m["nose_chin"] = float(nose[:, 2].min()) - chin
+    z = float(mouth[:, 2].mean())
+    pts, _, _ = slicing.points(b, (0, 0, z), (0, 0, 1))
+    front = pts[((pts[:, :2] @ fw) > face_front - 0.40 * depth) & (np.abs(pts[:, 0]) < 0.12)]
+    if len(front):
+        m["jaw_breadth"] = float(front[:, 0].max() - front[:, 0].min())
+
+
 def _head(b, m, fwd, floor, zs, f, nose, chin):
     """ANSUR II's head measurements: sellion (nasion) height, menton-sellion, interpupillary,
     head breadth and length above the ears, head circumference, bizygomatic breadth."""
@@ -291,6 +326,7 @@ def _head(b, m, fwd, floor, zs, f, nose, chin):
                 biz = max(biz, float(front[:, 0].max() - front[:, 0].min()))
         if biz:
             m["bizygomatic"] = biz
+        _face_features(b, m, fw, face_front, depth, chin)
 
 
 def measurements(ob, sex=None, fast=False, only=None):

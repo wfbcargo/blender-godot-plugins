@@ -21,7 +21,7 @@ humanform's hair: the cap's boundary at V ~ 0.003 and its hairline curve at V = 
 | Look | Blender | glTF | Godot 4.7 |
 |---|---|---|---|
 | strands, root-to-tip gradient | image on Base Color (`<name>_strands`, packed, sRGB) | baseColorTexture | albedo texture |
-| thinned roots and tips | image alpha -> Math Round -> Alpha | alphaMode MASK, cutoff 0.5 | the extras set `transparency` 4 (depth pre-pass): the texture's unrounded alpha blends, so the hairline fades |
+| thinned roots and tips | image alpha -> Math Round -> Alpha | alphaMode MASK, cutoff 0.5 | the extras set `transparency` 4 (depth pre-pass); `alpha.coverage_mips` 0.5 rebuilds the mips so each level keeps level 0's share of texels over 0.5, and `alpha.edge` 0.25 ramps alpha from 0 at 0.25 to 1 at 0.75: separate strands at the hairline at any distance |
 | strand relief | tangent-space normal map (`<name>_strands_normal`, Non-Color) | normalTexture | normal map |
 | anisotropic highlight | Principled Anisotropic 0.65, rotation 0.25, UV tangent | KHR_materials_anisotropy (ignored by Godot) | `anisotropy_enabled`, `anisotropy` from extras; tangents rebuilt from U per face, averaged where faces meet (`mesh.tangents = "per_face"`) |
 | light through thin hair | - | - | `backlight_enabled`, `backlight` (base colour x `backlight_share`) from extras |
@@ -57,6 +57,43 @@ turns fast, without bringing the glints back.
 ([0, 0.11], 0.25): 0.39 at V 0.01, 0.78 at the hairline (0.045), 1 by 0.11. Blender's Round (and glTF's
 MASK at 0.5) turns that into strands that start a little later and thinner; Godot's depth pre-pass blends
 it, so what was an alpha-scissor comb with a crisp boundary is a fade of strand tips.
+
+**A feathered hairline (lookdev 0.7.0, off at the defaults).** Four strand settings for a hairline that thins
+out instead of starting on a ruled line, used by humanform's `short_crop`: `root_ragged` (V by which the opaque
+middle's start wanders across U past `root_zone[1]`, a slow wave plus a value per strand blurred over three),
+`root_power` (each strand's root skewed toward that start: < 1, fewer strands reach the edge), `root_width`
+(a strand's width at its root, as a share; 0.35 before) and `fine_per_tile` (short, thin, lighter hairs rooted
+before the dense hair starts). They draw from their own random stream, so a preset without them gets exactly
+the texture it always did.
+
+Also in 0.7.0, **edge hairs** (off at the defaults: `edge_hairs` 0): `edge_hairs` short hairs per tile scattered in
+front of the dense start, more of them nearer it (`edge_power`), reaching up to `edge_depth` of V in front of it
+(the reach itself wandering 0.4-1.6 x across U), each `edge_len` long and `edge_width` of the strand pitch wide,
+leaning `edge_lean` texels off a slowly turning direction, and lighter toward the front by `edge_tone`. With the
+long strands rooted close to the dense start (`root_power` well under 1), the hairline is a thinning scatter of
+hairs instead of a comb of parallel spikes. Their own random stream (seed + 15485), so nothing else moves.
+
+**The alpha in Godot (lookdev 0.6.0).** The Blender close set drew fine strands at the hairline and Godot a
+smeared shell; brows came out harder and darker. Measured on study_man and study_woman at 1 m (notebook
+`realism-step1/hair-godot-transfer`), the causes:
+
+- *The alpha mode, blending the mips' average.* A strand one texel wide averages with its gaps into grey alpha by
+  the second mip; depth pre-pass blended that into a translucent film a centimetre deep below the hairline.
+  Scissor gave strands back (a hard comb), alpha hash was noise without TAA, alpha to coverage needs MSAA the
+  project does not have. What reads like Blender's supersampled alpha test is the pre-pass kept, fed alpha that
+  is ramped over 0.5 +- 0.25 (`alpha.edge`): 0 below 0.25, so no film; soft over half a strand's width.
+- *Mip erosion.* Box mips lose coverage: the lash texture keeps 12.4% of texels over 0.5 at level 0, 5.1% by
+  level 5 and none by level 7; the hair 87.8 -> 85.7%, the brows 38.8 -> 33.6%. `LookdevMaterials.coverage_mips`
+  scales each level's alpha until as many texels pass 0.5 as at level 0 (Castano), reported per level in
+  `LookdevMaterials.last_coverage`. It reads the source PNG when it is on disk, because the import's VRAM
+  compression (BC3) moves the alpha of a strand a texel wide by up to 31/255 (mean 2.4/255 on the brows), and
+  gives an uncompressed texture; 15-30 ms per texture.
+- *The brows' scissor.* Cut at 0.5, each brow hair is solid and a screen pixel either black or skin: the darkest
+  2% of brow pixels were half as bright as Blender's (0.078 of the skin's luma against 0.158). Blended with the
+  ramp, 0.152. humanform's brow and lash cards now blend (`CARD_GODOT` transparency 1, `CARD_ALPHA`).
+- Not a cause: the texture size (512 x 1024 per 4 cm tile is 12 texels a mm; at 1 m and 1024 px the screen has
+  3.5 px a mm), the import's detect-3D flag (the textures were already VRAM-compressed with mipmaps, the default
+  for a glb's extracted images), and the card export (Blender and Godot read pixel-identical PNGs).
 
 ## Found on the way
 

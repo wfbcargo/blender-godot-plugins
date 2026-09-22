@@ -29,6 +29,15 @@ that belong to a plugin.
     [moves.per_gait.Walk]        # anything move_set takes per role, over the style
     max_drop = 0.035
 
+    [variability]                # optional: rig-anything's variability.py - what makes this body's
+                                 # motion its own. Every field defaults to 0, and 0 changes nothing
+    seed = 1234                  # absent: derived from character.id, deterministically
+    asymmetry = 0.35             # 0..1, default 0: a FIXED left/right asymmetry, drawn once from
+                                 # the seed and baked into arm swing, step length, shoulder dip and
+                                 # arm lag. It is identity, not noise: the same every build
+    jitter_phase = 0.0           # 0..1, default 0: the runtime half of L4 (per-cycle jitter),
+    jitter_amp = 0.0             #   carried through to <id>.moves.json for the engine to read
+
     [muscle]                     # optional: humanform's muscle definition (delta parts), weighted by
                                  # the brief's muscle and estimated body fat - applied between body and bake
     output = "geometry"          # or "normal": baked into the skin's normal map (silhouette bulk stays geometry)
@@ -46,8 +55,14 @@ that belong to a plugin.
                                  # a ponytail swings: the strand stage hangs a follow-through
                                  # spring-bone chain on the tail and exports it as
                                  # <id>_hair.glb beside the body
+    brows = true                 # optional, default false: humanform.brows' brow cards, lash cards
+    lashes = true                #   and a light body hair shell, in the hair colour darkened
+    body_hair = false
+    brow_shape = "arched"        # optional: natural (default, MPFB's brow as fitted), straight, arched, soft
     [flesh]                      # optional: follow-through
     types = ["breast", "butt"]
+    may_miss = []                # types the stage may come back without; any other type in `types`
+                                 # that finds no mass fails the flesh stage, naming why with numbers
     [[flesh.zones]]              # optional: marked on the flesh sheet when the measure is wrong
     [[outfit]]                   # optional: wardrobe presets, innermost first
     preset = "sports_top"
@@ -55,11 +70,19 @@ that belong to a plugin.
     [review]                     # optional: the review sheet written after export (default on)
     enabled = true
     frame_height_m = 2.1         # default: 2.1 m for an upright body, a size rung for a creature
+    close = true                 # the close-up look set in review/<id>/close/ (quality.py says which views)
 
     [export]
     dir = "assets/belle"         # under the project
     res_dir = "res://assets/belle"
-    blend = "C:/Users/pauli/Code/Blender/belle_realistic.blend"
+    blend = "belle_realistic.blend"   # relative: under $BLEND_DIR when set, else under the project
+                                      # (absolute is still accepted) - see `resolve_blend`
+
+A relative `[export] blend` is what makes a spec safe to copy (06 rank 2): the same file, unedited, builds
+into whichever project it sits in, and saves its .blend there - `runner.build` refuses to save anywhere but
+under the project or `$BLEND_DIR` unless told to (`save_outside=True`). The string is hashed as written (the
+export stage's section), so a byte-for-byte copy of a spec in a scratch project hashes the same, and a copy of
+its saved .blend resumes there with every stage unchanged.
 
 `load(path)` reads and checks it and returns a `Character`. Every field maps to a plugin
 argument; `GAPS` lists what the plugins cannot take yet, so a spec that needs one says so
@@ -70,6 +93,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import tomllib
 from dataclasses import asdict, dataclass, field
@@ -90,6 +114,8 @@ DEPRECATED = {
                  "still builds; use preset = \"<humanform hair preset>\" and colour (improvements 05 5.2)",
 }
 HAIR_PRESETS = ("short_crop", "bob", "bun", "ponytail", "long_loose")   # humanform.sheet.HAIR_PRESETS
+BROW_SHAPES = ("natural", "straight", "arched", "soft")                   # humanform.sheet.BROW_SHAPES
+BEARD_STYLES = ("stubble", "short", "goatee", "moustache")               # humanform.brows.BEARD_STYLES
 MUSCLE_GROUPS = ("deltoids", "upper_arms", "pectorals", "abdominals", "obliques", "quadriceps", "calves",
                  "forearms", "relief", "bulk")                           # humanform.muscle.GROUPS
 MUSCLE_OUTPUTS = ("geometry", "normal")
@@ -132,6 +158,29 @@ class Hair:
     preset: str | None = None                   # a humanform hair preset
     colour: list | None = None                  # screen (sRGB); None takes the preset's
     params: dict = field(default_factory=dict)  # shell_bun only
+    brows: bool = False                         # humanform.brows layers, joined with the hair
+    lashes: bool = False
+    body_hair: bool = False
+    brow_shape: str | None = None               # humanform.brows BROW_SHAPES; None: "natural"
+    beard: str | None = None                    # humanform.brows BEARD_STYLES; None: no facial hair
+    beard_colour: list | None = None            # screen (sRGB); None: the hair colour a little darker
+    fringe: bool = False                        # humanform.hair FRINGE across the forehead, over any preset
+
+    FACE = ("brows", "lashes", "body_hair")
+
+    def face(self):
+        """The humanform.brows switches that are on, a brow shape other than the default and a beard, as
+        hair.add keywords."""
+        out = {k: True for k in self.FACE if getattr(self, k)}
+        if self.brow_shape and self.brow_shape != "natural":
+            out["brow_shape"] = self.brow_shape
+        if self.beard:
+            out["beard"] = self.beard
+            if self.beard_colour is not None:
+                out["beard_colour"] = list(self.beard_colour)
+        if self.fringe:
+            out["fringe"] = True
+        return out
 
 
 @dataclass
@@ -140,6 +189,32 @@ class Muscle:
     strength: float = 1.0
     groups: list = field(default_factory=lambda: list(MUSCLE_GROUPS))
     normal_size: int | None = None              # None: the quality's
+
+
+@dataclass
+class Variability:
+    """rig-anything's `[variability]`: what makes this character's motion its own.
+
+    `seed` None is derived from `character.id` at bake (`rig_analysis.variability.seed_from`), so
+    a spec need not carry a number to be deterministic. `asymmetry` is baked by this repo's
+    branch; `jitter_phase` and `jitter_amp` are the runtime half and are only carried through to
+    the manifest. Every default is 0, and 0 is the identity - a spec with no [variability] builds
+    the clips it always built."""
+    seed: int | None = None
+    asymmetry: float = 0.0
+    jitter_phase: float = 0.0
+    jitter_amp: float = 0.0
+
+    def asked(self):
+        """Whether the spec asked for anything at all - a seed, or any dial off 0. False means
+        this section changes nothing and is left out of every stage hash, so no existing
+        character's records move."""
+        return bool(self.seed is not None or self.asymmetry or self.jitter_phase or self.jitter_amp)
+
+    def table(self):
+        """The `[variability]` table as written, for `rig_analysis.variability.resolve`."""
+        out = {k: v for k, v in asdict(self).items() if k != "seed" or v is not None}
+        return out
 
 
 @dataclass
@@ -152,6 +227,8 @@ class Flesh:
     types: list = field(default_factory=list)
     zones: list = field(default_factory=list)
     limit_share: dict = field(default_factory=dict)   # overrides the type's own
+    may_miss: list = field(default_factory=list)      # types the flesh stage may come back without
+    overrides: dict = field(default_factory=dict)     # {type or region: {jiggle parameter: value}}, over the material
 
 
 @dataclass
@@ -174,6 +251,7 @@ class Export:
 class Review:
     enabled: bool = True
     frame_height_m: float | None = None       # None: rig-anything's review.frame_height picks it
+    close: bool = True                        # rig-anything's close-up look set, lit, in review/<id>/close/
 
 
 @dataclass
@@ -189,8 +267,10 @@ class Character:
     review: Review = field(default_factory=Review)
     muscle: Muscle | None = None
     build: Build = field(default_factory=Build)
+    variability: Variability | None = None
     path: str | None = None                  # the spec file
     project: str | None = None               # the project it builds into
+    warnings: list = field(default_factory=list)   # allowed, but worth a look before building (never hashed)
 
     # object names
     @property
@@ -209,6 +289,14 @@ class Character:
         d = self.export.dir
         return d if os.path.isabs(d) else os.path.join(self.project or os.getcwd(), d)
 
+    def blend_path(self):
+        """The .blend a build opens and saves: `[export] blend` resolved (`resolve_blend`), or None."""
+        return resolve_blend(self.export.blend, self.project)
+
+    def save_roots(self):
+        """The folders a build may save its .blend under without `save_outside` (`save_roots`)."""
+        return save_roots(self.project)
+
     def section(self, name):
         """The part of the spec a stage reads, as plain data - what its input hash covers."""
         value = getattr(self, name) if name not in ("character",) else {"id": self.id, "name": self.name}
@@ -223,6 +311,30 @@ class Character:
                 if d.get(k) == default:
                     d.pop(k, None)
             return d
+        if name == "hair" and value is not None:
+            # a switch left off hashes as it did before the switches existed, so no existing build restarts
+            out = asdict(value)
+            for k in Hair.FACE:
+                if not out.get(k):
+                    out.pop(k, None)
+            if out.get("brow_shape") in (None, "natural"):
+                out.pop("brow_shape", None)         # the default hashes as before the field existed
+            for k in ("beard", "beard_colour"):     # no beard hashes as before beards existed
+                if out.get(k) is None:
+                    out.pop(k, None)
+            if not out.get("fringe"):
+                out.pop("fringe", None)
+            return out
+        if name == "moves":
+            # [variability] rides the moves section rather than having one of its own, and only
+            # when the spec asked for something: a section that is always there would change the
+            # digest of every character that has never heard of it. The id rides with it because
+            # that is what an unstated seed is derived from, so two specs that differ only in
+            # their id do not share a moves hash once one of them is asymmetric.
+            out = asdict(value)
+            if self.variability is not None and self.variability.asked():
+                out["variability"] = dict(asdict(self.variability), identity=self.id)
+            return out
         if isinstance(value, list):
             return [asdict(v) if hasattr(v, "__dataclass_fields__") else v for v in value]
         return asdict(value) if hasattr(value, "__dataclass_fields__") else value
@@ -230,6 +342,100 @@ class Character:
     def digest(self, *sections):
         text = json.dumps({s: self.section(s) for s in sections}, sort_keys=True, default=str)
         return hashlib.sha1(text.encode()).hexdigest()[:16]
+
+
+PROJECT_CONFIG = os.path.join("characters", "pipeline.toml")
+
+
+def project_config(project):
+    """The project's own pipeline settings, `<project>/characters/pipeline.toml`, as a dict ({} when absent):
+
+        [blend]
+        dir = "C:/Users/me/Blends"     # where relative `[export] blend`s live; relative is under the project
+        inside_godot = false           # true: saving a .blend inside a Godot project is intended
+
+    It is what a build script's own `os.environ.setdefault("BLEND_DIR", ...)` used to hold, so `run.sh`, a
+    project's build script and a scratch copy all resolve a spec's blend to the same file. $BLEND_DIR still
+    wins over it. Nothing in it is hashed: it says where a file lives, not what is built."""
+    if not project:
+        return {}
+    path = os.path.join(project, PROJECT_CONFIG)
+    if not os.path.isfile(path):
+        return {}
+    with open(path, "rb") as fh:
+        try:
+            data = tomllib.load(fh)
+        except tomllib.TOMLDecodeError as exc:
+            raise SpecError(f"{path}: {exc}") from None
+    blend = data.get("blend", {})
+    if not isinstance(blend, dict) or set(blend) - {"dir", "inside_godot"}:
+        raise SpecError(f"{path}: [blend] takes dir and inside_godot only (got {sorted(blend)})")
+    return data
+
+
+def blend_dir(override=None, project=None):
+    """$BLEND_DIR (or `override`, when given), else the project's `[blend] dir` (`project_config`), as an
+    absolute path, or None when none is set."""
+    d = override or os.environ.get("BLEND_DIR")
+    if not d and project:
+        d = project_config(project).get("blend", {}).get("dir")
+        if d and not os.path.isabs(os.path.expanduser(d)):
+            d = os.path.join(project, d)
+    return os.path.normpath(os.path.abspath(os.path.expanduser(d))) if d else None
+
+
+def resolve_blend(blend, project, blend_dir_override=None):
+    """Where `[export] blend` points. Absolute: as written. Relative: under $BLEND_DIR when it is set (or
+    `blend_dir_override`, for a tool resolving another project's specs), else under the project's `[blend] dir`
+    (`project_config`), else under `project` (the folder holding `characters/`), else $PROJECT, else the working
+    directory. None when the spec names no blend."""
+    if not blend:
+        return None
+    blend = os.path.expanduser(blend)
+    if os.path.isabs(blend):
+        return os.path.normpath(blend)
+    base = blend_dir(blend_dir_override, project) or project or os.environ.get("PROJECT") or os.getcwd()
+    return os.path.normpath(os.path.join(os.path.abspath(base), blend))
+
+
+def save_roots(project):
+    """The folders a build saves under without being told otherwise: the project and $BLEND_DIR or the project's
+    `[blend] dir` (if set)."""
+    roots = [os.path.normpath(os.path.abspath(project))] if project else []
+    d = blend_dir(project=project)
+    if d and d not in roots:
+        roots.append(d)
+    return roots
+
+
+def godot_project_of(path):
+    """The Godot project folder a file would sit in (the nearest folder at or above it holding `project.godot`)
+    when Godot would import it, else None. A `.gdignore` in any folder between hides the file from Godot, so a
+    path under one is None too. A .blend Godot sees is imported with its Blender importer: with no Blender path
+    in the editor settings a headless `--import` fails on it, and the glbs beside it are not imported either."""
+    d = os.path.dirname(os.path.normpath(os.path.abspath(path)))
+    while True:
+        if os.path.isfile(os.path.join(d, ".gdignore")):
+            return None
+        if os.path.isfile(os.path.join(d, "project.godot")):
+            return d
+        up = os.path.dirname(d)
+        if up == d:
+            return None
+        d = up
+
+
+def inside(path, roots):
+    """Whether `path` is at or under one of `roots` (case-insensitive where the file system is)."""
+    p = os.path.normcase(os.path.normpath(os.path.abspath(path)))
+    for r in roots:
+        r = os.path.normcase(os.path.normpath(os.path.abspath(r)))
+        try:
+            if os.path.commonpath([p, r]) == r:
+                return True
+        except ValueError:                      # different drives
+            continue
+    return False
 
 
 def _take(table, key, kind, default=None, required=False, where=""):
@@ -251,10 +457,91 @@ def _unknown(table, allowed, where):
         raise SpecError(f"{where}: unknown field(s) {', '.join(extra)}")
 
 
+# rig-anything's upper-body parameters whose defaults are derived - from speed, and each from a published
+# number cited in `upper.defaults` (0.40.0). A spec that pins one keeps an older or hand-set value while every
+# other body moves on: Belle's per-gait `head_hold = 0.85` held her head at 16% of the thorax's turn after the
+# default became 64% walking, and only the motion demo's gate caught it, after a build. Pinning one is allowed -
+# a character may be meant to move differently - so it is a warning, printed before anything is built.
+SOURCED_UPPER = ("pelvis_list", "side_bend", "lean_bob", "lean_lag", "head_hold", "gaze_m")
+
+
+def _sourced_pins(per_gait):
+    """Warnings for every SOURCED_UPPER parameter a `[moves.per_gait.<role>] upper` table pins."""
+    out = []
+    for role, opts in per_gait.items():
+        upper = opts.get("upper") if isinstance(opts, dict) else None
+        if not isinstance(upper, dict):
+            continue
+        for k in SOURCED_UPPER:
+            if k in upper:
+                out.append(f"moves.per_gait.{role}.upper pins {k} = {upper[k]!r}; rig-anything derives it from "
+                           f"speed and a published source (upper.defaults) - drop it unless this character is "
+                           f"meant to move differently, and say why beside it")
+    return out
+
+
+# the jiggle parameters `[flesh] overrides` may set (follow-through's jiggle_block / set_params)
+FLESH_OVERRIDE_KEYS = ("frequency_hz", "damping_ratio", "squash", "gravity_scale", "aim", "translate", "response",
+                       "frequency_down_ratio", "frequency_ap_ratio", "max_offset")
+
+
+def _flesh_types():
+    """The flesh type names follow-through's registry knows (built-ins and taught), or None when follow-through
+    is not where the build would take it from. Its registry module is plain Python and loaded by file, so a spec
+    is checked without Blender."""
+    import importlib.util
+    from . import plugins
+    path = os.path.join(plugins.scripts("follow_through"), "follow_through", "registry.py")
+    if not os.path.isfile(path):
+        return None
+    try:
+        mod_spec = importlib.util.spec_from_file_location("_ft_registry_for_spec", path)
+        reg = importlib.util.module_from_spec(mod_spec)
+        mod_spec.loader.exec_module(reg)
+        return sorted(k for k, v in reg.load()["types"].items() if "flesh" in (v.get("classes") or []))
+    except Exception:                       # a registry that cannot be read is the flesh stage's to report
+        return None
+
+
+def _check_flesh_types(flesh):
+    """`[flesh] types`: each a flesh type follow-through's registry has. Refused here, before a body is built:
+    a smoke spec's `moobs` (a NAME of the breast type, and plural) was accepted and failed the flesh stage after
+    the body and bake had run."""
+    known = _flesh_types()
+    if known is None:
+        return
+    bad = [t for t in flesh.types if t not in known]
+    if bad:
+        raise SpecError(f"[flesh] types {bad}: not flesh types follow-through's registry has (one of {known}); "
+                        "a name like 'moob' or 'gut' is recognised on a mesh, but a spec names the type")
+
+
+def _check_overrides(flesh):
+    """`[flesh] overrides`: each key a type in `types` (or one of its sides, `breast.L`), each value a table of
+    numeric jiggle parameters from FLESH_OVERRIDE_KEYS. A key nothing will find is refused, not ignored: an
+    override on a type the spec never asks for would change nothing and say nothing."""
+    for name, params in flesh.overrides.items():
+        base = name[:-2] if name.endswith((".L", ".R")) else name
+        if base not in flesh.types:
+            raise SpecError(f"[flesh] overrides names {name!r}, which types does not ask for ({flesh.types})")
+        if not isinstance(params, dict) or not params:   # a number or a list of pairs is refused, not coerced
+            raise SpecError(f"[flesh] overrides.{name} must be a table of jiggle parameters, e.g. "
+                            "{ frequency_hz = 4.5, damping_ratio = 0.6 }")
+        bad = sorted(k for k in params if k not in FLESH_OVERRIDE_KEYS)
+        if bad:
+            raise SpecError(f"[flesh] overrides.{name}: {bad} are not jiggle parameters (one of {FLESH_OVERRIDE_KEYS}; "
+                            "the swing limit is `limit_share`)")
+        for k, v in params.items():
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0:
+                raise SpecError(f"[flesh] overrides.{name}.{k} = {v!r}: a finite number, 0 or more")
+            if k.startswith("frequency") and v <= 0:
+                raise SpecError(f"[flesh] overrides.{name}.{k} = {v!r}: a frequency is more than 0")
+
+
 def parse(data, path=None):
     """A `Character` from parsed TOML, checked. Raises `SpecError` naming the field."""
-    _unknown(data, ("character", "body", "moves", "hair", "flesh", "outfit", "export", "review", "muscle", "build"),
-             "spec")
+    _unknown(data, ("character", "body", "moves", "hair", "flesh", "outfit", "export", "review", "muscle",
+                    "build", "variability"), "spec")
     c = _take(data, "character", dict, required=True)
     _unknown(c, ("id", "name"), "[character]")
     cid = _take(c, "id", str, required=True, where="character.")
@@ -269,6 +556,12 @@ def parse(data, path=None):
     skin = b.get("skin") if source == "brief" else b.pop("skin", None)
     if source == "blend" and not obj:
         raise SpecError("body.object is required when body.source = \"blend\"")
+    if source == "brief" and b.get("skin") is None:
+        # without one humanform never applies its skin look and the body ships in MPFB's untextured material:
+        # the first smoke bodies came out chalk white, 5-9% of the figure past white in Godot's review
+        raise SpecError("body.skin is required: a screen (sRGB) colour, e.g. [0.87, 0.72, 0.60] light, "
+                        "[0.62, 0.45, 0.36] medium, [0.30, 0.19, 0.13] deep - without it the body keeps MPFB's "
+                        "untextured white material")
     if source == "brief":
         b.setdefault("name", name)
         if b["name"] != name:
@@ -319,7 +612,7 @@ def parse(data, path=None):
     if "hair" in data:
         h = dict(_take(data, "hair", dict))
         if "preset" in h:
-            _unknown(h, ("preset", "colour"), "[hair]")
+            _unknown(h, ("preset", "colour", "brow_shape", "beard", "beard_colour", "fringe") + Hair.FACE, "[hair]")
             preset = _take(h, "preset", str, where="hair.")
             if preset not in HAIR_PRESETS:
                 raise SpecError(f"hair.preset {preset!r} is not one of {HAIR_PRESETS}")
@@ -327,7 +620,26 @@ def parse(data, path=None):
             if colour is not None and (len(colour) != 3 or not all(isinstance(c, (int, float)) and 0 <= c <= 1
                                                                    for c in colour)):
                 raise SpecError("hair.colour must be [r, g, b], screen (sRGB) channels 0..1")
-            hair = Hair(kind="preset", preset=preset, colour=[float(c) for c in colour] if colour else None)
+            switches = {}
+            for k in Hair.FACE:
+                v = _take(h, k, bool, where="hair.")
+                if v is not None:
+                    switches[k] = v
+            brow_shape = _take(h, "brow_shape", str, where="hair.")
+            if brow_shape is not None and brow_shape not in BROW_SHAPES:
+                raise SpecError(f"hair.brow_shape {brow_shape!r} is not one of {BROW_SHAPES}")
+            beard = _take(h, "beard", str, where="hair.")
+            if beard is not None and beard not in BEARD_STYLES:
+                raise SpecError(f"hair.beard {beard!r} is not one of {BEARD_STYLES}")
+            beard_colour = _take(h, "beard_colour", list, where="hair.")
+            if beard_colour is not None and (len(beard_colour) != 3 or not all(
+                    isinstance(c, (int, float)) and 0 <= c <= 1 for c in beard_colour)):
+                raise SpecError("hair.beard_colour must be [r, g, b], screen (sRGB) channels 0..1")
+            if beard_colour is not None and beard is None:
+                raise SpecError("hair.beard_colour needs hair.beard")
+            hair = Hair(kind="preset", preset=preset, colour=[float(c) for c in colour] if colour else None,
+                        brow_shape=brow_shape, beard=beard, fringe=bool(_take(h, "fringe", bool, where="hair.")),
+                        beard_colour=[float(c) for c in beard_colour] if beard_colour else None, **switches)
         else:
             kind = h.pop("kind", None)
             if kind != "shell_bun":
@@ -337,10 +649,17 @@ def parse(data, path=None):
     flesh = None
     if "flesh" in data:
         f = data["flesh"]
-        _unknown(f, ("types", "zones", "limit_share"), "[flesh]")
+        _unknown(f, ("types", "zones", "limit_share", "may_miss", "overrides"), "[flesh]")
         flesh = Flesh(types=list(_take(f, "types", list, default=[])),
                       zones=list(_take(f, "zones", list, default=[])),
-                      limit_share=dict(_take(f, "limit_share", dict, default={})))
+                      limit_share=dict(_take(f, "limit_share", dict, default={})),
+                      may_miss=list(_take(f, "may_miss", list, default=[])),
+                      overrides=dict(_take(f, "overrides", dict, default={})))
+        stray = [t for t in flesh.may_miss if t not in flesh.types]
+        if stray:
+            raise SpecError(f"[flesh] may_miss names {stray}, which types does not ask for ({flesh.types})")
+        _check_flesh_types(flesh)
+        _check_overrides(flesh)
     outfit = []
     for i, g in enumerate(_take(data, "outfit", list, default=[])):
         _unknown(g, ("preset", "name", "colour"), f"[[outfit]] {i}")
@@ -361,9 +680,10 @@ def parse(data, path=None):
                     blend=_take(e, "blend", str), note=_take(e, "note", str, default=""))
 
     r = _take(data, "review", dict, default={})
-    _unknown(r, ("enabled", "frame_height_m"), "[review]")
+    _unknown(r, ("enabled", "frame_height_m", "close"), "[review]")
     review = Review(enabled=_take(r, "enabled", bool, default=True, where="review."),
-                    frame_height_m=_take(r, "frame_height_m", float, where="review."))
+                    frame_height_m=_take(r, "frame_height_m", float, where="review."),
+                    close=_take(r, "close", bool, default=True, where="review."))
 
     muscle = None
     if "muscle" in data:
@@ -396,6 +716,23 @@ def parse(data, path=None):
     if quality not in QUALITIES:
         raise SpecError(f"build.quality must be one of {QUALITIES}, not {quality!r}")
 
+    variability = None
+    if "variability" in data:
+        v = _take(data, "variability", dict)
+        _unknown(v, ("seed", "asymmetry", "jitter_phase", "jitter_amp"), "[variability]")
+        if isinstance(v.get("seed"), bool):
+            raise SpecError("variability.seed must be a whole number, not a boolean")
+        seed = _take(v, "seed", int, where="variability.")
+        if seed is not None and seed < 0:
+            raise SpecError(f"variability.seed must be 0 or more, not {seed}")
+        dials = {}
+        for k in ("asymmetry", "jitter_phase", "jitter_amp"):
+            d = _take(v, k, float, default=0.0, where="variability.")
+            if not 0.0 <= d <= 1.0:
+                raise SpecError(f"variability.{k} = {d} must be 0..1")
+            dials[k] = d
+        variability = Variability(seed=seed, **dials)
+
     project = None
     if path:
         # characters/<id>.toml sits in the project it builds into
@@ -403,7 +740,9 @@ def parse(data, path=None):
         project = os.path.dirname(here) if os.path.basename(here) == "characters" else here
     return Character(id=cid, name=name, body=body, moves=moves, export=export, hair=hair, flesh=flesh,
                      outfit=outfit, review=review, muscle=muscle, build=Build(quality=quality),
-                     path=os.path.abspath(path) if path else None, project=project)
+                     variability=variability,
+                     path=os.path.abspath(path) if path else None, project=project,
+                     warnings=_sourced_pins(per_gait))
 
 
 def load(path):

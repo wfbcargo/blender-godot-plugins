@@ -140,6 +140,9 @@ Previous version (for pairwise comparison, or 'none'): <prev_dir>/review/<name>/
 Write your questions before opening any image. Return only the JSON the checklist specifies.""")
 ```
 
+For a round's done-when, pick the questions from `references/critic-motion.md`: each has an id and names the
+strip, manifest key or verifier (`verify_moves`, `verify_strands`, the game's selftest) that answers it.
+
 Three things make it worth more than looking yourself:
 
 - **Questions first.** The critic writes its yes/no questions from the brief and `review.json`
@@ -335,8 +338,8 @@ res = actions.move_set("Walter_rig", roles=("Idle", "Walk"), options={
   duty)` (a walk subtle, a run with 75-degree elbows); a dict overrides
   parameters in degrees and metres (`arm_swing`, `arm_forward`, `arm_out`,
   `elbow`, `elbow_swing`, `hand_in`, `pelvis_turn`, `pelvis_list`,
-  `thorax_turn`, `side_bend`, `lean`, `lean_bob`, `head_hold`,
-  `hand_clearance`); False leaves the rest pose. `idle` takes it too, for
+  `thorax_turn`, `side_bend`, `lean`, `lean_bob`, `lean_lag`, `head_hold`,
+  `gaze_m`, `hand_clearance`); False leaves the rest pose. `idle` takes it too, for
   relaxed arms.
 
 - `style` - a way of walking from `locomotion.GAIT_STYLES` (`elderly_shuffle`,

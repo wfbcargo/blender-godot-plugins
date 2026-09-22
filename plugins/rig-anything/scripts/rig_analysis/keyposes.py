@@ -42,6 +42,137 @@ from . import motion
 STEP_SHARE = 0.15
 STEP_LIFT = 0.1
 
+# A relaxed hand: degrees each finger joint curls toward the palm, by its place
+# along the finger from the hand (knuckle, middle joint, end joint, further).
+# Most of it at the knuckles, least at the tips: a curl held at the tips reads
+# as a claw (the first pass, 14/22/16, did). The fingers cascade - the index
+# curls least, each finger further from the thumb FINGER_CASCADE more - and
+# close toward the middle of the hand by FINGER_CLOSE of the angle between
+# them (at most FINGER_CLOSE_MAX_DEG each), since a hanging hand's fingers
+# touch. The thumb does not oppose: its base swings in toward the side of the
+# index finger's middle joint by THUMB_IN of the way (at most
+# THUMB_IN_MAX_DEG), its end joints curl a little. A hand at rest hangs this
+# way; MPFB's rest pose holds the fingers straight and apart, which reads as a
+# hand held up flat. `Key.hands` scales it per arm.
+FINGER_CURL_DEG = (22.0, 20.0, 12.0, 8.0)
+FINGER_CASCADE = 0.1
+FINGER_CLOSE = 0.85
+FINGER_CLOSE_MAX_DEG = 14.0
+THUMB_CURL_DEG = (0.0, 10.0, 8.0, 6.0)
+THUMB_IN = 0.7
+THUMB_IN_MAX_DEG = 30.0
+
+
+def hand_digits(rig, limb):
+    """The finger bones of an arm's hand, found by the skeleton's shape.
+
+    Returns [(bone name, curl axis in armature rest space, degrees)] with
+    parents before children, or [] when the hand has fewer than three digits.
+    A digit is a path from the hand (the arm's end bone) to a leaf; the thumb
+    is the path pointing furthest from the others. The palm is the plane
+    through the wrist and the fingers' first joints, and its palm side is where
+    the thumb and the fingers' own rest bend lie. A bone several digits share
+    (a Rigify palm bone carrying both index and thumb) is left alone.
+    """
+    if not limb.get("end"):
+        return []
+    hand = rig.data.bones[limb["end"]]
+    leaves = [b for b in hand.children_recursive if not b.children]
+    if len(leaves) < 3:
+        return []
+    paths = []
+    for lf in leaves:
+        path, c = [], lf
+        while c is not None and c != hand:
+            path.insert(0, c)
+            c = c.parent
+        paths.append(path)
+    wrist = hand.head_local
+    dirs = [(p[-1].tail_local - wrist).normalized() for p in paths]
+    mean = sum(dirs, Vector()).normalized()
+    thumb = min(range(len(paths)), key=lambda i: dirs[i].dot(mean))
+    fingers = [p for i, p in enumerate(paths) if i != thumb]
+    pts = [p[0].tail_local for p in fingers] + [wrist]
+    centre = sum(pts, Vector()) / len(pts)
+    # plane normal: the smallest principal axis of the points
+    cov = Matrix(((0.0,) * 3,) * 3)
+    for q in pts:
+        d = q - centre
+        for i in range(3):
+            for j in range(3):
+                cov[i][j] += d[i] * d[j]
+    import numpy as np
+    w, v = np.linalg.eigh(np.array([list(r) for r in cov]))
+    n = Vector(v[:, 0].tolist()).normalized()
+    side = (paths[thumb][-1].tail_local - centre).dot(n)
+    for p in fingers:
+        a = p[0].tail_local - p[0].head_local
+        a.normalize()
+        t = p[-1].tail_local - p[0].head_local
+        side += (t - a * t.dot(a)).dot(n)
+    palm = n if side > 0.0 else -n
+    count = {}
+    for p in paths:
+        for b in p:
+            count[b.name] = count.get(b.name, 0) + 1
+    # fingers ranked from the thumb: the index is the one whose root lies nearest it
+    t_root = paths[thumb][0].head_local
+    order = sorted(range(len(paths)), key=lambda i: (paths[i][0].head_local - t_root).length)
+    rank = {i: r for r, i in enumerate(j for j in order if j != thumb)}
+    index = next(j for j in order if j != thumb)
+
+    def flat(v):
+        return (v - palm * v.dot(palm)).normalized()
+    mid_dir = flat(sum((dirs[i] for i in rank), Vector()))
+    # where the thumb tip rests: beside the index finger's middle joint, a
+    # finger's width toward the thumb and half one toward the palm
+    ip = paths[index]
+    width = min(((paths[j][0].head_local - ip[0].head_local).length for j in rank if j != index),
+                default=0.02)
+    joint = ip[1].head_local if len(ip) > 1 else ip[0].tail_local
+    toward = flat(t_root - ip[0].head_local)
+    rest_spot = joint + toward * width + palm * 0.5 * width
+    out, seen = [], set()
+    for i, p in enumerate(paths):
+        is_thumb = i == thumb
+        table = THUMB_CURL_DEG if is_thumb else FINGER_CURL_DEG
+        scale = 1.0 if is_thumb else 1.0 + FINGER_CASCADE * (rank[i] - 1)
+        k = 0
+        for b in p:
+            if count[b.name] > 1:
+                continue
+            d = (b.tail_local - b.head_local).normalized()
+            axis = d.cross(palm)
+            if b.name in seen or axis.length < 1e-6:
+                k += 1
+                continue
+            seen.add(b.name)
+            rot = Matrix.Rotation(math.radians(table[min(k, len(table) - 1)] * scale), 3,
+                                  axis.normalized())
+            if k == 0 and is_thumb:
+                # swing the thumb in toward the index's side instead of across the palm
+                tip = p[-1].tail_local - b.head_local
+                want = rest_spot - b.head_local
+                sw = tip.cross(want)
+                if sw.length > 1e-9:
+                    ang = min(THUMB_IN * tip.angle(want), math.radians(THUMB_IN_MAX_DEG))
+                    rot = Matrix.Rotation(ang, 3, sw.normalized()) @ rot
+            elif k == 0:
+                # close the finger toward the middle of the hand, in the palm's plane
+                f = flat(d)
+                ang = math.atan2(f.cross(mid_dir).dot(palm), f.dot(mid_dir))
+                cap = math.radians(FINGER_CLOSE_MAX_DEG)
+                ang = max(-cap, min(cap, FINGER_CLOSE * ang))
+                rot = Matrix.Rotation(ang, 3, palm) @ rot
+            q = rot.to_quaternion()
+            ax, ang = q.to_axis_angle()
+            if ang > 1e-6:
+                out.append((b.name, ax.normalized(), round(math.degrees(ang), 2)))
+            k += 1
+    depth = {b.name: len(b.parent_recursive) for b in hand.children_recursive}
+    out.sort(key=lambda e: depth[e[0]])
+    return out
+
 
 def on_floor(fn):
     """Mark a leg target as a spot on the floor, so a blend to or from another
@@ -191,7 +322,8 @@ def stance_shift(poser, limb, width):
 class Key:
     def __init__(self, drop=0.0, shift=0.0, sway=0.0, lean=0.0, head_level=0.8,
                  limbs=None, name="", tail_lift=0.0, tail_sway=0.0, flex=0.0,
-                 wings=None, maw=None, posture=None, trunk=None):
+                 wings=None, maw=None, posture=None, trunk=None, hands=None,
+                 girdle=None):
         self.drop, self.shift, self.sway = drop, shift, sway
         self.lean, self.head_level = lean, head_level
         self.limbs = dict(limbs or {})
@@ -211,11 +343,20 @@ class Key:
         # `upper.trunk`: {"pitch": [...], "yaw": [...], "roll": [...]} - a
         # pelvis turning and listing under a counter-rotating chest
         self.trunk = trunk
+        # {arm name: share of the relaxed finger curl}; an arm not named is
+        # relaxed (1.0) - see FINGER_CURL_DEG
+        self.hands = dict(hands) if hands else None
+        # {girdle bone: (lat, fwd, up) degrees}, from `upper.Upper.girdle`: the
+        # shoulder rising, dropping and swinging forward on its own. A girdle
+        # hangs off the axial chain rather than sitting on it, so `Key.trunk`
+        # cannot reach it and `motion.Body.turn_bone` poses it instead.
+        self.girdle = dict(girdle) if girdle else None
 
     def copy(self, **changes):
         k = Key(self.drop, self.shift, self.sway, self.lean, self.head_level,
                 self.limbs, self.name, self.tail_lift, self.tail_sway, self.flex,
-                self.wings, self.maw, self.posture, self.trunk)
+                self.wings, self.maw, self.posture, self.trunk, self.hands,
+                self.girdle)
         for a, v in changes.items():
             setattr(k, a, v)
         return k
@@ -254,10 +395,21 @@ class Poser:
         self._mw = mw
         from . import bodymap
         self._upw = bodymap.axis_vector(bm["up"])
+        # An upright body's hands hang relaxed, fingers curled (`hand_digits`).
+        # Like folded wings, that is its ground rest: frame one of a crouch
+        # starts from it, not from MPFB's flat splayed hand.
+        self.hands = {}
+        if bm.get("upright"):
+            for arm in self.arms:
+                digits = hand_digits(self.rig, arm)
+                if digits:
+                    self.hands[arm["name"]] = [
+                        (n, body.rest[n].to_3x3().inverted() @ axis, deg) for n, axis, deg in digits]
         if bm.get("wings"):
             from . import wings as wing_mod
             self.wing_rig = wing_mod.WingRig(body)
             self.wing_default = wing_mod.state(fold=wings_folded, tuck=1.0)
+        if bm.get("wings") or self.hands:
             body.ground_rest = self.pose(Key(name="ground rest"))[0]
 
     def height(self, p):
@@ -403,6 +555,18 @@ class Poser:
                 b.wings if b.wings is not None else self.wing_default, ww)
             overrides.update(self.wing_rig.pose(posed, states))
             posed = body.fk(overrides)
+        # The shoulder girdles, BEFORE the arms are solved: each arm's target is
+        # built from wherever its own shoulder ends up this frame
+        # (`upper.arm_spec`), so moving the shoulder carries the whole arm with
+        # it instead of leaving the hand behind.
+        g_a, g_b = getattr(a, "girdle", None) or {}, getattr(b, "girdle", None) or {}
+        if g_a or g_b:
+            zero = (0.0, 0.0, 0.0)
+            for n in set(g_a) | set(g_b):
+                va, vb = g_a.get(n) or zero, g_b.get(n) or zero
+                t = [lerp(x, y, wa) for x, y in zip(va, vb)]
+                overrides.update(body.turn_bone(posed, n, t[0], t[1], t[2]))
+            posed = body.fk(overrides)
         infos, plant_ws = {}, {}
         for limb in self.legs + self.arms:
             lw = wl if limb["role"] == "leg" else wa
@@ -494,6 +658,17 @@ class Poser:
                                             clearance=0.004 * self.bm["height"]))
         if drapes:
             overrides.update(drapes)
+            posed = body.fk(overrides)
+        if self.hands:
+            for arm_name, digits in self.hands.items():
+                share = lerp((a.hands or {}).get(arm_name, 1.0), (b.hands or {}).get(arm_name, 1.0), wa)
+                if not share:
+                    continue
+                for n, axis_local, deg in digits:
+                    parent = body.rig.data.bones[n].parent.name
+                    posed[n] = (posed[parent] @ body.rest_local[n]
+                                @ Matrix.Rotation(math.radians(deg * share), 4, axis_local))
+                    overrides[n] = posed[n]
             posed = body.fk(overrides)
         return posed, infos
 

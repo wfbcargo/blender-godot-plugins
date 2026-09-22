@@ -21,6 +21,9 @@ OPTIONAL = ("tentacles", "octopus")
 # their test bodies. Loaded after locomotion and actions, which `hop` imports.
 HOPPERS = ("hoppers", "hopper_samples", "hop")
 
+# The pictures a build is judged from: the review sheet and the close-up look set (lit, aimed from bones).
+PICTURES = ("review", "closeups")
+
 
 def reload_all():
     """Re-import every submodule. Call after editing any of them.
@@ -29,16 +32,16 @@ def reload_all():
     is not seen until `importlib.reload(rig_analysis)` - a new module left off
     the stale list kept running its old code while its file was already fixed."""
     from . import (stored, measure, verify, views, report, fit, skin, decompose, build, gait,
-                   export, bodymap, motion, keyposes, upper, actions, locomotion, wings,
+                   export, bodymap, mass, motion, keyposes, upper, actions, locomotion, wings,
                    flight, maw, fins, swim, radial, radial_moves, radial_samples)
     # dependency order: stored imports nothing of ours; actions imports keyposes, motion and bodymap; flight
     # imports all of them; radial_moves imports radial and swim
     mods = [stored, measure, verify, views, report, fit, skin, decompose, build, gait, export,
-            wings, maw, fins, radial, bodymap, motion, keyposes, upper, actions, locomotion,
+            wings, maw, fins, radial, bodymap, mass, motion, keyposes, upper, actions, locomotion,
             flight, swim,
             radial_moves, radial_samples]
     here = os.path.dirname(__file__)
-    for name in HOPPERS + OPTIONAL:
+    for name in HOPPERS + PICTURES + OPTIONAL:
         if os.path.exists(os.path.join(here, name + ".py")):
             mods.append(importlib.import_module("." + name, __name__))
     for m in mods:

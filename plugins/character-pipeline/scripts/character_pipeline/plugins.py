@@ -5,10 +5,10 @@ fixtures use), else the installed copy under ~/.claude/skills. `use()` puts them
 reloads them, since a Blender session outlives edits to them.
 
 The four in `VARS` build every character, so `use()` imports them and their versions go into every
-stage's input hash. lookdev is `OPTIONAL`: only humanform's hair reads it (its hair material), and hair
-falls back to a flat material without it. So `use()` imports lookdev only where it is present, and its
-version goes only into the hash of a stage that reads it (`stage_versions`), so a lookdev release never
-invalidates a body, bake, flesh, moves, garments or export record.
+stage's input hash. lookdev is `OPTIONAL`: humanform's hair material and its skin bake read it, and both fall
+back to a flat material without it. So `use()` imports lookdev only where it is present, and its
+version goes only into the hash of a stage that reads it (`stage_versions`: hair and bake), so a lookdev
+release never invalidates a body, flesh, moves, garments or export record.
 """
 
 import importlib
@@ -23,7 +23,8 @@ VARS = {"rig_analysis": ("RA_SCRIPTS", "rig-anything"), "humanform": ("HF_SCRIPT
 OPTIONAL = {"lookdev_blender": ("LD_SCRIPTS", "lookdev", "blender")}
 # The optional packages a stage reads, by stage name, as a function of the spec
 STAGE_READS = {"hair": lambda ch: ("lookdev_blender",) if ch.hair is not None and ch.hair.kind != "shell_bun" else (),
-               "bake": lambda ch: ("lookdev_blender",) if ch.muscle is not None and ch.muscle.output == "normal" else ()}
+               # every bake reads it: humanform's look.skin bakes the skin's maps with lookdev
+               "bake": lambda ch: ("lookdev_blender",)}
 
 
 def scripts(package):

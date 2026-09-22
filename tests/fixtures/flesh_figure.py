@@ -112,7 +112,87 @@ def _each(made, out, actions, ra_export, ft_export, flesh):
         if name == "Figure":
             bodies[name]["limit_suggestion"] = limit_suggestion(name, flesh)
             bodies[name]["no_measurement"] = no_measurement(flesh)
+            bodies[name]["prepare_again"] = prepare_again(name, flesh)
     return bodies
+
+
+def prepare_again(name, flesh):
+    """`flesh.prepare` a second time on the fleshed body, as a pipeline rebuild from a saved .blend after a
+    `[flesh]` edit does: the jiggle weight the first run took from the other bones is given back first
+    (`remove_jiggle_weights`), so the second run finds the same regions and weights the body as the first did,
+    with no vertex left unweighted. The control reruns the old way - the jiggle groups deleted, their weight
+    lost - and must leave weight missing (study_man: 5 vertices with none, a glTF `neutral_bone`)."""
+    import bpy
+    ob = bpy.data.objects[name]
+    rig = next(m.object for m in ob.modifiers if m.type == "ARMATURE" and m.object is not None)
+
+    def snap():
+        gi = {g.index: g.name for g in ob.vertex_groups}
+        deform = {b.name for b in rig.data.bones if b.use_deform}
+        w = [{gi[g.group]: g.weight for g in v.groups if g.weight > 1e-6} for v in ob.data.vertices]
+        total = [sum(x for k, x in d.items() if k in deform) for d in w]
+        return w, total
+
+    def compare(w0, w1, t1):
+        # the total deform weight each vertex lost against the first run (the sample's weights are not all
+        # normalised to 1, so the loss is measured, not the total)
+        diff = max(abs(a.get(k, 0.0) - b.get(k, 0.0)) for a, b in zip(w0, w1) for k in set(a) | set(b))
+        return {"max_weight_diff": round(diff, 4), "unweighted": sum(1 for t in t1 if t < 1e-4),
+                "max_total_lost": round(max(a - b for a, b in zip(t0, t1)), 4)}
+
+    def keep():
+        return [{ob.vertex_groups[g.group].name: g.weight for g in v.groups} for v in ob.data.vertices]
+
+    def put_back(saved):
+        for g in list(ob.vertex_groups):
+            ob.vertex_groups.remove(g)
+        groups = {}
+        for i, d in enumerate(saved):
+            for k, x in d.items():
+                g = groups.get(k) or groups.setdefault(k, ob.vertex_groups.new(name=k))
+                g.add([i], x, "REPLACE")
+
+    w0, t0 = snap()
+    first = keep()
+    regions0 = sorted(r["name"] for r in ob["follow_through"]["jiggle"]["regions"])
+    again = flesh.prepare(name)
+    w1, t1 = snap()
+    out = dict(compare(w0, w1, t1), regions_equal=sorted(r["name"] for r in again.get("regions", [])) == regions0)
+    # the second prepare's regions pass check_placement: before follow-through 0.9.0 capped a jiggle bone's share
+    # at 0.98, a vertex it took all of could only give its weight back to the anchor, and the second prepare read
+    # the lost thigh share (the sample butt: 0.87 at its apex). Its control, below, runs both prepares at cap 1
+    out["placement_ok"] = bool((again.get("placement") or {}).get("ok"))
+    real = flesh.remove_jiggle_weights
+
+    def dropped(obj, rig=None):                     # what a rerun did before 0.6.1
+        for g in [g for g in obj.vertex_groups if g.name.startswith(flesh.JIGGLE_PREFIX)]:
+            obj.vertex_groups.remove(g)
+        return 0
+    flesh.remove_jiggle_weights = dropped
+    try:
+        flesh.prepare(name)
+    finally:
+        flesh.remove_jiggle_weights = real
+    w2, t2 = snap()
+    out["control_without_giving_back"] = compare(w0, w2, t2)
+    out["unweighted_first"] = sum(1 for t in t0 if t < 1e-4)
+    out["control_fails"] = out["control_without_giving_back"]["max_total_lost"] > 0.01
+
+    # the cap's control, which must fail placement: from the first run's weights, both prepares with the cap at 1
+    put_back(first)
+    cap = flesh.JIGGLE_SHARE_MAX
+    flesh.JIGGLE_SHARE_MAX = 1.0
+    try:
+        flesh.prepare(name)
+        uncapped = flesh.prepare(name)
+    finally:
+        flesh.JIGGLE_SHARE_MAX = cap
+        put_back(first)
+    out["control_uncapped_placement_ok"] = bool((uncapped.get("placement") or {}).get("ok"))
+    if (out["unweighted"] > out["unweighted_first"] or out["max_total_lost"] > 0.01 or not out["regions_equal"]
+            or not out["control_fails"] or not out["placement_ok"] or out["control_uncapped_placement_ok"]):
+        raise AssertionError(f"flesh.prepare run twice: {out}")
+    return out
 
 
 # time on the limit as a function of the limit L, per region, as factors of its exported limit L0

@@ -1,6 +1,6 @@
 {
   "schema": "wardrobe-presets/1",
-  "about": "Garment presets: the tuned numbers that cut, fit and hide one garment, so a build script names a preset instead of holding them. wardrobe.dress(body, preset) runs tailor -> paint_ease (if any) -> ease -> skin -> hem (if any) -> cover -> spec -> export with them. `cut` is tailor.shirt, tailor.pants, tailor.skirt or tailor.dress; `tailor`, `paint`, `ease`, `hem` and `cover` are that call's keyword arguments (null: the step is skipped); `soft` is the follow-through cloth arguments a skirt or dress takes with dress(..., soft=True); `layer_cover` is cover.compute's arguments for what the garment hides of each garment worn under it; `spec_kind` and `layer` go to spec.build; `colour` is linear RGB; `worn_over` names the presets this one is fitted over when they are worn; `note` says where the numbers came from.",
+  "about": "Garment presets: the tuned numbers that cut, fit and hide one garment, so a build script names a preset instead of holding them. wardrobe.dress(body, preset) runs tailor -> paint_ease (if any) -> ease -> skin -> hem (if any) -> cover -> spec -> export with them. `cut` is tailor.shirt, tailor.pants, tailor.skirt or tailor.dress; `tailor`, `paint`, `ease`, `hem` and `cover` are that call's keyword arguments (null: the step is skipped); `lift` is fit.lift_over's `smooth` and `gap` when a compression garment is lifted over skin still drawn over it (default: per-corner cones at `ease.base`); `soft` is the follow-through cloth arguments a skirt or dress takes with dress(..., soft=True); `layer_cover` is cover.compute's arguments for what the garment hides of each garment worn under it; `spec_kind` and `layer` go to spec.build; `colour` is linear RGB; `worn_over` names the presets this one is fitted over when they are worn; `note` says where the numbers came from.",
 
   "garments": {
     "sports_top": {
@@ -8,15 +8,16 @@
       "cut": "shirt",
       "tailor": {"sleeve": -0.15, "hem": 0.30, "neck": [-0.14, 0.04]},
       "paint": null,
-      "ease": {"base": 0.008, "loose": 0.0, "hang": 0.0, "smooth": 1.0, "detail_limit": {"all": 0.06}},
+      "ease": {"base": 0.008, "loose": 0.0, "hang": 0.0, "smooth": 1.0, "span": 0.8, "span_radius": 0.1, "settle": 0.14, "detail_limit": {"all": 0.06}},
       "hem": null,
-      "cover": {"agree": 0.7, "margin": 0.03, "behind": 0.03},
+      "cover": {"agree": 0.7, "margin": 0.03, "behind": 0.03, "crease": 0.03},
+      "lift": {"smooth": 0.12, "gap": 0.002},
       "layer_cover": {"max_gap": 0.04, "margin": 0.015},
       "spec_kind": "shirt",
       "layer": 2,
       "colour": [0.035, 0.16, 0.20],
       "worn_over": [],
-      "note": "Belle's (grungist-creek assets/belle/build_belle.py). Fitted athletic wear: a few millimetres of ease, nothing hanging. Cut sleeveless from the shoulder, its neckline over the top of the bust and its band on the ribs well below the fold under the bust: at the fold itself the skin kept drawn along the hem (cover's 3 cm margin) came through it in Godot. Relaxed over 80 passes to span the cleavage it pulled in over the nipples and fold and let skin through - ease's default 16 iterations kept. Cover agree 0.7, margin 3 cm. A compression garment (improvements 05 5.3): eased 8 mm off the body smoothed over 20 cm of surface, so it no longer traces the nipples; cover follows the cloth up to 3 cm under the skin. It does not `flatten` the bust: flatten needs the body's breast region, and on a body built through character-pipeline follow-through's breast search lands on the jaw, so a preset that asked for it would do nothing there and say nothing - pass flatten={\"breast\": share} by hand on a body whose breast region is right. Detail limit: over the whole garment the cloth may carry at most 0.06 mm of the skin's own relief (0.02 mm on the smooth sample figure, 0.02 mm on a body embossed with 12 mm bumps where the same cut uncompressed carries 0.10 mm)."
+      "note": "Belle's (grungist-creek assets/belle/build_belle.py). Fitted athletic wear: a few millimetres of ease, nothing hanging. Cut sleeveless from the shoulder, its neckline over the top of the bust and its band on the ribs well below the fold under the bust: at the fold itself the skin kept drawn along the hem (cover's 3 cm margin) came through it in Godot. Relaxed over 80 passes to span the cleavage it pulled in over the nipples and fold and let skin through - ease's default 16 iterations kept. Cover agree 0.7, margin 3 cm. A compression garment (improvements 05 5.3): eased 8 mm off the body smoothed over 20 cm of surface, so it no longer traces the nipples; cover follows the cloth up to 3 cm under the skin. It does not `flatten` the bust: flatten needs the body's breast region, and on a body built through character-pipeline follow-through's breast search lands on the jaw, so a preset that asked for it would do nothing there and say nothing - pass flatten={\"breast\": share} by hand on a body whose breast region is right. Detail limit: over the whole garment the cloth may carry at most 0.06 mm of the skin's own relief (spanned and settled: 0.015 mm on the smooth sample figure, 0.003 mm on a body embossed with 12 mm bumps where the same cut uncompressed carries 0.10 mm). Settled over 10 cm of its own surface (improvements NEXT 9): on Belle's own heavier bust the unsettled cloth carried 0.171 mm, tucked into the fold under each breast with the fold's skin in front of it, and four lifts over that skin left a faceted shelf and 10 drawn triangles; settled alone it carries 0.03 mm and nothing needs lifting (7 cm: 0.093 mm), but the fold's skin, now inside the cloth and hidden, let Godot's verifier see into it (holes 0.52-0.73% on five clips). Cover `crease` 3 cm keeps that skin drawn; any lift is smooth (`lift` 12 cm, 2 mm clearance), not per-corner cones. That still left the cloth following each breast's underside up into the fold - a faceted rim at a close camera - so the cloth is spanned 80% of the way to its own convex hull (`span` 0.8) around the hollows a 10 cm ball does not reach into (`span_radius` 0.1 - the hull alone also spanned the sample figure's taper to the waist, leaving it 2-5 cm off the body) before settling over 14 cm: it runs from bust to band and across the cleavage. Belle carries 0.000 mm (breast 0.015), no lift runs, no cloth edge bends more than 35 degrees (16 did, up to 146), and verify_wardrobe passes all 7 clips in the top, the shorts and both (worst holes 0.39%, poke 0.33%)."
     },
     "shorts_mid_thigh": {
       "name": "Shorts",
@@ -129,7 +130,8 @@
       "cut": "shirt",
       "tailor": {"sleeve": 0.45, "hem": -0.04, "neck": [-0.05, 0.10]},
       "paint": {},
-      "ease": {"base": 0.011, "loose": 0.025, "hang": 1.0},
+      "ease": {"base": 0.011, "loose": 0.025, "hang": 1.0, "hang_top": 0.1, "hang_fade": 0.15, "hang_hull": true, "hang_blur": [2, 4], "iterations": 48, "smooth": 1.0, "settle": 0.05, "detail_limit": {"all": 0.06}, "tuck_limit": 8.0},
+      "skin": {"transfer": true},
       "hem": {"fabric": "cotton_jersey", "hem_bones": 8, "cuff_bones": 4},
       "cover": {"max_gap": 0.1, "margin": 0.03, "agree": 0.7},
       "layer_cover": {"max_gap": 0.04, "margin": 0.015},
@@ -137,14 +139,15 @@
       "layer": 3,
       "colour": [0.66, 0.20, 0.22],
       "worn_over": ["bra", "shorts", "trousers"],
-      "note": "Nora's (build_outfits.py), layer 3, worn instead of the longsleeve: a jersey T-shirt hanging from the widest point, ease painted at wardrobe's defaults (1 at the hem, 0.3 at the cuffs), 8 hem and 4 cuff bones backstopped against what is under it. Eased at least 3 mm outside the bra and the shorts or trousers and hiding what it covers of each. Nora's build also averages the armpit weights with the project's build_person.smooth_weights; dress does not."
+      "note": "Nora's (build_outfits.py), layer 3, worn instead of the longsleeve: a jersey T-shirt hanging from the widest point, ease painted at wardrobe's defaults (1 at the hem, 0.3 at the cuffs), 8 hem and 4 cuff bones backstopped against what is under it. Eased at least 3 mm outside the bra and the shorts or trousers and hiding what it covers of each. Nora's build also averages the armpit weights with the project's build_person.smooth_weights; dress does not. Eased off the body smoothed over 20 cm (`smooth` 1.0), not off the skin (improvements NEXT, \"Cloth that hugs the skin\"): eased from the skin alone, a jersey tee carried a fifth of the body's own relief - Marco's traced 0.189, 0.164 mm, nipples showing through - more than the sports top does, which is backwards; cloth with any bending stiffness cannot follow detail a few centimetres across. Smoothed, Marco's carries 0.000 mm (belly 0.001), the bust still shapes the outline, and the same preset on Belle's heavier bust goes from 0.134 mm over the breast to 0.019. Detail limit 0.06 mm over the whole garment, the sports top's. `span` does not help here: over a sleeved garment the hull runs from arm to ribs, and spanned over the torso alone it put a ridge under the bust and brought the nipples back. Hung from the bust's apex (wardrobe 0.7.0): hanging starts 0.1 of the way from shoulders to hips (`hang_top`, was 0.3, which is level with or below an apex), each height's ring and each sector's column is made convex (`hang_hull`) so the cloth spans from one high point to the next, heights are evened between pushes so the breast's underside unfolds instead of creasing, over 48 iterations and settled over 5 cm. Under a bust the cloth followed the breast back in to the fold: Ruth's longsleeve tucked 17.2 mm, now 2.9 (`tuck_limit` 8 mm); the sample figure 34.1 mm, now 3.7. Skinned from the body's surface under it (`skin` transfer), not kept vertex for vertex from the cut: hanging moves the cloth under a bust centimetres from the skin it was cut from, and with the cut's weights Ruth's breast skin came through it 13-21 vertices at a time (poke 0.17-0.33 %); transferred, none (0.06-0.10 %, all spine.003)."
     },
     "longsleeve": {
       "name": "Longsleeve",
       "cut": "shirt",
       "tailor": {"sleeve": 1.85, "hem": -0.02, "neck": [-0.03, 0.10]},
       "paint": {"cuff": 0.2},
-      "ease": {"base": 0.011, "loose": 0.022, "hang": 1.0},
+      "ease": {"base": 0.011, "loose": 0.022, "hang": 1.0, "hang_top": 0.1, "hang_fade": 0.15, "hang_hull": true, "hang_blur": [2, 4], "iterations": 48, "smooth": 1.0, "settle": 0.05, "detail_limit": {"all": 0.06}, "tuck_limit": 8.0},
+      "skin": {"transfer": true},
       "hem": {"fabric": "wool", "hem_bones": 8, "cuff_bones": 4},
       "cover": {"max_gap": 0.1, "margin": 0.03, "agree": 0.7},
       "layer_cover": {"max_gap": 0.04, "margin": 0.015},
@@ -152,7 +155,7 @@
       "layer": 3,
       "colour": [0.30, 0.44, 0.36],
       "worn_over": ["bra", "shorts", "trousers"],
-      "note": "Nora's (build_outfits.py), layer 3, worn instead of the T-shirt: wool with sleeves near the wrist, the cuffs eased less than the default (0.2, not 0.3), 8 hem and 4 cuff bones. Eased at least 3 mm outside what is under it and hiding what it covers of each. Nora's build also averages the armpit weights with the project's build_person.smooth_weights; dress does not."
+      "note": "Nora's (build_outfits.py), layer 3, worn instead of the T-shirt: wool with sleeves near the wrist, the cuffs eased less than the default (0.2, not 0.3), 8 hem and 4 cuff bones. Eased at least 3 mm outside what is under it and hiding what it covers of each. Nora's build also averages the armpit weights with the project's build_person.smooth_weights; dress does not. Eased off the body smoothed over 20 cm (`smooth` 1.0), as the T-shirt is and for the same reason: from the skin alone Ruth's traced 0.191 and carried 0.096 mm over the breast - more than the 0.06 mm the sports top is held to. Smoothed, 0.009 mm (breast 0.004); `smooth` 0.5 left the nipples visible. Detail limit 0.06 mm over the whole garment. Hung from the bust's apex (wardrobe 0.7.0): hanging starts 0.1 of the way from shoulders to hips (`hang_top`, was 0.3, which is level with or below an apex), each height's ring and each sector's column is made convex (`hang_hull`) so the cloth spans from one high point to the next, heights are evened between pushes so the breast's underside unfolds instead of creasing, over 48 iterations and settled over 5 cm. Under a bust the cloth followed the breast back in to the fold: Ruth's longsleeve tucked 17.2 mm, now 2.9 (`tuck_limit` 8 mm); the sample figure 34.1 mm, now 3.7. Skinned from the body's surface under it (`skin` transfer), not kept vertex for vertex from the cut: hanging moves the cloth under a bust centimetres from the skin it was cut from, and with the cut's weights Ruth's breast skin came through it 13-21 vertices at a time (poke 0.17-0.33 %); transferred, none (0.06-0.10 %, all spine.003)."
     },
 
     "skirt_knee": {
@@ -192,7 +195,7 @@
       "cut": "dress",
       "tailor": {"sleeve": -0.10, "neck": [-0.10, 0.08], "waist": 0.30, "length": 0.85, "flare": 1.3, "thigh": 0.0, "ease": 0.022},
       "paint": null,
-      "ease": null,
+      "ease": {"base": 0.011, "loose": 0.0, "hang": 0.0, "smooth": 1.0, "span": 0.8, "span_radius": 0.1, "settle": 0.14, "detail_limit": {"all": 0.06}},
       "hem": {"hem_bones": 24, "cuff_bones": 0, "fabric": "cotton_poplin"},
       "soft": {"fabric": "cotton"},
       "cover": {"max_gap": 0.1, "margin": 0.05, "agree": 0.5},
@@ -201,7 +204,7 @@
       "layer": 3,
       "colour": [0.16, 0.30, 0.22],
       "worn_over": ["bra", "briefs"],
-      "note": "A sleeveless bodice cut from the body down to the natural waist (0.30 torso lengths above the hips, eased 8 mm and hung), zipped to a skirt built from its hem to 0.85 of the way to the knee at 1.3x the widest hip girth, 24 poplin hem bones hung from the pelvis with thigh capsules, as skirt_knee. Cover hides the bodice's skin as a shirt's (about 1000 vertices) and nothing of the skirt. Walk, run and crouch every other frame pass on Mei, Nadia and Rosa: at most 6 of 2420 vertices inside a thigh (0.25%), no holes, poke at most 44 vertices (upper arms at the armholes, and a crouch's thighs past the hem). cut=0.04 opens 39 of its 3278 hidden vertices, which is the hole control a skirt cannot give (a skirt hides nothing). At length 1.0 a run put 14-16 inside the shins."
+      "note": "A sleeveless bodice cut from the body down to the natural waist (0.30 torso lengths above the hips, eased 8 mm and hung), zipped to a skirt built from its hem to 0.85 of the way to the knee at 1.3x the widest hip girth, 24 poplin hem bones hung from the pelvis with thigh capsules, as skirt_knee. Cover hides the bodice's skin as a shirt's (about 1000 vertices) and nothing of the skirt. Walk, run and crouch every other frame pass on Mei, Nadia and Rosa: at most 6 of 2420 vertices inside a thigh (0.25%), no holes, poke at most 44 vertices (upper arms at the armholes, and a crouch's thighs past the hem). cut=0.04 opens 39 of its 3278 hidden vertices, which is the hole control a skirt cannot give (a skirt hides nothing). At length 1.0 a run put 14-16 inside the shins. Eased off the body smoothed over 20 cm and spanned over the hollows (wardrobe 0.8.0; `ease` was null): cut with only the tailor's 22 mm offset it traced the body, and on a likeness NPC in Godot's midday sun the bust's apexes showed through as points. The tshirt's ease with `hang` hung the whole dress from the bust like a tent and lost the waist, so it does not hang; `span` 0.8 over 10 cm (as the sports top) rounds the apexes - a sleeveless cut has no arm for the hull to run to. It carries 0.034 mm of the skin's relief (limit 0.06)."
     }
   },
 

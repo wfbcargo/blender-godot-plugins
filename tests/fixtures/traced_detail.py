@@ -6,7 +6,9 @@ That made the check untestable: every limit passed whatever the garment did. So 
 embosses the body first. Each breast and buttock gets a 12 mm bump, 18 mm wide, at the vertex where
 its jiggle weight peaks - deliberately larger than a real nipple, so the limits are crossed by a
 margin no rounding reaches, and deterministic because the peak vertex and the falloff are functions
-of the mesh.
+of the mesh. Since follow-through 0.8.0 grades the weight from the attachment to the apex, that vertex
+is at the breast's apex, 1.9 cm from it; the plateau before put it in the cleavage, 4.5 cm off, where
+the top's span hid it.
 
 Then the garments go on six ways, and the golden holds what the check said each time:
 
@@ -20,10 +22,17 @@ Then the garments go on six ways, and the golden holds what the check said each 
   `drawn_over_cloth`, `wardrobe.dress` lifts the cloth over those triangles and re-measures, and
   `lifted` records each round. That is the only path in the suite through `cover.drawn_over_cloth`
   and `fit.lift_over`, and it carries a per-region limit, which the shipped presets' `all` does not.
+  It lifts smoothly (`lift.smooth`, as sports_top ships); `top_pressed_cone_lift` is the same with
+  the per-corner cones that folded Belle's top into a shelf (improvements NEXT 9), and each records
+  `folded_faces` and `sharp_edges` (fit.folds). `top_unspanned` is the shipped top without `span`,
+  the cloth left following the body's hollows instead of stretched across them.
 - `sports_top` with a limit on the buttocks, which no top covers: **unmeasured, and so failed**. A
   limit nothing was measured against has not been held (wardrobe 0.2.2 said the same of `verify`),
   and this is the body type it matters on - on a character-pipeline MPFB woman follow-through's
-  breast search lands on the jaw, and a breast limit there would measure nothing at all.
+  breast search landed on the jaw until 0.7.0, and a breast limit there measured nothing at all.
+- last, the control: `cover.drawn_over_cloth` on the shipped top before any lift, with its facing test
+  (`FACING_MIN`) and without. Without it, skin beside the armholes' rims counts as skin through the
+  cloth (`flagged_without_test` above 0); with it, none (`flagged_with_test` 0).
 - `compression_shorts` shipped and uncompressed, the same pair over the buttocks.
 
 The bodies are the `dressed_presets` bodies, so a change to the cut or the ease shows up in both;
@@ -104,6 +113,11 @@ def build():
             "top_uncompressed": uncompressed(top),
             "top_pressed": dict(top, ease=dict(top["ease"], flatten={"breast": 0.5},
                                                detail_limit={"all": 0.06, "breast": 0.1})),
+            # the same, lifted per corner as before the smooth lift (`lift` removed): the cones it
+            # pushes up can fold the cloth - `folded_faces` says whether they did here
+            "top_pressed_cone_lift": dict(top, lift=None, ease=dict(top["ease"], flatten={"breast": 0.5},
+                                                                    detail_limit={"all": 0.06, "breast": 0.1})),
+            "top_unspanned": dict(top, ease={k: v for k, v in top["ease"].items() if k != "span"}),
             "top_limit_elsewhere": dict(top, ease=dict(top["ease"], detail_limit={"butt": 0.1})),
             "shorts_compressed": shorts,
             "shorts_uncompressed": uncompressed(shorts),
@@ -117,8 +131,11 @@ def build():
                 "detail": H.stable(r["ease"]["detail"]),
                 "compression": H.stable({k: v for k, v in (r["ease"].get("compression") or {}).items()
                                          if k in ("passes", "moved_max_m", "moved_p95_m", "flatten",
-                                                  "inside_skin_verts")}),
+                                                  "inside_skin_verts", "settle", "span")}),
                 "lifted": r.get("lifted"),
+                "folded_faces": r.get("folded_faces"),
+                "sharp_edges": r.get("sharp_edges"),
+                "creased": r["cover_report"].get("creased"),
                 "drawn_over_cloth": r["cover_report"].get("drawn_over_cloth"),
                 "inside": r["cover_report"].get("inside"),
                 "hidden": r["cover_report"]["hidden"],
@@ -126,6 +143,27 @@ def build():
                 "passed": r["passed"],
                 "problems": r["problems"],
             }
+
+        # the control: `drawn_over_cloth` on the shipped top before any lift, with its facing test (wardrobe 0.5.2)
+        # and without. Without it, skin beside the armholes' rims counts as skin through the cloth - `without` must
+        # be above 0, and `with` must stay 0. Dressing with the test off was the control first, but whether its
+        # lifts ran away hung on the shoulder's exact weights (follow-through 0.9.0's 0.98 cap stopped it)
+        from wardrobe import cover as wd_cover, fit as wd_fit, tailor as wd_tailor
+        from wardrobe.presets import _args
+        g = wd_tailor.shirt(body, name=top["name"] + "_rim", **_args(top.get("tailor")))
+        wd_fit.ease(g, body, **_args(top["ease"]))
+        wd_fit.skin(g, body)
+        cr = wd_cover.compute(g, body, **_args(top.get("cover")))
+        reach = top["cover"]["behind"]
+        flagged_with = wd_cover.drawn_over_cloth(g, body, cr, reach=reach)
+        kept, wd_cover.FACING_MIN = wd_cover.FACING_MIN, -2.0
+        try:
+            flagged_without = wd_cover.drawn_over_cloth(g, body, cr, reach=reach)
+        finally:
+            wd_cover.FACING_MIN = kept
+        garments["control_facing_test"] = {"flagged_with_test": len(flagged_with),
+                                           "flagged_without_test": len(flagged_without),
+                                           "dropped_by_test": len(set(flagged_without) - set(flagged_with))}
 
         from rig_analysis import export as ra_export
         walk = BODY + "Walk"

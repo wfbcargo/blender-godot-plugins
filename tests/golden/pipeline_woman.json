@@ -1,20 +1,541 @@
 {
  "fixture": "pipeline_woman",
  "plugins": {
-  "character-pipeline": "0.5.0",
-  "follow-through": "0.5.2",
-  "humanform": "0.8.0",
-  "rig-anything": "0.23.0",
-  "wardrobe": "0.4.0"
+  "character-pipeline": "0.18.0",
+  "follow-through": "0.10.0",
+  "humanform": "0.18.0",
+  "lookdev": "0.12.0",
+  "rig-anything": "0.41.0",
+  "wardrobe": "0.8.0"
  },
  "report": {
   "body_stature": 1.6985,
+  "close": {
+   "close_json": true,
+   "close_off": {
+    "close_in_report": false,
+    "control_no_clear": {
+     "close_in_report": false,
+     "folder_left": true
+    },
+    "control_seen": true,
+    "folder_left": false,
+    "had_folder": true,
+    "ok": true,
+    "reported_removed": true
+   },
+   "control_empty": {
+    "face": [
+     "empty",
+     "off_body"
+    ],
+    "feet": [
+     "empty"
+    ],
+    "hand_palm.L": [
+     "empty",
+     "off_body"
+    ]
+   },
+   "control_palm_up_3cm": {
+    "fail": [
+     "cut"
+    ],
+    "subject_margin": 0.02,
+    "subject_off": 0.27
+   },
+   "control_palm_up_6cm": {
+    "fail": [
+     "cut",
+     "off_centre"
+    ],
+    "subject_margin": -0.13,
+    "subject_off": 0.4
+   },
+   "control_wrong_bone": {
+    "raised": [
+     [
+      "hand_palm.L",
+      "cut"
+     ]
+    ]
+   },
+   "count": 19,
+   "draft": {
+    "failed": [],
+    "table": {
+     "draft": {
+      "under_bust": false,
+      "views": [
+       "face",
+       "hand_palm.L",
+       "hand_back.L"
+      ]
+     },
+     "final": {
+      "under_bust": true,
+      "views": null
+     },
+     "preview": {
+      "under_bust": false,
+      "views": [
+       "face",
+       "eyes",
+       "hand_palm.L",
+       "hand_back.L",
+       "hand_palm.R",
+       "hand_back.R"
+      ]
+     }
+    },
+    "views": [
+     "face",
+     "hand_palm.L",
+     "hand_back.L"
+    ]
+   },
+   "failed": [],
+   "gdignore": true,
+   "pngs": [
+    "bust.png",
+    "crotch.png",
+    "eyes.png",
+    "face.png",
+    "face_3q.png",
+    "feet.png",
+    "foot_inner.L.png",
+    "foot_inner.R.png",
+    "foot_outer.L.png",
+    "foot_outer.R.png",
+    "hand_back.L.png",
+    "hand_back.R.png",
+    "hand_palm.L.png",
+    "hand_palm.R.png",
+    "head_back.png",
+    "head_side.png",
+    "knees.png",
+    "sheet.png",
+    "under_bust.png"
+   ],
+   "pose": {
+    "action": "FixWoman_Idle",
+    "frame": 1
+   },
+   "tiles": {
+    "bust": {
+     "coverage": 0.76,
+     "distance_m": 0.8,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.2,
+     "subject_off": 0.14
+    },
+    "crotch": {
+     "coverage": 0.74,
+     "distance_m": 0.8,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.32,
+     "subject_off": 0.14
+    },
+    "eyes": {
+     "coverage": 0.78,
+     "distance_m": 0.4,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.3,
+     "subject_off": 0.0
+    },
+    "face": {
+     "coverage": 0.38,
+     "distance_m": 0.6,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.33,
+     "subject_off": 0.11
+    },
+    "face_3q": {
+     "coverage": 0.39,
+     "distance_m": 0.6,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.31,
+     "subject_off": 0.07
+    },
+    "feet": {
+     "coverage": 0.24,
+     "distance_m": 1.0,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.23,
+     "subject_off": 0.01
+    },
+    "foot_inner.L": {
+     "coverage": 0.17,
+     "distance_m": 0.6,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.12,
+     "subject_off": 0.13
+    },
+    "foot_inner.R": {
+     "coverage": 0.17,
+     "distance_m": 0.6,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.12,
+     "subject_off": 0.13
+    },
+    "foot_outer.L": {
+     "coverage": 0.21,
+     "distance_m": 0.6,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.12,
+     "subject_off": 0.13
+    },
+    "foot_outer.R": {
+     "coverage": 0.21,
+     "distance_m": 0.6,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.12,
+     "subject_off": 0.13
+    },
+    "hand_back.L": {
+     "coverage": 0.29,
+     "distance_m": 0.5,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.12,
+     "subject_off": 0.1
+    },
+    "hand_back.R": {
+     "coverage": 0.29,
+     "distance_m": 0.5,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.12,
+     "subject_off": 0.1
+    },
+    "hand_palm.L": {
+     "coverage": 0.52,
+     "distance_m": 0.5,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.16,
+     "subject_off": 0.14
+    },
+    "hand_palm.R": {
+     "coverage": 0.52,
+     "distance_m": 0.5,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.16,
+     "subject_off": 0.14
+    },
+    "head_back": {
+     "coverage": 0.32,
+     "distance_m": 1.0,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.35,
+     "subject_off": 0.15
+    },
+    "head_side": {
+     "coverage": 0.27,
+     "distance_m": 1.0,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.35,
+     "subject_off": 0.15
+    },
+    "knees": {
+     "coverage": 0.45,
+     "distance_m": 0.8,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.32,
+     "subject_off": 0.0
+    },
+    "under_bust": {
+     "coverage": 0.75,
+     "distance_m": 0.42,
+     "ok": true,
+     "on_body": true,
+     "subject_margin": 0.5,
+     "subject_off": 0.0
+    }
+   },
+   "views": [
+    "face",
+    "face_3q",
+    "eyes",
+    "head_side",
+    "head_back",
+    "hand_palm.L",
+    "hand_back.L",
+    "hand_palm.R",
+    "hand_back.R",
+    "bust",
+    "crotch",
+    "knees",
+    "feet",
+    "foot_inner.L",
+    "foot_outer.L",
+    "foot_inner.R",
+    "foot_outer.R",
+    "under_bust"
+   ],
+   "wears_top": true
+  },
+  "dressed_flesh_edit": {
+   "bound_after": [],
+   "bound_before": [
+    "Shorts",
+    "SportsTop"
+   ],
+   "control": "refused: names garments True, names fresh=1 True",
+   "control_restart": "flesh changed and garments are bound to the rig (Shorts, SportsTop): rebuilding from body",
+   "moves_why": "what it reads of flesh came out the same",
+   "restarted": null,
+   "statuses": {
+    "bake": "unchanged",
+    "body": "unchanged",
+    "flesh": "ran",
+    "moves": "unchanged"
+   },
+   "undressed": {
+    "body_groups": [
+     "wd_hide_SportsTop",
+     "wd_edge_SportsTop",
+     "wd_hide_Shorts",
+     "wd_edge_Shorts"
+    ],
+    "garments": [
+     "Shorts",
+     "SportsTop"
+    ],
+    "hem_bones": 0,
+    "left": []
+   },
+   "unfleshed": "restored"
+  },
+  "flesh_found": {
+   "breast": [
+    "breast.L",
+    "breast.R"
+   ],
+   "butt": [
+    "butt.L",
+    "butt.R"
+   ]
+  },
   "flesh_limits_m": {},
+  "flesh_miss_judged": {
+   "missed": [
+    {
+     "claimed": 0,
+     "min_size": 46,
+     "reason": "too_little",
+     "seeds": 321,
+     "type": "bloater_belly",
+     "zone_vertices": 590
+    }
+   ],
+   "with_may_miss": {
+    "breast": [
+     "breast.L",
+     "breast.R"
+    ],
+    "butt": [
+     "butt.L",
+     "butt.R"
+    ]
+   },
+   "without_may_miss": "failed: names bloater_belly True, gives numbers True"
+  },
+  "flesh_missed": [],
+  "flesh_overrides": {
+   "butt": {
+    "damping_ratio": 0.3,
+    "frequency_hz": 3.0
+   }
+  },
+  "flesh_overrides_refused": {
+   "not_a_table": "[flesh] overrides.butt must be a table of jiggle parameters, e.g. { frequency_hz = 4.5, damping_ratio = 0.6 }",
+   "not_finite": "[flesh] overrides.butt.frequency_hz = nan: a finite number, 0 or more",
+   "unknown_param": "[flesh] overrides.butt: ['stiffness'] are not jiggle parameters (one of ('frequency_hz', 'damping_ratio', 'squash', 'gravity_scale', 'aim', 'translate', 'response', 'frequency_down_ratio', 'frequency_ap_ratio', 'max_offset'); the swing limit is `limit_share`)",
+   "unknown_type": "[flesh] overrides names 'belly', which types does not ask for (['breast', 'butt'])"
+  },
+  "flesh_placement": {
+   "chin_z": 1.473,
+   "control_attachment": {
+    "chin_z": 1.473,
+    "ok": false,
+    "regions": {
+     "breast.L": {
+      "head_share": 0.0,
+      "ok": false,
+      "pivot_rise_m": -0.0289,
+      "tail_z": 1.27,
+      "weight_10cm_above": 0.0,
+      "weight_at_apex": 0.0,
+      "weight_on_thigh": 0.0
+     },
+     "breast.R": {
+      "head_share": 0.0,
+      "ok": false,
+      "pivot_rise_m": -0.0289,
+      "tail_z": 1.27,
+      "weight_10cm_above": 0.0,
+      "weight_at_apex": 0.0,
+      "weight_on_thigh": 0.0
+     },
+     "butt.L": {
+      "head_share": 0.0,
+      "ok": false,
+      "pivot_rise_m": 0.0071,
+      "tail_z": 0.864,
+      "weight_10cm_above": 0.998,
+      "weight_at_apex": 0.0,
+      "weight_on_thigh": 0.442
+     },
+     "butt.R": {
+      "head_share": 0.0,
+      "ok": false,
+      "pivot_rise_m": 0.0067,
+      "tail_z": 0.864,
+      "weight_10cm_above": 0.998,
+      "weight_at_apex": 0.0,
+      "weight_on_thigh": 0.442
+     }
+    }
+   },
+   "control_legacy": {
+    "chin_z": 1.473,
+    "judged": "failed: MISPLACED names the chin True, the face True",
+    "ok": false,
+    "regions": {
+     "breast.L": {
+      "head_share": 0.745,
+      "ok": false,
+      "pivot_rise_m": 0.03,
+      "tail_z": 1.498,
+      "weight_10cm_above": 0.0,
+      "weight_at_apex": 0.937,
+      "weight_on_thigh": 0.0
+     },
+     "breast.R": {
+      "head_share": 0.745,
+      "ok": false,
+      "pivot_rise_m": 0.03,
+      "tail_z": 1.498,
+      "weight_10cm_above": 0.0,
+      "weight_at_apex": 0.937,
+      "weight_on_thigh": 0.0
+     }
+    }
+   },
+   "hanging": {
+    "chin_z": 1.473,
+    "ok": true,
+    "regions": {
+     "breast.L": {
+      "head_share": 0.0,
+      "ok": true,
+      "pivot_rise_m": 0.06,
+      "tail_z": 1.234,
+      "weight_10cm_above": 0.0,
+      "weight_at_apex": 0.991,
+      "weight_on_thigh": 0.0
+     },
+     "breast.R": {
+      "head_share": 0.0,
+      "ok": true,
+      "pivot_rise_m": 0.06,
+      "tail_z": 1.234,
+      "weight_10cm_above": 0.0,
+      "weight_at_apex": 0.991,
+      "weight_on_thigh": 0.0
+     },
+     "butt.L": {
+      "head_share": 0.0,
+      "ok": true,
+      "pivot_rise_m": 0.06,
+      "tail_z": 0.874,
+      "weight_10cm_above": 0.0,
+      "weight_at_apex": 0.992,
+      "weight_on_thigh": 0.0
+     },
+     "butt.R": {
+      "head_share": 0.0,
+      "ok": true,
+      "pivot_rise_m": 0.06,
+      "tail_z": 0.874,
+      "weight_10cm_above": 0.0,
+      "weight_at_apex": 0.994,
+      "weight_on_thigh": 0.0
+     }
+    }
+   },
+   "ok": true,
+   "regions": {
+    "breast.L": {
+     "head_share": 0.0,
+     "ok": true,
+     "pivot_rise_m": 0.06,
+     "tail_z": 1.234,
+     "weight_10cm_above": 0.0,
+     "weight_at_apex": 0.991,
+     "weight_on_thigh": 0.0
+    },
+    "breast.R": {
+     "head_share": 0.0,
+     "ok": true,
+     "pivot_rise_m": 0.06,
+     "tail_z": 1.234,
+     "weight_10cm_above": 0.0,
+     "weight_at_apex": 0.991,
+     "weight_on_thigh": 0.0
+    }
+   }
+  },
   "flesh_regions": [
    "breast.L breast",
    "breast.R breast",
    "butt.L butt",
    "butt.R butt"
+  ],
+  "flesh_stage_placement": [
+   {
+    "centre_height": 0.73,
+    "head_share": 0.0,
+    "name": "breast.L",
+    "ok": true,
+    "tail_height": 0.74
+   },
+   {
+    "centre_height": 0.73,
+    "head_share": 0.0,
+    "name": "breast.R",
+    "ok": true,
+    "tail_height": 0.74
+   },
+   {
+    "centre_height": 0.011,
+    "head_share": 0.0,
+    "name": "butt.L",
+    "ok": true,
+    "tail_height": -0.005
+   },
+   {
+    "centre_height": 0.011,
+    "head_share": 0.0,
+    "name": "butt.R",
+    "ok": true,
+    "tail_height": -0.005
+   }
   ],
   "fresh_session": {
    "build_block": {
@@ -55,12 +576,17 @@
      "ft_jiggle_butt.R"
     ],
     "passed": true,
-    "verts": 1182
+    "verts": 1184
    }
   },
   "height_field": "export.height was removed: height_m.stand is always the Idle clip's standing height (a hair bun does not raise it) - delete the line",
   "idle_standing_height_m": 1.6991,
   "manifest": {
+   "arm_gait_on_disk": {
+    "FixWoman_Idle": "walk",
+    "FixWoman_Run": "run",
+    "FixWoman_Walk": "walk"
+   },
    "arm_pose_on_disk": {
     "FixWoman_Idle": {
      "upper_arm.L": {
@@ -74,8 +600,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.155,
-       -0.145
+       -0.15,
+       -0.138
       ],
       "upper_arm_deg": [
        3.0,
@@ -93,8 +619,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.155,
-       -0.145
+       -0.15,
+       -0.138
       ],
       "upper_arm_deg": [
        3.0,
@@ -105,80 +631,80 @@
     "FixWoman_Run": {
      "upper_arm.L": {
       "arm_carry_deg": [
-       0.5,
+       1.5,
        53.2
       ],
-      "arm_swing_deg": 52.7,
+      "arm_swing_deg": 51.6,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.121,
-       0.467
+       0.137,
+       0.471
       ],
       "upper_arm_deg": [
-       -40.0,
-       13.7
+       -39.8,
+       13.5
       ]
      },
      "upper_arm.R": {
       "arm_carry_deg": [
-       0.5,
+       1.5,
        53.2
       ],
-      "arm_swing_deg": 52.7,
+      "arm_swing_deg": 51.6,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.121,
-       0.467
+       0.137,
+       0.471
       ],
       "upper_arm_deg": [
-       -40.0,
-       13.7
+       -39.8,
+       13.5
       ]
      }
     },
     "FixWoman_Walk": {
      "upper_arm.L": {
       "arm_carry_deg": [
-       -9.1,
-       30.4
+       -9.9,
+       31.5
       ],
-      "arm_swing_deg": 39.6,
+      "arm_swing_deg": 41.4,
       "elbow_flex_deg": [
-       7.0,
+       7.1,
        23.0
       ],
       "hand_rise": [
-       -0.177,
-       0.004
+       -0.191,
+       0.009
       ],
       "upper_arm_deg": [
-       -12.9,
-       19.1
+       -13.6,
+       20.2
       ]
      },
      "upper_arm.R": {
       "arm_carry_deg": [
-       -9.1,
-       30.4
+       -10.1,
+       31.3
       ],
-      "arm_swing_deg": 39.6,
+      "arm_swing_deg": 41.4,
       "elbow_flex_deg": [
        7.0,
-       23.0
+       22.9
       ],
       "hand_rise": [
-       -0.177,
-       0.004
+       -0.192,
+       0.01
       ],
       "upper_arm_deg": [
-       -12.9,
-       19.1
+       -13.8,
+       20.0
       ]
      }
     }
@@ -190,14 +716,37 @@
    },
    "collider": {
     "height": 1.6985,
-    "radius": 0.2229
+    "radius": 0.2254
    },
    "dropped_clips": [],
-   "fields": {
-    "first": "arm_pose",
-    "last": "verified",
-    "len": 23
-   },
+   "fields": [
+    "arm_gait",
+    "arm_pose",
+    "brief",
+    "build",
+    "clip_checks",
+    "clips",
+    "collider",
+    "contacts",
+    "creature",
+    "flesh",
+    "forced_clips",
+    "gaits",
+    "garments",
+    "height_m",
+    "implied_speed_mps",
+    "known_failures",
+    "loops",
+    "name",
+    "note",
+    "posture",
+    "rig",
+    "scene",
+    "skin",
+    "stance_width",
+    "style",
+    "verified"
+   ],
    "gaits": {
     "Run": {
      "duty_factor": 0.345,
@@ -206,20 +755,30 @@
      "hip_height_m": 0.8635,
      "natural_speed_mps": 4.1161,
      "spine_flex_deg": 0.0,
+     "stance_knee_flex_deg": {
+      "thigh.L": 51.1,
+      "thigh.R": 51.1
+     },
      "stride_frequency_hz": 1.683,
      "stride_m": 2.4452,
-     "stroke_m": 0.8425
+     "stroke_m": 0.8425,
+     "vault": false
     },
     "Walk": {
-     "duty_factor": 0.55,
-     "froude": 0.163,
+     "duty_factor": 0.627,
+     "froude": 0.2,
      "gait": "walk",
      "hip_height_m": 0.8635,
-     "natural_speed_mps": 1.174,
+     "natural_speed_mps": 1.3016,
      "spine_flex_deg": 0.0,
+     "stance_knee_flex_deg": {
+      "thigh.L": 11.5,
+      "thigh.R": 11.5
+     },
      "stride_frequency_hz": 1.062,
-     "stride_m": 1.1054,
-     "stroke_m": 0.608
+     "stride_m": 1.2255,
+     "stroke_m": 0.7681,
+     "vault": true
     }
    },
    "height_m": {
@@ -232,6 +791,60 @@
    ],
    "problems": []
   },
+  "manifest_flesh": {
+   "missed": [],
+   "regions": [
+    {
+     "bone": "ft_jiggle_breast.L",
+     "damping_ratio": 0.25,
+     "frequency_hz": 2.4,
+     "material": "soft_fat",
+     "max_offset_m": 0.0542,
+     "name": "breast.L",
+     "parent": "spine.003",
+     "peak_m": 0.0821,
+     "type": "breast"
+    },
+    {
+     "bone": "ft_jiggle_breast.R",
+     "damping_ratio": 0.25,
+     "frequency_hz": 2.4,
+     "material": "soft_fat",
+     "max_offset_m": 0.0542,
+     "name": "breast.R",
+     "parent": "spine.003",
+     "peak_m": 0.0821,
+     "type": "breast"
+    },
+    {
+     "bone": "ft_jiggle_butt.L",
+     "damping_ratio": 0.3,
+     "frequency_hz": 3.0,
+     "material": "soft_fat",
+     "max_offset_m": 0.0796,
+     "name": "butt.L",
+     "parent": "spine",
+     "peak_m": 0.0885,
+     "type": "butt"
+    },
+    {
+     "bone": "ft_jiggle_butt.R",
+     "damping_ratio": 0.3,
+     "frequency_hz": 3.0,
+     "material": "soft_fat",
+     "max_offset_m": 0.0796,
+     "name": "butt.R",
+     "parent": "spine",
+     "peak_m": 0.0885,
+     "type": "butt"
+    }
+   ],
+   "types": [
+    "breast",
+    "butt"
+   ]
+  },
+  "may_miss_stray": "[flesh] may_miss names ['belly'], which types does not ask for (['breast', 'butt'])",
   "moves": {
    "Idle": {
     "drop_m": null,
@@ -249,7 +862,8 @@
     "passed": true
    }
   },
-  "refused": "[fixwoman] garments are bound to the rig (Shorts, SportsTop) - run moves before garments: rig-anything measures arm hang against every mesh on the rig",
+  "no_skin": "body.skin is required: a screen (sRGB) colour, e.g. [0.87, 0.72, 0.60] light, [0.62, 0.45, 0.36] medium, [0.30, 0.19, 0.13] deep - without it the body keeps MPFB's untextured white material",
+  "refused": "[fixwoman] garments are bound to the rig (Shorts, SportsTop) - run moves before garments, or build from body (a whole build restarts there by itself; fresh=1 builds from nothing): rig-anything measures arm hang against every mesh on the rig",
   "rerun": {
    "bake": "unchanged",
    "body": "unchanged",
@@ -287,23 +901,23 @@
     ],
     "FixWoman_Run": [
      1,
+     3,
      4,
-     7,
+     6,
+     8,
      10,
-     13,
-     16,
-     19,
-     22
+     12,
+     13
     ],
     "FixWoman_Walk": [
      1,
-     5,
-     9,
-     13,
-     17,
-     21,
-     25,
-     29
+     4,
+     7,
+     10,
+     12,
+     15,
+     18,
+     21
     ]
    },
    "gdignore": true,
@@ -430,6 +1044,54 @@
    "Shorts",
    "SportsTop"
   ],
+  "skin": {
+   "body_tone": [
+    0.63,
+    0.45,
+    0.36
+   ],
+   "detail": "pores",
+   "godot_sss": true,
+   "lips_tone": [
+    0.58,
+    0.35,
+    0.29
+   ],
+   "lookdev_preset": "skin",
+   "nipple_tone": [
+    0.52,
+    0.33,
+    0.25
+   ],
+   "size": 2048,
+   "stage": "baked",
+   "textures": {
+    "base_color": true,
+    "normal": true,
+    "roughness": true
+   },
+   "tone_baked": [
+    0.62,
+    0.45,
+    0.36
+   ],
+   "tone_ok": true,
+   "tone_target": [
+    0.62,
+    0.45,
+    0.36
+   ],
+   "uv_sets": [
+    "TEXCOORD_0",
+    "TEXCOORD_1"
+   ]
+  },
+  "sourced_pins": {
+   "as_is": [],
+   "pinned": [
+    "moves.per_gait.Walk.upper pins head_hold = 0.85; rig-anything derives it from speed and a published source (upper.defaults) - drop it unless this character is meant to move differently, and say why beside it"
+   ]
+  },
   "stages": {
    "bake": "ran",
    "body": "ran",
@@ -438,6 +1100,7 @@
    "garments": "ran",
    "moves": "ran",
    "review": "ran"
-  }
+  },
+  "unknown_flesh_type": "[flesh] types ['moobs']: not flesh types follow-through's registry has (one of ['arm_flab', 'belly', 'bloater_belly', 'breast', 'butt', 'love_handle', 'thigh']); a name like 'moob' or 'gut' is recognised on a mesh, but a spec names the type"
  }
 }

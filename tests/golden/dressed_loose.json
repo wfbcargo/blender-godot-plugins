@@ -1,0 +1,375 @@
+{
+ "fixture": "dressed_loose",
+ "plugins": {
+  "follow-through": "0.10.0",
+  "rig-anything": "0.38.0",
+  "wardrobe": "0.7.0"
+ },
+ "report": {
+  "body": {
+   "flesh_regions": 9,
+   "jiggle_bones": 9,
+   "vertices": 17112
+  },
+  "body_export": {
+   "durations_match": true,
+   "exported": true
+  },
+  "control_tucked": {
+   "detail_passed": true,
+   "passed": false,
+   "problems": [
+    "tuck: the cloth tucks 34.1 mm back in under the widest point above it, limit 8.0 mm"
+   ],
+   "tuck": {
+    "at_z": 1.141,
+    "limit_mm": 8.0,
+    "max_mm": 34.1,
+    "p95_mm": 28.2,
+    "passed": false,
+    "problems": [
+     "tuck: the cloth tucks 34.1 mm back in under the widest point above it, limit 8.0 mm"
+    ],
+    "verts": 1104
+   }
+  },
+  "garments": {
+   "longsleeve": {
+    "cover": {
+     "body": "Figure",
+     "body_verts": 17112,
+     "covered": 7196,
+     "disagree": 795,
+     "edge": 1783,
+     "garment": "Longsleeve",
+     "hidden": 5413,
+     "hidden_gap_max_m": 0.0931,
+     "hidden_gap_median_m": 0.0175,
+     "margin": 0.03,
+     "max_gap": 0.1,
+     "tris_hidden": 10287,
+     "tris_total": 34220
+    },
+    "cut": {
+     "hem": 6735,
+     "neck": 2561,
+     "pieces_dropped": 0,
+     "sleeve.L": 136,
+     "sleeve.R": 112
+    },
+    "ease": {
+     "compression": {
+      "edge_m": 0.01,
+      "fade_m": 0.05,
+      "gap_min_from_compressed_m": 0.0073,
+      "inside_skin_verts": 0,
+      "moved_max_m": 0.0094,
+      "moved_p95_m": 0.0074,
+      "passes": 397,
+      "region_verts": 7735,
+      "settle": {
+       "moved_max_m": 0.0039,
+       "passes": 18,
+       "reach_m": 0.05
+      },
+      "smooth": 1.0
+     },
+     "detail": {
+      "band_m": 0.03,
+      "limit": {
+       "all": 0.06
+      },
+      "passed": true,
+      "passes": {
+       "cloth": 6,
+       "skin": 9
+      },
+      "problems": [],
+      "reach_m": 0.03,
+      "regions": {
+       "all": {
+        "cloth_relief_mm": 0.056,
+        "cloth_verts": 6667,
+        "relief_mm": 0.032,
+        "skin_relief_mm": 0.056,
+        "skin_verts": 6468,
+        "traced": 0.58
+       },
+       "arm_flab": {
+        "cloth_relief_mm": 0.011,
+        "cloth_verts": 536,
+        "relief_mm": 0.001,
+        "skin_relief_mm": 0.039,
+        "skin_verts": 536,
+        "traced": 0.036
+       },
+       "belly": {
+        "cloth_relief_mm": 0.007,
+        "cloth_verts": 195,
+        "relief_mm": 0.0,
+        "skin_relief_mm": 0.02,
+        "skin_verts": 169,
+        "traced": -0.146
+       },
+       "breast": {
+        "cloth_relief_mm": 0.052,
+        "cloth_verts": 414,
+        "relief_mm": 0.026,
+        "skin_relief_mm": 0.054,
+        "skin_verts": 413,
+        "traced": 0.474
+       },
+       "butt": {
+        "cloth_relief_mm": 0.014,
+        "cloth_verts": 187,
+        "relief_mm": 0.0,
+        "skin_relief_mm": 0.045,
+        "skin_verts": 158,
+        "traced": -0.012
+       }
+      }
+     },
+     "gap_max_m": 0.1177,
+     "gap_median_m": 0.0185,
+     "gap_min_m": 0.0104,
+     "gap_p95_m": 0.0846,
+     "tuck": {
+      "at_z": 1.197,
+      "limit_mm": 8.0,
+      "max_mm": 3.7,
+      "p95_mm": 0.4,
+      "passed": true,
+      "problems": [],
+      "verts": 1096
+     },
+     "verts": 7925
+    },
+    "export": {
+     "edge": 1783,
+     "exported": true,
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-9w0k1gr8\\dressed_loose\\dressed_loose\\longsleeve.glb",
+     "garment": "Longsleeve",
+     "hem_bones": 16,
+     "hem_head_error_m": 1e-06,
+     "hidden": 5413,
+     "joints": 70,
+     "passed": true,
+     "problems": [],
+     "size_bytes": 589084,
+     "weight_sum_min": 1.0
+    },
+    "exported": true,
+    "folded_faces": 0,
+    "garment": "Longsleeve",
+    "hem_rings": [
+     {
+      "bones": 8,
+      "frequency_hz": 2.24,
+      "gap_min_m": 0.0334,
+      "hinge_m": 0.14,
+      "parents": [
+       "spine",
+       "spine.001",
+       "spine.002"
+      ],
+      "ring": "hem",
+      "weighted_verts": 1426
+     },
+     {
+      "bones": 4,
+      "frequency_hz": 2.7,
+      "gap_min_m": 0.0153,
+      "hinge_m": 0.061,
+      "parents": [
+       "forearm.L"
+      ],
+      "ring": "cuff.L",
+      "weighted_verts": 178
+     },
+     {
+      "bones": 4,
+      "frequency_hz": 2.7,
+      "gap_min_m": 0.0154,
+      "hinge_m": 0.061,
+      "parents": [
+       "forearm.R"
+      ],
+      "ring": "cuff.R",
+      "weighted_verts": 163
+     }
+    ],
+    "passed": true,
+    "problems": [],
+    "vertices": 7925
+   },
+   "tshirt": {
+    "cover": {
+     "body": "Figure",
+     "body_verts": 17112,
+     "covered": 5294,
+     "disagree": 825,
+     "edge": 1699,
+     "garment": "Tshirt",
+     "hidden": 3595,
+     "hidden_gap_max_m": 0.0939,
+     "hidden_gap_median_m": 0.0188,
+     "margin": 0.03,
+     "max_gap": 0.1,
+     "tris_hidden": 6747,
+     "tris_total": 34220
+    },
+    "cut": {
+     "hem": 6698,
+     "neck": 2566,
+     "pieces_dropped": 0,
+     "sleeve.L": 1111,
+     "sleeve.R": 1091
+    },
+    "ease": {
+     "compression": {
+      "edge_m": 0.0102,
+      "fade_m": 0.05,
+      "gap_min_from_compressed_m": 0.0092,
+      "inside_skin_verts": 0,
+      "moved_max_m": 0.008,
+      "moved_p95_m": 0.0067,
+      "passes": 387,
+      "region_verts": 5824,
+      "settle": {
+       "moved_max_m": 0.0019,
+       "passes": 18,
+       "reach_m": 0.05
+      },
+      "smooth": 1.0
+     },
+     "detail": {
+      "band_m": 0.03,
+      "limit": {
+       "all": 0.06
+      },
+      "passed": true,
+      "passes": {
+       "cloth": 6,
+       "skin": 9
+      },
+      "problems": [],
+      "reach_m": 0.03,
+      "regions": {
+       "all": {
+        "cloth_relief_mm": 0.051,
+        "cloth_verts": 4679,
+        "relief_mm": 0.024,
+        "skin_relief_mm": 0.047,
+        "skin_verts": 4501,
+        "traced": 0.507
+       },
+       "arm_flab": {
+        "cloth_relief_mm": 0.027,
+        "cloth_verts": 27,
+        "relief_mm": 0.008,
+        "skin_relief_mm": 0.018,
+        "skin_verts": 26,
+        "traced": 0.42
+       },
+       "belly": {
+        "cloth_relief_mm": 0.006,
+        "cloth_verts": 197,
+        "relief_mm": 0.0,
+        "skin_relief_mm": 0.02,
+        "skin_verts": 181,
+        "traced": -0.157
+       },
+       "breast": {
+        "cloth_relief_mm": 0.05,
+        "cloth_verts": 414,
+        "relief_mm": 0.023,
+        "skin_relief_mm": 0.054,
+        "skin_verts": 413,
+        "traced": 0.427
+       },
+       "butt": {
+        "cloth_relief_mm": 0.013,
+        "cloth_verts": 183,
+        "relief_mm": 0.0,
+        "skin_relief_mm": 0.044,
+        "skin_verts": 154,
+        "traced": 0.003
+       }
+      }
+     },
+     "gap_max_m": 0.1194,
+     "gap_median_m": 0.0308,
+     "gap_min_m": 0.0104,
+     "gap_p95_m": 0.0906,
+     "tuck": {
+      "at_z": 1.201,
+      "limit_mm": 8.0,
+      "max_mm": 3.2,
+      "p95_mm": 0.2,
+      "passed": true,
+      "problems": [],
+      "verts": 1079
+     },
+     "verts": 6016
+    },
+    "export": {
+     "edge": 1699,
+     "exported": true,
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-9w0k1gr8\\dressed_loose\\dressed_loose\\tshirt.glb",
+     "garment": "Tshirt",
+     "hem_bones": 16,
+     "hem_head_error_m": 1e-06,
+     "hidden": 3595,
+     "joints": 54,
+     "passed": true,
+     "problems": [],
+     "size_bytes": 446084,
+     "weight_sum_min": 1.0
+    },
+    "exported": true,
+    "folded_faces": 0,
+    "garment": "Tshirt",
+    "hem_rings": [
+     {
+      "bones": 8,
+      "frequency_hz": 1.73,
+      "gap_min_m": 0.036,
+      "hinge_m": 0.14,
+      "parents": [
+       "spine",
+       "spine.001",
+       "spine.002"
+      ],
+      "ring": "hem",
+      "weighted_verts": 1393
+     },
+     {
+      "bones": 4,
+      "frequency_hz": 2.32,
+      "gap_min_m": 0.0185,
+      "hinge_m": 0.059,
+      "parents": [
+       "upper_arm.L"
+      ],
+      "ring": "cuff.L",
+      "weighted_verts": 211
+     },
+     {
+      "bones": 4,
+      "frequency_hz": 2.33,
+      "gap_min_m": 0.0185,
+      "hinge_m": 0.059,
+      "parents": [
+       "upper_arm.R"
+      ],
+      "ring": "cuff.R",
+      "weighted_verts": 216
+     }
+    ],
+    "passed": true,
+    "problems": [],
+    "vertices": 6016
+   }
+  }
+ }
+}

@@ -1,7 +1,7 @@
 {
  "fixture": "cricket",
  "plugins": {
-  "rig-anything": "0.23.0"
+  "rig-anything": "0.30.0"
  },
  "report": {
   "detection": {
@@ -123,8 +123,8 @@
     "CricketTest_rig_JumpAir",
     "CricketTest_rig_JumpLand"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\cricket\\cricket\\cricket.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\cricket\\cricket\\cricket.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-qyx0c2z2\\cricket\\cricket\\cricket.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-qyx0c2z2\\cricket\\cricket\\cricket.moves.json",
    "review": {
     "bands_px": [
      45,
@@ -140,7 +140,7 @@
      1079
     ],
     "count": 16,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\cricket\\cricket\\review\\cricket",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-qyx0c2z2\\cricket\\cricket\\review\\cricket",
     "frame_height_m": 0.05,
     "frames": {
      "CricketTest_rig_Idle": [
@@ -185,16 +185,16 @@
      ],
      "CricketTest_rig_Walk": [
       1,
+      3,
       5,
+      7,
       9,
+      11,
       13,
-      17,
-      21,
-      25,
-      29
+      15
      ]
     },
-    "seconds": 7.22,
+    "seconds": 5.2,
     "strips": {
      "CricketTest_rig_Idle": {
       "front": {
@@ -458,25 +458,25 @@
      "feet": [
       {
        "bone": "fore_tarsus.L",
-       "duty_factor": 0.719,
+       "duty_factor": 0.75,
        "leg": "fore.L",
        "length": 0.00282,
        "stance": [
         [
          0.0,
-         0.7188
+         0.75
         ]
        ]
       },
       {
        "bone": "fore_tarsus.R",
-       "duty_factor": 0.719,
+       "duty_factor": 0.75,
        "leg": "fore.R",
        "length": 0.00282,
        "stance": [
         [
          0.0,
-         0.2188
+         0.25
         ],
         [
          0.5,
@@ -486,13 +486,13 @@
       },
       {
        "bone": "mid_tarsus.L",
-       "duty_factor": 0.719,
+       "duty_factor": 0.75,
        "leg": "mid.L",
        "length": 0.00281,
        "stance": [
         [
          0.0,
-         0.2188
+         0.25
         ],
         [
          0.5,
@@ -502,37 +502,37 @@
       },
       {
        "bone": "mid_tarsus.R",
-       "duty_factor": 0.719,
+       "duty_factor": 0.75,
        "leg": "mid.R",
        "length": 0.00281,
        "stance": [
         [
          0.0,
-         0.7188
+         0.75
         ]
        ]
       },
       {
        "bone": "hind_tarsus.L",
-       "duty_factor": 0.719,
+       "duty_factor": 0.75,
        "leg": "hind.L",
        "length": 0.00516,
        "stance": [
         [
          0.0,
-         0.7188
+         0.75
         ]
        ]
       },
       {
        "bone": "hind_tarsus.R",
-       "duty_factor": 0.719,
+       "duty_factor": 0.75,
        "leg": "hind.R",
        "length": 0.00516,
        "stance": [
         [
          0.0,
-         0.2188
+         0.25
         ],
         [
          0.5,
@@ -553,9 +553,18 @@
      "hip_height_m": 0.0036,
      "natural_speed_mps": 0.0377,
      "spine_flex_deg": 0.0,
+     "stance_knee_flex_deg": {
+      "fore.L": 83.0,
+      "fore.R": 83.0,
+      "hind.L": 147.9,
+      "hind.R": 147.9,
+      "mid.L": 77.2,
+      "mid.R": 77.2
+     },
      "stride_frequency_hz": 11.884,
      "stride_m": 0.0032,
-     "stroke_m": 0.0022
+     "stroke_m": 0.0022,
+     "vault": false
     }
    },
    "height_m": {
@@ -866,7 +875,7 @@
     "problems": []
    },
    "implied_speed_mps": {
-    "CricketTest_rig_Walk": 0.0023
+    "CricketTest_rig_Walk": 0.0045
    },
    "loops": [
     "CricketTest_rig_Idle",
@@ -1154,6 +1163,10 @@
    "Walk": {
     "action": "CricketTest_rig_Walk",
     "adjustments": [],
+    "angular_momentum": {
+     "up_mean_abs": 0.02894,
+     "up_range": 0.10725
+    },
     "attempts": 1,
     "balance": null,
     "bounce_scale": null,
@@ -1226,14 +1239,14 @@
     "fps": 24,
     "frames": [
      1,
-     33
+     17
     ],
     "froude": 0.04,
     "froude_requested": 0.04,
     "gait": "tripod",
     "hip_height_m": 0.0036,
-    "implied_speed_cycle_mps": 0.0024,
-    "implied_speed_playback_mps": 0.0023,
+    "implied_speed_cycle_mps": 0.0048,
+    "implied_speed_playback_mps": 0.0045,
     "lift_m": 0.0013,
     "lift_scale": null,
     "limited_by": [],
@@ -1266,6 +1279,14 @@
     "rig": "CricketTest_rig",
     "skin_lowest": -0.0,
     "spine_flex_deg": 0.0,
+    "stance_knee_flex_deg": {
+     "fore.L": 83.0,
+     "fore.R": 83.0,
+     "hind.L": 147.9,
+     "hind.R": 147.9,
+     "mid.L": 77.2,
+     "mid.R": 77.2
+    },
     "stance_shift_m": {
      "fore.L": 0.0,
      "fore.R": 0.0,
@@ -1297,7 +1318,9 @@
      "mid.R": 82.2
     },
     "tolerance": 0.00014,
-    "upper": null
+    "upper": null,
+    "vault": false,
+    "vault_drop_m": null
    }
   },
   "review": {
@@ -1358,13 +1381,13 @@
     ],
     "CricketTest_rig_Walk": [
      1,
+     3,
      5,
+     7,
      9,
+     11,
      13,
-     17,
-     21,
-     25,
-     29
+     15
     ]
    },
    "gdignore": true,

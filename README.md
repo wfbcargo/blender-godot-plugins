@@ -220,7 +220,7 @@ Before changing anything shared, and before calling it done, run the fixtures:
 
 ```
 python tools/regress.py --jobs 2
-python tools/regress.py --twice --jobs 2 --godot <a Godot project>   # before merging
+python tools/regress.py --quick --jobs 2      # optional; never a merge gate (CLAUDE.md)
 ```
 
 Eight bodies are rebuilt from nothing in headless Blender: a woman from a seeded brief, a Rigify

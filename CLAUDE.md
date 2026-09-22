@@ -12,25 +12,54 @@ project they are exercised on is `C:/Users/pauli/Code/GoDot/grungist-creek`. Pla
   and the branch. Parallel agents in one checkout have overwritten each other's edits before.
 - **One scratch folder per agent.** Nothing in the repo root, a shared temp folder or the project:
   loose logs and blends from a shared folder have been mistaken for another agent's results.
-- **Run the fixtures before calling a change done**, and before changing shared code:
+- **The goal is plugins that produce assets, not perfect assets** (the user's rule, 2026-09-21). Capture
+  the improvement, build fresh, and move on; do not spend a round scrutinising small numeric drift. What
+  proves a change is a fresh build of the characters it affects (`character-pipeline/scripts/build_many.py`)
+  and the game's demo self-tests passing in Godot - not the regression suite.
+- **The regression suite is optional, and never a merge gate.** It was consistently the slowest part of a
+  round (10-20+ minutes for `--twice --godot`) and the least useful. Keep what it is good at, cheaply:
+  - **Run `--quick` in the background and never wait on it.** Start it when a change touches shared code,
+    carry on building and looking, and when it ends read it for **crashes and pass/fail flips** only - a value
+    that moved is expected when behaviour was meant to change; do not chase it or block a merge on it. It
+    earns its keep there: in the likeness round it alone caught a knee change that took a crouch, a jump and
+    a slide off the rest pose (a fresh build of the humans did not show it).
+  - **Re-record the goldens at the end of every round, unreviewed** (`--update`, one command, run in the
+    background), so the next round's run is quiet and a real flip stands out. A suite nobody refreshes fills
+    with CHANGED rows until no one can see a failure in it.
+  - **When a change touches shared rig code, also build one creature fresh** (the cricket, rabbit or quadruped
+    fixture), not only humans: they share rig-anything's legs and a human round never rebuilds them.
 
   ```
-  python tools/regress.py --jobs 2                                          # every edit that matters
-  python tools/regress.py --twice --jobs 2                                  # before merging
-  python tools/regress.py --twice --jobs 2 --godot C:/Users/pauli/Code/GoDot/grungist-creek
-                                                                            # when a Godot addon or an
-                                                                            # export changed
+  python tools/regress.py --quick --jobs 2      # background: only the fixtures the change reaches
+  python tools/regress.py --update --jobs 2     # background, end of round: goldens follow what shipped
   ```
 
-  A golden moves only in a reviewed commit (`--update`, then read `git diff tests/golden`), and a
-  new golden is recorded with `--twice`. Never widen a tolerance to make a change pass: find why it
-  moved. A full `--twice --godot` run takes about 10 minutes. See `tests/README.md`.
+  Never widen a tolerance to hide a real failure. Every run ends with `REGRESS DONE exit=N, K fixtures ok`
+  and prints the path of the full diff. See `tests/README.md`.
+- **Catch it upfront.** The goal is plugins that guide the work to a great design quickly, so a mistake found
+  by a check before a build is worth far more than one found by looking after it. When a round finds a
+  mistake by eye, add the check that would have caught it first (a spec refusal, a stage check, a warning
+  with the fix in it) - `docs/improvements/NEXT.md`, "Catch it upfront", lists the open ones. Until those
+  checks exist, do by hand what they will do (each cost the likeness round rebuilds):
+  - **Judge the look in Godot, not in Blender's review tiles.** A dress showing the bust and a beard's
+    square patches looked fine or different in Blender and were obvious in the game. Import, run the demo,
+    orbit in close (the figure-study demos' camera), and use lookdev's `close-shot`.
+  - **Build an extreme body alongside the change** - petite, very tall, elderly or heavy. A 1.53 m body found
+    three problems the 1.57-1.80 m reference figures never showed.
+  - **Look at the rest skeleton before animating a new body.** A knee a few millimetres off the hip-ankle
+    line bowed every clip's legs (rig-anything's body map now warns: read its warnings).
+  - **A garment preset over the bust or belly needs an `ease` with a `detail_limit`**, or it traces the body.
+  - **A likeness takes a frontal photo.** A turned head hides a cheek and shortens every width: find another
+    photo rather than fit to it, and check the fit's `likeness.at_limit` before trusting the face.
+  - **A real person's likeness gets no breast or butt jiggle and no garment that shows the body.**
 - **Install only with `tools/install.py <plugin>` or `--all`.** It is the only path into
   `~/.claude/skills`, which is what Claude Code loads. It refuses to overwrite a copy that was edited
   in place: move that edit into the repo first. Other machines get a change by push and
   `/plugin marketplace update blender-godot-plugins`.
-- **Bump a plugin's version** in its `.claude-plugin/plugin.json` and in `.claude-plugin/marketplace.json`,
-  and add a "Since x.y.z" sentence to the marketplace description, since that is what other machines read.
+- **Bump a plugin's version** with `python tools/bump.py <plugin> <x.y.z> "<what changed>"`: it sets the
+  version in its `.claude-plugin/plugin.json` and in `.claude-plugin/marketplace.json`, and appends the
+  "Since x.y.z" sentence to the marketplace description, since that is what other machines read. It
+  refuses a malformed or non-increasing version and an unknown plugin.
 
 ## Running Blender and Godot headless
 
@@ -43,10 +72,12 @@ project they are exercised on is `C:/Users/pauli/Code/GoDot/grungist-creek`. Pla
   points elsewhere. Fixtures redirect it; ad-hoc scripts must do the same.
 - A background command's output file stays empty until the command ends. Run long builds in the
   foreground with a generous timeout.
-- To build grungist-creek's characters against a checkout without touching its assets, copy
-  `assets/humans/`, `assets/save_guard.py` and `assets/belle/` into a scratch folder with the same
-  layout. Set `PROJECT` and `BLEND_DIR` to that folder, and `RA_SCRIPTS`, `HF_SCRIPTS`,
-  `FT_SCRIPTS`, `WD_SCRIPTS` to this repo's `plugins/<name>/scripts`.
+- To build grungist-creek's characters against a checkout without touching its assets:
+  `python tools/scratch_project.py <scratch dir> [--who study_man,...]` (run from that checkout). It copies
+  the specs, build scripts, addons and the chosen characters' blends and exports, writes `env.sh`/`env.ps1`
+  (`PROJECT`, `BLEND_DIR`, `*_SCRIPTS` at the checkout, `HUMANFORM_LIBRARY` at a copy), imports it in Godot
+  and prints the one command that builds a figure (`bash <dir>/build.sh study_man`). Specs' `[export] blend`
+  are relative (under `BLEND_DIR`, else the project), and a build refuses to save outside both.
 
 ## Gotchas
 

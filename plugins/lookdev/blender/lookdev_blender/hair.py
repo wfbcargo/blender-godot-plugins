@@ -96,6 +96,32 @@ def strand_texture(colour_linear, p, seed=0):
     lock = 1 + p.get("lock_jitter", 0.0) * lock / nl
     r0, r1 = p["root_zone"]
     t0, t1 = p["tip_zone"]
+    # a feathered hairline (off at the defaults): where the opaque middle starts wanders across U by up to
+    # `root_ragged` of V past root_zone[1], and each strand's root lies between root_zone[0] and that start,
+    # skewed toward it by `root_power` (< 1: fewer strands reach the edge, so coverage thins out toward it). Its
+    # own random stream, so a preset without it draws exactly the strands it always did.
+    ragged = float(p.get("root_ragged", 0.0))
+    rpow = float(p.get("root_power", 1.0))
+    if ragged > 0:
+        frng = np.random.RandomState(seed + 7919)
+        uu0 = (np.arange(W) + 0.5) / W
+        low = np.zeros(W)
+        for k in range(1, 5):
+            low += frng.normal() / k * np.sin(2 * math.pi * (k + 1) * uu0 + frng.uniform(0, 2 * math.pi))
+        # and strand by strand: a value per strand's pitch, eased between strands and blurred over three,
+        # so the edge is uneven at the scale of a few hairs, not a row of scallops
+        cells = frng.uniform(0.0, 1.0, n)
+        cells = (np.roll(cells, 1) + 2 * cells + np.roll(cells, -1)) / 4
+        pos = uu0 * n - 0.5
+        i0 = np.floor(pos).astype(int)
+        fr = _smooth(0.0, 1.0, pos - i0)
+        high = cells[i0 % n] * (1 - fr) + cells[(i0 + 1) % n] * fr
+        norm = lambda a: (a - a.min()) / max(float(a.max() - a.min()), 1e-9)
+        wob = 0.35 * norm(low) + 0.65 * norm(high)
+        body_start = r1 + ragged * wob                               # (W,)
+    else:
+        frng = None
+        body_start = np.full(W, float(r1))
 
     cover = np.zeros((H, W))                                        # strand coverage, 0..1
     shade = np.full((H, W), p["gap_mult"])                          # brightness of what shows there
@@ -107,9 +133,13 @@ def strand_texture(colour_linear, p, seed=0):
         root = rng.uniform(r0, r1)
         tip = rng.uniform(t0, t1)
         freq, phase = rng.uniform(1.0, 3.0), rng.uniform(0, 2 * math.pi)
+        if ragged > 0 or rpow != 1.0:
+            start = float(body_start[int(cx) % W])
+            root = r0 + (start - r0) * ((root - r0) / max(r1 - r0, 1e-9)) ** rpow
         centre = cx + p["wave_px"] * np.sin(2 * math.pi * (v * freq) + phase)     # (H,)
         # thinner near its own ends
-        width = half * (0.35 + 0.65 * _smooth(root, root + 0.03, v) * (1 - _smooth(tip - 0.04, tip, v)))
+        rw = p.get("root_width", 0.35)
+        width = half * (rw + (1 - rw) * _smooth(root, root + 0.03, v) * (1 - _smooth(tip - 0.04, tip, v)))
         alive = (v > root) & (v < tip)
         lo = int(math.floor(cx - half - p["wave_px"] - 1))
         hi = int(math.ceil(cx + half + p["wave_px"] + 1))
@@ -124,8 +154,78 @@ def strand_texture(colour_linear, p, seed=0):
         shade[:, wrapped] = np.where(better, (p["gap_mult"] + (1 - p["gap_mult"]) * prof) * bright,
                                      shade[:, wrapped])
 
-    body = _smooth(r1 - 0.01, r1 + 0.005, v) * (1 - _smooth(t0 - 0.005, t0 + 0.01, v))   # opaque middle
-    alpha = np.maximum(body[:, None], cover)
+    # a shell has an opaque middle between the thinned roots and tips (it hides the scalp); a card has none -
+    # its strands with gaps between them all the way along, so a card over skin shows skin between the hairs
+    # fine hairs (`fine_per_tile`, off at the defaults): short, thin and lighter, rooted over the root zone
+    # before the opaque middle starts - the vellus a real hairline fades out through
+    for j in range(int(p.get("fine_per_tile", 0))):
+        cx = frng.uniform(0, W) if frng is not None else rng.uniform(0, W)
+        g = frng if frng is not None else rng
+        start = float(body_start[int(cx) % W])
+        root = g.uniform(r0, start)
+        tip = min(root + g.uniform(0.015, 0.05), start + 0.02)
+        half = pitch * g.uniform(0.2, 0.35)
+        lean = g.normal(0.0, 1.5)
+        centre = cx + lean * _smooth(root, tip, v)
+        alive = (v > root) & (v < tip)
+        width = half * (1 - 0.6 * _smooth(root, tip, v))
+        lo, hi = int(math.floor(cx - 4)), int(math.ceil(cx + 4))
+        cols = np.arange(lo, hi)
+        wrapped = cols % W
+        dx = np.abs(x[wrapped][None, :] - centre[:, None])
+        dx = np.minimum(dx, W - dx)
+        c = np.clip(1 - dx / np.maximum(width[:, None], 1e-6), 0, 1) * alive[:, None] * 0.75
+        better = c > cover[:, wrapped]
+        cover[:, wrapped] = np.where(better, c, cover[:, wrapped])
+        shade[:, wrapped] = np.where(better, (p["gap_mult"] + (1 - p["gap_mult"]) * c) * 1.2, shade[:, wrapped])
+
+    # edge hairs (`edge_hairs` per tile, off at the defaults): short, thin hairs scattered in front of the dense
+    # start, more of them the nearer it is (`edge_power`), each leaning its own way off a slowly turning
+    # direction (`edge_lean`, texels of lean over its length), so the hairline is a thinning scatter of hairs
+    # rather than a comb of parallel spikes. Their own random stream, so nothing else moves.
+    ne = int(p.get("edge_hairs", 0))
+    if ne > 0 and p.get("mode", "shell") != "card":
+        erng = np.random.RandomState(seed + 15485)
+        depth = float(p.get("edge_depth", 0.05))
+        epow = float(p.get("edge_power", 2.0))
+        elean = float(p.get("edge_lean", 6.0))
+        l0, l1 = p.get("edge_len", [0.01, 0.03])
+        dir_ph = erng.uniform(0, 2 * math.pi, 3)
+        deep_ph = erng.uniform(0, 2 * math.pi, 3)
+        for j in range(ne):
+            cx = erng.uniform(0, W)
+            start = float(body_start[int(cx) % W])
+            u = erng.uniform(0.0, 1.0) ** epow                      # 0 at the dense start, 1 at `edge_depth`
+            # how deep the scatter reaches wanders too (0.4..1.6 x), so its front is not a second ruled line
+            deep = 1 + 0.6 * sum(math.sin(2 * math.pi * (k + 2) * cx / W + deep_ph[k]) / (k + 1) for k in range(3)) / 1.83
+            root = max(start - depth * deep * u, r0)
+            tip = root + erng.uniform(l0, l1)
+            field = sum(math.sin(2 * math.pi * (k + 1) * cx / W + dir_ph[k]) / (k + 1) for k in range(3))
+            lean = elean * (0.6 * field + erng.normal(0.0, 0.6))
+            half = pitch * erng.uniform(*p.get("edge_width", [0.3, 0.55]))
+            shade_j = 1 + p.get("edge_tone", 0.0) * u               # lighter toward the front: finer hairs
+            tt = _smooth(root, tip, v)
+            centre = cx + lean * (1 - tt)                           # leans off at its root end, into the line
+            alive = (v > root) & (v < tip)
+            width = half * (0.4 + 0.6 * _smooth(root, root + 0.4 * (tip - root), v)) * (1 - 0.5 * tt)
+            reach = int(abs(lean)) + 3
+            cols = np.arange(int(cx) - reach, int(cx) + reach + 1)
+            wrapped = cols % W
+            dx = np.abs(x[wrapped][None, :] - centre[:, None])
+            dx = np.minimum(dx, W - dx)
+            c = np.sqrt(np.clip(1 - dx / np.maximum(width[:, None], 1e-6), 0, 1)) * alive[:, None]
+            better = c > cover[:, wrapped]
+            cover[:, wrapped] = np.where(better, c, cover[:, wrapped])
+            shade[:, wrapped] = np.where(better, (p["gap_mult"] + (1 - p["gap_mult"]) * c) * shade_j,
+                                         shade[:, wrapped])
+
+    if p.get("mode", "shell") == "card":
+        body = np.zeros((H, 1))
+    elif ragged > 0:
+        body = _smooth(0.0, 1.0, (v[:, None] - body_start[None, :] + 0.02) / 0.03)             * (1 - _smooth(t0 - 0.005, t0 + 0.01, v))[:, None]
+    else:
+        body = (_smooth(r1 - 0.01, r1 + 0.005, v) * (1 - _smooth(t0 - 0.005, t0 + 0.01, v)))[:, None]   # opaque middle
+    alpha = np.maximum(body, cover)
     # toward the root, coverage fades rather than stopping: Blender and glTF's MASK cut it at 0.5, so strands
     # thin out toward the hairline; Godot's depth pre-pass blends the rest, so the hairline is a soft fade
     f0, f1 = p.get("root_fade", [r0, r0])
@@ -146,9 +246,14 @@ def strand_texture(colour_linear, p, seed=0):
     return out, normal
 
 
-def material(name, colour, preset_name="hair", seed=0, uv_map=None, **overrides):
+def material(name, colour, preset_name="hair", seed=0, uv_map=None, pixels=None, **overrides):
     """A Principled hair material, reused and rebuilt by name. `colour` is the hair's mid-length screen
     (sRGB) colour; the texture darkens it toward the roots and lightens it toward the tips.
+
+    `pixels` is (colour, normal) as `strand_texture` returns them - (H, W, 4) arrays, rows bottom-up, colour
+    sRGB with straight alpha - for a caller that draws its own hairs (humanform's brow and lash cards, its
+    sparse body hair). They become the material's images in place of the preset's strands, so a caller never
+    has to overwrite the pixels of an image this function made (the report's `pixels` says whose they are).
 
     Returns (material, report). The report says what glTF will carry and what Godot must re-apply."""
     p = preset(preset_name, **overrides)
@@ -158,7 +263,13 @@ def material(name, colour, preset_name="hair", seed=0, uv_map=None, **overrides)
     old = bpy.data.images.get(img_name)
     if old is not None:
         bpy.data.images.remove(old)
-    colour_px, normal_px = strand_texture(lin, p, seed=seed)
+    if pixels is not None:
+        colour_px, normal_px = (np.asarray(a, np.float64) for a in pixels)
+        if colour_px.shape[2] != 4 or normal_px.shape != colour_px.shape:
+            raise ValueError(f"pixels must be two (H, W, 4) arrays of one size, got {colour_px.shape} and {normal_px.shape}")
+        H, W = colour_px.shape[:2]
+    else:
+        colour_px, normal_px = strand_texture(lin, p, seed=seed)
     img = bpy.data.images.new(img_name, W, H, alpha=True)
     img.colorspace_settings.name = "sRGB"
     img.alpha_mode = "STRAIGHT"
@@ -233,8 +344,12 @@ def material(name, colour, preset_name="hair", seed=0, uv_map=None, **overrides)
     mat["lookdev"] = {"preset": preset_name, "godot": g}
     if p.get("mesh"):
         mat["lookdev"]["mesh"] = dict(p["mesh"])
+    if p.get("alpha"):
+        mat["lookdev"]["alpha"] = dict(p["alpha"])
     report = {"material": mat.name, "image": img.name, "texture_px": [W, H], "tile_m": p["tile_m"],
               "colour_linear": [round(c, 4) for c in lin], "gltf": {"alphaMode": "MASK", "alphaCutoff": 0.5,
               "baseColorTexture": img.name,
-              "normalTexture": nimg.name}, "godot_extras": g, "mesh_extras": p.get("mesh")}
+              "normalTexture": nimg.name}, "godot_extras": g, "mesh_extras": p.get("mesh"),
+              "alpha_extras": p.get("alpha"), "mode": p.get("mode", "shell"),
+              "pixels": "caller" if pixels is not None else "preset"}
     return mat, report

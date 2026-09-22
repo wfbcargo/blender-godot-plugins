@@ -16,6 +16,12 @@ extends CharacterBody3D
 ## Collision is a capsule from the manifest's optional `collider` {radius, height}, else the standing
 ## height (`height_m.stand`) and `_fallback_collider_radius()`.
 ##
+## Per-cycle variability (`gait_jitter.gd`) comes off the manifest's optional `variability` block and
+## is OFF unless it asks for it - which every character built before that block existed does not. It
+## warps the playhead within the stride and scales the arm swing, so a looping clip stops reading as
+## a loop. The warp is bounded and tracked against the unjittered phase, so it never accumulates:
+## `implied_speed` time scaling and planted feet are unchanged over any run length.
+##
 ## The default `_physics_process` is plain locomotion from `input_source` -> {dir: Vector3 (length
 ## 0..1), run or sprint: bool}. Subclasses with more moves override `_physics_process` and use the
 ## pieces: `play_gait_for`, `play_role`, `add_hold`, `_set_height`. Hooks: `_setup()` after the model,
@@ -65,11 +71,62 @@ var _shape_node: CollisionShape3D
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
 var _yaw := 0.0
 
+# ---- per-cycle variability (gait_jitter.gd); all inert while `jitter.enabled()` is false
+## The manifest's resolved `variability`, or an all-zero (disabled) one when it had none.
+var jitter: GaitJitter
+## Past this distance from the active camera the amplitude modifier stops working (the phase
+## warp is one multiply and stays on). 0 turns the gate off.
+var jitter_lod_distance_m := 30.0
+## How hard the playhead is pulled back onto (base phase + bounded offset), per cycle. This is
+## what makes the warp drift-free: the error decays with a time constant of 1/this cycles. Setting
+## it to 0 leaves the offset applied open loop, which still telescopes because the slope is read at
+## the UNJITTERED phase. `jitter_naive` is the one that drifts, and is the control.
+var jitter_track := 4.0
+## EXPERIMENT (off by default): measure the tracking error at the END of the tick instead of
+## across it. `_jit_theta` is advanced before the error is formed while `_jit_phi` is not, so the
+## error carries one tick of advance that is not error at all, and the loop settles one tick
+## behind - which is exactly the 0.0167-cycle steady-state lag at 60 Hz and 0.227 at 4 Hz.
+## See `jitter_factor`.
+var jitter_track_lead := false
+## The control `verify_jitter.gd` ships for the drift check, and the implementation a first attempt
+## gives: read the warp's slope off the clip's OWN playing phase and multiply the rate by it. The
+## slope is then evaluated at the already-warped playhead, so the per-cycle advance is
+## `integral du / (1 + w')` instead of `integral (1 - w') du`, and the difference - about
+## 1.2 x gain^2 per cycle - does not telescope. It accumulates, which is the whole failure this
+## design exists to avoid, so it must fail the bound.
+var jitter_naive := false
+## The OTHER first attempt, and the control for the "mean pace is unchanged" check: treat the
+## bounded playhead offset as a playback-RATE multiplier (`rate *= 1 + offset(u)`) instead of as
+## an offset the playhead is steered toward. It reads plausibly - the stride does speed up and
+## slow down - but the knot series is only zero-mean over hundreds of cycles, so over any window
+## a viewer watches, the mean stride time moves with it, and the error accumulates. Shipped
+## false; `verify_jitter.gd` sets it for one run that must fail.
+var jitter_rate := false
+## The control for the gait-change half of the drift check, and the shape this code had before
+## 0.35.0: on a clip change, snap `_jit_phi` to the target instead of to where the playhead
+## actually is. It is the plausible thing to write - the playhead was seeked, so re-anchor - and
+## it accumulates one tracking lag per gait change. Shipped false; `verify_jitter.gd` sets it
+## with `switch=` for one run that must fail.
+var jitter_reanchor_target := false
+var _jit_theta := 0.0           # base phase in cycles, advancing at exactly the unjittered rate
+var _jit_phi := 0.0             # the commanded (jittered) playhead, in the same cycles
+var _jit_clip := ""
+var _jit_last_u := 0.0
+# The two halves of any gap a long run can measure, tracked so the margin can be read rather than
+# guessed at: the largest offset the generator ever COMMANDED (bounded by phase_gain() * KNOT_MAX
+# by construction) and the largest the playhead ever lagged that command. A run near the bound is
+# a run whose knots came out large, not a run whose controller is slipping - and that is the
+# difference between a bound with no headroom and a bug.
+var _jit_worst_offset := 0.0
+var _jit_worst_lag := 0.0
+var _jit_mod: Node = null
+
 
 func _ready() -> void:
 	load_moves()
 	_build_ladder()
 	_build_collider()
+	build_jitter()
 	_setup()
 	if _clip.has("Idle"):
 		_anim.play(_clip["Idle"])
@@ -90,6 +147,7 @@ func load_moves() -> void:
 	display_name = _m.get("name", _m.get("creature", manifest_path.get_file().get_basename()))
 	var col: Dictionary = _m.get("collider", {})
 	height = float(col.get("height", _heights.get("stand", 1.0)))
+	jitter = GaitJitter.from_moves(_m, str(_m.get("creature", "")))
 	_model = (load(_m["scene"]) as PackedScene).instantiate()
 	_model.name = "Model"
 	add_child(_model)
@@ -184,15 +242,126 @@ func rate_for(role: String, speed: float) -> float:
 
 ## Idle below `moving_threshold`, else the gait for `speed` at its matching rate. `blend` is for a
 ## gait change (default `gait_blend`); settling into Idle always takes `idle_blend`. Returns the role.
-func play_gait_for(speed: float, blend := -1.0) -> String:
+## `delta` is the tick the jitter integrates over; -1 takes the physics tick.
+func play_gait_for(speed: float, blend := -1.0, delta := -1.0) -> String:
 	var role := pick_gait(speed) if speed > moving_threshold else ""
 	if role == "":
 		if _clip.has("Idle"):
 			play_role("Idle", idle_blend, 1.0)
+			_anim.speed_scale = jitter_factor(1.0, delta)
 		return "Idle"
 	play_gait(role, gait_blend if blend < 0.0 else blend)
-	_anim.speed_scale = rate_for(role, speed)
+	var base := rate_for(role, speed)
+	_anim.speed_scale = base * jitter_factor(base, delta)
 	return role
+
+
+# ------------------------------------------------------------------ variability
+
+## Build the arm-swing amplitude modifier, if the manifest asked for amplitude jitter and the
+## model has a skeleton. Called from `_ready`; safe to call again.
+func build_jitter() -> void:
+	if _jit_mod != null or jitter == null or _skeleton == null or jitter.amp_gain() <= 0.0:
+		return
+	_jit_mod = GaitJitterModifier.build(_skeleton, _m, jitter)
+	_jit_mod.lod_distance_m = jitter_lod_distance_m
+
+
+## The amplitude modifier, or null when there is none (jitter off, no skeleton, no arm bones).
+func jitter_modifier() -> Node:
+	return _jit_mod
+
+
+## The playback-rate multiplier for this tick: 1.0 exactly whenever jitter is off.
+##
+## `_jit_theta` is the phase the clip WOULD be at with no jitter, advancing at exactly
+## `base_rate / clip_length` cycles per second. The playhead `_jit_phi` is steered toward
+## `_jit_theta + offset(_jit_theta)`, where `offset` is bounded by `jitter.phase_gain()`. A
+## bounded target cannot drift, and the proportional term absorbs the integration error that an
+## open-loop `1 + offset'` would otherwise let build up: that error is about 1.2 x gain^2 per
+## cycle, which is 8 cycles of drift over an hour of walking - exactly the failure this must not
+## ship.
+func jitter_factor(base_rate: float, delta := -1.0) -> float:
+	if jitter == null or not jitter.enabled() or _anim == null:
+		return 1.0
+	var length := _anim.current_animation_length
+	if length <= 0.0 or base_rate <= 0.0:
+		return 1.0
+	var dt := delta if delta >= 0.0 else get_physics_process_delta_time()
+	var clip := str(_anim.current_animation)
+	if clip != _jit_clip:
+		# A gait change may seek the playhead (`play_gait` carries the normalised phase across;
+		# `play_role` does not). `_jit_phi` is the playhead this controller has been integrating,
+		# and it advances at exactly the rate the AnimationPlayer does, so its FRACTION and the
+		# clip's stay locked together - realign that fraction and leave the tracking error alone.
+		#
+		# This used to re-anchor `_jit_phi` to the TARGET, `_jit_theta + offset`. That throws the
+		# tracking lag away without moving the real playhead, so the controller stops correcting
+		# it and the next change throws away the next one: over 17 gait changes the gap reached
+		# 0.449 cycles with a trend of +0.42, past the 0.216 bound, on code whose whole claim is
+		# that it cannot accumulate. Nothing saw it because the verifier drove one clip for the
+		# whole run. `switch=<seconds>` now drives the change, and it fails on the old line.
+		_jit_clip = clip
+		if jitter_reanchor_target:
+			_jit_phi = _jit_theta + jitter.phase_offset(fposmod(_jit_theta, 1.0))   # the control
+		else:
+			var d := fposmod(_anim.current_animation_position / length, 1.0) 					- fposmod(_jit_phi, 1.0)
+			if d > 0.5:
+				d -= 1.0
+			elif d < -0.5:
+				d += 1.0
+			_jit_phi += d
+	var r := base_rate / length
+	var u := 0.0
+	var f := 1.0
+	if jitter_rate:
+		# the control: the offset used as a rate, which is not what a bounded offset means
+		var was_r := floori(_jit_theta)
+		_jit_theta += r * dt
+		while floori(_jit_theta) > was_r:
+			jitter.advance_cycle()
+			was_r += 1
+		u = fposmod(_jit_theta, 1.0)
+		f = 1.0 + jitter.phase_offset(u)
+	elif jitter_naive:
+		u = fposmod(_anim.current_animation_position / length, 1.0)
+		if u < _jit_last_u:
+			jitter.advance_cycle()
+		_jit_last_u = u
+		f = 1.0 + jitter.phase_slope(u)
+		_jit_theta += r * dt
+	else:
+		var was := floori(_jit_theta)
+		_jit_theta += r * dt
+		while floori(_jit_theta) > was:
+			jitter.advance_cycle()
+			was += 1
+		u = fposmod(_jit_theta, 1.0)
+		var off := jitter.phase_offset(u)
+		var target := _jit_theta + off
+		_jit_worst_offset = maxf(_jit_worst_offset, absf(off))
+		_jit_worst_lag = maxf(_jit_worst_lag, absf(target - _jit_phi))
+		var err := target - _jit_phi
+		if jitter_track_lead:
+			err -= r * dt          # the experiment: the two sides of the error at the same instant
+		f = 1.0 + jitter.phase_slope(u) + jitter_track * err
+	f = clampf(f, GaitJitter.RATE_MIN, GaitJitter.RATE_MAX)
+	_jit_phi += r * f * dt
+	if _jit_mod != null:
+		# Where the CLIP is, not where the jitter's own phase counter is. At steady state the two
+		# agree to within the offset (<= phase_gain() * KNOT_MAX); after a gait change, where the
+		# playhead is seeked to the carried phase and `_jit_theta` is not, they do not, and it is
+		# the clip the arm swing has to be in step with.
+		_jit_mod.cycle_u = fposmod(_anim.current_animation_position / length, 1.0)
+	return f
+
+
+## What the jitter has done so far: the base phase, the played phase, and their difference in
+## cycles. `drift` is the number a long run must not let grow - it is bounded by the offset.
+func jitter_state() -> Dictionary:
+	return {"theta": _jit_theta, "phi": _jit_phi, "drift": _jit_phi - _jit_theta,
+			"cycles": jitter.cycles() if jitter != null else 0,
+			"worst_offset": _jit_worst_offset, "worst_lag": _jit_worst_lag}
 
 
 ## Switch to a gait without restarting the stride: coming from another gait, the normalised phase is
@@ -313,4 +482,4 @@ func _physics_process(delta: float) -> void:
 
 	if amount > 0.0:
 		face(lerp_angle(_yaw, atan2(dir.x, dir.z), clampf(turn_speed * delta, 0.0, 1.0)))
-	play_gait_for(planar_speed())
+	play_gait_for(planar_speed(), -1.0, delta)

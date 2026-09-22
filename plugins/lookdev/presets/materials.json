@@ -1,46 +1,104 @@
 {
-  "_comment": "Material presets: what a Blender material is built from (lookdev_blender.hair) and what Godot must add back after glTF drops it (godot/addons/lookdev/lookdev_materials.gd). 'godot' values are StandardMaterial3D properties written into the material's glTF extras; colours given as a share of the base colour are resolved when the material is made. See references/hair.md.",
-  "materials": {
-    "hair": {
-      "description": "Strand hair on shells and cards: a strand texture with a root-to-tip gradient and alpha-thinned roots and tips (MASK, so it survives glTF), anisotropic highlight across the strands, backlight and a soft rim in Godot.",
-      "texture_px": [512, 1024],
-      "tile_m": 0.04,
-      "strands_per_tile": 96,
-      "clumps_per_tile": 16,
-      "root_zone": [0.004, 0.07],
-      "tip_zone": [0.9, 0.992],
-      "root_mult": 0.8,
-      "tip_mult": 1.25,
-      "gap_mult": 0.45,
-      "strand_jitter": 0.14,
-      "clump_jitter": 0.14,
-      "locks_per_tile": 4,
-      "lock_jitter": 0.3,
-      "wave_px": 1.6,
-      "normal_strength": 1.0,
-      "roughness": 0.55,
-      "anisotropic": 0.65,
-      "anisotropic_rotation": 0.25,
-      "alpha_cutoff": 0.5,
-      "root_fade": [0.0, 0.11],
-      "root_fade_power": 0.25,
-      "mesh": {
-        "tangents": "per_face"
-      },
-      "godot": {
-        "anisotropy_enabled": true,
-        "anisotropy": 0.5,
-        "roughness": 0.65,
-        "backlight_enabled": true,
-        "backlight_share": 0.45,
-        "rim_enabled": true,
-        "rim": 0.25,
-        "rim_tint": 0.75,
-        "transparency": 4,
-        "specular_mode": 0,
-        "metallic_specular": 0.3
-      },
-      "specular": 0.35
-    }
+ "_comment": "Material presets: what a Blender material is built from (lookdev_blender.hair) and what Godot must add back after glTF drops it (godot/addons/lookdev/lookdev_materials.gd). 'godot' values are StandardMaterial3D properties written into the material's glTF extras; colours given as a share of the base colour are resolved when the material is made. 'alpha' asks Godot to rebuild the albedo's mipmaps so every level keeps level 0's share of texels over coverage_mips (strands do not erode into a film at distance) and to ramp alpha over coverage_mips +- edge (a hair dark in its core, soft at its sides). 'mode' is shell (an opaque middle between thinned roots and tips) or card (strands with gaps all the way along). See references/hair.md.",
+ "materials": {
+  "hair": {
+   "description": "Strand hair on shells and cards: a strand texture with a root-to-tip gradient and alpha-thinned roots and tips (MASK, so it survives glTF), anisotropic highlight across the strands, backlight and a soft rim in Godot.",
+   "mode": "shell",
+   "texture_px": [
+    512,
+    1024
+   ],
+   "tile_m": 0.04,
+   "strands_per_tile": 96,
+   "clumps_per_tile": 16,
+   "root_zone": [
+    0.004,
+    0.07
+   ],
+   "tip_zone": [
+    0.9,
+    0.992
+   ],
+   "root_mult": 0.8,
+   "tip_mult": 1.25,
+   "gap_mult": 0.45,
+   "strand_jitter": 0.14,
+   "clump_jitter": 0.14,
+   "locks_per_tile": 4,
+   "lock_jitter": 0.3,
+   "wave_px": 1.6,
+   "normal_strength": 1.0,
+   "roughness": 0.55,
+   "anisotropic": 0.65,
+   "anisotropic_rotation": 0.25,
+   "alpha_cutoff": 0.5,
+   "root_fade": [
+    0.0,
+    0.11
+   ],
+   "root_fade_power": 0.25,
+   "root_ragged": 0.0,
+   "root_power": 1.0,
+   "root_width": 0.35,
+   "fine_per_tile": 0,
+   "edge_hairs": 0,
+   "edge_depth": 0.05,
+   "edge_power": 2.0,
+   "edge_lean": 6.0,
+   "edge_len": [
+    0.01,
+    0.03
+   ],
+   "edge_tone": 0.0,
+   "edge_width": [
+    0.3,
+    0.55
+   ],
+   "mesh": {
+    "tangents": "per_face"
+   },
+   "alpha": {
+    "coverage_mips": 0.5,
+    "edge": 0.25
+   },
+   "godot": {
+    "anisotropy_enabled": true,
+    "anisotropy": 0.5,
+    "roughness": 0.65,
+    "backlight_enabled": true,
+    "backlight_share": 0.45,
+    "rim_enabled": true,
+    "rim": 0.25,
+    "rim_tint": 0.75,
+    "transparency": 4,
+    "specular_mode": 0,
+    "metallic_specular": 0.3
+   },
+   "specular": 0.35
+  },
+  "eye": {
+   "description": "An eyeball that reads alive in Godot. Three things, each carried the way glTF and Godot 4.7 can carry it: a wet cornea over the whole ball (a clearcoat, so a key light leaves a small hard catchlight on a surface that is otherwise diffuse tissue - glTF has no clearcoat, so it rides in the lookdev extras); a dark limbal ring at the iris edge, which real eyes have and which also hides the facet boundary between the iris and sclera material slots; and a pupil kept far below the iris so it reads as a hole. Before this preset the eye was three flat Principled materials with no extras at all, so the Godot addon skipped them: no catchlight, no limbal ring, and a brown iris that swallowed its own pupil.",
+   "sclera_srgb": [
+    0.936,
+    0.926,
+    0.906
+   ],
+   "pupil_linear": 0.004,
+   "iris_floor_ratio": 6.0,
+   "iris_lift_margin": 1.05,
+   "limbal_darken": 0.35,
+   "limbal_width_deg": 3.5,
+   "iris_half_angle": 32.0,
+   "pupil_half_angle": 14.0,
+   "roughness": 0.3,
+   "godot": {
+    "roughness": 0.3,
+    "clearcoat_enabled": true,
+    "clearcoat": 1.0,
+    "clearcoat_roughness": 0.03,
+    "specular_mode": 0,
+    "metallic_specular": 0.5
+   }
   }
+ }
 }

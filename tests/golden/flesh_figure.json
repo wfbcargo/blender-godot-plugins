@@ -1,8 +1,8 @@
 {
  "fixture": "flesh_figure",
  "plugins": {
-  "follow-through": "0.5.2",
-  "rig-anything": "0.23.0"
+  "follow-through": "0.10.0",
+  "rig-anything": "0.40.0"
  },
  "report": {
   "bodies": {
@@ -19,44 +19,48 @@
      "vertices": 22748
     },
     "moves_json": {
+     "arm_gait_on_disk": {
+      "BloaterWalk": "walk",
+      "Bloater_Idle": "walk"
+     },
      "arm_pose_on_disk": {
       "BloaterWalk": {
        "upper_arm.L": {
         "arm_carry_deg": [
-         -10.5,
-         30.7
+         -10.3,
+         30.6
         ],
-        "arm_swing_deg": 41.2,
+        "arm_swing_deg": 40.9,
         "elbow_flex_deg": [
-         7.0,
+         7.1,
          23.0
         ],
         "hand_rise": [
-         -0.358,
-         -0.141
+         -0.397,
+         -0.161
         ],
         "upper_arm_deg": [
-         -13.8,
-         20.2
+         -13.6,
+         20.1
         ]
        },
        "upper_arm.R": {
         "arm_carry_deg": [
-         -10.6,
-         30.5
+         -10.5,
+         30.3
         ],
-        "arm_swing_deg": 41.1,
+        "arm_swing_deg": 40.8,
         "elbow_flex_deg": [
          7.0,
-         23.0
+         22.9
         ],
         "hand_rise": [
-         -0.374,
-         -0.156
+         -0.414,
+         -0.173
         ],
         "upper_arm_deg": [
-         -13.8,
-         20.2
+         -13.7,
+         20.0
         ]
        }
       },
@@ -64,7 +68,7 @@
        "upper_arm.L": {
         "arm_carry_deg": [
          8.5,
-         10.6
+         10.5
         ],
         "arm_swing_deg": 2.0,
         "elbow_flex_deg": [
@@ -72,8 +76,8 @@
          12.0
         ],
         "hand_rise": [
-         -0.357,
-         -0.334
+         -0.362,
+         -0.338
         ],
         "upper_arm_deg": [
          3.0,
@@ -91,8 +95,8 @@
          12.0
         ],
         "hand_rise": [
-         -0.368,
-         -0.346
+         -0.373,
+         -0.35
         ],
         "upper_arm_deg": [
          3.0,
@@ -107,10 +111,11 @@
      },
      "collider": {
       "height": 1.7668,
-      "radius": 0.2886
+      "radius": 0.2887
      },
      "dropped_clips": [],
      "fields": [
+      "arm_gait",
       "arm_pose",
       "clip_checks",
       "clips",
@@ -136,9 +141,14 @@
        "hip_height_m": 0.7724,
        "natural_speed_mps": 1.2311,
        "spine_flex_deg": 0.0,
+       "stance_knee_flex_deg": {
+        "thigh.L": 17.5,
+        "thigh.R": 17.6
+       },
        "stride_frequency_hz": 1.123,
        "stride_m": 1.0962,
-       "stroke_m": 0.7132
+       "stroke_m": 0.7132,
+       "vault": true
       }
      },
      "height_m": {
@@ -167,7 +177,212 @@
      "declined": [
       "belly: 0 bulging vertices in its zone"
      ],
+     "missed": [
+      {
+       "claimed": 1128,
+       "claimed_by": {
+        "bloater_belly": 1128
+       },
+       "measure": "rings",
+       "message": "belly: its zone's bulge (1120 seed vertices) was already taken by bloater_belly (1128 vertices), looked for before it: in its zone the skin stands at most 0.0001 m out (a seed needs 0.0213 m = 0.012 x height 1.77 m) and 0% of its lean radius (needs 25%); 0 vertices pass the first, 0 the second, 0 both (a region needs 68); 1130 of 1130 zone vertices searched, 1128 claimed",
+       "min_size": 68,
+       "over_excess": 0,
+       "over_relative": 0,
+       "peak_excess_m": 0.0001,
+       "peak_relative": 0.002,
+       "reason": "claimed",
+       "searched": 1130,
+       "seed_excess_m": 0.0213,
+       "seed_relative": 0.25,
+       "seeds": 0,
+       "type": "belly",
+       "zone_vertices": 1130
+      }
+     ],
      "object": "Bloater",
+     "placement": {
+      "chin_z": 1.458,
+      "ok": true,
+      "regions": [
+       {
+        "centre_height": 0.455,
+        "centre_z": 0.956,
+        "head_share": 0.0,
+        "name": "bloater_belly",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.523,
+        "tail_z": 0.983,
+        "type": "bloater_belly",
+        "zone_height": [
+         -0.4,
+         0.9
+        ]
+       },
+       {
+        "above_m": 0.1,
+        "centre_height": 0.903,
+        "centre_z": 1.131,
+        "head_share": 0.0,
+        "name": "breast.L",
+        "ok": true,
+        "pivot_rise_m": 0.0539,
+        "problems": [],
+        "tail_height": 0.929,
+        "tail_z": 1.141,
+        "type": "breast",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.968,
+        "weight_on_thigh": 0.0,
+        "zone_height": [
+         0.4,
+         1.55
+        ]
+       },
+       {
+        "above_m": 0.1,
+        "centre_height": 0.919,
+        "centre_z": 1.137,
+        "head_share": 0.0,
+        "name": "breast.R",
+        "ok": true,
+        "pivot_rise_m": 0.0567,
+        "problems": [],
+        "tail_height": 0.933,
+        "tail_z": 1.143,
+        "type": "breast",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.985,
+        "weight_on_thigh": 0.0,
+        "zone_height": [
+         0.4,
+         1.55
+        ]
+       },
+       {
+        "above_m": 0.1,
+        "centre_height": 0.24,
+        "centre_z": 0.872,
+        "head_share": 0.0,
+        "name": "butt.L",
+        "ok": true,
+        "pivot_rise_m": 0.03,
+        "problems": [],
+        "tail_height": 0.232,
+        "tail_z": 0.87,
+        "type": "butt",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.984,
+        "weight_on_thigh": 0.0,
+        "zone_height": [
+         -0.6,
+         0.4
+        ]
+       },
+       {
+        "above_m": 0.1,
+        "centre_height": 0.247,
+        "centre_z": 0.875,
+        "head_share": 0.0,
+        "name": "butt.R",
+        "ok": true,
+        "pivot_rise_m": 0.03,
+        "problems": [],
+        "tail_height": 0.246,
+        "tail_z": 0.875,
+        "type": "butt",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.982,
+        "weight_on_thigh": 0.0,
+        "zone_height": [
+         -0.6,
+         0.4
+        ]
+       },
+       {
+        "centre_height": 0.473,
+        "centre_z": 0.963,
+        "head_share": 0.0,
+        "name": "love_handle.L",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.468,
+        "tail_z": 0.962,
+        "type": "love_handle",
+        "zone_height": [
+         -0.1,
+         0.6
+        ]
+       },
+       {
+        "centre_height": 0.484,
+        "centre_z": 0.968,
+        "head_share": 0.0,
+        "name": "love_handle.R",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.483,
+        "tail_z": 0.967,
+        "type": "love_handle",
+        "zone_height": [
+         -0.1,
+         0.6
+        ]
+       },
+       {
+        "centre_height": 1.189,
+        "centre_z": 1.243,
+        "head_share": 0.0,
+        "name": "arm_flab.L",
+        "ok": true,
+        "problems": [],
+        "tail_height": 1.207,
+        "tail_z": 1.25,
+        "type": "arm_flab"
+       },
+       {
+        "centre_height": 1.162,
+        "centre_z": 1.232,
+        "head_share": 0.0,
+        "name": "arm_flab.R",
+        "ok": true,
+        "problems": [],
+        "tail_height": 1.202,
+        "tail_z": 1.248,
+        "type": "arm_flab"
+       },
+       {
+        "centre_height": -0.699,
+        "centre_z": 0.507,
+        "head_share": 0.0,
+        "name": "thigh.L",
+        "ok": true,
+        "problems": [],
+        "tail_height": -0.73,
+        "tail_z": 0.495,
+        "type": "thigh",
+        "zone_height": [
+         -1.0,
+         0.0
+        ]
+       },
+       {
+        "centre_height": -0.699,
+        "centre_z": 0.507,
+        "head_share": 0.0,
+        "name": "thigh.R",
+        "ok": true,
+        "problems": [],
+        "tail_height": -0.729,
+        "tail_z": 0.495,
+        "type": "thigh",
+        "zone_height": [
+         -1.0,
+         0.0
+        ]
+       }
+      ]
+     },
      "rig": "Bloater_metarig",
      "spec": {
       "class": "flesh",
@@ -210,12 +425,14 @@
          "aim": 1.0,
          "bone": "ft_jiggle_breast.L",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
-          0.05618,
-          1.02945,
-          0.01099
+          0.08236,
+          1.19525,
+          0.09214
          ],
          "mass_kg": 4.122,
          "material": "soft_fat",
@@ -226,9 +443,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          0.18168,
-          1.11507,
-          0.14803
+          0.17007,
+          1.14131,
+          0.18791
          ],
          "translate": 0.35,
          "type": "breast",
@@ -239,12 +456,14 @@
          "aim": 1.0,
          "bone": "ft_jiggle_breast.R",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
-          -0.06015,
-          1.03952,
-          0.01329
+          -0.0822,
+          1.19972,
+          0.09329
          ],
          "mass_kg": 3.841,
          "material": "soft_fat",
@@ -255,9 +474,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          -0.18101,
-          1.12409,
-          0.14591
+          -0.16859,
+          1.14297,
+          0.18809
          ],
          "translate": 0.35,
          "type": "breast",
@@ -268,12 +487,14 @@
          "aim": 1.0,
          "bone": "ft_jiggle_butt.L",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
-          0.03513,
-          0.91997,
-          -0.04077
+          0.0612,
+          0.89968,
+          -0.06704
          ],
          "mass_kg": 1.322,
          "material": "soft_fat",
@@ -284,9 +505,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          0.06044,
-          0.87562,
-          -0.15226
+          0.08247,
+          0.86968,
+          -0.16072
          ],
          "translate": 0.35,
          "type": "butt",
@@ -297,12 +518,14 @@
          "aim": 1.0,
          "bone": "ft_jiggle_butt.R",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
-          -0.03887,
-          0.91883,
-          -0.04182
+          -0.05645,
+          0.90492,
+          -0.06744
          ],
          "mass_kg": 1.159,
          "material": "soft_fat",
@@ -313,9 +536,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          -0.06613,
-          0.87757,
-          -0.15337
+          -0.07999,
+          0.87492,
+          -0.16378
          ],
          "translate": 0.35,
          "type": "butt",
@@ -326,7 +549,9 @@
          "aim": 1.0,
          "bone": "ft_jiggle_love_handle.L",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
           0.00705,
@@ -355,7 +580,9 @@
          "aim": 1.0,
          "bone": "ft_jiggle_love_handle.R",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
           -0.00493,
@@ -384,7 +611,9 @@
          "aim": 1.0,
          "bone": "ft_jiggle_arm_flab.L",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
           0.37594,
@@ -413,7 +642,9 @@
          "aim": 1.0,
          "bone": "ft_jiggle_arm_flab.R",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
           -0.35581,
@@ -518,7 +749,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-zb8t46u1\\a\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -606,9 +837,9 @@
      },
      {
       "head": [
-       0.056177,
-       -0.010993,
-       1.029453
+       0.082362,
+       -0.092136,
+       1.195246
       ],
       "mass_kg": 4.122,
       "name": "breast.L",
@@ -619,9 +850,9 @@
       ],
       "peak_m": 0.1514,
       "tail": [
-       0.181676,
-       -0.148028,
-       1.115071
+       0.170072,
+       -0.187907,
+       1.141306
       ],
       "type": "breast",
       "vertex_count": 664,
@@ -629,9 +860,9 @@
      },
      {
       "head": [
-       -0.060149,
-       -0.013288,
-       1.039524
+       -0.082197,
+       -0.093291,
+       1.199716
       ],
       "mass_kg": 3.841,
       "name": "breast.R",
@@ -642,9 +873,9 @@
       ],
       "peak_m": 0.1471,
       "tail": [
-       -0.181014,
-       -0.145913,
-       1.124088
+       -0.168593,
+       -0.188092,
+       1.142973
       ],
       "type": "breast",
       "vertex_count": 629,
@@ -652,9 +883,9 @@
      },
      {
       "head": [
-       0.035129,
-       0.04077,
-       0.91997
+       0.061201,
+       0.067039,
+       0.899684
       ],
       "mass_kg": 1.322,
       "name": "butt.L",
@@ -665,9 +896,9 @@
       ],
       "peak_m": 0.0896,
       "tail": [
-       0.060442,
-       0.152259,
-       0.875617
+       0.08247,
+       0.16072,
+       0.869684
       ],
       "type": "butt",
       "vertex_count": 355,
@@ -675,9 +906,9 @@
      },
      {
       "head": [
-       -0.038873,
-       0.041823,
-       0.918829
+       -0.056448,
+       0.067445,
+       0.904924
       ],
       "mass_kg": 1.159,
       "name": "butt.R",
@@ -688,9 +919,9 @@
       ],
       "peak_m": 0.0887,
       "tail": [
-       -0.066128,
-       0.153369,
-       0.877566
+       -0.079986,
+       0.163778,
+       0.874924
       ],
       "type": "butt",
       "vertex_count": 324,
@@ -807,13 +1038,13 @@
      "frames": {
       "BloaterWalk": [
        1,
-       5,
+       4,
+       6,
        9,
-       13,
+       12,
+       14,
        17,
-       21,
-       25,
-       29
+       19
       ],
       "Bloater_Idle": [
        1,
@@ -975,7 +1206,7 @@
      "action": "BloaterWalk",
      "frames": [
       1,
-      33
+      22
      ]
     }
    },
@@ -991,8 +1222,8 @@
     "limit_suggestion": {
      "applied": {
       "belly": [
-       0.0544,
-       0.0308
+       0.0281,
+       0.0154
       ],
       "butt.L": [
        0.075,
@@ -1066,14 +1297,14 @@
        "belly": {
         "action": "lower",
         "basis": "ladder",
-        "expected_on_limit_share": 0.0551,
+        "expected_on_limit_share": 0.0608,
         "in_band": false,
-        "max_offset_m": 0.0544,
+        "max_offset_m": 0.0281,
         "max_share": 1.0,
         "notes": [],
         "on_limit_share": 0.01,
-        "suggested_limit_share": 0.68,
-        "suggested_max_offset_m": 0.0308
+        "suggested_limit_share": 0.329,
+        "suggested_max_offset_m": 0.0154
        },
        "breast.L": {
         "action": "keep",
@@ -1250,7 +1481,7 @@
      "spec_limits": {
       "arm_flab.L": 0.0264,
       "arm_flab.R": 0.0265,
-      "belly": 0.0308,
+      "belly": 0.0154,
       "breast.L": 0.0515,
       "breast.R": 0.0527,
       "butt.L": 0.0183,
@@ -1264,7 +1495,7 @@
        "regions": 2
       },
       "belly": {
-       "limit_share": 0.68,
+       "limit_share": 0.329,
        "regions": 1
       },
       "breast": {
@@ -1289,44 +1520,48 @@
      "vertices": 17112
     },
     "moves_json": {
+     "arm_gait_on_disk": {
+      "FigureWalk": "walk",
+      "Figure_Idle": "walk"
+     },
      "arm_pose_on_disk": {
       "FigureWalk": {
        "upper_arm.L": {
         "arm_carry_deg": [
-         -10.7,
-         30.2
+         -10.6,
+         30.1
         ],
-        "arm_swing_deg": 40.9,
+        "arm_swing_deg": 40.8,
         "elbow_flex_deg": [
          7.0,
          23.0
         ],
         "hand_rise": [
-         -0.386,
-         -0.165
+         -0.416,
+         -0.176
         ],
         "upper_arm_deg": [
-         -13.8,
-         20.2
+         -13.7,
+         20.1
         ]
        },
        "upper_arm.R": {
         "arm_carry_deg": [
-         -10.8,
+         -10.7,
          29.9
         ],
-        "arm_swing_deg": 40.7,
+        "arm_swing_deg": 40.6,
         "elbow_flex_deg": [
          7.0,
          23.0
         ],
         "hand_rise": [
-         -0.405,
-         -0.183
+         -0.435,
+         -0.195
         ],
         "upper_arm_deg": [
-         -13.8,
-         20.2
+         -13.7,
+         20.1
         ]
        }
       },
@@ -1342,8 +1577,8 @@
          12.0
         ],
         "hand_rise": [
-         -0.363,
-         -0.348
+         -0.364,
+         -0.349
         ],
         "upper_arm_deg": [
          3.0,
@@ -1361,8 +1596,8 @@
          12.0
         ],
         "hand_rise": [
-         -0.381,
-         -0.366
+         -0.382,
+         -0.367
         ],
         "upper_arm_deg": [
          3.0,
@@ -1377,10 +1612,11 @@
      },
      "collider": {
       "height": 1.7668,
-      "radius": 0.1698
+      "radius": 0.1689
      },
      "dropped_clips": [],
      "fields": [
+      "arm_gait",
       "arm_pose",
       "clip_checks",
       "clips",
@@ -1406,9 +1642,14 @@
        "hip_height_m": 0.8272,
        "natural_speed_mps": 1.2739,
        "spine_flex_deg": 0.0,
+       "stance_knee_flex_deg": {
+        "thigh.L": 11.5,
+        "thigh.R": 11.5
+       },
        "stride_frequency_hz": 1.085,
        "stride_m": 1.1739,
-       "stroke_m": 0.7638
+       "stroke_m": 0.7638,
+       "vault": true
       }
      },
      "height_m": {
@@ -1460,7 +1701,210 @@
       "bloater_belly: needs 20% of the body's volume and to stand 8% of its height out; has 3.8% and 2.7%",
       "love_handle: 35 bulging vertices in its zone"
      ],
+     "missed": [
+      {
+       "claimed": 0,
+       "claimed_by": {},
+       "measure": "rings",
+       "message": "bloater_belly: a bulge too slight for the type: in its zone the skin stands at most 0.0618 m out (a seed needs 0.0212 m = 0.012 x height 1.77 m) and 74% of its lean radius (needs 25%); 667 vertices pass the first, 518 the second, 509 both (a region needs 51); 1591 of 1611 zone vertices searched, 0 claimed; its bulge holds 3.8% of the body's volume (needs 20%) and stands 2.7% of its height out (needs 8%)",
+       "min_size": 51,
+       "over_excess": 667,
+       "over_relative": 518,
+       "peak_excess_m": 0.0618,
+       "peak_over_height": 0.0266,
+       "peak_over_height_min": 0.08,
+       "peak_relative": 0.735,
+       "reason": "too_little",
+       "region_peak_m": 0.047,
+       "searched": 1591,
+       "seed_excess_m": 0.0212,
+       "seed_relative": 0.25,
+       "seeds": 509,
+       "type": "bloater_belly",
+       "volume_fraction": 0.0379,
+       "volume_fraction_min": 0.2,
+       "zone_vertices": 1611
+      },
+      {
+       "claimed": 7,
+       "claimed_by": {
+        "butt": 7
+       },
+       "measure": "rings",
+       "message": "love_handle: 35 seed vertices, fewer than 51 or in pieces each under it: in its zone the skin stands at most 0.0359 m out (a seed needs 0.0212 m = 0.012 x height 1.77 m) and 28% of its lean radius (needs 25%); 167 vertices pass the first, 35 the second, 35 both (a region needs 51); 370 of 370 zone vertices searched, 7 claimed",
+       "min_size": 51,
+       "over_excess": 167,
+       "over_relative": 35,
+       "peak_excess_m": 0.0359,
+       "peak_relative": 0.284,
+       "reason": "too_small",
+       "searched": 370,
+       "seed_excess_m": 0.0212,
+       "seed_relative": 0.25,
+       "seeds": 35,
+       "type": "love_handle",
+       "zone_vertices": 370
+      }
+     ],
      "object": "Figure",
+     "placement": {
+      "chin_z": 1.494,
+      "ok": true,
+      "regions": [
+       {
+        "above_m": 0.1,
+        "centre_height": 0.868,
+        "centre_z": 1.204,
+        "head_share": 0.0,
+        "name": "breast.L",
+        "ok": true,
+        "pivot_rise_m": 0.06,
+        "problems": [],
+        "tail_height": 0.977,
+        "tail_z": 1.25,
+        "type": "breast",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.997,
+        "weight_on_thigh": 0.0,
+        "zone_height": [
+         0.4,
+         1.55
+        ]
+       },
+       {
+        "above_m": 0.1,
+        "centre_height": 0.891,
+        "centre_z": 1.214,
+        "head_share": 0.0,
+        "name": "breast.R",
+        "ok": true,
+        "pivot_rise_m": 0.06,
+        "problems": [],
+        "tail_height": 0.981,
+        "tail_z": 1.251,
+        "type": "breast",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.995,
+        "weight_on_thigh": 0.0,
+        "zone_height": [
+         0.4,
+         1.55
+        ]
+       },
+       {
+        "above_m": 0.1,
+        "centre_height": 0.099,
+        "centre_z": 0.883,
+        "head_share": 0.0,
+        "name": "butt.L",
+        "ok": true,
+        "pivot_rise_m": 0.0442,
+        "problems": [],
+        "tail_height": 0.128,
+        "tail_z": 0.895,
+        "type": "butt",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.975,
+        "weight_on_thigh": 0.0,
+        "zone_height": [
+         -0.6,
+         0.4
+        ]
+       },
+       {
+        "above_m": 0.1,
+        "centre_height": 0.1,
+        "centre_z": 0.883,
+        "head_share": 0.0,
+        "name": "butt.R",
+        "ok": true,
+        "pivot_rise_m": 0.0441,
+        "problems": [],
+        "tail_height": 0.125,
+        "tail_z": 0.894,
+        "type": "butt",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.975,
+        "weight_on_thigh": 0.0,
+        "zone_height": [
+         -0.6,
+         0.4
+        ]
+       },
+       {
+        "above_m": 0.15,
+        "centre_height": 0.18,
+        "centre_z": 0.917,
+        "head_share": 0.0,
+        "name": "belly",
+        "ok": true,
+        "pivot_rise_m": 0.03,
+        "problems": [],
+        "tail_height": 0.376,
+        "tail_z": 0.998,
+        "type": "belly",
+        "weight_10cm_above": 0.0,
+        "weight_at_apex": 0.95,
+        "weight_on_thigh": 0.0,
+        "zone_height": [
+         -0.05,
+         0.7
+        ]
+       },
+       {
+        "centre_height": 0.835,
+        "centre_z": 1.19,
+        "head_share": 0.0,
+        "name": "arm_flab.L",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.905,
+        "tail_z": 1.22,
+        "type": "arm_flab"
+       },
+       {
+        "centre_height": 0.816,
+        "centre_z": 1.182,
+        "head_share": 0.0,
+        "name": "arm_flab.R",
+        "ok": true,
+        "problems": [],
+        "tail_height": 0.89,
+        "tail_z": 1.213,
+        "type": "arm_flab"
+       },
+       {
+        "centre_height": -0.776,
+        "centre_z": 0.517,
+        "head_share": 0.0,
+        "name": "thigh.L",
+        "ok": true,
+        "problems": [],
+        "tail_height": -0.795,
+        "tail_z": 0.509,
+        "type": "thigh",
+        "zone_height": [
+         -1.0,
+         0.0
+        ]
+       },
+       {
+        "centre_height": -0.772,
+        "centre_z": 0.519,
+        "head_share": 0.0,
+        "name": "thigh.R",
+        "ok": true,
+        "problems": [],
+        "tail_height": -0.793,
+        "tail_z": 0.51,
+        "type": "thigh",
+        "zone_height": [
+         -1.0,
+         0.0
+        ]
+       }
+      ]
+     },
      "rig": "Figure_metarig",
      "spec": {
       "class": "flesh",
@@ -1474,12 +1918,14 @@
          "aim": 1.0,
          "bone": "ft_jiggle_breast.L",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
-          0.04659,
-          1.26797,
-          -0.00213
+          0.0302,
+          1.30976,
+          0.03227
          ],
          "mass_kg": 2.182,
          "material": "soft_fat",
@@ -1490,9 +1936,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          0.08186,
-          1.27368,
-          0.09634
+          0.06787,
+          1.24976,
+          0.13743
          ],
          "translate": 0.35,
          "type": "breast",
@@ -1503,12 +1949,14 @@
          "aim": 1.0,
          "bone": "ft_jiggle_breast.R",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
-          -0.04819,
-          1.27362,
-          -0.00352
+          -0.02476,
+          1.31115,
+          0.03401
          ],
          "mass_kg": 2.019,
          "material": "soft_fat",
@@ -1519,9 +1967,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          -0.08783,
-          1.27881,
-          0.09572
+          -0.06676,
+          1.25115,
+          0.13916
          ],
          "translate": 0.35,
          "type": "breast",
@@ -1532,12 +1980,14 @@
          "aim": 1.0,
          "bone": "ft_jiggle_butt.L",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
-          0.03055,
-          0.9112,
-          -0.01953
+          0.05193,
+          0.93903,
+          -0.04243
          ],
          "mass_kg": 1.717,
          "material": "soft_fat",
@@ -1548,9 +1998,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          0.06216,
-          0.89742,
-          -0.13035
+          0.08256,
+          0.89488,
+          -0.14981
          ],
          "translate": 0.35,
          "type": "butt",
@@ -1561,12 +2011,14 @@
          "aim": 1.0,
          "bone": "ft_jiggle_butt.R",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
-          -0.03116,
-          0.91065,
-          -0.02236
+          -0.0465,
+          0.93768,
+          -0.04812
          ],
          "mass_kg": 1.531,
          "material": "soft_fat",
@@ -1577,9 +2029,9 @@
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          -0.06597,
-          0.89851,
-          -0.13188
+          -0.07942,
+          0.89363,
+          -0.1517
          ],
          "translate": 0.35,
          "type": "butt",
@@ -1590,36 +2042,40 @@
          "aim": 1.0,
          "bone": "ft_jiggle_belly",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
-          0.00047,
-          0.96524,
-          0.04421
+          -5e-05,
+          1.02844,
+          0.05232
          ],
-         "mass_kg": 0.552,
+         "mass_kg": 0.928,
          "material": "soft_fat",
-         "max_offset_m": 0.0544,
+         "max_offset_m": 0.0281,
          "name": "belly",
-         "parent": "spine.001",
-         "peak_m": 0.0453,
+         "parent": "spine.002",
+         "peak_m": 0.0468,
          "response": 1.0,
          "squash": 0.5,
          "tail": [
-          0.00053,
-          0.95656,
-          0.10547
+          -2e-05,
+          0.99844,
+          0.11927
          ],
          "translate": 0.35,
          "type": "belly",
-         "vertices": 241,
-         "volume_m3": 0.000581
+         "vertices": 356,
+         "volume_m3": 0.000977
         },
         {
          "aim": 1.0,
          "bone": "ft_jiggle_arm_flab.L",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
           0.37332,
@@ -1648,7 +2104,9 @@
          "aim": 1.0,
          "bone": "ft_jiggle_arm_flab.R",
          "damping_ratio": 0.25,
-         "frequency_hz": 2.7,
+         "frequency_ap_ratio": 1.4,
+         "frequency_down_ratio": 2.8,
+         "frequency_hz": 2.4,
          "gravity_scale": 1.0,
          "head": [
           -0.37913,
@@ -1747,13 +2205,28 @@
      },
      "warnings": []
     },
+    "prepare_again": {
+     "control_fails": true,
+     "control_uncapped_placement_ok": false,
+     "control_without_giving_back": {
+      "max_total_lost": 0.98,
+      "max_weight_diff": 0.9604,
+      "unweighted": 0
+     },
+     "max_total_lost": 0.0,
+     "max_weight_diff": 0.2166,
+     "placement_ok": true,
+     "regions_equal": true,
+     "unweighted": 0,
+     "unweighted_first": 0
+    },
     "read_back": {
      "meshes": [
       "Figure"
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-zb8t46u1\\a\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",
@@ -1818,32 +2291,32 @@
      },
      {
       "head": [
-       0.000475,
-       -0.044209,
-       0.96524
+       -4.5e-05,
+       -0.05232,
+       1.028441
       ],
-      "mass_kg": 0.552,
+      "mass_kg": 0.928,
       "name": "belly",
       "normal": [
-       0.000957,
-       -0.990114,
-       -0.14026
+       0.00041,
+       -0.989961,
+       -0.141338
       ],
-      "peak_m": 0.0453,
+      "peak_m": 0.0468,
       "tail": [
-       0.000534,
-       -0.105466,
-       0.956563
+       -1.7e-05,
+       -0.119268,
+       0.998441
       ],
       "type": "belly",
-      "vertex_count": 241,
-      "volume_m3": 0.000581
+      "vertex_count": 356,
+      "volume_m3": 0.000977
      },
      {
       "head": [
-       0.046592,
-       0.002126,
-       1.267968
+       0.030204,
+       -0.032272,
+       1.309756
       ],
       "mass_kg": 2.182,
       "name": "breast.L",
@@ -1854,9 +2327,9 @@
       ],
       "peak_m": 0.0781,
       "tail": [
-       0.081862,
-       -0.096342,
-       1.273679
+       0.06787,
+       -0.137427,
+       1.249756
       ],
       "type": "breast",
       "vertex_count": 687,
@@ -1864,9 +2337,9 @@
      },
      {
       "head": [
-       -0.048191,
-       0.003515,
-       1.273622
+       -0.024756,
+       -0.034009,
+       1.311146
       ],
       "mass_kg": 2.019,
       "name": "breast.R",
@@ -1877,9 +2350,9 @@
       ],
       "peak_m": 0.0798,
       "tail": [
-       -0.087831,
-       -0.095721,
-       1.278809
+       -0.066756,
+       -0.139155,
+       1.251146
       ],
       "type": "breast",
       "vertex_count": 651,
@@ -1887,9 +2360,9 @@
      },
      {
       "head": [
-       0.030545,
-       0.019529,
-       0.911204
+       0.051931,
+       0.042431,
+       0.939031
       ],
       "mass_kg": 1.717,
       "name": "butt.L",
@@ -1900,9 +2373,9 @@
       ],
       "peak_m": 0.0833,
       "tail": [
-       0.062158,
-       0.130348,
-       0.897419
+       0.082563,
+       0.149814,
+       0.894878
       ],
       "type": "butt",
       "vertex_count": 653,
@@ -1910,9 +2383,9 @@
      },
      {
       "head": [
-       -0.031162,
-       0.022363,
-       0.910653
+       -0.046504,
+       0.048123,
+       0.937681
       ],
       "mass_kg": 1.531,
       "name": "butt.R",
@@ -1923,9 +2396,9 @@
       ],
       "peak_m": 0.0829,
       "tail": [
-       -0.065968,
-       0.131881,
-       0.898509
+       -0.079421,
+       0.1517,
+       0.893626
       ],
       "type": "butt",
       "vertex_count": 619,
@@ -1996,13 +2469,13 @@
      "frames": {
       "FigureWalk": [
        1,
-       5,
+       4,
+       6,
        9,
-       13,
-       17,
-       21,
-       25,
-       29
+       12,
+       15,
+       18,
+       20
       ],
       "Figure_Idle": [
        1,
@@ -2169,7 +2642,7 @@
      "action": "FigureWalk",
      "frames": [
       1,
-      33
+      23
      ]
     }
    }

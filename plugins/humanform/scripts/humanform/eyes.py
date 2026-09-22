@@ -82,8 +82,49 @@ def _uvsphere(bm, **kw):
     return res
 
 
-def add(human, iris=None, segments=32, rings=16):
-    """`iris`: a screen (sRGB) colour, as picked or written in a brief; None for a mid brown."""
+SLOTS = ("sclera", "iris", "limbal", "pupil")   # material slot order on the eye mesh
+
+
+def _slot_for_angle(deg):
+    """The fallback split, used only when lookdev is not importable: no limbal ring."""
+    return "pupil" if deg < PUPIL_HALF_ANGLE else "iris" if deg < IRIS_HALF_ANGLE else "sclera"
+
+
+def _materials(name, iris):
+    """The four eye materials and the angle split that goes with them.
+
+    lookdev's `eye` preset owns both: it carries the cornea coat Godot needs (glTF has no clearcoat),
+    the limbal ring, and the rule that keeps a dark iris above its pupil. Without lookdev the eye falls
+    back to flat colours and no ring, the way brows and lashes do.
+
+    Returns (materials by slot, slot_for_angle, report)."""
+    names = {"sclera": "HF_sclera", "iris": f"HF_iris_{name}",
+             "limbal": f"HF_limbal_{name}", "pupil": "HF_pupil"}
+    try:
+        from lookdev_blender import eyes as ld_eyes
+    except ImportError:
+        ld_eyes = None
+    if ld_eyes is None:
+        dark = tuple(c * 0.35 for c in (iris or IRIS))
+        mats = {"sclera": look.material(names["sclera"], srgb=SCLERA, roughness=0.25),
+                "iris": look.material(names["iris"], srgb=iris, roughness=0.35),
+                "limbal": look.material(names["limbal"], srgb=dark, roughness=0.3),
+                "pupil": look.material(names["pupil"], srgb=PUPIL, roughness=0.2)}
+        return mats, _slot_for_angle, {"source": "flat (lookdev_blender not importable)"}
+    mats, rep = ld_eyes.materials(iris_srgb=iris, names=names)
+    return mats, (lambda deg: ld_eyes.slot_for_angle(deg)), dict(rep, source="lookdev")
+
+
+def add(human, iris=None, segments=32, rings=32):
+    """`iris`: a screen (sRGB) colour, as picked or written in a brief; None for a mid brown.
+
+    `rings` was 16 until the eye preset: at that height the whole iris was 2 rings of faces and the
+    pupil 1, which is what every benchmark critic saw as "a faceted iris polygon" and a pupil with
+    "blocky edges", and the preset's 3.5 degree limbal band fell between two rings and got no faces at
+    all (faces near the edge sat at 16.8, 28.0 and 39.2 degrees). 32 is the first count that resolves
+    the band; past it the band still catches one ring, so it buys nothing. Measured on the
+    pipeline_woman fixture the pair costs 1024 more vertices (17241 -> 18265), about 2048 triangles,
+    against a 30000 budget."""
     human = _body.obj(human)
     iris = IRIS if iris is None else tuple(iris)
     rig = _body.rig_of(human)
@@ -92,8 +133,10 @@ def add(human, iris=None, segments=32, rings=16):
     if old is not None:
         bpy.data.objects.remove(old, do_unlink=True)
 
+    eye_mats, slot_for, mat_report = _materials(name, iris)
+
     bm = bmesh.new()
-    report = {}
+    report = {"materials": mat_report}
     forward = Vector((0, -1, 0))
     for side in ("l", "r"):
         pts = _helper_points(human, side)
@@ -107,15 +150,13 @@ def add(human, iris=None, segments=32, rings=16):
         for f in new_faces:
             d = (f.calc_center_median() - Vector(centre)).normalized()
             angle = math.degrees(d.angle(forward))
-            f.material_index = 2 if angle < PUPIL_HALF_ANGLE else 1 if angle < IRIS_HALF_ANGLE else 0
+            f.material_index = SLOTS.index(slot_for(angle))
             f.smooth = True
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()
-    for mat in (look.material("HF_sclera", srgb=SCLERA, roughness=0.25),
-                look.material(f"HF_iris_{name}", srgb=iris, roughness=0.35),
-                look.material("HF_pupil", srgb=PUPIL, roughness=0.2)):
-        me.materials.append(mat)
+    for slot in SLOTS:
+        me.materials.append(eye_mats[slot])
     ob = bpy.data.objects.new(name, me)
     for coll in human.users_collection:
         coll.objects.link(ob)

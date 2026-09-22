@@ -185,9 +185,12 @@ def _ease_weights(g):
     return w
 
 
-def _hang_setup(g_bm, body, bvh, tris, window, bins, below=None):
+def _hang_setup(g_bm, body, bvh, tris, window, bins, below=None, top=0.3, fade=0.25):
     """Which garment verts hang (not on an arm or shoulder, below the armpits), and the axis they
-    hang around: vertical, through the root of the spine."""
+    hang around: vertical, through the root of the spine. Hanging starts `top` of the way from the
+    shoulder joints to the hips and fades in over `fade` more: the default 0.3 starts it level with
+    or below a bust's apex, so the cloth under it was never hung from it and followed the breast
+    back in to the fold (improvements NEXT, "Cloth that hugs the skin")."""
     b = rigmap._obj(body)
     hm = rigmap.humanoid(b)
     arm_names = {n for a in hm["arms"].values() for n in a.values() if n}
@@ -196,29 +199,120 @@ def _hang_setup(g_bm, body, bvh, tris, window, bins, below=None):
     root = hm["heads"][hm["spine"][0]]
     shoulder_z = sum(hm["heads"][a["upper"]].z for a in hm["arms"].values()) / max(1, len(hm["arms"]))
     hip_z = sum(hm["heads"][l["thigh"]].z for l in hm["legs"].values()) / max(1, len(hm["legs"]))
-    top = shoulder_z - 0.3 * (shoulder_z - hip_z)
+    top_z = shoulder_z - top * (shoulder_z - hip_z)
     mask = []
     for v in g_bm.verts:
         hit = bvh.find_nearest(v.co)
         w = max(armw[i] for i in tris[hit[2]]) if hit[0] is not None else 0.0
         # fade in below the armpits: a hard edge left a horizontal crease across the back
-        fade = min(max((top - v.co.z) / (0.25 * (shoulder_z - hip_z)), 0.0), 1.0)
+        f = min(max((top_z - v.co.z) / (fade * (shoulder_z - hip_z)), 0.0), 1.0)
         if below is not None:
             # trousers hang over the seat, not down the legs: around the spine axis a leg's inner
             # and outer sides share a sector, and hanging pushed the inner thigh out to the outer
-            fade *= min(max((v.co.z - below) / 0.05, 0.0), 1.0)
-        mask.append(fade * min(max((0.4 - w) / 0.2, 0.0), 1.0))
+            f *= min(max((v.co.z - below) / 0.05, 0.0), 1.0)
+        mask.append(f * min(max((0.4 - w) / 0.2, 0.0), 1.0))
     return {"mask": mask, "axis": Vector((root.x, root.y, 0.0)), "window": window, "bins": bins}
 
 
-def _hang(bm, hs, amount, cell=0.01):
+def _hull_rows(hung, nb, cover=0.9):
+    """Each height's ring of radii made convex, in place: cloth under tension around the body
+    spans from one high point to the next rather than dipping between them. A row with fewer than
+    `cover` of its sectors filled is left alone - its chords would cross the empty sectors."""
+    import math
+    ang = [(i + 0.5) / nb * 2 * math.pi - math.pi for i in range(nb)]
+    for j in range(len(hung[0])):
+        idx = [i for i in range(nb) if hung[i][j] >= 0]
+        if len(idx) < cover * nb:
+            continue
+        pts = sorted((hung[i][j] * math.cos(ang[i]), hung[i][j] * math.sin(ang[i])) for i in idx)
+
+        def cross(o, a, b):
+            return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+        lower, upper = [], []
+        for q in pts:
+            while len(lower) >= 2 and cross(lower[-2], lower[-1], q) <= 0:
+                lower.pop()
+            lower.append(q)
+        for q in reversed(pts):
+            while len(upper) >= 2 and cross(upper[-2], upper[-1], q) <= 0:
+                upper.pop()
+            upper.append(q)
+        poly = lower[:-1] + upper[:-1]
+        if len(poly) < 3:
+            continue
+        for i in idx:
+            dx, dy = math.cos(ang[i]), math.sin(ang[i])
+            best = hung[i][j]
+            for k in range(len(poly)):
+                (ax, ay), (bx, by) = poly[k], poly[(k + 1) % len(poly)]
+                ex, ey = bx - ax, by - ay
+                den = dx * ey - dy * ex
+                if abs(den) < 1e-12:
+                    continue
+                t = (ax * ey - ay * ex) / den            # distance along the ray
+                u = (ax * dy - ay * dx) / den            # where along the edge
+                if t > 0 and -1e-9 <= u <= 1 + 1e-9:
+                    best = max(best, t)
+            hung[i][j] = best
+
+
+def _even_heights(bm, mask, relax, passes=4):
+    """Relax hanging cloth in height only. Hanging moves cloth straight out, never up or down, so
+    the underside of a breast - which runs down from the apex and back UP into the fold beneath -
+    was pushed out to the hung sheet still in that order, and left a crease folded over itself just
+    under the apex. Evening the heights out between the pushes unfolds it."""
+    for _ in range(passes):
+        zs = []
+        for v in bm.verts:
+            m = mask[v.index]
+            if m <= 0 or v.is_boundary:
+                zs.append(v.co.z)
+                continue
+            nb = [e.other_vert(v) for e in v.link_edges]
+            zs.append(v.co.z + (sum(o.co.z for o in nb) / len(nb) - v.co.z) * relax * m)
+        for v, z in zip(bm.verts, zs):
+            v.co.z = z
+
+
+def _hull_columns(hung, cell):
+    """Each sector's column of radii made concave, in place: the string stretched over the body's
+    profile from outside. Cloth runs straight from the collarbone to a bust's apex and on to the
+    belly instead of following the upper slope of the breast up to a point where the hung sheet
+    below it met it (on Ruth, the apex read as a nipple through the cloth)."""
+    for col in hung:
+        pts = [(j * cell, r) for j, r in enumerate(col) if r >= 0]
+        if len(pts) < 3:
+            continue
+        up = []
+        for q in pts:
+            while len(up) >= 2 and ((up[-1][0] - up[-2][0]) * (q[1] - up[-2][1])
+                                    - (up[-1][1] - up[-2][1]) * (q[0] - up[-2][0])) >= 0:
+                up.pop()
+            up.append(q)
+        k = 0
+        for j, r in enumerate(col):
+            if r < 0:
+                continue
+            z = j * cell
+            while k + 1 < len(up) and up[k + 1][0] < z:
+                k += 1
+            if k + 1 < len(up):
+                (z0, r0), (z1, r1) = up[k], up[k + 1]
+                col[j] = max(r, r0 + (r1 - r0) * (z - z0) / max(z1 - z0, 1e-9))
+
+
+def _hang(bm, hs, amount, cell=0.01, hull=False, blur=(2, 2)):
     """Cloth falls straight down from the widest point above it; it does not tuck back in under
     a buttock or a bust.
 
     A radius field R(angle, height) around the axis holds the widest hanging vert in each cell.
     Hanging makes it monotonic downward within `window` (a running max from above), then it is
     blurred across angle and height so neighbouring sectors agree - pushing each sector on its
-    own crumpled the back of a shirt into ridges. Each hanging vert is pushed out to the field."""
+    own crumpled the back of a shirt into ridges. Each hanging vert is pushed out to the field.
+
+    `hull`: each height's ring is also made convex (see `_hull_rows`) before the blur, so the cloth
+    hanging from two high points spans between them - under a bust, the two hung sheets otherwise
+    left a ridge down from each apex and a valley between. `blur` (sectors, cells) either side."""
     import math
     axis, window, nb = hs["axis"], hs["window"], hs["bins"]
     pts = []
@@ -245,13 +339,16 @@ def _hang(bm, hs, amount, cell=0.01):
         col = raw[i]
         for j in range(nz):
             hung[i][j] = max(col[j:min(nz, j + span + 1)])
+    if hull:
+        _hull_columns(hung, cell)
+        _hull_rows(hung, nb)
     # blur: angle +-2 sectors, height +-2 cells, ignoring empty cells
     field = [[-1.0] * nz for _ in range(nb)]
     for i in range(nb):
         for j in range(nz):
             s = n = 0.0
-            for di in (-2, -1, 0, 1, 2):
-                for dj in (-2, -1, 0, 1, 2):
+            for di in range(-blur[0], blur[0] + 1):
+                for dj in range(-blur[1], blur[1] + 1):
                     jj = j + dj
                     if 0 <= jj < nz:
                         x = hung[(i + di) % nb][jj]
@@ -425,6 +522,15 @@ def _membrane(X, ed, fill):
     M = X.copy()
     M[idx] = np.linalg.solve(K, rhs)
     return M
+
+
+def _vertex_normals(X, tris):
+    """Area-weighted unit vertex normals of positions `X` over triangles `tris`."""
+    fn = np.cross(X[tris[:, 1]] - X[tris[:, 0]], X[tris[:, 2]] - X[tris[:, 0]])
+    N = np.zeros_like(X)
+    for c in range(3):
+        N[:, c] = np.bincount(tris.ravel(), weights=np.repeat(fn[:, c], 3), minlength=len(X))
+    return N / np.maximum(np.linalg.norm(N, axis=1), 1e-12)[:, None]
 
 
 def compress(garment, body, smooth=0.0, flatten=None, fade=COMPRESS_FADE):
@@ -662,9 +768,52 @@ def detail(garment, body, regions=None, limit=None, band=DETAIL_BAND, min_verts=
     return rep
 
 
+def tuck(garment, body, window=0.15, spread=50.0, wedge=5.0, limit=None):
+    """How far the cloth tucks back in under the widest point above it, in front (improvements
+    NEXT, "Cloth that hugs the skin"). For each cloth vertex within `spread` degrees of straight
+    ahead, between the hips and 5 cm under the shoulder joints: the widest cloth in its own
+    `wedge` (degrees, around the spine's root) within `window` above it, less its own distance out.
+    A loose top following a breast's underside back in to the fold reads 17 mm on Ruth; hung from
+    the apex, 3 mm. Forward is -Y, as rig-anything exports. `limit` (mm): `passed` and `problems`."""
+    g = rigmap._obj(garment)
+    b = rigmap._obj(body)
+    hm = rigmap.humanoid(b)
+    root = hm["heads"][hm["spine"][0]]
+    sh = sum(hm["heads"][a["upper"]].z for a in hm["arms"].values()) / max(1, len(hm["arms"]))
+    hip = sum(hm["heads"][l["thigh"]].z for l in hm["legs"].values()) / max(1, len(hm["legs"]))
+    X = np.array([tuple(v.co) for v in g.data.vertices])
+    d = X[:, :2] - np.array([root.x, root.y])
+    r = np.linalg.norm(d, axis=1)
+    ang = np.degrees(np.arctan2(d[:, 0], -d[:, 1]))
+    sel = np.flatnonzero((np.abs(ang) < spread) & (X[:, 2] > hip) & (X[:, 2] < sh - 0.05))
+    worst, at, defs = 0.0, None, []
+    for i in sel:
+        near = sel[(np.abs(ang[sel] - ang[i]) < wedge / 2) & (X[sel, 2] > X[i, 2])
+                   & (X[sel, 2] <= X[i, 2] + window)]
+        if len(near) == 0:
+            continue
+        dd = float(r[near].max() - r[i])
+        defs.append(dd)
+        if dd > worst:
+            worst, at = dd, float(X[i, 2])
+    rep = {"max_mm": round(1000.0 * worst, 1), "p95_mm": round(1000.0 * float(np.percentile(defs, 95)), 1)
+           if defs else 0.0, "at_z": round(at, 3) if at is not None else None, "verts": len(defs)}
+    if limit is not None:
+        problems = []
+        if not defs:
+            problems.append("tuck: nothing measured in front, so the limit is unmet")
+        elif rep["max_mm"] > limit:
+            problems.append("tuck: the cloth tucks %.1f mm back in under the widest point above it, limit %.1f mm"
+                            % (rep["max_mm"], limit))
+        rep.update(limit_mm=limit, passed=not problems, problems=problems)
+    return rep
+
+
 def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, inflate=True,
-         hang=1.0, hang_window=0.15, hang_bins=64, over=(), over_gap=0.003,
-         smooth=0.0, flatten=None, fade=COMPRESS_FADE, detail_limit=None):
+         hang=1.0, hang_window=0.15, hang_bins=64, hang_top=0.3, hang_fade=0.25, hang_hull=False,
+         hang_blur=(2, 2), tuck_limit=None, over=(), over_gap=0.003,
+         smooth=0.0, flatten=None, fade=COMPRESS_FADE, detail_limit=None, settle=0.0, span=0.0,
+         span_radius=0.0):
     """Push the garment off the body to its ease, bridging hollows, and let it hang. `over`:
     garments worn under this one - it is kept `over_gap` outside each of them too.
 
@@ -672,7 +821,15 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
     copy of the body instead of the skin - smoothed over the garment's region and with the named
     regions' projection reduced - fading back to the skin over `fade` from the garment's edges
     (see `compress`). `detail_limit` {region: mm}: the most of the skin's own relief the cloth may
-    carry over each region (see `detail`); the report says whether it held.
+    carry over each region (see `detail`); the report says whether it held. `settle` (m, compression
+    only): the eased cloth is then smoothed over that much of its own surface, rounding corners the
+    compressed body kept and passing inside the skin there (see `_settle`).
+
+    Hanging (`hang` 0..1): cloth falls from the widest point above it (see `_hang`), starting
+    `hang_top` of the way from the shoulder joints to the hips and fading in over `hang_fade` more;
+    `hang_hull` makes each height's ring convex so it spans between two high points, and
+    `hang_blur` (sectors, cells) softens the field. `tuck_limit` (mm): the most the cloth may tuck
+    back in under the widest point above it, in front (see `tuck`); reported as `tuck`.
 
     Returns gap statistics (against the skin), `detail`, and `compression` when it was asked for."""
     g = rigmap._obj(garment)
@@ -690,7 +847,8 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
     want = [base + loose * ew[v.index] for v in bm.verts]
     cut = g.get("wardrobe_cut")
     below = cut.get("hang_below") if cut is not None else None
-    hs = _hang_setup(bm, body, bvh, tris, hang_window, hang_bins, below) if hang > 0 else None
+    hs = _hang_setup(bm, body, bvh, tris, hang_window, hang_bins, below, top=hang_top,
+                     fade=hang_fade) if hang > 0 else None
     unders = [body_bvh(o)[0] for o in over]
 
     floor = None
@@ -752,12 +910,20 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
         for v, co in zip(bm.verts, new):
             v.co = co
         if hs is not None:
-            _hang(bm, hs, hang)
+            _hang(bm, hs, hang, hull=hang_hull, blur=tuple(hang_blur))
+            if hang_hull:
+                _even_heights(bm, hs["mask"], relax)
         push_out()
 
     if unders:
         _clear_unders(bm, unders, over_gap)
         push_out()
+
+    spanned = None
+    if compressing and span and span > 0:
+        spanned = _span(bm, floor, span, radius=span_radius)
+        push_out()
+    settled = _settle(bm, floor, settle) if compressing and settle and settle > 0 else None
 
     skin_bvh = body_bvh(body)[0] if compressing else bvh
     gaps, from_compressed = [], []
@@ -780,12 +946,177 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
         rep = {k: v for k, v in comp.items() if not k.startswith("_")}
         rep["gap_min_from_compressed_m"] = round(from_compressed[0], 4)
         rep["inside_skin_verts"] = sum(1 for x in gaps if x < 0.0)
+        if spanned is not None:
+            rep["span"] = spanned
+        if settled is not None:
+            rep["settle"] = settled
         out["compression"] = rep
     out["detail"] = detail(g, body, limit=detail_limit)
+    if tuck_limit is not None:
+        out["tuck"] = tuck(g, body, limit=tuck_limit)
     return out
 
 
-def lift_over(garment, body, tris, gap, radius=0.02, spread=12, keep=0.8, reach=0.03):
+def _hollows(X, tris, radius, live):
+    """Per vertex, how far it lies below a ball of `radius` (m) rolled over the outside of the
+    surface - 0 where the ball rests on it, so the vertex is in no hollow narrower than that. The
+    ball on a vertex is raised along its normal until it clears every other vertex (one pass, over
+    the positions as given: moving the vertices and repeating ran away, and moving both sides of a
+    notch toward each other crossed them)."""
+    from mathutils.kdtree import KDTree
+    n = len(X)
+    N = _vertex_normals(X, tris)
+    kd = KDTree(n)
+    for i, p in enumerate(X):
+        kd.insert(Vector(p), i)
+    kd.balance()
+    R = float(radius)
+    t = np.zeros(n)
+    for i in live:
+        near = [j for _p, j, _d in kd.find_range(Vector(X[i] + R * N[i]), R) if j != i]
+        if not near:
+            continue
+        d = X[near] - X[i]
+        a = d @ N[i]
+        b2 = np.maximum((d * d).sum(axis=1) - a * a, 0.0)
+        inside = b2 < R * R
+        if inside.any():
+            t[i] = max(0.0, float((a[inside] + np.sqrt(R * R - b2[inside]) - R).max()))
+    return t
+
+
+def _span(bm, floor, share, radius=0.0, feather=0.04, passes=24, relax=0.5):
+    """Stretch a compression garment taut across the body's hollows: `share` (0..1) of the way out
+    to the convex hull of the cloth itself, each vertex by its compression weight (1 - `floor`, so
+    none at a neckline, hem or armhole), relaxed toward its neighbours between pushes so the cloth
+    slides along the hull instead of piling up where it was pushed.
+
+    Fabric under tension goes straight from one high point to the next. Cut from the skin and
+    eased off a smoothed copy of it, the cloth still followed the underside of a heavy bust back up
+    into the fold beneath it (Belle, improvements NEXT 9) - a faceted rim under each breast, a
+    wedge in the cleavage and each breast wrapped on its own. Spanned, it runs from the bust to the
+    band and across the cleavage; `_settle` afterwards rounds the hull's edges.
+
+    `radius` (m): span only around the hollows narrower than that (see `_hollows`), fading out over
+    `feather` along the cloth. The hull alone also spans the whole taper from a bust to a waist hem,
+    which on the sample figure left the top 2-5 cm off the body."""
+    bm.verts.ensure_lookup_table()
+    n = len(bm.verts)
+    X = np.array([tuple(v.co) for v in bm.verts])
+    hb = bmesh.new()
+    for p in X:
+        hb.verts.new(Vector(p))
+    hull = bmesh.ops.convex_hull(hb, input=list(hb.verts))
+    drop = [e for e in hull.get("geom_interior", []) if isinstance(e, bmesh.types.BMVert)]
+    bmesh.ops.delete(hb, geom=drop, context="VERTS")
+    loose = [v for v in hb.verts if not v.link_faces]
+    bmesh.ops.delete(hb, geom=loose, context="VERTS")
+    bmesh.ops.recalc_face_normals(hb, faces=list(hb.faces))
+    hbvh = BVHTree.FromBMesh(hb)
+    hb.free()
+    ed = np.array([(e.verts[0].index, e.verts[1].index) for e in bm.edges], dtype=np.int64)
+    deg = np.bincount(ed.ravel(), minlength=n).astype(float)
+    w = np.array([0.0 if v.is_boundary else 1.0 - floor[v.index] for v in bm.verts])
+    start = X.copy()
+    hollow = None
+    if radius and radius > 0:
+        tris = np.array([[f.verts[0].index, f.verts[k].index, f.verts[k + 1].index]
+                         for f in bm.faces for k in range(1, len(f.verts) - 1)], dtype=np.int64)
+        t = _hollows(X, tris, radius, np.flatnonzero(w > 0))
+        seeds = t > 0.001
+        hollow = int(seeds.sum())
+        if not seeds.any():
+            return {"share": float(share), "radius_m": float(radius), "hollow_verts": 0, "moved_max_m": 0.0}
+        dist = _geodesic_np(X, ed, seeds, feather)
+        f = np.clip(np.where(np.isinf(dist), 1.0, dist / max(feather, 1e-9)), 0.0, 1.0)
+        w = w * (1.0 - f * f * (3 - 2 * f))
+    # the taut cloth: every weighted vertex pushed all the way out to the hull, relaxed between
+    for _ in range(passes):
+        X = X + (relax * np.minimum(w * 4.0, 1.0))[:, None] * (_umbrella(X, ed, deg) - X)
+        for i in np.flatnonzero(w > 0):
+            h = hbvh.find_nearest(Vector(X[i]))
+            if h[0] is None:
+                continue
+            s = float((Vector(X[i]) - h[0]).dot(h[1]))
+            if s < 0.0:
+                X[i] = X[i] + w[i] * (-s) * np.array(h[1])
+    # then `share` of the way there: all of it is a tube with no bust left in it. A share of a
+    # move that also slid along a curved surface cuts the chord, into the breast - ease pushes the
+    # cloth back out of the compressed body after this
+    D = (float(share) * w)[:, None] * (X - start)
+    # and none of it inward: relaxing between pushes shrank the cloth over the breast's lower pole,
+    # and the skin kept drawn at the rim came through in front of it
+    tris = np.array([[f.verts[0].index, f.verts[k].index, f.verts[k + 1].index]
+                     for f in bm.faces for k in range(1, len(f.verts) - 1)], dtype=np.int64)
+    N = _vertex_normals(start, tris)
+    D -= np.minimum((D * N).sum(axis=1), 0.0)[:, None] * N
+    X = start + D
+    for v in bm.verts:
+        v.co = Vector(X[v.index])
+    moved = np.linalg.norm(X - start, axis=1)
+    return {"share": float(share), "passes": passes, **({"radius_m": float(radius), "hollow_verts": hollow}
+                                                         if hollow is not None else {}),
+            "moved_max_m": round(float(moved.max()), 4),
+            "moved_p95_m": round(float(np.percentile(moved, 95)), 4)}
+
+
+def _settle(bm, floor, reach):
+    """Let a compression garment settle as stretched fabric does: Taubin passes (shrink, then
+    inflate) over the cloth itself, (reach / mean edge)^2 of them as `compress` counts its own,
+    each vertex moving by its compression weight - 1 - `floor`, so none where compression fades out
+    at a neckline, hem or armhole, and none on the boundary.
+
+    Push-out holds the cloth on the compressed surface, and that surface keeps the body's corners:
+    under a heavy bust (Belle, improvements NEXT 9) the rim where the breast meets the fold stayed a
+    ledge, the fold's skin stood in front of the cloth tucked into it, and the lift over that skin
+    pushed the cloth into a faceted, pointed shelf with a dark wedge between the breasts - 2% of the
+    cloth carried the whole relief the detail check measured. Settled over 10 cm the cloth rounds
+    the rim and spans the fold, passing a few millimetres inside the skin at the rim; that skin is
+    hidden by `cover`, which follows compression cloth `behind` the skin."""
+    bm.verts.ensure_lookup_table()
+    n = len(bm.verts)
+    X = np.array([tuple(v.co) for v in bm.verts])
+    ed = np.array([(e.verts[0].index, e.verts[1].index) for e in bm.edges], dtype=np.int64)
+    deg = np.bincount(ed.ravel(), minlength=n).astype(float)
+    w = np.array([0.0 if v.is_boundary else 1.0 - floor[v.index] for v in bm.verts])
+    edge = float(np.linalg.norm(X[ed[:, 0]] - X[ed[:, 1]], axis=1).mean())
+    passes = int(round((reach / max(edge, 1e-4)) ** 2))
+    start = X.copy()
+    for _ in range(passes):
+        for lam in TAUBIN:
+            X += (lam * w)[:, None] * (_umbrella(X, ed, deg) - X)
+    for v in bm.verts:
+        v.co = Vector(X[v.index])
+    moved = np.linalg.norm(X - start, axis=1)
+    return {"reach_m": reach, "passes": passes, "moved_max_m": round(float(moved.max()), 4)}
+
+
+def folds(garment, bend=35.0):
+    """How the cloth folds: `folded_faces`, faces whose normal points against the summed normals
+    of the faces sharing their edges (the cloth turned over on itself), and `sharp_edges`, edges
+    between two faces bent more than `bend` degrees - a crease the eye reads as a shelf. Under
+    Belle's bust the eased cloth had 16 edges bent 35-146 degrees (improvements NEXT 9); spanned,
+    none. Measured against its neighbours, not the cut: spanning turns faces cut on the underside of
+    a breast from facing down-and-back to facing forward, which is not a fold."""
+    import math
+    bm = bmesh.new()
+    bm.from_mesh(rigmap._obj(garment).data)
+    folded = 0
+    for f in bm.faces:
+        s = Vector()
+        for e in f.edges:
+            for o in e.link_faces:
+                if o is not f:
+                    s += o.normal
+        if s.length > 1e-9 and f.normal.dot(s) < 0.0:
+            folded += 1
+    lim = math.radians(bend)
+    sharp = sum(1 for e in bm.edges if len(e.link_faces) == 2 and e.calc_face_angle(0.0) > lim)
+    bm.free()
+    return {"folded_faces": folded, "sharp_edges": sharp}
+
+
+def lift_over(garment, body, tris, gap, radius=0.02, spread=12, keep=0.8, reach=0.03, smooth=0.0):
     """Lift the garment over the corners of these body triangles (vertex index triples) that lie
     over its face - the skin `cover.drawn_over_cloth` found showing through a compression garment -
     until it is `gap` outside them. Each such corner asks the cloth within `radius` to rise by what
@@ -796,6 +1127,8 @@ def lift_over(garment, body, tris, gap, radius=0.02, spread=12, keep=0.8, reach=
     b = rigmap._obj(body)
     if not tris:
         return 0
+    if smooth and smooth > 0:
+        return _lift_smooth(g, b, tris, gap, smooth, reach)
     me = g.data
     gbvh = BVHTree.FromPolygons([v.co.copy() for v in me.vertices], canonical_tris(me), all_triangles=True)
     kd = KDTree(len(me.vertices))
@@ -828,6 +1161,60 @@ def lift_over(garment, body, tris, gap, radius=0.02, spread=12, keep=0.8, reach=
     bm.free()
     me.update()
     return sum(1 for x in need if x > 0)
+
+
+def _lift_smooth(g, b, tris, gap, reach_m, near=0.03, relax=4):
+    """`lift_over` as one smooth swell. Per corner over the cloth, the three corners of the cloth
+    triangle under it must rise by what it lacks (so that face clears, not only its nearest vertex);
+    the cloth within `reach_m` rises by that times (1 - (d / reach_m)^2)^2, the largest ask winning;
+    the lift is then relaxed `relax` passes as displacement vectors and every asked vertex given at
+    least its ask. Per-corner cones of 2 cm, repeated over four passes, left a faceted, pointed
+    shelf under Belle's bust (improvements NEXT 9)."""
+    from mathutils.kdtree import KDTree
+    me = g.data
+    ctris = canonical_tris(me)
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    gbvh = BVHTree.FromPolygons([Vector(p) for p in co], ctris, all_triangles=True)
+    kd = KDTree(len(co))
+    for i, p in enumerate(co):
+        kd.insert(Vector(p), i)
+    kd.balance()
+    ask = np.zeros(len(co))
+    for i in sorted({i for t in tris for i in t}):
+        p = b.data.vertices[i].co
+        h = gbvh.find_nearest(p, near)
+        if h[0] is None or h[3] <= 1e-9:
+            continue
+        side = (p - h[0]).dot(h[1])
+        if side <= 0.0 or side < 0.7 * h[3]:
+            continue
+        for j in ctris[h[2]]:
+            ask[j] = max(ask[j], side + gap)
+    seeds = np.flatnonzero(ask > 0)
+    if not len(seeds):
+        return 0
+    lift = np.zeros(len(co))
+    for s in seeds:
+        for _p, j, d in kd.find_range(Vector(co[s]), reach_m):
+            lift[j] = max(lift[j], ask[s] * (1.0 - (d / reach_m) ** 2) ** 2)
+    _, t_np, ed, _ = _np_mesh(g)
+    deg = np.bincount(ed.ravel(), minlength=len(co)).astype(float)
+    N = _vertex_normals(co, t_np)
+    D = lift[:, None] * N
+    moving = lift > 0
+    for _ in range(relax):
+        A = _umbrella(D, ed, deg)
+        D[moving] = 0.5 * (D[moving] + A[moving])
+    # the asked vertices still clear what they were asked to
+    along = (D * N).sum(axis=1)
+    short = seeds[along[seeds] < ask[seeds]]
+    D[short] += (ask[short] - along[short])[:, None] * N[short]
+    new = co + D
+    me.vertices.foreach_set("co", new.ravel())
+    me.update()
+    return int(moving.sum())
 
 
 def _clear_unders(bm, unders, gap, spread=12, keep=0.8):

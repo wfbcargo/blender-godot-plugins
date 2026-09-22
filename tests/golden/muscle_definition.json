@@ -1,8 +1,8 @@
 {
  "fixture": "muscle_definition",
  "plugins": {
-  "humanform": "0.8.0",
-  "rig-anything": "0.23.0"
+  "humanform": "0.16.0",
+  "rig-anything": "0.27.0"
  },
  "report": {
   "game": {
@@ -38,13 +38,14 @@
      "FixDante_skin",
      "HF_sclera",
      "HF_iris_FixDante_eyes",
+     "HF_limbal_FixDante_eyes",
      "HF_pupil"
     ],
     "method": "matched",
-    "reason_whole_mesh": "FixDante_body is 14402 faces, FixDante_high is 13378 - pass material= when the game mesh has the eyes joined in",
-    "refused": "FixDante_high is not FixDante_body's topology: FixDante_body is 14402 faces, FixDante_high is 13378 - pass material= when the game mesh has the eyes joined in - use method='rays'",
+    "reason_whole_mesh": "FixDante_body is 15426 faces, FixDante_high is 13378 - pass material= when the game mesh has the eyes joined in",
+    "refused": "FixDante_high is not FixDante_body's topology: FixDante_body is 15426 faces, FixDante_high is 13378 - pass material= when the game mesh has the eyes joined in - use method='rays'",
     "same_stats_as_body_only": true,
-    "vertices": 14344,
+    "vertices": 15368,
     "warnings": []
    }
   },
