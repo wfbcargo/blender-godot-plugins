@@ -157,7 +157,7 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, **kw):
     hc = measure.run(human.name, preset=pre, sex=s["sex"], out_dir=out_dir, build=build)
     t["species_check"] = time.time() - t3
     # what the species check failed or warned on, so a stage report can say it without re-measuring
-    rep["check_findings"] = [{k: f.get(k) for k in ("name", "status", "value", "target", "note", "msg") if k in f}
+    rep["check_findings"] = [{k: f.get(k) for k in ("id", "status", "value", "target", "message") if k in f}
                              for f in hc.get("findings", []) if f.get("status") in ("fail", "warn")]
     if sp.get("graft"):
         # a body plan past the human one (humanform.graft): after the check, which grades the body the species'
