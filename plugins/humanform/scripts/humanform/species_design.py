@@ -194,6 +194,16 @@ class DesignError(ValueError):
 _CACHE = {}
 
 
+
+def _luma(c):
+    """Rec. 709 luma of an sRGB tone (0..1), in linear light."""
+    lin = [x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+# the palest skin tone to hold under lookdev's midday look: grungist-creek's palest shipped figure [0.90, 0.78, 0.68]
+PALEST_SKIN_LUMA = 0.2126 * ((0.90 + 0.055) / 1.055) ** 2.4 + 0.7152 * ((0.78 + 0.055) / 1.055) ** 2.4     + 0.0722 * ((0.68 + 0.055) / 1.055) ** 2.4
+
 def _json(name):
     if name not in _CACHE:
         with open(os.path.join(DATA, name), encoding="utf-8") as fh:
@@ -726,6 +736,12 @@ def check(doc, per_sex):
     pal = doc["skin"].get("palette") or []
     need(2 <= len(pal) <= 4 and all(len(c) == 3 and all(0 <= x <= 1 for x in c) for c in pal),
          "skin.palette: 2-4 sRGB tones in 0..1")
+    # a tone paler than the palest human skin the game ships clips past diffuse white in Godot's midday look
+    # (lookdev's SKIN_PAST_WHITE failed the first elf, drawn from [0.94, 0.84, 0.76])
+    for c in pal:
+        need(_luma(c) <= PALEST_SKIN_LUMA + 1e-6, f"skin.palette tone {list(c)} is paler than the palest skin that "
+             f"holds under Godot's lighting (luma {_luma(c):.3f} > {PALEST_SKIN_LUMA:.3f}, e.g. [0.90, 0.78, 0.68]): "
+             "darken it, or it clips past white (lookdev SKIN_PAST_WHITE)")
     regions = skin_regions()
     need(not regions or set(doc["skin"].get("regions_off", [])) <= set(regions),
          f"skin.regions_off {doc['skin'].get('regions_off')} not all in skin.REGIONS {regions}")
