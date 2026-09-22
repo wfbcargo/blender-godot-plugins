@@ -184,7 +184,7 @@ def contact_sheet(ob, out_dir, preset="realistic", sex=None, include=(), report=
         width_m = max(FRAME_WIDTH_M, span * 1.06)
         tw = int(np.ceil(th * width_m / scale / 2)) * 2
         centre = Vector((0.0, 0.0, scale / 2 - 0.02))
-        targets = pkg.presets()["presets"][preset]["ratios"]
+        targets = (preset if isinstance(preset, dict) else pkg.presets()["presets"][preset])["ratios"]
 
         def overlay(t):
             def row(z):
@@ -242,7 +242,8 @@ def contact_sheet(ob, out_dir, preset="realistic", sex=None, include=(), report=
         files.append(sheet)
         frame = {"frame_height_m": scale, "frame_width_m": width_m, "floor_z": floor, "tile_px": [tw, th],
                  "standard_frame": scale == FRAME_HEIGHT_M and width_m == FRAME_WIDTH_M,
-                 "views": list(views), "rows": ["clay", "normals", "silhouette"], "preset": preset}
+                 "views": list(views), "rows": ["clay", "normals", "silhouette"],
+                 "preset": (preset.get("species") or "custom") if isinstance(preset, dict) else preset}
         with open(os.path.join(out_dir, "views.json"), "w", encoding="utf-8") as fh:
             json.dump(frame, fh, indent=1)
     finally:

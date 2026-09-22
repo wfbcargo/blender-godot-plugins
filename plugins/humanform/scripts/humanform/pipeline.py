@@ -27,6 +27,11 @@ with a note saying it is not measured against ANSUR:
                      are adult), no library.
 
 Neither kind is ever stored: the library indexes bodies by ANSUR z-scores they do not have.
+
+A brief with a `species` other than "human" (humanform.species) makes the pre-warp human first - exactly the
+path above, library and all, since it is a real human - then puts the species' head features on it, warps it
+to the species (`species.warp`) and checks it against the species preset. The result's `check` is the
+species'; `species` holds the warp's report and `prewarp` the human's own path and check.
 """
 
 from __future__ import annotations
@@ -43,13 +48,24 @@ WARM = 1.6
 
 
 def _finish_look(human, s, eyes):
-    """Rigged body -> eyes and skin, from the brief's screen colours."""
+    """Rigged body -> eyes, teeth and tongue, and skin, from the brief's screen colours. The teeth and tongue
+    (`features.mouth`: MPFB's hidden mouth helpers as a skinned mesh of their own) go on every body: a body is
+    drawn with all its parts."""
     from . import look
     if eyes:
         from . import eyes as _eyes
         _eyes.add(human, iris=s.get("iris"))
+    _mouth(human)
     if s.get("skin") is not None:
         look.skin(human, s["skin"])
+
+
+def _mouth(human):
+    try:
+        from . import features
+    except ImportError:
+        return None
+    return features.mouth(human)
 
 
 def _macros(human, names=("age", "weight", "muscle", "height", "firmness", "proportions", "cupsize")):
@@ -89,6 +105,61 @@ def _make_child(s, r, t, t0, eyes, store, face_part, hand_part, foot_part):
             "timing": {k: round(v, 2) for k, v in t.items()}, "guessed": r["guessed"], "notes": notes}
 
 
+def _make_species(s, out_dir, store, contact_sheet, verbose, **kw):
+    """A species body: the pre-warp human (`make`, unchanged), its head features, the warp, the species check."""
+    import os
+    from . import species
+    problems = sheet.validate(s)
+    if problems:
+        raise ValueError("; ".join(problems))
+    t0 = time.time()
+    sp = species.load(s["species"])
+    s_pre, info = species.pre_warp(s, sp)
+    # the skin goes on after the warp, as the species' own (`look.skin(species_skin=...)`)
+    tone = s_pre.get("skin")
+    s_pre = dict(s_pre, skin=None)
+    res = make(s_pre, out_dir=None if not out_dir else os.path.join(out_dir, "prewarp"), store=store,
+               contact_sheet=False, verbose=verbose, **kw)
+    human = bpy.data.objects[res["human"]]
+    t = dict(res["timing"])
+    t1 = time.time()
+    feats = species.apply_features(human, sp)
+    _mouth(human)                   # rebuilt where the head features have put the mouth, before the warp moves it
+    t["features"] = time.time() - t1
+    t2 = time.time()
+    rep = dict(info)
+    before = species.inventory(human, sp)
+    species.warp(human, sp, report=rep, sex=s["sex"], stature=info["stature"], style=s.get("style", "realistic"),
+                 clamp_scale=info["clamp_scale"], verbose=verbose)
+    rep["features"] = feats
+    rep["anatomy"] = species.inventory(human, sp, reference=before)
+    if tone is not None:
+        from . import look
+        look.skin(human, tone, species_skin=species.skin_block(sp))
+    t["warp"] = time.time() - t2
+    build = s.get("build") if isinstance(s.get("build"), str) else None
+    t3 = time.time()
+    # the species as a preset in hand, so one given inline (no file) is checked the same way
+    pre = species.preset(sp)
+    hc = measure.run(human.name, preset=pre, sex=s["sex"], out_dir=out_dir, build=build)
+    t["species_check"] = time.time() - t3
+    if contact_sheet and out_dir:
+        t4 = time.time()
+        views.contact_sheet(human.name, out_dir, preset=pre, sex=s["sex"], report=hc)
+        t["views"] = time.time() - t4
+    t["total"] = time.time() - t0
+    fit = dict(res["fit"] or {})
+    # the species body's height, where character-pipeline's stage report reads a bisected stature
+    fit["stature"] = {"stature_m": round(float(hc["stature_m"]), 4), "reached": True, "species": sp["id"]}
+    notes = list(res["notes"]) + list(info["notes"])
+    out = dict(res, fit=fit, check=hc["counts"], notes=notes,
+               timing={k: round(v, 2) for k, v in t.items()}, species=rep,
+               prewarp={"path": res["path"], "check": res["check"], "stature": info["stature_pre"],
+                        "stored": res["stored"]})
+    out["macros"] = _macros(human)
+    return out
+
+
 def make(s, out_dir=None, store=False, use_library=True, contact_sheet=False, tags=(), verbose=False, eyes=True,
          face_part=None, hand_part=None, foot_part=None, fit_iterations=10, fit_detail=True):
     """`face_part`, `hand_part`, `foot_part`: library parts (card or id) applied before the fit, so their
@@ -96,7 +167,13 @@ def make(s, out_dir=None, store=False, use_library=True, contact_sheet=False, ta
     The brief's `iris` and `skin` screen colours go on the eyes and body. `fit_iterations`: the body fit's
     solver iterations (`scaffold.fit_all`); `fit_detail` False skips the face and hands-and-feet fits (and
     the settle pass after them). Both are a cheaper, looser fit for a draft, and a body fitted either way is
-    never stored in the library."""
+    never stored in the library.
+
+    A `species` brief (not "human") is fitted as its pre-warp human and warped: see the module docstring."""
+    if (s.get("species") or "human") != "human":
+        return _make_species(s, out_dir, store, contact_sheet, verbose, use_library=use_library, tags=tags,
+                             eyes=eyes, face_part=face_part, hand_part=hand_part, foot_part=foot_part,
+                             fit_iterations=fit_iterations, fit_detail=fit_detail)
     t = {}
     t0 = time.time()
     r = sheet.resolve(s)
