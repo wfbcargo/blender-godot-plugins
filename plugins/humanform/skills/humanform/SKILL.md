@@ -635,6 +635,10 @@ body mesh as node extras.
   edge of the mesh where the fur ends. A step there reads as a dark ring at a wrist, an ankle or a hairline
   however good the fur is. The colour and the length are feathered over `EDGE_RINGS` rings from where the
   skin still shows through, so it passes.
+- `dark_patches` - any patch of furred body more than `DARK_TOL` in luma below *its own surface colour*,
+  on the colour map as Godot samples it, mip by mip, at 0.6 m and 4 m. Measured against the surface it sits
+  on and not against a global mean, so a pattern's spots pass and a black bled in from the map's unwritten
+  space does not - that one drew black gloves and socks at the wrists and ankles.
 - `atlas_overlap` - recorded, and why the map is a vertex colour.
 - the anatomy inventory (`species.inventory`): fur is a part in `species_design.ANATOMY`, so a body whose
   species says it has fur and carries no map fails.

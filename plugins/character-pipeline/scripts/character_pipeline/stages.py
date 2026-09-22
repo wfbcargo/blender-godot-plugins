@@ -1060,7 +1060,8 @@ def run_fur(ch):
             "mask": rep.get("mask"), "atlas_overlap": (rep.get("atlas") or {}).get("share"),
             "mip": {k: rep["mip"].get(k) for k in ("ok", "across_to_along_p90", "views", "height", "coverage")},
             "silhouette": {k: rep["silhouette"].get(k) for k in ("ok", "views", "shells")},
-            "edge": {k: rep["edge"].get(k) for k in ("step", "step_max", "tol", "edges", "skin")}}
+            "edge": {k: rep["edge"].get(k) for k in ("step", "step_max", "tol", "edges", "skin")},
+            "dark": {k: rep["dark"].get(k) for k in ("share", "share_limit", "tol", "views")}}
 
 
 def run_export(ch, ctx):

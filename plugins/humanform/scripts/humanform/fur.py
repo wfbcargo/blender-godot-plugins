@@ -965,8 +965,13 @@ def maps(ob, size=MAP_PX):
             colour[tri[:, k]] = colour[tri[:, k]] * (1 - amt[:, k, None]) + want * amt[:, k, None]
     # furred triangles last, so a contested texel carries the fur's colour and not the bare skin's
     order = sk[np.argsort(den[tri[sk]].min(axis=1), kind="stable")]
+    # Filled with the body's own skin tone, not with black, and grown far enough that a mip cannot reach
+    # past it. Left black and dilated two texels, the unwritten space around the small islands - the hands,
+    # the wrists, the feet - was pulled into the coat by the mips at 2 m and drew black gloves and socks.
+    skin_lin = _linear(spec.get("skin_tone") or (0.35, 0.26, 0.18))
     col_img, cov = _rasterise(uv[order], colour[tri[order]], size, fill=0.0)
-    col_img = _dilate(col_img, cov)
+    col_img[~cov] = skin_lin
+    col_img = _dilate(col_img, cov, passes=DILATE_PASSES)
     rep = {"size": size, "covered_texels": int(cov.sum()), "texels": size * size,
            "skin_triangles": int(len(sk)), "triangles": int(len(tri)),
            "length_max_m": round(float(spec.get("length_max_m") or 0.0), 5)}
@@ -1118,6 +1123,9 @@ def silhouette_check(ob, distances_m=SIL_DISTANCES_M, vfov_deg=None, image_px=No
 
 
 EDGE_TOL = 0.04                # sRGB luma: the biggest step in the fur's tone across one edge of the mesh
+DILATE_PASSES = 16             # how far a map is grown past its islands, so a mip cannot sample past it
+DARK_TOL = 0.05                # sRGB luma a patch of coat may sit below the coat's own mean
+DARK_SHARE = 0.01              # ... over this share of the furred area, it is a patch and not a shading
 EDGE_RINGS = 5                 # how far from the edge of the fur its colour and length are feathered
 
 
@@ -1177,6 +1185,75 @@ def edge_tone(ob, tone=None):
                        f"{EDGE_TOL}: that draws as a dark ring at a wrist, an ankle or a hairline - feather "
                        "the colour into the skin's over the band where the skin is still drawn "
                        "(fur.EDGE_LENGTH and the `edge` blend in fur.apply)")
+    return out
+
+
+def dark_patches(ob, col_img, distances_m=SIL_DISTANCES_M):
+    """Any patch of furred body markedly darker than the surface it sits on - the failure a tone *step*
+    across the fur's edge does not catch. It measures the colour map as Godot samples it, **through its mips**:
+    a small UV island surrounded by unwritten space reads its own colour at mip 0 and whatever is beyond it
+    a few levels up, and that is how the hands, the wrists and the feet came out as black gloves and socks
+    at 2 m while every per-texel measure said the map was right. Returns free numbers and a `fail`."""
+    from . import hairtex
+    den = _attr(ob, DEN)
+    tri, uv, pos = _triangles(ob)
+    sk = skin_tris(ob, tri, uv)
+    furred = sk & (den[tri].mean(axis=1) > 0.3)
+    if not furred.any():
+        return {"area_m2": 0.0, "share": 0.0, "tol": DARK_TOL}
+    px = col_img.shape[0]
+    lum = np.asarray(col_img, float) @ np.array([0.2126, 0.7152, 0.0722])     # the map is already sRGB
+    levels = [lum]
+    while levels[-1].shape[0] > 1:
+        a = levels[-1]
+        n = a.shape[0] // 2
+        levels.append(a[:2 * n:2, :2 * n:2] * 0.25 + a[1:2 * n:2, :2 * n:2] * 0.25
+                      + a[:2 * n:2, 1:2 * n:2] * 0.25 + a[1:2 * n:2, 1:2 * n:2] * 0.25)
+    mid = uv[furred].mean(axis=1)
+    # the surface's own colour: mip 0 averaged over the triangle (four points), which carries the pattern.
+    # Compared against a *global* coat mean instead, the spots a pattern is meant to draw fail the check.
+    ref_uv = [mid] + [mid * 0.4 + uv[furred][:, k] * 0.6 for k in range(3)]
+    ref = np.zeros(len(mid))
+    for q in ref_uv:
+        u = np.clip((q * px).astype(np.int64), 0, px - 1)
+        ref += lum[u[:, 1], u[:, 0]] / len(ref_uv)
+    P = pos[furred]
+    area = 0.5 * np.linalg.norm(np.cross(P[:, 1] - P[:, 0], P[:, 2] - P[:, 0]), axis=1)
+    s_u, s_v, _ = hairtex.texel_sizes(P, uv[furred], px, px)
+    tot = max(float(area.sum()), 1e-12)
+    out = {"tol": DARK_TOL, "share_limit": DARK_SHARE, "views": {}}
+    worst, worst_d = 0.0, None
+    for dist in distances_m:
+        f = dist * 2.0 * math.tan(math.radians(hairtex.VFOV_DEG) / 2.0) / hairtex.IMAGE_PX
+        L = np.clip(np.round(np.log2(np.maximum(f / np.maximum(np.minimum(s_u, s_v), 1e-12), 1e-9))),
+                    0, len(levels) - 1).astype(int)
+        got = np.empty(len(mid))
+        for li in np.unique(L):
+            a = levels[li]
+            m = L == li
+            u = np.clip((mid[m] * a.shape[0]).astype(np.int64), 0, a.shape[0] - 1)
+            got[m] = a[u[:, 1], u[:, 0]]
+        mean = float((got * area).sum() / tot)
+        dark = got < ref - DARK_TOL
+        share = float(area[dark].sum() / tot)
+        out["views"][f"{dist:g}m"] = {"mip_median": int(np.median(L)), "coat_luma": round(mean, 4),
+                                      "dark_share": round(share, 4),
+                                      "darkest": round(float(got.min()), 4),
+                                      "worst_drop": round(float((ref - got).max()), 4)}
+        if share > worst:
+            worst, worst_d = share, (dist, mean, got, dark, area)
+    out["share"] = round(worst, 4)
+    if worst > DARK_SHARE:
+        dist, mean, got, dark, area = worst_d
+        z = pos[furred][dark].mean(axis=1)[:, 2]
+        out["fail"] = (f"at {dist:g} m, {worst:.1%} of the furred body draws more than {DARK_TOL} in luma "
+                       f"below its own surface colour (the coat's mean is {mean:.3f}, the darkest patch "
+                       f"{float(got[dark].min()):.3f}, between z {float(z.min()):.2f} and "
+                       f"{float(z.max()):.2f} m): that reads as a dark patch - a black glove, a sock, a "
+                       "band - and a pattern's own spots do not, because the surface colour it is measured "
+                       "against carries them. The usual cause is the colour map's unwritten space being "
+                       "pulled in by a mip; grow it further (fur.DILATE_PASSES) and fill it with the skin's "
+                       "tone, not with black")
     return out
 
 
@@ -1285,8 +1362,10 @@ def bake(ob, out_dir, base=None, size=MAP_PX, mask_px=MASK_PX, checks=True):
         rep["mip"] = mip_check(ob, mask=mask)
         rep["silhouette"] = silhouette_check(ob)
         rep["edge"] = edge_tone(ob)
+        rep["dark"] = dark_patches(ob, col_img)
         bad = (list(rep["mip"].get("problems") or []) + list(rep["silhouette"].get("problems") or [])
-               + ([rep["edge"]["fail"]] if rep["edge"].get("fail") else []))
+               + ([rep["edge"]["fail"]] if rep["edge"].get("fail") else [])
+               + ([rep["dark"]["fail"]] if rep["dark"].get("fail") else []))
         if bad:
             rep["fail"] = "; ".join(([rep["fail"]] if rep.get("fail") else []) + bad)
     ob[PROP] = json.loads(json.dumps(spec))
