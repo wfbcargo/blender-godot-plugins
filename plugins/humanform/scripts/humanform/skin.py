@@ -197,7 +197,7 @@ SPECIES_KEYS = ("regions_off", "pattern", "subsurface_tint", "palette")
 # (d, s): the luminance factors are the human table's; s is set so a low-chroma (greyish) tone still shows its
 # regions by hue as well as by value, and a saturated one's lips stay skin (at s 1.4 a saturated green's lips were a
 # toy's green, chroma 45 against the skin's 30)
-SPECIES_DEEP = {"lips": (0.52, 1.0), "nipple": (0.55, 0.8), "genital": (0.55, 0.7), "knee": (0.62, 0.6),
+SPECIES_DEEP = {"lips": (0.52, 1.0), "nipple": (0.55, 0.8), "genital": (0.55, 0.3), "knee": (0.62, 0.6),
                 "elbow": (0.62, 0.6), "knuckle": (0.58, 0.6), "flush": (0.85, 0.6)}
 # stronger than a human's mottle (whose regional flush and vascular red already break the tone up), because along a
 # green or grey tone nothing else does
@@ -210,10 +210,11 @@ DEEP_DL_MIN = 1.0              # CIELAB L*: a deep region is darker than plain s
 # up to 10 on a saturated warm one (its lips); the human tints on an olive tone move the lips 25
 DEEP_HUE_MAX = 15.0
 DEEP_CHROMA_MIN = 5.0          # below this chroma (on either) hue is not judged
-# a deep region's chroma over plain skin's, at most: the human tints on warm tones give genital 1.24-1.45x, nipple
-# ~1.5x and lips ~1.65x; a region past these reads painted on (a dwarf's genitals were reported orange - their
-# albedo was 1.36x, inside this: the glow came from the transmittance through the thin shell, not the tint)
-DEEP_CHROMA_MAX = {"genital": 1.5, "nipple": 1.6, "lips": 1.75}
+# a deep region's chroma over plain skin's, at most: past it a region reads painted on. The dwarf's genital skin at
+# 1.36x (saturation exponent 0.7 along a warm tone) read orange in Godot; rendered with transmittance off it was
+# the same, so the tint, not the light through the thin shell, was the cause. Genital skin is darker and browner,
+# not more saturated: its exponent is 0.3 (~1.1x). Lips and nipples are redder by nature and keep more
+DEEP_CHROMA_MAX = {"genital": 1.25, "nipple": 1.6, "lips": 1.75}
 SSS_TONE_SHARE = 0.5           # at 0.75 a saturated green's ear glowed chartreuse under a back light
 SSS_EXP = 1.25                 # radius ~ chroma^1.25 fits the human radii against a human tone
 TRANSMIT_RG_MIN = 1.8          # human 2.7, a tawny tone 2.3; grey-greens and olives 1.3-1.5
@@ -829,6 +830,91 @@ SCALE_ROWS = {"aspect": 0.6, "radius": 0.64, "levels": 3, "smallest": 0.008, "on
 # cells dropping out one by one - read as dirty blotches, not scales emerging.
 
 
+def _scale_mean_shade(P=None):
+    """The mean of `_scale_rows`' shading over a whole lattice cell (its rim light, darker covered part and outline),
+    by the same arithmetic in numpy (the per-scale draw averages 1). The shading is divided by it, so the scales'
+    mean tone is the pattern's colour and a fade's mean runs from the skin's to it: undivided (0.72) the tail was
+    darker than its colour and the fade - small shaded scales over skin - a dark band at the waist from 4 m."""
+    P = P or SCALE_ROWS
+    A, R = P["aspect"], P["radius"]
+    U, V = np.meshgrid(np.linspace(0.0, 4.0, 401), np.linspace(0.0, 4.0, 401))
+    k = np.floor(V) + 1
+
+    def row(j):
+        o = np.mod(j, 2) * 0.5
+        du = U - (np.floor(U - o + 0.5) + o)
+        dv = (V - j) * A
+        return np.sqrt(du * du + dv * dv), dv
+    d0, dv0 = row(k)
+    d1, dv1 = row(k - 1)
+    win = d0 < R
+    d, dv = np.where(win, d0, d1), np.where(win, dv0, dv1)
+    bright = 0.6 + 0.4 * np.clip(-dv / R, 0.0, 1.0)
+    line = np.clip((d / R - 0.84) / 0.13, 0.0, 1.0)
+    return float((bright * (1.0 - 0.45 * line)).mean())
+
+
+SEAM_BANDS = (-4.0, 2.5, 0.5)    # the seam check's bands: from, to and width, in fades above the seam (down into the tail)
+SEAM_TOL = 0.05                  # a band's mean sRGB luma may leave the skin-to-scales range by this much
+
+
+def seam_tone(ob, image):
+    """The graft seam's tone across its fade, from the baked albedo `image`: the mean sRGB luma of the albedo at the
+    body's loops in bands of height (SEAM_BANDS, in fades over the seam), over the trunk (within the seam ring's width,
+    so no arm). `fail` when a band is darker or paler than both sides by over SEAM_TOL - such a band reads as a stripe
+    round the body from across a room."""
+    import json
+    info = ob.get("hf_graft")
+    if not info or image is None:
+        return None
+    info = json.loads(info)
+    z0, fade = float(info["seam_z"]), max(float(info.get("fade", 0.08)), 1e-3)
+    me = ob.data
+    if me.uv_layers.active is None:
+        return None
+    n = len(me.vertices)
+    co = np.empty(n * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(n, 3)
+    cx = float(info["centre"][0])
+    tail = graft_vertices(ob)
+    ring = co[tail][co[tail, 2] > co[tail, 2].max() - 0.01] if len(tail) else co[np.abs(co[:, 2] - z0) < 0.01]
+    half = 1.1 * float(np.abs(ring[:, 0] - cx).max()) if len(ring) else 0.2
+    lv = np.empty(len(me.loops), np.int64)
+    me.loops.foreach_get("vertex_index", lv)
+    uv = np.empty(len(me.loops) * 2, np.float32)
+    me.uv_layers.active.data.foreach_get("uv", uv)
+    uv = np.mod(uv.reshape(-1, 2), 1.0)
+    w, h = image.size
+    px = np.empty(w * h * 4, np.float32)
+    image.pixels.foreach_get(px)
+    px = px.reshape(h, w, 4)[:, :, :3]
+    xy = np.clip((uv * [w, h]).astype(np.int64), 0, [w - 1, h - 1])
+    col = px[xy[:, 1], xy[:, 0]].astype(np.float64)
+    if not image.colorspace_settings.name.lower().startswith("srgb"):
+        col = np.where(col <= 0.0031308, col * 12.92, 1.055 * np.power(np.clip(col, 0, 1), 1 / 2.4) - 0.055)
+    luma = col @ np.array([0.2126, 0.7152, 0.0722])
+    t = (co[lv, 2] - z0) / fade
+    trunk = np.abs(co[lv, 0] - cx) < half
+    lo, hi, step = SEAM_BANDS
+    bands = []
+    for a in np.arange(lo, hi, step):
+        sel = trunk & (t >= a) & (t < a + step)
+        bands.append([round(float(a), 2), round(float(luma[sel].mean()), 3) if sel.sum() >= 8 else None])
+    vals = [b[1] for b in bands if b[1] is not None]
+    if len(vals) < 3:
+        return {"bands": bands}
+    scales, skin = vals[0], vals[-1]
+    lo_v, hi_v = min(scales, skin) - SEAM_TOL, max(scales, skin) + SEAM_TOL
+    out = {"bands": bands, "scales": scales, "skin": skin}
+    bad = [b for b in bands if b[1] is not None and not lo_v <= b[1] <= hi_v]
+    if bad:
+        out["fail"] = (f"the graft seam's tone leaves the skin-to-scales range ({scales:.3f}..{skin:.3f} sRGB luma, "
+                       f"+-{SEAM_TOL}) at {[b[0] for b in bad]} fades over the seam ({[b[1] for b in bad]}): it reads "
+                       "as a band - the scales' shading or the fade's colour mix is off its mean")
+    return out
+
+
 def scale_frame(ob, pat):
     """The frame `_scale_rows` needs for a scales pattern on a graft (humanform.graft's PROP): the seam's height, which
     the rows start from, and the fade above it, whose weight each scale reads at its own centre. None without a graft
@@ -877,6 +963,7 @@ def _scale_rows(tree, coord, pat, seed):
     attr.attribute_name = PATTERN
     area = m("MULTIPLY", attr.outputs["Fac"], 3.0, clamp=True)      # the arms and all off the pattern stay off
     fade = max(float(fr.get("fade") or 0.0), 1e-4)
+    mean_shade = _scale_mean_shade(P)
     n_levels = max(1, min(P["levels"], 1 + int(math.floor(math.log2(max(size / P["smallest"], 1.0))))))
     levels = []
     for lv in range(n_levels):
@@ -922,6 +1009,7 @@ def _scale_rows(tree, coord, pat, seed):
         line = m("MULTIPLY", m("SUBTRACT", rim, 0.84), 1.0 / 0.13, clamp=True)
         shade = m("MULTIPLY", m("MULTIPLY", bright, m("SUBTRACT", 1.0, m("MULTIPLY", line, 0.45))),
                   m("MULTIPLY_ADD", rnd, 0.16, 0.92))
+        shade = m("DIVIDE", shade, mean_shade)            # its mean over a scale is 1 (`_scale_mean_shade`)
         levels.append((on, shade, share))
     # the largest scale that is on wins: full size, else half, else quarter, else skin
     on, shade, share = levels[-1]
@@ -1343,6 +1431,11 @@ def bake(ob, mat, size=1024, out_dir=None):
     if "contrast" in means:
         extra["contrast_fail"] = contrast_fails(means["contrast"], species=sp)
         extra["contrast_ok"] = not extra["contrast_fail"]
+    if graft_rect is not None and sp is not None and sp.get("pattern"):
+        img = bpy.data.images.get((res.get("images") or {}).get("base_color", ""))
+        seam = seam_tone(ob, img)
+        if seam is not None:
+            extra["seam"] = seam
     return {"size": size, "maps": res["maps"], "images": res["images"], "timings_s": res["timings_s"],
             "tone_target": [round(float(v), 4) for v in target], **means,
             "tone_error": round(err, 4), "tone_ok": err <= TONE_TOLERANCE, **extra, "detail_uv": DETAIL_UV}

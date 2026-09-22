@@ -53,6 +53,8 @@ FLUKE_KEYS = {"span", "chord", "sweep", "notch", "thickness", "plane"}
 WIDTH = [(0.0, 1.0), (0.15, 0.97), (0.4, 0.78), (0.65, 0.52), (0.85, 0.24), (1.0, 0.13)]
 DEPTH = [(0.0, 1.0), (0.15, 1.0), (0.4, 0.84), (0.65, 0.6), (0.85, 0.34), (1.0, 0.24)]
 FLUKE = {"span": 0.24, "chord": 0.45, "sweep": 0.35, "notch": 0.18, "thickness": 0.012, "plane": "horizontal"}
+FAIR = 0.09                   # the band over a seam faired into it, in hip heights (~8 cm on a person)
+FAIR_NZ_MIN = -0.25           # ... and the band's front may face down this far at most (mean normal z)
 DEFAULTS = {"seam": 0.0, "length": 1.0, "bones": 8, "rings": 28, "fade": 0.08}
 LIMITS = {"seam": (-0.15, 0.25), "length": (0.6, 1.0), "bones": (3, 16), "rings": (10, 60), "fade": (0.0, 0.3),
           "span": (0.08, 0.5), "chord": (0.15, 1.0), "sweep": (0.0, 1.0), "notch": (0.0, 0.6),
@@ -291,6 +293,43 @@ def _legs_to_tail(human, rig, g, delta, bmesh, bpy, Vector, verbose):
     for v in sv:
         v.co.z = seam_z
     P0[:, 2] = seam_z
+    # the body just over the seam, faired into it: the lower belly curves in under itself to the groin, and over the
+    # seam that undercurve faced down (normals 0.43 down at the front) - a dark band round the waist under any high
+    # light, right where the skin turns to scales (the first mermaid, from 4 m). Each vertex in the band keeps its
+    # height and direction round the body's axis, and its distance from the axis is relaxed toward its neighbours'
+    # (a distance, not a position: averaging positions round a ring shrinks the waist), fully at the seam and not at
+    # all at the band's top
+    band = FAIR * hip_z
+    ring_ids = {v.index for v in sv}
+    # the seam ring itself is relaxed too (toward the body above it, its only neighbours): the lofted tail starts
+    # from it, and a ring left at the groin's cut pinched the waist in - belly above, tail below, a crease between
+    free = [v for v in bm.verts if v.index < body_n and not arm_like[v.index] and v.link_faces
+            and (v.index in ring_ids or seam_z < v.co.z < seam_z + band)]
+    rep["faired_verts"] = len(free)
+    cx0, cy0 = float(P0[:, 0].mean()), float(P0[:, 1].mean())
+
+    def radius(u):
+        return math.hypot(u.co.x - cx0, u.co.y - cy0)
+    for _ in range(40):
+        new = {}
+        for v in free:
+            nb = [e.other_vert(v) for e in v.link_edges]
+            if not nb:
+                continue
+            r, rt = radius(v), sum(radius(u) for u in nb) / len(nb)
+            s = 0.5 * (1.0 - min(max(v.co.z - seam_z, 0.0), band) / band)
+            new[v] = (r + (rt - r) * s) / max(r, 1e-9)
+        for v, k in new.items():
+            v.co.x, v.co.y = cx0 + (v.co.x - cx0) * k, cy0 + (v.co.y - cy0) * k
+    P0 = np.array([tuple(v.co) for v in sv])
+    # the check: how far down the band over the seam faces, on the front half (where a high key light lands)
+    bm.normal_update()
+    front = [v.normal.z for v in free if v.co.y < cy0]
+    rep["seam_band_nz"] = round(float(np.mean(front)), 3) if front else None
+    if front and rep["seam_band_nz"] < FAIR_NZ_MIN:
+        rep.setdefault("warnings", []).append(
+            f"the body over the seam faces down (mean normal z {rep['seam_band_nz']} < {FAIR_NZ_MIN}): it reads as a "
+            "dark band round the waist under a high light - raise the seam or widen FAIR")
     rel = P0[:, :2] - centre[:2]
     W0, D0 = float(np.abs(rel[:, 0]).max()), float(np.abs(rel[:, 1]).max())
     theta = np.arctan2(rel[:, 1] / max(D0, 1e-6), rel[:, 0] / max(W0, 1e-6))
