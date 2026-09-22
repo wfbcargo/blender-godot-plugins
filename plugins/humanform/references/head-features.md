@@ -38,15 +38,49 @@ the reference head and scale with this one), and the canine preset's values:
 
 | key | what it does | preset |
 |---|---|---|
-| `length` | how far the snout's tip travels along the jaw's axis (the mandible's angle to the mouth) | 0.052 |
-| `width` | the snout's breadth at the tip as a share of the face it grows from | 0.58 |
+| `length` | how far the snout's tip travels along the jaw's axis (the mandible's angle to the mouth) | 0.085 |
+| `width` | the snout's breadth at the tip as a share of the face it grows from | 0.46 |
 | `bridge` | the dorsum's rise over the middle of the snout (negative dishes it) | 0.005 |
-| `pad` | the nose pad's radius at the tip; it stands 0.45 of that out of the snout | 0.018 |
+| `pad` | the nose pad's radius at the tip; it stands 0.45 of that out of the snout | 0.020 |
 | `pad_tilt` | degrees the pad's face turns down from the axis | 40 |
-| `lip` | how far the front of the lip line runs out along the snout, as a share of `length` | 0.30 |
-| `eye_set_back` | how far the orbits are drawn back out of the growing face | 0.015 |
+| `lip` | how far the front of the lip line runs out along the snout, as a share of `length` | 0.35 |
+| `lip_back` | how far the mouth's corners run back under the eye, as a share of `length` | 0.35 |
+| `stop` | the notch at the bridge between snout and forehead (m); a person has none | 0.008 |
+| `eye_set_back` | how far the orbits are drawn back out of the growing face | 0.025 |
 | `cheek` | how broadly the gathering fairs back into the cheeks | 0.7 |
 | `smooth` | Laplacian passes over the field | 6 |
+
+
+The preset also carries the MPFB targets for what a skull does and a field cannot:
+`head-back-scale-depth-decr` (a dog's braincase is 0.55 of its skull against a person's 0.81), both
+lip-volume targets and `mouth-scale-vert-decr` (a dog's lips are thin and pigmented, not everted),
+`cheek-volume-decr`, and `eye-trans-out` (a bear's eyes sit 0.43 of the head's breadth apart, a person's
+0.21).
+
+## What a muzzle is measured against
+
+`features.MUZZLE_PLAN` holds a canine skull's published proportions and `features.muzzle_measure` measures
+the built head in the same ratios, so "it still reads human" is a number before it is an opinion:
+
+| ratio | plan | a person | hm08 reaches |
+|---|---|---|---|
+| muzzle / head length | 0.39 (dog 69.84/177.72, bear 111.55/289.31) | 0.19 | 0.26 shipped, 0.32 pushed |
+| muzzle length / its own breadth | 1.39 (dog 69.84/50.08) | 0.49 | 0.98 shipped, 1.21 pushed |
+| lip line / muzzle length | 0.75 (the dog's tooth row ends under the orbit) | 0.24 | 0.36 shipped, 0.44 pushed |
+| the stop | +12 deg over the person's own (dog craniofacial angle 19-21 deg, brachycephalic 9-14) | 0 | +29 |
+
+Sources: [mesaticephalic dog skulls, n=25](https://revistas.usp.br/bjvras/en/article/view/55818);
+[Iranian brown bear skulls](https://ijvm.ut.ac.ir/article_58686_d97fd9c1490f99afe25c9d0b8c134767.pdf);
+[craniofacial angle by cephalic type](https://www.sciencedirect.com/science/article/abs/pii/S0940960211800439).
+
+**hm08 cannot reach the plan**, and that is the finding a grafted head has to answer. Pushed to its limit -
+130 mm of carry with the eyes held 60 mm back - it reaches 0.32 of the head's length (82% of a dog's) and
+0.44 of its lip line (59%), and pays 2.5x at its worst edge, 2.3x over its worst hundredth and 4.4 mm of eye
+socket out of round. The length ratio saturates because the field that keeps the skin whole carries the eyes
+forward with the face; the lip line saturates because hm08 has one loop of lip, ending at the commissure, so
+there is nothing to make a long mouth out of. What `muzzle_problems` refuses is the other end - a head not
+measurably past the person's own (`READS_HUMAN`) - and the distance from the plan is reported on every build
+(`plan_reach`).
 
 How it is shaped, and why - each line was measured, not guessed:
 
