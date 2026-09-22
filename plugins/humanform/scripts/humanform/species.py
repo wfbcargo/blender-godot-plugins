@@ -1299,6 +1299,16 @@ def _members(ob, names, thresh=0.5):
                      if any(e.group in gids and e.weight > thresh for e in v.groups)], int)
 
 
+def _key_moved(human, mesh, key, least=5e-4):
+    """The vertices a shape key moves at least `least` metres off its reference, or None without the key."""
+    by = dict(mesh.keys)
+    if key not in by:
+        return None
+    kb = human.data.shape_keys.key_blocks[key]
+    d = np.linalg.norm(by[key] - by.get(kb.relative_key.name, mesh.keys[0][1]), axis=1)
+    return np.flatnonzero(d >= least)
+
+
 def _size(pts):
     return float(np.linalg.norm(np.ptp(pts, axis=0))) if len(pts) > 1 else 0.0
 
@@ -1374,6 +1384,13 @@ def inventory(human, sp=None, reference=None, expected=None):
             rows.append(dict(row, status="skip", reason=f"not asked for (opt-in: {spec['opt_in']} is unset)"))
             continue
         idx = _members(human, spec["groups"])
+        if part == "genitals" and human.get("hf_genitals") == "female":
+            # a woman's part is humanform.genitals' relief (a delta key), not MPFB's male shell: the vertices it moves
+            idx = _key_moved(human, bm, "hfd:genital")
+            if idx is None:
+                rows.append(dict(row, status="fail", reason="missing: hf_genitals is 'female' and there is no "
+                                                            "hfd:genital relief key (humanform.genitals.relief)"))
+                continue
         if idx is None or not len(idx):
             rows.append(dict(row, status="fail", reason=f"missing: no vertices in {', '.join(spec['groups'])}, "
                                                         "and not declared absent (anatomy.absent)"))

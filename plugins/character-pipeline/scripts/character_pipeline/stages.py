@@ -209,11 +209,18 @@ def run_body(ch, ctx):
     _clear_for(ch)
     from humanform import pipeline, sheet
     parts = ch.body.parts
+    species = ch.body.brief.get("species") not in (None, "human")
+    anatomy = _species_anatomy(ch)
     res = pipeline.make(sheet.new(**ch.body.brief), use_library=True, face_part=parts.get("face"),
                         hand_part=parts.get("hands"), foot_part=parts.get("feet"),
-                        **quality_mod.settings(ctx["quality"], "body"))
+                        **quality_mod.settings(ctx["quality"], "body"), **({"anatomy": anatomy} if species else {}))
     out = {k: res.get(k) for k in ("ansur", "check", "notes", "macros")}
-    if ch.body.genitals:
+    before = ((res.get("species") or {}).get("before_warp") or {})
+    if species:
+        out["species"] = {k: (res.get("species") or {}).get(k) for k in ("species", "stature", "heads", "anatomy")}
+    if "genitals" in before:
+        out["genitals"] = before["genitals"]
+    elif ch.body.genitals:
         from humanform import genitals
         sex = ch.body.brief.get("sex")
         out["genitals"] = genitals.add(_obj(ch.name), sex, shape=ch.body.genital_shape or None,
@@ -225,6 +232,21 @@ def run_body(ch, ctx):
     if likeness:                                    # a [body.face]: each measure as fitted against its target
         out["likeness"] = likeness
     return out
+
+
+def _species_anatomy(ch):
+    """For a species body, what humanform puts on its pre-warp human so the warp carries it with the part it sits
+    on (humanform.pipeline._before_warp): the genitals and the muscle definition. None for a human."""
+    if ch.body.source != "brief" or ch.body.brief.get("species") in (None, "human"):
+        return None
+    anatomy = {}
+    if ch.body.genitals:
+        anatomy["genitals"] = {"shape": ch.body.genital_shape or None, "strength": ch.body.genital_strength}
+    if ch.muscle is not None:
+        anatomy["muscle"] = {"geometry": ch.muscle.output == "geometry", "strength": ch.muscle.strength,
+                             "weights_override": {g: 0.0 for g in spec_mod.MUSCLE_GROUPS
+                                                  if g not in ch.muscle.groups} or None}
+    return anatomy
 
 
 def _stature(res):
@@ -266,9 +288,23 @@ def check_muscle(ch):
             return ("muscle needs the unbaked body: %s is already baked - rebuild from body (definition is shape "
                     "keys on the humanform body, which bake bakes)" % ch.mesh)
         return "muscle needs body: no %s with its %s in the file - run body first" % (ch.name, ch.rig)
-    if muscled(ch):
+    if muscled(ch) and not _muscle_before_warp(ch):
         return "muscle is already on %s - rebuild from body to change [muscle]" % ch.name
     return None
+
+
+def _muscle_before_warp(ch):
+    """The define report when humanform put this species body's muscle on before its warp (the body stage), or
+    None."""
+    import json
+    human = _obj(ch.name)
+    if human is None or "muscle" not in json.loads(human.get("hf_before_warp") or "[]"):
+        return None
+    now = json.loads(json.dumps(_species_anatomy(ch) or {}, sort_keys=True, default=str))
+    made = json.loads(human.get("hf_before_warp_spec") or "{}")
+    if now.get("muscle") != made.get("muscle"):
+        return None                                 # made to another [muscle]: the body must be rebuilt
+    return json.loads(human.get("hf_muscle_report") or "{}")
 
 
 def run_muscle(ch, ctx):
@@ -281,7 +317,10 @@ def run_muscle(ch, ctx):
     brief = sheet.new(**ch.body.brief)
     off = {g: 0.0 for g in spec_mod.MUSCLE_GROUPS if g not in ch.muscle.groups}
     geometry = ch.muscle.output == "geometry"
-    rep = muscle.define(human, brief, geometry=geometry, strength=ch.muscle.strength, weights_override=off or None)
+    rep = _muscle_before_warp(ch)
+    if rep is None:
+        rep = muscle.define(human, brief, geometry=geometry, strength=ch.muscle.strength,
+                            weights_override=off or None)
     out = {"output": ch.muscle.output, "strength": ch.muscle.strength, "groups": list(ch.muscle.groups),
            "weights": rep["weights"], "body_fat_pct": rep["body_fat_pct"], "muscle_term": rep["muscle_term"],
            "definition_total": rep["definition_total"], "fitted_muscle": rep["fitted_muscle"],
@@ -1173,7 +1212,8 @@ ORDER = [s[0] for s in STAGES]
 # - is no longer in the spec and the body still carries it.
 CARRIED = {"hair": lambda ch: bool(haired(ch)), "muscle": muscled}
 RESTARTS_FROM_BODY = {"hair": CARRIED["hair"],
-                      "muscle": lambda ch: muscled(ch) or (_obj(ch.name) is None and baked(ch)),
+                      "muscle": lambda ch: (muscled(ch) and _muscle_before_warp(ch) is None)
+                      or (_obj(ch.name) is None and baked(ch)),
                       # a bake that has to run again on a body that already has hair joined: humanform's look.skin
                       # gives every face the skin material (the hair's and eyes' too), and hair must follow it anyway
                       # and cannot go on twice - so start from body rather than bake, re-skin, then restart at hair

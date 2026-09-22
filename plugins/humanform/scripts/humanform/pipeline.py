@@ -105,8 +105,37 @@ def _make_child(s, r, t, t0, eyes, store, face_part, hand_part, foot_part):
             "timing": {k: round(v, 2) for k, v in t.items()}, "guessed": r["guessed"], "notes": notes}
 
 
-def _make_species(s, out_dir, store, contact_sheet, verbose, **kw):
-    """A species body: the pre-warp human (`make`, unchanged), its head features, the warp, the species check."""
+def _before_warp(human, s_pre, anatomy):
+    """The body's own anatomy put on the pre-warp human - the body it was designed for - so the warp carries it
+    with the part it sits on: genitals (`humanform.genitals.add`: MPFB's shell and targets, or the female relief,
+    placed by a human's landmarks) and muscle definition (`humanform.muscle.define`: MPFB's muscle macro, which
+    reloads MPFB's keys at human scale, and its delta parts). Run after the warp they would come in at human
+    scale on a dwarf or a troll - MPFB drops and reloads its macro keys, unwarped, on every reapply - so a
+    species body takes them here and the later stages find them done (`human["hf_before_warp"]`)."""
+    import json
+    done = {}
+    g = (anatomy or {}).get("genitals")
+    if g:
+        from . import genitals
+        done["genitals"] = genitals.add(human, s_pre["sex"], shape=g.get("shape") or None,
+                                        strength=float(g.get("strength", 1.0)))
+    m = (anatomy or {}).get("muscle")
+    if m:
+        from . import muscle
+        done["muscle"] = muscle.define(human, s_pre, geometry=bool(m.get("geometry", True)),
+                                       strength=float(m.get("strength", 1.0)),
+                                       weights_override=m.get("weights_override") or None)
+        human["hf_muscle_report"] = json.dumps(done["muscle"], default=str)
+    if done:
+        human["hf_before_warp"] = json.dumps(sorted(done))
+        # what was asked, so a later stage can tell its own spec from the one these were made to
+        human["hf_before_warp_spec"] = json.dumps(anatomy, sort_keys=True, default=str)
+    return done
+
+
+def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw):
+    """A species body: the pre-warp human (`make`, unchanged), its head features, its anatomy (`anatomy`, see
+    `_before_warp`), the warp, the species check."""
     import os
     from . import species
     problems = sheet.validate(s)
@@ -125,6 +154,7 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, **kw):
     t1 = time.time()
     feats = species.apply_features(human, sp)
     _mouth(human)                   # rebuilt where the head features have put the mouth, before the warp moves it
+    before_warp = _before_warp(human, s_pre, anatomy)
     t["features"] = time.time() - t1
     t2 = time.time()
     rep = dict(info)
@@ -132,6 +162,7 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, **kw):
     species.warp(human, sp, report=rep, sex=s["sex"], stature=info["stature"], style=s.get("style", "realistic"),
                  clamp_scale=info["clamp_scale"], verbose=verbose)
     rep["features"] = feats
+    rep["before_warp"] = before_warp
     rep["anatomy"] = species.inventory(human, sp, reference=before,
                                        expected={"eyes": (rep.get("eyes") or {}).get("ratio", 1.0)})
     if tone is not None:
@@ -162,7 +193,7 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, **kw):
 
 
 def make(s, out_dir=None, store=False, use_library=True, contact_sheet=False, tags=(), verbose=False, eyes=True,
-         face_part=None, hand_part=None, foot_part=None, fit_iterations=10, fit_detail=True):
+         face_part=None, hand_part=None, foot_part=None, fit_iterations=10, fit_detail=True, anatomy=None):
     """`face_part`, `hand_part`, `foot_part`: library parts (card or id) applied before the fit, so their
     look is kept and the measurements - moved by a hand or foot part's offsets - are solved for this body.
     The brief's `iris` and `skin` screen colours go on the eyes and body. `fit_iterations`: the body fit's
@@ -170,11 +201,14 @@ def make(s, out_dir=None, store=False, use_library=True, contact_sheet=False, ta
     the settle pass after them). Both are a cheaper, looser fit for a draft, and a body fitted either way is
     never stored in the library.
 
-    A `species` brief (not "human") is fitted as its pre-warp human and warped: see the module docstring."""
+    A `species` brief (not "human") is fitted as its pre-warp human and warped: see the module docstring.
+    `anatomy` ({"genitals": {"shape", "strength"}, "muscle": {"geometry", "strength", "weights_override"}}) is
+    put on a species body before the warp (`_before_warp`) so the warp carries it; a human body ignores it (its
+    stages add them to the finished body, as they always have)."""
     if (s.get("species") or "human") != "human":
         return _make_species(s, out_dir, store, contact_sheet, verbose, use_library=use_library, tags=tags,
                              eyes=eyes, face_part=face_part, hand_part=hand_part, foot_part=foot_part,
-                             fit_iterations=fit_iterations, fit_detail=fit_detail)
+                             fit_iterations=fit_iterations, fit_detail=fit_detail, anatomy=anatomy)
     t = {}
     t0 = time.time()
     r = sheet.resolve(s)
