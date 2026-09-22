@@ -53,8 +53,15 @@ LIMITS = {"count": (1, 6), "size": (0.4, 3.0), "rise": (-0.03, 0.08), "spacing":
 APERTURE = (0.95, 0.50)      # half width, half height of the lid opening in eyeball radii. A person's is ~1.25 x 0.42
                              # of the ball, but its corners run back round the ball into the orbit; carved into a face
                              # an opening wider than the ball bared the ball's side (a first cyclops, seen 3/4)
-PROTRUDE = 0.35              # the share of the eyeball's radius in front of the face it is carved into
-BLEND = 2.3                  # the carve fades back to the face by this many radii (in aperture units)
+PROTRUDE = None              # the eyeball's front ahead of the face around it (RING), in radii: None is the person's
+                             # own eye on this head, measured (flush: -0.01 on MPFB's). 0.35 ahead of the nose bridge
+                             # made the first cyclops' eye bulge and stare (0.40 ahead of its face ring, half the ball
+                             # bare from the front against a person's 0.19)
+RING = 1.6                   # the face around an eye: the skin this many radii from its centre, seen from the front
+EXPOSE_VIEWS = (0, 35, 60)   # the yaws (degrees, the worse side) a new eye's bare share is measured from
+EXPOSE_TOL = 0.25            # ... and it may exceed the person's eye on the same head by this share (+0.02) at most
+PROTRUDE_TOL = 0.15          # ... nor stand further out of its face than theirs by more than this many radii
+BLEND = 2.3                 # the carve fades back to the face by this many radii (in aperture units)
 LID = (1.05, 1.18)           # the lid band's distance from the eyeball's centre, at the margin and at its outer edge
 INSIDE = 0.94                # skin inside the aperture is laid this far out: hidden inside the eyeball
 FORE_RISE = 0.035            # a third (fourth...) eye's default height over the pair, on the reference head
@@ -89,8 +96,9 @@ def validate(spec):
                 out.append(f"head.eyes.at[{i}].{k} = {a[k]!r}: a number in {lo}..{hi}")
     ap = spec.get("aperture")
     pr = spec.get("protrude")
-    if pr is not None and (not isinstance(pr, (int, float)) or not 0.0 <= pr <= 0.9):
-        out.append(f"head.eyes.protrude = {pr!r}: the share of the eyeball's radius in front of the face, 0..0.9")
+    if pr is not None and (not isinstance(pr, (int, float)) or not -0.5 <= pr <= 0.9):
+        out.append(f"head.eyes.protrude = {pr!r}: the eyeball's front ahead of the face around it, in its radii, "
+                   "-0.5..0.9 (leave it out: a person's eye on this head is measured, about 0)")
     if ap is not None and (not isinstance(ap, (list, tuple)) or len(ap) != 2
                            or not all(isinstance(v, (int, float)) and 0.3 <= v <= 2.0 for v in ap)):
         out.append(f"head.eyes.aperture = {ap!r}: [half width, half height] in eyeball radii, each 0.3..2.0")
@@ -360,21 +368,59 @@ def apply(human, spec, iris=None):
             rep = {}
             P = _close(P, faces, eyes_old[side][0], eyes_old[side][1], sgn, rep)
             report[f"closed_{side}"] = rep
-    ap = tuple(spec.get("aperture") or APERTURE)
+    # the rule every new eye is held to: a person's eye on this very head, measured before anything moves - how far
+    # its ball stands out of the face around it and how much of it the lids leave bare from the front, 3/4, and 60
+    human_eye = exposure(co[:BODY_VERTS], faces, *eyes_old["L"])
+    report["human_eye"] = human_eye
+    # the opening's shape is the person's (their lids' half width and half height over the ball, seen from the
+    # front); its size is then solved below. A fixed almond (0.95 x 0.50) solved to their bare share came out an
+    # iris-wide slit with no white either side - a squint, not an eye
+    ap0 = tuple(spec.get("aperture") or human_eye.get("opening") or APERTURE)
     blend = float(spec.get("blend", BLEND))
+    protrude = spec.get("protrude", PROTRUDE)
+    protrude = human_eye["protrude"] if protrude is None else float(protrude)
     new = []
     for e in pl["eyes"]:
         R = r_h * e["size"]
         x = e["x"] * F.eye_x
         z = F.eye_z + e["rise"] * s
-        # the eye's front stands `protrude` of its radius out of the face it is carved into (the face as it was:
-        # a closed orbit next to it has moved, the midline has not)
-        hit = F.tree.ray_cast(Vector((x, -0.5, z)), Vector((0.0, 1.0, 0.0)), 1.0)[0]
-        y_face = float(hit.y) if hit is not None else ey - r_h
-        y = y_face + R * (1.0 - float(spec.get("protrude", PROTRUDE)))
-        c = np.array([x, y, z])
-        P = _carve(P, c, R, ap, blend, report)
-        new.append({"centre": c, "radius": R})
+        # the ball's front stands `protrude` radii ahead of the face around it (the face as it was: RING radii out,
+        # seen from the front; a closed orbit beside it has moved, the brow and cheeks have not)
+        ring = []
+        for a in np.linspace(0.0, 2 * math.pi, 24, endpoint=False):
+            hit = F.tree.ray_cast(Vector((x + RING * R * math.cos(a), -0.5, z + RING * R * math.sin(a))),
+                                  Vector((0.0, 1.0, 0.0)), 1.0)[0]
+            if hit is not None:
+                ring.append(float(hit.y))
+        y_face = float(np.mean(ring)) if ring else ey - r_h
+        new.append({"centre": np.array([x, y_face - protrude * R + R, z]), "radius": R})
+    P_closed = P
+
+    def carve_all(k, rep):
+        Q = P_closed
+        for e in new:
+            Q = _carve(Q, e["centre"], e["radius"], (ap0[0] * k[0], ap0[1] * k[1]), blend, rep)
+        return Q
+
+    def bare(Q):
+        return [exposure(Q, faces, e["centre"], e["radius"]) for e in new]
+    # the opening: its width and height scaled until the new eyes' lids leave the same opening over the ball as the
+    # person's do, seen from the front (an aperture the spec gives is taken as it is). The carve's almond is where
+    # skin passes through the ball, so the opening it leaves differs from it by the face around; a few multiplicative
+    # rounds find it
+    k = [1.0, 1.0]
+    want = human_eye.get("opening")
+    if not spec.get("aperture") and want:
+        for _ in range(5):
+            got = bare(carve_all(k, {}))
+            gw = float(np.mean([g.get("opening", want)[0] for g in got]))
+            gh = float(np.mean([g.get("opening", want)[1] for g in got]))
+            k = [float(np.clip(k[0] * want[0] / max(gw, 1e-3), 0.4, 2.0)),
+                 float(np.clip(k[1] * want[1] / max(gh, 1e-3), 0.4, 2.0))]
+    ap = (ap0[0] * k[0], ap0[1] * k[1])
+    P = carve_all(k, report)
+    report["aperture"] = [round(v, 3) for v in ap]
+    report["exposure"] = bare(P)
     report["eyes"] = [{"centre": [round(float(v), 4) for v in e["centre"]], "radius_mm": round(e["radius"] * 1000, 2)}
                       for e in new]
 
@@ -422,9 +468,86 @@ def apply(human, spec, iris=None):
     report["count"] = len(places)
     report["lash_cards"] = len(lash)
     report["intersections"] = features.head_intersections(human, faces)
+    fails = []
     bad = [i for i, (a, l) in enumerate(zip(report["aperture_verts"], report["lid_verts"])) if a < 3 or l < 6]
     if bad:
-        report["fail"] = (f"eye(s) {bad}: the mesh has too few vertices in the aperture or the lid band "
-                          f"(aperture {report['aperture_verts']}, lids {report['lid_verts']}) - make the eye bigger "
-                          "(size) or open it wider (aperture)")
+        fails.append(f"eye(s) {bad}: the mesh has too few vertices in the aperture or the lid band "
+                     f"(aperture {report['aperture_verts']}, lids {report['lid_verts']}) - make the eye bigger "
+                     "(size) or open it wider (aperture)")
+    stare = exposure_problems(report["exposure"], human_eye)
+    if stare:
+        report["stare"] = stare
+        fails.append("; ".join(stare))
+    if fails:
+        report["fail"] = "; ".join(fails)
     return report
+
+
+def exposure(P, faces, c, R, views=EXPOSE_VIEWS):
+    """How an eyeball (centre `c`, radius `R`) sits in the skin `P` (body vertices, hm08 `faces`): `protrude`, its
+    front ahead of the face around it (the skin RING radii from its centre, seen from the front) in radii, and
+    `bare`, per yaw in `views` (the worse side), the share of the rays that would meet the ball that meet it before
+    any skin - what the lids leave uncovered. A person's eye on MPFB: protrude -0.01, bare 0.19 / 0.15 / 0.09."""
+    from mathutils.bvhtree import BVHTree
+    c = np.asarray(c, float)
+    tree = BVHTree.FromPolygons([Vector(v) for v in np.asarray(P, float)[:BODY_VERTS]],
+                                [tuple(int(i) for i in t) for t in _tris(np.asarray(faces))])
+    ring = []
+    for a in np.linspace(0.0, 2 * math.pi, 24, endpoint=False):
+        hit = tree.ray_cast(Vector((c[0] + RING * R * math.cos(a), c[1] - 1.0, c[2] + RING * R * math.sin(a))),
+                            Vector((0.0, 1.0, 0.0)), 2.0)[0]
+        if hit is not None:
+            ring.append(float(hit.y))
+    out = {"protrude": round(float(np.mean(ring) - (c[1] - R)) / R, 3) if ring else None, "bare": {}}
+    C = Vector(c)
+    grid = np.linspace(-1.1 * R, 1.1 * R, 73)
+    for yaw in views:
+        worst = 0.0
+        for sgn in ((1.0,) if yaw == 0 else (1.0, -1.0)):
+            a = math.radians(yaw * sgn)
+            cam = C + Vector((math.sin(a), -math.cos(a), 0.0)) * (25 * R)
+            right = Vector((math.cos(a), math.sin(a), 0.0))
+            ball = seen = 0
+            su, sw = [], []
+            for u in grid:
+                for w in grid:
+                    d = (C + right * float(u) + Vector((0.0, 0.0, float(w))) - cam).normalized()
+                    oc = cam - C
+                    bq = oc.dot(d)
+                    disc = bq * bq - (oc.dot(oc) - R * R)
+                    if disc < 0:
+                        continue
+                    ball += 1
+                    t_ball = -bq - math.sqrt(disc)
+                    hit = tree.ray_cast(cam, d, 50 * R)
+                    if hit[0] is None or hit[3] > t_ball:
+                        seen += 1
+                        su.append(abs(float(u)))
+                        sw.append(float(w))
+            worst = max(worst, seen / max(ball, 1))
+            if yaw == 0 and su:
+                # the opening's size from the front: half its width and half its height, in radii
+                out["opening"] = [round(max(su) / R, 3), round((max(sw) - min(sw)) / (2 * R), 3)]
+        out["bare"][str(yaw)] = round(worst, 3)
+    return out
+
+
+def exposure_problems(eyes_exposure, human):
+    """[] or why a new eye stares: bare past the person's eye on the same head (EXPOSE_TOL) at any view, or standing
+    out of its face further (PROTRUDE_TOL). Each problem names the numbers and the fix."""
+    out = []
+    for i, e in enumerate(eyes_exposure):
+        for yaw, v in e["bare"].items():
+            limit = human["bare"][yaw] * (1 + EXPOSE_TOL) + 0.02
+            if v > limit:
+                out.append(f"eye {i} is {v:.0%} bare seen from {yaw} deg against a person's {human['bare'][yaw]:.0%} "
+                           f"(limit {limit:.0%}) - the lids cover too little: narrow the aperture or leave it out")
+        op, hop = e.get("opening"), human.get("opening")
+        if op and hop and op[1] > hop[1] * (1 + EXPOSE_TOL) + 0.03:
+            out.append(f"eye {i}'s lids open {op[1]:.2f} radii each way from its middle against a person's "
+                       f"{hop[1]:.2f} - it stares: lower the aperture's height or leave it out")
+        pr, hpr = e.get("protrude"), human.get("protrude")
+        if pr is not None and hpr is not None and pr > hpr + PROTRUDE_TOL:
+            out.append(f"eye {i} stands {e['protrude']:.2f} radii out of its face against a person's "
+                       f"{human['protrude']:.2f} - it bulges: lower protrude or leave it out")
+    return out

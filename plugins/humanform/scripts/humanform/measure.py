@@ -390,9 +390,28 @@ def measurements(ob, sex=None, fast=False, only=None, levels=None):
     # H): the shell hangs across the midline below the crotch in a section ~5% of H wide, and read as the
     # crotch it put the study man's 6.7 cm low. Only there: on MPFB bodies the width test moved the fit
     min_w = 0.08 * H if b.ob.type == "MESH" and b.ob.data.attributes.get("hf_genital") is not None else 0.0
+    # and the loop must reach round both legs - past each leg's own axis (hip joint to knee joint) at that height.
+    # Thick thighs press across the midline below the crotch: each thigh's own loop then spans it, and read as the
+    # crotch it put the cyclops' 0.42 H against the 0.49 H his skeleton and design give (a thigh's loop never
+    # reaches the other thigh's axis)
+    axes = []
+    for s in ("L", "R"):
+        hp, kn = b.mark(f"hip.{s}"), b.mark(f"knee.{s}")
+        if hp is not None and kn is not None:
+            axes.append((np.array(hp), np.array(kn)))
+
+    def round_both(lp, z):
+        if len(axes) < 2:
+            return True
+        xs = []
+        for hp, kn in axes:
+            t = (z - kn[2]) / (hp[2] - kn[2]) if abs(hp[2] - kn[2]) > 1e-6 else 0.0
+            xs.append(kn[0] + (hp[0] - kn[0]) * min(max(t, 0.0), 1.0))
+        return lp.min[0] < min(xs) and lp.max[0] > max(xs)
 
     def joined(z):
-        return any(lp.spans_x0 and min_w < lp.width_x < 0.6 * H for lp in slicing.horizontal(b, z, hull=False))
+        return any(lp.spans_x0 and min_w < lp.width_x < 0.6 * H and round_both(lp, z)
+                   for lp in slicing.horizontal(b, z, hull=False))
 
     z_lo = floor + (m.get("knee_z") or lv(0.25) * H)
     z_hi = floor + (m.get("hip_z") or lv(0.55) * H) + 0.08 * H

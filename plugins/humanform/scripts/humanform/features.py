@@ -818,13 +818,233 @@ TONGUE = (0.72, 0.38, 0.38)
 MOUTH_PARTS = (("teeth", "helper-upper-teeth", TEETH, 0.3), ("teeth", "helper-lower-teeth", TEETH, 0.3),
                ("tongue", "helper-tongue", TONGUE, 0.45))
 TEETH_SUFFIX = "_teeth"
+MOUTH_MATERIALS = {"teeth": "_teeth", "tongue": "_tongue", "seal": "_mouth"}     # material name endings
+# A closed mouth shows no teeth. MPFB's closed lips do not seal: the upper lip's edge and the lower lip stand 0.3-2.8
+# mm apart along a crack that runs back into a mouth cavity much roomier than a real one, and its teeth helpers bite
+# edge to edge right at the crack. So every ray through the crack found enamel: a pale dashed line at the slit and the
+# corners of every build since the teeth went on every body, which Godot's subsurface blur spread into bands on a
+# dark skin (species-1 trials, the drow and the cyclops). Moving the teeth cannot fix it on its own - seen from above
+# at 3/4, a ray through the crack reaches the far side's premolars wherever they are. What a real closed mouth has
+# is lips that meet, and behind them darkness: so the mouth gets a seal, a strip of dark membrane standing just
+# behind the lip line across the crack, inside the lips' flesh above and below it (`mouth_seal`), which is the dark
+# lip line a close-up shows; and the teeth are kept a clearance behind it. Sizes are fractions of the mouth's breadth
+# (the lip line's corner to corner), so they hold for any head.
+SEAL = (0.035, 0.09, 0.62)   # the seal: its depth behind the lip line, its half height, its half width (x breadth)
+SEAL_GROW = 1.5              # ... its half height grown by this while a ray still reaches a tooth, up to 3 times
+SEAL_COLOUR = (0.26, 0.12, 0.11)     # the lips' inner skin in their own shadow (sRGB): black read as a drawn line
+TEETH_BACK = 0.03            # a tooth at least this far (x breadth) behind the seal and the skin in front of it
+MOUTH_VIEWS = ((0, 0), (35, 0), (-35, 0), (60, 0), (-60, 0), (0, 12), (35, 12), (-35, 12), (0, -8))
+# (yaw, pitch) in degrees of the cameras the closed-mouth check looks from: front, 3/4 and near profile either side,
+# from above (lookdev's face camera sits at eye height) and from a little below
+MOUTH_CAM = 12.0             # camera distance in mouth breadths (~0.55 m on a person: lookdev's face close-up)
+
+
+def _tris_of(faces):
+    """Triangles of a list of polygons (index tuples), fanned."""
+    out = []
+    for p in faces:
+        p = tuple(int(i) for i in p)
+        for k in range(1, len(p) - 1):
+            out.append((p[0], p[k], p[k + 1]))
+    return out
+
+
+def mouth_views(skin_co, skin_faces, parts, slit, views=MOUTH_VIEWS):
+    """The closed-mouth check: cast a fine grid of rays at the mouth from each camera in `views` ((yaw, pitch)
+    degrees; the face looks down -Y) and count, per part, the rays whose first hit is that part, not the skin.
+    `parts` is {name: (co, faces)}, `slit` the lip line's points (N, 3). The grid is finer than a close-up's pixels
+    (0.25% of the mouth's breadth vertically), so a hairline crack that a render shows as a dashed line is caught.
+    Returns {"views": {"yaw/pitch": {part: rays}}, part: total, "rays": cast, "breadth_m": mouth breadth}."""
+    from mathutils.bvhtree import BVHTree
+    skin_co = np.asarray(skin_co, float)
+    verts = [Vector(v) for v in skin_co]
+    tris = _tris_of(skin_faces)
+    label = [None] * len(tris)
+    for name, (co, faces) in parts.items():
+        base = len(verts)
+        verts += [Vector(v) for v in np.asarray(co, float)]
+        t = [(a + base, b + base, c + base) for a, b, c in _tris_of(faces)]
+        tris += t
+        label += [name] * len(t)
+    tree = BVHTree.FromPolygons(verts, tris)
+    slit = np.asarray(slit, float)
+    b = float(slit[:, 0].max() - slit[:, 0].min())
+    c = Vector(slit.mean(axis=0))
+    xs = np.linspace(-0.75 * b, 0.75 * b, 181)
+    zs = np.linspace(-0.12 * b, 0.12 * b, 97)
+    out = {"views": {}, "rays": 0, "breadth_m": round(b, 4)}
+    for name in parts:
+        out[name] = 0
+    for yaw, pitch in views:
+        a, p = math.radians(yaw), math.radians(pitch)
+        cam = c + Vector((math.sin(a) * math.cos(p), -math.cos(a) * math.cos(p), math.sin(p))) * (MOUTH_CAM * b)
+        row = {name: 0 for name in parts}
+        for z in zs:
+            for x in xs:
+                d = Vector((c.x + x, c.y, c.z + z)) - cam
+                hit = tree.ray_cast(cam, d.normalized(), 3 * MOUTH_CAM * b)
+                out["rays"] += 1
+                if hit[2] is not None and label[hit[2]] is not None:
+                    row[label[hit[2]]] += 1
+        out["views"][f"{yaw}/{pitch}"] = row
+        for name, n in row.items():
+            out[name] += n
+    return out
+
+
+def _slit_z(slit):
+    """z of the lip line as a function of x (the corners held beyond the ends)."""
+    s = np.asarray(slit, float)
+    o = np.argsort(s[:, 0])
+    return lambda x: np.interp(x, s[o, 0], s[o, 2])
+
+
+def _slit_y(slit):
+    s = np.asarray(slit, float)
+    o = np.argsort(s[:, 0])
+    return lambda x: np.interp(x, s[o, 0], s[o, 1])
+
+
+def mouth_seal(skin_co, skin_faces, slit, half_height=None, cols=41, rows=9):
+    """The seal of a closed mouth: a grid of `cols` x `rows` points spanning the lip line's crack, SEAL[0] behind
+    the skin in front of it (a front ray's first hit, or the lip line where that ray went into the crack), from the
+    corners' outside to the middle. Returns (co (rows*cols, 3), quads, report); the report's `exposed` counts the
+    points away from the crack with no skin in front of them (0, or the seal pokes out of the face)."""
+    from mathutils.bvhtree import BVHTree
+    slit = np.asarray(slit, float)
+    b = float(slit[:, 0].max() - slit[:, 0].min())
+    zf, yf = _slit_z(slit), _slit_y(slit)
+    depth, h = SEAL[0] * b, (half_height if half_height is not None else SEAL[1]) * b
+    tree = BVHTree.FromPolygons([Vector(v) for v in np.asarray(skin_co, float)], _tris_of(skin_faces))
+    y0 = float(slit[:, 1].min()) - 0.5 * b
+    pts = []
+    for t in np.linspace(-1.0, 1.0, rows):
+        for x in np.linspace(-SEAL[2] * b, SEAL[2] * b, cols):
+            z = float(zf(x)) + t * h
+            yl = float(yf(x))
+            hit = tree.ray_cast(Vector((x, y0, z)), Vector((0.0, 1.0, 0.0)), 1.0)
+            surf = yl if hit[0] is None or hit[0].y > yl + 0.2 * b else max(float(hit[0].y), yl)
+            pts.append((x, surf + depth, z))
+    co = np.array(pts)
+    quads = [(r * cols + c, r * cols + c + 1, (r + 1) * cols + c + 1, (r + 1) * cols + c)
+             for r in range(rows - 1) for c in range(cols - 1)]
+    exposed = 0
+    for k, v in enumerate(co):
+        if abs(np.linspace(-1.0, 1.0, rows)[k // cols]) < 0.5:
+            continue                                 # the rows at the crack look out through it: that is the line
+        if tree.ray_cast(Vector(v), Vector((0.0, -1.0, 0.0)), 0.5 * b)[0] is None:
+            exposed += 1
+    return co, quads, {"half_height_mm": round(h * 1000, 2), "depth_mm": round(depth * 1000, 2), "exposed": exposed}
+
+
+def fit_mouth(skin_co, skin_faces, slit, teeth, tongue=None):
+    """A closed mouth: its seal (`mouth_seal`), and the teeth and tongue moved straight back until every tooth is
+    TEETH_BACK behind the seal and behind the skin in front of it; the seal is made taller (SEAL_GROW) while a
+    `mouth_views` ray still reaches a tooth. `teeth`, `tongue` are (co, faces). Returns (teeth_co, tongue_co,
+    (seal_co, seal_faces), report)."""
+    from mathutils.bvhtree import BVHTree
+    skin_co = np.asarray(skin_co, float)
+    slit = np.asarray(slit, float)
+    b = float(slit[:, 0].max() - slit[:, 0].min())
+    T0 = np.asarray(teeth[0], float)
+    G0 = np.asarray(tongue[0], float) if tongue is not None else np.zeros((0, 3))
+    skin_tree = BVHTree.FromPolygons([Vector(v) for v in skin_co], _tris_of(skin_faces))
+    hh = SEAL[1]
+    for rnd in range(4):
+        sco, sfaces, srep = mouth_seal(skin_co, skin_faces, slit, half_height=hh)
+        seal_tree = BVHTree.FromPolygons([Vector(v) for v in sco], _tris_of(sfaces))
+        back = 0.0
+        for v in T0:
+            for tree in (skin_tree, seal_tree):
+                hit = tree.ray_cast(Vector(v), Vector((0.0, -1.0, 0.0)), 0.5 * b)
+                if hit[0] is not None:
+                    back = max(back, TEETH_BACK * b - float(v[1] - hit[0].y))
+                # a tooth in front of the seal: the ray back from it meets the seal
+                hit = tree.ray_cast(Vector(v), Vector((0.0, 1.0, 0.0)), 0.5 * b) if tree is seal_tree else (None,)
+                if hit[0] is not None:
+                    back = max(back, float(hit[0].y - v[1]) + TEETH_BACK * b)
+        shift = np.array([0.0, back, 0.0])
+        T = T0 + shift
+        G = G0 + shift if len(G0) else G0
+        parts = {"teeth": (T, teeth[1]), "seal": (sco, sfaces)}
+        if len(G):
+            parts["tongue"] = (G, tongue[1])
+        seen = mouth_views(skin_co, skin_faces, parts, slit)
+        if not seen["teeth"]:
+            break
+        hh *= SEAL_GROW
+    rep = dict(srep, breadth_m=round(b, 4), back_mm=round(back * 1000, 2), rounds=rnd + 1, teeth_rays=seen["teeth"],
+               tongue_rays=seen.get("tongue", 0), rays=seen["rays"])
+    return T, G, (sco, sfaces), rep
+
+
+def _drawn(ob):
+    """The body's vertices as drawn: every shape key at its value, hfd: displacements included."""
+    from . import eye_layout
+    return eye_layout._full(ob)
+
+
+def closed_mouth(ob):
+    """The closed-mouth check on a body (`mouth_views` from every MOUTH_VIEWS camera): the unbaked MPFB body and its
+    `<human>_teeth` object, or a baked mesh whose teeth, tongue and seal are joined in (MOUTH_MATERIALS). Rest pose. Returns the report with `fail` set when any ray reaches a tooth; None when there are no
+    teeth or no lip line to look at."""
+    ob = _obj(ob)
+    feats = measure.face_features()
+    me = ob.data
+    if len(me.vertices) < feats["n_body"]:
+        return None
+    teeth_ob = bpy.data.objects.get(ob.name + TEETH_SUFFIX)
+    if teeth_ob is not None:
+        co = _drawn(ob)[:BODY_VERTS]
+        skin_faces = [tuple(f) for f in delta.body_faces(ob)]
+        tm = teeth_ob.data
+        tco = np.array([v.co[:] for v in tm.vertices], float)
+        # the teeth object is parented with its own world matrix: bring it into the body's space
+        M = np.array(ob.matrix_world.inverted() @ teeth_ob.matrix_world)
+        tco = tco @ M[:3, :3].T + M[:3, 3]
+        names = [m.name if m else "" for m in tm.materials]
+        parts = {}
+        for key, suffix in MOUTH_MATERIALS.items():
+            fs = [tuple(p.vertices) for p in tm.polygons if names[p.material_index].endswith(suffix)]
+            if fs:
+                parts[key] = (tco, fs)
+    else:
+        co = np.array([v.co[:] for v in me.vertices], float)
+        names = [m.name if m else "" for m in me.materials]
+        by = {k: [] for k in ("skin", *MOUTH_MATERIALS)}
+        for p in me.polygons:
+            n = names[p.material_index] if p.material_index < len(names) else ""
+            key = next((k for k, suffix in MOUTH_MATERIALS.items() if n.endswith(suffix)), None)
+            if key:
+                by[key].append(tuple(p.vertices))
+            elif all(i < BODY_VERTS for i in p.vertices):
+                by["skin"].append(tuple(p.vertices))
+        skin_faces = by["skin"]
+        parts = {k: (co, by[k]) for k in MOUTH_MATERIALS if by[k]}
+    if "teeth" not in parts:
+        return None
+    packed = {}                                      # only the vertices each part uses
+    for k, (pco, fs) in parts.items():
+        used = sorted({i for f in fs for i in f})
+        remap = {j: n for n, j in enumerate(used)}
+        packed[k] = (pco[used], [tuple(remap[i] for i in f) for f in fs])
+    rep = mouth_views(co[:BODY_VERTS], skin_faces, packed, co[feats["mouth"]])
+    if rep["teeth"]:
+        worst = max(rep["views"].items(), key=lambda kv: kv[1].get("teeth", 0))
+        rep["fail"] = (f"a closed mouth shows its teeth: {rep['teeth']} of {rep['rays']} rays at the lips reach a tooth "
+                       f"(most from the {worst[0]} yaw/pitch camera) - rebuild the mouth (humanform.features.mouth "
+                       "sets the teeth behind the lips), or lower the head feature that parted them")
+    return rep
 
 
 def mouth(human):
     """Teeth and tongue: `<human>_teeth`, MPFB's own teeth and tongue helpers (hidden behind its helper mask and
     deleted by the bake) as a mesh of their own, where every target on the body has put them, with the body's
-    skin weights (deform bones only; a vertex with none rides the head bone). A tusk is added in front of these
-    teeth, never in place of them. Rebuilt on every call; returns its report, or None without the helpers."""
+    skin weights (deform bones only; a vertex with none rides the head bone), and the closed mouth's seal (`fit_mouth`:
+    a dark membrane across the lip crack, with the lips' weights, and the teeth kept behind it). A tusk is added in
+    front of these teeth, never in place of them. Rebuilt on every call; returns its report, or None without the
+    helpers. The report's `closed` is the closed-mouth check (`mouth_views`), with `fail` when a tooth shows."""
+    from mathutils.kdtree import KDTree
     from . import eyes, look
     from . import body as _body
     name = human.name + TEETH_SUFFIX
@@ -837,32 +1057,64 @@ def mouth(human):
     bones = set(rig.data.bones.keys()) if rig is not None else set()
     head = eyes.head_bone(rig)
     gname = {g.index: g.name for g in human.vertex_groups}
-    bm = bmesh.new()
-    mats, weights, rep = [], [], {}
-    for part, group, colour, rough in MOUTH_PARTS:
+
+    def deform_weights(i):
+        w = {gname[e.group]: e.weight for e in me0.vertices[i].groups if gname[e.group] in bones and e.weight > 1e-4}
+        return w or {head: 1.0}
+    rows = {}                                       # part -> (vertex indices, faces), MPFB's helpers
+    rep = {}
+    for part, group, _colour, _rough in MOUTH_PARTS:
         g = human.vertex_groups.get(group)
         if g is None:
             continue
         vs = [v.index for v in me0.vertices if any(e.group == g.index and e.weight > 0.5 for e in v.groups)]
         inside = set(vs)
-        faces = [p for p in me0.polygons if all(i in inside for i in p.vertices)]
-        mat = look.material(f"{human.name}_{part}", srgb=colour, roughness=rough)
-        if mat not in mats:
-            mats.append(mat)
-        vmap = {}
-        for i in vs:
-            vmap[i] = bm.verts.new(Vector(co[i]))
-            w = {gname[e.group]: e.weight for e in me0.vertices[i].groups
-                 if gname[e.group] in bones and e.weight > 1e-4}
-            weights.append(w or {head: 1.0})
-        for p in faces:
-            f = bm.faces.new([vmap[i] for i in p.vertices])
-            f.material_index = mats.index(mat)
-            f.smooth = True
+        faces = [tuple(p.vertices) for p in me0.polygons if all(i in inside for i in p.vertices)]
+        old_vs, old_fs = rows.get(part, ([], []))
+        rows[part] = (old_vs + vs, old_fs + faces)
         rep[group] = {"verts": len(vs), "faces": len(faces)}
-    if not rep:
-        bm.free()
+    if "teeth" not in rows:
         return None
+
+    def packed(part):
+        vs, fs = rows[part]
+        remap = {j: n for n, j in enumerate(vs)}
+        return co[vs], [tuple(remap[i] for i in f) for f in fs]
+    # the closed mouth, on the skin as it is drawn (displacements included: a tusk's lip is where it is drawn)
+    drawn = _drawn(human)[:BODY_VERTS]
+    skin_faces = [tuple(f) for f in delta.body_faces(human)]
+    slit = drawn[measure.face_features()["mouth"]]
+    t_co, g_co, (s_co, s_faces), fit = fit_mouth(drawn, skin_faces, slit, packed("teeth"),
+                                                 packed("tongue") if "tongue" in rows else None)
+    placed = {"teeth": t_co, "tongue": g_co}
+
+    bm = bmesh.new()
+    mats, weights = [], []
+    colours = {part: (colour, rough) for part, _g, colour, rough in MOUTH_PARTS}
+    for part in ("teeth", "tongue"):
+        if part not in rows:
+            continue
+        mats.append(look.material(f"{human.name}_{part}", srgb=colours[part][0], roughness=colours[part][1]))
+        vs, fs = rows[part]
+        new = [bm.verts.new(Vector(p)) for p in placed[part]]
+        weights += [deform_weights(i) for i in vs]
+        remap = {j: n for n, j in enumerate(vs)}
+        for f in fs:
+            face = bm.faces.new([new[remap[i]] for i in f])
+            face.material_index = len(mats) - 1
+            face.smooth = True
+    # the seal takes the weights of the nearest skin, so it moves with the lips
+    mats.append(look.material(f"{human.name}{MOUTH_MATERIALS['seal']}", srgb=SEAL_COLOUR, roughness=0.7))
+    kd = KDTree(BODY_VERTS)
+    for i in range(BODY_VERTS):
+        kd.insert(Vector(drawn[i]), i)
+    kd.balance()
+    new = [bm.verts.new(Vector(p)) for p in s_co]
+    weights += [deform_weights(kd.find(Vector(p))[1]) for p in s_co]
+    for f in s_faces:
+        face = bm.faces.new([new[i] for i in f])
+        face.material_index = len(mats) - 1
+        face.smooth = True
     uv = bm.loops.layers.uv.new("UVMap")
     for f in bm.faces:
         for lp in f.loops:
@@ -880,9 +1132,9 @@ def mouth(human):
     for vi, w in enumerate(weights):
         for bone, x in w.items():
             groups.setdefault(bone, []).append((vi, x))
-    for bone, rows in groups.items():
+    for bone, rws in groups.items():
         vg = ob.vertex_groups.new(name=bone)
-        for vi, x in rows:
+        for vi, x in rws:
             vg.add([vi], x, "REPLACE")
     if rig is not None:
         ob.parent = rig
@@ -891,7 +1143,18 @@ def mouth(human):
     else:
         ob.parent = human
         ob.matrix_parent_inverse = human.matrix_world.inverted()
-    return {"object": name, "parts": rep, "bones": sorted(groups)}
+    rep["seal"] = {"verts": len(s_co), "faces": len(s_faces)}
+    closed = dict(fit)
+    fails = []
+    if fit["teeth_rays"]:
+        fails.append(f"a closed mouth shows its teeth: {fit['teeth_rays']} of {fit['rays']} rays at the lips reach a "
+                     "tooth past the seal - lower the head feature that parts the lips")
+    if fit["exposed"]:
+        fails.append(f"the mouth's seal stands out of the face at {fit['exposed']} points - the lips are too thin "
+                     "for it here (SEAL's depth and half height)")
+    if fails:
+        closed["fail"] = "; ".join(fails)
+    return {"object": name, "parts": rep, "bones": sorted(groups), "closed": closed}
 
 
 def _eye_spheres(human):

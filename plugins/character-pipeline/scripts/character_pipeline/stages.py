@@ -483,6 +483,14 @@ def run_bake(ch, ctx):
     unweighted = sum(1 for v in ob.data.vertices if not any(g.weight > 1e-4 for g in v.groups))
     out = {"verts": len(ob.data.vertices), "groups": len(ob.vertex_groups), "unweighted": unweighted,
            "materials": [m.name for m in ob.data.materials if m], "baked": b}
+    # a closed mouth shows no teeth (humanform.features.closed_mouth: rays at the lips from the front, 3/4 and near
+    # profile; a pale line at the lip crack was on every build before the mouth had its seal)
+    from humanform import features as hf_features
+    mouth = hf_features.closed_mouth(ob)
+    if mouth is not None:
+        out["closed_mouth"] = {k: mouth[k] for k in ("teeth", "tongue", "seal", "rays") if k in mouth}
+        if mouth.get("fail"):
+            raise RuntimeError(f"bake: {mouth['fail']}")
     sk = skin_manifest(ch)
     if sk is not None:
         out["skin"] = sk
