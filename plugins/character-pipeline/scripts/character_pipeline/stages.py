@@ -4,7 +4,8 @@
     muscle    humanform's muscle definition on the unbaked body: delta-part shape keys weighted by the brief,
               as geometry, or (output = "normal") a high copy the bake stage bakes into the skin's normal
               map (optional: `[muscle]`)
-    bake      one skinned mesh: shape keys and helpers baked, skin material, eyes joined
+    bake      one skinned mesh: shape keys and helpers baked, skin material, eyes joined; with `[body] genitals`
+              a man's kept genital shell is fused to the body first (humanform.genitals.fuse)
     hair      humanform's hair layer from a preset, joined into the body - except a strand part the
               strand stage will chain, which stays its own object (optional)
     flesh     follow-through jiggle bones (optional)
@@ -212,6 +213,11 @@ def run_body(ch, ctx):
                         hand_part=parts.get("hands"), foot_part=parts.get("feet"),
                         **quality_mod.settings(ctx["quality"], "body"))
     out = {k: res.get(k) for k in ("ansur", "check", "notes", "macros")}
+    if ch.body.genitals:
+        from humanform import genitals
+        sex = ch.body.brief.get("sex")
+        out["genitals"] = genitals.add(_obj(ch.name), sex, shape=ch.body.genital_shape or None,
+                                       strength=ch.body.genital_strength)
     out["stature"] = _stature(res)
     out["library"] = res.get("path")                # reuse | warm | fresh: where the body's seconds went
     out["timing"] = res.get("timing")
@@ -399,6 +405,17 @@ def run_bake(ch, ctx):
             b["separated_for_rebake"] = split
     ob = _obj(ch.mesh)
     _obj(ch.rig).data.pose_position = "POSE"
+    fused = None
+    if ch.body.genitals and ch.body.brief.get("sex") == "male":
+        # the shell the body stage kept, fused on the baked mesh before the eyes join it (humanform.genitals)
+        from humanform import genitals
+        high = _obj(f"{ch.name}_muscle_high") if ch.muscle is not None and ch.muscle.output == "normal" else None
+        pre = genitals.mark_source(ob) if high is not None else None
+        fused = genitals.fuse(ob)
+        if high is not None:
+            # the muscle stage's high copy has the unfused topology: carried onto the fused one, or the
+            # matched normal bake below falls back to rays for the whole body
+            fused["muscle_high"] = genitals.refit_high(ob, high, pre)
     skin = ch.body.brief.get("skin") if ch.body.source == "brief" else ch.body.skin
     species_skin = None
     sp_ref = ch.body.brief.get("species") if ch.body.source == "brief" else None
@@ -430,6 +447,8 @@ def run_bake(ch, ctx):
     sk = skin_manifest(ch)
     if sk is not None:
         out["skin"] = sk
+    if fused is not None:
+        out["genitals"] = fused
     if ch.muscle is not None:
         if ch.muscle.output == "normal":
             out["muscle_normal"] = _bake_muscle_normal(ch, ctx)
@@ -771,6 +790,10 @@ def run_moves(ch, ctx):
             # what the asymmetry did, measured off the baked clip - only present when a spec
             # opted in, so a character at the default reports exactly what it always reported
             out[role]["variability"] = r["variability"]
+    if ch.body.genitals and ch.body.brief.get("sex") == "male":
+        # the thighs sweep through the scrotum in every clip: humanform keys its corrective bones per frame
+        from humanform import genitals
+        out["genitals"] = genitals.clear_thighs(ch.mesh, ch.rig, [res[r]["action"] for r in ch.moves.roles])
     for role in ch.moves.clearance_check:
         c = verify.limb_clearance(ch.rig, res[role]["action"], mesh_name=ch.mesh, every=2)
         out[role]["limb_clearance"] = {k: c.get(k) for k in ("closest_m", "at_frame", "samples_inside", "error")
@@ -790,6 +813,18 @@ def run_moves(ch, ctx):
         if got:
             out["derived_style"] = got["derived"]
             out["morphology"] = got["measured"]
+    # every clip: how far the skin between the legs passes through itself (thigh into thigh, into the crotch)
+    # and through a genital part - linear blend skinning collapses the crotch, and nothing else measured it
+    limit = None
+    if ch.body.genitals:
+        from humanform import genitals as hf_genitals
+        limit = hf_genitals.CLEAR_LIMIT_MM
+    for role in ch.moves.roles:
+        c = verify.crotch_clearance(ch.rig, res[role]["action"], mesh_name=ch.mesh, every=1 if limit else 2)
+        out[role]["crotch"] = {k: v for k, v in c.items() if k.endswith(("_mm", "_frame")) or k in ("skipped", "error")}
+        if limit and (c.get("part_mm") or 0.0) > limit:
+            print(f"[{ch.id}] moves: {role}: the genital part goes {c['part_mm']} mm into a thigh at frame "
+                  f"{c.get('part_frame')}, over humanform.genitals.CLEAR_LIMIT_MM ({limit} mm)")
     failing = sorted(role for role in ch.moves.roles if out[role]["failures"] and role not in ch.moves.may_fail)
     if failing:
         # each failing clip with what failed and by how much, so the fix (a [moves.per_gait.<role>] option, or

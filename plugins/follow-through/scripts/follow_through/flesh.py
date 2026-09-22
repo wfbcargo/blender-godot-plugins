@@ -368,6 +368,10 @@ def tissue(obj_name, rig_name=None, side=SIDE_BONES):
     # vertices, and its sports top then failed its cover check.
     head_skinned = _head_skinned(obj, rig, roles)
 
+    # A part a flesh type reserves (`reserved_attr`: humanform's genital shell) is measured against the body's
+    # envelope but does not shape it: the shell in the spine's first rings lifted the lean line up the belly,
+    # moved the study man's belly bone 2.7 cm down and off the midline, and failed its placement check.
+    apart = _reserved_mask(obj)
     band = H / BANDS_PER_HEIGHT
     halves = [max(2, int(round(hw * H / band))) for hw in ENVELOPE_HALF_WIDTHS]
     normals = _world_normals(obj)
@@ -422,6 +426,8 @@ def tissue(obj_name, rig_name=None, side=SIDE_BONES):
             wall = np.ones(len(sel), dtype=bool)
             if k == 0 or k == last:
                 wall = np.abs(normals[sel] @ ax) < END_RING_WALL
+            if apart is not None:
+                wall &= ~apart[sel]
             for s in range(SECTORS):
                 hit = r[(sec == s) & wall]
                 if len(hit):
@@ -742,6 +748,27 @@ ORDER = ("bloater_belly", "breast", "butt", "belly", "love_handle", "arm_flab", 
 
 # ------------------------------------------------------------------ regions
 
+def _point_mask(obj, name):
+    """Per vertex, whether the float point attribute `name` is set (> 0.5) on `obj`; None when it has none."""
+    at = obj.data.attributes.get(name)
+    if at is None or at.domain != "POINT" or len(at.data) != len(obj.data.vertices):
+        return None
+    v = np.empty(len(obj.data.vertices), dtype=np.float32)
+    at.data.foreach_get("value", v)
+    return v > 0.5
+
+
+def _reserved_mask(obj):
+    """The union of every flesh type's `reserved_attr` on `obj` (None when the body carries none)."""
+    from . import registry
+    out = None
+    for entry in registry.types_for(cls="flesh").values():
+        m = _point_mask(obj, entry["reserved_attr"]) if entry.get("reserved_attr") else None
+        if m is not None:
+            out = m if out is None else (out | m)
+    return out
+
+
 def find_regions(obj_name, rig_name=None, types=None, t=None):
     """Soft masses on a skinned body, typed by the registry's flesh zones.
 
@@ -766,6 +793,10 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
     order = [x for x in ORDER if x in flesh_types] + sorted(x for x in flesh_types if x not in ORDER)
     if types is not None:
         order = [x for x in order if x in types]
+    else:
+        # an `opt_in` type (genital) is looked for only when asked for by name: a search for every kind of
+        # flesh on a body built without it must find what it found before the type existed
+        order = [x for x in order if not flesh_types[x].get("opt_in")]
     claimed = np.zeros(n, dtype=bool)
     claimed_by = np.full(n, "", dtype=object)      # which type took each vertex, for a miss's reason
     name_toks = set(registry.name_tokens(obj.name))
@@ -773,12 +804,21 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
     regions, declined, missed = [], [], []
     legacy = _legacy_placement()
     not_face = np.ones(n, dtype=bool) if legacy else ~t.get("head_skinned", np.zeros(n, dtype=bool))
+    # a type's `reserved_attr` (a point attribute on the body, e.g. humanform's genital shell `hf_genital`) marks
+    # vertices only that type may take: the shell stands out of the lean body in front of the crotch, and taken
+    # into the belly's or a buttock's search it moved their apex onto a part their bone does not carry
+    reserved = {x: _point_mask(obj, flesh_types[x]["reserved_attr"]) for x in flesh_types
+                if flesh_types[x].get("reserved_attr")}
     for tname in order:
         entry = flesh_types[tname]
         zone = entry["zone"]
         tt = measured(t, entry)       # rings, or the side profile for a type that asks for it
-        seed_all = (tt["excess"] > SEED_EXCESS * H) & (tt["relative"] > SEED_RELATIVE) & tt["searched"] & not_face
-        grow_all = (tt["relative"] > GROW_RELATIVE) & tt["searched"] & not_face
+        free = not_face.copy()
+        for other, mask in reserved.items():
+            if other != tname and mask is not None:
+                free &= ~mask
+        seed_all = (tt["excess"] > SEED_EXCESS * H) & (tt["relative"] > SEED_RELATIVE) & tt["searched"] & free
+        grow_all = (tt["relative"] > GROW_RELATIVE) & tt["searched"] & free
         in_zone = _in_zone(zone, c)
         seeds = seed_all & in_zone & ~claimed
         if seeds.sum() < min_size:

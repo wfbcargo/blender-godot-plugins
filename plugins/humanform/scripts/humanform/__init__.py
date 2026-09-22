@@ -25,7 +25,7 @@ DATA = os.path.join(ROOT, "data")
 # dependency order
 MODULES = ("body", "slicing", "sheet", "landmarks", "skeleton", "measure", "views", "scaffold", "library", "parts", "look", "eyes", "brows", "hair",
            "features", "eye_layout", "species_design", "species", "pipeline",
-           "sdf", "delta", "muscle", "skin")
+           "sdf", "delta", "muscle", "skin", "genitals")
 
 
 def reload_all():
