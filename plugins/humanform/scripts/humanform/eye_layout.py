@@ -462,7 +462,11 @@ def apply(human, spec, iris=None):
     places += [(e["centre"], e["radius"]) for e in new]
     _eyes.add(human, iris=iris, places=places)
     # the lash cards brows lays on the baked body: none for a closed side, one pair per new eye
-    lash = _lash_cards(co, full_new, faces, eyes_old, new, ap)
+    # laid on the lid margin the eye actually shows (its opening seen from the front), not on the carve's almond: wider
+    # than the ball, that put the cards' corners behind it, standing up as bars either side of the eye
+    ops = [e.get("opening") for e in report["exposure"] if e.get("opening")]
+    lash_ap = (min(ap[0], 1.02 * max(o[0] for o in ops)), min(ap[1], 1.1 * max(o[1] for o in ops))) if ops else ap
+    lash = _lash_cards(co, full_new, faces, eyes_old, new, lash_ap)
     human[PROP] = json.dumps({"hide_lashes": [] if pl["keep_pair"] else ["L", "R"], "lashes": lash,
                               "eyes": report["eyes"], "count": len(places)})
     report["count"] = len(places)

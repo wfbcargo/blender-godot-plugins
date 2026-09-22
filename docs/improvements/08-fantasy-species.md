@@ -369,3 +369,26 @@ the product):
   troll build with `[flesh]` and, once `fig-genital-anatomy` is merged, with `genitals = true` as smoke cases.
 - A spec asking for something the warp cannot do (a 0.5 m dwarf, heads out of the species' range, an unknown
   species) is refused before a build, with the range in the message.
+
+## Polish after the first creatures (species-1-polish, 2026-09-22)
+
+Four defects seen in Godot on the drow, cyclops and mermaid, each now with a check that fails before a build ships:
+
+- **Teeth at the lip crack, on every body.** MPFB's closed lips do not seal (0.3-2.8 mm apart), and its teeth bite
+  edge to edge right at the crack, so a pale dashed line showed at the slit (Godot's subsurface blur banded it on a
+  dark skin). `features.mouth` now gives every mouth a seal - a dark strip of membrane just behind the lip line,
+  inside the lips' flesh, with their weights - and keeps the teeth behind it. Check: `features.closed_mouth` casts
+  rays at the lips from the front, 3/4 and near profile, above and below; the bake stage fails if one reaches a tooth
+  (2739 of 158k rays did on the first drow; 0 now).
+- **The cyclops' eye bulged and stared.** Its ball stood 0.35 radii ahead of the nose bridge and a fixed almond left
+  half of it bare. `eye_layout` now holds any new eye to the person's eye on the same head, measured
+  (`eye_layout.exposure`): the ball as flush with the face around it, the lids' opening the same share of the ball.
+  Check: `exposure_problems` fails a new eye more bare (+25%), more open or further out of its face than that.
+- **The mermaid's waist read as dirty blotches.** Scales on a graft now stand in staggered, overlapping rows along
+  the body (`skin.SCALE_ROWS`, a 3D lattice), shrinking by halves across the fade, each scale whole and on or off by
+  the fade at its own centre.
+- **A thick-thighed body's crotch read low** (cyclops 0.423 H against 0.490): the measure took the thighs pressing
+  across the midline for the crotch. The crotch loop must now reach round both legs' axes (`measure`).
+
+Also: the palest species tone cap is 0.55 linear luma (the elf clipped past white at 0.59), and deep regions have
+a chroma ceiling in the skin contrast check (`skin.DEEP_CHROMA_MAX`).

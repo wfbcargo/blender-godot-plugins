@@ -299,8 +299,12 @@ def _luma(c):
     return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
 
 
-# the palest skin tone to hold under lookdev's midday look: grungist-creek's palest shipped figure [0.90, 0.78, 0.68]
-PALEST_SKIN_LUMA = 0.2126 * ((0.90 + 0.055) / 1.055) ** 2.4 + 0.7152 * ((0.78 + 0.055) / 1.055) ** 2.4     + 0.0722 * ((0.68 + 0.055) / 1.055) ** 2.4
+# the palest skin tone to hold under lookdev's midday look, measured (linear luma): the elf drawn at 0.543 read 0.16%
+# of its figure past diffuse white, drawn at 0.592 read 1.68% (limit 1%) - the sun-facing forearms and feet tops of a
+# bare slim body. The palest shipped human [0.90, 0.78, 0.68] (0.606) was the cap before, and did not hold. 0.55 is
+# about [0.87, 0.74, 0.64]
+PALEST_SKIN_LUMA = 0.55
+
 
 def _json(name):
     if name not in _CACHE:
@@ -1001,7 +1005,7 @@ def check(doc, per_sex):
     # (lookdev's SKIN_PAST_WHITE failed the first elf, drawn from [0.94, 0.84, 0.76])
     for c in pal + ([tone] if tone is not None and len(tone) == 3 else []):
         need(_luma(c) <= PALEST_SKIN_LUMA + 1e-6, f"skin tone {list(c)} is paler than the palest skin that "
-             f"holds under Godot's lighting (luma {_luma(c):.3f} > {PALEST_SKIN_LUMA:.3f}, e.g. [0.90, 0.78, 0.68]): "
+             f"holds under Godot's lighting (luma {_luma(c):.3f} > {PALEST_SKIN_LUMA:.3f}, e.g. [0.87, 0.74, 0.64]): "
              "darken it, or it clips past white (lookdev SKIN_PAST_WHITE)")
     regions = skin_regions()
     need(not regions or set(doc["skin"].get("regions_off", [])) <= set(regions),
