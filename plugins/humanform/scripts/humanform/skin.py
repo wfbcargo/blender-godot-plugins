@@ -378,7 +378,13 @@ def graft_area(ob, p):
 
 
 def graft_vertices(ob):
-    """Indices of the vertices a graft added (its vertex group), or an empty array."""
+    """Indices of the vertices a graft added (its mesh attribute, which a bake keeps; else its vertex group), or an
+    empty array."""
+    a = ob.data.attributes.get("hf_graft_surface")
+    if a is not None and a.domain == "POINT":
+        v = np.empty(len(ob.data.vertices), np.float32)
+        a.data.foreach_get("value", v)
+        return np.flatnonzero(v > 0.5)
     g = ob.vertex_groups.get("hf_graft")
     if g is None:
         return np.zeros(0, np.int64)
@@ -936,6 +942,11 @@ def _pattern_nodes(tree, coord, col, lin, pat, seed):
         one.outputs[0].default_value = 1.0
         mask = one.outputs[0]
         scale_shading = shading.outputs["Value"]
+        # each scale's own random draw, so where the pattern fades (a graft's seam) whole scales thin out one by
+        # one instead of the colour cross-fading into a muddy band (the first mermaid's waist)
+        crand = N("ShaderNodeSeparateColor")
+        L(vor.outputs["Color"], crand.inputs["Color"])
+        scale_rand = crand.outputs["Red"]
     else:
         nz = N("ShaderNodeTexNoise")
         nz.noise_dimensions = "3D"
@@ -951,7 +962,28 @@ def _pattern_nodes(tree, coord, col, lin, pat, seed):
     amt = N("ShaderNodeMath")
     amt.operation = "MULTIPLY"
     L(mask, amt.inputs[0])
-    L(where.outputs["Fac"], amt.inputs[1])
+    if kind == "scales":
+        # a scale is there or not: on where the pattern's weight passes the scale's draw (a soft step of 0.08)
+        # the draw squeezed into 0.08..0.92, so no scale shows where the weight is 0 and none is missing at 1
+        # (a draw over the whole 0..1 put a scale in one cell in 25 across the skin, and a hole in the tail)
+        rq = N("ShaderNodeMath")
+        rq.operation = "MULTIPLY_ADD"
+        L(scale_rand, rq.inputs[0])
+        rq.inputs[1].default_value = 0.84
+        rq.inputs[2].default_value = 0.08
+        d = N("ShaderNodeMath")
+        d.operation = "SUBTRACT"
+        L(where.outputs["Fac"], d.inputs[0])
+        L(rq.outputs["Value"], d.inputs[1])
+        st = N("ShaderNodeMath")
+        st.operation = "MULTIPLY_ADD"
+        st.use_clamp = True
+        L(d.outputs["Value"], st.inputs[0])
+        st.inputs[1].default_value = 12.0
+        st.inputs[2].default_value = 0.5
+        L(st.outputs["Value"], amt.inputs[1])
+    else:
+        L(where.outputs["Fac"], amt.inputs[1])
     fac = N("ShaderNodeMath")
     fac.operation = "MULTIPLY"
     fac.use_clamp = True

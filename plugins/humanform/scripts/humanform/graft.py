@@ -39,6 +39,7 @@ except ImportError:      # pragma: no cover
     np = None
 
 GROUP = "hf_graft"
+ATTR = "hf_graft_surface"     # the same vertices as a mesh attribute (a name of its own: a vertex group's is taken)
 PROP = "hf_graft"
 REPLACES = {
     # the parts a pair's replacement takes with it: the description must say so (species anatomy.absent)
@@ -511,6 +512,12 @@ def _legs_to_tail(human, rig, g, delta, bmesh, bpy, Vector, verbose):
         if int(i1[0]) != int(i0[0]):
             vg[names[int(i1[0])]].add([int(i)], float(f[0]), "REPLACE")
     gr.add(list(range(n_all, n_new)), 1.0, "REPLACE")
+    # and as a mesh attribute, which the bake keeps (it strips vertex groups that are not bones)
+    mark = np.zeros(n_new, np.float32)
+    mark[n_all:] = 1.0
+    if ATTR in me.attributes:
+        me.attributes.remove(me.attributes[ATTR])
+    me.attributes.new(ATTR, "FLOAT", "POINT").data.foreach_set("value", mark)
     # a Mask modifier that keeps a group (MPFB's "Hide helpers" keeps its body group) must keep the tail too
     for m in human.modifiers:
         if m.type == "MASK" and m.vertex_group and not m.invert_vertex_group:
