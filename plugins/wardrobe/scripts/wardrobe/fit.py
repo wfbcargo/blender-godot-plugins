@@ -198,7 +198,7 @@ def _hang_setup(g_bm, body, bvh, tris, window, bins, below=None, top=0.3, fade=0
     armw = rigmap.chain_weights(b, arm_names)
     root = hm["heads"][hm["spine"][0]]
     shoulder_z = sum(hm["heads"][a["upper"]].z for a in hm["arms"].values()) / max(1, len(hm["arms"]))
-    hip_z = sum(hm["heads"][l["thigh"]].z for l in hm["legs"].values()) / max(1, len(hm["legs"]))
+    hip_z = hm["hip_z"]
     top_z = shoulder_z - top * (shoulder_z - hip_z)
     mask = []
     for v in g_bm.verts:
@@ -780,7 +780,7 @@ def tuck(garment, body, window=0.15, spread=50.0, wedge=5.0, limit=None):
     hm = rigmap.humanoid(b)
     root = hm["heads"][hm["spine"][0]]
     sh = sum(hm["heads"][a["upper"]].z for a in hm["arms"].values()) / max(1, len(hm["arms"]))
-    hip = sum(hm["heads"][l["thigh"]].z for l in hm["legs"].values()) / max(1, len(hm["legs"]))
+    hip = hm["hip_z"]
     X = np.array([tuple(v.co) for v in g.data.vertices])
     d = X[:, :2] - np.array([root.x, root.y])
     r = np.linalg.norm(d, axis=1)

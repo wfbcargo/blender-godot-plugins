@@ -58,8 +58,33 @@ def humanoid(body):
 
     mapped = _from_roles(rig, body) or _from_names(rig)
     spine, torso, neck, arms, legs = mapped
+    below = _below(rig, spine, arms, legs)
+    if legs:
+        hip_z = sum(heads[l["thigh"]].z for l in legs.values()) / len(legs)
+    else:
+        # no legs (a tail in their place, humanform.graft): the hips are where the pelvis begins
+        hip_z = heads[spine[0]].z
     return {"rig": rig.name, "spine": spine, "torso": torso, "neck": neck, "arms": arms, "legs": legs,
+            "below": below, "hip_z": hip_z,
             "heads": heads, "tails": tails, "up": Vector((0, 0, 1)), "forward": _forward(heads, arms)}
+
+
+def _below(rig, spine, arms, legs):
+    """The deform bones that hang from the pelvis and are neither spine, arm nor leg - a tail in the legs' place:
+    a garment's lower cut takes them with the legs. [] on a person."""
+    import re
+    sided = re.compile(r"[._-]([LlRr])$")
+    known = set(spine) | {b for a in arms.values() for b in a.values() if b} | \
+        {b for l in legs.values() for b in l.values() if b}
+    out = []
+    bones = rig.data.bones
+    stack = [c for c in bones[spine[0]].children if c.name not in known and not sided.search(c.name)]
+    while stack:
+        b = stack.pop()
+        if b.use_deform:
+            out.append(b.name)
+        stack.extend(c for c in b.children if c.name not in known)
+    return sorted(out)
 
 
 def _from_roles(rig, body):

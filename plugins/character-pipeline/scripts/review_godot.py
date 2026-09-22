@@ -66,12 +66,20 @@ def target(ch):
     return project, glb, export_dir, garments, (close if os.path.isfile(os.path.join(close, "close.json")) else None), out
 
 
+# lookdev close_shot.gd VIEW_NAMES: the set a review shoots when none is asked for
+GODOT_VIEWS = ("face", "face_3q", "eyes", "head_side", "head_back", "hand_palm.L", "hand_back.L", "hand_palm.R",
+               "hand_back.R", "feet", "bust", "crotch", "full")
+
+
 def review_one(ch, godot, lookdev, presets, views):
     project, glb, export_dir, garments, close, out = target(ch)
     if not os.path.isfile(os.path.join(export_dir, f"{ch.id}.glb")):
         return {"id": ch.id, "ok": False, "error": f"not built: no {ch.id}.glb in {ch.export.dir}"}
     cmd = ["node", lookdev, "close-shot", "--project", project, "--godot", godot, "--glb", glb,
            "--presets", presets, "--out", out]
+    if not views and ch.grafted:
+        # a body plan without legs is not shot where they would be (lookdev close-shot's own set, less those)
+        views = ",".join(ch.views_without(GODOT_VIEWS))
     if views:
         cmd += ["--views", views]
     if garments:

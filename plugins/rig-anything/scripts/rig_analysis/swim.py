@@ -53,7 +53,10 @@ from . import bodymap, fins as fin_mod, motion, stored
 
 STRIDE = 0.7            # body lengths per tail beat (0.6-0.8: Videler; Wardle)
 UPRIGHT = "ra_swims_upright"   # on a rig: it stands head-up at rest and swims (see upright_set)
-ARMS_ALONG = 0.85       # how far such a swimmer's hanging arms are laid back along its body while it swims
+UPRIGHT_HOLD = 0.5      # such a swimmer's wave rises from nothing over this share of its head-to-pelvis length
+UPRIGHT_FRONT = 0.1     # and keeps this share of it at the head and chest
+ARMS_ALONG = 0.35       # how far such a swimmer's hanging arms are laid back along its body while it swims (0.55
+                        # folded a woman's armpit skin inside out: the flip check caught it)
 CAUDAL_MAX = 45.0       # tail fin against its peduncle, degrees - a design bound
 WATER = 1025.0          # kg/m3 - a fish is near neutrally buoyant
 
@@ -152,10 +155,11 @@ class Swimmer:
         # clean limits measured on this skin by `measure_fin_limits`
         self.limits = {k: st[k] for k in ("bend_clean_deg", "brake_clean") if k in st}
 
-    def arms_along(self, posed, share=ARMS_ALONG):
+    def arms_along(self, posed, share=None):
         """Overrides turning each arm's upper bone about its shoulder toward the body's tail (`-fwd`, carried by
         the bone the arm hangs from), a little out from the sides, the rest of the arm following: how a
         swimmer that stands at rest (merfolk) streamlines. `share` 0 leaves the arm as it hangs."""
+        share = ARMS_ALONG if share is None else share
         out = {}
         fwd, lat = self.bm["fwd"], self.bm["lat"]
         for l in (self.bm["roles"].get("limbs") or {}).values():
@@ -257,7 +261,15 @@ class Swimmer:
     # ---------------------------------------------------------------- pose
     def offsets(self, phase, amp=1.0):
         lam, env = self.spec["wavelength"], self.spec["envelope"]
-        return [amp * env(z) * self.length * math.sin(2.0 * math.pi * (z / lam - phase)) for z in self.z]
+        out = [amp * env(z) * self.length * math.sin(2.0 * math.pi * (z / lam - phase)) for z in self.z]
+        if self.upright:
+            # a body built like a person's above its tail swims as a person dolphin-kicks: the chest and head held,
+            # the wave growing from the waist down (the whole-body envelope bent the chest and folded the armpits)
+            zp = self.z[len(self.pts) - 1 - self.bm["pelvis_index"]] if len(self.pts) > self.bm["pelvis_index"] else 0.5
+            zc = max(0.0, zp - UPRIGHT_HOLD * zp)
+            out = [o * (UPRIGHT_FRONT + (1 - UPRIGHT_FRONT) * _smooth((z - zc) / max(zp - zc, 1e-6)))
+                   for o, z in zip(out, self.z)]
+        return out
 
     def chain(self, offsets, bend_deg=0.0, anchor_z=0.33):
         """Rigid segments laid along the wave's offsets (in the wave's plane),

@@ -165,7 +165,7 @@ def prepare(garment, body, fabric="cotton_jersey", hem_bones=8, cuff_bones=4, he
             phase = 0.5
             cut = g.get("wardrobe_cut")
             hip_z = float(cut["hip_z"]) if cut is not None and "hip_z" in cut else \
-                sum(hm["heads"][l["thigh"]].z for l in hm["legs"].values()) / max(1, len(hm["legs"]))
+                hm["hip_z"]
             hinge_z = hip_z + hinge_lift
             ring_hip_z = hip_z
             if cut is not None:

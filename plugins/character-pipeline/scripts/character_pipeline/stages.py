@@ -1113,7 +1113,11 @@ def run_close(ch, ctx, meshes, aim_override=None):
     test's control only (a camera aimed from the wrong bone must fail)."""
     from rig_analysis import closeups
     q = quality_mod.settings(ctx["quality"], "close")
-    r = closeups.look_set(meshes, ch.rig, close_dir(ch), views=q["views"], action=close_pose(ch),
+    views = q["views"]
+    if ch.grafted:
+        # the body plan has no legs to shoot (a tail): those views are left out, not failed
+        views = ch.views_without(views if views is not None else closeups.VIEWS)
+    r = closeups.look_set(meshes, ch.rig, close_dir(ch), views=views, action=close_pose(ch),
                           under_bust=bool(q["under_bust"]) and wears_top(ch), title=ch.name,
                           aim_override=aim_override)
     if "error" in r:

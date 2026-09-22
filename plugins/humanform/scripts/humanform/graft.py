@@ -502,7 +502,9 @@ def _legs_to_tail(human, rig, g, delta, bmesh, bpy, Vector, verbose):
         v = me.vertices[i]
         for e in list(v.groups):
             gname = human.vertex_groups[e.group].name
-            if gname != GROUP:
+            # only the skin weights go: a mask's keep group (MPFB's "Hide helpers") must still hold the vertex,
+            # or the bake drops it and every hm08 index after it shifts (a mermaid's brows landed on her chest)
+            if gname != GROUP and gname in rig.data.bones:
                 human.vertex_groups[e.group].remove([int(i)])
         i0, i1, f = along(np.array([co2[i, 2] if i >= n_all else me.vertices[i].co.z]))
         vg[names[int(i0[0])]].add([int(i)], float(1 - f[0]), "REPLACE")
@@ -528,3 +530,13 @@ def _legs_to_tail(human, rig, g, delta, bmesh, bpy, Vector, verbose):
     rig[PROP] = json.dumps({"tail": names, "pelvis": pelvis, "fluke_plane": fl["plane"], "removed": rep["bones_removed"]})
     rep["loose_verts"] = int(len(loose_idx))
     return rep
+
+
+def check_order(human, before_n):
+    """After a bake: hm08's body vertices must still be the first `before_n` (humanform.brows, the skin regions
+    and the lash fits index them). Returns the problem, or None."""
+    n = len(human.data.vertices)
+    if n < before_n:
+        return (f"{human.name} has {n} vertices, fewer than hm08's {before_n}: the bake dropped some of the graft's "
+                "loose vertices and every index after them moved")
+    return None

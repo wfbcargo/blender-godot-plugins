@@ -458,6 +458,9 @@ def _interp_weights(ob, tris, bary, fallback):
     return {g: np.clip(w / total, 0.0, 1.0) for g, w in out.items() if w.max() > 1e-3}
 
 
+HEAD_SHARE_MIN = 0.6      # brow and lash cards: the least head weight their triangles may carry
+
+
 def _side_cards(ob, part, d):
     """[(name, card)] a part is laid from: the human pair, or for lashes on a head whose eyes humanform.eye_layout
     arranged (its PROP on the body), the human cards of the eyes it kept and one set per eye it placed."""
@@ -496,6 +499,12 @@ def _cards(ob, co, part, base, rig, colour, uv_name, head, brow_shape="natural")
         bary.extend(w.tolist())
     tris = tuple(np.array(t) for t in tris)
     weights = _interp_weights(ob, tris, np.array(bary), head)
+    on_head = float(np.mean(weights.get(head, np.zeros(1))))
+    if part in ("brows", "lashes") and on_head < HEAD_SHARE_MIN:
+        # the cards ride hm08 triangles by index: off the head means the body's vertex order moved (a graft's
+        # loose vertices dropped by the bake put a mermaid's brows on her chest) - never ship that
+        raise ValueError(f"{part}: the cards' triangles carry {on_head:.0%} head weight (under "
+                         f"{HEAD_SHARE_MIN:.0%}): {ob.name}'s hm08 vertex order is not the base mesh's")
     card = _card_object(f"{base}_{part}", ob, rig, pts, faces, uvs, weights, uv_name, tile)
     card.data.materials.append(mat)
     card["humanform_hair"] = {"part": part}

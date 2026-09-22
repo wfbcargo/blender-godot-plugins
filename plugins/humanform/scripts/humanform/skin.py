@@ -352,7 +352,7 @@ def pattern_areas(ob, sp):
             outward = _smooth(0.5, 1.0, np.abs(p[:, 0]) / max(abs(j["joint-l-shoulder"][0]), 1e-6))
             arm = np.maximum(arm, (1.0 - _smooth(0.06 * s, 0.12 * s, d)) * outward)
         arm = arm * (1 - head)
-        pick = {"head": head, "legs": legs * (1 - arm), "arms": arm, "graft": graft_area(ob, p),
+        pick = {"head": head, "legs": legs * (1 - arm), "arms": arm, "graft": graft_area(ob, p) * (1 - arm),
                 "torso": np.clip(1 - np.maximum(np.maximum(head, legs), arm), 0, 1),
                 "back": _smooth(0.0, 0.45, nrm[:, 1]), "front": _smooth(0.0, 0.45, -nrm[:, 1])}   # MPFB faces -Y
         m = np.zeros(n)

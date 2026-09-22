@@ -314,6 +314,8 @@ class Moves:
 
 
 LOCOMOTION = ("walk", "swim")
+# close-up views of the legs (rig-anything closeups, lookdev close-shot), which a body with no legs is not shot in
+LEG_VIEWS = ("crotch", "knees", "feet")
 # the clips a swimmer that stands has (rig-anything swim.upright_set): Idle floats upright, the rest swim prone
 SWIM_ROLES = ("Idle", "Swim", "Sprint", "Glide", "TurnL", "TurnR")
 
@@ -510,6 +512,19 @@ class Character:
         if isinstance(value, list):
             return [asdict(v) if hasattr(v, "__dataclass_fields__") else v for v in value]
         return asdict(value) if hasattr(value, "__dataclass_fields__") else value
+
+    @property
+    def grafted(self):
+        """The limb pairs this body's species replaces ([body.species] graft: {"legs": {...}}), {} for any other."""
+        sp = self.body.species
+        return dict(sp.get("graft") or {}) if isinstance(sp, dict) else {}
+
+    def views_without(self, views):
+        """`views` (close-up view names) less those that look at parts this body plan does not have: a body whose
+        legs a graft replaced has no crotch, knees or feet to shoot."""
+        if "legs" not in self.grafted:
+            return list(views)
+        return [v for v in views if v not in LEG_VIEWS and not v.startswith("foot")]
 
     @property
     def derive_moves(self):
