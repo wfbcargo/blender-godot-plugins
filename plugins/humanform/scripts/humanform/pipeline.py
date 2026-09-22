@@ -31,7 +31,9 @@ Neither kind is ever stored: the library indexes bodies by ANSUR z-scores they d
 A brief with a `species` other than "human" (humanform.species) makes the pre-warp human first - exactly the
 path above, library and all, since it is a real human - then puts the species' head features on it, warps it
 to the species (`species.warp`) and checks it against the species preset. The result's `check` is the
-species'; `species` holds the warp's report and `prewarp` the human's own path and check.
+species'; `species` holds the warp's report and `prewarp` the human's own path and check. A species whose
+body plan goes past a human's takes it after that check: `graft` (legs replaced by a tail), `legs` (a
+digitigrade leg plan, humanform.legs) and `tail` (a tail beside the legs, humanform.tail).
 """
 
 from __future__ import annotations
@@ -201,6 +203,24 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw)
             from . import look
             look.skin(human, tone, species_skin=species.skin_block(sp))
         t["graft"] = time.time() - t5
+    if sp.get("legs") not in (None, "plantigrade") or sp.get("tail") not in (None, False):
+        # The rest of the body plan, after the check for the same reason the graft is: the species preset
+        # describes a body's proportions, and a leg plan is what the leg DOES with them. The legs first,
+        # because the tail is measured against them (`tail`, the clearance check).
+        t6 = time.time()
+        if sp.get("legs") not in (None, "plantigrade"):
+            from . import legs as legs_mod
+            rep["legs"] = legs_mod.apply(human, sp["legs"], verbose=verbose)
+            t["legs"] = time.time() - t6
+        if sp.get("tail") not in (None, False):
+            t7 = time.time()
+            from . import tail as tail_mod
+            rep["tail"] = tail_mod.apply(human, sp["tail"], verbose=verbose)
+            t["tail"] = time.time() - t7
+        rep["anatomy"] = species.inventory(human, sp, reference=before)
+        if tone is not None:
+            from . import look
+            look.skin(human, tone, species_skin=species.skin_block(sp))
     if contact_sheet and out_dir:
         t4 = time.time()
         views.contact_sheet(human.name, out_dir, preset=pre, sex=s["sex"], report=hc)

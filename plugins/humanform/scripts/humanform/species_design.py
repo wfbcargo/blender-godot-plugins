@@ -880,6 +880,21 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
         if gp:
             raise DesignError(f"{id}: " + "; ".join(gp))
         doc["graft"] = lookd["graft"]
+    if lookd.get("legs") not in (None, "plantigrade"):
+        # which segments of the leg stand and which carries the ground (humanform.legs)
+        lp = _sibling("legs").validate(lookd["legs"])
+        if lp:
+            raise DesignError(f"{id}: " + "; ".join(lp))
+        doc["legs"] = lookd["legs"]
+    if lookd.get("tail") not in (None, False):
+        # a tail as well as the legs (humanform.tail); a tail INSTEAD of them is a graft
+        if doc.get("graft", {}).get("legs"):
+            raise DesignError(f"{id}: a species cannot have both `tail` (a tail beside its legs) and "
+                              "`graft.legs -> tail` (a tail in place of them)")
+        tp = _sibling("tail").validate(lookd["tail"])
+        if tp:
+            raise DesignError(f"{id}: " + "; ".join(tp))
+        doc["tail"] = lookd["tail"]
     p = check(doc, per_sex)
     if p:
         raise DesignError(f"{id}: " + "; ".join(p))

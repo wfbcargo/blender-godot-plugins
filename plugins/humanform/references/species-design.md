@@ -265,6 +265,49 @@ swapped for a tail chain, the UVs in the atlas the legs freed. What a replacemen
 covers the tail and fades up over the seam (`fade`), so `pattern = { kind = "scales", regions = ["graft"] }` is
 a skin-to-scales transition; the tone is held over the skin, not the tail.
 
+**A leg plan** - `legs = "digitigrade"`, or a table of it (`humanform.legs`). A human is **plantigrade**: the
+foot lies on the ground heel to toe, the ankle is the lowest joint, and the leg is two links with a plate on
+the end. A dog, a gnoll or a satyr is **digitigrade**: the metatarsals stand up, what was the ankle is carried
+clear of the ground as a hock, and the toes alone take the weight. The bones are the same bones - what changes
+is where each one points and how long it is, so it is a reshape of the leg the body already has, and its skin
+follows by linear blend skinning exactly as the warp's does: every UV, every vertex index, the toes and their
+nails come through untouched.
+
+| knob | what it is | range, default |
+|---|---|---|
+| `stand` | the share of the metatarsus that is vertical (sin of its angle above the ground); a person's foot already reads 0.43, a dog's cannon 0.85-0.95 | 0.50-0.98, **0.90** |
+| `metatarsal` | the standing foot's length, times the body's own | 0.8-3.2, **1.9** |
+| `toe` | the toes' length - they now carry the contact | 0.8-3.2, **1.7** |
+| `girth` | those two segments' thickness (a slender cannon on long toes) | 0.5-1.4, **0.85** |
+| `knee` | the included angle the stifle stands at, degrees | 100-160, **130** |
+| `fold` | `{ knee = "forward", hock = "back" }`; a leg that folds the other way (a bird's) is a different plan, not a parameter, and is refused | - |
+
+The solve holds the hip where it stands and lays the toes flat on the ground from the ball, so **stature, hip
+height and everything above the pelvis are untouched**: the femur and the tibia are scaled by the one factor
+that puts the hip back at its height, and the leg folds up under the body. It is refused before a vertex moves
+when the shank scale leaves 0.55-1.15, the hock leaves 0.10-0.45 of hip height, the metatarsus leaves 0.10-0.60
+of the shank, the toes leave 0.10-0.85 of the metatarsus, or the shank would have to stand dead straight. The
+satyr's numbers (0.9 / 1.8 / 1.5 / 128 deg) give a hock at 0.29 of hip height and an effective leg - hip to toe
+- 1.11x the hip height it stands at, against 0.92x plantigrade.
+
+The leg plan runs AFTER the species check, for the same reason a graft does: the preset describes a body's
+proportions, and a leg plan is what the leg does with them. rig-anything then reads it off the geometry, never
+off a flag (`bodymap`: an end bone within 30 degrees of the leg's standing axis is a standing segment, one past
+60 a plate on the ground, between them pro rata), so `locomotion` scales the gait by the effective leg and the
+gait itself needs no new maths.
+
+**A tail beside the legs** - `tail = { length = 0.55, ... }` (`humanform.tail`). A tail INSTEAD of the legs is
+the graft above, and asking for both is refused. A patch of skin at the sacrum goes, and its boundary loop is
+lofted along an arc that leaves the body at `droop` degrees below horizontal and falls another `curve` over its
+length, so the tail hangs behind and below the hips and clear of the legs. Every length is a fraction of hip
+height, so a 1 m gnome's tail and a 2.6 m troll's are the same tail: `length` (0.15-1.20, 0.55), `thickness`
+(0.04-0.35, 0.11), `taper` (tip over base, 0.02-0.60, 0.12), `base` (above the hip joints, -0.05-0.25, 0.12),
+`droop` (-20-80, 35), `curve` (-30-90, 30), `bones` (3-16, 7), `rings` (6-40, 18). The chain is named
+`tail.000`... off the pelvis, which is what `rig_analysis.bodymap` reads as a tail, so every gait already curls
+and swings it, and follow-through's strand route springs it. Two checks: the tail must start clear of the
+thighs at rest (`CLEAR_MIN`, 0.02 of hip height), and in motion rig-anything's `verify.tail_gap` measures the
+skin gap to a leg on every frame of every clip.
+
 **Moving by another mode** - `[moves] locomotion = "swim"` (character-pipeline): rig-anything's
 `swim.upright_set` for a body that stands at rest and swims. Idle floats upright, treading water; Swim, Sprint,
 Glide and the turns are worked out along the tail-to-head line and laid prone. The mode comes from the tail's

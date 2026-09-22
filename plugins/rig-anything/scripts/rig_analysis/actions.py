@@ -1092,7 +1092,17 @@ def _check_common(body, bm, keyed, ev, infos_by_frame, planted, posed_limbs,
     rest_top = max((mw @ p).dot(upw) - rest_floor
                    for b in body_bones for p in (b.head_local, b.tail_local))
 
+    # A tail must not swing through a leg. Nothing else in this list would catch it: a tail is not
+    # planted, not a mid-joint and not under the floor, and it is posed by its own rules
+    # (`motion.Body.pose_tail`) after the legs are solved, so it never sees them.
+    gap = verify.tail_gap(body, bm, evaluated, [f for f, _ in keyed])
+    if gap and gap["failed"]:
+        failures.append("the tail comes %.0f mm from a leg at frame %s (limit %.0f mm; %.0f mm at rest) "
+                        "- it passes through it" % (gap["min_m"] * 1000, gap["at_frame"],
+                                                    gap["limit_m"] * 1000, gap["rest_m"] * 1000))
+
     return {
+        "tail_gap": gap,
         "prediction_error": round(ev["prediction_error"], 7),
         "rest_error": round(rest_err, 6),
         "planted_drift": drift,
