@@ -273,22 +273,55 @@ is where each one points and how long it is, so it is a reshape of the leg the b
 follows by linear blend skinning exactly as the warp's does: every UV, every vertex index, the toes and their
 nails come through untouched.
 
-| knob | what it is | range, default |
-|---|---|---|
-| `stand` | the share of the metatarsus that is vertical (sin of its angle above the ground); a person's foot already reads 0.43, a dog's cannon 0.85-0.95 | 0.50-0.98, **0.90** |
-| `metatarsal` | the standing foot's length, times the body's own | 0.8-3.2, **1.9** |
-| `toe` | the toes' length - they now carry the contact | 0.8-3.2, **1.7** |
-| `girth` | those two segments' thickness (a slender cannon on long toes) | 0.5-1.4, **0.85** |
-| `knee` | the included angle the stifle stands at, degrees | 100-160, **130** |
-| `fold` | `{ knee = "forward", hock = "back" }`; a leg that folds the other way (a bird's) is a different plan, not a parameter, and is refused | - |
+**The input is the SILHOUETTE**, because that is what a leg reads as from four metres. The first digitigrade
+body had a hock, pads and claws and still read as a person walking on their toes: its femur, tibia, metatarsus
+and digits were still a human's. So a plan names a **ratio set** (`ratios`) and the per-segment scales are
+solved to reach it at the hip height the body already stands at.
+
+| ratio set | femur : tibia : metatarsus : digits | stifle | stand | taper (thigh/shank/cannon/digits) |
+|---|---|---|---|---|
+| `human` | 0.394 : 0.398 : 0.137 : 0.070 | 175 deg | 0.43 | 1.0 / 1.0 / 1.0 / 1.0 |
+| `canine` | **0.317 : 0.343 : 0.270 : 0.070** | 116 deg | 0.90 | 1.20 / 0.80 / 0.50 / 0.85 |
+| `caprine` | **0.299 : 0.352 : 0.313 : 0.036** | 120 deg | 0.95 | 1.14 / 0.68 / 0.38 / 0.85 |
+
+`metatarsus` here is the rig's foot bone - hock joint to the ball, so the tarsus AND the metatarsals, which is
+Fischer & Blickhan's third functional segment; the osteometric Mt:F indices below count the metatarsal bone
+alone, about 0.75 of it. Sources, measured over folklore:
+
+- **[measured, review]** Fischer & Blickhan 2006, *The tri-segmented limbs of therian mammals*: the three
+  functional segments of a therian hind limb - femur, shank, tarsus+metatarsus - are near-equal (1:1:1) in the
+  crouched limbs of small mammals, which is what makes a crouched leg self-stabilising.
+- **[measured]** Croft & Lorente 2021, PLoS ONE 16(8):e0256371, the metatarsal-femur ratio (pes length index):
+  extant cursorial **carnivorans** sit at Mt:F 0.38-0.65; extant cursorial **ungulates** - camelids, pecoran
+  ruminants (Caprinae among them) and equids - at Mt:F >= 0.65.
+- **[measured, comparative anatomy]** a cursor lengthens the distal limb and stands on SHORT digits; an
+  unguligrade ungulate stands on the last phalanx alone, so its digits are shorter again.
+- The crural indices (tibia over femur: 1.08 canine, 1.18 caprine) are the conventional carnivoran and pecoran
+  values and are the least-supported numbers here.
+
+Beside the ratios: `stand` (the share of the metatarsus that is vertical - a person's foot already reads 0.43),
+`stance` (how far forward of the hip the ball stands, in hip heights: a plantigrade foot's ball sits 0.17 ahead
+with the ankle under it, a digitigrade one stands on its TOES and they take the sole's place under the body;
+its floor is set by BALANCE, not anatomy - at 0.02 the paw body's crouch put its centre 3.6 mm outside its feet
+and rig-anything refused the clip), `knee`, `girth` (one number or a table of `thigh`, `shank`, `metatarsus`,
+`digits`: a person's leg is nearly one girth from hip to ankle and an animal's is a heavy thigh over a thin
+shank over a bare cannon, which at four metres is as much of the read as the joints are), and `fold`
+(`{ knee = "forward", hock = "back" }`; a bird's reversed stifle is a different plan, not a parameter, and is
+refused). `metatarsal`, `toe` and `shank` are still free as multipliers ON the solved segment, and the
+silhouette check below says what they cost.
 
 The solve holds the hip where it stands and lays the toes flat on the ground from the ball, so **stature, hip
-height and everything above the pelvis are untouched**: the femur and the tibia are scaled by the one factor
-that puts the hip back at its height, and the leg folds up under the body. It is refused before a vertex moves
-when the shank scale leaves 0.55-1.15, the hock leaves 0.10-0.45 of hip height, the metatarsus leaves 0.10-0.60
-of the shank, the toes leave 0.10-0.85 of the metatarsus, or the shank would have to stand dead straight. The
-satyr's numbers (0.9 / 1.8 / 1.5 / 128 deg) give a hock at 0.29 of hip height and an effective leg - hip to toe
-- 1.11x the hip height it stands at, against 0.92x plantigrade.
+height and everything above the pelvis are untouched**: one unknown - the straightened limb's length - is
+bisected until the folded shank exactly reaches, and every segment is its share of it. It is refused before a
+vertex moves when the shank scale leaves 0.55-1.15, the hock leaves 0.10-0.45 of hip height, the metatarsus
+leaves 0.10-0.60 of the shank, the toes leave 0.10-0.85 of the metatarsus, the shank would have to stand dead
+straight, or no limb length reaches at all.
+
+**The silhouette check** is the one that answers "does it still read human": the built shares against the
+plan's, per segment, failing past 0.025 of the limb with both numbers in the message. Everything else in the
+plan asks whether the leg can be BUILT; this asks whether it reads as the animal it is meant to be, which is
+the thing that looking at the parts never told us. `rig_analysis.bodymap` measures the same four shares off
+any rig and prints them in its summary, so a leg from anywhere can be read the same way.
 
 The leg plan runs AFTER the species check, for the same reason a graft does: the preset describes a body's
 proportions, and a leg plan is what the leg does with them. rig-anything then reads it off the geometry, never
@@ -312,6 +345,10 @@ human foot is the setting that changes nothing.
 | `heel_pad` | ... and at the back of the foot | 0-0.5, **0.05 / 0.06** |
 | `nail` | `nail` (hm08's own toenails), `claw` or `hoof` | **claw / hoof** |
 | `claw` | the attached part's own shape: `length`, `base_radius`, `tip_radius`, `curve`, `curl`, `sink`, `color`, `roughness` | derived |
+
+Each foot preset also names the **leg ratios its own silhouette needs** (`feet.LEG_RATIOS`: a paw belongs on a
+dog's leg, a hoof on a goat's), which the build takes as the leg plan's default when the species names a foot
+and leaves the leg's ratios unsaid - because a paw on a human-proportioned leg is exactly what read wrong.
 
 A claw and a hoof are **the same mechanism the head's horns and tusks use** (`features._part`, anchored on the
 distal flesh of each toe group and skinned 100% to the toe bone, in `<human>_footparts`): a claw is data, not a

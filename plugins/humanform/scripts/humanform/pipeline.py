@@ -214,7 +214,13 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw)
         t6 = time.time()
         if sp.get("legs") not in (None, "plantigrade"):
             from . import legs as legs_mod
-            rep["legs"] = legs_mod.apply(human, sp["legs"], verbose=verbose)
+            lspec = sp["legs"]
+            want = feet_mod.LEG_RATIOS.get(feet_mod.normalise(sp.get("foot"))["plan"])
+            if want and not (isinstance(lspec, dict) and lspec.get("ratios")):
+                # a paw belongs on a dog's leg and a hoof on a goat's: the foot plan names the leg ratios its
+                # own silhouette needs, and the species may still say otherwise
+                lspec = dict({"plan": lspec} if isinstance(lspec, str) else lspec, ratios=want)
+            rep["legs"] = legs_mod.apply(human, lspec, verbose=verbose)
             t["legs"] = time.time() - t6
         if sp.get("foot") not in (None, "human"):
             t6b = time.time()

@@ -558,3 +558,55 @@ and the paw lands and leaves on its pads with the claw tips visibly off the floo
 
 Open: the paw's toes are still long, because the leg plan's `toe` default is 1.7 and a paw wants less; there is
 no hand plan yet; the pads are a smooth dome rather than separate lobes, and nothing paints them a darker tone.
+
+### Round 2c: the silhouette (species-2-legs, 2026-09-22)
+
+The parts were right and the leg still read wrong: a hock, pads, claws and a hoof over a femur, tibia,
+metatarsus and digits that were still a human's, and at four metres the figure read as a person walking on
+their toes. **The leg plan's input is now the silhouette** - a ratio set - and the per-segment scales are
+solved to reach it.
+
+| ratio set | femur : tibia : metatarsus : digits | stifle | stand | taper (thigh/shank/cannon/digits) |
+|---|---|---|---|---|
+| `human` | 0.394 : 0.398 : 0.137 : 0.070 | 175 deg | 0.43 | 1.0 / 1.0 / 1.0 / 1.0 |
+| `canine` | 0.317 : 0.343 : 0.270 : 0.070 | 116 deg | 0.90 | 1.20 / 0.80 / 0.50 / 0.85 |
+| `caprine` | 0.299 : 0.352 : 0.313 : 0.036 | 120 deg | 0.95 | 1.14 / 0.68 / 0.38 / 0.85 |
+
+Sources (measured over folklore; `legs.RATIOS` carries them in the code): **Fischer & Blickhan 2006**, the
+tri-segmented therian limb - femur, shank and tarsus+metatarsus near-equal (1:1:1) in a crouched mammal;
+**Croft & Lorente 2021** (PLoS ONE 16(8):e0256371), the metatarsal-femur ratio - cursorial carnivorans at Mt:F
+0.38-0.65, cursorial ungulates (pecoran ruminants, Caprinae among them) at Mt:F >= 0.65; and the comparative
+rule that a cursor lengthens the distal limb and stands on SHORT digits, an unguligrade one shortest of all.
+The crural indices (1.08, 1.18) are conventional and the weakest numbers here. `toe`'s old default of 1.7 was
+the main offender and is gone: the canine solve now scales the digits by about 1.0 and the metatarsus by 2.0.
+
+Three things beyond the lengths turned out to matter as much:
+
+- **The taper.** A person's leg is nearly one girth from hip to ankle; an animal's is a heavy thigh over a thin
+  shank over a bare cannon. `girth` is now a table per segment and carried by the ratio set.
+- **The stifle.** A dog stands its stifle near 116 degrees, not 130. The ratio set carries that too.
+- **Where the foot stands.** A plantigrade foot's ball sits 0.17 hip heights ahead of the hip with the ankle
+  under it; a digitigrade one stands on its TOES and they take the sole's place under the body, which is what
+  puts the hock behind the hip and deepens the zig-zag. `stance` is that offset, and its floor is set by
+  BALANCE rather than anatomy - at 0.02 the paw body's crouch put its centre 3.6 mm outside its feet and
+  rig-anything refused the clip, which is how 0.05 (canine) and 0.04 (caprine) were arrived at.
+
+**The silhouette check**: the built shares against the plan's, per segment, failing past 0.025 of the limb with
+both numbers in the message, so "it still reads human" is caught before a build. `bodymap` measures the same
+four shares off any rig and prints them in its summary. A `toe = 2.0` override is refused by it (digits 0.131
+against 0.070), which is the control.
+
+Each foot preset names the leg ratios its own silhouette needs (`feet.LEG_RATIOS`: paw -> canine, hoof ->
+caprine), taken as the leg plan's default when a species names a foot and leaves the leg's ratios unsaid.
+
+Built and hit: satyr 0.299/0.352/0.313/0.036 (caprine, exactly), paw body 0.317/0.343/0.270/0.070 (canine,
+exactly); both pass all eight clips and export with verified durations, anatomy 0 fails.
+
+**In Godot at 4 m beside the plantigrade body**: the satyr reads as a goat-legged figure - a short heavy
+thigh, a thin shank, a bare cannon, the hock high on the trailing leg, a small hoof - and the paw body as a
+dog-legged one, where both a round ago read as a person on tiptoe. The paw from the front is a thin cannon
+flaring into a short, wide, splayed foot with distinct toe lobes.
+
+Open: the lead leg at mid-stance is still nearly straight, which flattens the read at that one phase; the torso
+and pelvis above the hips are still a person's (that is what a gnoll or a satyr is, but a quadruped's would
+need its own baseline); `human` ratios on a digitigrade plan are refused rather than clamped.

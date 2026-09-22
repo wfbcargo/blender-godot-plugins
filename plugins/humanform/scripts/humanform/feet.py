@@ -48,11 +48,15 @@ HORN = (0.22, 0.19, 0.17)
 # pads and parts are fractions of the TOE's own length, so a gnome's paw and a troll's are the same paw
 PRESETS = {
     "human": {"toes": 5, "splay": 1.0, "width": 1.0, "pad": 0.0, "toe_pad": 0.0, "heel_pad": 0.0, "nail": "nail"},
-    "paw":   {"toes": 4, "splay": 1.15, "width": 1.25, "pad": 0.09, "toe_pad": 0.07, "heel_pad": 0.05,
+    "paw":   {"toes": 4, "splay": 1.15, "width": 1.35, "pad": 0.14, "toe_pad": 0.11, "heel_pad": 0.08,
               "nail": "claw"},
-    "hoof":  {"toes": 2, "splay": 0.45, "width": 2.0, "pad": 0.03, "toe_pad": 0.02, "heel_pad": 0.06,
+    "hoof":  {"toes": 2, "splay": 0.45, "width": 2.2, "pad": 0.06, "toe_pad": 0.04, "heel_pad": 0.10,
               "nail": "hoof"},
 }
+# Which LEG ratios go with each foot: a paw belongs on a dog's leg and a hoof on a goat's (humanform.legs
+# RATIOS). The pipeline takes these as the leg plan's default when the species names a foot and leaves the
+# leg's ratios unsaid, because a paw on a human-proportioned leg is exactly the thing that read wrong.
+LEG_RATIOS = {"human": None, "paw": "canine", "hoof": "caprine"}
 LIMITS = {"toes": (1, 5), "splay": (0.3, 2.0), "width": (0.5, 3.0),
           "pad": (0.0, 0.6), "toe_pad": (0.0, 0.5), "heel_pad": (0.0, 0.5)}
 # the attached part each nail kind is, in toe lengths ([out, forward, up] for vectors, as features does)

@@ -366,6 +366,12 @@ already scales by hip height above the contact plane, which a leg plan does not 
 standing leg's hock leaves `HOCK_OVER_HIP` (0.10-0.45 of hip height) or its foot is over `META_OVER_SHANK` of
 the two links above it. humanform's `legs.py` builds such a leg from a species' `legs = "digitigrade"`.
 
+Each leg also carries `shares` - what fraction of the straightened limb the femur, tibia, metatarsus and
+digits each are, printed in `bodymap.summary`. That is the leg's SILHOUETTE, and it is what says whether a leg
+reads as an animal's or a person's from four metres, whatever is on the end of it: a dog's hind limb is about
+0.32/0.34/0.27/0.07, a goat's 0.30/0.35/0.31/0.04 and a person's 0.39/0.40/0.14/0.07 (humanform's `legs.RATIOS`
+has the sources).
+
 **What the foot stands on is humanform's, not this package's.** A leg plan only says where the segments point;
 what is on the end of a leg - how many toes, the pads under them, a claw or a hoof - is `humanform.feet`, and
 its own check is that the part the plan nominates carries the ground. Here the clip checks see it as they see

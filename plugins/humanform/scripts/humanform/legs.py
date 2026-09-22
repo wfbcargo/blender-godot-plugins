@@ -45,13 +45,61 @@ except ImportError:      # pragma: no cover
 
 PROP = "hf_legs"                  # the solved plan, left on the rig and on the body
 PLANS = ("plantigrade", "digitigrade")
-KEYS = {"plan", "stand", "metatarsal", "toe", "girth", "knee", "fold"}
+KEYS = {"plan", "stand", "metatarsal", "toe", "shank", "girth", "knee", "fold", "ratios", "stance"}
 FOLD_KEYS = {"knee", "hock"}
 # A dog's cannon stands at 0.85-0.95 and its toes are about as long as it again [folklore, animal anatomy];
 # the defaults are a canine biped's, and a satyr's shorter cannon is `metatarsal` down.
-DEFAULTS = {"stand": 0.90, "metatarsal": 1.9, "toe": 1.7, "girth": 0.85, "knee": 130.0}
-LIMITS = {"stand": (0.50, 0.98), "metatarsal": (0.8, 3.2), "toe": (0.8, 3.2),
-          "girth": (0.5, 1.4), "knee": (100.0, 160.0)}
+DEFAULTS = {"stand": 0.90, "girth": 0.85, "knee": 130.0, "ratios": "canine",
+            "metatarsal": None, "toe": None, "shank": None, "stance": None}
+LIMITS = {"stand": (0.50, 0.98), "metatarsal": (0.5, 3.2), "toe": (0.3, 3.2), "shank": (0.4, 1.6),
+          "girth": (0.3, 1.6), "knee": (100.0, 175.0), "stance": (-0.20, 0.30)}
+
+# THE SILHOUETTE. A leg reads as an animal's or a person's from its segment ratios, not from what is on the end
+# of it: the first digitigrade body had a hock, pads and claws and still read at four metres as a person
+# walking on their toes, because its femur, tibia, metatarsus and digits were still a human's. So the plan's
+# input is the ratios - femur : tibia : metatarsus : digits as fractions of the straightened limb - and the
+# per-segment scales are SOLVED to reach them at the hip height the body already stands at.
+#
+# `metatarsus` here is the rig's foot bone, hock joint to the ball, which is the tarsus AND the metatarsals
+# together (Fischer & Blickhan's third functional segment); the osteometric Mt:F indices below count the
+# metatarsal bone alone, about 0.75 of it.
+#
+#   [measured, review] Fischer & Blickhan 2006, "The tri-segmented limbs of therian mammals": the three
+#     functional segments of a therian hind limb - femur, shank, tarsus+metatarsus - are near-equal (1:1:1)
+#     in the crouched limbs of small mammals, which is what makes a crouched leg self-stabilising.
+#   [measured] Croft & Lorente 2021, PLoS ONE 16(8):e0256371 (metatarsal-femur ratio, the pes length index):
+#     extant cursorial carnivorans sit at Mt:F 0.38-0.65; extant cursorial ungulates - camelids, pecoran
+#     ruminants (Caprinae among them) and equids - at Mt:F >= 0.65.
+#   [measured, comparative anatomy] a cursor lengthens the distal limb and stands on SHORT digits; an
+#     unguligrade ungulate stands on the last phalanx alone, so its digits are shorter again.
+#   The crural indices (tibia over femur, ~1.08 canine and ~1.18 caprine) are the conventional values for a
+#   carnivoran and a pecoran; they are the least-supported number here and the most forgiving.
+RATIOS = {
+    # femur : tibia : metatarsus : digits, as fractions of the straightened limb (they are normalised), and
+    # the rest of the silhouette that goes with them: how deep the stifle stands, how far the metatarsus
+    # stands up, and how the leg TAPERS - a person's leg is nearly one girth from hip to ankle and an
+    # animal's is a heavy thigh over a thin shank over a thinner cannon, which at four metres is as much of
+    # the read as the joints are.
+    "human":  {"femur": 0.394, "tibia": 0.398, "metatarsus": 0.137, "digits": 0.070,
+               "knee": 175.0, "stand": 0.43, "stance": None,
+               "girth": {"thigh": 1.0, "shank": 1.0, "metatarsus": 1.0, "digits": 1.0},
+               "why": "measured on humanform's own fitted body: a plantigrade leg, the foot a plate"},
+    "canine": {"femur": 0.317, "tibia": 0.343, "metatarsus": 0.270, "digits": 0.070,
+               "knee": 116.0, "stand": 0.90, "stance": 0.05,
+               "girth": {"thigh": 1.20, "shank": 0.80, "metatarsus": 0.50, "digits": 0.85},
+               "why": "f:t:m:d = 1 : 1.08 : 0.85 : 0.22; Mt:F 0.62 (top of the carnivoran band, a dog rather "
+                      "than a bear) with the tarsus counted in, near Fischer & Blickhan's equal thirds; a "
+                      "dog stands its stifle near 115 degrees and carries its muscle at the thigh"},
+    "caprine": {"femur": 0.299, "tibia": 0.352, "metatarsus": 0.313, "digits": 0.036,
+                "knee": 120.0, "stand": 0.95, "stance": 0.04,
+                "girth": {"thigh": 1.14, "shank": 0.68, "metatarsus": 0.38, "digits": 0.85},
+                "why": "f:t:m:d = 1 : 1.18 : 1.05 : 0.12; Mt:F 0.80, inside the cursorial-ungulate band, on "
+                       "the very short digits of an unguligrade foot; the cannon of a goat is a bare rod"},
+}
+GIRTH_KEYS = ("thigh", "shank", "metatarsus", "digits")
+RATIO_KEYS = ("femur", "tibia", "metatarsus", "digits")
+RATIO_TOL = 0.025         # how far a built share may sit from the plan's target before the silhouette fails
+RATIO_RANGE = (0.02, 0.55)   # any one segment's share of the limb
 # only this fold is built; a bird's backward stifle is a different leg and says so
 FOLD = {"knee": ("forward",), "hock": ("back",)}
 DEFAULT_FOLD = {"knee": "forward", "hock": "back"}
@@ -63,6 +111,17 @@ HOCK_H = (0.10, 0.45)       # the hock's height as a share of hip height (a dog'
 META_SHARE = (0.10, 0.60)   # metatarsus over femur+tibia, after the solve
 TOE_SHARE = (0.10, 0.85)    # toes over metatarsus
 KNEE_SPARE = 0.02           # the solve may not ask the shank to reach past this share of dead straight
+
+
+def ratios(spec):
+    """The four segment shares a plan asks for, normalised, from a name in RATIOS or a table of its own."""
+    r = (spec or {}).get("ratios") if isinstance(spec, dict) else None
+    r = r if r is not None else DEFAULTS["ratios"]
+    if isinstance(r, str):
+        r = RATIOS[r] if r in RATIOS else RATIOS[DEFAULTS["ratios"]]
+    vals = [float(r[k]) for k in RATIO_KEYS]
+    tot = sum(vals)
+    return {k: v / tot for k, v in zip(RATIO_KEYS, vals)}
 
 
 def normalise(spec):
@@ -79,6 +138,19 @@ def normalise(spec):
             out["fold"] = dict(DEFAULT_FOLD, **v)
         else:
             out[k] = v
+    out["ratio_name"] = out["ratios"] if isinstance(out["ratios"], str) else "custom"
+    src = RATIOS.get(out["ratio_name"]) or (out["ratios"] if isinstance(out["ratios"], dict) else {})
+    out["ratios"] = ratios({"ratios": out["ratios"]})
+    # a ratio set is a whole silhouette: its stifle, its stand and its taper come with its lengths, and the
+    # spec overrides any of them
+    for k in ("knee", "stand", "stance"):
+        if k not in (spec or {}) and src.get(k) is not None:
+            out[k] = float(src[k])
+    g = (spec or {}).get("girth", src.get("girth"))
+    if isinstance(g, dict):
+        out["girth"] = {q: float(g.get(q, 1.0)) for q in GIRTH_KEYS}
+    else:
+        out["girth"] = {q: float(g if g is not None else 1.0) for q in GIRTH_KEYS}
     return out
 
 
@@ -98,15 +170,51 @@ def validate(spec):
     if plan not in PLANS:
         out.append(f"legs.plan = {plan!r}: one of {', '.join(PLANS)}")
     out += [f"legs: unknown key {k!r} - it takes {', '.join(sorted(KEYS))}" for k in sorted(set(spec) - KEYS)]
-    for k in ("stand", "metatarsal", "toe", "girth", "knee"):
-        if k in spec:
+    g = spec.get("girth")
+    if isinstance(g, dict):
+        out += [f"legs.girth: unknown segment {k!r} - it takes {', '.join(GIRTH_KEYS)}"
+                for k in sorted(set(g) - set(GIRTH_KEYS))]
+        for k in GIRTH_KEYS:
+            v = g.get(k)
+            if v is not None and (isinstance(v, bool) or not isinstance(v, (int, float))
+                                  or not LIMITS["girth"][0] <= v <= LIMITS["girth"][1]):
+                out.append(f"legs.girth.{k} = {v!r}: a number in "
+                           f"{LIMITS['girth'][0]}..{LIMITS['girth'][1]} (how thick that segment is against "
+                           f"the body's own)")
+    for k in ("stand", "metatarsal", "toe", "shank", "knee", "stance") + (() if isinstance(g, dict) else ("girth",)):
+        if k in spec and spec[k] is not None:
             lo, hi = LIMITS[k]
             v = spec[k]
             if isinstance(v, bool) or not isinstance(v, (int, float)) or not lo <= v <= hi:
                 out.append(f"legs.{k} = {v!r}: a number in {lo}..{hi}"
                            + (" (the share of the metatarsus that stands vertical; a person's foot reads 0.43)"
                               if k == "stand" else
-                              " (the included angle the stifle stands at, degrees)" if k == "knee" else ""))
+                              " (the included angle the stifle stands at, degrees)" if k == "knee" else
+                              " (a multiplier ON TOP of the ratios' own solve, which normally sets it)"
+                              if k in ("metatarsal", "toe", "shank") else ""))
+    r = spec.get("ratios")
+    if r is not None:
+        if isinstance(r, str):
+            if r not in RATIOS:
+                out.append(f"legs.ratios = {r!r}: one of {', '.join(RATIOS)}, or a table of "
+                           f"{', '.join(RATIO_KEYS)}")
+        elif not isinstance(r, dict):
+            out.append(f"legs.ratios must be a name ({', '.join(RATIOS)}) or a table of "
+                       f"{', '.join(RATIO_KEYS)}, not {type(r).__name__}")
+        else:
+            miss = [k for k in RATIO_KEYS if k not in r]
+            if miss:
+                out.append(f"legs.ratios: missing {', '.join(miss)} - it takes all four of "
+                           f"{', '.join(RATIO_KEYS)}, as fractions of the straightened limb")
+            out += [f"legs.ratios: unknown key {k!r}" for k in sorted(set(r) - set(RATIO_KEYS) - {"why"})]
+            tot = sum(float(v) for k, v in r.items() if k in RATIO_KEYS and isinstance(v, (int, float)))
+            for k in RATIO_KEYS:
+                v = r.get(k)
+                if isinstance(v, bool) or not isinstance(v, (int, float)) or v <= 0 or tot <= 0:
+                    out.append(f"legs.ratios.{k} = {v!r}: a positive fraction of the straightened limb")
+                elif not RATIO_RANGE[0] <= v / tot <= RATIO_RANGE[1]:
+                    out.append(f"legs.ratios.{k} = {v!r} is {v / tot:.3f} of the limb, outside "
+                               f"{RATIO_RANGE[0]}..{RATIO_RANGE[1]}")
     fold = spec.get("fold")
     if fold is not None:
         if not isinstance(fold, dict):
@@ -177,32 +285,77 @@ def solve(joints, spec, floor=0.0, forward=(0.0, -1.0, 0.0)):
                     "scale": {"femur": 1.0, "tibia": 1.0, "metatarsus": 1.0, "toe": 1.0}})
         return out
 
-    m = M * float(p["metatarsal"])
-    d = D * float(p["toe"])
     stand = float(p["stand"])
+    r = p["ratios"]
+    ang = math.radians(float(p["knee"]))
+    k_reach = math.sqrt(max(r["femur"] ** 2 + r["tibia"] ** 2
+                            - 2.0 * r["femur"] * r["tibia"] * math.cos(ang), 1e-12))
 
-    # 1. the ball stands where it stood; the toes lie flat on the ground from it
+    # WHERE THE FOOT STANDS. A plantigrade foot stands on its whole sole, so its ball sits well forward of the
+    # hip (16 cm on a person) with the ankle under it. A digitigrade one stands on its TOES, and they take the
+    # sole's place under the body - which is what puts the hock behind the hip and deepens the leg's zig-zag.
+    # Left at the human's ball, the leg came out a shallow S and read at four metres as a person on tiptoe.
+    # `stance` is how far forward of the hip the ball stands, in hip heights; None leaves it where it was. Its
+    # floor is set by BALANCE, not by anatomy: a biped's centre of mass is in front of its hips, and at 0.02
+    # the paw body's crouch put its centre 3.6 mm outside its feet and rig-anything refused the clip.
     ball1 = ball.copy()
+    if p.get("stance") is not None:
+        ball1 = ball1 + fwd * (float(p["stance"]) * hip_h - float(np.dot(ball1 - hip, fwd)))
     toe_dir = _unit(np.array([tip[0] - ball[0], tip[1] - ball[1], 0.0]))
     if float(np.linalg.norm(toe_dir)) < 1e-9:
         toe_dir = fwd.copy()
-    tip1 = ball1 + toe_dir * d
-
-    # 2. the metatarsus stands: `stand` of it vertical, the rest back along the way the foot already leant
     back = np.array([ankle[0] - ball[0], ankle[1] - ball[1], 0.0])
     back = _unit(back) if float(np.linalg.norm(back)) > 1e-9 else -fwd
-    hock = ball1 + up * (m * stand) + back * (m * math.sqrt(max(1.0 - stand * stand, 0.0)))
+    lean = math.sqrt(max(1.0 - stand * stand, 0.0))
 
-    # 3. the shank folds to `knee` degrees and puts the hip back where it was
+    def hock_at(L):
+        """Where the hock lands for a straightened limb of length L: the metatarsus is r_m of it, standing."""
+        return ball1 + up * (r["metatarsus"] * L * stand) + back * (r["metatarsus"] * L * lean)
+
+    def gap(L):
+        """How much longer the femur and tibia reach, folded to `knee`, than the hip-to-hock line needs."""
+        return k_reach * L - float(np.linalg.norm(hip - hock_at(L)))
+
+    # ONE unknown: the length of the straightened limb. The ratios fix every segment as a share of it, the
+    # hip is where the body already stands, and the hock's height comes out of the metatarsus - so the limb
+    # length is whatever makes the folded shank exactly reach. `gap` rises with L (the reach grows, and a
+    # higher hock is nearer the hip), so a bisection is enough.
+    base = F + T + M + D
+    lo_L, hi_L = 0.30 * base, 3.0 * base
+    if gap(lo_L) > 0 or gap(hi_L) < 0:
+        out["problems"].append(
+            f"legs: no limb length reaches the hip at {hip_h:.3f} m with ratios "
+            f"{'/'.join(f'{r[q]:.2f}' for q in RATIO_KEYS)} and a {p['knee']:.0f} degree stifle - "
+            f"straighten the stifle or shorten the metatarsus's share")
+        out.update({"changed": False})
+        return out
+    for _ in range(60):
+        mid = 0.5 * (lo_L + hi_L)
+        if gap(mid) < 0:
+            lo_L = mid
+        else:
+            hi_L = mid
+    L = 0.5 * (lo_L + hi_L)
+
+    f, t = r["femur"] * L, r["tibia"] * L
+    m, d = r["metatarsus"] * L, r["digits"] * L
+    # The knobs are still free: each is a multiplier ON the solved segment, so a plan can push one away from
+    # its ratio and the silhouette check will say by how much.
+    if p.get("shank") is not None:
+        f, t = f * float(p["shank"]), t * float(p["shank"])
+    if p.get("metatarsal") is not None:
+        m *= float(p["metatarsal"])
+    if p.get("toe") is not None:
+        d *= float(p["toe"])
+
+    hock = ball1 + up * (m * stand) + back * (m * lean)
+    tip1 = ball1 + toe_dir * d
     span = hip - hock
     dist = float(np.linalg.norm(span))
-    ang = math.radians(float(p["knee"]))
-    reach = math.sqrt(max(F * F + T * T - 2.0 * F * T * math.cos(ang), 1e-12))
-    s = dist / reach
-    f, t = F * s, T * s
-    out["scale"] = {"femur": round(s, 4), "tibia": round(s, 4),
-                    "metatarsal": round(float(p["metatarsal"]), 4), "toe": round(float(p["toe"]), 4),
-                    "girth": round(float(p["girth"]), 4)}
+
+    out["scale"] = {"femur": round(f / max(F, 1e-9), 4), "tibia": round(t / max(T, 1e-9), 4),
+                    "metatarsal": round(m / max(M, 1e-9), 4), "toe": round(d / max(D, 1e-9), 4),
+                    "girth": {q: round(float(p["girth"][q]), 3) for q in GIRTH_KEYS}}
     # the knee, in the plane of the hip-hock line and the body's forward axis, bent forward
     e = _unit(span * -1.0)                                  # hip -> hock
     n = fwd - e * float(np.dot(fwd, e))
@@ -213,22 +366,42 @@ def solve(joints, spec, floor=0.0, forward=(0.0, -1.0, 0.0)):
 
     hock_h = float(hock[2]) - floor
     shank = f + t
-    meas = {"shank_scale": round(s, 3), "hock_height": round(hock_h, 4),
+    limb = f + t + m + d
+    built = {q: v / max(limb, 1e-9) for q, v in
+             (("femur", f), ("tibia", t), ("metatarsus", m), ("digits", d))}
+    meas = {"shank_scale": round(f / max(F, 1e-9), 3), "hock_height": round(hock_h, 4),
             "hock_over_hip": round(hock_h / max(hip_h, 1e-9), 3),
             "metatarsus_over_shank": round(m / max(shank, 1e-9), 3),
             "toe_over_metatarsus": round(d / max(m, 1e-9), 3),
             "knee_deg": round(float(p["knee"]), 1),
             "hock_deg": round(_angle(knee1, hock, ball1), 1),
+            "limb": round(limb, 4),
             "effective_leg": round(shank + m, 4),
-            "effective_over_hip": round((shank + m) / max(hip_h, 1e-9), 3)}
+            "effective_over_hip": round((shank + m) / max(hip_h, 1e-9), 3),
+            "mt_over_femur": round(m / max(f, 1e-9), 3),
+            "crural": round(t / max(f, 1e-9), 3),
+            "ball_forward_of_hip": round(float(np.dot(ball1 - hip, fwd)) / max(hip_h, 1e-9), 3)}
     out["measures"] = meas
+    out["ratios"] = {"name": p.get("ratio_name", "custom"),
+                     "target": {q: round(r[q], 4) for q in RATIO_KEYS},
+                     "built": {q: round(built[q], 4) for q in RATIO_KEYS},
+                     "off": {q: round(built[q] - r[q], 4) for q in RATIO_KEYS}}
     probs = out["problems"]
+    # THE SILHOUETTE CHECK. Everything else here is about whether the leg can be built; this is about whether
+    # it reads as the animal it is meant to be, which is the one thing looking at the parts never told us.
+    bad = [f"{q} {built[q]:.3f} against {r[q]:.3f}" for q in RATIO_KEYS
+           if abs(built[q] - r[q]) > RATIO_TOL]
+    if bad:
+        probs.append(f"legs: the leg's silhouette misses its {p.get('ratio_name', 'custom')} ratios by more "
+                     f"than {RATIO_TOL} of the limb - {'; '.join(bad)} (shares of femur+tibia+metatarsus+"
+                     f"digits). A `metatarsal`, `toe` or `shank` multiplier is what pushes one off its ratio")
     for key, (lo, hi), what in (
-            ("shank_scale", SHANK, "the femur and tibia must scale by this to stand the hip at its height; "
-                                   "raise `knee` (a straighter stifle) or lower `stand`/`metatarsal`"),
-            ("hock_over_hip", HOCK_H, "the hock's height over the hip's; `stand` and `metatarsal` set it"),
-            ("metatarsus_over_shank", META_SHARE, "the standing foot against the shank above it (`metatarsal`)"),
-            ("toe_over_metatarsus", TOE_SHARE, "the toes against the standing foot (`toe`)")):
+            ("shank_scale", SHANK, "the femur must scale by this to stand the hip at its height with these "
+                                   "ratios; raise `knee` (a straighter stifle) or give the metatarsus less"),
+            ("hock_over_hip", HOCK_H, "the hock's height over the hip's; `stand` and the metatarsus's share "
+                                      "set it"),
+            ("metatarsus_over_shank", META_SHARE, "the standing foot against the shank above it"),
+            ("toe_over_metatarsus", TOE_SHARE, "the toes against the standing foot")):
         v = meas[key]
         if not lo <= v <= hi:
             probs.append(f"legs: {key} {v} is outside {lo}..{hi} - {what}")
@@ -324,8 +497,9 @@ def apply(human, spec, report=None, verbose=False):
 
     p = normalise(spec)
     rep = {} if report is None else report
-    rep.update({"plan": p["plan"], "parameters": {k: p[k] for k in ("stand", "metatarsal", "toe", "girth",
-                                                                    "knee", "fold")}})
+    rep.update({"plan": p["plan"], "ratios": p.get("ratio_name", "custom"),
+                "parameters": {k: p[k] for k in ("stand", "metatarsal", "toe", "shank", "girth", "knee",
+                                                 "fold")}})
     problems = validate(spec)
     if problems:
         raise ValueError("; ".join(problems))
@@ -356,13 +530,16 @@ def apply(human, spec, report=None, verbose=False):
         if not s.get("changed"):
             continue
         pos = {k: np.asarray(v, float) for k, v in s["positions"].items()}
-        g = float(p["girth"])
+        gi = p["girth"]
         for bone, (a0, b0, a1, b1, sc) in (
-                (chain[0], (j["hip"], j["knee"], pos["hip"], pos["knee"], (1.0, s["scale"]["femur"], 1.0))),
-                (chain[1], (j["knee"], j["ankle"], pos["knee"], pos["ankle"], (1.0, s["scale"]["tibia"], 1.0))),
+                (chain[0], (j["hip"], j["knee"], pos["hip"], pos["knee"],
+                            (gi["thigh"], s["scale"]["femur"], gi["thigh"]))),
+                (chain[1], (j["knee"], j["ankle"], pos["knee"], pos["ankle"],
+                            (gi["shank"], s["scale"]["tibia"], gi["shank"]))),
                 (chain[2], (j["ankle"], j["ball"], pos["ankle"], pos["ball"],
-                            (g, float(p["metatarsal"]), g))),
-                (chain[3], (j["ball"], j["tip"], pos["ball"], pos["tip"], (g, float(p["toe"]), g)))):
+                            (gi["metatarsus"], s["scale"]["metatarsal"], gi["metatarsus"]))),
+                (chain[3], (j["ball"], j["tip"], pos["ball"], pos["tip"],
+                            (gi["digits"], s["scale"]["toe"], gi["digits"])))):
             rot[bone] = _rot_between(np.asarray(b0, float) - a0, b1 - a1)
             scale[bone] = sc
         # anything hanging off the toes (nails, a claw) rides the toe bone
@@ -381,13 +558,16 @@ def apply(human, spec, report=None, verbose=False):
     after = species._Rig(rig)
     rep.update({
         "changed": True,
-        "sides": {side: {k: s[k] for k in ("measures", "scale", "rest") if k in s} for side, s in solved.items()},
+        "sides": {side: {k: s[k] for k in ("measures", "scale", "rest", "ratios") if k in s}
+                  for side, s in solved.items()},
+        "silhouette": solved[sorted(solved)[0]].get("ratios") if solved else None,
         "measures": solved[sorted(solved)[0]]["measures"] if solved else {},
         "hock_height_m": round(float(after.head[after.ix[after.legs[sorted(after.legs)[0]][2]], 2]), 4),
         "bones": {side: list(ch) for side, ch in sorted(rigd.legs.items())},
     })
-    rig[PROP] = {"plan": p["plan"], "stand": float(p["stand"]), "metatarsal": float(p["metatarsal"]),
-                 "toe": float(p["toe"]), "knee": float(p["knee"])}
+    rig[PROP] = {"plan": p["plan"], "stand": float(p["stand"]), "knee": float(p["knee"]),
+                 "ratios": p.get("ratio_name", "custom"),
+                 "shares": {q: float(v) for q, v in (rep.get("silhouette") or {}).get("built", {}).items()}}
     human[PROP] = rig[PROP]
     if verbose:
         print("legs", p["plan"], rep["measures"])
