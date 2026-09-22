@@ -26,11 +26,20 @@ measures on a picture; `solve()` turns any subset into knobs, filling the rest f
   statures 0.87 and 1.65 m: Pavlovic et al. 2024, Appl. Sci. 14:7185). So a small *proportionate* body reads
   big-headed by law (a 1.0 m one is ~6 heads), and a giant reads small-headed (2.65 m is ~10 heads). The
   effective stature is the trunk-matched human's for a disproportionate body (a dwarf's head is its trunk's).
-- **Square-cube mass.** Mass is volume: the pre-warp human's mass (its BMI at its stature) times each segment's
-  share of body mass (de Leva 1996) times its length factor and its girth squared, the head cubed. A body scaled
-  up whole therefore gains BMI in proportion to height (BMI = mass / H^2, mass ~ H^3). Within one human
-  population weight goes as H^2.0-2.2 (ANSUR II, measured) because tall people are slimmer; a species is a
-  shape, so it scales isometrically unless its girth says otherwise.
+- **Mass and build are two things.** *Mass* is volume, always: the pre-warp human's mass (its BMI at its
+  stature) times each segment's share of body mass (de Leva 1996) times its length factor and its girth squared,
+  the head cubed. That is what gait and loads use, and it is square-cube by construction. The *build* - how
+  thick a body is for its length - follows the **adult build law** (GIRTH_LAW): among adults BMI does not vary
+  with stature (ANSUR II, measured here: weight ~ H^2.00 in men, corr(BMI, H) +0.002; pygmy adults at 1.42-1.55
+  m have BMI 20.5-21), because every girth grows only as H^0.36-0.58 at a fixed BMI. A short adult is therefore
+  thicker for his length than a tall one, not a geometric shrink: a body shrunk from its pre-warp human by s
+  takes each girth by s^a (a from ANSUR per region), so a 1 m body of an average build keeps an adult's BMI
+  (~24) instead of a four-year-old's (~15, what a geometric shrink gives). A body scaled *up* keeps its shape
+  (isometric: BMI grows with H, the square-cube), and above a human's mass its limbs add **support girth**:
+  limb bone circumference grows as M^0.364 against a geometric M^0.333 across tetrapods (Campione & Evans
+  2012), steeper in large mammals (Christiansen 1999; McMahon 1975), so a limb takes (M / M_human)^SUPPORT_EXP.
+  `design` reports each limb's girth over its length against the adult band for its stature and build
+  (`limb_band`, LIMB_BAND) and warns on stick limbs and a child-light BMI.
 - **Proportionate vs disproportionate.** A body whose trunk-to-leg and arm-to-leg ratios are within 12% of a
   human's is *proportionate* (a small or large person: pituitary short stature, a child's body, a giant); outside
   it is *disproportionate* (achondroplasia's long trunk on short limbs). It picks the head law's effective
@@ -67,6 +76,49 @@ MASS_SHARE = {                      # de Leva 1996 (J Biomech 29:1223), % body m
              "thigh": 14.16, "shin": 4.33, "foot": 1.37},
 }
 
+# The adult build law (ANSUR II, scripts/derive_girth_law.py; men / women): circumference ~ H^a at a fixed BMI.
+# thigh 0.61/0.62, calf 0.52/0.58 -> legs; biceps 0.47/0.51, forearm 0.55/0.56 -> arms; neck 0.33/0.38; chest
+# depth 0.58/0.52 and breadth 0.56/0.54 -> torso. a = 1 would be geometric: it is ~0.5, which is why BMI is
+# stature-free among adults (mass ~ L x girth^2 ~ H^(1 + 2a) ~ H^2). A body shrunk by s from its pre-warp human
+# takes each girth by s^a instead of s.
+GIRTH_LAW = {"legs": 0.58, "arms": 0.52, "neck": 0.36, "torso": 0.55}
+# breadths likewise (ANSUR II, men / women): bideltoid ~H^0.51/0.51, hip breadth ~H^0.69/0.66 at a fixed BMI. And
+# the hips carry the thighs: a hip breadth never narrower, against the pre-warp human's, than the thighs' girth
+# (a shrunk body's thighs, thickened by the law, met below the crotch and read as fused on the first gnome)
+WIDTH_LAW = {"shoulder_width": 0.51, "hip_width": 0.68}
+# how much wider than the thighs' girth factor the hips are held on a shrunk body: the thighs of a short body are
+# thick for their length and meet sooner than a human's at the same hip breadth (a halfling at 1.00x came out with
+# its crotch 6 cm low, then its pelvis spread 3.4 cm past its hip target to lift it)
+HIPS_CARRY = 1.06
+# support girth for a big body: limb circumference ~ M^0.364 across tetrapods (Campione & Evans 2012, 1/2.749)
+# against a geometric M^0.333, steeper in large mammals (Christiansen 1999; bovids ~M^0.10 over geometric,
+# McMahon 1975's elastic similarity): a limb above a human's mass takes (M / M_human)^SUPPORT_EXP
+SUPPORT_EXP = 0.06
+# each limb's circumference over its joint-to-joint length among adults (ANSUR II, derive_girth_law.py):
+# c/L at the sex's mean stature and BMI, its exponents with stature and BMI, and the residual's 5th and 95th
+# percentiles (the spread at one stature and BMI). ANSUR's biceps and forearm girths are flexed.
+LIMB_BAND = {
+    "male": {"H": 1.756, "bmi": 27.7,
+             "thigh": (1.534, -0.58, 0.61, 0.904, 1.107), "shin": (0.940, -0.72, 0.44, 0.915, 1.089),
+             "upper_arm": (0.987, -0.58, 0.55, 0.907, 1.110), "forearm": (1.160, -0.51, 0.36, 0.915, 1.097)},
+    "female": {"H": 1.628, "bmi": 25.5,
+               "thigh": (1.629, -0.50, 0.59, 0.910, 1.094), "shin": (0.928, -0.64, 0.39, 0.901, 1.110),
+               "upper_arm": (0.916, -0.56, 0.62, 0.913, 1.095), "forearm": (1.097, -0.54, 0.35, 0.914, 1.098)},
+}
+LIMB_REGION = {"thigh": ("legs", "femur"), "shin": ("legs", "tibia"), "upper_arm": ("arms", "humerus"),
+               "forearm": ("arms", "forearm")}
+# chest depth over chest breadth (ANSUR II): men 0.877 (p5 0.754, p95 1.004), women 0.918 (0.798-1.045); it grows
+# with BMI^0.34 and not with stature. A barrel chest (`barrel_chest` 1) is a ribcage as deep as it is broad and a
+# little more: BARREL_DB [folklore for a dwarf; the clinical barrel chest is an AP diameter near the transverse]
+# humancheck's limb girths against ANSUR's: its upper arm and forearm are relaxed (ANSUR's flexed), its thigh just
+# under the crotch, its lengths joint to joint on the rig - measured on fitted MPFB humans (the pre-warp bodies of
+# the species builds): mesh c/L over limb_band's at the same stature and BMI
+MESH_CAL = {"thigh": 0.99, "shin": 1.0, "upper_arm": 1.12, "forearm": 0.78, "chest_depth_to_breadth": 0.81}
+CHEST_DB = {"male": 0.877, "female": 0.918}
+BARREL_DB = 1.08
+RIBCAGE_SHARE = 0.5          # of the trunk's mass the ribcage's depth and breadth scale (de Leva's upper trunk and
+                             # half the middle)
+
 SOURCES = {
     "ansur": "ANSUR II (US Army 2012, Penn State OpenLab 2017): data/anthropometry.json",
     "growth": ("Pavlovic et al. 2024, Research on Children's Body Proportions: the canon of head length to body "
@@ -84,6 +136,16 @@ SOURCES = {
     "eyes": ("Bekerman et al. 2014, Variations in eyeball diameters of the healthy adults (J Ophthalmol "
              "2014:503645): ~24 mm adult axial length; ~16.5-17 mm at birth"),
     "design": "docs/improvements/08-fantasy-species.md (research, 2026-09-21)",
+    "build_law": ("ANSUR II measured here (scripts/derive_girth_law.py): weight ~ H^2.00 (men), 2.19 (women); "
+                  "corr(BMI, stature) +0.002 / +0.054; circumferences ~ H^0.33-0.62 at a fixed BMI"),
+    "benn": ("Benn 1971 and NHANES: W/H^2 is uncorrelated with height in adults (r ~ -0.03), the Benn exponent "
+             "2.0-2.2 - https://pmc.ncbi.nlm.nih.gov/articles/PMC11611441/"),
+    "pygmy": ("Baka and Efe adults, 1.42-1.55 m: BMI 20.5-21.3, >85% in the normal range - "
+              "https://citeseerx.ist.psu.edu/document?doi=b94845323982dd59cb424861df2106bc47b700f9"),
+    "support": ("Campione & Evans 2012, BMC Biol 10:60: body mass ~ (humerus + femur circumference)^2.749 across "
+                "tetrapods (C ~ M^0.364) - https://pmc.ncbi.nlm.nih.gov/articles/PMC3403949/; Christiansen 1999, "
+                "J Zool 249:1 (large mammals depart from geometric similarity more than small); McMahon 1975, Am "
+                "Nat 109:547 (elastic similarity in ungulates)"),
 }
 
 # name: (unit, human default, (lo, hi), meaning)
@@ -104,6 +166,10 @@ KNOBS = {
     "girth_arms":     ("x", 1.0, (0.5, 2.0), "arm thickness, likewise"),
     "girth_neck":     ("x", 1.0, (0.5, 2.0), "neck thickness"),
     "girth_torso":    ("x", 1.0, (0.5, 2.0), "trunk depth"),
+    "girth_forearm":  ("x", 1.0, (0.6, 1.8), "forearm thickness over the arm's (heavy forearms)"),
+    "chest_depth":    ("x", 1.0, (0.7, 1.6), "ribcage depth, front to back, beyond the torso's girth (a barrel "
+                                             "chest)"),
+    "chest_breadth":  ("x", 1.0, (0.7, 1.5), "ribcage breadth beyond the torso's girth and the shoulders' spread"),
     "hunch_deg":      ("deg", 0.0, (-15.0, 60.0), "extra thoracic kyphosis over a human's (forward bend)"),
     "sway_deg":       ("deg", 0.0, (-20.0, 30.0), "extra lumbar lordosis over a human's (backward bend)"),
     "build_bmi":      ("kg/m2", 24.5, (15.0, 45.0), "BMI of the pre-warp human the body is fitted from"),
@@ -122,7 +188,7 @@ BUILDS = {   # word: (pre-warp BMI centre, its range)
 }
 BUILD_WORDS = tuple(sorted(BUILDS))
 SIZE_WORDS = {"tiny": 0.7, "small": 0.85, "short": 0.75, "human": 1.0, "long": 1.35, "big": 1.22, "large": 1.22,
-              "huge": 1.4, "thin": 0.85, "thick": 1.2, "slender": 0.86, "stout": 1.15}
+              "huge": 1.4, "thin": 0.85, "thick": 1.2, "slender": 0.86, "stout": 1.15, "heavy": 1.2}
 
 # observable: (unit, meaning, how to read it off a picture)
 OBSERVABLES = {
@@ -151,7 +217,14 @@ OBSERVABLES = {
     "hands":          ("x|word", "hand length (big, small, ...)", "hand against the face (a human's ~0.75 face)"),
     "feet":           ("x|word", "foot length", "foot against the head length (a human's ~1.2)"),
     "neck":           ("x|word", "neck length (long, short)", "chin to shoulder line"),
-    "girth":          ("x|word|dict", "limb thickness beyond the build (slender, stout; or per region)", ""),
+    "girth":          ("x|word|dict", "limb thickness beyond the build (slender, stout; or per region: legs, "
+                                      "arms, neck, torso, forearm)", ""),
+    "forearms":       ("x|word", "forearm thickness over the arm's (thick, stout, heavy = 1.2)",
+                       "the forearm's widest against the upper arm's"),
+    "chest_depth_to_breadth": ("ratio", "ribcage depth over breadth at the chest (a human man 0.88, woman 0.92; "
+                                        "a barrel chest ~1.0-1.1)", "side-view depth over front-view breadth "
+                                                                     "under the armpits"),
+    "barrel_chest":   ("0-1", f"0 a human's chest, 1 a barrel: depth over breadth {BARREL_DB}", "a side view"),
 }
 
 LANDMARKS = {"ankle": lambda f: f["ankle_joint"], "mid_shin": lambda f: (f["ankle_joint"] + f["knee_joint"]) / 2,
@@ -430,6 +503,15 @@ def body(k, sex, heads):
     u.update(upper_arm=h["upper_arm"] * f_hum, forearm=h["forearm"] * f_fa, hand=h["hand"] * k["hand_scale"],
              foot=h["foot"] * k["foot_scale"], thigh=h["thigh"] * f_thigh, shin=h["shin"] * f_shin,
              shoulder_width=h["shoulder_width"] * k["shoulder_scale"], hip_width=h["hip_width"] * k["hip_scale"])
+    # the adult build law on the breadths (WIDTH_LAW): a body shrunk by s from its pre-warp human keeps an adult's
+    # breadths for its size (s^a, not s), and its hips carry its thighs
+    s = body_scale(u, Hs, sex, arc)
+    wf = {"shoulder_width": k["shoulder_scale"], "hip_width": k["hip_scale"]}
+    if s < 1.0:
+        wf = {n: v * s ** (WIDTH_LAW[n] - 1.0) for n, v in wf.items()}
+        wf["hip_width"] = max(wf["hip_width"], HIPS_CARRY * k["girth_legs"] * s ** (GIRTH_LAW["legs"] - 1.0))
+    u["shoulder_width"] = h["shoulder_width"] * wf["shoulder_width"]
+    u["hip_width"] = h["hip_width"] * wf["hip_width"]
     fr = {key: u[key] / Hs for key in HEIGHTS + LENGTHS + ("neck_base",)}
     fr["head_base"] = base / Hs
     fr["spine_arc"] = arc / Hs
@@ -438,7 +520,23 @@ def body(k, sex, heads):
     fr["fingertip"] = fr["shoulder_joint"] - fr["upper_arm"] - fr["forearm"] - fr["hand"]
     factors = {"femur": f_thigh, "tibia": f_shin, "humerus": f_hum, "forearm": f_fa, "hand": k["hand_scale"],
                "foot": k["foot_scale"], "spine": k["trunk_scale"], "neck": k["neck_scale"], "head": g}
-    return {"H": Hs, "fr": fr, "factors": factors}
+    return {"H": Hs, "fr": fr, "factors": factors, "widths": wf, "scale": s}
+
+
+def body_scale(u, Hs, sex, arc):
+    """How much a body (human units, stack height Hs) is scaled from its pre-warp human: by its head for a
+    proportionate body, by its trunk for a disproportionate one (as `_pre_warp` with the inferred basis)."""
+    h = human(sex)
+    fr = {key: u[key] / Hs for key in ("ankle_joint", "crotch", "hip_joint", "neck_base", "chin")}
+    leg = fr["hip_joint"]
+    trunk_to_leg = (fr["neck_base"] - leg) / leg
+    arm_to_leg = (u["upper_arm"] + u["forearm"]) / Hs / (leg - fr["ankle_joint"])
+    hm = metrics(h)
+    prop = (abs(trunk_to_leg / hm["trunk_to_leg"] - 1.0) <= PROPORTIONATE
+            and abs(arm_to_leg / hm["arm_to_leg"] - 1.0) <= PROPORTIONATE)
+    kf = ((1.0 - fr["chin"]) / (1.0 - h["chin"]) if prop
+          else (arc / Hs) / h["spine_arc"])
+    return 1.0 / (Hs * kf)
 
 
 def metrics(fr, sex=None):
@@ -464,16 +562,56 @@ def _pre_warp(b, sex, basis):
     return (1.0 - b["fr"]["chin"]) / (1.0 - h["chin"])
 
 
+def law_scale(region, s):
+    """The girth factor of a body region when the whole body is scaled by `s` from its pre-warp human: by the
+    adult build law (GIRTH_LAW) s^a when it is shrunk, so a short adult keeps an adult's build; s (the shape
+    kept, square-cube) when it is scaled up."""
+    return s ** GIRTH_LAW[region] if (s < 1.0 and region in GIRTH_LAW) else s
+
+
+def clamp_girth(region, scale, c):
+    """The girth factor a pre-warp human clamped to ANSUR (fitted at the limit, then scaled whole by c) takes on top
+    of the preset's, when the body is `scale` of the unclamped pre-warp human: the adult build law on the whole
+    scale from the fit over the law on `scale` alone. species.py's warp applies the same (girth_law.scale)."""
+    return law_scale(region, scale * c) / law_scale(region, scale)
+
+
+def chest_spread(shoulder, torso):
+    """How much the chest bone's breadth takes of broad shoulders beyond the torso's own girth (species.py's
+    warp uses the same): half of it, as a square root, held to 0.8-1.25."""
+    return min(1.25, max(0.8, math.sqrt(max(shoulder / max(torso, 1e-3), 1e-3))))
+
+
+def limb_band(sex, limb, H, bmi):
+    """(lo, mean, hi): an adult limb's circumference over its joint-to-joint length at stature `H` and a BMI
+    (a number, or [lo, hi] - the band then runs from the low BMI's 5th percentile to the high one's 95th). ANSUR
+    II's regression (LIMB_BAND), extended below 1.45 m by the same law."""
+    t = LIMB_BAND[sex]
+    c, aH, aB, p5, p95 = t[limb]
+    lo_b, hi_b = (bmi, bmi) if isinstance(bmi, (int, float)) else bmi
+
+    def at(b):
+        return c * (H / t["H"]) ** aH * (b / t["bmi"]) ** aB
+    return at(lo_b) * p5, at((lo_b + hi_b) / 2), at(hi_b) * p95
+
+
 def mass_factor(b, sex, girth, widths, scale):
-    """Body mass over the pre-warp human's, by segment volume (de Leva shares, length x girth^2, head cubed)."""
+    """Body mass over the pre-warp human's, by segment volume (de Leva shares, length x girth^2, head cubed).
+    `girth` is absolute against the pre-warp human (legs, arms, neck, torso, and optional forearm, chest_depth
+    and chest_breadth multipliers); `widths` are the shoulder and hip knobs, scaled by `scale` with the lengths."""
     w = MASS_SHARE[sex]
     f = {n: v * scale for n, v in b["factors"].items()}
-    g = {n: v * scale for n, v in girth.items()}
+    g = girth
     legs, arms = g["legs"] ** 2, g["arms"] ** 2
+    fore = arms * g.get("forearm", 1.0) ** 2
+    # the ribcage's own depth and breadth; its breadth from the shoulders' spread is already in the widths, its
+    # depth (which follows that spread) is not
+    rib = 1.0 - RIBCAGE_SHARE + RIBCAGE_SHARE * (g.get("chest_depth", 1.0) * g.get("chest_breadth", 1.0)
+                                                 * g.get("chest_spread", 1.0))
     wmean = scale * (widths["shoulder_width"] + widths["hip_width"]) / 2
-    v = (w["head"] * f["head"] ** 3 + w["trunk"] * f["spine"] * g["torso"] * wmean
+    v = (w["head"] * f["head"] ** 3 + w["trunk"] * f["spine"] * g["torso"] * wmean * rib
          + 2 * (w["thigh"] * f["femur"] * legs + w["shin"] * f["tibia"] * legs + w["foot"] * f["foot"] * legs
-                + w["upper_arm"] * f["humerus"] * arms + w["forearm"] * f["forearm"] * arms
+                + w["upper_arm"] * f["humerus"] * arms + w["forearm"] * f["forearm"] * fore
                 + w["hand"] * f["hand"] * arms))
     return v / sum(w[n] * (1 if n in ("head", "trunk") else 2) for n in w)
 
@@ -602,33 +740,77 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
 
     girth_rel = {"legs": k["girth_legs"], "arms": k["girth_arms"], "neck": k["girth_neck"], "torso": k["girth_torso"]}
     pre = {"stature_factor": {}, "stature": {}}
-    segments, girth, widths, bmi, mass = {}, {}, {}, {}, {}
+    segments, girth, widths, bmi, mass, support, limbs, chest = {}, {}, {}, {}, {}, {}, {}, {}
     bl, bh = _bmi_range(k["build_bmi"])
+    warnings = list((report or {}).get("warnings") or [])
+    scale_tot, scale_pre = {}, {}
     for sex in SEXES:
         b = per_sex[sex]
         kf = _pre_warp(b, sex, basis)
         lo, hi = st[sex]
+        m = _mid(st, sex)
         pre["stature_factor"][sex] = round(kf, 4)
         pre["stature"][sex] = [round(lo * kf, 3), round(hi * kf, 3)]
         scale = 1.0 / (b["H"] * kf)
         segments[sex] = {n: round(f * scale, 4) for n, f in b["factors"].items()}
-        girth[sex] = {n: round(g * scale, 4) for n, g in girth_rel.items()}
-        widths[sex] = {n: round(k[s] * scale, 4) for n, s in (("shoulder_width", "shoulder_scale"),
-                                                               ("hip_width", "hip_scale"))}
-        # square-cube: the pre-warp human's BMI x its stature^2 is its mass; the warp scales it by volume
-        mf = mass_factor(b, sex, girth_rel, {n: k[s] for n, s in (("shoulder_width", "shoulder_scale"),
-                                                                  ("hip_width", "hip_scale"))}, 1.0 / (b["H"] * kf))
-        ratio = mf * kf ** 2           # BMI_final / BMI_pre = mass factor x (H_pre / H)^2
+        wk = dict(b["widths"])             # the shoulder and hip knobs through the adult build law (body())
+        widths[sex] = {n: round(v * scale, 4) for n, v in wk.items()}
+        extra = {k2: k[k2] for k2 in ("girth_forearm", "chest_depth", "chest_breadth")}
 
-        def clamp(H):
-            # a pre-warp human outside ANSUR is fitted at the limit and scaled whole (humanform.species
-            # .prewarp_stature), so its BMI scales by H_pre / limit too: square-cube on the fit itself. Without
-            # it a 3.1 m giant was designed at BMI 25-32 and built at ~43 (a cyclops trial, 2026-09-21)
+        def built(H, sup=None):
+            """The body as it is built at stature H, against the human actually fitted: a pre-warp human outside
+            ANSUR is fitted at the limit and scaled whole by c (species.prewarp_stature), so the whole scale from
+            the fit is scale x c, and the adult build law and the support girth apply to that (species.py takes
+            c the same way). Returns (girth against the fit, mass factor against the fit, c, support)."""
             hp = H * kf
-            return hp / min(max(hp, ANSUR_STATURE[0]), ANSUR_STATURE[1])
-        bmi[sex] = [round(bl * ratio * clamp(lo), 1), round(bh * ratio * clamp(hi), 1)]
-        m = _mid(st, sex)
-        mass[sex] = round(k["build_bmi"] * ratio * clamp(m) * m * m, 1)
+            c = hp / min(max(hp, ANSUR_STATURE[0]), ANSUR_STATURE[1])
+            st_ = scale * c
+            g = {n: v * law_scale(n, st_) for n, v in girth_rel.items()}
+            g.update(forearm=extra["girth_forearm"], chest_depth=extra["chest_depth"],
+                     chest_breadth=extra["chest_breadth"])
+            # broad shoulders spread the chest bone (chest_spread); its depth follows its breadth, since a chest's
+            # depth over breadth does not vary with stature (ANSUR II: ~H^0.02) - only with BMI and a stated barrel
+            g["chest_spread"] = chest_spread(wk["shoulder_width"] * st_, g["torso"])
+            if sup is None:
+                # support: a limb carrying more than a human of this build at the mean stature thickens
+                # (M^SUPPORT_EXP); the mass is the fitted human's (BMI x its stature^2) by the segments' volume
+                m0 = k["build_bmi"] * (hp / c) ** 2 * mass_factor(b, sex, g, wk, st_)
+                m_h = k["build_bmi"] * REF_STATURE[sex] ** 2
+                sup = (m0 / m_h) ** SUPPORT_EXP if m0 > m_h else 1.0
+            g["legs"] *= sup
+            g["arms"] *= sup
+            return g, mass_factor(b, sex, g, wk, st_), c, sup
+
+        # the preset's girth is against the unclamped pre-warp human (species.py applies c by the same law)
+        g_mid, mf_mid, c_mid, sup = built(m)
+        support[sex] = round(sup, 4)
+        scale_tot[sex] = scale * c_mid
+        scale_pre[sex] = scale
+        girth[sex] = {n: round(v / clamp_girth(n, scale, c_mid) if n in girth_rel else v, 4)
+                      for n, v in g_mid.items() if n != "chest_spread"}
+        # mass is volume (square-cube): the fitted human's BMI x its stature^2 x the segments' volume factor; BMI
+        # is that over the built stature^2, at each end of the stature range
+        def bmi_at(H, b_pre):
+            g, mf, c, _ = built(H, sup)
+            return b_pre * (H * kf / c) ** 2 * mf / H ** 2
+        bmi[sex] = [round(bmi_at(lo, bl), 1), round(bmi_at(hi, bh), 1)]
+        mass[sex] = round(bmi_at(m, k["build_bmi"]) * m * m, 1)
+        # the look, as numbers: each limb's girth over its length against the adult band at this stature and
+        # build (the fitted human's own c/L, then what the warp does to it); the chest's depth over its breadth
+        limbs[sex] = {}
+        h_fit = m * kf / c_mid
+        for limb, (region, seg) in LIMB_REGION.items():
+            gg = g_mid[region] * (g_mid["forearm"] if limb == "forearm" else 1.0)
+            cl = limb_band(sex, limb, h_fit, k["build_bmi"])[1] * gg / (segments[sex][seg] * c_mid)
+            blo, bmid, bhi = limb_band(sex, limb, m, [bl, bh])
+            limbs[sex][limb] = {"girth_to_length": round(cl, 3), "band": [round(blo, 3), round(bhi, 3)],
+                                "adult_mean": round(bmid, 3), "human_mean": round(limb_band(
+                                    sex, limb, REF_STATURE[sex], LIMB_BAND[sex]["bmi"])[1], 3)}
+        # the pre-warp human's own chest (its BMI's), then what the warp does to it: depth and breadth alike by the
+        # torso's girth and the shoulders' spread, then the ribcage's own depth and breadth
+        chest[sex] = round(CHEST_DB[sex] * (k["build_bmi"] / LIMB_BAND[sex]["bmi"]) ** 0.34
+                           * g_mid["chest_depth"] / g_mid["chest_breadth"], 3)
+    warnings += _build_warnings(limbs, bmi, (bl, bh), scale_tot, st)
 
     lookd = look or {}
     anat = _anatomy(anatomy, segments, girth, widths)
@@ -650,13 +832,16 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
             "proportion": "not graded: the observables this body shows, with the human's beside",
             "segments": "bone length factors against the pre-warp human (pre_warp); girth and widths likewise "
                         "absolute. The warp solves the final factors so the measured joints land on `ratios`",
-            "bmi": "the finished body's, by the square-cube volume law from the pre-warp human's (pre_warp.bmi)",
+            "bmi": "the finished body's mass (its volume, square-cube) over its stature^2; its girths follow the "
+                   "adult build law (girth_law), so a short body of a build keeps an adult's BMI",
         }),
         "knobs": dict(k, heads=heads),
         "design": {"proportionate": proportionate, "heads_law": {s: round(v, 2) for s, v in heads_law.items()},
-                   "mass_kg_mid": mass, "adult_cues": cues,
+                   "mass_kg_mid": mass, "adult_cues": cues, "limbs": limbs, "chest_depth_to_breadth": chest,
+                   "support": support, "warnings": warnings,
+                   "scale_total": {sx: round(v, 4) for sx, v in scale_tot.items()},
                    **({"given": report["given"], "derived": report["derived"],
-                       "contradictions": report["contradictions"], "warnings": report.get("warnings", []),
+                       "contradictions": report["contradictions"],
                        "observables": report["observables"]}
                       if report else {})},
         "stature": {s: [round(v, 3) for v in st[s]] for s in SEXES},
@@ -671,6 +856,12 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
                              "min/max_stature, fit at the limit and scale every segment, girth and width factor by "
                              "H_pre / limit (a uniform scale)", **pre},
         "segments": segments, "girth": girth, "widths": widths,
+        "girth_law": {"exponents": dict(GIRTH_LAW), "support": support,
+                      "scale": {sx: round(v, 5) for sx, v in scale_pre.items()},
+                      "note": "legs/arms/neck/torso are absolute against the pre-warp human, by the adult build "
+                              "law (a shrink by s takes s^exponent) and support; forearm, chest_depth and "
+                              "chest_breadth multiply on top. A clamped pre-warp human's extra uniform scale "
+                              "takes the same law (species.py)"},
         "spine": {"kyphosis_deg": k["hunch_deg"], "lordosis_deg": k["sway_deg"], "lumbar_share": LUMBAR_SHARE,
                   "note": "extra bend over a human's; thoracic forward, lumbar back, spread evenly over each span"},
         "head": lookd.get("head", {"shape": "oval", "shape_weight": 0.0, "features": {}}),
@@ -689,6 +880,28 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
     if p:
         raise DesignError(f"{id}: " + "; ".join(p))
     return doc
+
+
+def _build_warnings(limbs, bmi, build_band, scale, st):
+    """Catch a body that will read as sticks before it is built: a limb whose girth over its length falls under
+    the adult band for its stature and build (the band's 5th percentile), and a finished BMI under the build's
+    adult band on a body that was not scaled up (a geometric shrink reads as a child, BMI ~15 at 1 m)."""
+    out = []
+    bl, bh = build_band
+    for limb in LIMB_REGION:
+        worst = min(SEXES, key=lambda s: limbs[s][limb]["girth_to_length"] / limbs[s][limb]["band"][0])
+        row = limbs[worst][limb]
+        if row["girth_to_length"] < row["band"][0]:
+            out.append(f"stick limbs: {limb} girth/length {row['girth_to_length']:.2f} ({worst}) against the adult "
+                       f"band {row['band'][0]:.2f}..{row['band'][1]:.2f} at {_mid(st, worst):.2f} m for a build "
+                       f"of BMI {bl:.0f}-{bh:.0f} - state a heavier build, or drop a slender girth")
+    for sex in SEXES:
+        mid = sum(bmi[sex]) / 2
+        if scale[sex] <= 1.0 and mid < 0.95 * bl:
+            out.append(f"child-light BMI: {mid:.1f} ({sex}) under the build's adult band {bl:.0f}-{bh:.0f} - a "
+                       "short adult keeps an adult's BMI; raise the build or the girth")
+            break
+    return out
 
 
 def _anatomy(anatomy, segments, girth, widths):
@@ -888,10 +1101,24 @@ def solve(observables, **knobs):
             setk(n, _word(obs[o], o), f"{o} {obs[o]!r}")
     if "girth" in obs:
         g = obs["girth"]
-        for region in ("legs", "arms", "neck", "torso"):
-            v = g.get(region) if isinstance(g, dict) else g
+        if isinstance(g, dict):
+            bad = sorted(set(g) - {"legs", "arms", "neck", "torso", "forearm"})
+            if bad:
+                raise DesignError(f"girth regions {bad}: legs, arms, neck, torso, forearm")
+        for region in ("legs", "arms", "neck", "torso", "forearm"):
+            v = g.get(region) if isinstance(g, dict) else (g if region != "forearm" else None)
             if v is not None:
                 setk(f"girth_{region}", _word(v, "girth"), f"girth {g!r}")
+    if "forearms" in obs:
+        setk("girth_forearm", _word(obs["forearms"], "forearms"), f"forearms {obs['forearms']!r}")
+    chest_target = None
+    if "chest_depth_to_breadth" in obs:
+        chest_target = float(obs["chest_depth_to_breadth"])
+    elif "barrel_chest" in obs:
+        t = float(obs["barrel_chest"])
+        if not 0.0 <= t <= 1.0:
+            raise DesignError(f"barrel_chest {t}: 0 (a human's chest) to 1 (depth over breadth {BARREL_DB})")
+        chest_target = sum(CHEST_DB.values()) / 2 + t * (BARREL_DB - sum(CHEST_DB.values()) / 2)
     if "rhizomelic" in obs:
         setk("leg_root_share", float(obs["rhizomelic"]), "rhizomelic")
         setk("arm_root_share", float(obs["rhizomelic"]), "rhizomelic")
@@ -913,6 +1140,8 @@ def solve(observables, **knobs):
     girth_base = {n: k[n] for n in girth_free}
     legs_pinned = bool(leg_obs) or "leg_scale" in knobs
     cue_start = {}
+    girth_solved = None
+    warnings = []
     for _it in range(6):
         heads_now = k["heads"]
         if heads_now is None:            # the law, with the trunk ratio the body has now
@@ -1018,6 +1247,13 @@ def solve(observables, **knobs):
                                   "change `build`")
             for n in girth_free:
                 setk(n, round(girth_base[n] * x, 4), f"solved from {what} {tgt} (square-cube volume law)")
+            girth_solved = x
+        if chest_target is not None and "chest_depth" not in knobs:
+            d = design(stature=st, **dict(_settable(k), heads=heads_now))
+            cur = sum(d["design"]["chest_depth_to_breadth"].values()) / 2
+            lo_c, hi_c = KNOBS["chest_depth"][2]
+            setk("chest_depth", round(min(hi_c, max(lo_c, k["chest_depth"] * chest_target / cur)), 4),
+                 f"solved from chest depth/breadth {chest_target:.3f}")
     if k["heads"] is None:
         derived["heads"] = "the head-allometry law"
     else:
@@ -1026,6 +1262,11 @@ def solve(observables, **knobs):
         if n not in derived and n not in knobs and n != "heads":
             derived.setdefault(n, "human default")
 
+    if girth_solved is not None and girth_solved < 0.92 and "girth" in obs:
+        what = "bmi" if "bmi" in obs else "mass_kg"
+        warnings.append(f"{what} {obs[what]} thins the stated girth to {girth_solved:.2f} of itself: the build the "
+                        f"girth describes weighs more than that - drop {what} (the mass follows from the shape) or "
+                        "the girth")
     # what the result shows, against every observable given
     d = design(stature=st, **_settable(k))
     shown = {}
@@ -1036,9 +1277,10 @@ def solve(observables, **knobs):
     shown = {n: sum(v) / len(v) for n, v in shown.items()}
     shown["bmi"] = sum(d["bmi"]) / 2
     shown["mass_kg"] = sum(d["design"]["mass_kg_mid"].values()) / 2
+    shown["chest_depth_to_breadth"] = sum(d["design"]["chest_depth_to_breadth"].values()) / 2
     for o, tol in (("hip_fraction", 0.004), ("crotch_fraction", 0.004), ("upper_to_lower", 0.03),
                    ("trunk_to_leg", 0.02), ("arm_to_leg", 0.02), ("shoulder_to_hip", 0.03), ("shoulder_heads", 0.05),
-                   ("heads", 0.05), ("bmi", 1.0), ("mass_kg", 3.0)):
+                   ("heads", 0.05), ("bmi", 1.0), ("mass_kg", 3.0), ("chest_depth_to_breadth", 0.02)):
         if o in obs:
             want = obs[o]
             if abs(shown[o] - want) > tol:
@@ -1056,11 +1298,14 @@ def solve(observables, **knobs):
             derived["heads_note"] = (f"heads {obs['heads']} against the allometric {law:.1f}: a stylised head "
                                      f"{'larger' if obs['heads'] < law else 'smaller'} than the law's - label it "
                                      "[folklore]")
-    warnings = []
     # past the tallest pre-warp human the body is a person scaled whole, and square-cube lifts its BMI in proportion
     # to the scale (a 3 m giant of a person's build is BMI ~45): the plausible band scales with it, so a giant is
-    # warned only for what its build and girth add, not for the law
-    grow = max(1.0, (sum(_mid(st, s) for s in SEXES) / 2) / ANSUR_STATURE[1])
+    # warned only for what its build and girth add, not for the law. The whole scale from the fitted human (the
+    # clamp included) is design's `scale_total`. A disproportionate body keeps its trunk-matched human's trunk on
+    # a shorter stature, which lifts its BMI by that stature factor (achondroplasia runs ~30 [measured])
+    grow = max(1.0, sum(d["design"]["scale_total"].values()) / 2)
+    if not d["design"]["proportionate"]:
+        grow *= max(1.0, sum(d["pre_warp"]["stature_factor"].values()) / 2)
     lo_b, hi_b = BMI_PLAUSIBLE[0] * grow, BMI_PLAUSIBLE[1] * grow
     if "bmi" not in obs and "mass_kg" not in obs and not lo_b <= shown["bmi"] <= hi_b:
         # nobody asked for this BMI: it is what the inputs stacked up to, so say which (a drow's build
@@ -1076,8 +1321,8 @@ def solve(observables, **knobs):
         stack.append(f"stature {mid:.2f} m (square-cube: BMI grows with height at one build)")
         warnings.append(f"bmi {shown['bmi']:.1f} is outside a plausible {lo_b:.0f}-{hi_b:.0f} "
                         f"and nobody stated it: it is what {'; '.join(stack)} stacked up to. Drop one of them "
-                        "(a build word and a girth word each already thin or thicken the body), or state `bmi` "
-                        "and let the girth be solved")
+                        "(a build word and a girth word each already thin or thicken the body) - the mass follows from "
+                        "the shape, so thin the girth rather than state a `bmi` that fights it")
     return {"knobs": _settable(k), "given": given, "derived": derived, "contradictions": contra,
             "warnings": warnings, "observables": {o: obs[o] for o in obs}}
 
@@ -1130,6 +1375,16 @@ def explain(preset):
         f, m = preset["proportion"]["female"][n], preset["proportion"]["male"][n]
         h = preset["proportion"]["male"]["human"][n]
         lines.append(f"  {n:22} {f:7.3f} {m:7.3f} {h:8.3f}")
+    if dz.get("limbs"):
+        lines.append(f"  {'build (male)':22} {'girth/len':>9} {'adult band':>13} {'human':>6}")
+        for limb, row in dz["limbs"]["male"].items():
+            lines.append(f"  {limb:22} {row['girth_to_length']:9.2f} {row['band'][0]:6.2f}-{row['band'][1]:<6.2f} "
+                         f"{row['human_mean']:6.2f}")
+        cd = dz.get("chest_depth_to_breadth") or {}
+        lines.append(f"  chest depth/breadth    f {cd.get('female')} m {cd.get('male')} (human 0.92 / 0.88); "
+                     f"mass {dz.get('mass_kg_mid')} kg; support {dz.get('support')}")
+    for w in dz.get("warnings", []):
+        lines.append(f"  WARNING {w}")
     an = preset.get("anatomy", {})
     if an.get("absent"):
         lines.append("  absent: " + "; ".join(f"{e['part']} ({e['reason']})" for e in an["absent"]))

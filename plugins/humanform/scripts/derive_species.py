@@ -115,10 +115,13 @@ SPECIES = {
             "feet": (0.85, "short broad feet"),
             "neck": (0.6, "a thick short neck [folklore]"),
             "build": ("stocky", "a stocky human with the dwarf's trunk is the start"),
-            "bmi": (33.0, "achondroplastic adults' BMI runs high, ~30 [measured]: a human trunk on short legs; a "
-                          "fantasy dwarf a little heavier. Girth keeps its shape and is scaled to land it"),
             "girth": ({"legs": 1.05, "arms": 1.12, "neck": 1.25, "torso": 1.12},
-                      "heavy forearms, thick neck, barrel chest; a short thigh stays as thick [folklore]"),
+                      "heavy limbs, thick neck, a deep trunk; a short thigh stays as thick [folklore]. No bmi: "
+                      "achondroplastic adults run ~30 [measured], and this shape comes out above it, as a stocky "
+                      "man on a dwarf's legs should - a stated 33 thinned every girth to 0.85 of itself"),
+            "forearms": ("heavy", "heavy forearms, the smith's [folklore]"),
+            "barrel_chest": (1.0, "a barrel chest: the ribcage as deep as it is broad [folklore]; a broad "
+                                  "shoulder alone only widens a chest, which read as a short man"),
             "sway_deg": (8.0, "exaggerated lumbar lordosis, as in achondroplasia [measured]"),
         },
         "knobs": {"trunk_scale": (0.97, "sitting height only mildly reduced in achondroplasia [measured]"),
@@ -144,8 +147,10 @@ SPECIES = {
             "shoulder_to_hip": (1.65, "broad shoulders on narrower hips (a human man's 1.48) [folklore]"),
             "hands": (1.08, "big hands"), "feet": (1.05, ""), "neck": (0.7, "a short, thick neck"),
             "build": ("muscular", "heavily muscled [folklore]"),
-            "bmi": (32.0, "a strongman's BMI (30-35) [measured]; girth scaled to land it"),
-            "girth": ({"legs": 1.15, "arms": 1.22, "neck": 1.30, "torso": 1.15}, "heavy muscle"),
+            # no bmi: a strongman's 30-35 [measured] is what the build and the widths already give (~35); a stated
+            # 32 thinned the girth to 0.92 of itself
+            "girth": ({"arms": 1.05, "neck": 1.15}, "heavy arms and a bull neck; a heavy girth everywhere on top of "
+                                                    "the muscular build made BMI ~44"),
             "hunch_deg": (6.0, "a slight forward carriage of the shoulders"),
         },
         "knobs": {"hip_scale": (1.04, ""), "waist_to_hip": ({"female": 0.86, "male": 0.95}, "a thick waist")},
@@ -166,8 +171,8 @@ SPECIES = {
             "fingertips_at": ("knee+0.05", "long arms: fingertips 0.05 H above the knee, a human's ~0.08 [folklore]"),
             "hands": (1.18, "big grasping hands [folklore]"), "feet": (1.2, "big feet [folklore]"),
             "neck": (0.8, "the head carried forward on a short neck"),
-            "build": ("lean", "scrawny: a lean human scaled to 1.1 m is already a child's BMI by square-cube"),
-            "girth": ({"legs": 0.9, "arms": 0.9}, "stringy limbs"),
+            "build": ("scrawny", "scrawny and stringy-limbed: the build word says it, at an adult's BMI (the "
+                                 "adult build law); a thinner girth on top read as a child's"),
             "hunch_deg": (26.0, "the hunch [folklore]"), "sway_deg": (-4.0, "a flat lower back under the hunch"),
         },
         "knobs": {"shoulder_scale": (0.92, "narrow, scrawny"), "hip_scale": (0.92, ""),
@@ -192,10 +197,14 @@ SPECIES = {
                            "[folklore]"),
             "trunk_to_leg": (0.77, "a long heavy trunk on shorter legs [folklore]"),
             "fingertips_at": ("knee", "hands to the knee [folklore]"),
+            "girth": ({"arms": 1.15, "forearm": 1.1}, "long arms as heavy as they are long: at the legs' girth "
+                                                      "the arms to the knee came out under the adult band "
+                                                      "(upper arm 0.74, forearm 0.69 girths per length, built)"),
             "hands": (1.25, "huge hands"), "feet": (1.12, ""), "neck": (0.6, "the head slung forward"),
-            "build": ("heavy", "a heavy human is the start"),
-            "bmi": (45.0, "square-cube: a heavy human (BMI 32) scaled whole to 2.65 m would be ~48; a troll is "
-                          "bulky but not solid. Girth is solved to land it [measured, scaling law]"),
+            "build": ("average", "an average human scaled whole: square-cube and the limbs' support girth make it "
+                                 "~400 kg at 2.65 m (BMI ~56) [measured, scaling law]. No bmi: a stated 45 thinned "
+                                 "every girth to 0.69 once the fit's clamp (1.95 m, then scaled 1.4x) was counted, "
+                                 "and the limbs came out sticks"),
             "hunch_deg": (32.0, "the hunch [folklore]"),
         },
         "knobs": {"shoulder_scale": (1.28, "massive shoulders"), "hip_scale": (1.12, ""),
@@ -204,7 +213,7 @@ SPECIES = {
                           "features": {"ears_pointed": 0.3, "brow_ridge": 1.0, "nose_size": 0.6, "tusks": 0.4}},
                  "skin": {"palette": [[0.52, 0.55, 0.48], [0.44, 0.49, 0.40], [0.37, 0.42, 0.35], [0.30, 0.33, 0.29]],
                           "regions_off": []},
-                 "moves": {"style": None, "notes": "large-animal gait from the mass (~300 kg): straight legs, duty "
+                 "moves": {"style": None, "notes": "large-animal gait from the mass (~400 kg): straight legs, duty "
                                                    "factor up, no aerial phase [measured, animals]"}},
         "skin_why": "grey-green, stony; every region kept, tone-relative",
     },
