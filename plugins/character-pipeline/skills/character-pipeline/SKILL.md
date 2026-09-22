@@ -66,8 +66,10 @@ species = "human"                  # optional: humanform/data/species/<id>.json 
                                    #   skin.palette may leave skin out. Or inline, for a creature with
                                    #   no preset: [body.species] heads = 5.0, trunk_to_leg = 0.85,
                                    #   fingertips_at = "knee", skin = { tone = [...], pattern = {...} },
-                                   #   head = { shape = "square", features = { brow_ridge = 0.6 } } -
-                                   #   keys checked against humanform.species_design when present
+                                   #   head = { shape = "square", features = { brow_ridge = 0.6 },
+                                   #   eyes = { count = 1, size = 1.5 } }, graft = { legs = { to = "tail" } },
+                                   #   anatomy = { absent = [{ part, reason }] } - designed in full at load
+                                   #   (humanform.species_design), so a design error refuses the spec
 [body.parts]                       # humanform library parts
 face = "face-female-11-1-49f17892"
 [body.face]                        # optional: a likeness, ratios read off a frontal photo (humanform
@@ -85,6 +87,9 @@ roles = ["Idle", "Walk", "Trot", "Run", "Crouch", "CrouchWalk", "Jump"]
 loops = ["Idle", "Walk", "Trot", "Run", "CrouchWalk"]
 gaits = { Walk = 0.2, Trot = 1.0, Run = 2.0 }     # role -> Froude number
 style = "adult"                    # locomotion.GAIT_STYLES
+# locomotion = "swim"              # optional, default "walk": a body that stands at rest and swims (a
+                                   #   graft's tail) - rig-anything swim.upright_set; roles from Idle, Swim,
+                                   #   Sprint, Glide, TurnL, TurnR; no gaits (speeds come from its length)
 derive = true                      # optional: rig-anything's morphology.derive_style under `style` (style
                                    #   wins key by key); default true only when body.species is not human
 stance_width = 1.15
