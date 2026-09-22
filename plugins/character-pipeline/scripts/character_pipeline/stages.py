@@ -234,6 +234,14 @@ def run_body(ch, ctx):
     sp = res.get("species")
     if sp:
         out["species"] = species_summary(sp, res.get("prewarp"))
+        feat_fail = (sp.get("features") or {}).get("fail")
+        if feat_fail:
+            # a head feature that tears or pinches the skin, or moves the eyes out of their sockets
+            # (humanform.features.surface_strain): the numbers and the fix are in the message
+            raise RuntimeError(f"head features: {feat_fail}")
+        jaw_fail = (sp.get("jaw") or {}).get("fail")
+        if jaw_fail:
+            raise RuntimeError(f"jaw: {jaw_fail}")
         bad = [r for r in (sp.get("anatomy") or {}).get("parts", []) if r.get("status") == "fail"]
         if bad:
             # the design's rule: a part missing and not declared absent fails the build (08, "An inventory check")
@@ -252,10 +260,13 @@ def species_summary(sp, prewarp=None):
             "clamp_scale": sp.get("clamp_scale"), "notes": sp.get("notes"),
             "prewarp_check": (prewarp or {}).get("check"),
             "check_findings": sp.get("check_findings"),
-            "features": dict({k: feats[k] for k in ("unknown", "skipped", "error", "eyes_moved_mm", "intersections")
-                              if k in feats}, applied={n: f.get("weight") for n, f in
-                                                       (feats.get("features") or {}).items()}),
-            **{k: sp[k] for k in ("eye_layout", "graft") if k in sp},
+            "features": dict({k: feats[k] for k in ("unknown", "skipped", "error", "eyes_moved_mm",
+                                                    "intersections", "warnings", "fail") if k in feats},
+                             applied={n: f.get("weight") for n, f in (feats.get("features") or {}).items()},
+                             # a muzzle's own numbers: what it grew, what the skin took, where the eyes ended
+                             muzzle={n: f["muzzle"] for n, f in (feats.get("features") or {}).items()
+                                     if f.get("muzzle")} or None),
+            **{k: sp[k] for k in ("eye_layout", "graft", "jaw") if k in sp},
             "anatomy": {"counts": an.get("counts"),
                         "rows": [r for r in an.get("parts", []) if r.get("status") != "pass"]}}
 
@@ -491,6 +502,15 @@ def run_bake(ch, ctx):
         out["closed_mouth"] = {k: mouth[k] for k in ("teeth", "tongue", "seal", "rays") if k in mouth}
         if mouth.get("fail"):
             raise RuntimeError(f"bake: {mouth['fail']}")
+    # the pupil on the mesh that ships, measured against the iris round it (humanform.eyes.pupil_share): at
+    # 0.55 of it, cropped top and bottom by the lids, it read as a dark square in every close-up at 0.6 m
+    from humanform import eyes as hf_eyes
+    pupil = hf_eyes.pupil_share(ob)
+    if pupil is not None:
+        out["pupil"] = pupil
+        problems = hf_eyes.pupil_problems(pupil)
+        if problems:
+            raise RuntimeError("bake: " + "; ".join(problems))
     sk = skin_manifest(ch)
     if sk is not None:
         out["skin"] = sk

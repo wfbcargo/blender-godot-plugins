@@ -25,9 +25,50 @@ definitions like any other, so the quickest way to design a new one is to copy t
 | `targets` | MPFB targets by file stem and gain, `{"nose-volume-incr": 0.7}`. l-/r- pairs are found by themselves. | MPFB already has the change: ears, nose, jaw, cheeks, eyebrows, chin, mouth, head shape. Look in `mpfb/data/targets/<group>/`. |
 | `displace` | moves a region of skin: `region`, `direction`, `falloff`, `amount`, `smooth` | the change is a form MPFB has no target for: a ridge, a bump, a hollow, a snout, a crest |
 | `attach` | a rigid part: a cone, horn or tusk, skinned 100% to a bone | the change is not skin: horns, tusks, spikes, a unicorn's horn |
+| `muzzle` | a snout: the face carried forward along the jaw's axis and gathered into a tube | the change is the whole front of the head, not a region of it |
 
 Presets: `ears_pointed`, `ear_size`, `ears_large`, `brow_ridge`, `nose_size`, `jaw_heavy`, `cheek_gaunt`,
-`tusks`, `horn_nubs`, `horns`, `ram_horns`.
+`tusks`, `horn_nubs`, `horns`, `ram_horns`, `muzzle`.
+
+## A muzzle
+
+`muzzle` is the one feature a displacement cannot make, because a snout is not a bump on a face: it is the
+face itself carried forward, with the mouth, the teeth and the tongue riding in it. Its numbers (metres are on
+the reference head and scale with this one), and the canine preset's values:
+
+| key | what it does | preset |
+|---|---|---|
+| `length` | how far the snout's tip travels along the jaw's axis (the mandible's angle to the mouth) | 0.052 |
+| `width` | the snout's breadth at the tip as a share of the face it grows from | 0.58 |
+| `bridge` | the dorsum's rise over the middle of the snout (negative dishes it) | 0.005 |
+| `pad` | the nose pad's radius at the tip; it stands 0.45 of that out of the snout | 0.018 |
+| `pad_tilt` | degrees the pad's face turns down from the axis | 40 |
+| `lip` | how far the front of the lip line runs out along the snout, as a share of `length` | 0.30 |
+| `eye_set_back` | how far the orbits are drawn back out of the growing face | 0.015 |
+| `cheek` | how broadly the gathering fairs back into the cheeks | 0.7 |
+| `smooth` | Laplacian passes over the field | 6 |
+
+How it is shaped, and why - each line was measured, not guessed:
+
+- **The carry falls off over the whole head, not over the snout alone.** hm08's face is a fine mesh (1.6 mm
+  edges round the nostrils) and its texture rides its own UVs, so a snout grown over a short ramp stretched
+  the pores 7x where the ramp crossed the nose. Spread over the head's 190 mm of depth the worst edge grows
+  by about a third instead; `CROWN_FOLLOW` keeps the skull from following the face all the way.
+- **The gathering is what makes it a snout.** Carried forward alone the face keeps its own shape - the nose
+  still stands out in front of the lips - and reads as a long face. Round the jaw's axis the front of the
+  face draws in toward it (`width`), most at the tip, so the nose comes down and the chin comes up.
+- **`lip` closes the last step.** A person's lips sit 25 mm behind the nose: the front of the mouth is
+  carried further than the rest so the lip line runs out to the end while the corners stay - the long lip
+  line a muzzle has.
+- **The teeth and the tongue ride the lip line** (rigid, not sheared), and each eyeball rides its socket.
+- **What it may not do**: `report["features"][<name>]["muzzle"]["skin"]` is `features.surface_strain` - how
+  far the skin's edges grew (`stretch_max`, `stretch_p99`), how far they pinched (`squash_min`) and what
+  became of the triangles (`quality_keep_min`). Past `STRETCH_MAX`, `SQUASH_MIN` or `QUALITY_KEEP` the build
+  stops with the number and the fix in the message; `eyes` says how far the sockets moved and whether the
+  balls still fit them (`socket_radius_mm`).
+- **The mouth still works.** The closed-mouth check (`features.closed_mouth`) passes on a muzzled head, and
+  `humanform.jaw` opens it: the muzzle's lower half is the part of the jaw's own region the snout carried
+  forward.
 
 ## Regions
 

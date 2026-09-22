@@ -115,6 +115,82 @@ def _materials(name, iris):
     return mats, (lambda deg: ld_eyes.slot_for_angle(deg)), dict(rep, source="lookdev")
 
 
+# What the pupil may measure across, as a share of the iris, on the mesh as it ships. A lit eye's pupil is about
+# a third of its iris (3-4 mm in 11-12); the preset's 14 degree cap on a 32-ring ball put the material boundary
+# on the ring at 16.9 degrees and made it 0.55, and cropped top and bottom by the lids that read as a dark
+# square in every close-up at 0.6 m (the cyclops and a human control, species round 1). Under a quarter and
+# there is no pupil to see at 4 m.
+PUPIL_SHARE = (0.24, 0.45)
+
+
+def pupil_share(ob):
+    """How wide the pupil is across, as a share of the iris, measured on a mesh that carries the eye materials
+    (the eyes object, or a baked body they were joined into). None when it has none.
+
+    Measured off the faces, not taken from the preset's angles: a material boundary lands on the ball's nearest
+    ring, and the two differ by a third of the pupil."""
+    me = ob.data if hasattr(ob, "data") else ob
+    names = [m.name.lower() if m else "" for m in me.materials]
+    want = {}
+    for i, n in enumerate(names):
+        for part in ("pupil", "iris", "limbal"):
+            if part in n and part not in want:
+                want[part] = i
+    if "pupil" not in want or "iris" not in want:
+        return None
+    co = np.array([v.co[:] for v in me.vertices], float)
+    rows = {}
+    for part, idx in want.items():
+        vs = sorted({v for p in me.polygons if p.material_index == idx for v in p.vertices})
+        if vs:
+            rows[part] = co[vs]
+    if "pupil" not in rows or "iris" not in rows:
+        return None
+    ring_all = np.concatenate([rows[k] for k in ("iris", "limbal") if k in rows])
+    pup_all = rows["pupil"]
+    # a pair of eyes is two caps: measured together, the "radius" is half the distance between them (0.86 of
+    # the iris on the first build). Split them at the midline when there are two; a median eye is one.
+    span = float(pup_all[:, 0].max() - pup_all[:, 0].min())
+    mid = 0.5 * float(pup_all[:, 0].max() + pup_all[:, 0].min())
+    parts = [(pup_all, ring_all)]
+    # a pair is two caps with nothing between them; one eye on the midline is a single cap through it. Split on
+    # the gap, not on the spread: taken as a spread, a median eye was cut in half and measured 0.59
+    if span > 1e-6 and not (np.abs(pup_all[:, 0] - mid) < 0.12 * span).any():
+        parts = [(pup_all[pup_all[:, 0] > mid], ring_all[ring_all[:, 0] > mid]),
+                 (pup_all[pup_all[:, 0] <= mid], ring_all[ring_all[:, 0] <= mid])]
+    out = None
+    for pup, ring in parts:
+        if not len(pup) or not len(ring):
+            continue
+        c = 0.5 * (ring.max(axis=0) + ring.min(axis=0))
+        outer, p = ring - c, pup - c
+        # across the gaze: of the three axes the cap spans least along the one it looks down
+        gaze = int(np.argmin(outer.max(axis=0) - outer.min(axis=0)))
+        ax = [k for k in range(3) if k != gaze]
+        r_iris = float(np.linalg.norm(outer[:, ax], axis=1).max())
+        r_pupil = float(np.linalg.norm(p[:, ax], axis=1).max())
+        row = {"pupil_mm": round(r_pupil * 2000, 2), "iris_mm": round(r_iris * 2000, 2),
+               "share": round(r_pupil / max(r_iris, 1e-9), 3), "eyes": len(parts)}
+        if out is None or row["share"] > out["share"]:
+            out = row
+    return out
+
+
+def pupil_problems(rep):
+    """[] or why the pupil will not read: too wide (a dark square between the lids) or too small to see."""
+    if not rep:
+        return []
+    lo, hi = PUPIL_SHARE
+    if rep["share"] > hi:
+        return [f"the pupil is {rep['share']:.2f} of the iris across ({rep['pupil_mm']} mm in {rep['iris_mm']} "
+                f"mm), over {hi} - cropped by the lids it reads as a dark square in a close-up: lower the eye "
+                "preset's pupil_half_angle (lookdev presets/materials.json)"]
+    if rep["share"] < lo:
+        return [f"the pupil is {rep['share']:.2f} of the iris across, under {lo} - it disappears at a few "
+                "metres: raise the eye preset's pupil_half_angle"]
+    return []
+
+
 def add(human, iris=None, segments=32, rings=32, places=None):
     """`iris`: a screen (sRGB) colour, as picked or written in a brief; None for a mid brown. `places`: eyes at
     [(centre, radius)] instead of in MPFB's two sockets (humanform.eye_layout: one eye, three, ...), each named
