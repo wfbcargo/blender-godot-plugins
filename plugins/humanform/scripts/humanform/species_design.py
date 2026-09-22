@@ -257,7 +257,12 @@ ANATOMY = {
     "knees":     ("leg", 1.0, "knee", "knee skin"),
     "elbows":    ("arm", 1.0, "elbow", "elbow skin"),
     "body_hair": ("body", 1.0, None, "body hair coverage (fur is added over the same maps)"),
+    "fur": ("body", 1.0, None, "fur: a coverage map on hm08 (humanform.fur), drawn in Godot as offset shells"),
 }
+# Parts a human does not have, so no preset is asked to keep or declare them. One is expected only when the
+# look asks for it (`look["fur"]`) - and then the build must carry it: `species.inventory` fails a body whose
+# species says it has fur and does not.
+ANATOMY_OPTIONAL = ("fur",)
 # parts of a part, which a description may lack on their own (a tail in place of legs keeps the fingernails):
 # declaring one absent leaves its whole part, and that part's skin region, on
 ANATOMY_SUBPARTS = {"nails.toes": "nails", "nails.fingers": "nails"}
@@ -817,7 +822,15 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
     warnings += _build_warnings(limbs, bmi, (bl, bh), scale_tot, st)
 
     lookd = look or {}
-    anat = _anatomy(anatomy, segments, girth, widths)
+    fur_block = None
+    if lookd.get("fur") is not None:
+        # the coverage map as data (humanform.fur): normalised and range-checked here, before a build
+        _fur = _sibling("fur")
+        try:
+            fur_block = _fur.normalise(lookd["fur"])
+        except ValueError as exc:
+            raise DesignError(f"{id}: {exc}")
+    anat = _anatomy(anatomy, segments, girth, widths, optional_on=(("fur",) if fur_block else ()))
     skin = dict(lookd.get("skin", {"palette": [[0.84, 0.66, 0.54], [0.55, 0.40, 0.31]]}))
     stray = sorted(set(skin.get("regions_off") or []) - set(anat["regions_off"]))
     if stray:
@@ -902,6 +915,8 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
         if tp:
             raise DesignError(f"{id}: " + "; ".join(tp))
         doc["tail"] = lookd["tail"]
+    if fur_block is not None:
+        doc["fur"] = fur_block
     p = check(doc, per_sex)
     if p:
         raise DesignError(f"{id}: " + "; ".join(p))
@@ -930,9 +945,11 @@ def _build_warnings(limbs, bmi, build_band, scale, st):
     return out
 
 
-def _anatomy(anatomy, segments, girth, widths):
+def _anatomy(anatomy, segments, girth, widths, optional_on=()):
     """The anatomy block: every part kept unless stated absent, each with its size factor per sex against the
-    pre-warp human (its host's warp factor ^ exponent x any stated relative scale)."""
+    pre-warp human (its host's warp factor ^ exponent x any stated relative scale). `optional_on` names the
+    ANATOMY_OPTIONAL parts this species asks for (fur, when the look has a fur block); the rest are left out,
+    so a preset written before they existed is still complete."""
     a = anatomy or {}
     unknown = sorted(set(a) - {"absent", "scale"})
     if unknown:
@@ -954,7 +971,7 @@ def _anatomy(anatomy, segments, girth, widths):
             raise DesignError(f"anatomy.scale {part} = {v!r} is outside {list(ANATOMY_SCALE)} (relative to its host)")
     parts = {}
     for part, (host, exp, region, meaning) in ANATOMY.items():
-        if part in gone:
+        if part in gone or (part in ANATOMY_OPTIONAL and part not in optional_on):
             continue
         per = {}
         for sex in SEXES:
@@ -1036,8 +1053,13 @@ def check(doc, per_sex):
     gone = {e["part"] for e in an.get("absent", [])}
     backed = {ANATOMY[p][2] for p in gone if p in ANATOMY and ANATOMY[p][2]}
     need(set(doc["skin"].get("regions_off", [])) <= backed, "skin.regions_off must come only from anatomy.absent")
-    need(all(p in an.get("parts", {}) or p in gone for p in ANATOMY),
+    need(all(p in an.get("parts", {}) or p in gone for p in ANATOMY if p not in ANATOMY_OPTIONAL),
          "every anatomical part must be kept or declared absent")
+    if doc.get("fur") is not None:
+        _fur = _sibling("fur")
+        for problem in _fur.validate(doc["fur"]):
+            p.append(problem)
+        need("fur" in an.get("parts", {}), "a species with fur must carry `fur` as an anatomical part")
     shapes = face_shapes()
     need(not shapes or doc["head"].get("shape") in shapes, f"head shape {doc['head'].get('shape')!r} not in {shapes}")
     need(0 <= doc["head"].get("shape_weight", 0) <= 1, "head shape_weight in 0..1")

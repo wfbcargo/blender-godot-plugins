@@ -215,12 +215,15 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw)
             from . import look
             look.skin(human, tone, species_skin=species.skin_block(sp))
         t["graft"] = time.time() - t5
+    # What the body plan does after the proportions are checked, in the order each stage needs: the legs
+    # (which point the segments and move the toes), the feet (which reshape the toes and stand the body on
+    # its pads), the tail (measured against the legs), and last the fur, which is laid on whatever body the
+    # species ended with.
+    expect = {"eyes": (rep.get("eyes") or {}).get("ratio", 1.0)}
+    touched = False
     if (sp.get("legs") not in (None, "plantigrade") or sp.get("foot") not in (None, "human")
             or sp.get("tail") not in (None, False)):
-        # The rest of the body plan, after the check for the same reason the graft is: the species preset
-        # describes a body's proportions, and a leg plan is what the leg DOES with them. In order: the legs
-        # (which point the segments and move the toes), then the feet (which reshape the toes and stand the
-        # body on its pads), then the tail, which is measured against the legs (`tail`, the clearance check).
+        touched = True
         from . import feet as feet_mod
         nails0 = feet_mod.nail_over_foot(human)
         t6 = time.time()
@@ -246,10 +249,20 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw)
         # a foot plan draws hm08's five toenails together onto however many toes the plan ends in: that is
         # the change it is meant to make, so the inventory grades them against it (`expected`), as it does the
         # eyes against their allometry
-        expect = {"eyes": (rep.get("eyes") or {}).get("ratio", 1.0)}
         nails1 = feet_mod.nail_over_foot(human)
         if nails0 and nails1:
             expect["nails.toes"] = round(nails1 / nails0, 4)
+    fur_block = species.fur_block(sp)
+    if fur_block:
+        # Fur last, on the body the species finally has (the warp, the features, any graft and the body plan):
+        # its coverage map is per vertex of the shared mesh, so it is laid on the body's own joints - a dwarf's
+        # ruff on the dwarf's shoulders. The textures and the checks come later, at the export, on the baked body.
+        from . import fur as _fur
+        touched = True
+        t6f = time.time()
+        rep["fur"] = _fur.apply(human, fur_block, base_colour=tone)
+        t["fur"] = time.time() - t6f
+    if touched:
         rep["anatomy"] = species.inventory(human, sp, reference=before, expected=expect)
         if tone is not None:
             from . import look
