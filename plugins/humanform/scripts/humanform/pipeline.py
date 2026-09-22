@@ -132,7 +132,8 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, **kw):
     species.warp(human, sp, report=rep, sex=s["sex"], stature=info["stature"], style=s.get("style", "realistic"),
                  clamp_scale=info["clamp_scale"], verbose=verbose)
     rep["features"] = feats
-    rep["anatomy"] = species.inventory(human, sp, reference=before)
+    rep["anatomy"] = species.inventory(human, sp, reference=before,
+                                       expected={"eyes": (rep.get("eyes") or {}).get("ratio", 1.0)})
     if tone is not None:
         from . import look
         look.skin(human, tone, species_skin=species.skin_block(sp))

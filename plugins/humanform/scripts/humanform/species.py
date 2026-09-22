@@ -44,6 +44,11 @@ LEVEL_KEYS = ("ankle_joint", "knee_joint", "crotch", "hip_joint", "shoulder_join
 LIMITS = {"length": (0.25, 2.5), "head": (0.5, 2.0), "ankle": (0.4, 2.0), "girth_follow": (0.8, 1.25)}
 # an individual keeps its own deviation from the human mean, up to this many tolerances (in the species')
 INDIVIDUAL = 0.5
+# kyphosis density along the spine (0 hip joint, 1 neck base, past 1 the neck): a rounded upper back
+KYPHOSIS_PROFILE = ((0.0, 0.1), (0.2, 0.6), (0.35, 1.0), (0.6, 0.8), (1.0, 0.55), (1.4, 0.5))
+# the warp skins the body with its weights diffused this many passes over the mesh (see _smooth_weights)
+WEIGHT_SMOOTH = 12
+ALONG = True              # the shaft mapping (`_along`) on; off is plain affine linear blend skinning
 SOFT = 0.10               # the share of a bone's shaft next to its head that keeps its length (see _along)
 TOL_REFINE = 0.25          # passes stop once every solved measure is within this share of its tolerance
 
@@ -519,10 +524,38 @@ def _weights(ob, rigd, k=8):
     return idx, w
 
 
+def _smooth_weights(idx, w, edges, nb, passes, k=8):
+    """The skin weights diffused over the mesh's edges `passes` times, renormalised, top k again. MPFB's weights
+    change from one bone to the next over a few centimetres; where the two bones are scaled differently (a 0.6
+    upper arm on a 1.0 forearm) the skin folds across that seam into a step. Spread over a wider band, the two
+    transforms - which agree at the joint - blend without one. Used for the warp only: the rig keeps its weights."""
+    n = len(idx)
+    if not passes or not len(edges):
+        return idx, w
+    W = np.zeros((n, nb + 1))
+    np.add.at(W, (np.repeat(np.arange(n), idx.shape[1]), idx.ravel()), w.ravel())
+    tgt = np.concatenate([edges[:, 0], edges[:, 1]])
+    src = np.concatenate([edges[:, 1], edges[:, 0]])
+    order = np.argsort(tgt, kind="stable")
+    tgt, src = tgt[order], src[order]
+    rows, starts, deg = np.unique(tgt, return_index=True, return_counts=True)
+    for _ in range(passes):
+        acc = np.add.reduceat(W[src], starts, axis=0)          # each vertex's neighbours, summed
+        W[rows] = 0.5 * W[rows] + 0.5 * acc / deg[:, None]
+    top = np.argsort(-W, axis=1)[:, :k]
+    wt = np.take_along_axis(W, top, axis=1)
+    wt[wt < 1e-4] = 0.0
+    tot = wt.sum(axis=1)
+    ok = tot > 1e-9
+    wt[ok] /= tot[ok, None]
+    top[~ok, 0], wt[~ok, 0] = nb, 1.0
+    return top, wt
+
+
 class _Mesh:
     """One skinned mesh's original coordinates (armature space): the vertices, every shape key, the weights."""
 
-    def __init__(self, ob, rig, rigd):
+    def __init__(self, ob, rig, rigd, smooth=0):
         mw = np.array(rig.matrix_world.inverted() @ ob.matrix_world, float)
         self.ob, self.A = ob, mw
         self.Ainv = np.linalg.inv(mw)
@@ -538,6 +571,10 @@ class _Mesh:
         me.vertices.foreach_get("co", co)
         self.base = self._arm(co.reshape(-1, 3))
         self.idx, self.w = _weights(ob, rigd)
+        if smooth:
+            e = np.empty(len(me.edges) * 2, np.int64)
+            me.edges.foreach_get("vertices", e)
+            self.idx, self.w = _smooth_weights(self.idx, self.w, e.reshape(-1, 2), len(rigd.names), smooth)
 
     def _arm(self, co):
         return co.astype(np.float64) @ self.A[:3, :3].T + self.A[:3, 3]
@@ -565,13 +602,19 @@ def _along(s, L, l, k, m):
     """How far along a bone a point at `s` (its distance along the old bone from the head) lands. Above the head
     it scales by `k`, the parent's scale along this bone's axis, and past the tail by `m`, the child's: the flesh
     over a joint weighted to one side of it (a buttock over the hip, a heel under the ankle) goes the way the part
-    it sits on goes, so both sides of every joint agree. Over the first SOFT of the shaft the slope eases from k
-    to the shaft's, which lands the tail exactly where the bone's scale puts it (`l * L`)."""
+    it sits on goes, so both sides of every joint agree. Over the first and last SOFT of the shaft the slope eases
+    (C1) from k into the shaft's and from it into m, and the tail lands exactly where the bone's scale puts it
+    (`l * L`)."""
     a = SOFT * L
-    c = (l * L - 0.5 * a * k) / np.maximum(L - 0.5 * a, 1e-9)
+    c = (l * L - 0.5 * a * (k + m)) / np.maximum(L - a, 1e-9)
+    ga = 0.5 * a * (k + c)
+    gb = ga + c * (L - 2 * a)
+    u = s - (L - a)
     return np.where(s < 0.0, k * s,
                     np.where(s < a, k * s + (c - k) * s * s / (2.0 * a),
-                             np.where(s < L, 0.5 * a * (k + c) + c * (s - a), l * L + m * (s - L))))
+                             np.where(s < L - a, ga + c * (s - a),
+                                      np.where(s < L, gb + c * u + (m - c) * u * u / (2.0 * a),
+                                               l * L + m * (s - L)))))
 
 
 def _lbs(co, idx, w, T):
@@ -581,6 +624,8 @@ def _lbs(co, idx, w, T):
     Aw = np.einsum("nk,nkij->nij", w, A[idx])
     tw = np.einsum("nk,nki->ni", w, t[idx])
     out = np.einsum("nij,nj->ni", Aw, co) + tw
+    if not ALONG:
+        return out
     s = np.einsum("nkj,nkj->nk", co[:, None, :] - h0[idx], y0[idx])
     corr = _along(s, L[idx], l[idx], k[idx], mm[idx]) - l[idx] * s
     return out + np.einsum("nk,nk,nkj->nj", w, corr, Y[idx])
@@ -618,17 +663,20 @@ class _Warp:
         return float(np.clip(solved / spec, *LIMITS["girth_follow"])) if spec > 1e-6 else 1.0
 
     def _bends(self):
-        """{bone: radians about X} for the spine curve. Kyphosis rounds the thoracic span (the upper
-        1 - lumbar_share of hip joint to neck base) forward, lordosis bends the lumbar span back and the thoracic
-        forward again so the chest is upright; each spreads over the spine bones by how much of the span each
-        covers (a bone reaching to the next one's head). The neck and head bend back by what the chest took, so
-        the gaze stays level, and each arm bends back at its shoulder joint, so the arms hang as they did."""
+        """{bone: radians about X} for the spine curve. Kyphosis is a smooth forward curve over the whole spine
+        above the pelvis and the neck (KYPHOSIS_PROFILE: little in the lumbar spine, most at the upper back,
+        some in the neck), so a hunch reads as a rounded back with the head carried forward, not a fold at one
+        bone. Lordosis bends the lumbar span (the lower lumbar_share of hip joint to neck base) back, and the
+        thoracic forward again so the chest is upright. Each bone takes the curve over the span it covers (to the
+        next bone's head). The head bends back by what the chain above the pelvis took, so the gaze stays level
+        with the head forward, and each arm bends back at its shoulder joint, so the arms hang as they did."""
         r = self.r
         bend = {n: 0.0 for n in r.names}
         if not (self.kyph or self.lord):
             return bend
         z0 = r.mean_head_z(r.head, r.legs, 0) or r.head[r.ix[r.spine[0]], 2]
         z1 = r.head[r.ix[r.neck[0]], 2] if r.neck else r.head[r.ix[r.headbone], 2]
+        zh = r.head[r.ix[r.headbone], 2]
         span = max(z1 - z0, 1e-6)
         chain = r.spine[1:]                               # the pelvis carries the legs: it is never bent
         ends = [r.head[r.ix[n], 2] for n in chain] + [z1]
@@ -637,19 +685,31 @@ class _Warp:
         def overlap(a, b, lo, hi):
             return max(0.0, min(b, hi) - max(a, lo))
 
-        lum = np.array([overlap((ends[i] - z0) / span, (ends[i + 1] - z0) / span, 0.0, cut) for i in range(len(chain))])
-        tho = np.array([overlap((ends[i] - z0) / span, (ends[i + 1] - z0) / span, cut, 1.0) for i in range(len(chain))])
+        segs = [((ends[i] - z0) / span, (ends[i + 1] - z0) / span) for i in range(len(chain))]
+        lum = np.array([overlap(a, b, 0.0, cut) for a, b in segs])
+        tho = np.array([overlap(a, b, cut, 1.0) for a, b in segs])
         if lum.sum() <= 0 and len(chain):
             lum[0] = 1.0
         if tho.sum() <= 0 and len(chain):
             tho[-1] = 1.0
         lum, tho = lum / lum.sum(), tho / tho.sum()
+        # kyphosis over the chain and the neck (s past 1: neck base to head base), by the profile's integral
+        necks = [(1.0 + (r.head[r.ix[n], 2] - z1) / span, 1.0 + ((r.head[r.ix[r.neck[i + 1]], 2] if i + 1 < len(r.neck)
+                  else zh) - z1) / span) for i, n in enumerate(r.neck)]
+        s_pts, w_pts = zip(*KYPHOSIS_PROFILE)
+
+        def mass(a, b):
+            xs = np.linspace(a, b, 24)
+            return float(np.trapezoid(np.interp(xs, s_pts, w_pts), xs)) if b > a else 0.0
+
+        ky = np.array([mass(a, b) for a, b in segs + necks])
+        ky = ky / ky.sum() if ky.sum() > 0 else ky
         for i, n in enumerate(chain):
-            bend[n] = self.kyph * tho[i] - self.lord * lum[i] + self.lord * tho[i]
-        net = sum(bend[n] for n in chain)
-        for n in r.neck:
-            bend[n] = -0.6 * net / max(len(r.neck), 1)
-        bend[r.headbone] = -(net + sum(bend[n] for n in r.neck))
+            bend[n] = self.kyph * ky[i] - self.lord * lum[i] + self.lord * tho[i]
+        for i, n in enumerate(r.neck):
+            bend[n] = self.kyph * ky[len(chain) + i]
+        net = sum(bend[n] for n in chain) + sum(bend[n] for n in r.neck)
+        bend[r.headbone] = -net
         for side, ch in r.arms.items():
             root = ch[0] or ch[1]
             p = r.parent[r.ix[root]]
@@ -753,8 +813,10 @@ class _Warp:
                 mc = along_scale(c, r.R[i][:, 1])
             else:
                 mc = ln[i]
-            kn[i] = float(np.clip(kp, *LIMITS["head"]))
-            mn[i] = float(np.clip(mc, *LIMITS["head"]))
+            # the two sides of a joint take one scale between them - the mean of the bones' along the axis - so a
+            # vertex weighted half to each lands in one place (a 0.6 upper arm on a 1.0 forearm stepped at the elbow)
+            kn[i] = float(np.clip(0.5 * (kp + ln[i]), *LIMITS["head"]))
+            mn[i] = float(np.clip(0.5 * (mc + ln[i]), *LIMITS["head"]))
         Y = np.vstack([R[:, :, 1], np.array([[0.0, 0.0, 1.0]])])
         T = [A, t, H, R, S, (h0, y0, Ln, ln, kn, mn, Y)]
         _shift(T, r, shift)
@@ -833,7 +895,7 @@ def targets(m0, sp, sex, H, style="realistic"):
     return out
 
 
-def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clamp_scale=1.0, passes=6,
+def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clamp_scale=1.0, passes=5,
          verbose=False):
     """Warp a fitted, rigged human to the species in place: every skinned mesh, every shape key, the rig's rest
     bones. `stature` is the species body's height (floor to vertex, spine curve included); `clamp_scale` the
@@ -859,9 +921,11 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
 
     bpy.context.view_layer.update()
     m0 = measure.measurements(human, sex, fast=True)
+    if verbose:
+        print("species setup", round(time.time() - t0, 2), "s")
     tg = targets(m0, sp, sex, H, style)
     rigd = _Rig(rig)
-    meshes = [_Mesh(o, rig, rigd) for o in _skinned(rig)]
+    meshes = [_Mesh(o, rig, rigd, smooth=WEIGHT_SMOOTH if o is human else 0) for o in _skinned(rig)]
     body = next(m for m in meshes if m.ob is human)
     mask = _body_mask(human)
     mix0 = body.mixed(body.keys) if body.keys else body.base.copy()
@@ -871,7 +935,10 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
     if not len(near):
         near = np.flatnonzero(mask & (np.abs(mix0[:, 0]) < 0.02) & (np.abs(mix0[:, 2] - chin0) < 0.02))
     chin_v = int(near[np.argmin(mix0[near, 1])])
-    sel = np.flatnonzero(mask)
+    # the model needs the floor and the top: the soles and the head (far below and above anything the warp moves
+    # past them), not the 19k vertices between
+    H0 = float(m0["stature"])
+    sel = np.flatnonzero(mask & ((mix0[:, 2] < 0.12 * H0) | (mix0[:, 2] > chin0 - 0.02 * H0)))
     knee_before = _knee_off_line(rigd, rigd.head)
     wp = _Warp(rigd, sp, clamp_scale, sex)
     # arms, hands, feet and widths: straight from their targets, refined by measurement below
@@ -925,9 +992,12 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
             x = np.clip(x + np.linalg.lstsq(J, -r0, rcond=None)[0], lo, hi)
         return x
 
+    if verbose:
+        print("species meshes read", round(time.time() - t0, 2), "s")
     x = wp.x0()
     history = []
     m = None
+    best = None                    # (worst error in tolerances, x, fixed, pass): the pass that is kept
     for p in range(passes):
         x = solve(x)
         _, floor = model(x)
@@ -943,12 +1013,17 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
                 tol = 0.01 if key == "top" else tg[key]["tol"] * H
                 errs[key] = (m[meas] - want, tol)
         history.append({k: round(v[0] / v[1], 3) for k, v in errs.items()})
+        score = max((abs(e) / tol for e, tol in errs.values()), default=0.0)
+        if best is None or score < best[0]:
+            best = (score, x.copy(), dict(wp.fixed), p)
         if verbose:
-            print("species pass", p, history[-1], "x", np.round(x, 3), wp.fixed)
+            print("species pass", p, round(time.time() - t0, 2), "s", history[-1], "x", np.round(x, 3), wp.fixed)
         if all(abs(e) <= TOL_REFINE * tol for e, tol in errs.values()) or p == passes - 1:
             break
-        # correct the model by what the mesh says, and the fixed factors by their own ratio
-        for key in goal:
+        # correct the model by what the mesh says - the chin and the top, which the model reads off one vertex and
+        # the rig's bones do not give (the joints are the bones' own heads: an error there is one the solve could
+        # not meet, and chasing it winds up) - and the fixed factors by their own ratio
+        for key in ("chin", "top"):
             if key in errs:
                 offset[key] -= errs[key][0]
         for key, fk in (("hand", "hand"), ("foot", "foot")):
@@ -959,6 +1034,16 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
         if "hip_width" in errs:
             wp.fixed["pelvis_x"] *= tg["hip_width"]["m"] / m["hip_width"]
 
+    if best is not None and best[3] != len(history) - 1:
+        # a later pass came out worse (the corrections interact): put the best one back
+        x, wp.fixed = best[1], best[2]
+        _, floor = model(x)
+        _apply(meshes, body, mask, rigd, rig, wp.transforms(x, shift=-floor))
+        bpy.context.view_layer.update()
+        m = measure.measurements(human, sex, fast=True, levels=lv)
+    er = eye_ratio(sp, sex)
+    eyes_rep = scale_eyes(human, rig, er) if abs(er - 1.0) > 1e-3 else {"ratio": 1.0}
+    bpy.context.view_layer.update()
     after = _Rig(rig)
     achieved = {}
     Hm = float(m["stature"])
@@ -979,11 +1064,71 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
                     "start": {k: round(v, 4) for k, v in wp.seg.items()},
                     "bend_deg": {k: round(math.degrees(v), 2) for k, v in wp.bend.items() if v}},
         "roles": {"spine": rigd.spine, "neck": rigd.neck, "head": rigd.headbone, "legs": rigd.legs, "arms": rigd.arms},
-        "achieved": achieved, "passes": history,
+        "achieved": achieved, "passes": history, "eyes": eyes_rep,
         "knee_off_line_mm": {"before": knee_before, "after": _knee_off_line(after, after.head)},
         "meshes": [mm.ob.name for mm in meshes], "shape_keys": len(body.keys),
         "seconds": round(time.time() - t0, 2)})
     return report
+
+
+EYE_FALLOFF = 2.4         # eyeball radii out from the eye's centre over which its region's scale fades to none
+
+
+def eye_ratio(sp, sex):
+    """The eyes' size against the head's through the warp: the preset's anatomy.parts.eyes.scale over its head
+    segment (eyes grow slower than heads: `^0.53` in species_design's ANATOMY). 1 without them."""
+    eyes = (((sp or {}).get("anatomy") or {}).get("parts") or {}).get("eyes") or {}
+    e = eyes.get("scale")
+    e = e.get(sex) if isinstance(e, dict) else e
+    head = sexed(sp.get("segments"), sex).get("head")
+    return float(e) / float(head) if e and head else 1.0
+
+
+def scale_eyes(human, rig, r):
+    """Scale each eye's region about its centre by `r`: the eyeball (every mesh on the rig whose vertices sit in
+    the eye, the eyes object) whole, and the body's lids, socket and lashes around it fading to none by
+    EYE_FALLOFF eyeball radii - on the mesh and every shape key. Returns {centre_m, radius_m, ratio} per side."""
+    rigd = _Rig(rig)
+    meshes = [_Mesh(o, rig, rigd) for o in _skinned(rig)]
+    body = next(m for m in meshes if m.ob is human)
+    mix = body.mixed(body.keys) if body.keys else body.base
+    eyes = []
+    for g in ("helper-l-eye", "helper-r-eye"):
+        idx = _members(human, [g])
+        if idx is None or not len(idx):
+            continue
+        c = mix[idx].mean(axis=0)
+        eyes.append((c, float(np.linalg.norm(mix[idx] - c, axis=1).mean())))
+    if len(eyes) < 2 or abs(r - 1.0) < 1e-4:
+        return {}
+    cs = np.array([c for c, _ in eyes])
+    rad = float(np.mean([q for _, q in eyes]))
+
+    def factors(pts, whole):
+        d = np.linalg.norm(pts[:, None, :] - cs[None, :, :], axis=2)
+        near = np.argmin(d, axis=1)
+        dn = d[np.arange(len(pts)), near]
+        if whole:
+            t = (dn > EYE_FALLOFF * rad).astype(float)
+        else:
+            u = np.clip((dn - 1.05 * rad) / ((EYE_FALLOFF - 1.05) * rad), 0.0, 1.0)
+            t = u * u * (3 - 2 * u)
+        return cs[near], r + (1.0 - r) * t
+
+    for mm in meshes:
+        pts = mm.mixed(mm.keys) if mm.keys else mm.base
+        whole = mm is not body
+        c, f = factors(pts, whole)
+        if np.all(f == 1.0):
+            continue
+        me = mm.ob.data
+        for name, co in mm.keys:
+            new = c + (co - c) * f[:, None]
+            me.shape_keys.key_blocks[name].data.foreach_set("co", mm._local(new).astype(np.float32).ravel())
+        new = c + (mm.base - c) * f[:, None]
+        me.vertices.foreach_set("co", mm._local(new).astype(np.float32).ravel())
+        me.update()
+    return {"ratio": round(r, 4), "radius_m": round(rad, 4), "centres_m": [[round(float(v), 4) for v in c] for c in cs]}
 
 
 def _apply(meshes, body, mask, rigd, rig, T):
@@ -1091,13 +1236,14 @@ def _size(pts):
     return float(np.linalg.norm(np.ptp(pts, axis=0))) if len(pts) > 1 else 0.0
 
 
-def inventory(human, sp=None, reference=None):
+def inventory(human, sp=None, reference=None, expected=None):
     """Every drawn part of the body - MPFB's areolae, lips, ears, nails, eye sockets, teeth, tongue and lashes,
     the genital shell when it was asked for, and every other mesh skinned to the rig (eyes, brows, lashes, hair,
     tusks) - checked present, skinned and not degenerate, and, given the `reference` inventory taken before a
     warp, still the size it was against the part it sits on. A part the species declares absent
     (`anatomy.absent`) is skipped with its reason; one missing and not declared absent fails.
-    Returns {parts, counts, fail}."""
+    `expected` ({part: ratio}) is a change a part is meant to make against its host (the eyes' allometry, from
+    `eye_ratio`); the rest are meant to keep theirs. Returns {parts, counts, fail}."""
     from . import body as _body
     human = _body.obj(human)
     rig = _body.rig_of(human)
@@ -1130,7 +1276,10 @@ def inventory(human, sp=None, reference=None):
     def judge(row):
         r0 = ref.get(row["part"])
         if r0 and r0.get("ratio") and row.get("ratio"):
-            ch = row["ratio"] / r0["ratio"]
+            want = (expected or {}).get(row["part"].split(".")[0], 1.0)
+            ch = row["ratio"] / r0["ratio"] / want
+            if want != 1.0:
+                row["expected_change"] = round(want, 3)
             row["ratio_change"] = round(ch, 3)
             if not RATIO_FAIL[0] <= ch <= RATIO_FAIL[1]:
                 return dict(row, status="fail", reason=f"{ch:.2f}x the size it was against its {row['host']}: "

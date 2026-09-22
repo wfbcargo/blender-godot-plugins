@@ -35,7 +35,7 @@ SPECIES = {
                         "Tolkien-tall rather than D&D's 4'6\"+2d10 (1.42-1.88 m) [folklore]"),
             "heads": (8.3, "the heroic-elegant canon; the law gives ~8.0 at 1.85 m [folklore]"),
             "hip_fraction": (0.525, "long legs: a human's is 0.51-0.52 [folklore]"),
-            "neck": ("long", "the long neck of the elf convention [folklore]"),
+            "neck": (1.2, "the long neck of the elf convention, inside a long-necked adult's [folklore]"),
             "build": ("lean", "slender [folklore]"),
             "hands": (1.04, "long fingers [folklore]"),
             "hunch_deg": (-3.0, "a straighter, upright back"),
