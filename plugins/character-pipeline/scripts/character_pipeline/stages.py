@@ -999,10 +999,33 @@ def variability_block(ch):
         raise RuntimeError(f"[variability]: {e}") from e
 
 
+def run_fur(ch):
+    """The fur pass on the finished body, before the glb is written: the coverage map rasterised into the
+    body's UV layout, the tiled strand mask, the covered skin, and the two checks (the mip check the beard
+    taught us and the silhouette at 0.6 m and 4 m). Its spec goes on the body mesh, so glTF carries it as node
+    extras for `addons/humanform_fur/fur.gd`; the textures go beside the glb, like the skin's.
+
+    A check that fails stops the export: fur that bands or cuts patches of skin out is exactly the kind of
+    thing that was only ever seen by eye in the game, one rebuild too late."""
+    from humanform import fur as hf_fur
+    ob = _obj(ch.mesh)
+    if ob is None or not hf_fur.carried(ob):
+        return None
+    rep = hf_fur.bake(ob, ch.out_dir(), base=ch.id)
+    if rep.get("fail"):
+        raise RuntimeError(f"fur: {rep['fail']}")
+    spec = rep["fur"]
+    return {"textures": rep["textures"], "shells": spec["shells"], "regions": [r["name"] for r in spec["regions"]],
+            "length_max_m": spec["length_max_m"], "uv_scale": spec["uv_scale"], "covered": rep["covered"],
+            "mip": {k: rep["mip"].get(k) for k in ("ok", "across_to_along_p90", "views", "height", "coverage")},
+            "silhouette": {k: rep["silhouette"].get(k) for k in ("ok", "views", "shells")}}
+
+
 def run_export(ch, ctx):
     from rig_analysis import export as ra_export, stored
     from wardrobe import presets
     os.makedirs(ch.out_dir(), exist_ok=True)
+    fur_rep = run_fur(ch)
     glb = os.path.join(ch.out_dir(), f"{ch.id}.glb")
     reports = stored.load(ch.rig, roles=ch.moves.roles)
     stand = (reports.get("Idle") or {}).get("standing_height_m")
@@ -1070,7 +1093,14 @@ def run_export(ch, ctx):
     if fl is not None or sk is not None:
         with open(e["moves"], "w", encoding="utf-8") as fh:
             json.dump(manifest, fh, indent=2)
+    if fur_rep is not None:
+        manifest["fur"] = fur_rep
+        e["manifest"]["fur"] = fur_rep
+        with open(e["moves"], "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
     out = {k: e.get(k) for k in ("glb", "moves", "verified", "clips", "bones", "problems")}
+    if fur_rep is not None:
+        out["fur"] = fur_rep
     if fl is not None:
         out["flesh"] = fl
     if sk is not None:

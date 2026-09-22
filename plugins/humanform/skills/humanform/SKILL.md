@@ -576,6 +576,60 @@ high copy is rebuilt on the fused topology, or lookdev's matched bake falls back
 
 Verify: `python tools/regress.py --only pipeline_genitals` (repo).
 
+## Fur (`humanform.fur`)
+
+Short fur as **one coverage map on hm08, drawn in Godot as offset shells**. The map is the shared object:
+per vertex of the shared mesh, so it transfers between bodies and rides through the species warp with the
+part it sits on - a dwarf's ruff lands on the dwarf's shoulders.
+
+```toml
+[body.species.fur]
+shells = 16                 # 4..24. The message says how many a length needs (silhouette_check)
+lay = 0.6                   # 0 the fur stands out, 1 it lies flat along the flow
+
+[[body.species.fur.regions]]
+name = "pelt"
+areas = ["body"]            # fur.AREAS: body head face neck ruff shoulders back front torso chest belly
+except_areas = ["head", "hands", "feet"]   # arms upper_arms forearms hands legs thighs shins feet graft
+length_m = 0.012            # 0.8 mm .. 80 mm; past that hair hangs, and only strand cards hang
+density = 1.0               # at COVER_DENSITY (0.75) and above, the skin under it is not drawn
+flow = "down"               # down | back | out | along (down the limb)
+colour = [0.34, 0.24, 0.15]
+pattern_colour = [0.16, 0.11, 0.07]
+pattern = { kind = "spots", scale = 0.055, amount = 0.55 }   # spots stripes blotches mottle
+```
+
+`fur.validate(block)` refuses a bad one with the range in the message, and runs outside Blender, so
+`species_design.design` and character-pipeline's spec check both use it before any build.
+
+**What travels to Godot.** Density, length and the flow's direction go as the `hf_fur` colour attribute
+(glTF COLOR_0), *not* as a texture: hm08's shipping UV atlas overlaps itself - about a fifth of its texels
+are claimed by two different parts of the body (`fur.atlas_overlap`) - and a coverage map rasterised into
+it came back with furred hands, feet and a furred scalp. Two textures carry what needs texel resolution:
+`<id>_fur_colour.png` (the fur's colour with its pattern mixed in) and `<id>_fur_strands.png` (a tiled
+strand mask, so it never touches the atlas). `fur.bake` writes them beside the glb and puts the spec on the
+body mesh as node extras.
+
+**The checks, before a build ships** (`fur.bake`, run by character-pipeline at the export):
+- `mip_check` - `hairtex`'s, on the strand mask as the shells sample it. Fur's base coat is the opaque
+  under-layer hairtex's own remedy asks for, so a hole never shows skin; what remains is the anisotropy
+  test and a strand that would be under a screen pixel at 0.6 m.
+- `silhouette_check` - the fur's length and the gap between two shells, in screen pixels, on the outline at
+  0.6 m and 4 m: too short at 4 m is a fuzz, too far apart combs, and the message says how many shells.
+- `atlas_overlap` - recorded, and why the map is a vertex colour.
+- the anatomy inventory (`species.inventory`): fur is a part in `species_design.ANATOMY`, so a body whose
+  species says it has fur and carries no map fails.
+- `fur.covered` - the skin under fur at `COVER_DENSITY` or more, listed as positions the way wardrobe lists
+  the skin a garment covers, so Godot drops those triangles.
+
+**In the game**: copy `${CLAUDE_PLUGIN_ROOT}/godot/addons/humanform_fur` into the project, then
+
+```gdscript
+const Fur := preload("res://addons/humanform_fur/fur.gd")
+Fur.attach(model)                       # after Wardrobe.equip, so garments hide fur too
+Fur.lod(model, camera.global_position)  # optional, once a frame
+```
+
 ## MPFB2 from a script
 
 Installed as the extension `bl_ext.user_default.mpfb` (2.0.17, GPL-3.0 code, CC0 assets). Call

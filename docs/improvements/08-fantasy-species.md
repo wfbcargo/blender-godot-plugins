@@ -375,6 +375,40 @@ Its checks are hair's: the mip check (a fur mask must not tile into patches), a 
 the coverage map against the anatomy inventory (fur is a part, so a body that should have it and does not
 fails).
 
+**Fur shipped (species-2-fur, 2026-09-22).** Shell fur, the coverage map and its checks; strand cards for a
+mane or a tail's brush did not, and want an API hair.py does not have (see "Open" below).
+
+- **The coverage map is per vertex of hm08, not a texture.** hm08's shipping UV atlas *overlaps itself* -
+  about a fifth of its texels are claimed by two different parts of the body (`fur.atlas_overlap` measures
+  it), so which value a texel ends up with depends on the order the triangles happen to be rasterised in.
+  The first map came back with furred hands, furred feet and a furred scalp, and raising the resolution did
+  not help because it is not a resolution problem. Density, length and the flow's direction now travel as
+  the `hf_fur` colour attribute (glTF COLOR_0, exported by name: `rig_analysis.export.VERTEX_COLOUR_MAPS`);
+  they vary over centimetres, which hm08's 8-15 mm quads carry easily. Only colour and the tiled strand
+  mask stay textures - colour survives the overlap because the furred triangles are drawn last, and the
+  strand mask is tiled and never touches the atlas.
+- **Three things a join does that cost a rebuild each**, now handled and worth knowing:
+  Blender's join fills a *colour* attribute's missing values with **white**, not zero, so the hair cap, the
+  brows and the lashes joined into the body after the map was written came out at full density and full
+  length (`fur.refresh_vcol` writes the map again at bake time, masked by `hf_fur_skin`); Godot's glTF
+  importer turns "albedo from vertex colour" on for every material on a mesh that has one, and the fur
+  runtime strips the colour off the body mesh once the shells have their copy; and a shell built from a
+  surface that carries no map is not skin - kept, the hair cap was drawn seventeen times over as fur.
+- **A region is solid inside and feathered at its rim**, and lengths blend across the rim. Taken as raw
+  area weights, a ruff whose mask peaked at 0.5 put half the upper body in the band where the skin is still
+  drawn under the fur, and a 45 mm ruff beside a 12 mm pelt stood off the neck as a collar of sheets.
+- **An area may not grow past where it reached.** Smoothing alone carried "the face" over the crown, and a
+  3 mm nap at density 0.7 drew a black skull cap over the hair in Godot.
+- **Cost, measured** (Godot 4.7, one 1.78 m body at 900x900): 23 -> 59 draw calls, 59k -> 358k primitives,
+  4.2 -> 6.2 ms a frame for 17 shells. The shells are the furred skin only, and only the base coat casts a
+  shadow.
+- **Open**: a dark band still runs across the hairline where the pelt's head exclusion feathers under the
+  hair cap, and the fur-to-bare edge at a wrist or an ankle reads as a dark ring. Strand cards for a mane,
+  a ruff past 8 cm or a tail's brush need an entry point `hair.py` does not have: it grows scalp hair from
+  a landmark hairline, with no way to hand it a painted region. What fur needs from it is
+  `hair.cards(body, field, length_m, volume, colour, root_bone)` where `field` is a per-vertex weight -
+  `brows.beard_field` is the shape of it.
+
 **Beards become strands.** Today they are layered textured shells: a flat decal with a smooth outline. A beard
 is hair, so it should be the same strand cards as scalp hair, rooted on the beard field, with length and
 volume driving the cards, and follow-through sway on the long ones. The shell stays for stubble, where it is

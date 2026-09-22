@@ -159,12 +159,18 @@ def species_dir():
 
 def species_design():
     """humanform's `species_design` module (standard library only, so it loads outside Blender), or None
-    when this humanform has none. Loaded from its file: the spec is read before any plugin is imported."""
+    when this humanform has none."""
+    return _hf("species_design")
+
+
+def _hf(name):
+    """One humanform module that runs outside Blender (`species_design`, `fur`, `graft`), or None when this
+    humanform has none. Loaded from its file: the spec is read before any plugin is imported."""
     import importlib.util
     for base in _humanform_roots():
-        path = os.path.join(base, "scripts", "humanform", "species_design.py")
+        path = os.path.join(base, "scripts", "humanform", name + ".py")
         if os.path.isfile(path):
-            key = "_cp_species_design_" + hashlib.sha1(path.encode()).hexdigest()[:8]
+            key = f"_cp_hf_{name}_" + hashlib.sha1(path.encode()).hexdigest()[:8]
             if key not in sys.modules:
                 spec_ = importlib.util.spec_from_file_location(key, path)
                 mod = importlib.util.module_from_spec(spec_)
@@ -184,7 +190,7 @@ SPECIES_LOOK = {
     "skin.pattern": ("kind", "colour", "scale", "amount", "regions"),
     "head": ("shape", "shape_weight", "features", "eyes"),
 }
-SPECIES_META = ("id", "label", "anatomy", "moves", "graft")
+SPECIES_META = ("id", "label", "anatomy", "moves", "graft", "fur")
 # `anatomy` (humanform.species_design): only what the description says the creature lacks, each with its reason,
 # and sizes it states - every other part is kept
 SPECIES_ANATOMY = ("absent", "scale")
@@ -202,13 +208,20 @@ def check_species_table(table):
         if extra:
             raise SpecError(f"[body.species]: unknown field(s) {', '.join(extra)} - it takes the observables "
                             f"{', '.join(sorted(sd.OBSERVABLES))}, the knobs {', '.join(sorted(sd.KNOBS))}, and "
-                            f"skin, head, id, label")
+                            f"{', '.join(sorted(set(SPECIES_LOOK) - {'skin.pattern'}) | set(SPECIES_META))}")
     for part in ("skin", "head"):
         if part in table:
             v = table[part]
             if not isinstance(v, dict):
                 raise SpecError(f"body.species.{part} must be a table, not {type(v).__name__}")
             _unknown(v, SPECIES_LOOK[part], f"[body.species.{part}]")
+    if table.get("fur") is not None:
+        # the coverage map (humanform.fur): its own ranges, with the range in the message, before a build
+        fur = _hf("fur")
+        if fur is not None:
+            problems = fur.validate(table["fur"])
+            if problems:
+                raise SpecError("[body.species.fur]: " + "; ".join(problems))
     anat = table.get("anatomy")
     if anat is not None:
         if not isinstance(anat, dict):
@@ -223,7 +236,7 @@ def check_species_table(table):
         # knob out of range, a graft whose absences the description does not state, numbers that disagree -
         # refused here, before any build, with the design's own message
         d = {k: v for k, v in table.items() if k not in ("id", "label")}
-        look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft") if k in d}
+        look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft", "fur") if k in d}
         anatomy = d.pop("anatomy", None)
         knobs = {n: d.pop(n) for n in list(d) if n in sd.KNOBS and n not in sd.OBSERVABLES}
         if "stature" not in d:

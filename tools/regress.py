@@ -714,7 +714,7 @@ def _run_lookdev(godot, project, where, src, out, name, selftest):
 
 # The Godot addons the verifiers load from the project, and where this repo keeps each one.
 GODOT_ADDONS = {"rig_anything": "rig-anything", "wardrobe": "wardrobe", "follow_through": "follow-through",
-                "lookdev": "lookdev"}
+                "lookdev": "lookdev", "humanform_fur": "humanform"}
 GODOT_STAGE = "_regress"                         # res://_regress/<fixture>/, removed afterwards
 
 

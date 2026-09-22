@@ -201,6 +201,16 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw)
             from . import look
             look.skin(human, tone, species_skin=species.skin_block(sp))
         t["graft"] = time.time() - t5
+    fur_block = species.fur_block(sp)
+    if fur_block:
+        # Fur last, on the body the species finally has (the warp, the features and any graft): its coverage
+        # map is per vertex of the shared mesh, so it is laid on the body's own joints - a dwarf's ruff on the
+        # dwarf's shoulders. The textures and the checks come later, at the export, on the baked body.
+        from . import fur as _fur
+        t6 = time.time()
+        rep["fur"] = _fur.apply(human, fur_block, base_colour=tone)
+        rep["anatomy"] = species.inventory(human, sp, reference=before)
+        t["fur"] = time.time() - t6
     if contact_sheet and out_dir:
         t4 = time.time()
         views.contact_sheet(human.name, out_dir, preset=pre, sex=s["sex"], report=hc)
