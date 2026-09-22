@@ -1260,10 +1260,18 @@ def tail_gap(body, bm, evaluated, frames, cap=TAIL_GAP_POINTS):
         g = gap(evaluated[f])
         if g < worst:
             worst, at = g, f
-    limit = min(TAIL_GAP_MIN * bm["height"], TAIL_GAP_REST * rest)
+    floor = TAIL_GAP_MIN * bm["height"]
+    limit = min(floor, TAIL_GAP_REST * rest)
+    # A tail whose skin already TOUCHES a leg at rest cannot be judged this way: the measure is a distance
+    # between two surfaces and it cannot go negative, so "still touching" and "passing through" read the same.
+    # A rabbit's scut lies on its haunch at 2 mm, and its jump launch was refused for closing that to 0.
+    judged = rest > floor
     return {"min_m": round(worst, 4), "at_frame": at, "rest_m": round(rest, 4),
-            "limit_m": round(limit, 5), "points": [len(T), len(L)],
-            "failed": worst < limit}
+            "limit_m": round(limit, 5), "points": [len(T), len(L)], "judged": judged,
+            "note": None if judged else ("the tail's skin already lies on a leg at rest (%.0f mm, under the "
+                                         "%.0f mm floor): a clip cannot be judged by closing a gap that is "
+                                         "not there" % (rest * 1000, floor * 1000)),
+            "failed": judged and worst < limit}
 
 
 def recheck(rig_name, action_name, forward="-Y", up="Z", floor=0.0, loop=True,
