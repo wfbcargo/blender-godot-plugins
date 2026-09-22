@@ -646,8 +646,15 @@ def check(doc, per_sex):
     b_lo, b_hi = doc["bmi"]
     need(8 < b_lo < b_hi < 90, f"bmi range {doc['bmi']}")
     pal = doc["skin"].get("palette") or []
-    need(2 <= len(pal) <= 4 and all(len(c) == 3 and all(0 <= x <= 1 for x in c) for c in pal),
-         "skin.palette: 2-4 sRGB tones in 0..1")
+    tone = doc["skin"].get("tone")
+    if tone is not None:
+        # one creature's own tone (an inline species, humanform.species.draw_skin), in place of a palette
+        need(len(tone) == 3 and all(0 <= x <= 1 for x in tone), f"skin.tone {tone!r}: one sRGB tone in 0..1")
+        need(not pal or (2 <= len(pal) <= 4 and all(len(c) == 3 and all(0 <= x <= 1 for x in c) for c in pal)),
+             "skin.palette: 2-4 sRGB tones in 0..1")
+    else:
+        need(2 <= len(pal) <= 4 and all(len(c) == 3 and all(0 <= x <= 1 for x in c) for c in pal),
+             "skin.palette: 2-4 sRGB tones in 0..1 (or skin.tone: one)")
     regions = skin_regions()
     need(not regions or set(doc["skin"].get("regions_off", [])) <= set(regions),
          f"skin.regions_off {doc['skin'].get('regions_off')} not all in skin.REGIONS {regions}")
