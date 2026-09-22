@@ -177,6 +177,26 @@ python <cp>/scripts/build_many.py characters/a.toml characters/b.toml characters
 
 Three likeness NPCs built cold took 58.5 s wall together (53-58 s each); nine figures, 189 s at `--jobs 3`.
 
+It reads every spec first and prints its refusals and warnings before building. A **warning** is a spec that
+pins one of rig-anything's upper-body parameters derived from speed and a published source (`spec.SOURCED_UPPER`:
+`pelvis_list`, `side_bend`, `lean_bob`, `lean_lag`, `head_hold`, `gaze_m`) in `[moves.per_gait.<role>] upper`.
+Pinning is allowed - a character may be meant to move differently - but a pin left from an older default is how
+Belle's head stayed held at 16% while every other body's moved to 64%. A single `build.py` logs the same lines
+and puts them in the build summary's `warnings`.
+
+**Then it looks in Godot.** When the builds are done, each that built (and reviews) is shot in Godot's look by
+`scripts/review_godot.py`: the project imported once, then lookdev's `close-shot` of each character, dressed in the
+garments its manifest lists, with its Blender close set's tile first in each row, into
+`<export dir>/review/<id>/godot/` (`sheet.png`, `close.json`). What is judged is what ships: the likeness round's
+dress bust points and beard patches were plain in Godot and hidden in Blender's close-ups (seven rebuilds). A
+close-shot failure fails the run (`BUILD_MANY DONE ... godot review FAILED`). It runs after the builds, not in the
+review stage, because parallel builds' Godot imports of one project would race. `--no-godot-review` skips it; no
+Godot, node or lookdev skips it with a line saying so. Run it alone after a single build:
+
+```
+python <cp>/scripts/review_godot.py characters/a.toml [--presets clear_midday,overcast] [--views face,bust,full]
+```
+
 **The flesh stage says what it found.** The build log gets `flesh: found <type>: <regions>` and
 `flesh: MISSED <type>: <reason with numbers>` (follow-through's `missed`), the stage report `found`
 and `missed`, and the manifest a `flesh` block - `types`, per region `name, type, bone, parent,

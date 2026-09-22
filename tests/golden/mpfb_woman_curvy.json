@@ -2,7 +2,7 @@
  "fixture": "mpfb_woman_curvy",
  "plugins": {
   "humanform": "0.18.0",
-  "rig-anything": "0.40.0"
+  "rig-anything": "0.41.0"
  },
  "report": {
   "bake": {
@@ -609,7 +609,7 @@
      "FixWoman_body",
      "FixWoman_rig"
     ],
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-yykiw3m1\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-4zgat1a9\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "morph_targets": false,
     "options_dropped_by_this_blender": [],
     "skipped": [],
@@ -637,7 +637,7 @@
      "FixWoman_TurnR": 1.041667,
      "FixWoman_Walk": 1.0
     },
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-yykiw3m1\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-4zgat1a9\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "generator": "Khronos glTF Blender I/O v5.2.40",
     "gltf_version": 2,
     "joints": 53,
@@ -703,7 +703,7 @@
      1548
     ],
     "count": 25,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-yykiw3m1\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-4zgat1a9\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
     "frame_height_m": 2.1,
     "frames": {
      "FixWoman_Crouch": [
@@ -787,7 +787,7 @@
       21
      ]
     },
-    "seconds": 4.19,
+    "seconds": 7.99,
     "strips": {
      "FixWoman_Crouch": {
       "front": {
@@ -1052,7 +1052,7 @@
      "three_quarter"
     ]
    },
-   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-yykiw3m1\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
+   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-4zgat1a9\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
    "stage": "done",
    "verified": {
     "durations_match": true,
@@ -1587,6 +1587,10 @@
     "hip_height_m": 0.8635,
     "implied_speed_cycle_mps": 4.1918,
     "implied_speed_playback_mps": 3.9123,
+    "knee_plane_deg": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "lift_m": 0.1803,
     "lift_scale": null,
     "limited_by": [
@@ -2152,6 +2156,10 @@
     "hip_height_m": 0.8635,
     "implied_speed_cycle_mps": 1.2788,
     "implied_speed_playback_mps": 1.2255,
+    "knee_plane_deg": {
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "lift_m": 0.1016,
     "lift_scale": null,
     "limited_by": [

@@ -270,6 +270,8 @@ def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=prin
     if resume:
         open_saved(ch, log=log)
     q = quality_mod.check(quality or ch.build.quality)
+    for w in ch.warnings:
+        log(f"[{ch.id}] WARNING {w}")
     t_build = time.time()
     # after every stage that runs, the file is saved (when this build saves at all), so a stage that fails
     # leaves the file as the last good stage left it: the next build resumes there instead of from body
@@ -298,6 +300,8 @@ def build(spec, from_stage=None, to_stage=None, force=False, save=True, log=prin
                "total_seconds": round(time.time() - t_build, 1)}
     if restarted:
         summary["restarted"] = restarted
+    if ch.warnings:
+        summary["warnings"] = list(ch.warnings)
     if ran:
         _store_build(ch, summary)
         if "export" in ran:

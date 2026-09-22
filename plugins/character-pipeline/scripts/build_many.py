@@ -10,7 +10,17 @@ folder) as `<spec stem>.log`, and when all are done a table is printed: status, 
 `total_seconds` and its three slowest stages - or, for a failed build, the error's last line (a failing stage
 names itself, how long it ran and where the file was left: `runner.StageFailed`).
 
-The exit code is the number of failed builds. It is plain Python (no bpy), so it runs from any shell.
+Every spec is read first, so a refusal or a warning (a spec pinning a parameter rig-anything derives from a
+source, `spec.SOURCED_UPPER`) is printed before any build starts.
+
+When the builds are done, the ones that built and review are looked at in Godot's look (`review_godot.py`: the
+project imported once, then lookdev's close-shot of each, dressed, beside its Blender close set, into
+`<export dir>/review/<id>/godot/`). It runs after the builds and not inside them because parallel Godot imports
+of one project would race. `--no-godot-review` skips it; so does a missing Godot, node or lookdev (said, not
+failed).
+
+The exit code is the number of failed builds plus failed Godot reviews. It is plain Python (no bpy), so it runs
+from any shell.
 
 Environment: BLENDER (default the 5.2 install), and whatever build.py reads (RA/HF/FT/WD/LD_SCRIPTS,
 BLEND_DIR, HUMANFORM_LIBRARY) passes through. humanform's library takes a lock around its index writes, so
@@ -104,6 +114,7 @@ def main(argv):
     ap.add_argument("specs", nargs="+")
     ap.add_argument("--jobs", type=int, default=default_jobs())
     ap.add_argument("--logs", default=None)
+    ap.add_argument("--no-godot-review", action="store_true", help="skip the Godot close-shot review afterwards")
     a = ap.parse_args(argv)
     # characters/pipeline.toml is the project's settings (spec.PROJECT_CONFIG), not a character: a glob over
     # characters/*.toml picks it up, and it failed as a spec with "unknown field(s) blend"
@@ -118,6 +129,15 @@ def main(argv):
     logs = a.logs or tempfile.mkdtemp(prefix="build_many_")
     os.makedirs(logs, exist_ok=True)
     blender = os.environ.get("BLENDER", DEFAULT_BLENDER)
+    # Read every spec first: a refusal or a warning is worth seeing before minutes of building, not after
+    sys.path.insert(0, HERE)
+    from character_pipeline import spec as spec_mod
+    for s in a.specs:
+        try:
+            for w in spec_mod.load(s).warnings:
+                print(f"WARNING {os.path.splitext(os.path.basename(s))[0]}: {w}", flush=True)
+        except spec_mod.SpecError as e:
+            print(f"REFUSED {s}: {e}", file=sys.stderr, flush=True)
     print(f"building {len(a.specs)} spec(s), {a.jobs} at a time; logs in {logs}", flush=True)
     t0 = time.time()
     with ThreadPoolExecutor(max_workers=max(1, a.jobs)) as pool:
@@ -129,7 +149,20 @@ def main(argv):
             print(f"  {'done' if r['rc'] == 0 else 'FAILED'}: {r['spec']} ({r['wall_s']} s)", flush=True)
     print(table(results))
     failed = sum(1 for r in results if r["rc"] != 0)
-    print(f"BUILD_MANY DONE {len(results) - failed} ok, {failed} failed, {time.time() - t0:.1f} s wall")
+    godot = ""
+    built = [s for s, r in zip(a.specs, results) if r["rc"] == 0 and spec_mod.load(s).review.enabled]
+    if built and not a.no_godot_review:
+        import review_godot
+        t1 = time.time()
+        print(f"reviewing {len(built)} in Godot's look (review_godot.py)", flush=True)
+        rc = review_godot.main(built)
+        if rc == 2:
+            godot = ", godot review skipped (nothing to run it with)"
+        else:
+            failed += rc
+            godot = f", godot review {'ok' if rc == 0 else 'FAILED'} in {time.time() - t1:.1f} s"
+    print(f"BUILD_MANY DONE {len(results) - sum(1 for r in results if r['rc'] != 0)} ok, "
+          f"{sum(1 for r in results if r['rc'] != 0)} failed{godot}, {time.time() - t0:.1f} s wall")
     return failed
 
 

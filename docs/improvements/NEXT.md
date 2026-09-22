@@ -44,6 +44,49 @@ Shipped on 2026-09-21, newest first:
 Before that: the motion round (rig-anything 0.28.0-0.37.0, character-pipeline 0.16.0, plugins#2 /
 game#1), Step 2 skin, and the flesh round. Their record is in the sections further down.
 
+### Catch it upfront, round 1 (branch `catch-upfront-1`, 2026-09-21)
+
+The top three of "Catch it upfront" plus what building them found. **Every check here fails something real,
+and each has a control or a case in a fixture.**
+
+- **Smoke bodies** (grungist-creek `characters/smoke_*.toml`): Pia petite 1.48 m, Tor 2.02 m, Edda 84 (elderly
+  shuffle), Hal BMI 38 (heavy). Built fresh beside every round's change (grungist-creek CLAUDE.md). Their first
+  builds found five things no reference figure could:
+  - **follow-through flesh on a BMI 38 body fails three ways** - butt: `check_placement` puts both regions'
+    weight 10 cm above their apex (0.52 over 0.3, nothing lets it through; the benchmark's blocker on two women,
+    now a man); belly: 0 vertices in its zone; breast: 6 seed vertices pass both tests against 54 needed (78 pass
+    each alone). Hal ships with no `[flesh]` until this is fixed. **Next round's first item.**
+  - **the aged belly is not found**: Edda's belly stands 3.7 cm out, 8 vertices pass the seed test, none both
+    (`may_miss` for now).
+  - **a brief with no skin colour ships chalk white** (MPFB's untextured material; humanform only applies its
+    skin look when `skin` is given) - 5-9% of the figure past white in Godot. Now refused at spec load.
+- **Knee: the premise was wrong, the check moved to the clip.** Measured on every built rest skeleton, six
+  shipped bodies sit past 10 deg across the leg (Morgan 28, Ariana 23, Walter 19, Ruth 15 inward, Noah 13), and
+  a front view shows the joints centred in legs that really are a little bowed or knock-kneed - a body trait,
+  not a fit error. A humancheck gate at 10 deg would have failed three shipped characters whose motion is fine.
+  What had gone wrong was the CLIP, fixed in 0.39.0, and nothing failed if it regressed. Now every gait reports
+  `knee_plane_deg` off its playback and fails over `locomotion.KNEE_PLANE_MAX_DEG` 12: shipped 0.0 on every
+  figure, the control (`motion.PLANE_FOLD` 0, rigify_human `knee_plane`, knees moved 12 mm out) 43-45 and fails.
+- **Spec checks before a build** (`build_many` reads every spec first):
+  - warns when `[moves.per_gait.<role>] upper` pins a sourced default (`spec.SOURCED_UPPER`) - Belle's case;
+  - refuses a `[flesh]` type follow-through's registry does not have (a smoke spec's `moobs` got through to the
+    flesh stage, after body and bake);
+  - refuses a brief with no `skin`.
+- **Review in Godot's look** (`character-pipeline/scripts/review_godot.py`, run by `build_many` after the
+  builds): the project imported once (14-15 s), then lookdev's `close-shot` of each character dressed from its
+  manifest, its Blender close tile first in each row, into `<export>/review/<id>/godot/`. 24-52 s a character.
+  Outside the review stage because parallel builds' Godot imports of one project would race. A close-shot
+  failure fails the run.
+
+**Open from this round:**
+- **Taylor and Ariana fail the Godot review** (`SKIN_PAST_WHITE` under clear_midday, 3.4% and 6.7%; max 1%).
+  Taylor's spec skin `[0.93, 0.80, 0.72]` is ~0.64 linear luminance, brighter than real skin; Ariana's is partly
+  her pale suit. The upfront fix is a spec check on skin albedo - it wants a published skin reflectance range
+  before a threshold. Ruth, the benchmark's 3.91%, passes now.
+- The follow-through flesh findings above.
+- The Godot review's texture import is the headless one (lossless); the editor rewrites to S3TC on open - the
+  "pin texture import settings" task.
+
 ### The trunk-and-head round (rig-anything 0.40.0, branch `trunk-and-head`, 2026-09-21)
 
 One branch, not four: all four items edit `upper.defaults` and `Upper.cycle_key`. **Every target now
@@ -174,7 +217,9 @@ the head-thorax rung is "NOT built yet". It was built in 0.32.0, so the comment 
 
 In the order I would take them:
 
-1. **Catch it upfront, round 1** - the top three of
+1. ~~**Catch it upfront, round 1**~~ **Done 2026-09-21** - see "Catch it upfront, round 1" above. Next:
+   follow-through's flesh on very heavy and aged bodies (what the smoke bodies found), a spec check on skin
+   albedo, then round 2 below. Was: the top three of
    ["Catch it upfront"](#catch-it-upfront-from-the-likeness-round-2026-09-21), which turn this round's
    look problems into failures before a build. They serve both goals: fewer rebuild-and-look loops is the
    30 seconds, and a check that knows what looks wrong is the "look great". Branches:
