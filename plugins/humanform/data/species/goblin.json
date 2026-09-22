@@ -9,7 +9,7 @@
   ],
   "notes": {
     "stature": "about 1.0-1.2 m [documented, game rules]",
-    "skin": "yellow-green to olive; red lips and flush off, as the orc",
+    "skin": "yellow-green to olive; every region kept, tone-relative",
     "generated": "by humanform.species_design (scripts/derive_species.py) - edit the design, not this file",
     "knobs": {
       "stature": "about 1.0-1.2 m [documented, game rules]",
@@ -512,10 +512,193 @@
         0.28
       ]
     ],
-    "regions_off": [
-      "lips",
-      "flush"
-    ]
+    "regions_off": []
+  },
+  "anatomy": {
+    "parts": {
+      "nipples": {
+        "on": "chest",
+        "scale": {
+          "female": 0.6042,
+          "male": 0.6039
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "breasts": {
+        "on": "chest",
+        "scale": {
+          "female": 0.6042,
+          "male": 0.6039
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "navel": {
+        "on": "torso",
+        "scale": {
+          "female": 0.6568,
+          "male": 0.6565
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "genitals": {
+        "on": "pelvis",
+        "scale": {
+          "female": 0.6042,
+          "male": 0.6039
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "buttocks": {
+        "on": "pelvis",
+        "scale": {
+          "female": 0.6042,
+          "male": 0.6039
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "belly": {
+        "on": "torso",
+        "scale": {
+          "female": 0.6568,
+          "male": 0.6565
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "lips": {
+        "on": "head",
+        "scale": {
+          "female": 1.0,
+          "male": 1.0
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "eyes": {
+        "on": "head",
+        "scale": {
+          "female": 1.0,
+          "male": 1.0
+        },
+        "relative": 1.0,
+        "source": "law: with its host ^ 0.53"
+      },
+      "lashes": {
+        "on": "head",
+        "scale": {
+          "female": 1.0,
+          "male": 1.0
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "brows": {
+        "on": "head",
+        "scale": {
+          "female": 1.0,
+          "male": 1.0
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "teeth": {
+        "on": "head",
+        "scale": {
+          "female": 1.0,
+          "male": 1.0
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "tongue": {
+        "on": "head",
+        "scale": {
+          "female": 1.0,
+          "male": 1.0
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "ears": {
+        "on": "head",
+        "scale": {
+          "female": 1.0,
+          "male": 1.0
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "nails": {
+        "on": "hand",
+        "scale": {
+          "female": 0.775,
+          "male": 0.7746
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "knuckles": {
+        "on": "hand",
+        "scale": {
+          "female": 0.775,
+          "male": 0.7746
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "palms": {
+        "on": "hand",
+        "scale": {
+          "female": 0.775,
+          "male": 0.7746
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "soles": {
+        "on": "foot",
+        "scale": {
+          "female": 0.7881,
+          "male": 0.7877
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "knees": {
+        "on": "leg",
+        "scale": {
+          "female": 0.5911,
+          "male": 0.5908
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "elbows": {
+        "on": "arm",
+        "scale": {
+          "female": 0.5911,
+          "male": 0.5908
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      },
+      "body_hair": {
+        "on": "body",
+        "scale": {
+          "female": 0.6568,
+          "male": 0.6565
+        },
+        "relative": 1.0,
+        "source": "law: with its host"
+      }
+    },
+    "absent": [],
+    "note": "every part a human has, kept and warped with its host unless the description says the creature lacks it (absent, with its reason). scale: size factor against the pre-warp human's part"
   },
   "moves": {
     "style": null,

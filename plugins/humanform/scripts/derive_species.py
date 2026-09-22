@@ -152,10 +152,9 @@ SPECIES = {
         "look": {"head": {"shape": "square", "shape_weight": 0.8,
                           "features": {"ears_pointed": 0.5, "brow_ridge": 0.8, "nose_size": 0.3, "tusks": 0.7}},
                  "skin": {"palette": [[0.56, 0.63, 0.41], [0.44, 0.52, 0.33], [0.52, 0.53, 0.44], [0.34, 0.40, 0.29]],
-                          "regions_off": ["lips", "flush"]},
+                          "regions_off": []},
                  "moves": {"style": None, "notes": "derive_style from stockiness: longer contact, wider stance"}},
-        "skin_why": "olive to grey-green. The red lips and flush are blood under thin human skin and read as mud "
-                    "on green, so they are off; the creases stay",
+        "skin_why": "olive to grey-green; every region kept, its tint along the tone's own hue (skin.species_skin)",
     },
     "goblin": {
         "label": "Goblin: small, scrawny and hunched, a big head with big pointed ears, long arms, green skin",
@@ -177,10 +176,10 @@ SPECIES = {
                           "features": {"ears_pointed": 1.0, "ear_size": 0.9, "brow_ridge": 0.3, "nose_size": 0.7,
                                        "tusks": 0.0}},
                  "skin": {"palette": [[0.62, 0.66, 0.38], [0.50, 0.58, 0.30], [0.55, 0.52, 0.36], [0.40, 0.46, 0.28]],
-                          "regions_off": ["lips", "flush"]},
+                          "regions_off": []},
                  "moves": {"style": None, "notes": "the hunch is in the rest pose; a forward-leaning scuttle is a "
                                                    "posture on top"}},
-        "skin_why": "yellow-green to olive; red lips and flush off, as the orc",
+        "skin_why": "yellow-green to olive; every region kept, tone-relative",
     },
     "troll": {
         "label": "Troll: huge (2.4-2.8 m), kyphotic, long-armed (hands to the knee), grey-green, square-cube heavy",
@@ -204,10 +203,10 @@ SPECIES = {
         "look": {"head": {"shape": "rectangular", "shape_weight": 0.8,
                           "features": {"ears_pointed": 0.3, "brow_ridge": 1.0, "nose_size": 0.6, "tusks": 0.4}},
                  "skin": {"palette": [[0.52, 0.55, 0.48], [0.44, 0.49, 0.40], [0.37, 0.42, 0.35], [0.30, 0.33, 0.29]],
-                          "regions_off": ["lips", "flush", "nipple", "genital", "knee", "elbow", "knuckle"]},
+                          "regions_off": []},
                  "moves": {"style": None, "notes": "large-animal gait from the mass (~300 kg): straight legs, duty "
                                                    "factor up, no aerial phase [measured, animals]"}},
-        "skin_why": "grey-green, stony: every red-shifted region off; the paler palms, soles and nails stay",
+        "skin_why": "grey-green, stony; every region kept, tone-relative",
     },
 }
 

@@ -103,6 +103,32 @@ the mass). It **refuses** with a `DesignError` if any knob is out of range (the 
 if the numbers disagree: joints out of order, a chin below the shoulders, hands reaching the ankles, a thigh
 that is not the hip minus the knee, and so on.
 
+### Anatomy: every drawn part, always
+
+A species body is a whole body. Every part a human body draws is kept and warped with the part it sits on
+(`ANATOMY`): nipples and areolae, breasts, navel, genitals, buttocks, belly, lips, eyes, lashes, brows, teeth,
+tongue, ears, nails, knuckles, palms, soles, knees, elbows and body hair. Each part follows its host's warp
+factor (areolae with the chest breadth, genitals with the pelvis, nails with the hand), so a warped body keeps
+plausible anatomy without a per-species rule. The eyes follow the head at an exponent of 0.53, because eyes grow
+slower than heads (about 17 mm at birth and 24 mm in an adult, while the head roughly doubles). Head features such
+as `ears_pointed` or `tusks` add to these parts and never replace them. Genitals stay opt-in in a build
+(`[body] genitals`), as for humans.
+
+The **description** is the only thing that changes this:
+
+```python
+anatomy = {"absent": [{"part": "nipples", "reason": "egg-laying reptile folk: no mammary glands"},
+                      {"part": "navel", "reason": "hatched, no umbilicus"}],
+           "scale": {"eyes": 1.3}}                 # relative to the size its host's law gives
+sd.design_from(observables, id="lizardfolk", anatomy=anatomy, look=...)
+```
+
+`absent` needs a reason. It also turns off the part's skin region (`skin.regions_off`, derived and never
+written by hand). **A region is never turned off because of its colour.** Region tints follow the tone
+(`skin.species_skin`), so a green body's lips and areolae come out a deeper green. `design()` refuses a
+`regions_off` that no absent part backs. `scale` takes a factor from 0.3 to 3, and `explain()` reports it. The
+preset's `anatomy.parts` gives each part's host and its size factor per sex against the pre-warp human.
+
 To add the species to the catalogue, add its observables to `scripts/derive_species.py` and run it. Run
 `--explain <id>` for the table and `--chart <scratch>/s.svg` for a picture.
 

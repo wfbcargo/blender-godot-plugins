@@ -29,9 +29,10 @@ growth canons) rest on measurements. The rest are labelled conventions.
 - **basis** is the pre-warp human: head-matched for a proportionate body, trunk-matched otherwise. Several fall
   outside ANSUR's 1.45-1.95 m (halfling, gnome, orc, troll, the short dwarves). The warp fits at the limit and
   scales uniformly.
-- **Skin:** elf, halfling, gnome and dwarf have human tones with every region on. Orc and goblin are greens with
-  the red lips and flush off. The troll is grey-green with every red-shifted region off. Red regions are blood
-  under thin human skin, and on green they read as mud.
+- **Skin:** elf, halfling, gnome and dwarf have human tones. Orc and goblin are greens, and the troll is
+  grey-green. Every region is kept on all seven, tinted along the tone's own hue by `skin.species_skin`.
+- **Anatomy:** full on all seven. No description removes a part, so `anatomy.absent` is empty and every part
+  scales with its host (`species-design.md`, "Anatomy").
 - **Head features** (`head.features`, 0 = human): `ears_pointed`, `ear_size`, `brow_ridge`, `nose_size`, `tusks`.
 
 ## Judgement calls, and why
@@ -54,5 +55,6 @@ See `species_design.design()`. In short:
 | `stature`, `bmi`, `heads`, `ratios`, `derived`, `features` | graded by humancheck, in presets.json's format |
 | `pre_warp` | basis, stature factor and H_pre range per sex, BMI, min/max stature |
 | `segments`, `girth`, `widths`, `spine` | the warp's start factors, absolute against the pre-warp human |
-| `head`, `skin`, `moves` | the look |
+| `head`, `skin`, `moves` | the look (`skin.regions_off` only from `anatomy.absent`) |
+| `anatomy` | every part kept (`parts`: host and size factor per sex) unless `absent` with a reason |
 | `knobs`, `design`, `proportion`, `notes`, `sources` | the knobs, the solve report (given, derived, contradictions, heads law, mass), the observables shown, the reasons |

@@ -81,6 +81,8 @@ SOURCES = {
     "large_gait": ("Large-animal gait: duty factor rises with size, no aerial phase above a few hundred kg - "
                    "https://pmc.ncbi.nlm.nih.gov/articles/PMC8214834/"),
     "dnd": "D&D 5e Player's Handbook (2014), 'Height and Weight' table",
+    "eyes": ("Bekerman et al. 2014, Variations in eyeball diameters of the healthy adults (J Ophthalmol "
+             "2014:503645): ~24 mm adult axial length; ~16.5-17 mm at birth"),
     "design": "docs/improvements/08-fantasy-species.md (research, 2026-09-21)",
 }
 
@@ -150,6 +152,35 @@ OBSERVABLES = {
 LANDMARKS = {"ankle": lambda f: f["ankle_joint"], "mid_shin": lambda f: (f["ankle_joint"] + f["knee_joint"]) / 2,
              "knee": lambda f: f["knee_joint"], "mid_thigh": lambda f: (f["knee_joint"] + f["crotch"]) / 2,
              "crotch": lambda f: f["crotch"], "hip": lambda f: f["hip_joint"]}
+
+# Every drawn part of the body (08, "Every drawn part"): a species body carries the whole human anatomy. Each part
+# sits on a host whose warp factor it follows, raised to an exponent (1: in proportion to its host); `skin` names
+# the skin.REGIONS entry that draws it, so a part the description says is absent turns its region off - and
+# nothing else ever does. part: (host, exponent, skin region or None, what it is)
+ANATOMY = {
+    "nipples":   ("chest", 1.0, "nipple", "nipples and areolae; areola diameter in proportion to chest breadth"),
+    "breasts":   ("chest", 1.0, None, "breast mass (follow-through flesh zone)"),
+    "navel":     ("torso", 1.0, None, "the umbilicus"),
+    "genitals":  ("pelvis", 1.0, "genital", "external genitals, in proportion to pelvis breadth (opt-in in a build)"),
+    "buttocks":  ("pelvis", 1.0, None, "buttock mass (flesh zone)"),
+    "belly":     ("torso", 1.0, None, "belly mass (flesh zone)"),
+    "lips":      ("head", 1.0, "lips", "the red of the lips"),
+    "eyes":      ("head", 0.53, None, "eyeballs: they grow slower than the head (~17 mm at birth, ~24 adult, while "
+                                      "the head roughly doubles)"),
+    "lashes":    ("head", 1.0, None, "eyelashes"),
+    "brows":     ("head", 1.0, None, "eyebrows"),
+    "teeth":     ("head", 1.0, None, "teeth"),
+    "tongue":    ("head", 1.0, None, "tongue"),
+    "ears":      ("head", 1.0, None, "ears (head features such as ears_pointed add to them, never replace them)"),
+    "nails":     ("hand", 1.0, "nail", "finger and toe nails"),
+    "knuckles":  ("hand", 1.0, "knuckle", "knuckle skin"),
+    "palms":     ("hand", 1.0, "palm", "palm skin"),
+    "soles":     ("foot", 1.0, "sole", "sole skin"),
+    "knees":     ("leg", 1.0, "knee", "knee skin"),
+    "elbows":    ("arm", 1.0, "elbow", "elbow skin"),
+    "body_hair": ("body", 1.0, None, "body hair coverage (fur is added over the same maps)"),
+}
+ANATOMY_SCALE = (0.3, 3.0)
 
 HEIGHTS = ("ankle_joint", "knee_joint", "crotch", "hip_joint", "shoulder_joint", "chin")
 LENGTHS = ("upper_arm", "forearm", "hand", "foot", "thigh", "shin", "shoulder_width", "hip_width")
@@ -386,9 +417,11 @@ def _mid(st, sex):
 
 # ------------------------------------------------------------------------------------------------ design
 def design(id="custom", label=None, stature=None, look=None, sources=None, notes=None, report=None,
-           knob_notes=None, basis=None, **knobs):
+           knob_notes=None, basis=None, anatomy=None, **knobs):
     """A species preset (humanform-species/1) from knobs (KNOBS; unset ones take the human default, `heads` the
-    allometric law). `look`: {"head": {...}, "skin": {"palette", "regions_off"}, "moves": {...}}. `report`: a
+    allometric law). `look`: {"head": {...}, "skin": {"palette", ...}, "moves": {...}}. `anatomy`: {"absent": [{"part", "reason"}],
+    "scale": {part: factor}} - only what a description states; every other part is kept and scales with its host
+    (ANATOMY). The skin's `regions_off` is derived from `absent` and nothing else. `report`: a
     solve() result, recorded in the preset's `design` block. Raises DesignError, naming the knob and its range,
     or listing every inconsistency `check()` finds."""
     if stature is None:
@@ -477,6 +510,14 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
         mass[sex] = round(k["build_bmi"] * ratio * m * m, 1)
 
     lookd = look or {}
+    anat = _anatomy(anatomy, segments, girth, widths)
+    skin = dict(lookd.get("skin", {"palette": [[0.84, 0.66, 0.54], [0.55, 0.40, 0.31]]}))
+    stray = sorted(set(skin.get("regions_off") or []) - set(anat["regions_off"]))
+    if stray:
+        raise DesignError(f"skin.regions_off {stray} without anatomy.absent: a region is never turned off for its "
+                          "colour (region tints follow the tone); state the part as absent, with the reason the "
+                          "description gives")
+    skin["regions_off"] = anat.pop("regions_off")
     doc = {
         "schema": SCHEMA, "id": id, "label": label or id, "baseline": "human",
         "sources": list(sources or []),
@@ -511,13 +552,56 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
         "spine": {"kyphosis_deg": k["hunch_deg"], "lordosis_deg": k["sway_deg"], "lumbar_share": LUMBAR_SHARE,
                   "note": "extra bend over a human's; thoracic forward, lumbar back, spread evenly over each span"},
         "head": lookd.get("head", {"shape": "oval", "shape_weight": 0.0, "features": {}}),
-        "skin": lookd.get("skin", {"palette": [[0.84, 0.66, 0.54], [0.55, 0.40, 0.31]], "regions_off": []}),
+        "skin": skin,
+        "anatomy": anat,
         "moves": lookd.get("moves", {"style": None, "notes": "derive_style from the build"}),
     }
     p = check(doc, per_sex)
     if p:
         raise DesignError(f"{id}: " + "; ".join(p))
     return doc
+
+
+def _anatomy(anatomy, segments, girth, widths):
+    """The anatomy block: every part kept unless stated absent, each with its size factor per sex against the
+    pre-warp human (its host's warp factor ^ exponent x any stated relative scale)."""
+    a = anatomy or {}
+    unknown = sorted(set(a) - {"absent", "scale"})
+    if unknown:
+        raise DesignError(f"anatomy keys {unknown}: only 'absent' and 'scale'")
+    absent = []
+    for e in a.get("absent", []):
+        if not isinstance(e, dict) or e.get("part") not in ANATOMY or not e.get("reason"):
+            raise DesignError(f"anatomy.absent entry {e!r}: needs part (one of {', '.join(ANATOMY)}) and the "
+                              "reason the description gives")
+        absent.append({"part": e["part"], "reason": e["reason"]})
+    gone = {e["part"] for e in absent}
+    scale = a.get("scale", {})
+    for part, v in scale.items():
+        if part not in ANATOMY:
+            raise DesignError(f"anatomy.scale {part!r}: one of {', '.join(ANATOMY)}")
+        if part in gone:
+            raise DesignError(f"anatomy.scale {part!r}: the part is declared absent")
+        if not isinstance(v, (int, float)) or not ANATOMY_SCALE[0] <= v <= ANATOMY_SCALE[1]:
+            raise DesignError(f"anatomy.scale {part} = {v!r} is outside {list(ANATOMY_SCALE)} (relative to its host)")
+    parts = {}
+    for part, (host, exp, region, meaning) in ANATOMY.items():
+        if part in gone:
+            continue
+        per = {}
+        for sex in SEXES:
+            sg, g, w = segments[sex], girth[sex], widths[sex]
+            hf = {"chest": w["shoulder_width"], "pelvis": w["hip_width"], "head": sg["head"], "hand": sg["hand"],
+                  "foot": sg["foot"], "arm": g["arms"], "leg": g["legs"], "body": sg["spine"],
+                  "torso": math.sqrt(sg["spine"] * g["torso"])}[host]
+            per[sex] = round(hf ** exp * scale.get(part, 1.0), 4)
+        parts[part] = {"on": host, "scale": per, "relative": scale.get(part, 1.0),
+                       "source": "description" if part in scale else
+                       "law: with its host" + ("" if exp == 1.0 else f" ^ {exp}")}
+    regions = sorted({ANATOMY[p][2] for p in gone if ANATOMY[p][2]})
+    return {"parts": parts, "absent": absent, "regions_off": regions,
+            "note": "every part a human has, kept and warped with its host unless the description says the creature "
+                    "lacks it (absent, with its reason). scale: size factor against the pre-warp human's part"}
 
 
 def _bmi_range(centre):
@@ -567,6 +651,12 @@ def check(doc, per_sex):
     regions = skin_regions()
     need(not regions or set(doc["skin"].get("regions_off", [])) <= set(regions),
          f"skin.regions_off {doc['skin'].get('regions_off')} not all in skin.REGIONS {regions}")
+    an = doc.get("anatomy", {})
+    gone = {e["part"] for e in an.get("absent", [])}
+    backed = {ANATOMY[p][2] for p in gone if ANATOMY[p][2]}
+    need(set(doc["skin"].get("regions_off", [])) <= backed, "skin.regions_off must come only from anatomy.absent")
+    need(all(p in an.get("parts", {}) or p in gone for p in ANATOMY),
+         "every anatomical part must be kept or declared absent")
     shapes = face_shapes()
     need(not shapes or doc["head"].get("shape") in shapes, f"head shape {doc['head'].get('shape')!r} not in {shapes}")
     need(0 <= doc["head"].get("shape_weight", 0) <= 1, "head shape_weight in 0..1")
@@ -827,11 +917,12 @@ def _frac(doc, sex):
 
 
 def design_from(observables, id="custom", look=None, sources=None, notes=None, knob_notes=None, basis=None,
-                **knobs):
+                anatomy=None, **knobs):
     """solve() then design(), the solve report kept in the preset."""
     r = solve(observables, **knobs)
     return design(id=id, stature=observables["stature"], look=look, sources=sources, notes=notes, report=r,
-                  knob_notes=knob_notes, basis=basis, **r["knobs"])
+                  knob_notes=knob_notes, basis=basis, anatomy=anatomy,
+                  **r["knobs"])
 
 
 # ------------------------------------------------------------------------------------------------ explain
@@ -865,6 +956,12 @@ def explain(preset):
         f, m = preset["proportion"]["female"][n], preset["proportion"]["male"][n]
         h = preset["proportion"]["male"]["human"][n]
         lines.append(f"  {n:22} {f:7.3f} {m:7.3f} {h:8.3f}")
+    an = preset.get("anatomy", {})
+    if an.get("absent"):
+        lines.append("  absent: " + "; ".join(f"{e['part']} ({e['reason']})" for e in an["absent"]))
+    stated = {p: v["relative"] for p, v in an.get("parts", {}).items() if v["relative"] != 1.0}
+    if stated:
+        lines.append(f"  anatomy scaled by the description: {stated}")
     for c in dz.get("contradictions", []):
         lines.append(f"  CONTRADICTION {c}")
     if der.get("heads_note"):
