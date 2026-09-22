@@ -296,6 +296,79 @@ def _split(total, root_share, a_len, b_len):
     return 1.0 - change * share / a_len, 1.0 - change * (1.0 - share) / b_len
 
 
+# What makes a small, big-headed body read as an adult rather than a child: against its head length, a child's
+# neck is short (chin to shoulder joints 0.25 of the head at 3 years, 0.35 at 6; an adult's 0.57), its hands and
+# feet small (hand 0.55 / 0.65, adult 0.85; foot 0.8 / 0.9, adult 1.2), and its shoulders narrow (bideltoid 1.4 /
+# 1.55 head lengths, adult 2.2) - childhood proportions from Pavlovic et al. 2024 and WHO growth statures, the
+# adult from the realistic preset. A big head alone is a species trait; a big head with a child's neck, hands and
+# shoulders is a toddler. metric: (knob that moves it, design floor, check floor, what it measures). `design`
+# raises a knob to its design floor (the check's floor plus a margin, so the built body clears the check) and
+# says so in the preset's `design.adult_cues`; `species.reads_adult` and humancheck's `reads_adult` fail a body
+# under the check floor.
+ADULT_CUES = {
+    "neck_head": ("neck_scale", 0.37, 0.33, "neck (chin to the shoulder joints) over head length"),
+    "hand_head": ("hand_scale", 0.72, 0.68, "hand length over head length"),
+    "foot_head": ("foot_scale", 0.95, 0.90, "foot length over head length"),
+    "shoulder_head": ("shoulder_scale", 1.90, 1.80, "bideltoid breadth over head length"),
+}
+ADULT_NECK_MAX = 0.68          # the long end of adult necks: past it a neck reads as a stretched one
+ADULT_HEAD_FRACTION = 0.16     # a head this share of the stature or more (6.25 heads or fewer) asks for the cues
+
+
+def cue_metrics(fr):
+    """ADULT_CUES' metrics of a body's fractions (the ratios of a preset, or `body()["fr"]`)."""
+    head = 1.0 - fr["chin"]
+    return {"neck_head": (fr["chin"] - fr["shoulder_joint"]) / head, "hand_head": fr["hand"] / head,
+            "foot_head": fr["foot"] / head, "shoulder_head": fr["shoulder_width"] / head}
+
+
+def _adult_cues(k, heads, start=None):
+    """Knobs with every ADULT_CUES metric at least its design floor on both sexes, and the neck at most
+    ADULT_NECK_MAX: {knob: {"from", "to", "metric", "floor"}} for each one moved. A knob that cannot reach its
+    floor inside its range stops at the range's end (the check then says so). `start` ({knob: value}, filled in
+    here) remembers where a knob began across calls, so one raised earlier can come back down to its floor, never
+    below where it began."""
+    k = dict(k)
+    moved = {}
+    start = {} if start is None else start
+
+    def worst(knob, v, metric, fn=min):
+        kk = dict(k, **{knob: v})
+        return fn(cue_metrics(body(kk, sex, heads)["fr"])[metric] for sex in SEXES)
+
+    def bisect(knob, metric, target, lo, hi, fn):
+        for _ in range(40):
+            mid = (lo + hi) / 2
+            if worst(knob, mid, metric, fn) >= target:
+                hi = mid
+            else:
+                lo = mid
+        return hi if fn is min else lo     # a floor's smallest knob that clears it, a ceiling's largest under it
+
+    for _ in range(4):                      # a longer neck grows the head (heads are fixed): settle together
+        for metric, (knob, floor, _, _) in ADULT_CUES.items():
+            now = worst(knob, k[knob], metric)
+            start.setdefault(knob, k[knob])
+            if now < floor - 1e-6:
+                hi = KNOBS[knob][2][1]
+                new = hi if worst(knob, hi, metric) < floor else bisect(knob, metric, floor, k[knob], hi, min)
+            elif now > floor + 0.01 and k[knob] > start[knob] + 1e-9:
+                # raised on an earlier pass and overshot since (another cue or a solved length moved the stack):
+                # back to the floor, never below where it started
+                lo = start[knob]
+                new = lo if worst(knob, lo, metric) >= floor else bisect(knob, metric, floor, lo, k[knob], min)
+            else:
+                continue
+            moved.setdefault(knob, {"from": round(start[knob], 4), "metric": metric, "floor": floor})["to"] = round(new, 4)
+            k[knob] = new
+        if worst("neck_scale", k["neck_scale"], "neck_head", max) > ADULT_NECK_MAX:
+            new = bisect("neck_scale", "neck_head", ADULT_NECK_MAX, KNOBS["neck_scale"][2][0], k["neck_scale"], max)
+            moved.setdefault("neck_scale", {"from": round(k["neck_scale"], 4), "metric": "neck_head",
+                                            "ceiling": ADULT_NECK_MAX})["to"] = round(new, 4)
+            k["neck_scale"] = new
+    return k, moved
+
+
 def body(k, sex, heads):
     """One body in human units for a sex: {"u", "H", "fr", "factors"}."""
     h = human(sex)
@@ -417,13 +490,15 @@ def _mid(st, sex):
 
 # ------------------------------------------------------------------------------------------------ design
 def design(id="custom", label=None, stature=None, look=None, sources=None, notes=None, report=None,
-           knob_notes=None, basis=None, anatomy=None, **knobs):
+           knob_notes=None, basis=None, anatomy=None, adult_cues=True, **knobs):
     """A species preset (humanform-species/1) from knobs (KNOBS; unset ones take the human default, `heads` the
     allometric law). `look`: {"head": {...}, "skin": {"palette", ...}, "moves": {...}}. `anatomy`: {"absent": [{"part", "reason"}],
     "scale": {part: factor}} - only what a description states; every other part is kept and scales with its host
     (ANATOMY). The skin's `regions_off` is derived from `absent` and nothing else. `report`: a
-    solve() result, recorded in the preset's `design` block. Raises DesignError, naming the knob and its range,
-    or listing every inconsistency `check()` finds."""
+    solve() result, recorded in the preset's `design` block. `adult_cues` (on unless a description says the
+    creature is a child's shape on purpose) holds the neck, hands, feet and shoulders at an adult's against the
+    head (ADULT_CUES), recording each knob it moved in `design.adult_cues`. Raises DesignError, naming the knob
+    and its range, or listing every inconsistency `check()` finds."""
     if stature is None:
         raise DesignError("stature is required (metres, [lo, hi] or per sex)")
     st = _stature(stature)
@@ -444,6 +519,9 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
         trunk_ratio = 1.0 if is_proportionate(prop0) else b0["fr"]["spine_arc"] / human(sex)["spine_arc"]
         heads_law[sex] = allometric_heads(_mid(st, sex), sex, trunk_ratio)
     heads = k["heads"] if k["heads"] is not None else round(sum(heads_law.values()) / 2, 2)
+    cues = {}
+    if adult_cues:
+        k, cues = _adult_cues(k, heads)
     for sex in SEXES:
         per_sex[sex] = body(k, sex, heads)
     props = {sex: metrics(per_sex[sex]["fr"], sex) for sex in SEXES}
@@ -533,7 +611,7 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
         }),
         "knobs": dict(k, heads=heads),
         "design": {"proportionate": proportionate, "heads_law": {s: round(v, 2) for s, v in heads_law.items()},
-                   "mass_kg_mid": mass,
+                   "mass_kg_mid": mass, "adult_cues": cues,
                    **({"given": report["given"], "derived": report["derived"],
                        "contradictions": report["contradictions"], "observables": report["observables"]}
                       if report else {})},
@@ -770,6 +848,7 @@ def solve(observables, **knobs):
                   if ("bmi" in obs or "mass_kg" in obs) else [])
     girth_base = {n: k[n] for n in girth_free}
     legs_pinned = bool(leg_obs) or "leg_scale" in knobs
+    cue_start = {}
     for _it in range(6):
         heads_now = k["heads"]
         if heads_now is None:            # the law, with the trunk ratio the body has now
@@ -780,6 +859,12 @@ def solve(observables, **knobs):
                 tr = 1.0 if (proportionate or is_proportionate(pr)) else b["fr"]["spine_arc"] / human(sex)["spine_arc"]
                 vals.append(allometric_heads(_mid(st, sex), sex, tr))
             heads_now = sum(vals) / 2
+        # an adult's neck, hands, feet and shoulders against this head, before the lengths are solved around them
+        # (design() would otherwise move them after, and the solved observables with them)
+        for knob, row in _adult_cues(k, heads_now, cue_start)[1].items():
+            if knob not in knobs:
+                bound = row.get("floor", row.get("ceiling"))
+                setk(knob, row["to"], f"adult cue: {row['metric']} held at {bound} (ADULT_CUES), from {row['from']}")
         if leg_obs and "leg_scale" not in knobs:
             o = leg_obs[0]
             name, tgt = ("crotch_fraction", 1.0 / (1.0 + obs[o])) if o == "upper_to_lower" else (o, obs[o])

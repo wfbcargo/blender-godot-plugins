@@ -92,7 +92,7 @@ def _joint_centering(b, joint, axis_from, axis_to):
     return (j - lp.centre).length / lp.radius, lp.radius
 
 
-def _hand(b, side, fwd, count_fingers=True):
+def _hand(b, side, fwd, count_fingers=True, reach=None):
     w, e = b.mark(f"wrist.{side}"), b.mark(f"elbow.{side}")
     if w is None or e is None:
         return None
@@ -101,7 +101,9 @@ def _hand(b, side, fwd, count_fingers=True):
     s = rel @ np.array(a)
     radial = np.linalg.norm(rel - s[:, None] * np.array(a)[None, :], axis=1)
     H = b.top - b.floor
-    sel = (s > 0) & (s < 0.16 * H) & (radial < 0.06 * H)
+    # `reach`: a species body's hand may be an adult's on a small body - search as far as an adult's would reach
+    Hr = H if reach is None else max(H, reach)
+    sel = (s > 0) & (s < 0.16 * Hr) & (radial < 0.06 * Hr)
     if not sel.any():
         return {"length": 0.0, "fingers": 0}
     length = float(s[sel].max())
@@ -130,9 +132,9 @@ def _foot(b, side, fwd):
     return float(f.max() - f.min())
 
 
-def _hands_feet(b, m, fwd, count_fingers):
+def _hands_feet(b, m, fwd, count_fingers, reach=None):
     for s in ("L", "R"):
-        hd = _hand(b, s, fwd, count_fingers=count_fingers)
+        hd = _hand(b, s, fwd, count_fingers=count_fingers, reach=reach)
         if hd:
             m[f"hand.{s}"] = hd
         ft = _foot(b, s, fwd)
@@ -436,7 +438,9 @@ def measurements(ob, sex=None, fast=False, only=None, levels=None):
         m["head_length"] = top - chin
         m["heads"] = H / m["head_length"] if m["head_length"] > 0 else None
 
-    _hands_feet(b, m, fwd, count_fingers=not fast)
+    # a species body searches for its hands as an adult human's would be (1.75 m): a small adult's hand can be
+    # an adult's size; a human's search is as it always was
+    _hands_feet(b, m, fwd, count_fingers=not fast, reach=1.75 * 1.25 if levels else None)
     if not fast:
         _extremities(b, m, fwd)
 
@@ -669,6 +673,9 @@ def check(m, preset="realistic", sex=None, build=None):
             f"hip joints {r * H * 100:.1f} cm above the crotch ({r:.3f} H), expected {lo}-{hi} H"
             + ("" if st == "pass" else " - the hip joints are not inside the pelvis"), r, [lo, hi])
 
+    if p.get("species") and m.get("head_length"):
+        _reads_adult(m, add)
+
     if m.get("kind") == "landmarks":
         return out          # a landmark set has no surface to judge
 
@@ -735,6 +742,40 @@ def check(m, preset="realistic", sex=None, build=None):
     if m["landmark_source"] == "none":
         add("landmarks", "rig", "fail", "no rig bones or MPFB joint groups to read landmarks from")
     return out
+
+
+def reads_adult(m):
+    """Whether a body's proportions read as an adult's: {"status", "head_fraction", "cues": {metric: value},
+    "child": [(metric, value, floor, knob)]}. A head of ADULT_HEAD_FRACTION of the stature or more (6.25 heads or
+    fewer) is a species trait only with an adult's neck, hands, feet and shoulders against it
+    (species_design.ADULT_CUES); with a child's it reads as a toddler, and fails."""
+    from . import species_design as sd
+    hl, H = m["head_length"], m["stature"]
+    vals = {"neck_head": (m["chin_z"] - m["shoulder_z"]) / hl if m.get("chin_z") and m.get("shoulder_z") else None,
+            "hand_head": m["hand"] / hl if m.get("hand") else None,
+            "foot_head": m["foot"] / hl if m.get("foot") else None,
+            "shoulder_head": m["shoulder_width"] / hl if m.get("shoulder_width") else None}
+    if m.get("menton_sellion"):
+        vals["face_head"] = m["menton_sellion"] / hl       # reported: the face is the adult human's, scaled whole
+    child = [(k, v, sd.ADULT_CUES[k][2], sd.ADULT_CUES[k][0]) for k, v in vals.items()
+             if k in sd.ADULT_CUES and v is not None and v < sd.ADULT_CUES[k][2]]
+    big = hl / H >= sd.ADULT_HEAD_FRACTION
+    return {"status": "fail" if big and child else "pass", "head_fraction": hl / H,
+            "cues": {k: round(v, 3) for k, v in vals.items() if v is not None}, "child": child if big else []}
+
+
+def _reads_adult(m, add):
+    r = reads_adult(m)
+    cues = ", ".join(f"{k} {v:.2f}" for k, v in r["cues"].items())
+    if r["status"] == "pass":
+        add("reads_adult", "proportion", "pass", f"reads adult: {1 / r['head_fraction']:.1f} heads, {cues}",
+            r["head_fraction"])
+        return
+    what = "; ".join(f"{k} {v:.2f} under an adult's {floor} (raise the preset's {knob}, or design it through "
+                     "species_design, which holds it)" for k, v, floor, knob in r["child"])
+    add("reads_adult", "proportion", "fail",
+        f"reads as a child: a big head ({1 / r['head_fraction']:.1f} heads) on a child's proportions - {what}",
+        r["head_fraction"])
 
 
 def run(ob, preset="realistic", sex=None, out_dir=None, build=None):
