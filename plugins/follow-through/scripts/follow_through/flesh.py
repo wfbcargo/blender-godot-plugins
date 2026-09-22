@@ -96,6 +96,7 @@ ATTACH_UNDER_LEAN_M = 0.02      # and its depth under the lean surface there
 ATTACH_U0 = 0.3                 # weight is 0 up to this far along pivot -> apex
 ATTACH_LEG_OFF = 0.5            # and 0 on a vertex with this share of its skin on a leg, rising to 1 at none
 # check_placement on such a type (research-flesh-jiggle.md B and C)
+APEX_BALL_FEW = 4               # an apex ball of this many vertices or fewer is renormalised on its mean
 ATTACH_APEX_MIN = 0.9           # mean weight within 2 cm of the tail, at least
 ATTACH_ABOVE_MAX = 0.3          # weight 10 cm above the apex, at most
 ATTACH_THIGH_MAX = 0.05         # weight on vertices half or more skinned to a leg, at most
@@ -1150,7 +1151,8 @@ def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M,
     # the body, more than 2 cm from any skin: no vertex was near the tail, and the check read weight 0 there.
     # Only then, the apex is the outermost vertex nearest that mean - a body whose apex is on its skin keeps it
     d_apex = np.linalg.norm(P - apex, axis=1)
-    if float(d_apex.min()) > 0.02 * s:
+    flat_front = float(d_apex.min()) > 0.02 * s
+    if flat_front:
         near_top = top[np.argsort(np.linalg.norm(P[top] - apex, axis=1))[:3]]
         apex = P[near_top].mean(axis=0) if float(np.ptp(P[near_top], axis=0).max()) < 0.02 * s else P[near_top[0]]
         top = near_top
@@ -1178,7 +1180,9 @@ def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M,
     # partly skinned to the thigh at 0.67: the ball's mean at 0.89, under ATTACH_APEX_MIN (an elf's and
     # bench_mei's butt.L). Only then, normalised again on the ball's mean, so a region that already
     # reads full weight at its apex - every human that built before - keeps exactly its weights.
-    for _ in range(4):
+    # (Only for that reason, a ball too small for a percentile: on a ball of more vertices a low mean is a real
+    # mistake check_placement must see - flesh_figure's control, an uncapped jiggle share, came back placed.)
+    for _ in range(4 if near.sum() <= APEX_BALL_FEW else 0):
         if near.sum() == 0 or float(graded[near].mean()) >= ATTACH_APEX_MIN:
             break
         graded = np.clip(graded / max(float(graded[near].mean()), 1e-6), 0.0, 1.0)
@@ -1186,21 +1190,22 @@ def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M,
     # a thick short thigh (a dwarf on the adult build law) reaches within 2 cm of the seat's apex. That vertex is
     # thigh, not buttock: normalise on the rest. Only here, so a body that reached the apex weight keeps its weights
     ball = near & (leg < ATTACH_LEG_OFF)
-    for _ in range(4):
+    for _ in range(4 if (near & (leg >= ATTACH_LEG_OFF)).any() else 0):
         if not ball.any() or float(graded[near].mean()) >= ATTACH_APEX_MIN                 or float(graded[ball].mean()) >= ATTACH_APEX_MIN:
             break
         graded = np.clip(graded / max(float(graded[ball].mean()), 1e-6), 0.0, 1.0)
-    # A flat-fronted bulge (a big hunched belly) runs far up the front: its axis from the pivot to the apex is
-    # nearly horizontal, so u reads forwardness, not height, and the skin a hand's breadth above the apex - the
-    # attachment - moved with the mass (a troll's belly 0.62 there, over ATTACH_ABOVE_MAX). Only then, the weight
-    # fades with height from the pivot to just past where check_placement reads it: a mass that hangs from above
-    # keeps its attachment still. A body within the limit keeps its weights
+    # A flat-fronted bulge (a big hunched belly, found by its apex falling off the skin above) runs far up the
+    # front: its axis from the pivot to the apex is nearly horizontal, so u reads forwardness, not height, and the
+    # skin a hand's breadth above the apex - the attachment - moved with the mass (a troll's belly 0.62 there, over
+    # ATTACH_ABOVE_MAX). Only on such a front, the weight fades with height from the pivot to just past where
+    # check_placement reads it. Never otherwise: weight above the apex on a rounded mass is a real mistake the
+    # check must see (flesh_figure's control: an uncapped jiggle share, a butt weighted 0.5 10 cm up)
     d = P - apex
     dz = d @ up
     horiz = np.linalg.norm(d - np.outer(dz, up), axis=1)
     above_s = above_m * s
     ring = (dz > above_s - 0.01 * s) & (dz < above_s + 0.01 * s) & (horiz < 0.04 * s)
-    if ring.any() and float(graded[ring].max()) > ATTACH_ABOVE_MAX:
+    if flat_front and ring.any() and float(graded[ring].max()) > ATTACH_ABOVE_MAX:
         z0 = rise                                   # the pivot's height over the apex: full weight up to it
         z1 = max(above_s - 0.01 * s, z0 + 0.01 * s)
         fade = _smoothstep((z1 - dz) / max(z1 - z0, 1e-6))
