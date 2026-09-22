@@ -538,10 +538,15 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0, meshes=None):
         deg = math.degrees(v.angle(upv))
         lo, hi = STAND_BAND_DEG
         share = 1.0 if deg <= lo else 0.0 if deg >= hi else (hi - deg) / (hi - lo)
-        l["stand"] = v.length * share
-        l["ground"] = l["a"] + l["b"] + l["stand"]
         l["stand_deg"] = round(deg, 1)
         l["plan"] = "digitigrade" if share > 0.5 else "plantigrade"
+        # The effective leg counts the end bone only once the leg READS digitigrade, and then in proportion to
+        # how far it stands. A plain ramp over the whole band gave a Rigify human - whose foot bone leans 50
+        # degrees where MPFB's leans 64 - a 3% longer leg than it had, and its slide, slide recovery and
+        # slide-to-crouch each asked 100-102% of a thigh and stopped passing. A leg the map does not call
+        # digitigrade must measure exactly what it always did.
+        l["stand"] = v.length * max(0.0, 2.0 * share - 1.0)
+        l["ground"] = l["a"] + l["b"] + l["stand"]
         # The SILHOUETTE: what share of the straightened limb each segment is. A leg reads as an animal's or a
         # person's from these four numbers, whatever is on the end of it, so they belong in the body map beside
         # the leg plan (humanform.legs RATIOS: a dog's 0.32/0.34/0.27/0.07, a goat's 0.30/0.35/0.31/0.04, a
