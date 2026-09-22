@@ -143,6 +143,17 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, **kw):
     pre = species.preset(sp)
     hc = measure.run(human.name, preset=pre, sex=s["sex"], out_dir=out_dir, build=build)
     t["species_check"] = time.time() - t3
+    if sp.get("graft"):
+        # a body plan past the human one (humanform.graft): after the check, which grades the body the species'
+        # proportions describe (its hips, trunk and head); then the anatomy again, what the graft took declared
+        from . import graft
+        t5 = time.time()
+        rep["graft"] = graft.apply(human, sp["graft"])
+        rep["anatomy"] = species.inventory(human, sp, reference=before)
+        if tone is not None:
+            from . import look
+            look.skin(human, tone, species_skin=species.skin_block(sp))
+        t["graft"] = time.time() - t5
     if contact_sheet and out_dir:
         t4 = time.time()
         views.contact_sheet(human.name, out_dir, preset=pre, sex=s["sex"], report=hc)

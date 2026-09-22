@@ -276,10 +276,12 @@ def _refit(points, co, tris):
 
 
 def _lash_cards(co_before, co_after, faces, eyes_old, new, ap):
-    """For each new eye, the lash cards of its nearer side's human eye, carried to it and fitted to the new lids:
-    the card's roots lie on the human lid margin, so each point is mapped from the human opening (measured on the
-    card's own roots) onto this eye's aperture `ap`, keeping its distance from the eyeball in eyeball radii. Scaled
-    whole, the human roots fell inside the larger opening and the lashes crossed the iris (the first cyclops)."""
+    """For each new eye, lash cards carried from the human eyes and fitted to its lids. Each card's roots are
+    laid on this eye's lid margin - the aperture `ap`'s almond, nasal corner to outer corner - and every other
+    point keeps its offset from its nearest root, scaled with the eye. An eye on the midline takes two cards, the
+    left eye's on its left half and the right eye's on its right, nasal corners meeting in the middle, so it is
+    symmetric. (Scaled whole, the human roots fell inside the larger opening and crossed the iris; scaled by the
+    opening's stretch, the lashes stood up like a brush; one card alone was lopsided - the first cyclops.)"""
     from . import brows
     d = brows.regions().get("lashes")
     if not d:
@@ -287,25 +289,33 @@ def _lash_cards(co_before, co_after, faces, eyes_old, new, ap):
     tris = _tris(faces)
     out = []
     for e in new:
-        side = "L" if e["centre"][0] >= 0 else "R"
-        card = d[side]
-        p, _, _ = brows._rebuild(co_before, card["fit"])
-        c0, r0 = eyes_old[side]
         R = e["radius"]
-        rel = p - c0
-        roots = np.asarray(card["uv"], float)[:, 1] < 0.2
-        a_h = max(float(np.abs(rel[roots, 0] - rel[roots, 0].mean()).max()), 1e-6)
-        x_mid = float(rel[roots, 0].mean())
-        up = roots & (rel[:, 2] > 0)
-        lo = roots & (rel[:, 2] <= 0)
-        b_up = max(float(rel[up, 2].max()), 1e-6) if up.any() else 0.2 * r0
-        b_lo = max(float(-rel[lo, 2].min()), 1e-6) if lo.any() else 0.2 * r0
-        x = (rel[:, 0] - x_mid) * (ap[0] * R / a_h)
-        z = np.where(rel[:, 2] > 0, rel[:, 2] * (ap[1] * 1.1 * R / b_up), rel[:, 2] * (ap[1] * 0.9 * R / b_lo))
-        k = np.linalg.norm(rel, axis=1) / r0
-        y = -np.sqrt(np.maximum((k * R) ** 2 - x ** 2 - z ** 2, (0.2 * R) ** 2))
-        q = np.asarray(e["centre"]) + np.stack([x, y, z], axis=1)
-        out.append({"fit": _refit(q, co_after, tris), "faces": card["faces"], "uv": card["uv"], "from": side})
+        A, Bu, Bl = ap[0] * R, ap[1] * 1.1 * R, ap[1] * 0.9 * R
+        median = abs(e["centre"][0]) < 0.25 * R
+        if median:
+            jobs = [("L", 0.0, A), ("R", 0.0, -A)]           # (source, nasal x, outer x) on the new eye
+        else:
+            sgn = 1.0 if e["centre"][0] >= 0 else -1.0
+            jobs = [("L" if sgn > 0 else "R", -sgn * A, sgn * A)]
+        for side, x_nasal, x_outer in jobs:
+            card = d[side]
+            p, _, _ = brows._rebuild(co_before, card["fit"])
+            c0, r0 = eyes_old[side]
+            rel = p - c0
+            roots = np.asarray(card["uv"], float)[:, 1] < 0.2
+            ri = np.flatnonzero(roots)
+            rr = rel[ri]
+            lat = rr[:, 0] * (1.0 if side == "L" else -1.0)       # grows toward the outer corner
+            t = (lat - lat.min()) / max(float(lat.max() - lat.min()), 1e-9)    # 0 nasal .. 1 outer
+            x = x_nasal + t * (x_outer - x_nasal)
+            s = np.sqrt(np.clip(1.0 - (x / A) ** 2, 0.0, 1.0))
+            z = np.where(rr[:, 2] > 0, Bu * s, -Bl * s)
+            y = -np.sqrt(np.maximum((1.02 * R) ** 2 - x ** 2 - z ** 2, (0.2 * R) ** 2))
+            root_new = np.stack([x, y, z], axis=1)
+            near = np.argmin(np.linalg.norm(rel[:, None, :] - rr[None, :, :], axis=2), axis=1)
+            k = R / r0 * (0.5 if median else 1.0) ** 0.5            # half a lid's cards on half its width
+            q = np.asarray(e["centre"]) + root_new[near] + (rel - rr[near]) * k
+            out.append({"fit": _refit(q, co_after, tris), "faces": card["faces"], "uv": card["uv"], "from": side})
     return out
 
 

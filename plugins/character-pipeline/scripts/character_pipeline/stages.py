@@ -703,7 +703,36 @@ def run_flesh(ch, ctx):
     return out
 
 
+def run_swim(ch, ctx):
+    """The moves stage for a swimmer that stands at rest (`[moves] locomotion = "swim"`): rig-anything's
+    swim.upright_set - Idle treading water upright, the rest swimming prone - checked on playback like every
+    clip, with none of a walker's Froude or reach checks, which do not apply."""
+    from rig_analysis import swim
+    for a in list(bpy.data.actions):
+        if a.name.startswith(ch.name + "_"):
+            bpy.data.actions.remove(a)
+    res = swim.upright_set(ch.rig, prefix=ch.name, roles=tuple(ch.moves.roles))
+    out = {}
+    for role in ch.moves.roles:
+        r = res[role]
+        if "error" in r:
+            raise RuntimeError(f"moves {role}: {r['error']}")
+        out[role] = {"action": r["action"], "passed": r.get("passed"), "failures": r.get("failures", [])[:4],
+                     **{k: r[k] for k in ("mode", "tailbeat_hz", "speed_mps", "tail_pp_m", "lay", "period_s",
+                                          "standing_height_m") if r.get(k) is not None}}
+    out["locomotion"] = "swim"
+    failing = sorted(role for role in ch.moves.roles if out[role]["failures"] and role not in ch.moves.may_fail)
+    if failing:
+        why = "; ".join(f"{role}: {' | '.join(res[role].get('failures') or [])}" for role in failing)
+        raise RuntimeError(f"moves: clips failing their checks: {failing} - {why} (or list the role in "
+                           "moves.may_fail to export it forced)")
+    ctx["moves"] = res
+    return out
+
+
 def run_moves(ch, ctx):
+    if ch.moves.locomotion == "swim":
+        return run_swim(ch, ctx)
     from rig_analysis import actions, verify
     for a in list(bpy.data.actions):
         if a.name.startswith(ch.name + "_"):
@@ -921,10 +950,17 @@ def run_export(ch, ctx):
     var = variability_block(ch)
     if var is not None:
         extra["variability"] = var
-    e = ra_export.export_character(ch.mesh, ch.rig, glb, name=ch.name, creature=ch.id, reports=reports,
-                                   res_path=f"{ch.export.res_dir}/{ch.id}.glb", roles=list(ch.moves.roles),
-                                   loops=list(ch.moves.loops), gaits=list(ch.moves.export_gaits),
-                                   force=bool(ch.moves.may_fail), extra=extra, review=False)
+    if ch.moves.locomotion == "swim":
+        from rig_analysis import swim
+        e = swim.export_upright(ch.mesh, ch.rig, glb, reports=reports, roles=list(ch.moves.roles),
+                                loops=list(ch.moves.loops), name=ch.name, creature=ch.id,
+                                res_path=f"{ch.export.res_dir}/{ch.id}.glb", force=bool(ch.moves.may_fail),
+                                extra=extra)
+    else:
+        e = ra_export.export_character(ch.mesh, ch.rig, glb, name=ch.name, creature=ch.id, reports=reports,
+                                       res_path=f"{ch.export.res_dir}/{ch.id}.glb", roles=list(ch.moves.roles),
+                                       loops=list(ch.moves.loops), gaits=list(ch.moves.export_gaits),
+                                       force=bool(ch.moves.may_fail), extra=extra, review=False)
     if "error" in e:
         raise RuntimeError(f"export refused: {e['error']}")
     forced = sorted(set(e["manifest"].get("forced_clips") or [])

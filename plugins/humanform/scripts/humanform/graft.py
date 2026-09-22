@@ -33,7 +33,10 @@ from __future__ import annotations
 import json
 import math
 
-import numpy as np
+try:                     # validate() is standard library only: species_design (and character-pipeline's spec check) call it
+    import numpy as np
+except ImportError:      # pragma: no cover
+    np = None
 
 GROUP = "hf_graft"
 PROP = "hf_graft"

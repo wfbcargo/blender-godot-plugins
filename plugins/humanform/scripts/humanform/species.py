@@ -82,7 +82,7 @@ def inline(d):
         raise ValueError("an inline species needs `ratios` and `heads` (a whole humanform-species/1 preset): "
                          "humanform.species_design, which designs one from observables or knobs, is not installed")
     sid, label = d.pop("id", None) or "custom", d.pop("label", None)
-    look = {k: d.pop(k) for k in ("head", "skin", "moves") if k in d} or None
+    look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft") if k in d} or None
     anatomy = d.pop("anatomy", None)
     if "knobs" in d:
         knobs = dict(d.pop("knobs"))

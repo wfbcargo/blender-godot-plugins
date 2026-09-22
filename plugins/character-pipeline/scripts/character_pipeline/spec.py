@@ -180,7 +180,7 @@ SPECIES_LOOK = {
     "skin.pattern": ("kind", "colour", "scale", "amount", "regions"),
     "head": ("shape", "shape_weight", "features", "eyes"),
 }
-SPECIES_META = ("id", "label", "anatomy", "moves")
+SPECIES_META = ("id", "label", "anatomy", "moves", "graft")
 # `anatomy` (humanform.species_design): only what the description says the creature lacks, each with its reason,
 # and sizes it states - every other part is kept
 SPECIES_ANATOMY = ("absent", "scale")
@@ -214,6 +214,21 @@ def check_species_table(table):
             if not isinstance(e, dict) or not e.get("part") or not e.get("reason"):
                 raise SpecError(f"body.species.anatomy.absent entry {e!r}: needs part and the reason the description "
                                 "gives (a part is declared absent only when the description says so)")
+    if sd is not None and hasattr(sd, "design_from"):
+        # the whole design, as humanform will make it at the body stage (milliseconds, standard library): a
+        # knob out of range, a graft whose absences the description does not state, numbers that disagree -
+        # refused here, before any build, with the design's own message
+        d = {k: v for k, v in table.items() if k not in ("id", "label")}
+        look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft") if k in d}
+        anatomy = d.pop("anatomy", None)
+        knobs = {n: d.pop(n) for n in list(d) if n in sd.KNOBS and n not in sd.OBSERVABLES}
+        if "stature" not in d:
+            raise SpecError("[body.species] needs stature (the creature's range, m: a number, [lo, hi] or "
+                            "{ female = [...], male = [...] })")
+        try:
+            sd.design_from(d, id=table.get("id") or "custom", look=look or None, anatomy=anatomy, **knobs)
+        except Exception as exc:                        # DesignError, or a malformed value
+            raise SpecError(f"[body.species]: {exc}")
     pattern = (table.get("skin") or {}).get("pattern")
     if pattern is not None:
         if not isinstance(pattern, dict):
@@ -294,6 +309,13 @@ class Moves:
     per_gait: dict = field(default_factory=dict)  # role -> move_set options over the style
     may_fail: list = field(default_factory=list)  # clips exported forced and listed, never silently
     clearance_check: list = field(default_factory=list)
+    locomotion: str = "walk"                    # "walk" (move_set, Froude gaits) or "swim" (rig-anything's
+                                                # swim.upright_set: a body that stands at rest and swims)
+
+
+LOCOMOTION = ("walk", "swim")
+# the clips a swimmer that stands has (rig-anything swim.upright_set): Idle floats upright, the rest swim prone
+SWIM_ROLES = ("Idle", "Swim", "Sprint", "Glide", "TurnL", "TurnR")
 
 
 @dataclass
@@ -478,6 +500,8 @@ class Character:
             # it derives, so a human spec's moves hash is unchanged and a dwarf's covers the switch
             if out.get("derive") is None:
                 out.pop("derive", None)
+            if out.get("locomotion") == "walk":
+                out.pop("locomotion", None)         # a walker hashes as before locomotion existed
             if self.derive_moves:
                 out["derive_moves"] = True
             if self.variability is not None and self.variability.asked():
@@ -744,8 +768,24 @@ def parse(data, path=None):
 
     m = _take(data, "moves", dict, required=True)
     _unknown(m, ("gaits", "roles", "loops", "export_gaits", "style", "derive", "stance_width", "posture",
-                 "per_gait", "may_fail", "clearance_check"), "[moves]")
-    gaits = {k: float(v) for k, v in _take(m, "gaits", dict, required=True, where="moves.").items()}
+                 "per_gait", "may_fail", "clearance_check", "locomotion"), "[moves]")
+    locomotion = _take(m, "locomotion", str, default="walk")
+    if locomotion not in LOCOMOTION:
+        raise SpecError(f"moves.locomotion {locomotion!r}: one of {', '.join(LOCOMOTION)}")
+    gaits = {k: float(v) for k, v in _take(m, "gaits", dict, required=locomotion == "walk",
+                                           default={}, where="moves.").items()}
+    if locomotion == "swim":
+        # a swimmer's clips are its swim set's, never a walk's: the Froude gaits and their checks do not apply
+        if gaits:
+            raise SpecError("moves.gaits are Froude numbers for a walker; a swimmer (locomotion = \"swim\") "
+                            "takes none - its speeds come from its length (rig-anything swim)")
+        bad = [r for r in (m.get("roles") or []) if r not in SWIM_ROLES]
+        if bad:
+            raise SpecError(f"moves.roles {bad}: a swimmer's roles are {', '.join(SWIM_ROLES)} (Idle floats "
+                            "upright; the others swim prone)")
+        for k in ("export_gaits", "clearance_check", "stance_width", "posture", "per_gait"):
+            if m.get(k):
+                raise SpecError(f"moves.{k} is a walker's; a swimmer (locomotion = \"swim\") has none")
     roles = list(_take(m, "roles", list, default=["Idle", *gaits]))
     if "Idle" not in roles:
         raise SpecError("moves.roles must include Idle")
@@ -764,7 +804,8 @@ def parse(data, path=None):
                   stance_width=_take(m, "stance_width", float),
                   posture=_take(m, "posture", dict), per_gait=per_gait,
                   may_fail=list(_take(m, "may_fail", list, default=[])),
-                  clearance_check=list(_take(m, "clearance_check", list, default=[])))
+                  clearance_check=list(_take(m, "clearance_check", list, default=[])),
+                  locomotion=locomotion)
 
     hair = None
     if "hair" in data:

@@ -203,6 +203,23 @@ class DesignError(ValueError):
 _CACHE = {}
 
 
+def _sibling(name):
+    """A module beside this one, whether this file was imported in its package or loaded alone (character-pipeline
+    loads it by path to check a spec outside Blender)."""
+    import importlib
+    import importlib.util
+    import sys
+    if __package__:
+        return importlib.import_module("." + name, __package__)
+    key = "_hf_sd_" + name
+    if key not in sys.modules:
+        spec = importlib.util.spec_from_file_location(key, os.path.join(HERE, name + ".py"))
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[key] = mod
+        spec.loader.exec_module(mod)
+    return sys.modules[key]
+
+
 def _json(name):
     if name not in _CACHE:
         with open(os.path.join(DATA, name), encoding="utf-8") as fh:
@@ -428,7 +445,8 @@ def _mid(st, sex):
 def design(id="custom", label=None, stature=None, look=None, sources=None, notes=None, report=None,
            knob_notes=None, basis=None, anatomy=None, **knobs):
     """A species preset (humanform-species/1) from knobs (KNOBS; unset ones take the human default, `heads` the
-    allometric law). `look`: {"head": {...}, "skin": {"palette", ...}, "moves": {...}}. `anatomy`: {"absent": [{"part", "reason"}],
+    allometric law). `look`: {"head": {...}, "skin": {"palette", ...}, "moves": {...}, "graft": {...}} (graft: a
+    limb pair replaced, humanform.graft - what it takes must be in anatomy.absent). `anatomy`: {"absent": [{"part", "reason"}],
     "scale": {part: factor}} - only what a description states; every other part is kept and scales with its host
     (ANATOMY). The skin's `regions_off` is derived from `absent` and nothing else. `report`: a
     solve() result, recorded in the preset's `design` block. Raises DesignError, naming the knob and its range,
@@ -573,6 +591,13 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
         "anatomy": anat,
         "moves": lookd.get("moves", {"style": None, "notes": "derive_style from the build"}),
     }
+    if lookd.get("graft"):
+        # a body plan past the human one (humanform.graft): what it replaces must be declared absent
+        _graft = _sibling("graft")
+        gp = _graft.validate(lookd["graft"], absent=[e["part"] for e in anat["absent"]])
+        if gp:
+            raise DesignError(f"{id}: " + "; ".join(gp))
+        doc["graft"] = lookd["graft"]
     p = check(doc, per_sex)
     if p:
         raise DesignError(f"{id}: " + "; ".join(p))
