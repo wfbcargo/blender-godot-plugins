@@ -423,6 +423,17 @@ or the shoulders once animated - the strand is the part meant to move. In Godot 
 `LookdevMaterials.apply` (soft hairline, per-face tangents); without it the edge is alpha scissor and there
 is no anisotropy (see lookdev's `references/hair.md`).
 
+## Creature heads (`humanform.features`)
+
+`features.apply(human, {"shape", "shape_weight", "features": {name: weight | definition}})` on the unbaked body,
+before any proportion warp. It adds pointed or large ears, brow ridges, snouts, tusks and horns. Each feature
+is a region of the face moved by a displacement, plus optional MPFB targets and optional rigid parts
+(cone, horn, tusk) skinned to the head bone. The named features are presets over that mechanism, and a new
+one is written as a table without code. `features.validate` names every mistake. `apply` also gives the head
+its teeth and tongue (`<human>_teeth`) and keeps the eyes in their sockets. Its `warnings` catch skin pushed
+through skin. Designing a feature from a description:
+`${CLAUDE_PLUGIN_ROOT}/references/head-features.md`.
+
 ## Muscle definition
 
 MPFB's mesh is smooth: its muscle macro makes a body bigger, not defined, so Dante read average until the
