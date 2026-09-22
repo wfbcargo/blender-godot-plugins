@@ -172,6 +172,28 @@ GAIT_STYLES = {
                            "head_hold": 0.2}},
         "run": {"max_drop": 0.07, "upper": {"lean": 6.0}},
     },
+    # Fantasy species (improvements 08, layer 4). What a dwarf's BUILD implies - the roll of a long
+    # trunk on short legs, a wide stance, long ground contact - comes from `morphology.derive_style`
+    # and needs no name; these are the parts no measure implies, the convention of each.
+    # A dwarf's stomp: a heavy, deliberate footfall - the foot lifted less and set down flat,
+    # the arms swinging short and bent, a slight forward set.
+    "dwarf_stomp": {
+        "walk": {"lift_scale": 0.85, "bounce_scale": 0.85, "max_drop": 0.035,
+                 "upper": {"arm_swing": 12.0, "elbow": 28.0, "elbow_swing": 6.0, "lean": 3.0,
+                           "thorax_turn": 5.0, "head_hold": 0.5}},
+        "run": {"lift_scale": 0.85, "max_drop": 0.06, "upper": {"lean": 9.0}},
+        "idle": {"upper": {"elbow": 20.0}},
+    },
+    # An elf's lightness: a long, high, springy step, the body quiet on top - the head held, little
+    # lean, loose arms. A convention of the fiction, not physics. No stance_width: it is absolute
+    # (1.0 under the hips) and an MPFB body stands at ~1.5, so any number narrower here crossed feet.
+    "elf_light": {
+        "walk": {"stride_scale": 1.05, "lift_scale": 1.15, "bounce_scale": 1.1, "max_drop": 0.03,
+                 "upper": {"arm_swing": 14.0, "elbow": 12.0, "lean": 0.5, "head_hold": 0.55,
+                           "lean_bob": 0.8}},
+        "run": {"stride_scale": 1.05, "lift_scale": 1.1, "max_drop": 0.06,
+                "upper": {"lean": 6.0, "head_hold": 0.8}},
+    },
 }
 
 STYLE_KEYS = ("duty", "stride_scale", "lift_scale", "bounce_scale", "sway", "min_knee",

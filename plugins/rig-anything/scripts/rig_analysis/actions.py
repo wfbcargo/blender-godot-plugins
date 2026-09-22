@@ -1222,7 +1222,7 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
                     "Slide", "SlideRecover", "SlideToCrouch"),
              # also known, not made unless asked: "TurnL", "TurnR" (`turn`)
              walk_froude="walk", trot_froude="trot", run_froude="sprint",
-             legacy_gaits=False, options=None, variability=None):
+             legacy_gaits=False, options=None, variability=None, derive=False, mass=None):
     """Author a playable move set for one creature. Returns {role: report}.
 
     `options` is {role: {keyword: value}}, handed to that role's maker over its
@@ -1249,6 +1249,12 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
     the walk at several times its rate. `legacy_gaits=True` restores the old
     `gait_cycle` walk and run and drops the trot. CrouchWalk stays on
     `gait_cycle`, which is built on the crouch pose.
+
+    `derive=True` measures the build (`morphology.derive_style`: trunk-to-leg ratio, stockiness,
+    mass - `mass` as `morphology.measure`) and lays the style it implies UNDER each role's own style,
+    key by key, for the roles that take a style (Idle, the gaits, the turns). A body inside the
+    human range derives {} and its clips are exactly the ones `derive=False` gives. Each of those
+    roles' reports then carries `morphology`: what was measured and the style derived.
 
     `variability` is this character's `[variability]` (`variability.py`): a fixed
     left/right asymmetry drawn once from its seed and baked into the gait clips -
@@ -1320,9 +1326,22 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
         for role, (fn, _kw) in makers.items():
             if fn is loco_mod.cycle:
                 options[role] = dict({"variability": variability}, **options.get(role, {}))
+    styled = ()
+    if derive:
+        from . import locomotion as loco_mod, morphology
+        measured = morphology.measure(bm, mass=mass)
+        derived = morphology.derive_style(bm, measured=measured)
+        styled = [role for role, (fn, _kw) in makers.items() if fn in (idle, turn, loco_mod.cycle)]
+        if derived:
+            for role in styled:
+                opts = dict(options.get(role, {}))
+                opts["style"] = morphology.merge_styles(derived, opts.get("style"))
+                options[role] = opts
     out = {}
     for role in roles:
         fn, kw = makers[role]
         out[role] = fn(rig_name, **dict(common, **dict(kw, **options.get(role, {}))))
+        if role in styled and isinstance(out[role], dict) and "error" not in out[role]:
+            out[role]["morphology"] = {"measured": measured, "derived": derived}
     stored.store(out, rig_name)
     return out

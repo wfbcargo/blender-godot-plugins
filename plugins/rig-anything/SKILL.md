@@ -183,6 +183,18 @@ there.
 `child`, `brisk`, `relaxed`. `cycle(style="heavy")`,
 `idle(style=...)`, `move_set(options={"Walk": {"style": "child"}})`; a style
 has "walk", "run" and "idle" sections, and any explicit argument beats it.
+`dwarf_stomp` and `elf_light` are a species' conventions (improvements 08).
+
+**Style from the build** (`morphology.py`). `derive_style(bodymap, mass)` measures the rig -
+trunk-to-leg ratio (neck base to hips over hip height; MPFB humans 0.58-0.68), stockiness (voxel
+mass / stature^3), total mass, arm over trunk - and returns the style it implies: a long trunk rolls
+(pelvic list, trunk side bend, lumbar turn and anterior tilt up, gaits wider, run knees straighter),
+a stocky body stays down longer and bounces less, over 300 kg never leaves the ground (run duty
+0.5), short arms open the running elbow. A human-proportioned body of ordinary build derives `{}`.
+`move_set(derive=True)` lays it under each role's own style (`merge_styles`: the given style wins
+key by key) and puts `morphology` (measured, derived) on those reports. `morphology.checks`
+warns, with the fix, on a walk outside Froude 0.18-0.35 and hands that cannot reach the hips or
+the top of the head; `export_character` writes them as the manifest's `warnings`.
 
 **Nobody is symmetric** (`variability.py`, since 0.33.0). A generated walk is mirror-symmetric to
 the last digit, which is one of the tells that nobody walked it. `cycle(variability={...})` /
