@@ -1,12 +1,12 @@
 {
  "fixture": "pipeline_genitals",
  "plugins": {
-  "character-pipeline": "0.5.0",
-  "follow-through": "0.5.2",
-  "humanform": "0.8.0",
-  "lookdev": "0.2.0",
-  "rig-anything": "0.23.0",
-  "wardrobe": "0.4.0"
+  "character-pipeline": "0.19.0",
+  "follow-through": "0.11.0",
+  "humanform": "0.19.0",
+  "lookdev": "0.12.0",
+  "rig-anything": "0.42.0",
+  "wardrobe": "0.8.0"
  },
  "report": {
   "hashing": {
@@ -22,44 +22,64 @@
   },
   "man": {
    "bake": {
-    "cut_faces": 22,
-    "cut_vertices": 13,
+    "cut_faces": 12,
+    "cut_vertices": 5,
+    "flap_faces_trimmed": 382,
     "muscle_high": {
-     "faces_after": 14148,
+     "faces_after": 13781,
      "faces_before": 13560,
-     "moved": 13367
+     "moved": 13380
     },
     "open_edges_after": 0,
     "open_edges_before": 34,
-    "rim": 20,
-    "seam_faces": 64,
-    "seam_quads": 24,
+    "rim": 16,
+    "seam_faces": 69,
+    "seam_quads": 27,
     "shell_faces": 728,
-    "shell_loop": 68
+    "shell_loop": 80
    },
    "body": {
     "sex": "male",
     "shell_vertices": 200,
     "targets": {
-     "penis-length-decr": 0.2
+     "penis-length-decr": 0.166
     }
    },
    "chain_shares": {
-    "pelvis": 0.975,
-    "thigh": 0.025
+    "pelvis": 0.993,
+    "thigh": 0.007
    },
    "clearance": {
-    "max_mm": 2.0,
+    "max_mm": 1.7,
     "poses": 2,
-    "pushed": 22
+    "pushed": 20
    },
    "clearance_better": true,
+   "crotch": {
+    "Idle": {
+     "crotch_frame": null,
+     "crotch_mm": 0.0,
+     "part_frame": 6,
+     "part_mm": 2.9,
+     "thigh_frame": null,
+     "thigh_mm": 0.0
+    },
+    "Walk": {
+     "crotch_frame": null,
+     "crotch_mm": 0.0,
+     "part_frame": 9,
+     "part_mm": 8.7,
+     "thigh_frame": null,
+     "thigh_mm": 0.0
+    }
+   },
+   "crotch_within_limit": true,
    "flesh_regions": {
     "genital": {
      "bone_parent": "spine",
      "material": "firm_flesh",
-     "max_offset_m": 0.0194,
-     "peak_m": 0.0647,
+     "max_offset_m": 0.0256,
+     "peak_m": 0.0852,
      "type": "genital"
     }
    },
@@ -95,9 +115,9 @@
     "skins": 1
    },
    "muscle_high": {
-    "faces_after": 14148,
+    "faces_after": 13781,
     "faces_before": 13560,
-    "moved": 13367
+    "moved": 13380
    },
    "muscle_normal": {
     "method": "matched",
@@ -106,13 +126,13 @@
    "pelvis_dominant": true,
    "rest_not_pinched": "True",
    "rest_shape": [
-    0.55,
-    0.57
+    0.79,
+    0.9
    ],
    "shares": {
-    "spine": 0.934,
-    "thigh.L": 0.033,
-    "thigh.R": 0.033
+    "spine": 0.938,
+    "thigh.L": 0.031,
+    "thigh.R": 0.031
    },
    "stages": {
     "bake": "ran",
@@ -123,9 +143,9 @@
     "muscle": "ran"
    },
    "surface": {
-    "largest": 14130,
-    "open_edges": 0,
-    "pieces": 1
+    "largest": 13762,
+    "open_edges": 128,
+    "pieces": 3
    },
    "thigh_clearance": {
     "FixStudyMan_Idle": {
@@ -135,26 +155,26 @@
       null
      ],
      "before": [
-      77,
-      8.7,
-      21
+      74,
+      8.5,
+      20
      ],
      "key_max_deg": 0.0,
-     "key_max_mm": 11.4
+     "key_max_mm": 24.0
     },
     "FixStudyMan_Walk": {
      "after": [
-      74,
-      8.4,
-      25
+      2,
+      1.8,
+      9
      ],
      "before": [
-      194,
-      27.8,
-      24
+      83,
+      11.5,
+      7
      ],
-     "key_max_deg": 16.0,
-     "key_max_mm": 30.0
+     "key_max_deg": 32.0,
+     "key_max_mm": 50.0
     }
    },
    "unweighted": 0,
@@ -165,28 +185,28 @@
      "inside": 0
     },
     {
-     "deepest_mm": 4.3,
-     "frame": 7,
-     "inside": 9
-    },
-    {
-     "deepest_mm": 3.2,
-     "frame": 13,
-     "inside": 4
-    },
-    {
-     "deepest_mm": 2.1,
-     "frame": 20,
-     "inside": 1
-    },
-    {
-     "deepest_mm": 5.6,
-     "frame": 26,
-     "inside": 20
+     "deepest_mm": 0.0,
+     "frame": 5,
+     "inside": 0
     },
     {
      "deepest_mm": 0.0,
-     "frame": 33,
+     "frame": 10,
+     "inside": 0
+    },
+    {
+     "deepest_mm": 0.0,
+     "frame": 14,
+     "inside": 0
+    },
+    {
+     "deepest_mm": 0.0,
+     "frame": 19,
+     "inside": 0
+    },
+    {
+     "deepest_mm": 0.0,
+     "frame": 24,
      "inside": 0
     }
    ]
@@ -242,8 +262,8 @@
    },
    "surface": {
     "largest": 13380,
-    "open_edges": 0,
-    "pieces": 1
+    "open_edges": 128,
+    "pieces": 3
    }
   }
  }

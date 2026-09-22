@@ -724,7 +724,19 @@ def run_moves(ch, ctx):
         c = verify.limb_clearance(ch.rig, res[role]["action"], mesh_name=ch.mesh, every=2)
         out[role]["limb_clearance"] = {k: c.get(k) for k in ("closest_m", "at_frame", "samples_inside", "error")
                                        if k in c}
-    failing = sorted(role for role in ch.moves.roles if out[role]["failures"] and role not in ch.moves.may_fail)
+    # every clip: how far the skin between the legs passes through itself (thigh into thigh, into the crotch)
+    # and through a genital part - linear blend skinning collapses the crotch, and nothing else measured it
+    limit = None
+    if ch.body.genitals:
+        from humanform import genitals as hf_genitals
+        limit = hf_genitals.CLEAR_LIMIT_MM
+    for role in ch.moves.roles:
+        c = verify.crotch_clearance(ch.rig, res[role]["action"], mesh_name=ch.mesh, every=1 if limit else 2)
+        out[role]["crotch"] = {k: v for k, v in c.items() if k.endswith(("_mm", "_frame")) or k in ("skipped", "error")}
+        if limit and (c.get("part_mm") or 0.0) > limit:
+            print(f"[{ch.id}] moves: {role}: the genital part goes {c['part_mm']} mm into a thigh at frame "
+                  f"{c.get('part_frame')}, over humanform.genitals.CLEAR_LIMIT_MM ({limit} mm)")
+    failing =sorted(role for role in ch.moves.roles if out[role]["failures"] and role not in ch.moves.may_fail)
     if failing:
         # each failing clip with what failed and by how much, so the fix (a [moves.per_gait.<role>] option, or
         # may_fail) can be chosen from the message alone instead of by rebuilding to read the stored report

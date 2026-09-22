@@ -1,7 +1,8 @@
 """L4 part: adult external genitals on an MPFB body, as neutral figure-study anatomy (relaxed, at rest).
 
     rep = genitals.add(human, "male")                          # keep MPFB's shell, targets at neutral
-    rep = genitals.add(human, "male", shape={"length": 0.4})    # MPFB's penis-length target, 0..1 (0.5 neutral)
+    rep = genitals.add(human, "male", shape={"length": 0.4})    # MPFB's penis-length target, 0..1 (0.5 neutral;
+                                                                # 0..1 is an adult's range, SHAPE_SPAN_M)
     rep = genitals.add(human, "female")                         # a delta part: mons and labia majora relief
     rep = genitals.fuse(baked)                                  # male: after bake_for_game, one surface
 
@@ -18,7 +19,9 @@ it with the point attribute `hf_genital`, which the bake carries. `fuse` then wo
 shape keys, plain skin weights - before anything else (eyes, hair) is joined into it:
 
 1. the shell is subdivided once (Catmull-Clark, weights, UVs and the mark interpolated): 11 mm quads read
-   faceted in a lit close-up;
+   faceted in a lit close-up; then its flat rim is dropped (`_trim_flush`: the flap MPFB spreads over the
+   crotch ~1 mm off the skin, out into both groin folds), so it joins the body where it stands out of it and
+   the body keeps its own crotch skin - with the flap on the pelvis, a thigh went 23 mm into it in a crouch;
 2. the body faces under the shell's footprint (its open loop's plane, +-4 cm) are cut out;
 3. the hole's rim and the shell's loop are zipped with triangles merged by angle about the footprint's
    centre (the two loops differ in count, 20 vs 68 on the study man, so bmesh's `bridge_loops` leaves
@@ -26,9 +29,9 @@ shape keys, plain skin weights - before anything else (eyes, hair) is joined int
 4. each thigh's share of a shell vertex is held to `THIGH_SHARE`, fading in over `BLEND_M` from the join,
    the rest going to the pelvis, so the part rides the pelvis, not a leg.
 
-The body stays one closed piece: the open-edge count after is the count before less the shell's loop. The cut
-deletes a few hm08 body vertices, so hm08 indices do not hold on a fused mesh - which is baked, and nothing
-reads them there (`delta` and `muscle` run before the bake).
+The body stays one closed piece: the open-edge count after is the count before less the shell's loop. The cut's
+inner body vertices stay behind as loose points (glTF exports none of them), so every hm08 index still holds on
+the fused mesh: skin regions, brows, lashes and landmarks read MPFB's index lists after the bake.
 
 **Female.** hm08's female crotch is a shallow mons cleft. `relief` adds a delta part (`delta`, the muscle
 mechanism): a mons pubis pad and two labia majora pads either side of the midline cleft, heights along the
@@ -52,6 +55,12 @@ HELPER = "helper-genital"
 MASK_GROUP = "body"             # MPFB's "Hide helpers" mask keeps this group
 KEY_PREFIX = "hfg:"
 SHAPES = ("length", "circ", "testicles")
+# What 0 and 1 of a `shape` value mean, each side of 0.5 (MPFB's neutral): at most this far, in metres, of the
+# furthest vertex's move. MPFB's own targets at full weight are far past an adult's range - penis-length-incr
+# moves the tip 16.2 cm (a 9 cm shaft to 25 cm), -decr 3.6 cm; -circ 9 / 6 mm; -testicles 4.3 / 2.9 cm - and
+# 1.0 used to be the whole target. Now 0..1 spans a flaccid adult's range round the neutral (length ~6-12 cm).
+SHAPE_SPAN_M = {"length": 0.03, "circ": 0.0025, "testicles": 0.012}
+MPFB_UNIT_M = 0.1               # MakeHuman's targets are in decimetres
 THIGH_SHARE = 0.06              # most a thigh may hold of a shell vertex away from the join
 BLEND_M = 0.02                  # the join's own weights fade to the capped ones over this far from the loop
 CLEAR_M = 0.006                 # the shell is moved to stand at least this far off a thigh's swept skin
@@ -70,13 +79,18 @@ SIDE_SHARE = 0.9                # the most the two side bones hold of a shell ve
 SIDE_FADE_M = (0.006, 0.026)    # side weight fades in from 0 at this far from the join to full at that far
 SIDE_SPLIT_M = 0.012            # the halves cross over the midline across +-this (the shaft rides both)
 KEY_CLEAR_M = 0.0015            # each keyed frame stands the scrotum this far off the thigh skin
-KEY_MAX_M = 0.03                # most a side bone moves
-SWING_DEG = (0, 8, 16)           # the common escape searched: a forward swing of both halves about their roots ...
-ESCAPE_M = (0.0, 0.01, 0.02, 0.03)  # ... and forward (and the first two, down) travel
+KEY_MAX_M = 0.05                # most a side bone moves (0.03 held the study man's run 15 mm inside, on the cap)
+SWING_DEG = (0, 8, 16, 24, 32)   # the common escape searched: a forward swing of both halves about their roots ...
+ESCAPE_M = (0.0, 0.01, 0.02, 0.03, 0.04)  # ... and forward (and the first two, down) travel
 ESCAPE_COST = 0.5               # shortfall (m summed over vertices) one metre of escape travel is worth
 ESCAPE_AFTER_M = 0.01           # the escape is searched only when moving apart leaves this much shortfall
 ROT_ARM_M = 0.04                # a turn of 1 rad costs what this much travel does (about the scrotum's length)
-SQUASH_MAX_M = 0.02             # most the two halves close on each other (the scrotum's ~5 cm to ~3 cm)
+SQUASH_MAX_M = 0.03             # most the two halves close on each other (the scrotum's ~5 cm to ~2 cm)
+CLEAR_LIMIT_MM = 15.0           # the gate: the deepest a thigh may go into the part in any clip (verify.crotch_clearance
+                                # part_mm). At 0.4 m in Godot a thigh 1.5 cm into a ~5 cm scrotum reads as soft contact,
+                                # a thigh pressing it aside; past that the part is seen passing through the leg
+UV_SAME_ISLAND = 0.03          # seam UVs further apart than this (0..1 atlas) are on different islands
+FLUSH_M = 0.003                 # shell faces this close to the body from the open loop inward are its flap (`_trim_flush`)
 JOIN_KEEP_M = 0.015             # shell vertices this close to the join keep their place and the join's weights
 REGION = "genital"
 RELIEF_KEY = delta.KEY_PREFIX + REGION
@@ -106,8 +120,9 @@ def _target_path(stem):
 
 
 def _shape(human, shape):
-    """MPFB's genital targets at `shape` ({length|circ|testicles: 0..1}, 0.5 neutral): above 0.5 the
-    `incr` target at (v - 0.5) * 2, below it the `decr` target at (0.5 - v) * 2."""
+    """MPFB's genital targets at `shape` ({length|circ|testicles: 0..1}, 0.5 neutral): above 0.5 the `incr`
+    target, below it the `decr` one, weighted so 0 and 1 move the furthest vertex SHAPE_SPAN_M (a weight of
+    at most 1: a `decr` target shorter than its span stops there)."""
     from . import scaffold
     _, TargetService, _, _ = scaffold.services()
     out = {}
@@ -117,8 +132,10 @@ def _shape(human, shape):
         v = float(v)
         if not 0.0 <= v <= 1.0:
             raise ValueError(f"genital shape {k} = {v}: 0..1, 0.5 neutral")
-        for suffix, w in (("incr", max(0.0, (v - 0.5) * 2)), ("decr", max(0.0, (0.5 - v) * 2))):
+        for suffix, t in (("incr", max(0.0, (v - 0.5) * 2)), ("decr", max(0.0, (0.5 - v) * 2))):
             stem = f"penis-{k}-{suffix}"
+            reach = max(_target_deltas(stem).values(), default=0.0) * MPFB_UNIT_M
+            w = min(1.0, t * SHAPE_SPAN_M[k] / reach) if reach > 0 else 0.0
             kb = human.data.shape_keys.key_blocks if human.data.shape_keys else None
             key = kb.get(KEY_PREFIX + stem) if kb else None
             if key is None and w > 0:
@@ -410,7 +427,119 @@ def _orient(new_faces):
         todo = left
 
 
-def fuse(ob, levels=1, smooth=2):
+def _trim_flush(bm, shell, co, flush_m):
+    """Drop the shell's flat rim: the band of shell faces reached from its open loop through faces lying within
+    `flush_m` of the body (every vertex), so the shell joins the body where it stands out of it.
+
+    MPFB's helper does not rise from the body at its open loop: it spreads over it as a flap about 1 mm off the
+    skin, out into both groin folds (the study man's reaches 37 mm off the midline; 262 of its 763 subdivided
+    vertices lie within 3 mm of the body). Cut out and zipped, the flap replaced that skin with vertices on the
+    pelvis, while the skin round it moved with the thighs: in a crouch with the knees out the join creased into
+    a collar, and given the skin's own weights instead it tore into wings. Without the flap the body's own
+    crotch skin stays and deforms as it does on a body without the part.
+
+    Works on `bm` (the shell's faces subdivided, the body still whole); returns the faces removed, 0 when the
+    band would not leave one simple open loop (the flap is then kept)."""
+    from mathutils.bvhtree import BVHTree
+    faces = list(bm.faces)
+    fshell = {f for f in faces if all(shell[v.index] for v in f.verts)}
+    body = [tuple(v.index for v in f.verts) for f in faces if not any(shell[v.index] for v in f.verts)]
+    bvh = BVHTree.FromPolygons([Vector(c) for c in co], body)
+    flush = {}
+    for f in fshell:
+        for v in f.verts:
+            if v not in flush:
+                hit = bvh.find_nearest(Vector(co[v.index]), flush_m * 4)
+                flush[v] = hit[0] is not None and hit[3] < flush_m
+    open_e = [e for e in bm.edges if len(e.link_faces) == 1 and all(shell[v.index] for v in e.verts)]
+    seeds = {f for e in open_e for f in e.link_faces if f in fshell and all(flush[v] for v in f.verts)}
+    gone, todo = set(seeds), list(seeds)
+    while todo:
+        f = todo.pop()
+        for e in f.edges:
+            for g in e.link_faces:
+                if g not in gone and g in fshell and all(flush[v] for v in g.verts):
+                    gone.add(g)
+                    todo.append(g)
+
+    def islands(kept):
+        # kept faces cut off from the main body of the shell by the band (a bump on the flap): part of the flap
+        comps, seen = [], set()
+        for f in kept:
+            if f in seen:
+                continue
+            comp, stack = {f}, [f]
+            seen.add(f)
+            while stack:
+                g = stack.pop()
+                for e in g.edges:
+                    for h in e.link_faces:
+                        if h in kept and h not in seen:
+                            seen.add(h)
+                            comp.add(h)
+                            stack.append(h)
+            comps.append(comp)
+        comps.sort(key=len, reverse=True)
+        return set().union(*comps[1:]) if len(comps) > 1 else set()
+    gone |= islands(fshell - gone)
+
+    def rim(kept):
+        return [e for e in bm.edges if sum(1 for g in e.link_faces if g in kept) == 1
+                and all(shell[v.index] for v in e.verts)]
+    for _ in range(20):
+        kept = fshell - gone
+        deg = {}
+        for e in rim(kept):
+            for v in e.verts:
+                deg[v] = deg.get(v, 0) + 1
+        pinched = [v for v, k in deg.items() if k != 2]
+        if not pinched:
+            break
+        # a vertex where two removed patches meet: its faces go back, so the rim passes it once
+        for v in pinched:
+            gone -= set(v.link_faces)
+        gone |= islands(fshell - gone)
+    if not gone:
+        return 0
+    edges = rim(fshell - gone)
+    try:
+        loop = _walk(edges)
+    except RuntimeError:
+        return 0
+    if len(loop) != len({v for e in edges for v in e.verts}):
+        return 0
+    verts = {v for f in gone for v in f.verts}
+    bmesh.ops.delete(bm, geom=list(gone), context="FACES_ONLY")
+    for e in [e for e in bm.edges if not e.link_faces]:
+        bm.edges.remove(e)
+    for v in verts:
+        if v.is_valid and not v.link_edges:
+            bm.verts.remove(v)
+    return len(gone)
+
+
+def _body_uvs(bm, shell, co, verts):
+    """{BMVert: UV} for `verts` (the shell's open loop): the active UV of the body surface nearest each, by
+    inverse distance over the nearest body face's corners. Taken before the cut, while the body is whole."""
+    from mathutils.bvhtree import BVHTree
+    uv = bm.loops.layers.uv.active
+    if uv is None:
+        return {}
+    body = [f for f in bm.faces if not any(shell[v.index] for v in f.verts)]
+    bvh = BVHTree.FromPolygons([Vector(c) for c in co], [tuple(v.index for v in f.verts) for f in body])
+    out = {}
+    for v in verts:
+        loc, _, fi, _ = bvh.find_nearest(Vector(co[v.index]))
+        if loc is None:
+            continue
+        f = body[fi]
+        ws = [1.0 / max((Vector(co[lo.vert.index]) - loc).length, 1e-6) for lo in f.loops]
+        t = sum(ws)
+        out[v] = sum((lo[uv].uv * (w / t) for lo, w in zip(f.loops, ws)), Vector((0.0, 0.0)))
+    return out
+
+
+def fuse(ob, levels=1, smooth=2, flush_m=None):
     """On the baked body (after `bake_for_game`, before anything else joins it): subdivide the shell `levels`
     times, cut its footprint out of the body and zip the hole's rim to the shell's open loop, then relax the
     seam `smooth` times. Returns a report (loops, faces cut and made, open edges on the body before and after,
@@ -436,6 +565,18 @@ def fuse(ob, levels=1, smooth=2):
     bm.from_mesh(me)
     bm.verts.ensure_lookup_table()
     bm.faces.ensure_lookup_table()
+    trimmed = _trim_flush(bm, shell, co, FLUSH_M if flush_m is None else flush_m) if (flush_m is None or flush_m > 0) else 0
+    if trimmed:
+        # the shell's own vertices go last on the mesh, so dropping them moves no body vertex's index
+        bm.to_mesh(me)
+        bm.free()
+        me.update()
+        co = _mesh_co(me)
+        shell = _shell_mask(me)
+        bm = bmesh.new()
+        bm.from_mesh(me)
+        bm.verts.ensure_lookup_table()
+        bm.faces.ensure_lookup_table()
     sedges = [e for e in bm.edges if len(e.link_faces) == 1 and all(shell[v.index] for v in e.verts)]
     sloop = _walk(sedges)
     lp = co[[v.index for v in sloop]]
@@ -448,6 +589,7 @@ def fuse(ob, levels=1, smooth=2):
         r = p - c
         return (np.abs(r @ n) < 0.04) & _inside_2d(np.stack([r @ u, r @ w], axis=1), poly)
 
+    body_uv = _body_uvs(bm, shell, co, sloop)
     body_ins = ~shell & inside(co)
     fc = np.array([co[[v.index for v in f.verts]].mean(axis=0) for f in bm.faces])
     fshell = np.array([all(shell[v.index] for v in f.verts) for f in bm.faces])
@@ -462,11 +604,13 @@ def fuse(ob, levels=1, smooth=2):
     n_cut = len(cut_faces)
     dead = {v for f in cut_faces for v in f.verts if all(g in cut_faces for g in v.link_faces)}
     bmesh.ops.delete(bm, geom=list(cut_faces), context="FACES_ONLY")
-    bmesh.ops.delete(bm, geom=[e for e in bm.edges if not e.link_faces], context="EDGES")
-    gone = [v for v in dead if v.is_valid and not v.link_faces]
+    # the cut's inner vertices are kept, loose (no edge, no face: glTF leaves them out), so every hm08 body vertex
+    # keeps its index on the fused mesh. Deleting them shifted every index after the crotch, and what reads MPFB's
+    # index lists after the bake (skin's regions, the brows and lashes, landmarks) landed on the wrong vertices:
+    # the study man's brows and lashes came out 692 vertices short.
+    for e in [e for e in bm.edges if not e.link_faces]:
+        bm.edges.remove(e)
     n_gone = len(dead)
-    bmesh.ops.delete(bm, geom=gone, context="VERTS")
-    bm.verts.index_update()
     rim_loop = _walk(sorted((e for e in rim if e.is_valid and len(e.link_faces) == 1),
                             key=lambda e: (e.verts[0].index, e.verts[1].index)))
     new_faces = _zipper(bm, sloop, rim_loop, c, u, w, pos)
@@ -484,10 +628,24 @@ def fuse(ob, levels=1, smooth=2):
         if mats:
             f.material_index = max(set(mats), key=mats.count)
         if uv is not None:
+            # One UV island per seam face. The shell's side takes the body's UV under it: with the shell's own
+            # (MPFB's helper island) a seam face spanned two islands, and the skin bake drew it as a wedge
+            # across the atlas - a hard-edged pink band over the groin in Godot. The body's side takes, of its
+            # vertex's UVs (two where the body's own islands meet on the midline), the one nearest the shell
+            # side's: an arbitrary one striped a heavy man's thighs the same way.
+            ref = [body_uv[lo.vert] for lo in f.loops if lo.vert in body_uv]
+            ref = sum(ref, Vector((0.0, 0.0))) / len(ref) if ref else None
             for lo in f.loops:
-                other = next((x for x in lo.vert.link_loops if x.face not in newset), None)
-                if other is not None:
-                    lo[uv].uv = other[uv].uv
+                if lo.vert in body_uv:
+                    lo[uv].uv = body_uv[lo.vert]
+                    continue
+                cands = [x[uv].uv.copy() for x in lo.vert.link_loops if x.face not in newset]
+                if cands:
+                    best = min(cands, key=lambda c: (c - ref).length) if ref is not None else cands[0]
+                    # a rim vertex on none of the island the shell side lies in (a heavy man's footprint crosses
+                    # where the legs' islands meet the torso's): the face takes the shell side's UV, a patch of
+                    # the skin it stands on, rather than a stripe across the atlas
+                    lo[uv].uv = best if ref is None or (best - ref).length < UV_SAME_ISLAND else ref
     # relax the seam: the zipped strip's vertices and one ring either side
     seam = {v for f in new_faces for v in f.verts}
     ring = {x for v in seam for e in v.link_edges for x in e.verts}
@@ -502,7 +660,8 @@ def fuse(ob, levels=1, smooth=2):
     me.update()
     weights = _pelvis_weights(ob)
     ob["hf_genitals_fused"] = True
-    return {"shell_loop": loop_n, "rim": rim_n, "shell_faces": shell_faces_n, "cut_faces": n_cut,
+    return {"shell_loop": loop_n, "rim": rim_n, "shell_faces": shell_faces_n, "flap_faces_trimmed": trimmed,
+            "cut_faces": n_cut,
             "cut_vertices": n_gone, "seam_faces": n_new, "seam_quads": n_quads,
             "open_edges_before": before, "open_edges_after": after, "weights": weights}
 

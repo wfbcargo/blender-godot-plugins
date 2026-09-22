@@ -249,6 +249,7 @@ def build():
     import tomllib
     H.clear_scene()
     from character_pipeline import runner, spec
+    from humanform import genitals
 
     root = os.path.join(H.out_dir(), "pipeline_genitals")
     os.makedirs(os.path.join(root, "characters"), exist_ok=True)
@@ -285,6 +286,10 @@ def build():
         "thigh_clearance": H.stable(r["moves"]["report"]["genitals"]["clips"], places=4),
         "clearance_better": all(c["after"][1] < c["before"][1] for c in
                                 r["moves"]["report"]["genitals"]["clips"].values()),
+        # the gate is absolute: rig-anything's crotch_clearance, the part's deepest in a thigh over each clip
+        "crotch": {role: H.stable(r["moves"]["report"][role]["crotch"], places=1) for role in man.moves.roles},
+        "crotch_within_limit": all((r["moves"]["report"][role]["crotch"].get("part_mm") or 0.0)
+                                   <= genitals.CLEAR_LIMIT_MM for role in man.moves.roles),
         "rest_shape": _rest_shape(ob),
         "rest_not_pinched": min(_rest_shape(ob)) >= 0.4,
         "chain_shares": _chain_shares(ob, rig),

@@ -63,7 +63,8 @@ iris = [0.36, 0.45, 0.30]
 ancestry = { caucasian = 1.0 }     # optional: MPFB's african / asian / caucasian shares, normalised
 # genitals = true                  # optional, default false: humanform.genitals, neutral figure-study anatomy -
                                    # a man keeps MPFB's shell (fused in bake), a woman a relief delta
-# genital_shape = { length = 0.5 } # men only: MPFB's penis-{length,circ,testicles} targets, 0..1, 0.5 neutral
+# genital_shape = { length = 0.5 } # men only: MPFB's penis-{length,circ,testicles} targets, 0..1 an adult's
+                                   # range (length about 6-12 cm), 0.5 neutral
 # genital_strength = 1.0           # women only: scales the relief
 [body.parts]                       # humanform library parts
 face = "face-female-11-1-49f17892"

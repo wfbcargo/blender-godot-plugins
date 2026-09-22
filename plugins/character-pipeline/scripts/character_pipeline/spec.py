@@ -16,7 +16,7 @@ that belong to a plugin.
     genitals = false             # optional: humanform's genitals part, neutral figure-study anatomy (default
                                  # off): a man keeps MPFB's shell fused to the body, a woman a relief delta
     genital_shape = { length = 0.5 }   # optional, men: MPFB's penis-{length,circ,testicles} targets, 0..1
-                                 # (0.5 neutral); genital_strength = 1.0 scales a woman's relief
+                                 # an adult's range (0.5 neutral); genital_strength = 1.0 scales a woman's relief
     [body.parts]                 # humanform library parts
     face = "face-female-11-1-49f17892"
 

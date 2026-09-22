@@ -517,31 +517,41 @@ high copy is rebuilt on the fused topology, or lookdev's matched bake falls back
   crotch - one 34-vertex loop within 3 mm of the skin - and MPFB weights it ~91% to the pelvis. `keep` puts it
   in the mask's `body` group, marks it with the point attribute `hf_genital`, and loads MPFB's
   `penis-{length,circ,testicles}-{incr,decr}` targets for a `shape` (0..1, 0.5 neutral) as `hfg:` keys.
+  0 and 1 are an adult's range, not MPFB's whole target (`SHAPE_SPAN_M`: length +-3 cm, circ +-2.5 mm,
+  testicles +-1.2 cm at the furthest vertex; MPFB's length-incr at full weight is +16.2 cm).
   It also writes `hf_genital_scrotum` (0 shaft .. 1 scrotum), from which of those targets moves a vertex.
-  `fuse` subdivides it once (11 mm quads read faceted lit), cuts the body faces under its footprint, zips the
+  `fuse` subdivides it once (11 mm quads read faceted lit), drops its flat rim (`_trim_flush`: the flap MPFB
+  spreads ~1 mm over the crotch out into both groin folds, 198 faces on the study man - on the pelvis while
+  the skin round it moved with the thighs, it took a thigh 23 mm deep in a crouch and creased into a collar),
+  cuts the body faces under what is left, zips the
   20-vertex rim to the 68-vertex loop by angle (bmesh `bridge_loops` leaves holes on unequal loops), relaxes
   the seam, caps each thigh's weight at 0.06, and moves the shell clear of the thighs at rest only. The body
   stays one closed piece; the study man's open edges were 34 (the loop) before and 0 after.
 - **The moving thighs: corrective bones keyed per clip frame.** `clear_thighs` hangs `hf_genital.L/.R` under
   the jiggle bone (else the pelvis), holding the scrotum's halves (never the shaft, never the join), and for
-  every frame of every clip solves their move off that frame's thigh skin: first apart (squash at most 2 cm),
+  every frame of every clip solves their move off that frame's thigh skin: first apart (squash at most 3 cm),
   and where linear blend skinning has collapsed the crotch - the two inner thighs' skins cross each other
   behind the scrotum in a walk or run, so there is no room between them - a common escape forward and down
-  (swing <= 16 deg, travel <= 3 cm). The keys ship as ordinary bone tracks; Godot needs no code.
+  (swing <= 32 deg, travel <= 5 cm; at 16 deg / 3 cm the run sat on the cap). The keys ship as ordinary bone
+  tracks; Godot needs no code.
   Sweeping the rest shape off every pose the thigh can take (the first version) pinched the scrotum to half
   MPFB's width and still left the walk 15 mm inside; don't.
-- **The fuse deletes a few hm08 body vertices,** so a fused mesh is not hm08-indexed: run `delta`/`muscle`
-  before the bake, never `delta.apply(mode="mesh")` on a fused man.
+- **The fuse keeps every hm08 index:** the cut's inner body vertices stay as loose points (glTF exports none).
+  Deleting them shifted every index after the crotch, and skin regions, brows and lashes - which read MPFB's
+  index lists after the bake - landed on the wrong vertices (the study man's brows came out 692 vertices short).
+- **The gate is absolute: `CLEAR_LIMIT_MM` = 15.** rig-anything's `verify.crotch_clearance` (run by the moves
+  stage on every clip of every body) reports `part_mm`, the deepest a thigh goes into the part; the stage
+  prints a line for a clip over the limit. At 0.4 m in Godot a thigh 1.5 cm into a ~5 cm scrotum reads as
+  soft contact; past it the part reads as passing through the leg.
 - **Female: a delta, not geometry.** A mons pad (~6.5 mm), two labia majora pads (~5.5 mm) and a midline
   cleft (~2.5 mm), placed from the body's own crotch and front midline. At hm08's ~2 cm crotch edges they read as soft
   forms; the labia barely.
-- **Open: not every frame clears.** Study man, scrotum vertices >= 1 cm from the join more than 1 mm inside a
-  thigh, worst frame before -> after the keys: Idle 62 / 7.4 mm -> 0, Walk 174 / 24.9 -> 61 / 7.3, Run 204 /
-  26.3 -> 112 / 11.5, Crouch 110 / 11.3 -> 69 / 16.2, Jump 108 / 11.5 -> 52 / 9.1. What stays inside is the
-  shaft and the root band (no corrective holds them: in a crouch the flexed thighs close on the shaft) and
-  Run frames where the thighs cross through the whole crotch. The body's own crotch collapse is the cause;
-  a shaft corrective, crotch weights or a runtime collider are next. Thigh weight on the scrotum (up to 0.8
-  by contact) tore spikes at the join in a crouch; don't.
+- **Where it stands (study man, `part_mm` before the trim -> after):** Idle 0 -> 0.7, Walk 5.7 -> 6.0, Run
+  12.5 -> 12.4, Crouch 23.3 -> 5.5, Jump 23.3 -> 4.8, TurnL/R 6.9/6.7 -> 7.5/4.7, all under 15. What is left
+  is the run's mid-stance, a thigh 1.2 cm into the scrotum's side. Tried and dropped: the skin's own weights on
+  the flap (it tore into wings when the thighs spread), knees turned out 25-35 deg in the crouch (part 0 mm,
+  but the crotch skin between the thighs stretched into a web), thigh weight on the scrotum (spikes at the
+  join in a crouch).
 - On a body carrying the shell (`hf_genital`), humancheck's crotch scan needs the midline section to be as
   wide as two thighs (> 0.08 H), or it takes the scrotum for the crotch (6.7 cm low, and a hip-above-crotch
   fail). Only there: applied to every body it moved MPFB fits (a curvy woman's stature by 2.8 mm).
