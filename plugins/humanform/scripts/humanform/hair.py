@@ -1165,7 +1165,8 @@ def _clearance(bvh, verts, samples=400):
 
 
 def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lashes=False, body_hair=False, sex=None,
-        brow_shape=None, beard=None, beard_colour=None, fringe=None, **overrides):
+        brow_shape=None, beard=None, beard_colour=None, beard_length=None, beard_volume=None, fringe=None,
+        **overrides):
     """Hair on a baked body. `preset` and `colour` (a screen sRGB colour) default to `sheet["hair"]`, then
     `bun`-less `short_crop` and the preset's colour. Returns a report with the objects made.
 
@@ -1173,7 +1174,8 @@ def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lash
     so a build that does not ask is unchanged); `sex` ("male" / "female", else the sheet's) picks the body hair
     regions. `brow_shape` (else the brief's `hair.brow_shape`, else "natural": the brow card as MPFB fits it) is
     one of `brows.BROW_SHAPES`. `beard` (else the brief's `hair.beard`; None: none) is one of
-    `brows.BEARD_STYLES`, in `beard_colour` (a screen colour; None: the hair colour a little darker). `fringe`
+    `brows.BEARD_STYLES`, in `beard_colour` (a screen colour; None: the hair colour a little darker), with the
+    style's length at the chin and volume unless `beard_length` (m) or `beard_volume` (0..1) say. `fringe`
     (else the brief's `hair.fringe`) hangs a fringe across the forehead: True for FRINGE, or a dict over it."""
     ob = _body.obj(body)
     brief = (sheet or {}).get("hair") or {}
@@ -1246,7 +1248,8 @@ def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lash
     if brows or lashes or body_hair or beard:
         face = _brows.add(ob, lm, colour, base, rig=rig, uv_name=uv_name, brows=brows, lashes=lashes,
                           body_hair=body_hair, sex=sex or (sheet or {}).get("sex"), brow_shape=brow_shape,
-                          beard=beard, beard_colour=beard_colour)
+                          beard=beard, beard_colour=beard_colour, beard_length=beard_length,
+                          beard_volume=beard_volume)
         objects.update(face["objects"])
         report["face"] = {"parts": face["parts"], "skipped": face["skipped"]}
     # the cap's clearance: a fall's inner sheet and the underside of a bun or tie are tucked under the cap and
