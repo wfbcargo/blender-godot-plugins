@@ -372,6 +372,17 @@ def mark(ob, tone=None):
         rid[:n][extra[z] > 0.5] = len(REGIONS) + i + 1
     for i, k in enumerate(REGIONS):
         rid[:n][w[k] > 0.5] = i + 1
+    # humanform.genitals' shell lies past the hm08 body vertices `regions` reads: it is genital skin (left plain,
+    # it read pale against the tinted skin round it)
+    part = me.attributes.get("hf_genital")
+    if part is not None and part.domain == "POINT" and "genital" in prm["REGIONS"]:
+        pv = np.zeros(n_all, np.float32)
+        part.data.foreach_get("value", pv)
+        on = pv > 0.5
+        on[:n] = False
+        tint[on, :3] = prm["REGIONS"]["genital"]["tint"]
+        rough[on] = prm["REGIONS"]["genital"]["rough"]
+        rid[on] = list(REGIONS).index("genital") + 1
     me.attributes.new(REGION, "INT", "POINT").data.foreach_set("value", rid)
     # a vector, not a colour attribute: the glTF exporter writes every colour attribute as COLOR_n
     me.attributes.new(TINT, "FLOAT_VECTOR", "POINT").data.foreach_set("vector", tint[:, :3].astype(np.float32).ravel())

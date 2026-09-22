@@ -1,0 +1,270 @@
+{
+ "fixture": "pipeline_genitals",
+ "plugins": {
+  "character-pipeline": "0.19.0",
+  "follow-through": "0.11.0",
+  "humanform": "0.19.0",
+  "lookdev": "0.12.0",
+  "rig-anything": "0.42.0",
+  "wardrobe": "0.8.0"
+ },
+ "report": {
+  "hashing": {
+   "body_section_keys": [
+    "brief",
+    "object",
+    "parts",
+    "skin",
+    "source"
+   ],
+   "explicit_false_same_digest": true,
+   "on_differs": true
+  },
+  "man": {
+   "bake": {
+    "cut_faces": 12,
+    "cut_vertices": 5,
+    "flap_faces_trimmed": 382,
+    "muscle_high": {
+     "faces_after": 13781,
+     "faces_before": 13560,
+     "moved": 13380
+    },
+    "open_edges_after": 0,
+    "open_edges_before": 34,
+    "rim": 16,
+    "seam_faces": 69,
+    "seam_quads": 27,
+    "shell_faces": 728,
+    "shell_loop": 80
+   },
+   "body": {
+    "sex": "male",
+    "shell_vertices": 200,
+    "targets": {
+     "penis-length-decr": 0.166
+    }
+   },
+   "chain_shares": {
+    "pelvis": 0.993,
+    "thigh": 0.007
+   },
+   "clearance": {
+    "max_mm": 1.7,
+    "poses": 2,
+    "pushed": 20
+   },
+   "clearance_better": true,
+   "crotch": {
+    "Idle": {
+     "crotch_frame": null,
+     "crotch_mm": 0.0,
+     "part_frame": 6,
+     "part_mm": 2.9,
+     "thigh_frame": null,
+     "thigh_mm": 0.0
+    },
+    "Walk": {
+     "crotch_frame": null,
+     "crotch_mm": 0.0,
+     "part_frame": 9,
+     "part_mm": 8.7,
+     "thigh_frame": null,
+     "thigh_mm": 0.0
+    }
+   },
+   "crotch_within_limit": true,
+   "flesh_regions": {
+    "genital": {
+     "bone_parent": "spine",
+     "material": "firm_flesh",
+     "max_offset_m": 0.0256,
+     "peak_m": 0.0852,
+     "type": "genital"
+    }
+   },
+   "glb": {
+    "corrective_nodes": [
+     "hf_genital.L",
+     "hf_genital.R"
+    ],
+    "corrective_tracks": {
+     "FixStudyMan_Idle": [
+      "hf_genital.L.rotation",
+      "hf_genital.L.scale",
+      "hf_genital.L.translation",
+      "hf_genital.R.rotation",
+      "hf_genital.R.scale",
+      "hf_genital.R.translation"
+     ],
+     "FixStudyMan_Walk": [
+      "hf_genital.L.rotation",
+      "hf_genital.L.scale",
+      "hf_genital.L.translation",
+      "hf_genital.R.rotation",
+      "hf_genital.R.scale",
+      "hf_genital.R.translation"
+     ]
+    },
+    "jiggle_nodes": [
+     "ft_jiggle_genital"
+    ],
+    "meshes": [
+     "FixStudyMan_body"
+    ],
+    "skins": 1
+   },
+   "muscle_high": {
+    "faces_after": 13781,
+    "faces_before": 13560,
+    "moved": 13380
+   },
+   "muscle_normal": {
+    "method": "matched",
+    "warnings": []
+   },
+   "pelvis_dominant": true,
+   "rest_not_pinched": "True",
+   "rest_shape": [
+    0.79,
+    0.9
+   ],
+   "shares": {
+    "spine": 0.938,
+    "thigh.L": 0.031,
+    "thigh.R": 0.031
+   },
+   "stages": {
+    "bake": "ran",
+    "body": "ran",
+    "export": "ran",
+    "flesh": "ran",
+    "moves": "ran",
+    "muscle": "ran"
+   },
+   "surface": {
+    "largest": 13762,
+    "open_edges": 128,
+    "pieces": 3
+   },
+   "thigh_clearance": {
+    "FixStudyMan_Idle": {
+     "after": [
+      0,
+      0.0,
+      null
+     ],
+     "before": [
+      74,
+      8.5,
+      20
+     ],
+     "key_max_deg": 0.0,
+     "key_max_mm": 24.0
+    },
+    "FixStudyMan_Walk": {
+     "after": [
+      2,
+      1.8,
+      9
+     ],
+     "before": [
+      83,
+      11.5,
+      7
+     ],
+     "key_max_deg": 32.0,
+     "key_max_mm": 50.0
+    }
+   },
+   "unweighted": 0,
+   "walk_in_thighs": [
+    {
+     "deepest_mm": 0.0,
+     "frame": 1,
+     "inside": 0
+    },
+    {
+     "deepest_mm": 0.0,
+     "frame": 5,
+     "inside": 0
+    },
+    {
+     "deepest_mm": 0.0,
+     "frame": 10,
+     "inside": 0
+    },
+    {
+     "deepest_mm": 0.0,
+     "frame": 14,
+     "inside": 0
+    },
+    {
+     "deepest_mm": 0.0,
+     "frame": 19,
+     "inside": 0
+    },
+    {
+     "deepest_mm": 0.0,
+     "frame": 24,
+     "inside": 0
+    }
+   ]
+  },
+  "refusals": {
+   "bad_shape_key": "body.genital_shape.girth = 0.4: length, circ or testicles, 0..1 (0.5 neutral)",
+   "blend_source": "body.genitals needs body.source = \"brief\": the part is MPFB's, put on the unbaked humanform body",
+   "not_bool": "body.genitals must be bool, not str",
+   "shape_on_woman": "body.genital_shape is MPFB's male targets; a woman's relief takes genital_strength",
+   "shape_range": "body.genital_shape.length = 1.4: length, circ or testicles, 0..1 (0.5 neutral)",
+   "shape_without_genitals": "body.genital_shape / genital_strength need body.genitals = true"
+  },
+  "woman": {
+   "bake_has_genitals": false,
+   "body": {
+    "groups": {
+     "cleft": {
+      "max_mm": 1.81,
+      "vertices": 25,
+      "weight": 1.0
+     },
+     "labia": {
+      "max_mm": 4.62,
+      "vertices": 85,
+      "weight": 1.0
+     },
+     "mons": {
+      "max_mm": 6.09,
+      "vertices": 155,
+      "weight": 1.0
+     }
+    },
+    "key": "hfd:genital",
+    "landmarks": {
+     "crotch": [
+      0.0,
+      -0.0851,
+      0.7968
+     ],
+     "mons": [
+      0.0,
+      -0.1511,
+      0.8729
+     ]
+    },
+    "max_mm": 7.01,
+    "sex": "female",
+    "strength": 1.0
+   },
+   "stages": {
+    "bake": "ran",
+    "body": "ran"
+   },
+   "surface": {
+    "largest": 13380,
+    "open_edges": 128,
+    "pieces": 3
+   }
+  }
+ }
+}

@@ -164,7 +164,16 @@ def make(out, who=DEFAULT_WHO, checkout=REPO, game=GAME, game_blend_dir=None, li
     done["main_scene"] = fix_main_scene(out)
     outside = {}
     for toml in sorted((out / "characters").glob("*.toml")):
-        ch = spec.load(str(toml))
+        if toml.name == os.path.basename(spec.PROJECT_CONFIG):
+            continue                    # the project's pipeline settings, not a character
+        try:
+            ch = spec.load(str(toml))
+        except spec.SpecError as exc:
+            if toml.stem in who:
+                raise
+            # a spec this checkout cannot read (a newer field from another branch) is not one being built
+            done.setdefault("unreadable_specs", {})[toml.stem] = str(exc)
+            continue
         p = spec.resolve_blend(ch.export.blend, str(out), blend_dir_override=str(blends))
         if p and not spec.inside(p, [str(out)]):
             outside[toml.stem] = fwd(p)

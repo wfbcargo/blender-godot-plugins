@@ -1033,6 +1033,171 @@ def limb_clearance(rig_name, action_name, mesh_name=None, every=2, roles=("arm",
     return out
 
 
+CROTCH_REACH_M = 0.04      # a contact is looked for this far from each vertex
+CROTCH_RING = 2            # vertices this many edges or fewer from a thigh's skin are its seam, not a contact
+CROTCH_INSIDE_M = 0.001    # "inside" counts vertices deeper than this
+LEG_SHARE = 0.3            # a vertex this much on a leg's bones is that thigh's skin
+PART_ATTR = "hf_genital"   # humanform.genitals' shell: reported apart from the rest of the crotch
+
+
+def crotch_clearance(rig_name, action_name, mesh_name=None, every=2, forward="-Y", up="Z", floor=0.0,
+                     bm=None, part_attr=PART_ATTR):
+    """How far the skin between a biped's legs passes through itself over a clip.
+
+    Linear blend skinning collapses the crotch: the two inner thighs already touch at rest (1-5 mm apart
+    on the study man, z 0.81-0.93), and as the legs move they slide through one another - and through
+    anything hung between them. Nothing else measured it, so a genital shell 3 cm inside a thigh passed
+    every check. Three depths, each the deepest over the clip's frames (every `every`th), in mm:
+
+    - `thigh_mm`: either thigh's inner skin (between the hip joints, from the crotch down a third of the
+      thigh) through the other thigh's skin;
+    - `crotch_mm`: the trunk's own skin below the hip joints near the midline (within 0.3 of the hip
+      joints' gap) through either thigh - the perineum, the pubis;
+    - `part_mm` (only when the mesh carries the point attribute `part_attr`, humanform's genital shell):
+      the part through either thigh.
+
+    Which skin is a thigh's comes from the weights (LEG_SHARE or more on one leg's bones), which bones
+    are legs from the body map. Vertices within CROTCH_RING edges of a thigh's skin are its seam and are
+    not tested against it. Depth is along the face normal (`signed_gap`). Each depth comes with its frame
+    and how many vertices were more than 1 mm inside then. Garments are not measured."""
+    import numpy as np
+    from mathutils.bvhtree import BVHTree
+    from . import bodymap
+    rig = bpy.data.objects.get(rig_name)
+    action = bpy.data.actions.get(action_name)
+    if rig is None or action is None:
+        return {"error": "missing rig or action"}
+    bm = bm or bodymap.build(rig_name, forward=forward, up=up, floor=floor)
+    if "error" in bm:
+        return {"error": bm["error"]}
+    legs = [l for l in bm["limbs"] if l["role"] == "leg"]
+    if len(legs) != 2:
+        return {"skipped": "%d legs: the crotch is measured on a biped" % len(legs)}
+    meshes = ([bpy.data.objects[mesh_name]] if mesh_name and bpy.data.objects.get(mesh_name)
+              else clearance_meshes(rig))
+    if not meshes:
+        return {"error": "no skinned mesh on " + rig_name}
+    ob = meshes[0]
+    me = ob.data
+    n = len(me.vertices)
+    leg_bones = []
+    for l in legs:
+        b = {x for x in (l["girdle"], l["upper"], l["lower"], l["end"]) if x}
+        b.update(l["digits"])
+        b.update(c.name for c in rig.data.bones[l["upper"]].children_recursive)
+        leg_bones.append(b)
+    names = {g.index: g.name for g in ob.vertex_groups}
+    share = np.zeros((2, n))
+    for v in me.vertices:
+        ws = [(names.get(g.group), g.weight) for g in v.groups if g.weight > 0.0]
+        tot = sum(w for _, w in ws)
+        if tot <= 0.0:
+            continue
+        for k in (0, 1):
+            share[k, v.index] = sum(w for x, w in ws if x in leg_bones[k]) / tot
+    mw = np.array(ob.matrix_world)
+    co = np.empty(n * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3) @ mw[:3, :3].T + mw[:3, 3]
+    upv = np.zeros(3)
+    upv[AXIS_INDEX[up[-1]]] = 1.0
+    fw = np.zeros(3)
+    fw[AXIS_INDEX[forward[-1]]] = -1.0 if forward.startswith("-") else 1.0
+    lat = np.cross(fw, upv)
+    heads = [np.array(rig.matrix_world @ rig.data.bones[l["upper"]].head_local) for l in legs]
+    knees = [np.array(rig.matrix_world @ rig.data.bones[l["upper"]].tail_local) for l in legs]
+    hip_h = float(np.mean([h @ upv for h in heads]))
+    thigh_len = float(np.mean([np.linalg.norm(k - h) for h, k in zip(heads, knees)]))
+    mid = float(np.mean([h @ lat for h in heads]))
+    gap = abs(float((heads[0] - heads[1]) @ lat))
+    hgt, side = co @ upv, co @ lat - mid
+    part = np.zeros(n, bool)
+    at = me.attributes.get(part_attr) if part_attr else None
+    if at is not None and at.domain == "POINT":
+        pv = np.empty(n, np.float32)
+        at.data.foreach_get("value", pv)
+        part = pv > 0.5
+    ev = np.empty(len(me.edges) * 2, np.int64)
+    me.edges.foreach_get("vertices", ev)
+    ev = ev.reshape(-1, 2)
+    has_edge = np.zeros(n, bool)
+    has_edge[ev.ravel()] = True
+
+    def ring(mask, k):
+        out = mask.copy()
+        for _ in range(k):
+            grow = out.copy()
+            grow[ev[out[ev[:, 0]], 1]] = True
+            grow[ev[out[ev[:, 1]], 0]] = True
+            out = grow
+        return out
+    # a thigh's skin: a vertex LEG_SHARE or more on that leg (the crotch's blend zone is thigh + spine,
+    # mostly spine: on the study man only 338 of the thigh's vertices are over half on it)
+    thigh = [(share[k] >= LEG_SHARE) & (share[k] > share[1 - k]) & ~part for k in (0, 1)]
+    on_leg = share.max(axis=0) >= LEG_SHARE
+    seam = [ring(t, CROTCH_RING) for t in thigh]
+    band = (hgt < hip_h + 0.02 * thigh_len) & (hgt > hip_h - 0.35 * thigh_len) & has_edge
+    inner = np.abs(side) < 0.5 * gap
+    tests = {"thigh": [np.nonzero(thigh[k] & band & inner & ~seam[1 - k])[0] for k in (0, 1)],
+             "crotch": [np.nonzero(~on_leg & ~part & band & (np.abs(side) < 0.3 * gap) & ~seam[k])[0]
+                        for k in (0, 1)]}
+    if part.any():
+        tests["part"] = [np.nonzero(part & ~seam[k])[0] for k in (0, 1)]
+    # the k-th set is tested against the other thigh for "thigh", against thigh k for the rest
+    target = {"thigh": (1, 0), "crotch": (0, 1), "part": (0, 1)}
+    polys = [tuple(p.vertices) for p in me.polygons]
+    faces = [[p for p in polys if all(thigh[k][i] for i in p)] for k in (0, 1)]
+    worst = {k: [0.0, None, 0] for k in tests}
+    lo, hi = _frames(action)
+    frames = list(range(lo, hi + 1))[::max(1, every)]
+    scene = bpy.context.scene
+    snap = _snapshot(rig)
+    ad = rig.animation_data or rig.animation_data_create()
+    prev_action, prev_frame = ad.action, scene.frame_current
+    try:
+        if not bind_action(rig, action)["bound"]:
+            return {"error": "could not bind " + action_name}
+        for f in frames:
+            scene.frame_set(f)
+            dg = bpy.context.evaluated_depsgraph_get()
+            eo = ob.evaluated_get(dg)
+            em = eo.to_mesh()
+            pc = np.empty(len(em.vertices) * 3)
+            em.vertices.foreach_get("co", pc)
+            eo.to_mesh_clear()
+            if len(pc) != n * 3:
+                return {"error": "the evaluated mesh has a different vertex count"}
+            pc = pc.reshape(-1, 3) @ mw[:3, :3].T + mw[:3, 3]
+            verts = [Vector(c) for c in pc]
+            bvh = [BVHTree.FromPolygons(verts, fs) if fs else None for fs in faces]
+            for kind, sets in tests.items():
+                deep, count = 0.0, 0
+                for k, idx in enumerate(sets):
+                    tree = bvh[target[kind][k]]
+                    if tree is None:
+                        continue
+                    for i in idx:
+                        hit = tree.find_nearest(verts[i], CROTCH_REACH_M)
+                        if hit[0] is None:
+                            continue
+                        d = -signed_gap(verts[i], hit)
+                        if d > CROTCH_INSIDE_M:
+                            count += 1
+                        deep = max(deep, d)
+                if deep > worst[kind][0]:
+                    worst[kind] = [deep, f, count]
+    finally:
+        scene.frame_set(prev_frame)
+        ad.action = prev_action
+        _restore(rig, snap)
+    out = {"frames": len(frames)}
+    for kind, (deep, f, count) in worst.items():
+        out[kind + "_mm"] = round(deep * 1000, 1)
+        out[kind + "_frame"] = f
+        out[kind + "_inside"] = count
+    return out
+
+
 def recheck(rig_name, action_name, forward="-Y", up="Z", floor=0.0, loop=True,
             clearance=False, mesh_name=None):
     """Play back a FINISHED clip and hold it to the checks it was authored under.

@@ -382,7 +382,12 @@ only ever measured here. A failing clip **blocks the export** - `skip_bad_clips=
 drops it, `force=True` ships it and lists it under `forced_clips`. Tolerances are the
 authoring ones (`verify.PLANT_TOL`, `SLIP_TOL`, `SKIN_TOL`), not looser.
 `verify.limb_clearance` (or `clearance=True`) measures how close hands come to the
-body, from the body map rather than bone names.
+body, from the body map rather than bone names. `verify.crotch_clearance` measures a
+biped's crotch over a clip, in mm: `thigh_mm` (one inner thigh through the other),
+`crotch_mm` (the trunk's skin below the hips through a thigh) and, on a body carrying
+humanform's genital shell, `part_mm`; character-pipeline reports it for every clip.
+Linear blend skinning collapses the crotch on every body: the study man's thighs, 1-5
+mm apart at rest, pass 13-25 mm through each other in Crouch and Jump. Report-only.
 
 **Arm clearance measures the skin, not the clothes.** How far the arms hang out
 (`upper`) and `limb_clearance` read only `verify.clearance_meshes(rig)`: every mesh

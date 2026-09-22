@@ -13,6 +13,10 @@ that belong to a plugin.
     build = "curvy"
     measurements = { chestcircumference = 1.02, waistcircumference = 0.72 }
     skin = [0.78, 0.58, 0.47]
+    genitals = false             # optional: humanform's genitals part, neutral figure-study anatomy (default
+                                 # off): a man keeps MPFB's shell fused to the body, a woman a relief delta
+    genital_shape = { length = 0.5 }   # optional, men: MPFB's penis-{length,circ,testicles} targets, 0..1
+                                 # an adult's range (0.5 neutral); genital_strength = 1.0 scales a woman's relief
     [body.parts]                 # humanform library parts
     face = "face-female-11-1-49f17892"
 
@@ -129,6 +133,9 @@ class Body:
     brief: dict = field(default_factory=dict)   # humanform sheet.new(**brief)
     parts: dict = field(default_factory=dict)   # face / hands / feet library ids
     skin: list | None = None                    # source = "blend": the skin colour humanform would apply
+    genitals: bool = False                      # humanform.genitals, added in the body stage, fused in bake
+    genital_shape: dict = field(default_factory=dict)   # men: {length|circ|testicles: 0..1}, 0.5 neutral
+    genital_strength: float = 1.0               # women: the relief's scale
 
 
 @dataclass
@@ -296,6 +303,14 @@ class Character:
         if name == "hair" and value is not None and value.kind == "shell_bun":
             # the shape this section had before presets, so a shell_bun build's stored records stay valid
             return {"kind": value.kind, "params": dict(value.params)}
+        if name == "body" and value is not None:
+            d = asdict(value)
+            # genitals are off by default and hash as they did before the field existed, so no body built
+            # without them rebuilds
+            for k, default in (("genitals", False), ("genital_shape", {}), ("genital_strength", 1.0)):
+                if d.get(k) == default:
+                    d.pop(k, None)
+            return d
         if name == "hair" and value is not None:
             # a switch left off hashes as it did before the switches existed, so no existing build restarts
             out = asdict(value)
@@ -551,7 +566,24 @@ def parse(data, path=None):
         b.setdefault("name", name)
         if b["name"] != name:
             raise SpecError(f"body.name {b['name']!r} must match character.name {name!r}")
-    body = Body(source=source, object=obj, brief=b if source == "brief" else {}, parts=parts, skin=skin)
+    genitals = _take(b, "genitals", bool, False, where="body.")
+    genital_shape = _take(b, "genital_shape", dict, {}, where="body.")
+    genital_strength = _take(b, "genital_strength", float, 1.0, where="body.")
+    for k in ("genitals", "genital_shape", "genital_strength"):
+        b.pop(k, None)
+    if genitals and source != "brief":
+        raise SpecError("body.genitals needs body.source = \"brief\": the part is MPFB's, put on the unbaked "
+                        "humanform body")
+    if genital_shape and b.get("sex") != "male":
+        raise SpecError("body.genital_shape is MPFB's male targets; a woman's relief takes genital_strength")
+    for k, v in genital_shape.items():
+        if k not in ("length", "circ", "testicles") or not isinstance(v, (int, float)) or not 0 <= v <= 1:
+            raise SpecError(f"body.genital_shape.{k} = {v!r}: length, circ or testicles, 0..1 (0.5 neutral)")
+    if (genital_shape or genital_strength != 1.0) and not genitals:
+        raise SpecError("body.genital_shape / genital_strength need body.genitals = true")
+    body = Body(source=source, object=obj, brief=b if source == "brief" else {}, parts=parts, skin=skin,
+                genitals=genitals, genital_shape={k: float(v) for k, v in genital_shape.items()},
+                genital_strength=float(genital_strength))
 
     m = _take(data, "moves", dict, required=True)
     _unknown(m, ("gaits", "roles", "loops", "export_gaits", "style", "stance_width", "posture",
