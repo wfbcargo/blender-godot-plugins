@@ -499,12 +499,14 @@ class Poser:
         return moved + self.up * (raised * min(lift_max, across.length))
 
     def blend(self, a, b, w, w_legs=None, w_arms=None, w_lean=None, w_wings=None,
-              w_maw=None):
+              w_maw=None, hold=()):
         """The body `w` of the way from key `a` to key `b`.
 
         Legs, arms, wings and the torso lean may run on their own curves - feet
         usually lead the hips, and getting up from the ground leads with the
-        chest. Returns (posed matrices, per-limb solver info).
+        chest. `hold` names legs kept planted on `a`'s spot this frame whatever
+        their targets say (a take-off that would leave along the floor, see
+        `actions.jump`). Returns (posed matrices, per-limb solver info).
         """
         wl = w if w_legs is None else w_legs
         wa = w if w_arms is None else w_arms
@@ -615,7 +617,8 @@ class Poser:
                 # rolling over its toe keeps the test without the lift: that is what holds its
                 # toe on the floor as the heel rises (with it, a dog's toe sank 3.4 mm).
                 swinging = plant_w < 1.0
-                if self.height(target + lift if swinging else target) < self.foot_lift(limb):
+                if limb["name"] in hold or \
+                        self.height(target + lift if swinging else target) < self.foot_lift(limb):
                     # It has not left the ground yet, so it stays where it was planted -
                     # whole, not just at that height: clamping the height alone let the foot
                     # slide 1.1 cm sideways towards the launch's outward target while it was

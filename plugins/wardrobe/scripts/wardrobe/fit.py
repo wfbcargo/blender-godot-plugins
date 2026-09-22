@@ -185,7 +185,7 @@ def _ease_weights(g):
     return w
 
 
-def _hang_setup(g_bm, body, bvh, tris, window, bins, below=None, top=0.3, fade=0.25):
+def _hang_setup(g_bm, body, bvh, tris, window, bins, below=None, top=0.3, fade=0.25, scale=1.0):
     """Which garment verts hang (not on an arm or shoulder, below the armpits), and the axis they
     hang around: vertical, through the root of the spine. Hanging starts `top` of the way from the
     shoulder joints to the hips and fades in over `fade` more: the default 0.3 starts it level with
@@ -200,6 +200,7 @@ def _hang_setup(g_bm, body, bvh, tris, window, bins, below=None, top=0.3, fade=0
     shoulder_z = sum(hm["heads"][a["upper"]].z for a in hm["arms"].values()) / max(1, len(hm["arms"]))
     hip_z = sum(hm["heads"][l["thigh"]].z for l in hm["legs"].values()) / max(1, len(hm["legs"]))
     top_z = shoulder_z - top * (shoulder_z - hip_z)
+    fade_below = 0.05 * scale
     mask = []
     for v in g_bm.verts:
         hit = bvh.find_nearest(v.co)
@@ -209,7 +210,7 @@ def _hang_setup(g_bm, body, bvh, tris, window, bins, below=None, top=0.3, fade=0
         if below is not None:
             # trousers hang over the seat, not down the legs: around the spine axis a leg's inner
             # and outer sides share a sector, and hanging pushed the inner thigh out to the outer
-            f *= min(max((v.co.z - below) / 0.05, 0.0), 1.0)
+            f *= min(max((v.co.z - below) / fade_below, 0.0), 1.0)
         mask.append(f * min(max((0.4 - w) / 0.2, 0.0), 1.0))
     return {"mask": mask, "axis": Vector((root.x, root.y, 0.0)), "window": window, "bins": bins}
 
@@ -533,7 +534,7 @@ def _vertex_normals(X, tris):
     return N / np.maximum(np.linalg.norm(N, axis=1), 1e-12)[:, None]
 
 
-def compress(garment, body, smooth=0.0, flatten=None, fade=COMPRESS_FADE):
+def compress(garment, body, smooth=0.0, flatten=None, fade=COMPRESS_FADE, reach=SMOOTH_REACH):
     """The body as a compression garment squeezes it, to ease the cloth off (improvements 05 5.3).
 
     Only skin the garment lies on moves, and each vertex moves by its `fade` (0 at the edge of
@@ -589,7 +590,7 @@ def compress(garment, body, smooth=0.0, flatten=None, fade=COMPRESS_FADE):
     # the 1.0 cm sample figure: 400)
     near = region[ed[:, 0]] & region[ed[:, 1]]
     edge = float(np.linalg.norm(co[ed[near, 0]] - co[ed[near, 1]], axis=1).mean()) if near.any() else 1.0
-    passes = int(round((max(0.0, min(1.0, float(smooth))) * SMOOTH_REACH / max(edge, 1e-4)) ** 2))
+    passes = int(round((max(0.0, min(1.0, float(smooth))) * reach / max(edge, 1e-4)) ** 2))
     rep["edge_m"] = round(edge, 4)
     for _ in range(passes):
         for lam in TAUBIN:
@@ -768,7 +769,7 @@ def detail(garment, body, regions=None, limit=None, band=DETAIL_BAND, min_verts=
     return rep
 
 
-def tuck(garment, body, window=0.15, spread=50.0, wedge=5.0, limit=None):
+def tuck(garment, body, window=0.15, spread=50.0, wedge=5.0, limit=None, below_shoulder=0.05):
     """How far the cloth tucks back in under the widest point above it, in front (improvements
     NEXT, "Cloth that hugs the skin"). For each cloth vertex within `spread` degrees of straight
     ahead, between the hips and 5 cm under the shoulder joints: the widest cloth in its own
@@ -785,7 +786,7 @@ def tuck(garment, body, window=0.15, spread=50.0, wedge=5.0, limit=None):
     d = X[:, :2] - np.array([root.x, root.y])
     r = np.linalg.norm(d, axis=1)
     ang = np.degrees(np.arctan2(d[:, 0], -d[:, 1]))
-    sel = np.flatnonzero((np.abs(ang) < spread) & (X[:, 2] > hip) & (X[:, 2] < sh - 0.05))
+    sel = np.flatnonzero((np.abs(ang) < spread) & (X[:, 2] > hip) & (X[:, 2] < sh - below_shoulder))
     worst, at, defs = 0.0, None, []
     for i in sel:
         near = sel[(np.abs(ang[sel] - ang[i]) < wedge / 2) & (X[sel, 2] > X[i, 2])
@@ -813,7 +814,7 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
          hang=1.0, hang_window=0.15, hang_bins=64, hang_top=0.3, hang_fade=0.25, hang_hull=False,
          hang_blur=(2, 2), tuck_limit=None, over=(), over_gap=0.003,
          smooth=0.0, flatten=None, fade=COMPRESS_FADE, detail_limit=None, settle=0.0, span=0.0,
-         span_radius=0.0):
+         span_radius=0.0, scale=1.0):
     """Push the garment off the body to its ease, bridging hollows, and let it hang. `over`:
     garments worn under this one - it is kept `over_gap` outside each of them too.
 
@@ -831,12 +832,16 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
     `hang_blur` (sectors, cells) softens the field. `tuck_limit` (mm): the most the cloth may tuck
     back in under the widest point above it, in front (see `tuck`); reported as `tuck`.
 
+    `scale` (rigmap.body_scale, which presets.dress passes): the lengths not given as arguments - the
+    compression's smoothing reach, the hang field's cell, the span's feather, the detail check's band and
+    reach, the tuck check's window - are multiplied by it. 1 for a human-sized torso.
+
     Returns gap statistics (against the skin), `detail`, and `compression` when it was asked for."""
     g = rigmap._obj(garment)
     compressing = bool(smooth) or bool(flatten)
     comp = None
     if compressing:
-        comp = compress(g, body, smooth=smooth, flatten=flatten, fade=fade)
+        comp = compress(g, body, smooth=smooth, flatten=flatten, fade=fade, reach=SMOOTH_REACH * scale)
         bvh, tris = comp["_bvh"], comp["_tris"]
     else:
         bvh, _, tris = body_bvh(body)
@@ -848,7 +853,7 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
     cut = g.get("wardrobe_cut")
     below = cut.get("hang_below") if cut is not None else None
     hs = _hang_setup(bm, body, bvh, tris, hang_window, hang_bins, below, top=hang_top,
-                     fade=hang_fade) if hang > 0 else None
+                     fade=hang_fade, scale=scale) if hang > 0 else None
     unders = [body_bvh(o)[0] for o in over]
 
     floor = None
@@ -910,7 +915,7 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
         for v, co in zip(bm.verts, new):
             v.co = co
         if hs is not None:
-            _hang(bm, hs, hang, hull=hang_hull, blur=tuple(hang_blur))
+            _hang(bm, hs, hang, cell=0.01 * scale, hull=hang_hull, blur=tuple(hang_blur))
             if hang_hull:
                 _even_heights(bm, hs["mask"], relax)
         push_out()
@@ -921,7 +926,7 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
 
     spanned = None
     if compressing and span and span > 0:
-        spanned = _span(bm, floor, span, radius=span_radius)
+        spanned = _span(bm, floor, span, radius=span_radius, feather=0.04 * scale)
         push_out()
     settled = _settle(bm, floor, settle) if compressing and settle and settle > 0 else None
 
@@ -951,9 +956,9 @@ def ease(garment, body, base=0.006, loose=0.025, iterations=16, relax=0.5, infla
         if settled is not None:
             rep["settle"] = settled
         out["compression"] = rep
-    out["detail"] = detail(g, body, limit=detail_limit)
+    out["detail"] = detail(g, body, limit=detail_limit, band=DETAIL_BAND * scale, reach=DETAIL_REACH * scale)
     if tuck_limit is not None:
-        out["tuck"] = tuck(g, body, limit=tuck_limit)
+        out["tuck"] = tuck(g, body, window=0.15 * scale, limit=tuck_limit, below_shoulder=0.05 * scale)
     return out
 
 
