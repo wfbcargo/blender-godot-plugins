@@ -762,6 +762,9 @@ ORDER = ("bloater_belly", "breast", "butt", "belly", "love_handle", "arm_flab", 
 
 # ------------------------------------------------------------------ regions
 
+HAIR_ATTR = "hf_hair"       # a point attribute (> 0.5) on hair a build joined into the body
+
+
 def _point_mask(obj, name):
     """Per vertex, whether the float point attribute `name` is set (> 0.5) on `obj`; None when it has none."""
     at = obj.data.attributes.get(name)
@@ -818,6 +821,11 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
     regions, declined, missed = [], [], []
     legacy = _legacy_placement()
     not_face = np.ones(n, dtype=bool) if legacy else ~t.get("head_skinned", np.zeros(n, dtype=bool))
+    # hair joined into the body (HAIR_ATTR: humanform's beard, whose hanging part rides the neck and chest, not
+    # the head) is never flesh: it stood out in front of a dwarf's belly and took its apex (weight 0 there)
+    hair = _point_mask(obj, HAIR_ATTR)
+    if hair is not None and len(hair) == n:
+        not_face &= ~hair
     # a type's `reserved_attr` (a point attribute on the body, e.g. humanform's genital shell `hf_genital`) marks
     # vertices only that type may take: the shell stands out of the lean body in front of the crotch, and taken
     # into the belly's or a buttock's search it moved their apex onto a part their bone does not carry

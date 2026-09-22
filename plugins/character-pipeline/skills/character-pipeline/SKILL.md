@@ -132,7 +132,9 @@ colour = [0.17, 0.10, 0.06]        # screen (sRGB)
 brows = true                       # optional, default false: humanform.brows' brow and lash cards and
 lashes = true                      #   light body hair, in the hair colour darkened, joined with the hair
 body_hair = false                  #   (a switch left false hashes as before, so no build restarts)
-beard = "short"                    # optional: stubble, short, goatee, moustache (humanform.brows)
+beard = "short"                    # optional: stubble, short, goatee, moustache, full, long (humanform.brows)
+beard_length = 0.24                # optional, m at the chin (past 0.06 it hangs); default the style's
+beard_volume = 0.7                 # optional, 0..1: how far it stands off in layers; default the style's
 beard_colour = [0.70, 0.69, 0.68]  # optional, screen (sRGB); default the hair colour a little darker
 fringe = true                      # optional: a fringe across the forehead to the brows, over any preset
 

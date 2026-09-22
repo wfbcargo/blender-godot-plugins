@@ -143,9 +143,11 @@ What changed, baked-clip numbers from `rigify_human` (walk / run) and Godot (`mo
   of a wide range on purpose.
 
 **The likeness round's open items.** Morgan Freeman's likeness misses by 2.7 mm at the mouth and 7 mm at the
-jaw (aged after the fit, and the photo's jaw is under a beard). The beard's back edge is saw-toothed (it follows
-whole faces; since branch `species-1-beard` it thins into single hairs over `feather_m`, but the region is still
-cut on whole faces). ~~The beard's square patches in Godot~~ fixed on `species-1-beard`: V repeated every 12 mm on
+jaw (aged after the fit, and the photo's jaw is under a beard). ~~The beard's back edge is saw-toothed~~ (round 2
+of `species-1-beard`: the region is a signed distance on the face, `brows.beard_field`, faded across its zero line,
+so the edge is a smooth curve; beards also got `full` / `long`, layers, a hanging part, and `beard_length` /
+`beard_volume`). Open: the long beard's hanging part is a rigid tube skinned head-to-chest, no follow-through
+sway yet, and no braids. ~~The beard's square patches in Godot~~ fixed on `species-1-beard`: V repeated every 12 mm on
 512 rows (texels 7:1), so Godot's mip blurred U into blocks and scissor cut the texture's 35% holes out whole;
 now square texels, an opaque under-layer and `humanform.hairtex.mip_check`, which refuses such a shell. Reading a photo's ratios is by hand (a canvas grid in the browser, ~5 min a face; see humanform
 SKILL.md) - a landmark detector would make it one call. Likenesses set proportions, not identity: skin detail,
@@ -284,7 +286,7 @@ In the order I would take them:
    own branch.
 7. **Hair**: the benchmark's largest open look item, and every critic puts it in their top three.
    `short_crop` reads as a moulded cap (Morgan's white crop most of all), and `long_loose` stops at the
-   shoulder on Mei. The likeness round added beards and a fringe; the beard's back edge is saw-toothed.
+   shoulder on Mei. The likeness round added beards and a fringe.
 8. **An age layer**: the 40s and 60s briefs both read twenty-plus years young. Slackness, lip thinning,
    hand tendons and posture can all be authored on top of the 58-year fit.
 9. ~~**Ancestry as a sheet field**~~ - done in humanform 0.18.0 (`ancestry`). Still open: a decision on
