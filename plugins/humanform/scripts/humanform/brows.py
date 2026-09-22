@@ -458,6 +458,17 @@ def _interp_weights(ob, tris, bary, fallback):
     return {g: np.clip(w / total, 0.0, 1.0) for g, w in out.items() if w.max() > 1e-3}
 
 
+def _side_cards(ob, part, d):
+    """[(name, card)] a part is laid from: the human pair, or for lashes on a head whose eyes humanform.eye_layout
+    arranged (its PROP on the body), the human cards of the eyes it kept and one set per eye it placed."""
+    lay = ob.get("hf_eye_layout") if part == "lashes" else None
+    if not lay:
+        return [("L", d["L"]), ("R", d["R"])]
+    lay = json.loads(lay)
+    out = [(side, d[side]) for side in ("L", "R") if side not in lay.get("hide_lashes", [])]
+    return out + [(f"e{i}", c) for i, c in enumerate(lay.get("lashes", []))]
+
+
 def _cards(ob, co, part, base, rig, colour, uv_name, head, brow_shape="natural"):
     d = regions()[part]
     shaped = {}
@@ -465,8 +476,7 @@ def _cards(ob, co, part, base, rig, colour, uv_name, head, brow_shape="natural")
     mat, mat_rep, tile = _material(f"{base}_{part}", colour, uv_name, part, double_sided=(part == "lashes"))
     pts, faces, uvs, tris, bary = [], [], [], ([], [], []), []
     lids = {}
-    for side in ("L", "R"):
-        card = d[side]
+    for side, card in _side_cards(ob, part, d):
         p, (ia, ib, ic), w = _rebuild(co, card["fit"])
         off = len(pts)
         if tile == 1.0:

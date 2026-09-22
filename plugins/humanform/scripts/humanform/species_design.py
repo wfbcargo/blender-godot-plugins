@@ -932,7 +932,12 @@ def solve(observables, **knobs):
                                      f"{'larger' if obs['heads'] < law else 'smaller'} than the law's - label it "
                                      "[folklore]")
     warnings = []
-    if "bmi" not in obs and "mass_kg" not in obs and not BMI_PLAUSIBLE[0] <= shown["bmi"] <= BMI_PLAUSIBLE[1]:
+    # past the tallest pre-warp human the body is a person scaled whole, and square-cube lifts its BMI in proportion
+    # to the scale (a 3 m giant of a person's build is BMI ~45): the plausible band scales with it, so a giant is
+    # warned only for what its build and girth add, not for the law
+    grow = max(1.0, (sum(_mid(st, s) for s in SEXES) / 2) / ANSUR_STATURE[1])
+    lo_b, hi_b = BMI_PLAUSIBLE[0] * grow, BMI_PLAUSIBLE[1] * grow
+    if "bmi" not in obs and "mass_kg" not in obs and not lo_b <= shown["bmi"] <= hi_b:
         # nobody asked for this BMI: it is what the inputs stacked up to, so say which (a drow's build
         # "slender" and girth "slender" multiplied to BMI 14-17, 2026-09-21)
         stack = []
@@ -944,7 +949,7 @@ def solve(observables, **knobs):
                          + (f" (from girth {obs['girth']!r})" if "girth" in obs else ""))
         mid = sum(_mid(st, s) for s in SEXES) / 2
         stack.append(f"stature {mid:.2f} m (square-cube: BMI grows with height at one build)")
-        warnings.append(f"bmi {shown['bmi']:.1f} is outside a plausible {BMI_PLAUSIBLE[0]:g}-{BMI_PLAUSIBLE[1]:g} "
+        warnings.append(f"bmi {shown['bmi']:.1f} is outside a plausible {lo_b:.0f}-{hi_b:.0f} "
                         f"and nobody stated it: it is what {'; '.join(stack)} stacked up to. Drop one of them "
                         "(a build word and a girth word each already thin or thicken the body), or state `bmi` "
                         "and let the girth be solved")

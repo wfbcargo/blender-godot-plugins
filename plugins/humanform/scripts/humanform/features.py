@@ -279,9 +279,12 @@ def validate(head_spec):
         return out
     if not isinstance(head_spec, dict):
         return [f"head must be a table, not {type(head_spec).__name__}"]
-    extra = sorted(set(head_spec) - {"shape", "shape_weight", "features"})
+    extra = sorted(set(head_spec) - {"shape", "shape_weight", "features", "eyes"})
     if extra:
-        out.append(f"head: unknown key(s) {extra} - it takes shape, shape_weight and features")
+        out.append(f"head: unknown key(s) {extra} - it takes shape, shape_weight, features and eyes")
+    if head_spec.get("eyes") is not None:
+        from . import eye_layout                  # how many eyes and where: its own module, its own checks
+        out += eye_layout.validate(head_spec["eyes"])
     shape = head_spec.get("shape")
     if shape is not None and shape not in sheet.FACE_SHAPES:
         out.append(f"head.shape {shape!r} is not one of {', '.join(sheet.FACE_SHAPES)}")

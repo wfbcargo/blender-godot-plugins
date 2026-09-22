@@ -510,7 +510,10 @@ def measurements(ob, sex=None, fast=False, only=None, levels=None):
         for zz in np.linspace(m["knee_z"] - 0.05 * H, m["knee_z"] - 0.12 * H, 8):
             ls = [lp for lp in slicing.horizontal(b, floor + zz) if 0.0 < lp.centre.x < 0.2 * H]
             if ls:
-                best = max(best, max(lp.perimeter for lp in ls if lp.perimeter < 0.6))
+                # 0.6 m was an absolute cap on a calf (it keeps a both-legs loop out); a 3 m giant's calves are
+                # past it, so it scales with the body (a cyclops trial, 2026-09-21), and no loop under it is no calf
+                best = max(best, max((lp.perimeter for lp in ls if lp.perimeter < 0.6 * max(1.0, H / 1.75)),
+                                     default=0.0))
         if best:
             m["calf_circ"] = best
     sh_l, el_l = b.mark("shoulder.L"), b.mark("elbow.L")

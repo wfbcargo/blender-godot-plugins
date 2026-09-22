@@ -114,12 +114,24 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, **kw):
     t1 = time.time()
     feats = species.apply_features(human, sp)
     t["features"] = time.time() - t1
+    eyes_spec = ((sp.get("head") or {}).get("eyes"))
+    eyes_rep = None
+    if eyes_spec:
+        # how many eyes and where (humanform.eye_layout): after the features, before the warp carries the head
+        from . import eye_layout
+        t1 = time.time()
+        eyes_rep = eye_layout.apply(human, eyes_spec, iris=s.get("iris"))
+        t["eye_layout"] = time.time() - t1
+        if eyes_rep.get("fail"):
+            raise ValueError(f"eye layout: {eyes_rep['fail']}")
     t2 = time.time()
     rep = dict(info)
     before = species.inventory(human, sp)
     species.warp(human, sp, report=rep, sex=s["sex"], stature=info["stature"], style=s.get("style", "realistic"),
                  clamp_scale=info["clamp_scale"], verbose=verbose)
     rep["features"] = feats
+    if eyes_rep is not None:
+        rep["eyes"] = eyes_rep
     rep["anatomy"] = species.inventory(human, sp, reference=before)
     if tone is not None:
         from . import look

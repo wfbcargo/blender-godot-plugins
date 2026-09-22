@@ -1130,7 +1130,7 @@ def _leg_share(obj, t, verts):
     return out
 
 
-def _attachment_measures(t, r, verts, w, above_m=ATTACH_ABOVE_M):
+def _attachment_measures(t, r, verts, w, above_m=ATTACH_ABOVE_M, scale=1.0):
     """How a hanging mass's bone and weight sit (check_placement): the pivot's rise over the tail, the mean weight
     within 2 cm of the tail, the most weight on region vertices 9-11 cm above the tail within 4 cm of it
     horizontally, and the most on vertices with half or more of their skin on a leg. Free values, never clamped."""
@@ -1140,13 +1140,16 @@ def _attachment_measures(t, r, verts, w, above_m=ATTACH_ABOVE_M):
     d = P - tail
     dz = d @ up
     horiz = np.linalg.norm(d - np.outer(dz, up), axis=1)
-    near = np.linalg.norm(d, axis=1) < 0.02
-    above = (dz > above_m - 0.01) & (dz < above_m + 0.01) & (horiz < 0.04)
+    near = np.linalg.norm(d, axis=1) < 0.02 * scale
+    above = (dz > above_m - 0.01 * scale) & (dz < above_m + 0.01 * scale) & (horiz < 0.04 * scale)
     leg = _leg_share(bpy.data.objects[t["object"]], t, verts) >= 0.5
     return {"pivot_rise_m": round(float((head - tail) @ up), 4),
             "weight_at_apex": round(float(w[near].mean()), 3) if near.any() else 0.0,
             "weight_10cm_above": round(float(w[above].max()), 3) if above.any() else 0.0, "above_m": above_m,
             "weight_on_thigh": round(float(w[leg].max()), 3) if leg.any() else 0.0}
+
+
+TRUNK_SPAN_HUMAN_MAX = 0.62   # hip joints to shoulder joints (m) of the tallest person built (2.02 m smoke: ~0.60)
 
 
 def check_placement(t, regions, c=None):
@@ -1195,8 +1198,14 @@ def check_placement(t, regions, c=None):
                                            f"{r['type']} zone's {lo:.2f}-{hi:.2f} (0 hip joints, 1 shoulder joints)")
         entry = types.get(r["type"]) or {}
         if entry.get("attachment") == "upper":
-            rise_min = float(entry.get("attach_rise_m", ATTACH_UP_M)[0])
-            row.update(_attachment_measures(t, r, verts, w, above_m=float(entry.get("attach_above_m", ATTACH_ABOVE_M))))
+            # the attachment's distances are a person's: past the tallest person's trunk they scale with it, so a
+            # 3 m giant's belly is judged 15 cm above its apex the way a person's is (a cyclops trial, 2026-09-21);
+            # every human body's trunk is inside the range, so their checks are unchanged
+            big = max(1.0, span / TRUNK_SPAN_HUMAN_MAX)
+            rise_min = float(entry.get("attach_rise_m", ATTACH_UP_M)[0]) * big
+            row.update(_attachment_measures(t, r, verts, w,
+                                            above_m=float(entry.get("attach_above_m", ATTACH_ABOVE_M)) * big,
+                                            scale=big))
             if row["pivot_rise_m"] < rise_min - 0.001:
                 row["problems"].append(f"{r['name']}: its pivot is {row['pivot_rise_m'] * 100:.1f} cm above its tail; a "
                                        f"mass hanging from above pivots at least {rise_min * 100:.0f} cm above its apex")

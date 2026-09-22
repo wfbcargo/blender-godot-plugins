@@ -115,8 +115,10 @@ def _materials(name, iris):
     return mats, (lambda deg: ld_eyes.slot_for_angle(deg)), dict(rep, source="lookdev")
 
 
-def add(human, iris=None, segments=32, rings=32):
-    """`iris`: a screen (sRGB) colour, as picked or written in a brief; None for a mid brown.
+def add(human, iris=None, segments=32, rings=32, places=None):
+    """`iris`: a screen (sRGB) colour, as picked or written in a brief; None for a mid brown. `places`: eyes at
+    [(centre, radius)] instead of in MPFB's two sockets (humanform.eye_layout: one eye, three, ...), each named
+    `e<i>` in the report; None is the human pair from the helpers, exactly as before.
 
     `rings` was 16 until the eye preset: at that height the whole iris was 2 rings of faces and the
     pupil 1, which is what every benchmark critic saw as "a faceted iris polygon" and a pupil with
@@ -138,10 +140,15 @@ def add(human, iris=None, segments=32, rings=32):
     bm = bmesh.new()
     report = {"materials": mat_report}
     forward = Vector((0, -1, 0))
-    for side in ("l", "r"):
-        pts = _helper_points(human, side)
-        centre = pts.mean(axis=0)
-        radius = float(np.linalg.norm(pts - centre, axis=1).mean())
+    if places is None:
+        where = []
+        for side in ("l", "r"):
+            pts = _helper_points(human, side)
+            centre = pts.mean(axis=0)
+            where.append((side, centre, float(np.linalg.norm(pts - centre, axis=1).mean())))
+    else:
+        where = [(f"e{i}", np.asarray(c, np.float64), float(r)) for i, (c, r) in enumerate(places)]
+    for side, centre, radius in where:
         report[side] = {"centre": [round(float(c), 4) for c in centre], "radius": round(radius, 4)}
         before = set(bm.verts)
         _uvsphere(bm, u_segments=segments, v_segments=rings, radius=radius,
