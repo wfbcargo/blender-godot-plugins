@@ -74,8 +74,8 @@ def inline(d):
     humanform-species/1 preset (it has `ratios` and `heads`), or what humanform.species_design turns into one:
     observables (`species_design.design_from`: stature, heads, a trunk-to-leg ratio ... as a description gives
     them, bare or under "observables") or `{"knobs": {...}, "stature": ...}` (`species_design.design`). Beside
-    them, `head`, `skin` and `moves` are its look, `graft`, `legs` (a leg plan: humanform.legs) and `tail`
-    (humanform.tail) its body plan, and `anatomy` its declared absences and scales; `id` and `label` are kept
+    them, `head`, `skin` and `moves` are its look, `graft`, `legs` (a leg plan: humanform.legs), `foot` (a foot plan:
+    humanform.feet; `feet` is already the observable for foot LENGTH) and `tail` (humanform.tail) its body plan, and `anatomy` its declared absences and scales; `id` and `label` are kept
     (an unnamed species is "custom")."""
     d = copy.deepcopy(d)
     if d.get("schema") == SCHEMA or ("ratios" in d and "heads" in d):
@@ -88,7 +88,7 @@ def inline(d):
         raise ValueError("an inline species needs `ratios` and `heads` (a whole humanform-species/1 preset): "
                          "humanform.species_design, which designs one from observables or knobs, is not installed")
     sid, label = d.pop("id", None) or "custom", d.pop("label", None)
-    look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft", "legs", "tail") if k in d} or None
+    look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft", "legs", "foot", "tail") if k in d} or None
     anatomy = d.pop("anatomy", None)
     if "knobs" in d:
         knobs = dict(d.pop("knobs"))
@@ -1446,7 +1446,10 @@ def inventory(human, sp=None, reference=None, expected=None):
     def judge(row):
         r0 = ref.get(row["part"])
         if r0 and r0.get("ratio") and row.get("ratio"):
-            want = (expected or {}).get(row["part"].split(".")[0], 1.0)
+            # a sub-part first (a foot plan draws the TOEnails together and leaves the fingernails alone),
+            # then the whole part it is of
+            want = (expected or {}).get(row["part"],
+                                        (expected or {}).get(row["part"].split(".")[0], 1.0))
             ch = row["ratio"] / r0["ratio"] / want
             if want != 1.0:
                 row["expected_change"] = round(want, 3)

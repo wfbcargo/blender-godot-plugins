@@ -238,7 +238,11 @@ SPECIES = {
                  "skin": {"palette": [[0.72, 0.56, 0.42], [0.58, 0.43, 0.32], [0.42, 0.31, 0.23]],
                           "regions_off": []},
                  # the body plan: the leg plan and the tail, each checked by its own module before a build
-                 "legs": {"plan": "digitigrade", "stand": 0.95, "metatarsal": 2.2, "toe": 1.9, "knee": 122.0},
+                 # a goat's digits are SHORT: the length is in the cannon, and the hoof caps a short toe
+                 "legs": {"plan": "digitigrade", "stand": 0.95, "metatarsal": 2.4, "toe": 0.95,
+                          "knee": 122.0},
+                 # a cloven hoof: the same foot plan as a paw, at the other end of its knobs (humanform.feet)
+                 "foot": {"plan": "hoof"},
                  "tail": {"length": 0.28, "thickness": 0.085, "taper": 0.25, "base": 0.08, "droop": 30.0},
                  "moves": {"style": None, "notes": "the leg plan is read off the built rig (rig_analysis.bodymap): "
                                                    "the effective leg is hip to toe, and Froude does the rest"}},

@@ -801,9 +801,12 @@
   "legs": {
     "plan": "digitigrade",
     "stand": 0.95,
-    "metatarsal": 2.2,
-    "toe": 1.9,
+    "metatarsal": 2.4,
+    "toe": 0.95,
     "knee": 122.0
+  },
+  "foot": {
+    "plan": "hoof"
   },
   "tail": {
     "length": 0.28,

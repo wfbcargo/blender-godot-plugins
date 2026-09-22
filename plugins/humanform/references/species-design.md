@@ -296,6 +296,40 @@ off a flag (`bodymap`: an end bone within 30 degrees of the leg's standing axis 
 60 a plate on the ground, between them pro rata), so `locomotion` scales the gait by the effective leg and the
 gait itself needs no new maths.
 
+**A foot plan** - `foot = "paw"`, `"hoof"` or a table of them (`humanform.feet`; the key is `foot`, not `feet`,
+because `feet` is already the observable for foot LENGTH). The leg plan says where a leg's segments point; this
+says what is on the end of one, and it is the other half of the same job - a raised hock over a human foot with
+five long toes reads as a person on tiptoe, not as a paw. A paw and a hoof are two settings of one plan, and a
+human foot is the setting that changes nothing.
+
+| knob | what it is | range, default (`paw` / `hoof`) |
+|---|---|---|
+| `toes` | how many toes the foot ends in. The five hm08 toes are never deleted - the vertex order is what the skin regions and the brow fits index - they are **fused** onto that many groups, fully at the tips and not at all at the ball | 1-5, **4 / 2** |
+| `splay` | how far the groups spread across the foot | 0.3-2.0, **1.15 / 0.45** |
+| `width` | how much fatter a fused group is (across the foot; a third of that through it) | 0.5-3.0, **1.25 / 2.0** |
+| `pad` | a dome pressed into the sole under the standing ball - the metacarpal pad a digitigrade foot walks on - in toe lengths | 0-0.6, **0.09 / 0.03** |
+| `toe_pad` | the same under each toe group's own tip | 0-0.5, **0.07 / 0.02** |
+| `heel_pad` | ... and at the back of the foot | 0-0.5, **0.05 / 0.06** |
+| `nail` | `nail` (hm08's own toenails), `claw` or `hoof` | **claw / hoof** |
+| `claw` | the attached part's own shape: `length`, `base_radius`, `tip_radius`, `curve`, `curl`, `sink`, `color`, `roughness` | derived |
+
+A claw and a hoof are **the same mechanism the head's horns and tusks use** (`features._part`, anchored on the
+distal flesh of each toe group and skinned 100% to the toe bone, in `<human>_footparts`): a claw is data, not a
+mesh, and a hoof is that mechanism at its blunt extreme - short, nearly as wide at the tip as the base, curved
+down hard and sunk far enough to cap the toe. Its **length is solved, not guessed**: a hoof stands the creature
+on horn and a claw must not, and which length does either depends on the leg plan's toe, the fuse and the pads -
+the same fraction that put a paw's claws 13 mm through the floor left a satyr's hoof 11 mm in the air. So the
+build lays the nails, measures what carries with the contact check, corrects and lays them again, and refuses a
+solved length outside 0.15-1.6 toe lengths ("it is reaching for the ground sideways"). An explicit `claw.length`
+is taken as given and held to the same check.
+
+The body is re-stood on the floor after the pads, so a pad adds its own thickness under the foot the way an
+animal's does (11-13 mm on a 1.75-1.80 m body). The **contact check** (`feet.contact`) is the one that matters:
+what the plan says carries the ground must be the lowest thing on the foot - a claw's tip stays 4 mm above the
+pads, a hoof reaches 6 mm below the flesh - and both are refused with the millimetres measured. The plan also
+reports what it did to hm08's toenails against the foot they sit on, so the anatomy inventory grades a fused,
+shortened set of nails against the plan rather than against a human's.
+
 **A tail beside the legs** - `tail = { length = 0.55, ... }` (`humanform.tail`). A tail INSTEAD of the legs is
 the graft above, and asking for both is refused. A patch of skin at the sacrum goes, and its boundary loop is
 lofted along an arc that leaves the body at `droop` degrees below horizontal and falls another `curve` over its

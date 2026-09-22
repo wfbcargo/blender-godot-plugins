@@ -886,6 +886,13 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
         if lp:
             raise DesignError(f"{id}: " + "; ".join(lp))
         doc["legs"] = lookd["legs"]
+    if lookd.get("foot") not in (None, "human"):
+        # how many toes carry the ground, what pads them, what grows on their ends (humanform.feet). The key is
+        # `foot`, not `feet`: `feet` is already the observable for foot LENGTH against the head.
+        fp = _sibling("feet").validate(lookd["foot"])
+        if fp:
+            raise DesignError(f"{id}: " + "; ".join(fp))
+        doc["foot"] = lookd["foot"]
     if lookd.get("tail") not in (None, False):
         # a tail as well as the legs (humanform.tail); a tail INSTEAD of them is a graft
         if doc.get("graft", {}).get("legs"):
