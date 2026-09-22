@@ -89,7 +89,12 @@ def inline(d):
         stature = d.pop("stature", knobs.pop("stature", None))
         out = sd.design(id=sid, label=label, stature=stature, look=look, anatomy=anatomy, **knobs)
     else:
-        out = sd.design_from(d.pop("observables", d), id=sid, look=look, anatomy=anatomy)
+        obs = dict(d.pop("observables", d))
+        # a knob beside the observables (character-pipeline's [body.species] takes both at the top level, and
+        # species-design.md: "anything no observable expresses is given as a knob") goes to solve() as a knob;
+        # a name that is both (hunch_deg, sway_deg) stays an observable
+        knobs = {n: obs.pop(n) for n in list(obs) if n in sd.KNOBS and n not in sd.OBSERVABLES}
+        out = sd.design_from(obs, id=sid, look=look, anatomy=anatomy, **knobs)
     if label:
         out["label"] = label
     return out

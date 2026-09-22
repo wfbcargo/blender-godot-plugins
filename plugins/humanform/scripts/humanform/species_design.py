@@ -181,6 +181,7 @@ ANATOMY = {
     "body_hair": ("body", 1.0, None, "body hair coverage (fur is added over the same maps)"),
 }
 ANATOMY_SCALE = (0.3, 3.0)
+BMI_PLAUSIBLE = (18.0, 40.0)        # a derived (unstated) BMI outside this is warned about in solve(): see there
 
 HEIGHTS = ("ankle_joint", "knee_joint", "crotch", "hip_joint", "shoulder_joint", "chin")
 LENGTHS = ("upper_arm", "forearm", "hand", "foot", "thigh", "shin", "shoulder_width", "hip_width")
@@ -535,7 +536,8 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
         "design": {"proportionate": proportionate, "heads_law": {s: round(v, 2) for s, v in heads_law.items()},
                    "mass_kg_mid": mass,
                    **({"given": report["given"], "derived": report["derived"],
-                       "contradictions": report["contradictions"], "observables": report["observables"]}
+                       "contradictions": report["contradictions"], "warnings": report.get("warnings", []),
+                       "observables": report["observables"]}
                       if report else {})},
         "stature": {s: [round(v, 3) for v in st[s]] for s in SEXES},
         "bmi": [min(bmi[s][0] for s in SEXES), max(bmi[s][1] for s in SEXES)],
@@ -865,7 +867,10 @@ def solve(observables, **knobs):
                     d = design(stature=st, **dict(_settable(k), heads=heads_now,
                                                   **{n: min(2.0, girth_base[n] * x) for n in girth_free}))
                 except DesignError:
-                    return 1e9           # only a far-too-heavy trial fails the check
+                    # a trial the check refuses is off one end: far too light (the BMI floor) below the base
+                    # girth, far too heavy above it. Always 1e9 made a thin body unreachable: bmi 18.5 at a
+                    # slender build failed because girth 0.55 is under BMI 8 (a drow, 2026-09-21)
+                    return -1e9 if x < 1.0 else 1e9
                 return sum(d["bmi"]) / 2 if what == "bmi" else sum(d["design"]["mass_kg_mid"].values()) / 2
             x = _bisect(f_mass, tgt, 0.55, 2.0 / max(girth_base.values()), n=40)
             if x is None:
@@ -911,8 +916,25 @@ def solve(observables, **knobs):
             derived["heads_note"] = (f"heads {obs['heads']} against the allometric {law:.1f}: a stylised head "
                                      f"{'larger' if obs['heads'] < law else 'smaller'} than the law's - label it "
                                      "[folklore]")
+    warnings = []
+    if "bmi" not in obs and "mass_kg" not in obs and not BMI_PLAUSIBLE[0] <= shown["bmi"] <= BMI_PLAUSIBLE[1]:
+        # nobody asked for this BMI: it is what the inputs stacked up to, so say which (a drow's build
+        # "slender" and girth "slender" multiplied to BMI 14-17, 2026-09-21)
+        stack = []
+        if "build" in obs:
+            stack.append(f"build {obs['build']!r} (pre-warp BMI {k['build_bmi']:g})")
+        g = {n: k[n] for n in ("girth_legs", "girth_arms", "girth_neck", "girth_torso") if abs(k[n] - 1.0) > 1e-6}
+        if g:
+            stack.append("girth " + ", ".join(f"{n[6:]} {v:g}" for n, v in g.items())
+                         + (f" (from girth {obs['girth']!r})" if "girth" in obs else ""))
+        mid = sum(_mid(st, s) for s in SEXES) / 2
+        stack.append(f"stature {mid:.2f} m (square-cube: BMI grows with height at one build)")
+        warnings.append(f"bmi {shown['bmi']:.1f} is outside a plausible {BMI_PLAUSIBLE[0]:g}-{BMI_PLAUSIBLE[1]:g} "
+                        f"and nobody stated it: it is what {'; '.join(stack)} stacked up to. Drop one of them "
+                        "(a build word and a girth word each already thin or thicken the body), or state `bmi` "
+                        "and let the girth be solved")
     return {"knobs": _settable(k), "given": given, "derived": derived, "contradictions": contra,
-            "observables": {o: obs[o] for o in obs}}
+            "warnings": warnings, "observables": {o: obs[o] for o in obs}}
 
 
 def _settable(k):
@@ -971,6 +993,8 @@ def explain(preset):
         lines.append(f"  anatomy scaled by the description: {stated}")
     for c in dz.get("contradictions", []):
         lines.append(f"  CONTRADICTION {c}")
+    for w in dz.get("warnings", []):
+        lines.append(f"  WARNING {w}")
     if der.get("heads_note"):
         lines.append(f"  note: {der['heads_note']}")
     return "\n".join(lines)

@@ -180,7 +180,10 @@ SPECIES_LOOK = {
     "skin.pattern": ("kind", "colour", "scale", "amount", "regions"),
     "head": ("shape", "shape_weight", "features"),
 }
-SPECIES_META = ("id", "label")
+SPECIES_META = ("id", "label", "anatomy", "moves")
+# `anatomy` (humanform.species_design): only what the description says the creature lacks, each with its reason,
+# and sizes it states - every other part is kept
+SPECIES_ANATOMY = ("absent", "scale")
 
 
 def check_species_table(table):
@@ -202,6 +205,15 @@ def check_species_table(table):
             if not isinstance(v, dict):
                 raise SpecError(f"body.species.{part} must be a table, not {type(v).__name__}")
             _unknown(v, SPECIES_LOOK[part], f"[body.species.{part}]")
+    anat = table.get("anatomy")
+    if anat is not None:
+        if not isinstance(anat, dict):
+            raise SpecError("body.species.anatomy must be a table: absent = [{ part, reason }], scale = { part = x }")
+        _unknown(anat, SPECIES_ANATOMY, "[body.species.anatomy]")
+        for e in anat.get("absent", []):
+            if not isinstance(e, dict) or not e.get("part") or not e.get("reason"):
+                raise SpecError(f"body.species.anatomy.absent entry {e!r}: needs part and the reason the description "
+                                "gives (a part is declared absent only when the description says so)")
     pattern = (table.get("skin") or {}).get("pattern")
     if pattern is not None:
         if not isinstance(pattern, dict):
