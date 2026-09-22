@@ -6,6 +6,47 @@ code that turns data into a body, a rig and a gait is shared by every species, i
 > **Picking this up?** Step 1 (species presets and the proportion warp) is the round this was written for
 > (branch `species-1`, 2026-09-21). The rest is in order below.
 
+> **The goal (the user's rule, 2026-09-21): tools that make *any* creature, not recipes for a dwarf.** A
+> preset for a dwarf is worth little on its own. What we build is (1) a **method** for working out what any
+> described creature's numbers should be, (2) a **general parameter space** those numbers live in, with
+> general laws (allometry, square-cube, Froude) filling in what a description leaves out, and (3) **tools** that
+> turn the parameters into a consistent body, head, surface and gait, and check it. The named species are
+> worked examples and test cases for the method. Code never branches on a species name; everything is driven
+> by the numbers, so a species invented inline in one character spec needs no file and no code.
+
+## The method: from a description to a creature
+
+This is the procedure the tools support, and what `humanform/references/species-design.md` teaches in full.
+Each step has a tool, and each tool refuses what it cannot do with the range in its message.
+
+1. **Read the description into observables.** Only things a person can state or measure on a concept image:
+   stature, head count, where the hanging fingertips land (hip, mid-thigh, knee), crotch height or leg
+   fraction, trunk-to-leg ratio, shoulder and hip width against a human's, spine angle (hunch), build words,
+   skin tone and pattern, head features. How to measure each on an image, and how to pick a real-world
+   analogue for what is not given (achondroplasia for short limbs on a normal trunk, proportionate short
+   stature for a scaled-down body, gigantism and large-animal data for size, the Froude law for gait), is
+   the method's reference. Each number is labelled given, derived or folklore.
+2. **Solve the observables into the parameter space** (`humanform.species_design.solve`). Any subset may be
+   given. What is missing comes from general laws, not from per-species rules:
+   - **allometry**: head size grows slower than stature, so a short creature is big-headed without being
+     told (the exponent from human and cross-species data);
+   - **square-cube**: a creature of the same build is heavier per unit height as it grows (BMI scales with
+     stature), which drives girth, stockiness and the gait;
+   - **proportionate against disproportionate**: short limbs on a full trunk is a different body from a
+     scaled-down one, and the solver says which it read;
+   - **reach landmarks** set arm length from where the hands hang.
+
+   Contradictions (5 heads and 2.5 m and a human head size) are reported, not silently resolved.
+3. **Design the preset** (`species_design.design(**params)`): every joint height, segment, width and the head
+   count, in `presets.json`'s format, consistent by construction (joints ordered, heads = 1/(1 - chin),
+   segments sum to the joint heights). `explain(preset)` prints it as a table a person can check.
+4. **Build**: the nearest human is fitted, then warped to the preset (layer 1); head features, surface and
+   gait follow the other layers. Each is a general mechanism with named presets on top: a head feature is a
+   region, a displacement and an optional attached part; a skin is a tone, derived region shifts and a pattern;
+   a gait style comes from what is measured on the built body.
+5. **Check, then look**: humancheck grades the body against its own preset; rig-anything checks the Froude
+   number, foot drift and reach; then the body is looked at in Godot, beside a human at true scale.
+
 ---
 
 ## The problem
@@ -225,31 +266,47 @@ humancheck grades a species exactly as it grades the realistic preset. `segments
 warp's factors against the fitted human; the warp solves the final factors so the measured joints land on
 `ratios`, and these are its starting point and the shape of the change.
 
-In a brief and a character spec, a species is one field:
+In a brief and a character spec, a species is a named preset **or an inline description**. A name is a shortcut
+for a worked example; an inline table is how a user's own creature is made, with no file and no code:
 
 ```toml
 [body]
-species = "dwarf"          # humanform/data/species/dwarf.json; omitted is "human"
+species = "dwarf"          # a worked example: humanform/data/species/dwarf.json; omitted is "human"
 sex = "male"
 stature = 1.32
 build = "muscular"
-skin = [0.70, 0.52, 0.42]
+```
+
+```toml
+[body]                     # a creature nobody wrote a preset for
+sex = "female"
+stature = 1.15
+build = "stocky"
+
+[body.species]             # observables, solved by species_design.solve; anything left out is derived
+heads = 5.0
+fingertips_at = "knee"
+trunk_to_leg = 0.85
+hunch_deg = 15
+skin = { tone = [0.46, 0.50, 0.40], pattern = { kind = "blotches", colour = [0.30, 0.34, 0.26], amount = 0.5 } }
+head = { shape = "square", features = { brow_ridge = 0.6, ears_large = 0.8 } }
 ```
 
 `style` (realistic, stylized) still chooses how the pre-warp human is drawn.
 
-**First species**, by how far each is from a human (and so how much each proves):
+**Worked examples**, chosen because each exercises a different part of the method (they are test cases, not
+the product):
 
-| species | heads | what it proves | layers |
+| example | heads | what it exercises | layers |
 |---|---|---|---|
-| elf | 8.3 | a small warp: long legs, slender girth, long neck, pointed ears | 1, 2 |
-| halfling | 5.5 | a proportionate shrink with a bigger head | 1 |
-| gnome | 4.2 | the same pushed further: 1.0 m, a big head, big nose | 1, 2 |
-| dwarf | 4.6 | the disproportionate warp: short limbs, long trunk, broad | 1, 2, 4 |
-| orc | 7.5 | widths and girth, green skin, tusks, heavy brow | 1, 2, 3 |
-| goblin | 5.0 | small and hunched: the spine curve, big ears, green skin | 1, 2, 3 |
-| troll | 7.0 at 2.6 m | large: kyphosis, long arms, grey-green skin, the heavy gait | 1, 2, 3, 4 |
-| gnoll | - | a non-human head, fur, digitigrade legs | 2 (graft), 3 (fur), 5 |
+| elf | 8.3 | a small warp past the human range: long legs, slender girth, long neck | 1, 2 |
+| halfling | 5.5 | proportionate short stature; allometry makes the head big | 1 |
+| gnome | 4.3 | the same at its limit (1.0 m) | 1, 2 |
+| dwarf | 5.0 | disproportionate: short limbs (femur, humerus most) on a full trunk | 1, 2, 4 |
+| orc | 7.5 | widths and girth; a non-human tone; attached parts (tusks) | 1, 2, 3 |
+| goblin | 5.0 | short and hunched: the spine curve with a big-headed body | 1, 2, 3 |
+| troll | 7.0 at 2.6 m | large: square-cube mass, kyphosis, reach to the knee, the heavy gait | 1, 2, 3, 4 |
+| gnoll | - | past the human baseline: a grafted head, fur, digitigrade legs | 2 (graft), 3 (fur), 5 |
 
 ## Steps
 
@@ -260,8 +317,9 @@ skin = [0.70, 0.52, 0.42]
 2. **Head features** (humanform): pointed ears, brow ridge, heavy nose, tusk bumps as parts; tusks as meshes.
 3. **Movement from the build** (rig-anything): `derive_style`, the Fr and reach checks.
 4. **Surface** (humanform, lookdev): species palettes, patterns, subsurface tint; turn off human-only regions.
-5. **A species from a description**: a user's words ("stocky, 1.2 m, long arms, grey skin") to a species preset
-   by nearest species plus stated overrides, with the same checks.
+5. **The method end to end**: `species_design.solve` / `design` / `explain`, inline `[body.species]`, and
+   `references/species-design.md` (how to read a description or a concept image into observables). *Pulled
+   into this round (the user's direction): it is the product, the presets are its examples.*
 6. **Fur**: Godot shell fur plus strand cards; coverage maps on hm08.
 7. **Head grafts and digitigrade legs**: the gnoll round.
 
