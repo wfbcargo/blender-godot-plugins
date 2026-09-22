@@ -67,7 +67,13 @@ EXPOSE_TOL = 0.25            # ... and it may exceed the person's eye on the sam
 EYE_NORM = {"bare": 0.19, "ratio": 0.32}
 RATIO_TOL = 0.2              # ... and its opening's height over width within this share of theirs
 PROTRUDE_TOL = 0.15          # ... nor stand further out of its face than theirs by more than this many radii
-BLEND = 2.3                 # the carve fades back to the face by this many radii (in aperture units)
+SOCKET = {"half_width": 1.9, "up": 2.3, "down": 1.0, "core": 0.35}
+# the skin round a new eye taken from the person's eye (`_socket`), in eye radii: across, up to the brow and above,
+# and down to the lower lid's fold (below it on the midline is the nose)
+BROW_GAP = 0.04              # a median eye's arch: its two halves' heads this share of its span off the midline
+LASH_ROOT_SHARE = 0.25      # a lash card's root row: its points within this share of its span from the eyeball
+LASH_ANGLE_TOL = 12.0        # a new eye's lashes may stand out of the lid this many degrees more or less than theirs
+BLEND = 1.9                 # the carve fades back to the face by this many radii (in aperture units)
 LID = (1.05, 1.18)           # the lid band's distance from the eyeball's centre, at the margin and at its outer edge
 INSIDE = 0.94                # skin inside the aperture is laid this far out: hidden inside the eyeball
 FORE_RISE = 0.035            # a third (fourth...) eye's default height over the pair, on the reference head
@@ -290,21 +296,79 @@ def _refit(points, co, tris):
     return rows
 
 
+def _lid_frames(roots, centre):
+    """Per root of a lash card's lid (points relative to the eyeball's centre, grouped by lid: z above the centre is
+    the upper lid), (tangent along the lid from nasal to outer, the ball's outward normal, their cross). `roots`
+    must be ordered nasal to outer within each lid (see `_lash_cards`)."""
+    t = np.zeros_like(roots)
+    for lid in (roots[:, 2] > 0, roots[:, 2] <= 0):
+        idx = np.flatnonzero(lid)
+        if len(idx) < 2:
+            continue
+        pts = roots[idx]
+        g = np.gradient(pts, axis=0)
+        t[idx] = g
+    t /= np.maximum(np.linalg.norm(t, axis=1), 1e-12)[:, None]
+    n = roots - centre
+    n /= np.maximum(np.linalg.norm(n, axis=1), 1e-12)[:, None]
+    t = t - n * np.einsum("ij,ij->i", t, n)[:, None]
+    t /= np.maximum(np.linalg.norm(t, axis=1), 1e-12)[:, None]
+    return t, n, np.cross(n, t)
+
+
+def lash_angles(pts, roots_idx, centre):
+    """The lashes' angle out of the lid (degrees): for every card point that is not a root, the angle between its
+    offset from the nearest root and the eyeball's tangent plane there. A person's lashes lie out and forward along
+    the lid (a low angle); a card stood on end reads as a picket fence (near 90)."""
+    rr = pts[roots_idx]
+    rest = np.setdiff1d(np.arange(len(pts)), roots_idx)
+    if not len(rest) or not len(rr):
+        return None
+    near = np.argmin(np.linalg.norm(pts[rest][:, None, :] - rr[None, :, :], axis=2), axis=1)
+    o = pts[rest] - rr[near]
+    n = rr[near] - centre
+    n /= np.maximum(np.linalg.norm(n, axis=1), 1e-12)[:, None]
+    sin = np.einsum("ij,ij->i", o, n) / np.maximum(np.linalg.norm(o, axis=1), 1e-12)
+    return float(np.degrees(np.arcsin(np.clip(sin, -1, 1))).mean())
+
+
+def _lash_roots(rel, faces):
+    """The root row of each lash card (points relative to its eyeball's centre): per card piece, the points nearest
+    the ball (within LASH_ROOT_SHARE of the piece's span from its nearest). MPFB's lash UVs are an atlas, not root to
+    tip - taken as V < 0.2 they called 60 of a card's 125 points roots and laid them all on the lid margin, the
+    rest standing up off it: the picket fence."""
+    comp = np.array(brows_components(len(rel), faces))
+    dist = np.linalg.norm(rel, axis=1)
+    out = []
+    for k in np.unique(comp):
+        idx = np.flatnonzero(comp == k)
+        lo, hi = float(dist[idx].min()), float(dist[idx].max())
+        out += idx[dist[idx] <= lo + LASH_ROOT_SHARE * (hi - lo)].tolist()
+    return np.array(sorted(out), int)
+
+
+def brows_components(n, faces):
+    from . import brows
+    return brows._components(n, faces)
+
+
 def _lash_cards(co_before, co_after, faces, eyes_old, new, ap):
-    """For each new eye, lash cards carried from the human eyes and fitted to its lids. Each card's roots are
-    laid on this eye's lid margin - the aperture `ap`'s almond, nasal corner to outer corner - and every other
-    point keeps its offset from its nearest root, scaled with the eye. An eye on the midline takes two cards, the
-    left eye's on its left half and the right eye's on its right, nasal corners meeting in the middle, so it is
-    symmetric. (Scaled whole, the human roots fell inside the larger opening and crossed the iris; scaled by the
-    opening's stretch, the lashes stood up like a brush; one card alone was lopsided - the first cyclops.)"""
+    """For each new eye, lash cards carried from the human eyes and fitted to its lids, and their angles
+    ({"human": deg, "new": [deg]}: `lash_angles`). Each card's roots are laid on this eye's lid margin - the aperture
+    `ap`'s almond, nasal corner to outer corner - and every other point keeps its offset from its root in the lid's
+    own frame (along the lid, out of the ball, across), scaled with the eye, so the lashes lie along the lid's
+    curve as the person's do. An eye on the midline takes two cards, the left eye's on its left half and the right
+    eye's on its right, nasal corners meeting in the middle. (Offsets kept in the head's frame instead stood the
+    cards on end where the new lid runs another way than the human's: a picket fence on the first cyclops.)"""
     from . import brows
     d = brows.regions().get("lashes")
     if not d:
-        return []
+        return [], {}
     tris = _tris(faces)
-    out = []
+    out, angles = [], {"new": []}
     for e in new:
         R = e["radius"]
+        c = np.asarray(e["centre"], float)
         A, Bu, Bl = ap[0] * R, ap[1] * 1.1 * R, ap[1] * 0.9 * R
         median = abs(e["centre"][0]) < 0.25 * R
         if median:
@@ -317,21 +381,117 @@ def _lash_cards(co_before, co_after, faces, eyes_old, new, ap):
             p, _, _ = brows._rebuild(co_before, card["fit"])
             c0, r0 = eyes_old[side]
             rel = p - c0
-            roots = np.asarray(card["uv"], float)[:, 1] < 0.2
-            ri = np.flatnonzero(roots)
+            ri = _lash_roots(rel, card["faces"])
+            if "human" not in angles:
+                angles["human"] = lash_angles(rel, ri, np.zeros(3))
+            lat = rel[ri, 0] * (1.0 if side == "L" else -1.0)      # grows toward the outer corner
+            order = np.argsort(lat)
+            ri = ri[order]
+            lat = lat[order]
             rr = rel[ri]
-            lat = rr[:, 0] * (1.0 if side == "L" else -1.0)       # grows toward the outer corner
             t = (lat - lat.min()) / max(float(lat.max() - lat.min()), 1e-9)    # 0 nasal .. 1 outer
             x = x_nasal + t * (x_outer - x_nasal)
-            s = np.sqrt(np.clip(1.0 - (x / A) ** 2, 0.0, 1.0))
-            z = np.where(rr[:, 2] > 0, Bu * s, -Bl * s)
+            sq = np.sqrt(np.clip(1.0 - (x / A) ** 2, 0.0, 1.0))
+            z = np.where(rr[:, 2] > 0, Bu * sq, -Bl * sq)
             y = -np.sqrt(np.maximum((1.02 * R) ** 2 - x ** 2 - z ** 2, (0.2 * R) ** 2))
             root_new = np.stack([x, y, z], axis=1)
+            th, nh, bh = _lid_frames(rr, np.zeros(3))
+            tn, nn, bn = _lid_frames(root_new, np.zeros(3))
             near = np.argmin(np.linalg.norm(rel[:, None, :] - rr[None, :, :], axis=2), axis=1)
             k = R / r0 * (0.5 if median else 1.0) ** 0.5            # half a lid's cards on half its width
-            q = np.asarray(e["centre"]) + root_new[near] + (rel - rr[near]) * k
-            out.append({"fit": _refit(q, co_after, tris), "faces": card["faces"], "uv": card["uv"], "from": side})
+            o = rel - rr[near]
+            a_, b_, c_ = (np.einsum("ij,ij->i", o, f[near]) * k for f in (th, nh, bh))
+            q_rel = root_new[near] + a_[:, None] * tn[near] + b_[:, None] * nn[near] + c_[:, None] * bn[near]
+            q_rel[ri] = root_new
+            angles["new"].append(lash_angles(q_rel, ri, np.zeros(3)))
+            out.append({"fit": _refit(c + q_rel, co_after, tris), "faces": card["faces"], "uv": card["uv"],
+                        "from": side})
+    return out, angles
+
+
+def _brow_cards(co_before, co_after, faces, eyes_old, new, tree_after):
+    """A brow arch over each new eye: the person's brow cards, carried from their eye to the new one and scaled
+    with it (its height over the eye and its reach past the outer corner as theirs, in eye radii), laid on the new
+    skin at the height over it they had. An eye on the midline takes both: the left brow on its left half and the
+    right on its right, their heads meeting on the midline - one continuous arch; any other eye takes its side's."""
+    from mathutils.bvhtree import BVHTree
+    from . import brows
+    d = brows.regions().get("brows")
+    if not d:
+        return []
+    tris = _tris(faces)
+    tree_before = BVHTree.FromPolygons([Vector(v) for v in co_before[:BODY_VERTS]],
+                                       [tuple(int(i) for i in t) for t in tris])
+
+    def skin_y(tree, x, z, y0):
+        hit = tree.ray_cast(Vector((x, y0 - 0.5, z)), Vector((0.0, 1.0, 0.0)), 1.0)[0]
+        return None if hit is None else float(hit.y)
+    out = []
+    for e in new:
+        R = e["radius"]
+        c = np.asarray(e["centre"], float)
+        median = abs(c[0]) < 0.25 * R
+        jobs = [("L", 1.0), ("R", -1.0)] if median else [("L" if c[0] >= 0 else "R", 1.0 if c[0] >= 0 else -1.0)]
+        for side, sgn in jobs:
+            c0, r0 = eyes_old[side]
+            k = R / r0
+            p, _, _ = brows._rebuild(co_before, d[side]["fit"])
+            rel = p - c0
+            u = rel[:, 0] * (1.0 if side == "L" else -1.0)          # outward from the person's eye
+            if median:
+                # the head (innermost) onto the midline, the tail as far past the eye as theirs
+                # (heads a hair apart: laid on each other the two cards' edges showed as pale blots on the midline)
+                span = float(u.max()) * k
+                u_new = BROW_GAP * span + (u - u.min()) / max(float(u.max() - u.min()), 1e-9) * (1 - BROW_GAP) * span
+            else:
+                u_new = u * k
+            q = np.zeros_like(p)
+            q[:, 0] = c[0] + sgn * u_new
+            q[:, 2] = c[2] + rel[:, 2] * k
+            for i in range(len(p)):
+                hb = skin_y(tree_before, p[i, 0], p[i, 2], c0[1])
+                h = (hb - p[i, 1]) if hb is not None else 0.0          # in front of the person's skin
+                ya = skin_y(tree_after, q[i, 0], q[i, 2], c[1])
+                q[i, 1] = (ya - h) if ya is not None else c[1] + rel[i, 1] * k
+            out.append({"fit": _refit(q, co_after, tris), "faces": d[side]["faces"], "uv": d[side]["uv"],
+                        "from": side})
     return out
+
+
+def _socket(P, tree, faces, eyes_old, new, report):
+    """Each new eye's surroundings as the person's own eye's, scaled with the eye: the skin's depth round the eye -
+    the upper lid's fold, the brow ridge's overhang and its height over the eye, the socket's rim - read off the
+    person's eye (rays into their face as it was, `tree`) in its radii and laid round the new eye in its radii. An
+    eye on the midline takes the person's outer half on both sides (their inner half is the nose). Only depth
+    moves; the lids themselves are the carve's (`_carve`, after this). Held to the brow and the ridge of a person's
+    head at a 1.5x eye, the lids met the ridge and the eye sat small in a dark hollow (the first cyclops)."""
+    c0, r0 = eyes_old["L"]
+    moved = 0
+    for e in new:
+        R = e["radius"]
+        c = np.asarray(e["centre"], float)
+        median = abs(c[0]) < 0.25 * R
+        sgn = 1.0 if c[0] >= 0 else -1.0
+        du = (P[:, 0] - c[0]) / R
+        dv = (P[:, 2] - c[2]) / R
+        front = P[:, 1] < c[1] + 0.9 * R
+        ell = np.sqrt((du / SOCKET["half_width"]) ** 2 + (np.maximum(dv, 0) / SOCKET["up"]) ** 2
+                      + (np.minimum(dv, 0) / SOCKET["down"]) ** 2)
+        w = 1.0 - _smoothstep((ell - SOCKET["core"]) / (1.0 - SOCKET["core"]))
+        sel = np.flatnonzero(front & (w > 1e-3))
+        for i in sel:
+            uh = abs(du[i]) if median else du[i] * sgn
+            hit = tree.ray_cast(Vector((c0[0] + uh * r0, c0[1] - 0.5, c0[2] + dv[i] * r0)), Vector((0.0, 1.0, 0.0)),
+                                1.0)[0]
+            if hit is None:
+                continue
+            dep = (float(hit.y) - c0[1]) / r0
+            if dep > 0.3:
+                continue                                      # through the person's lid opening: the carve's
+            P[i, 1] += (c[1] + dep * R - P[i, 1]) * w[i]
+            moved += 1
+    report["socket_verts"] = moved
+    return P
 
 
 # ------------------------------------------------------------------------------------------------ apply
@@ -404,6 +564,9 @@ def apply(human, spec, iris=None):
                 ring.append(float(hit.y))
         y_face = float(np.mean(ring)) if ring else ey - r_h
         new.append({"centre": np.array([x, y_face - protrude * R + R, z]), "radius": R})
+    # the surroundings as the person's eye's, scaled with the eye: socket depth, lid fold, brow ridge and its height
+    if not pl["keep_pair"] or new:
+        P = _socket(P, F.tree, faces, eyes_old, new, report)
     P_closed = P
 
     def carve_all(k, rep):
@@ -478,8 +641,16 @@ def apply(human, spec, iris=None):
     # than the ball, that put the cards' corners behind it, standing up as bars either side of the eye
     ops = [e.get("opening") for e in report["exposure"] if e.get("opening")]
     lash_ap = (min(ap[0], 1.02 * max(o[0] for o in ops)), min(ap[1], 1.1 * max(o[1] for o in ops))) if ops else ap
-    lash = _lash_cards(co, full_new, faces, eyes_old, new, lash_ap)
+    lash, angles = _lash_cards(co, full_new, faces, eyes_old, new, lash_ap)
+    report["lash_angle_deg"] = {"human": None if angles.get("human") is None else round(angles["human"], 1),
+                                "new": [round(a, 1) for a in angles.get("new", []) if a is not None]}
+    from mathutils.bvhtree import BVHTree
+    tree_after = BVHTree.FromPolygons([Vector(v) for v in full_new[:BODY_VERTS]],
+                                      [tuple(int(i) for i in t) for t in _tris(np.asarray(faces))])
+    brow = _brow_cards(co, full_new, faces, eyes_old, new, tree_after)
+    report["brow_cards"] = len(brow)
     human[PROP] = json.dumps({"hide_lashes": [] if pl["keep_pair"] else ["L", "R"], "lashes": lash,
+                              "hide_brows": [] if pl["keep_pair"] else ["L", "R"], "brows": brow,
                               "eyes": report["eyes"], "count": len(places)})
     report["count"] = len(places)
     report["lash_cards"] = len(lash)
@@ -493,6 +664,12 @@ def apply(human, spec, iris=None):
     target = dict(human_eye, bare=dict(human_eye["bare"], **{"0": report.get("eye_target", {}).get(
         "bare", human_eye["bare"]["0"])}), ratio=report.get("eye_target", {}).get("ratio", human_eye.get("ratio")))
     stare = exposure_problems(report["exposure"], target)
+    la = report["lash_angle_deg"]
+    if la["human"] is not None:
+        off = [a for a in la["new"] if abs(a - la["human"]) > LASH_ANGLE_TOL]
+        if off:
+            stare = (stare or []) + [f"lash cards stand {off} deg out of the lid against a person's {la['human']} "
+                                     f"(+-{LASH_ANGLE_TOL}): they read as a picket fence or lie flat"]
     if stare:
         report["stare"] = stare
         fails.append("; ".join(stare))
