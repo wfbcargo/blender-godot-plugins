@@ -506,9 +506,16 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
         mf = mass_factor(b, sex, girth_rel, {n: k[s] for n, s in (("shoulder_width", "shoulder_scale"),
                                                                   ("hip_width", "hip_scale"))}, 1.0 / (b["H"] * kf))
         ratio = mf * kf ** 2           # BMI_final / BMI_pre = mass factor x (H_pre / H)^2
-        bmi[sex] = [round(bl * ratio, 1), round(bh * ratio, 1)]
+
+        def clamp(H):
+            # a pre-warp human outside ANSUR is fitted at the limit and scaled whole (humanform.species
+            # .prewarp_stature), so its BMI scales by H_pre / limit too: square-cube on the fit itself. Without
+            # it a 3.1 m giant was designed at BMI 25-32 and built at ~43 (a cyclops trial, 2026-09-21)
+            hp = H * kf
+            return hp / min(max(hp, ANSUR_STATURE[0]), ANSUR_STATURE[1])
+        bmi[sex] = [round(bl * ratio * clamp(lo), 1), round(bh * ratio * clamp(hi), 1)]
         m = _mid(st, sex)
-        mass[sex] = round(k["build_bmi"] * ratio * m * m, 1)
+        mass[sex] = round(k["build_bmi"] * ratio * clamp(m) * m * m, 1)
 
     lookd = look or {}
     anat = _anatomy(anatomy, segments, girth, widths)
