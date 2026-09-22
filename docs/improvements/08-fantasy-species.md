@@ -358,6 +358,46 @@ the product):
 6. **Fur**: Godot shell fur plus strand cards; coverage maps on hm08.
 7. **Head grafts and digitigrade legs**: the gnoll round.
 
+## Round 2: fur, a muzzle, digitigrade legs - the gnoll (2026-09-22)
+
+The same rule: a general mechanism with named presets over it, driven by numbers, never a gnoll branch in the
+code. A gnoll is the worked example, as the dwarf was for the warp: canine head, fur, digitigrade legs, a tail.
+
+**Fur** is two tools, chosen by length, the way games do it:
+- **Shell fur** for anything short (a pelt, a muzzle's nap, a forearm's hair): N offset copies of the skin
+  shell drawn in Godot with a strand mask, density and length from a coverage map painted on hm08, so it
+  transfers between bodies. Cheap, and it follows the skin with no extra rig.
+- **Strand cards** (humanform's hair) for what hangs and moves: a mane, a ruff, a tail's brush, a beard.
+  follow-through springs them.
+The coverage map is the same object for both: a region, a length in metres, a density and a direction. It says
+which skin the fur covers, so the skin under dense fur can be left undrawn the way wardrobe does it.
+Its checks are hair's: the mip check (a fur mask must not tile into patches), a silhouette check at 4 m, and
+the coverage map against the anatomy inventory (fur is a part, so a body that should have it and does not
+fails).
+
+**Beards become strands.** Today they are layered textured shells: a flat decal with a smooth outline. A beard
+is hair, so it should be the same strand cards as scalp hair, rooted on the beard field, with length and
+volume driving the cards, and follow-through sway on the long ones. The shell stays for stubble, where it is
+right.
+
+**A non-human head** is a **parametric muzzle**, not an imported mesh: the head features mechanism (regions,
+landmarks, displacement, attached parts) already reshapes a head, so a snout is a general feature with a
+length, a width, a bridge height, a nose pad and a lip line, growing the human face forward along the jaw's
+axis; ears are attached parts, already there. This keeps every body on hm08, so skin, teeth, eyes, the warp,
+wardrobe and the library all keep working. A grafted mesh head stays the fallback for a head no amount of
+reshaping reaches (a beak, a horse's skull), and it is the harder, later path.
+A muzzle needs a **jaw bone** so the mouth opens - rig-anything has jaw support for dragons and whales, and
+humanform's bodies have never had one. That unlocks bites, roars and speech for every body, not just creatures.
+
+**Digitigrade legs** add a segment: the foot becomes a third leg bone (the metatarsals stand up), and the
+ankle sits high, where a dog's hock is. rig-anything already rigs and walks a hopper's leg (rabbit, cricket),
+so this is a leg plan, not new maths: the plan says how many segments a leg has and where they fold, the
+gait's IK and the Froude scaling follow. The checks are the existing ones (foot drift, floor penetration,
+joint folding, balance) plus the knee/hock direction.
+
+**Open from round 1 to fix here:** the cyclops' square pupil, the shadow band across his face at eye height,
+and the pale specks where the brow cards meet.
+
 ## Done when
 
 - `build_many` builds a dwarf, elf, gnome and troll fresh from their specs; each passes humancheck against its
