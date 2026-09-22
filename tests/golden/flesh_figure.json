@@ -1,8 +1,8 @@
 {
  "fixture": "flesh_figure",
  "plugins": {
-  "follow-through": "0.10.0",
-  "rig-anything": "0.40.0"
+  "follow-through": "0.12.0",
+  "rig-anything": "0.43.0"
  },
  "report": {
   "bodies": {
@@ -131,7 +131,8 @@
       "name",
       "rig",
       "scene",
-      "verified"
+      "verified",
+      "warnings"
      ],
      "gaits": {
       "Walk": {
@@ -749,7 +750,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-zb8t46u1\\a\\flesh_figure\\flesh_figure\\bloater.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\flesh_figure\\flesh_figure\\bloater.glb",
      "specs": [
       {
        "class": "flesh",
@@ -1632,7 +1633,8 @@
       "name",
       "rig",
       "scene",
-      "verified"
+      "verified",
+      "warnings"
      ],
      "gaits": {
       "Walk": {
@@ -2226,7 +2228,7 @@
      ],
      "missing_specs": [],
      "passed": true,
-     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-zb8t46u1\\a\\flesh_figure\\flesh_figure\\figure.glb",
+     "path": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\flesh_figure\\flesh_figure\\figure.glb",
      "specs": [
       {
        "class": "flesh",

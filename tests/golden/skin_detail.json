@@ -1,9 +1,9 @@
 {
  "fixture": "skin_detail",
  "plugins": {
-  "humanform": "0.17.0",
-  "lookdev": "0.12.0",
-  "rig-anything": "0.27.0"
+  "humanform": "0.20.0",
+  "lookdev": "0.12.1",
+  "rig-anything": "0.43.0"
  },
  "report": {
   "baked": {
@@ -65,7 +65,7 @@
     ],
     "palm": [
      0.62,
-     0.44,
+     0.43,
      0.32
     ],
     "skin": [
@@ -106,53 +106,53 @@
   "contrast": {
    "contrast": {
     "elbow": {
-     "dE": 7.22,
-     "dL": -6.1,
+     "dE": 7.21,
+     "dL": -6.09,
      "rg": 1.15
     },
     "flush": {
-     "dE": 6.96,
-     "dL": -3.43,
-     "rg": 1.172
+     "dE": 6.91,
+     "dL": -3.37,
+     "rg": 1.17
     },
     "genital": {
-     "dE": 8.34,
-     "dL": -7.12,
-     "rg": 1.178
+     "dE": 8.32,
+     "dL": -7.1,
+     "rg": 1.177
     },
     "knee": {
-     "dE": 6.24,
+     "dE": 6.23,
      "dL": -5.27,
      "rg": 1.125
     },
     "knuckle": {
-     "dE": 7.0,
+     "dE": 6.99,
      "dL": -5.89,
      "rg": 1.145
     },
     "lips": {
-     "dE": 11.99,
-     "dL": -8.06,
-     "rg": 1.337
+     "dE": 11.96,
+     "dL": -8.03,
+     "rg": 1.335
     },
     "nail": {
-     "dE": 2.64,
-     "dL": -0.36,
+     "dE": 2.65,
+     "dL": -0.35,
      "rg": 1.057
     },
     "nipple": {
-     "dE": 9.29,
+     "dE": 9.3,
      "dL": -8.68,
      "rg": 1.172
     },
     "palm": {
-     "dE": 15.5,
-     "dL": 14.18,
+     "dE": 15.49,
+     "dL": 14.17,
      "rg": 0.984
     },
     "sole": {
-     "dE": 15.73,
-     "dL": 14.22,
+     "dE": 15.72,
+     "dL": 14.21,
      "rg": 0.971
     }
    },
@@ -161,69 +161,69 @@
    "control_legacy": {
     "contrast": {
      "elbow": {
-      "dE": 2.94,
-      "dL": -2.68,
+      "dE": 2.91,
+      "dL": -2.65,
       "rg": 1.047
      },
      "flush": {
-      "dE": 2.76,
-      "dL": -1.13,
+      "dE": 2.77,
+      "dL": -1.12,
       "rg": 1.062
      },
      "genital": {
-      "dE": 8.3,
-      "dL": -6.92,
-      "rg": 1.181
+      "dE": 8.23,
+      "dL": -6.89,
+      "rg": 1.179
      },
      "knee": {
-      "dE": 2.29,
-      "dL": -2.07,
-      "rg": 1.036
+      "dE": 2.25,
+      "dL": -2.05,
+      "rg": 1.035
      },
      "knuckle": {
-      "dE": 2.71,
-      "dL": -2.39,
+      "dE": 2.68,
+      "dL": -2.36,
       "rg": 1.046
      },
      "lips": {
-      "dE": 7.42,
-      "dL": -4.74,
-      "rg": 1.18
+      "dE": 7.48,
+      "dL": -4.79,
+      "rg": 1.182
      },
      "nail": {
-      "dE": 3.11,
-      "dL": -0.17,
+      "dE": 3.09,
+      "dL": -0.16,
       "rg": 1.065
      },
      "nipple": {
-      "dE": 9.2,
-      "dL": -8.37,
-      "rg": 1.181
+      "dE": 9.22,
+      "dL": -8.36,
+      "rg": 1.183
      },
      "palm": {
-      "dE": 3.35,
-      "dL": 1.34,
-      "rg": 1.042
+      "dE": 3.34,
+      "dL": 1.35,
+      "rg": 1.041
      },
      "sole": {
       "dE": 3.76,
-      "dL": 1.32,
-      "rg": 1.034
+      "dL": 1.33,
+      "rg": 1.033
      }
     },
     "contrast_ok": false,
     "fail": [
-     "elbow: dE 2.94 < 5.0",
-     "flush: dE 2.76 < 4.0",
-     "knee: dE 2.29 < 5.0",
-     "knuckle: dE 2.71 < 5.0",
-     "lips: dE 7.42 < 8.0",
-     "palm: dE 3.35 < 5.0",
-     "palm: not paler than skin (dL 1.34 < 3.0)",
-     "palm: redder than skin (rg 1.042 > 1.02)",
+     "elbow: dE 2.91 < 5.0",
+     "flush: dE 2.77 < 4.0",
+     "knee: dE 2.25 < 5.0",
+     "knuckle: dE 2.68 < 5.0",
+     "lips: dE 7.48 < 8.0",
+     "palm: dE 3.34 < 5.0",
+     "palm: not paler than skin (dL 1.35 < 3.0)",
+     "palm: redder than skin (rg 1.041 > 1.02)",
      "sole: dE 3.76 < 5.0",
-     "sole: not paler than skin (dL 1.32 < 3.0)",
-     "sole: redder than skin (rg 1.034 > 1.02)"
+     "sole: not paler than skin (dL 1.33 < 3.0)",
+     "sole: redder than skin (rg 1.033 > 1.02)"
     ],
     "judged": "failed: 11 floor(s) missed",
     "roughness": {
@@ -279,7 +279,7 @@
     "flush": 780.0,
     "genital": 53.0,
     "knee": 50.0,
-    "knuckle": 808.0,
+    "knuckle": 806.0,
     "lips": 328.0,
     "nail": 438.0,
     "nipple": 96.0,

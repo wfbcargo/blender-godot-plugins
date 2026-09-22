@@ -1,8 +1,8 @@
 {
  "fixture": "strand_ponytail",
  "plugins": {
-  "follow-through": "0.10.0",
-  "rig-anything": "0.40.0"
+  "follow-through": "0.12.0",
+  "rig-anything": "0.43.0"
  },
  "report": {
   "body_export": {
@@ -218,7 +218,8 @@
     "name",
     "rig",
     "scene",
-    "verified"
+    "verified",
+    "warnings"
    ],
    "gaits": {
     "Run": {

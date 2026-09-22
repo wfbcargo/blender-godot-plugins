@@ -1,13 +1,13 @@
 {
  "fixture": "mpfb_woman_curvy",
  "plugins": {
-  "humanform": "0.18.0",
-  "rig-anything": "0.41.0"
+  "humanform": "0.20.0",
+  "rig-anything": "0.43.0"
  },
  "report": {
   "bake": {
    "groups": 52,
-   "height_m": 1.6985,
+   "height_m": 1.6957,
    "report": {
     "groups_kept": 52,
     "groups_removed": 152,
@@ -33,40 +33,40 @@
   },
   "engine": {
    "collider": {
-    "height": 1.6985,
-    "radius": 0.2193
+    "height": 1.6957,
+    "radius": 0.2192
    },
    "gaits": {
     "Run": {
      "duty_factor": 0.345,
      "froude": 2.0,
      "gait": "run",
-     "hip_height_m": 0.8635,
-     "natural_speed_mps": 4.1161,
+     "hip_height_m": 0.859,
+     "natural_speed_mps": 4.1054,
      "spine_flex_deg": 0.0,
      "stance_knee_flex_deg": {
       "thigh.L": 51.1,
       "thigh.R": 51.1
      },
-     "stride_frequency_hz": 1.683,
-     "stride_m": 2.4452,
-     "stroke_m": 0.8425,
+     "stride_frequency_hz": 1.688,
+     "stride_m": 2.4325,
+     "stroke_m": 0.839,
      "vault": false
     },
     "Walk": {
-     "duty_factor": 0.627,
+     "duty_factor": 0.628,
      "froude": 0.2,
      "gait": "walk",
-     "hip_height_m": 0.8635,
-     "natural_speed_mps": 1.3016,
+     "hip_height_m": 0.859,
+     "natural_speed_mps": 1.2982,
      "spine_flex_deg": 0.0,
      "stance_knee_flex_deg": {
       "thigh.L": 11.5,
       "thigh.R": 11.5
      },
-     "stride_frequency_hz": 1.062,
-     "stride_m": 1.2255,
-     "stroke_m": 0.7681,
+     "stride_frequency_hz": 1.065,
+     "stride_m": 1.2191,
+     "stroke_m": 0.7656,
      "vault": true
     }
    },
@@ -88,14 +88,14 @@
       "locomotion": false,
       "loop_seam": null,
       "loops": false,
-      "lowest_foot": 0.011,
+      "lowest_foot": 0.0109,
       "note": "one-shot, not a cycle - no speed reported (it travels 0.0000 m, but not per stride)",
       "passed": true,
       "recheck": {
        "balance": {
-        "com_source": "skin (2 meshes)",
+        "com_source": "skin (3 meshes)",
         "frame": 12,
-        "margin_m": 0.0699
+        "margin_m": 0.0697
        },
        "clearance": null,
        "contacts": {
@@ -130,14 +130,14 @@
        "loop_seam": null,
        "lowest_bone": {
         "bone": "toe.L",
-        "frame": 11,
-        "height": 0.011
+        "frame": 3,
+        "height": 0.0109
        },
        "skin_lowest": {
-        "frame": 11,
+        "frame": 3,
         "height": -0.0
        },
-       "stance_speed_mps": -0.0
+       "stance_speed_mps": 0.0
       }
      },
      "FixWoman_CrouchWalk": {
@@ -151,12 +151,12 @@
        25
       ],
       "gait": false,
-      "implied_speed_cycle_mps": 0.6514,
-      "implied_speed_playback_mps": 0.6254,
+      "implied_speed_cycle_mps": 0.648,
+      "implied_speed_playback_mps": 0.622,
       "locomotion": true,
       "loop_seam": 0.0,
       "loops": true,
-      "lowest_foot": 0.011,
+      "lowest_foot": 0.0109,
       "passed": true,
       "recheck": {
        "balance": null,
@@ -193,17 +193,17 @@
        "loop_seam": 0.0,
        "lowest_bone": {
         "bone": "toe.L",
-        "frame": 3,
-        "height": 0.011
+        "frame": 1,
+        "height": 0.0109
        },
        "skin_lowest": {
-        "frame": 3,
+        "frame": 1,
         "height": -0.0
        },
-       "stance_speed_mps": 0.6514
+       "stance_speed_mps": 0.648
       },
       "speed_source": "stance feet (median backward speed while planted)",
-      "stride_m": 0.3257,
+      "stride_m": 0.324,
       "use": "implied_speed_playback_mps - the engine loops over all 25 keyed frames"
      },
      "FixWoman_Idle": {
@@ -219,14 +219,14 @@
       "locomotion": false,
       "loop_seam": 0.0,
       "loops": true,
-      "lowest_foot": 0.011,
-      "note": "stride 0.0000 m is under 5% of the 1.693 m creature - not locomotion, no speed reported",
+      "lowest_foot": 0.0109,
+      "note": "stride 0.0000 m is under 5% of the 1.689 m creature - not locomotion, no speed reported",
       "passed": true,
       "recheck": {
        "balance": {
-        "com_source": "skin (2 meshes)",
+        "com_source": "skin (3 meshes)",
         "frame": 35,
-        "margin_m": 0.067
+        "margin_m": 0.0677
        },
        "clearance": null,
        "contacts": {
@@ -261,14 +261,14 @@
        "loop_seam": 0.0,
        "lowest_bone": {
         "bone": "toe.L",
-        "frame": 6,
-        "height": 0.011
+        "frame": 43,
+        "height": 0.0109
        },
        "skin_lowest": {
-        "frame": 6,
+        "frame": 43,
         "height": -0.0
        },
-       "stance_speed_mps": 0.0
+       "stance_speed_mps": -0.0
       }
      },
      "FixWoman_Jump": {
@@ -284,8 +284,8 @@
       "locomotion": false,
       "loop_seam": null,
       "loops": false,
-      "lowest_foot": 0.011,
-      "note": "one-shot, not a cycle - no speed reported (it travels 0.1604 m, but not per stride)",
+      "lowest_foot": 0.0109,
+      "note": "one-shot, not a cycle - no speed reported (it travels 0.1602 m, but not per stride)",
       "passed": true,
       "recheck": {
        "balance": null,
@@ -322,11 +322,11 @@
        "loop_seam": null,
        "lowest_bone": {
         "bone": "toe.L",
-        "frame": 5,
-        "height": 0.011
+        "frame": 4,
+        "height": 0.0109
        },
        "skin_lowest": {
-        "frame": 5,
+        "frame": 4,
         "height": -0.0
        },
        "stance_speed_mps": -0.0
@@ -343,12 +343,12 @@
        15
       ],
       "gait": true,
-      "implied_speed_cycle_mps": 4.1918,
-      "implied_speed_playback_mps": 3.9123,
+      "implied_speed_cycle_mps": 4.17,
+      "implied_speed_playback_mps": 3.892,
       "locomotion": true,
       "loop_seam": 0.0,
       "loops": true,
-      "lowest_foot": 0.011,
+      "lowest_foot": 0.0109,
       "passed": true,
       "recheck": {
        "balance": null,
@@ -385,17 +385,17 @@
        "loop_seam": 0.0,
        "lowest_bone": {
         "bone": "toe.L",
-        "frame": 2,
-        "height": 0.011
+        "frame": 1,
+        "height": 0.0109
        },
        "skin_lowest": {
         "frame": 1,
         "height": -0.0001
        },
-       "stance_speed_mps": 4.1918
+       "stance_speed_mps": 4.17
       },
       "speed_source": "stance feet (median backward speed while planted)",
-      "stride_m": 0.8833,
+      "stride_m": 0.8782,
       "use": "implied_speed_playback_mps - the engine loops over all 15 keyed frames"
      },
      "FixWoman_TurnL": {
@@ -411,8 +411,8 @@
       "locomotion": false,
       "loop_seam": null,
       "loops": false,
-      "lowest_foot": 0.011,
-      "note": "one-shot, not a cycle - no speed reported (it travels 0.2317 m, but not per stride)",
+      "lowest_foot": 0.0109,
+      "note": "one-shot, not a cycle - no speed reported (it travels 0.2343 m, but not per stride)",
       "passed": true,
       "recheck": {
        "balance": null,
@@ -452,15 +452,15 @@
        "failures": [],
        "loop_seam": null,
        "lowest_bone": {
-        "bone": "toe.L",
-        "frame": 6,
-        "height": 0.011
+        "bone": "toe.R",
+        "frame": 23,
+        "height": 0.0109
        },
        "skin_lowest": {
-        "frame": 6,
+        "frame": 23,
         "height": -0.0
        },
-       "stance_speed_mps": -0.0
+       "stance_speed_mps": 0.0
       }
      },
      "FixWoman_TurnR": {
@@ -476,8 +476,8 @@
       "locomotion": false,
       "loop_seam": null,
       "loops": false,
-      "lowest_foot": 0.011,
-      "note": "one-shot, not a cycle - no speed reported (it travels 0.2317 m, but not per stride)",
+      "lowest_foot": 0.0109,
+      "note": "one-shot, not a cycle - no speed reported (it travels 0.2343 m, but not per stride)",
       "passed": true,
       "recheck": {
        "balance": null,
@@ -517,15 +517,15 @@
        "failures": [],
        "loop_seam": null,
        "lowest_bone": {
-        "bone": "toe.R",
-        "frame": 6,
-        "height": 0.011
+        "bone": "toe.L",
+        "frame": 23,
+        "height": 0.0109
        },
        "skin_lowest": {
-        "frame": 6,
+        "frame": 23,
         "height": -0.0
        },
-       "stance_speed_mps": -0.0
+       "stance_speed_mps": 0.0
       }
      },
      "FixWoman_Walk": {
@@ -539,12 +539,12 @@
        24
       ],
       "gait": true,
-      "implied_speed_cycle_mps": 1.2788,
-      "implied_speed_playback_mps": 1.2255,
+      "implied_speed_cycle_mps": 1.2721,
+      "implied_speed_playback_mps": 1.2191,
       "locomotion": true,
       "loop_seam": 0.0,
       "loops": true,
-      "lowest_foot": 0.011,
+      "lowest_foot": 0.0109,
       "passed": true,
       "recheck": {
        "balance": null,
@@ -581,27 +581,27 @@
        "loop_seam": 0.0,
        "lowest_bone": {
         "bone": "toe.L",
-        "frame": 7,
-        "height": 0.011
+        "frame": 3,
+        "height": 0.0109
        },
        "skin_lowest": {
         "frame": 15,
         "height": -0.0046
        },
-       "stance_speed_mps": 1.2788
+       "stance_speed_mps": 1.2721
       },
       "speed_source": "stance feet (median backward speed while planted)",
-      "stride_m": 0.7915,
+      "stride_m": 0.788,
       "use": "implied_speed_playback_mps - the engine loops over all 24 keyed frames"
      }
     },
     "failed": {},
     "failing": {},
-    "floor_tolerance_m": 0.00847,
+    "floor_tolerance_m": 0.00844,
     "passed": true,
     "problems": [],
     "rig": "FixWoman_rig",
-    "size_m": 1.6933
+    "size_m": 1.6886
    },
    "dropped_clips": {},
    "export": {
@@ -609,7 +609,7 @@
      "FixWoman_body",
      "FixWoman_rig"
     ],
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-4zgat1a9\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "morph_targets": false,
     "options_dropped_by_this_blender": [],
     "skipped": [],
@@ -637,7 +637,7 @@
      "FixWoman_TurnR": 1.041667,
      "FixWoman_Walk": 1.0
     },
-    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-4zgat1a9\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
+    "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.glb",
     "generator": "Khronos glTF Blender I/O v5.2.40",
     "gltf_version": 2,
     "joints": 53,
@@ -649,20 +649,20 @@
      "last": "FixWoman_rig",
      "len": 55
     },
-    "size_bytes": 1597884,
+    "size_bytes": 1598312,
     "skins": 1
    },
    "forced_clips": {},
-   "godot": "const FIXWOMAN_CROUCHWALK_CLIP_IMPLIED_SPEED := 0.6254   # stance feet sweep back at this, duty 0.542, over 1.042 s\nconst FIXWOMAN_RUN_CLIP_IMPLIED_SPEED := 3.912   # stance feet sweep back at this, duty 0.357, over 0.625 s\nconst FIXWOMAN_WALK_CLIP_IMPLIED_SPEED := 1.226   # stance feet sweep back at this, duty 0.63, over 1 s",
+   "godot": "const FIXWOMAN_CROUCHWALK_CLIP_IMPLIED_SPEED := 0.622   # stance feet sweep back at this, duty 0.542, over 1.042 s\nconst FIXWOMAN_RUN_CLIP_IMPLIED_SPEED := 3.892   # stance feet sweep back at this, duty 0.357, over 0.625 s\nconst FIXWOMAN_WALK_CLIP_IMPLIED_SPEED := 1.219   # stance feet sweep back at this, duty 0.63, over 1 s",
    "preflight": {
     "bones": 53,
     "mesh": "FixWoman_body",
     "origin": {
      "centroid_fraction": 0.124,
-     "centroid_offset": 0.13803,
+     "centroid_offset": 0.13775,
      "mesh_mean_xy": [
       0.0,
-      -0.13803
+      -0.13775
      ],
      "mesh_offset": 0.0,
      "mesh_world": [
@@ -703,7 +703,7 @@
      1548
     ],
     "count": 25,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-4zgat1a9\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\mpfb_woman_curvy\\mpfb_woman_curvy\\review\\fixwoman",
     "frame_height_m": 2.1,
     "frames": {
      "FixWoman_Crouch": [
@@ -787,7 +787,7 @@
       21
      ]
     },
-    "seconds": 7.99,
+    "seconds": 5.06,
     "strips": {
      "FixWoman_Crouch": {
       "front": {
@@ -1052,7 +1052,7 @@
      "three_quarter"
     ]
    },
-   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-4zgat1a9\\a\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
+   "sidecar": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\mpfb_woman_curvy\\mpfb_woman_curvy\\fixwoman.rig.json",
    "stage": "done",
    "verified": {
     "durations_match": true,
@@ -1071,10 +1071,10 @@
     "age": 0.523,
     "cupsize": 0.5,
     "firmness": 0.4,
-    "height": 0.613,
-    "muscle": 0.16,
+    "height": 0.619,
+    "muscle": 0.155,
     "proportions": 0.5,
-    "weight": 0.626
+    "weight": 0.592
    },
    "notes": []
   },
@@ -1082,7 +1082,7 @@
    "upper_arm.L": [
     [
      "f_index.01.L",
-     23.76
+     23.75
     ],
     [
      "f_middle.01.L",
@@ -1098,7 +1098,7 @@
     ],
     [
      "thumb.01.L",
-     24.82
+     24.8
     ],
     [
      "f_index.02.L",
@@ -1144,7 +1144,7 @@
    "upper_arm.R": [
     [
      "f_index.01.R",
-     23.76
+     23.75
     ],
     [
      "f_middle.01.R",
@@ -1160,7 +1160,7 @@
     ],
     [
      "thumb.01.R",
-     24.82
+     24.8
     ],
     [
      "f_index.02.R",
@@ -1208,19 +1208,19 @@
    "Crouch": {
     "action": "FixWoman_Crouch",
     "balance": {
-     "com_fwd_end": 0.1558,
-     "com_fwd_start": 0.1346,
-     "margin_m": 0.0699,
+     "com_fwd_end": 0.1554,
+     "com_fwd_start": 0.1342,
+     "margin_m": 0.0697,
      "support_fwd": [
-      0.0261,
-      0.2257
+      0.0259,
+      0.2252
      ]
     },
-    "com_source": "skin (2 meshes)",
-    "crouched_height_m": 1.2816,
+    "com_source": "skin (3 meshes)",
+    "crouched_height_m": 1.2789,
     "depth": 0.6,
     "drop_limited_by": "legs",
-    "end_height_m": 1.2816,
+    "end_height_m": 1.2789,
     "failures": [],
     "floor_skid": {
      "thigh.L": 0.0,
@@ -1231,11 +1231,11 @@
      1,
      12
     ],
-    "hip_drop_m": 0.2698,
-    "hip_shift_m": -0.34,
+    "hip_drop_m": 0.2683,
+    "hip_shift_m": -0.3431,
     "lean_degrees": 45.0,
-    "lowest_point": 0.011,
-    "max_drop_m": 0.4496,
+    "lowest_point": 0.0109,
+    "max_drop_m": 0.4472,
     "passed": true,
     "planted_drift": {
      "thigh.L": 0.0,
@@ -1245,14 +1245,14 @@
     "rest_error": 0.0,
     "rig": "FixWoman_rig",
     "skin_lowest": -0.0,
-    "standing_height_m": 1.6991,
+    "standing_height_m": 1.6964,
     "tightest_joint_degrees": {
-     "thigh.L": 106.2,
-     "thigh.R": 106.2,
+     "thigh.L": 106.8,
+     "thigh.R": 106.8,
      "upper_arm.L": 122.4,
      "upper_arm.R": 122.4
     },
-    "tolerance": 0.00847,
+    "tolerance": 0.00844,
     "upright": true
    },
    "CrouchWalk": {
@@ -1262,7 +1262,7 @@
     "base": "crouch 0.60",
     "depth": 0.6,
     "depth_requested": 0.6,
-    "end_height_m": 1.2718,
+    "end_height_m": 1.2692,
     "failures": [],
     "floor_skid": {
      "thigh.L": 0.0,
@@ -1274,11 +1274,11 @@
      25
     ],
     "gait": "walk",
-    "implied_speed_cycle_mps": 0.6514,
-    "implied_speed_playback_mps": 0.6254,
-    "lift_m": 0.0814,
+    "implied_speed_cycle_mps": 0.648,
+    "implied_speed_playback_mps": 0.622,
+    "lift_m": 0.081,
     "loop_seam": 0.0,
-    "lowest_point": 0.011,
+    "lowest_point": 0.0109,
     "passed": true,
     "phase_offsets": {
      "thigh.L": 0.0,
@@ -1287,26 +1287,26 @@
     "planted_drift": {},
     "prediction_error": 1e-06,
     "reach_shrunk": false,
-    "rest_error": 0.706303,
+    "rest_error": 0.706619,
     "rig": "FixWoman_rig",
     "skin_lowest": -0.0,
     "stance_slip": {
      "thigh.L": 0.0,
      "thigh.R": 0.0
     },
-    "standing_height_m": 1.6991,
-    "stride_m": 0.3257,
+    "standing_height_m": 1.6964,
+    "stride_m": 0.324,
     "tightest_joint_degrees": {
-     "thigh.L": 83.7,
-     "thigh.R": 83.7,
+     "thigh.L": 84.1,
+     "thigh.R": 84.1,
      "upper_arm.L": 145.0,
      "upper_arm.R": 145.0
     },
-    "tolerance": 0.00847
+    "tolerance": 0.00844
    },
    "Idle": {
     "action": "FixWoman_Idle",
-    "arm_clearance_m": 0.0271,
+    "arm_clearance_m": 0.0273,
     "arm_pose": {
      "upper_arm.L": {
       "arm_carry_deg": [
@@ -1319,8 +1319,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.15,
-       -0.138
+       -0.136,
+       -0.124
       ],
       "upper_arm_deg": [
        3.0,
@@ -1338,8 +1338,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.15,
-       -0.138
+       -0.136,
+       -0.124
       ],
       "upper_arm_deg": [
        3.0,
@@ -1349,7 +1349,7 @@
     },
     "arm_running": false,
     "balance": null,
-    "end_height_m": 1.6991,
+    "end_height_m": 1.6964,
     "failures": [],
     "floor_skid": {
      "thigh.L": 0.0,
@@ -1362,7 +1362,7 @@
     ],
     "hip_shift_m": 0.0,
     "loop_seam": 0.0,
-    "lowest_point": 0.011,
+    "lowest_point": 0.0109,
     "passed": true,
     "planted_drift": {
      "thigh.L": 0.0,
@@ -1370,18 +1370,18 @@
     },
     "posture": null,
     "prediction_error": 1e-06,
-    "rest_error": 0.355279,
+    "rest_error": 0.353741,
     "rig": "FixWoman_rig",
     "skin_lowest": -0.0,
     "stance_width": 1.0,
-    "standing_height_m": 1.6991,
+    "standing_height_m": 1.6964,
     "tightest_joint_degrees": {
      "thigh.L": 162.3,
      "thigh.R": 162.3,
      "upper_arm.L": 168.0,
      "upper_arm.R": 168.0
     },
-    "tolerance": 0.00847,
+    "tolerance": 0.00844,
     "upper": {
      "arm_forward": 4.0,
      "arm_lag": 0.5,
@@ -1390,8 +1390,8 @@
       "upper_arm.R": 0.5
      },
      "arm_out": {
-      "upper_arm.L": 12.1,
-      "upper_arm.R": 12.1
+      "upper_arm.L": 12.2,
+      "upper_arm.R": 12.2
      },
      "arm_out_measured": {
       "upper_arm.L": 9.5,
@@ -1399,15 +1399,15 @@
      },
      "arm_swing": 0.0,
      "breath": 1.0,
-     "clearance_m": 0.0271,
+     "clearance_m": 0.0273,
      "clearance_tries": [
       [
-       -0.0003,
+       -0.0006,
        9.5
       ],
       [
-       0.0271,
-       12.1
+       0.0273,
+       12.2
       ]
      ],
      "elbow": 12.0,
@@ -1424,7 +1424,7 @@
       "upper_arm.R": 0.5
      },
      "head_hold": 0.85,
-     "head_hz": 1.089,
+     "head_hz": 1.094,
      "head_lag": null,
      "head_lag_cycles": 0.5,
      "head_lag_deg": 180.0,
@@ -1435,12 +1435,12 @@
      "limb_damping": 0.3,
      "limb_hz": {
       "upper_arm.L": {
-       "arm": 0.912,
-       "hand": 1.606
+       "arm": 0.915,
+       "hand": 1.613
       },
       "upper_arm.R": {
-       "arm": 0.913,
-       "hand": 1.609
+       "arm": 0.916,
+       "hand": 1.608
       }
      },
      "pelvis_list": 0.0,
@@ -1458,7 +1458,7 @@
    "Jump": {
     "action": "FixWoman_Jump",
     "balance": null,
-    "end_height_m": 1.6991,
+    "end_height_m": 1.6964,
     "failures": [],
     "floor_skid": {
      "thigh.L": 0.0,
@@ -1469,9 +1469,9 @@
      1,
      22
     ],
-    "launch_rise_m": 0.0407,
-    "load_drop_m": 0.3147,
-    "lowest_point": 0.011,
+    "launch_rise_m": 0.0405,
+    "load_drop_m": 0.313,
+    "lowest_point": 0.0109,
     "passed": true,
     "planted_drift": {
      "thigh.L": 0.0,
@@ -1481,37 +1481,37 @@
     "rest_error": 0.0,
     "rig": "FixWoman_rig",
     "skin_lowest": -0.0,
-    "standing_height_m": 1.6991,
+    "standing_height_m": 1.6964,
     "tightest_joint_degrees": {
      "thigh.L": 68.9,
      "thigh.R": 68.9,
      "upper_arm.L": 87.8,
      "upper_arm.R": 87.8
     },
-    "tolerance": 0.00847
+    "tolerance": 0.00844
    },
    "Run": {
     "action": "FixWoman_Run",
     "adjustments": [],
     "angular_momentum": {
-     "up_mean_abs": 0.00661,
-     "up_range": 0.01865
+     "up_mean_abs": 0.00655,
+     "up_range": 0.01861
     },
-    "arm_clearance_m": 0.0238,
+    "arm_clearance_m": 0.0241,
     "arm_pose": {
      "upper_arm.L": {
       "arm_carry_deg": [
        1.5,
        53.2
       ],
-      "arm_swing_deg": 51.6,
+      "arm_swing_deg": 51.7,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.137,
-       0.471
+       0.147,
+       0.478
       ],
       "upper_arm_deg": [
        -39.8,
@@ -1523,14 +1523,14 @@
        1.5,
        53.2
       ],
-      "arm_swing_deg": 51.6,
+      "arm_swing_deg": 51.7,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.137,
-       0.471
+       0.147,
+       0.478
       ],
       "upper_arm_deg": [
        -39.8,
@@ -1564,11 +1564,11 @@
       "source": "skin"
      }
     },
-    "drop_m": 0.0604,
+    "drop_m": 0.0601,
     "drop_share": 0.07,
-    "duty_asked": 0.34455,
+    "duty_asked": 0.344901,
     "duty_factor": 0.345,
-    "end_height_m": 1.648,
+    "end_height_m": 1.6454,
     "failures": [],
     "floor_skid": {
      "thigh.L": 0.0,
@@ -1582,34 +1582,33 @@
     "froude": 2.0,
     "froude_requested": 2.0,
     "gait": "run",
-    "head_nod_pp_deg": 1.76,
+    "head_nod_pp_deg": 1.75,
     "head_yaw_keeps": 0.247,
-    "hip_height_m": 0.8635,
-    "implied_speed_cycle_mps": 4.1918,
-    "implied_speed_playback_mps": 3.9123,
+    "hip_height_m": 0.859,
+    "implied_speed_cycle_mps": 4.17,
+    "implied_speed_playback_mps": 3.892,
     "knee_plane_deg": {
      "thigh.L": 0.0,
      "thigh.R": 0.0
     },
-    "lift_m": 0.1803,
+    "lift_m": 0.1793,
     "lift_scale": null,
     "limited_by": [
      "hips dropped to the limit (7.0% of hip height)",
-     "ground time cut from 0.38 to 0.34",
-     "stride shortened to 100%, and the speed with it"
+     "ground time cut from 0.38 to 0.34"
     ],
     "loop_seam": 0.0,
-    "lowest_point": 0.011,
+    "lowest_point": 0.0109,
     "max_drop": 0.07,
     "min_knee": null,
-    "natural_speed_mps": 4.1161,
+    "natural_speed_mps": 4.1054,
     "passed": true,
     "peak_reach": {
      "thigh.L": 0.995,
      "thigh.R": 0.995
     },
     "pelvis_roll_pp_deg": 11.57,
-    "pelvis_thorax_phase_deg": -154.2,
+    "pelvis_thorax_phase_deg": -154.3,
     "phase_offsets": {
      "thigh.L": 0.0,
      "thigh.R": 0.5
@@ -1617,7 +1616,7 @@
     "planted_drift": {},
     "posture": null,
     "prediction_error": 1e-06,
-    "rest_error": 0.465221,
+    "rest_error": 0.464701,
     "rig": "FixWoman_rig",
     "skin_lowest": -0.0001,
     "spine_flex_deg": 0.0,
@@ -1626,16 +1625,16 @@
      "thigh.R": 51.1
     },
     "stance_shift_m": {
-     "thigh.L": -0.0688,
-     "thigh.R": 0.0688
+     "thigh.L": -0.0683,
+     "thigh.R": 0.0683
     },
     "stance_width": 1.0,
-    "standing_height_m": 1.6991,
-    "stride_frequency_hz": 1.683,
-    "stride_m": 2.4452,
+    "standing_height_m": 1.6964,
+    "stride_frequency_hz": 1.688,
+    "stride_m": 2.4325,
     "stride_scale": null,
-    "stroke_m": 0.8425,
-    "stroke_over_leg": 1.035,
+    "stroke_m": 0.839,
+    "stroke_over_leg": 1.036,
     "style": "custom",
     "support_normal": [
      0.0,
@@ -1643,16 +1642,16 @@
      1.0
     ],
     "sway_share": 0.0,
-    "thorax_head_phase_deg": -147.8,
+    "thorax_head_phase_deg": -147.6,
     "thorax_pelvis_roll_deg": -171.1,
     "thorax_roll_pp_deg": 7.46,
     "tightest_joint_degrees": {
-     "thigh.L": 82.2,
-     "thigh.R": 82.2,
+     "thigh.L": 82.1,
+     "thigh.R": 82.1,
      "upper_arm.L": 95.0,
      "upper_arm.R": 95.0
     },
-    "tolerance": 0.00847,
+    "tolerance": 0.00844,
     "trunk_pitch_pp_deg": 4.9,
     "upper": {
      "arm_forward": -15.0,
@@ -1662,8 +1661,8 @@
       "upper_arm.R": 0.5
      },
      "arm_out": {
-      "upper_arm.L": 13.4,
-      "upper_arm.R": 13.4
+      "upper_arm.L": 13.3,
+      "upper_arm.R": 13.3
      },
      "arm_out_measured": {
       "upper_arm.L": 11.6,
@@ -1671,15 +1670,15 @@
      },
      "arm_swing": 25.0,
      "breath": 0.0,
-     "clearance_m": 0.0238,
+     "clearance_m": 0.0241,
      "clearance_tries": [
       [
-       0.0058,
+       0.0066,
        11.6
       ],
       [
-       0.0238,
-       13.4
+       0.0241,
+       13.3
       ]
      ],
      "elbow": 85.0,
@@ -1692,39 +1691,39 @@
      "hand_in": 5.0,
      "hand_lag": null,
      "hand_lag_cycles": {
-      "upper_arm.L": 0.2746,
-      "upper_arm.R": 0.2738
+      "upper_arm.L": 0.2738,
+      "upper_arm.R": 0.2756
      },
      "head_hold": 0.75,
-     "head_hz": 1.089,
+     "head_hz": 1.094,
      "head_lag": null,
-     "head_lag_cycles": 0.4063,
-     "head_lag_deg": 146.3,
-     "head_nod_deg_pp": 1.77,
+     "head_lag_cycles": 0.406,
+     "head_lag_deg": 146.2,
+     "head_nod_deg_pp": 1.76,
      "lean": 8.071,
      "lean_bob": 2.5,
      "lean_lag": 0.25,
      "limb_damping": 0.3,
      "limb_hz": {
       "upper_arm.L": {
-       "arm": 0.912,
-       "hand": 1.606
+       "arm": 0.915,
+       "hand": 1.613
       },
       "upper_arm.R": {
-       "arm": 0.913,
-       "hand": 1.609
+       "arm": 0.916,
+       "hand": 1.608
       }
      },
      "pelvis_list": 6.0,
      "pelvis_turn": 9.0,
      "side_bend": 4.0,
-     "stride_hz": 1.683,
+     "stride_hz": 1.688,
      "thorax_turn": 7.1,
      "trunk_damping": 0.35,
-     "trunk_gain": 0.284,
+     "trunk_gain": 0.2823,
      "trunk_hz": 0.82,
-     "trunk_lag_cycles": 0.4331,
-     "trunk_lag_deg": 155.9
+     "trunk_lag_cycles": 0.4333,
+     "trunk_lag_deg": 156.0
     },
     "vault": false,
     "vault_drop_m": null
@@ -1744,8 +1743,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.137,
-       -0.137
+       -0.124,
+       -0.124
       ],
       "upper_arm_deg": [
        4.0,
@@ -1763,8 +1762,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.137,
-       -0.137
+       -0.124,
+       -0.124
       ],
       "upper_arm_deg": [
        4.0,
@@ -1774,7 +1773,8 @@
     },
     "arm_running": false,
     "balance": null,
-    "end_height_m": 1.6991,
+    "drop_share": 0.01,
+    "end_height_m": 1.6964,
     "failures": [],
     "floor_skid": {
      "thigh.L": 0.0,
@@ -1785,27 +1785,27 @@
      1,
      25
     ],
-    "lowest_point": 0.011,
+    "lowest_point": 0.0109,
     "passed": true,
     "planted_drift": {},
     "posture": null,
     "prediction_error": 1e-06,
-    "rest_error": 0.339847,
+    "rest_error": 0.338812,
     "rig": "FixWoman_rig",
     "skin_lowest": -0.0,
     "stance_width": 1.0,
-    "standing_height_m": 1.6991,
+    "standing_height_m": 1.6964,
     "tightest_joint_degrees": {
-     "thigh.L": 164.9,
+     "thigh.L": 165.0,
      "thigh.R": 130.3,
      "upper_arm.L": 168.0,
      "upper_arm.R": 168.0
     },
-    "tolerance": 0.00847,
+    "tolerance": 0.00844,
     "turn": {
      "end_offset_m": [
-      -0.0376,
-      -0.2694,
+      -0.0359,
+      -0.2702,
       0.0
      ],
      "floor_skid_m": {
@@ -1814,11 +1814,11 @@
      },
      "pivot_leg": "thigh.L",
      "pivot_m": [
-      0.1159,
-      -0.1535,
-      0.011
+      0.1171,
+      -0.1531,
+      0.0109
      ],
-     "skid_tolerance_m": 0.00847,
+     "skid_tolerance_m": 0.00844,
      "yaw_deg": 90.0
     },
     "upper": {
@@ -1841,7 +1841,7 @@
      "clearance_m": 0.0349,
      "clearance_tries": [
       [
-       -0.0123,
+       -0.0122,
        9.5
       ],
       [
@@ -1863,7 +1863,7 @@
       "upper_arm.R": 0.5
      },
      "head_hold": 0.85,
-     "head_hz": 1.089,
+     "head_hz": 1.094,
      "head_lag": null,
      "head_lag_cycles": 0.5,
      "head_lag_deg": 180.0,
@@ -1874,12 +1874,12 @@
      "limb_damping": 0.3,
      "limb_hz": {
       "upper_arm.L": {
-       "arm": 0.912,
-       "hand": 1.606
+       "arm": 0.915,
+       "hand": 1.613
       },
       "upper_arm.R": {
-       "arm": 0.913,
-       "hand": 1.609
+       "arm": 0.916,
+       "hand": 1.608
       }
      },
      "pelvis_list": 0.0,
@@ -1896,12 +1896,12 @@
    },
    "TurnR": {
     "action": "FixWoman_TurnR",
-    "arm_clearance_m": 0.0347,
+    "arm_clearance_m": 0.0346,
     "arm_pose": {
      "upper_arm.L": {
       "arm_carry_deg": [
-       10.1,
-       10.1
+       10.2,
+       10.2
       ],
       "arm_swing_deg": 0.0,
       "elbow_flex_deg": [
@@ -1909,8 +1909,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.137,
-       -0.137
+       -0.124,
+       -0.124
       ],
       "upper_arm_deg": [
        4.0,
@@ -1919,8 +1919,8 @@
      },
      "upper_arm.R": {
       "arm_carry_deg": [
-       10.1,
-       10.1
+       10.2,
+       10.2
       ],
       "arm_swing_deg": 0.0,
       "elbow_flex_deg": [
@@ -1928,8 +1928,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.137,
-       -0.137
+       -0.124,
+       -0.124
       ],
       "upper_arm_deg": [
        4.0,
@@ -1939,7 +1939,8 @@
     },
     "arm_running": false,
     "balance": null,
-    "end_height_m": 1.6991,
+    "drop_share": 0.01,
+    "end_height_m": 1.6964,
     "failures": [],
     "floor_skid": {
      "thigh.L": 0.0,
@@ -1950,27 +1951,27 @@
      1,
      25
     ],
-    "lowest_point": 0.011,
+    "lowest_point": 0.0109,
     "passed": true,
     "planted_drift": {},
     "posture": null,
     "prediction_error": 1e-06,
-    "rest_error": 0.340608,
+    "rest_error": 0.339574,
     "rig": "FixWoman_rig",
     "skin_lowest": -0.0,
     "stance_width": 1.0,
-    "standing_height_m": 1.6991,
+    "standing_height_m": 1.6964,
     "tightest_joint_degrees": {
      "thigh.L": 130.3,
-     "thigh.R": 164.9,
+     "thigh.R": 165.0,
      "upper_arm.L": 168.0,
      "upper_arm.R": 168.0
     },
-    "tolerance": 0.00847,
+    "tolerance": 0.00844,
     "turn": {
      "end_offset_m": [
-      0.0376,
-      -0.2694,
+      0.0359,
+      -0.2702,
       0.0
      ],
      "floor_skid_m": {
@@ -1979,11 +1980,11 @@
      },
      "pivot_leg": "thigh.R",
      "pivot_m": [
-      -0.1159,
-      -0.1535,
-      0.011
+      -0.1171,
+      -0.1531,
+      0.0109
      ],
-     "skid_tolerance_m": 0.00847,
+     "skid_tolerance_m": 0.00844,
      "yaw_deg": -90.0
     },
     "upper": {
@@ -2003,14 +2004,14 @@
      },
      "arm_swing": 0.0,
      "breath": 1.0,
-     "clearance_m": 0.0347,
+     "clearance_m": 0.0346,
      "clearance_tries": [
       [
-       -0.0117,
+       -0.0116,
        9.5
       ],
       [
-       0.0347,
+       0.0346,
        13.7
       ]
      ],
@@ -2028,7 +2029,7 @@
       "upper_arm.R": 0.5
      },
      "head_hold": 0.85,
-     "head_hz": 1.089,
+     "head_hz": 1.094,
      "head_lag": null,
      "head_lag_cycles": 0.5,
      "head_lag_deg": 180.0,
@@ -2039,12 +2040,12 @@
      "limb_damping": 0.3,
      "limb_hz": {
       "upper_arm.L": {
-       "arm": 0.912,
-       "hand": 1.606
+       "arm": 0.915,
+       "hand": 1.613
       },
       "upper_arm.R": {
-       "arm": 0.913,
-       "hand": 1.609
+       "arm": 0.916,
+       "hand": 1.608
       }
      },
      "pelvis_list": 0.0,
@@ -2063,10 +2064,10 @@
     "action": "FixWoman_Walk",
     "adjustments": [],
     "angular_momentum": {
-     "up_mean_abs": 0.00652,
-     "up_range": 0.0417
+     "up_mean_abs": 0.00648,
+     "up_range": 0.0416
     },
-    "arm_clearance_m": 0.0188,
+    "arm_clearance_m": 0.02,
     "arm_pose": {
      "upper_arm.L": {
       "arm_carry_deg": [
@@ -2079,8 +2080,8 @@
        23.0
       ],
       "hand_rise": [
-       -0.191,
-       0.009
+       -0.178,
+       0.02
       ],
       "upper_arm_deg": [
        -13.6,
@@ -2098,8 +2099,8 @@
        22.9
       ],
       "hand_rise": [
-       -0.192,
-       0.01
+       -0.179,
+       0.021
       ],
       "upper_arm_deg": [
        -13.8,
@@ -2133,11 +2134,11 @@
       "source": "skin"
      }
     },
-    "drop_m": 0.0302,
+    "drop_m": 0.0301,
     "drop_share": 0.035,
-    "duty_asked": 0.6268,
-    "duty_factor": 0.627,
-    "end_height_m": 1.6672,
+    "duty_asked": 0.627951,
+    "duty_factor": 0.628,
+    "end_height_m": 1.6644,
     "failures": [],
     "floor_skid": {
      "thigh.L": 0.0,
@@ -2151,16 +2152,16 @@
     "froude": 0.2,
     "froude_requested": 0.2,
     "gait": "walk",
-    "head_nod_pp_deg": 1.37,
+    "head_nod_pp_deg": 1.36,
     "head_yaw_keeps": 0.64,
-    "hip_height_m": 0.8635,
-    "implied_speed_cycle_mps": 1.2788,
-    "implied_speed_playback_mps": 1.2255,
+    "hip_height_m": 0.859,
+    "implied_speed_cycle_mps": 1.2721,
+    "implied_speed_playback_mps": 1.2191,
     "knee_plane_deg": {
      "thigh.L": 0.0,
      "thigh.R": 0.0
     },
-    "lift_m": 0.1016,
+    "lift_m": 0.101,
     "lift_scale": null,
     "limited_by": [
      "hips dropped to the limit (3.5% of hip height)",
@@ -2168,17 +2169,17 @@
      "stride shortened to 100%, and the speed with it"
     ],
     "loop_seam": 0.0,
-    "lowest_point": 0.011,
+    "lowest_point": 0.0109,
     "max_drop": 0.035,
     "min_knee": null,
-    "natural_speed_mps": 1.3016,
+    "natural_speed_mps": 1.2982,
     "passed": true,
     "peak_reach": {
      "thigh.L": 0.995,
      "thigh.R": 0.995
     },
     "pelvis_roll_pp_deg": 8.99,
-    "pelvis_thorax_phase_deg": -126.4,
+    "pelvis_thorax_phase_deg": -126.6,
     "phase_offsets": {
      "thigh.L": 0.0,
      "thigh.R": 0.5
@@ -2186,7 +2187,7 @@
     "planted_drift": {},
     "posture": null,
     "prediction_error": 1e-06,
-    "rest_error": 0.489171,
+    "rest_error": 0.48856,
     "rig": "FixWoman_rig",
     "skin_lowest": -0.0046,
     "spine_flex_deg": 0.0,
@@ -2195,16 +2196,16 @@
      "thigh.R": 11.5
     },
     "stance_shift_m": {
-     "thigh.L": -0.0688,
-     "thigh.R": 0.0688
+     "thigh.L": -0.0683,
+     "thigh.R": 0.0683
     },
     "stance_width": 1.0,
-    "standing_height_m": 1.6991,
-    "stride_frequency_hz": 1.062,
-    "stride_m": 1.2255,
+    "standing_height_m": 1.6964,
+    "stride_frequency_hz": 1.065,
+    "stride_m": 1.2191,
     "stride_scale": null,
-    "stroke_m": 0.7681,
-    "stroke_over_leg": 0.943,
+    "stroke_m": 0.7656,
+    "stroke_over_leg": 0.945,
     "style": "custom",
     "support_normal": [
      0.0,
@@ -2212,16 +2213,16 @@
      1.0
     ],
     "sway_share": 0.01,
-    "thorax_head_phase_deg": -85.7,
+    "thorax_head_phase_deg": -85.3,
     "thorax_pelvis_roll_deg": -178.0,
     "thorax_roll_pp_deg": 3.88,
     "tightest_joint_degrees": {
-     "thigh.L": 116.9,
-     "thigh.R": 117.4,
+     "thigh.L": 116.8,
+     "thigh.R": 117.3,
      "upper_arm.L": 157.0,
      "upper_arm.R": 157.1
     },
-    "tolerance": 0.00847,
+    "tolerance": 0.00844,
     "trunk_pitch_pp_deg": 2.49,
     "upper": {
      "arm_forward": 2.0,
@@ -2231,8 +2232,8 @@
       "upper_arm.R": 0.5
      },
      "arm_out": {
-      "upper_arm.L": 12.0,
-      "upper_arm.R": 12.0
+      "upper_arm.L": 11.8,
+      "upper_arm.R": 11.8
      },
      "arm_out_measured": {
       "upper_arm.L": 9.8,
@@ -2240,15 +2241,15 @@
      },
      "arm_swing": 15.839,
      "breath": 0.0,
-     "clearance_m": 0.0188,
+     "clearance_m": 0.02,
      "clearance_tries": [
       [
-       0.0027,
+       0.004,
        9.8
       ],
       [
-       0.0188,
-       12.0
+       0.02,
+       11.8
       ]
      ],
      "elbow": 15.0,
@@ -2261,44 +2262,44 @@
      "hand_in": 0.0,
      "hand_lag": null,
      "hand_lag_cycles": {
-      "upper_arm.L": 0.0977,
-      "upper_arm.R": 0.0974
+      "upper_arm.L": 0.0974,
+      "upper_arm.R": 0.0981
      },
      "head_hold": 0.35,
-     "head_hz": 1.089,
+     "head_hz": 1.094,
      "head_lag": null,
-     "head_lag_cycles": 0.2368,
-     "head_lag_deg": 85.3,
-     "head_nod_deg_pp": 1.36,
+     "head_lag_cycles": 0.2357,
+     "head_lag_deg": 84.9,
+     "head_nod_deg_pp": 1.35,
      "lean": 3.236,
      "lean_bob": 1.25,
      "lean_lag": 0.0,
      "limb_damping": 0.3,
      "limb_hz": {
       "upper_arm.L": {
-       "arm": 0.912,
-       "hand": 1.606
+       "arm": 0.915,
+       "hand": 1.613
       },
       "upper_arm.R": {
-       "arm": 0.913,
-       "hand": 1.609
+       "arm": 0.916,
+       "hand": 1.608
       }
      },
      "pelvis_list": 4.5,
      "pelvis_turn": 4.236,
      "side_bend": 2.0,
-     "stride_hz": 1.062,
+     "stride_hz": 1.065,
      "thorax_turn": 3.289,
      "trunk_damping": 0.35,
-     "trunk_gain": 0.8834,
+     "trunk_gain": 0.8779,
      "trunk_hz": 0.82,
-     "trunk_lag_cycles": 0.3522,
-     "trunk_lag_deg": 126.8
+     "trunk_lag_cycles": 0.3529,
+     "trunk_lag_deg": 127.1
     },
     "vault": true,
     "vault_drop_m": [
      0.0,
-     0.0237
+     0.0236
     ]
    }
   },
@@ -2323,8 +2324,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.15,
-       -0.138
+       -0.136,
+       -0.124
       ],
       "upper_arm_deg": [
        3.0,
@@ -2342,8 +2343,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.15,
-       -0.138
+       -0.136,
+       -0.124
       ],
       "upper_arm_deg": [
        3.0,
@@ -2357,14 +2358,14 @@
        1.5,
        53.2
       ],
-      "arm_swing_deg": 51.6,
+      "arm_swing_deg": 51.7,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.137,
-       0.471
+       0.147,
+       0.478
       ],
       "upper_arm_deg": [
        -39.8,
@@ -2376,14 +2377,14 @@
        1.5,
        53.2
       ],
-      "arm_swing_deg": 51.6,
+      "arm_swing_deg": 51.7,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.137,
-       0.471
+       0.147,
+       0.478
       ],
       "upper_arm_deg": [
        -39.8,
@@ -2403,8 +2404,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.137,
-       -0.137
+       -0.124,
+       -0.124
       ],
       "upper_arm_deg": [
        4.0,
@@ -2422,8 +2423,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.137,
-       -0.137
+       -0.124,
+       -0.124
       ],
       "upper_arm_deg": [
        4.0,
@@ -2434,8 +2435,8 @@
     "FixWoman_TurnR": {
      "upper_arm.L": {
       "arm_carry_deg": [
-       10.1,
-       10.1
+       10.2,
+       10.2
       ],
       "arm_swing_deg": 0.0,
       "elbow_flex_deg": [
@@ -2443,8 +2444,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.137,
-       -0.137
+       -0.124,
+       -0.124
       ],
       "upper_arm_deg": [
        4.0,
@@ -2453,8 +2454,8 @@
      },
      "upper_arm.R": {
       "arm_carry_deg": [
-       10.1,
-       10.1
+       10.2,
+       10.2
       ],
       "arm_swing_deg": 0.0,
       "elbow_flex_deg": [
@@ -2462,8 +2463,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.137,
-       -0.137
+       -0.124,
+       -0.124
       ],
       "upper_arm_deg": [
        4.0,
@@ -2483,8 +2484,8 @@
        23.0
       ],
       "hand_rise": [
-       -0.191,
-       0.009
+       -0.178,
+       0.02
       ],
       "upper_arm_deg": [
        -13.6,
@@ -2502,8 +2503,8 @@
        22.9
       ],
       "hand_rise": [
-       -0.192,
-       0.01
+       -0.179,
+       0.021
       ],
       "upper_arm_deg": [
        -13.8,
@@ -2523,8 +2524,8 @@
     "Walk": "FixWoman_Walk"
    },
    "collider": {
-    "height": 1.6985,
-    "radius": 0.2193
+    "height": 1.6957,
+    "radius": 0.2192
    },
    "dropped_clips": [],
    "fields": [
@@ -2552,39 +2553,39 @@
      "duty_factor": 0.345,
      "froude": 2.0,
      "gait": "run",
-     "hip_height_m": 0.8635,
-     "natural_speed_mps": 4.1161,
+     "hip_height_m": 0.859,
+     "natural_speed_mps": 4.1054,
      "spine_flex_deg": 0.0,
      "stance_knee_flex_deg": {
       "thigh.L": 51.1,
       "thigh.R": 51.1
      },
-     "stride_frequency_hz": 1.683,
-     "stride_m": 2.4452,
-     "stroke_m": 0.8425,
+     "stride_frequency_hz": 1.688,
+     "stride_m": 2.4325,
+     "stroke_m": 0.839,
      "vault": false
     },
     "Walk": {
-     "duty_factor": 0.627,
+     "duty_factor": 0.628,
      "froude": 0.2,
      "gait": "walk",
-     "hip_height_m": 0.8635,
-     "natural_speed_mps": 1.3016,
+     "hip_height_m": 0.859,
+     "natural_speed_mps": 1.2982,
      "spine_flex_deg": 0.0,
      "stance_knee_flex_deg": {
       "thigh.L": 11.5,
       "thigh.R": 11.5
      },
-     "stride_frequency_hz": 1.062,
-     "stride_m": 1.2255,
-     "stroke_m": 0.7681,
+     "stride_frequency_hz": 1.065,
+     "stride_m": 1.2191,
+     "stroke_m": 0.7656,
      "vault": true
     }
    },
    "height_m": {
-    "crouch": 1.2816,
-    "crouch_walk": 1.2718,
-    "stand": 1.6985
+    "crouch": 1.2789,
+    "crouch_walk": 1.2692,
+    "stand": 1.6957
    },
    "loops": [
     "FixWoman_Idle",
@@ -3070,8 +3071,8 @@
    },
    "eyes_faces": {
     "faces": 2048,
-    "order": "e8365358c1e9",
-    "set": "f810302fb86e"
+    "order": "47553afa3624",
+    "set": "4a69ccaa6e0b"
    }
   }
  }

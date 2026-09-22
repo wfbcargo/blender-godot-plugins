@@ -1,7 +1,7 @@
 {
  "fixture": "rabbit",
  "plugins": {
-  "rig-anything": "0.23.0"
+  "rig-anything": "0.43.0"
  },
  "report": {
   "detection": {
@@ -106,8 +106,8 @@
     "RabbitTest_rig_JumpAir",
     "RabbitTest_rig_JumpLand"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\rabbit\\rabbit\\rabbit.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\rabbit\\rabbit\\rabbit.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\rabbit\\rabbit\\rabbit.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\rabbit\\rabbit\\rabbit.moves.json",
    "review": {
     "bands_px": [
      45,
@@ -123,7 +123,7 @@
      1258
     ],
     "count": 19,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\rabbit\\rabbit\\review\\rabbit",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\rabbit\\rabbit\\review\\rabbit",
     "frame_height_m": 0.75,
     "frames": {
      "RabbitTest_rig_Bound": [
@@ -187,7 +187,7 @@
       11
      ]
     },
-    "seconds": 5.27,
+    "seconds": 5.23,
     "strips": {
      "RabbitTest_rig_Bound": {
       "front": {
@@ -612,12 +612,12 @@
        "hind.L": 0.0,
        "hind.R": 0.0
       },
-      "flipped_faces": 542,
+      "flipped_faces": 541,
       "loop_seam": 0.0,
       "passed": true,
       "prediction_error": 0.0,
       "stretch_max": 7.919,
-      "stretch_p99": 2.973
+      "stretch_p99": 2.967
      },
      "Hop": {
       "contact_slip_m": {
@@ -626,7 +626,7 @@
        "hind.L": 0.0,
        "hind.R": 0.0
       },
-      "flipped_faces": 381,
+      "flipped_faces": 384,
       "loop_seam": 0.0,
       "passed": true,
       "prediction_error": 0.0,
@@ -639,21 +639,21 @@
       "prediction_error": 0.0
      },
      "JumpAir": {
-      "flipped_faces": 254,
+      "flipped_faces": 260,
       "passed": true,
       "prediction_error": 0.0,
       "stretch_max": 7.916,
       "stretch_p99": 2.844
      },
      "JumpLand": {
-      "flipped_faces": 57,
+      "flipped_faces": 56,
       "passed": true,
       "prediction_error": 0.0,
       "stretch_max": 2.606,
-      "stretch_p99": 1.718
+      "stretch_p99": 1.717
      },
      "JumpLaunch": {
-      "flipped_faces": 381,
+      "flipped_faces": 383,
       "passed": true,
       "prediction_error": 0.0,
       "stretch_max": 7.916,
@@ -1003,7 +1003,7 @@
     "end_height_m": 0.1937,
     "failures": [],
     "femur_metatarsus_max_deg": 5.29,
-    "flipped_faces": 542,
+    "flipped_faces": 541,
     "floor_skid": {
      "fore.L": 0.0,
      "fore.R": 0.0,
@@ -1071,7 +1071,7 @@
     "standing_height_m": 0.1977,
     "stretch_ignored_edges": 5,
     "stretch_max": 7.919,
-    "stretch_p99": 2.973,
+    "stretch_p99": 2.967,
     "stride_frequency_hz": 3.3535,
     "stride_m": 1.0364,
     "stroke_m": 0.2902,
@@ -1118,7 +1118,7 @@
     "end_height_m": 0.1787,
     "failures": [],
     "femur_metatarsus_max_deg": 4.07,
-    "flipped_faces": 381,
+    "flipped_faces": 384,
     "floor_skid": {
      "fore.L": 0.0,
      "fore.R": 0.0,
@@ -1239,7 +1239,7 @@
     "end_height_m": 0.1477,
     "failures": [],
     "flight_time_s": 0.39314,
-    "flipped_faces": 254,
+    "flipped_faces": 260,
     "floor_below_body_m": 0.0884,
     "floor_skid": {},
     "fps": 24,
@@ -1257,7 +1257,7 @@
     "seams": {
      "air -> land": [
       0.0,
-      "fore_forearm.R"
+      "fore_digits.R"
      ],
      "launch -> air": [
       0.00059,
@@ -1282,7 +1282,7 @@
     "balance": null,
     "end_height_m": 0.1977,
     "failures": [],
-    "flipped_faces": 57,
+    "flipped_faces": 56,
     "floor_skid": {
      "fore.L": 0.0,
      "fore.R": 0.0,
@@ -1318,7 +1318,7 @@
     "seams": {
      "air -> land": [
       0.0,
-      "fore_forearm.R"
+      "fore_digits.R"
      ],
      "launch -> air": [
       0.00059,
@@ -1329,7 +1329,7 @@
     "standing_height_m": 0.1977,
     "stretch_ignored_edges": 5,
     "stretch_max": 2.606,
-    "stretch_p99": 1.718,
+    "stretch_p99": 1.717,
     "tightest_joint_degrees": {
      "fore.L": 94.7,
      "fore.R": 94.7,
@@ -1355,7 +1355,7 @@
      "knee": 0.0417
     },
     "failures": [],
-    "flipped_faces": 381,
+    "flipped_faces": 383,
     "floor_skid": {
      "fore.L": 0.0,
      "fore.R": 0.0,
@@ -1402,7 +1402,7 @@
     "seams": {
      "air -> land": [
       0.0,
-      "fore_forearm.R"
+      "fore_digits.R"
      ],
      "launch -> air": [
       0.00059,

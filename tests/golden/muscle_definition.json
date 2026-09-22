@@ -1,8 +1,8 @@
 {
  "fixture": "muscle_definition",
  "plugins": {
-  "humanform": "0.16.0",
-  "rig-anything": "0.27.0"
+  "humanform": "0.20.0",
+  "rig-anything": "0.43.0"
  },
  "report": {
   "game": {
@@ -13,10 +13,10 @@
     ],
     "method": "matched",
     "over_1deg": 0.346,
-    "over_5deg": 0.163,
+    "over_5deg": 0.164,
     "p999_deg": 27.0,
     "skipped": [],
-    "steep_texels": 7,
+    "steep_texels": 2,
     "warnings": []
    },
    "rebake": {
@@ -54,7 +54,7 @@
     "card": "muscle-definition-v2-e50397dc",
     "groups": {
      "abdominals": {
-      "max_mm": 5.01,
+      "max_mm": 5.03,
       "vertices": 115,
       "weight": 0.638
      },
@@ -64,59 +64,59 @@
       "weight": 0.0
      },
      "calves": {
-      "max_mm": 17.49,
+      "max_mm": 17.53,
       "vertices": 222,
       "weight": 0.937
      },
      "deltoids": {
-      "max_mm": 16.94,
+      "max_mm": 16.98,
       "vertices": 196,
       "weight": 0.901
      },
      "forearms": {
-      "max_mm": 20.52,
+      "max_mm": 20.57,
       "vertices": 260,
       "weight": 0.937
      },
      "obliques": {
-      "max_mm": 5.43,
+      "max_mm": 5.44,
       "vertices": 104,
       "weight": 0.638
      },
      "pectorals": {
-      "max_mm": 12.45,
+      "max_mm": 12.48,
       "vertices": 408,
       "weight": 0.814
      },
      "quadriceps": {
-      "max_mm": 17.98,
+      "max_mm": 18.02,
       "vertices": 348,
       "weight": 0.814
      },
      "relief": {
-      "max_mm": 9.48,
+      "max_mm": 9.5,
       "vertices": 3390,
       "weight": 0.846
      },
      "upper_arms": {
-      "max_mm": 22.05,
+      "max_mm": 22.1,
       "vertices": 332,
       "weight": 0.901
      }
     },
     "key": "hfd:muscle",
-    "max_mm": 22.88,
+    "max_mm": 22.93,
     "mode": "key",
-    "refined_max_mm": 22.88,
-    "scale": 1.1056,
-    "stature_m": 1.9117
+    "refined_max_mm": 22.93,
+    "scale": 1.1081,
+    "stature_m": 1.916
    },
    "applied_bulk": {
-    "max_mm": 7.42,
-    "vertices": 2829,
-    "weight": 0.476
+    "max_mm": 8.12,
+    "vertices": 2833,
+    "weight": 0.52
    },
-   "bulk_weight": 0.4764,
+   "bulk_weight": 0.5203,
    "check_after": {
     "fail": 0,
     "info": 0,
@@ -129,7 +129,7 @@
     "pass": 32,
     "warn": 0
    },
-   "fitted_muscle": 0.6618,
+   "fitted_muscle": 0.6399,
    "keys": [
     "hfd:muscle",
     "hfd:muscle-bulk"
@@ -138,21 +138,21 @@
     "age": 0.515,
     "cupsize": 0.5,
     "firmness": 0.9,
-    "height": 0.657,
-    "muscle": 0.662,
+    "height": 0.65,
+    "muscle": 0.64,
     "proportions": 0.5,
     "weight": 1.0
    },
-   "reported_spike_um": 4521,
+   "reported_spike_um": 4536,
    "spike": {
     "applied_over_1p5x": 0,
-    "applied_over_limit": 51,
-    "applied_spike_um": 4521,
-    "limit_um": 4422,
-    "scale": 1.1056,
+    "applied_over_limit": 50,
+    "applied_spike_um": 4536,
+    "limit_um": 4432,
+    "scale": 1.1081,
     "unguarded_over_1p5x": 6,
-    "unguarded_over_limit": 64,
-    "unguarded_spike_um": 7617,
+    "unguarded_over_limit": 66,
+    "unguarded_spike_um": 7690,
     "weights_of": "FixDante"
    }
   },

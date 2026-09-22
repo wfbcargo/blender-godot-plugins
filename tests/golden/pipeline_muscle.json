@@ -1,12 +1,12 @@
 {
  "fixture": "pipeline_muscle",
  "plugins": {
-  "character-pipeline": "0.15.0",
-  "follow-through": "0.10.0",
-  "humanform": "0.16.0",
-  "lookdev": "0.12.0",
-  "rig-anything": "0.27.0",
-  "wardrobe": "0.5.2"
+  "character-pipeline": "0.20.0",
+  "follow-through": "0.12.0",
+  "humanform": "0.20.0",
+  "lookdev": "0.12.1",
+  "rig-anything": "0.43.0",
+  "wardrobe": "0.9.0"
  },
  "report": {
   "build_record": {
@@ -50,7 +50,7 @@
     "FixDante_skin_normal",
     "FixDante_skin_orm"
    ],
-   "verts": 16829
+   "verts": 17560
   },
   "draft_hash_part_moves": null,
   "final_hash_part": {
@@ -91,13 +91,13 @@
     "moves": "ran",
     "muscle": "ran"
    },
-   "verts": 16089,
+   "verts": 16820,
    "verts_equal_fresh_build": true
   },
   "muscle": {
    "body_fat_pct": 15.81,
    "definition_total": 7.4239,
-   "fitted_muscle": 0.6443,
+   "fitted_muscle": 0.6463,
    "groups": [
     "deltoids",
     "upper_arms",
@@ -110,14 +110,14 @@
     "relief",
     "bulk"
    ],
-   "max_mm": 23.91,
+   "max_mm": 23.87,
    "muscle_term": 0.9446,
    "output": "geometry",
-   "spike_limit_um": 4621,
-   "spike_um": 4728,
+   "spike_limit_um": 4613,
+   "spike_um": 4720,
    "weights": {
     "abdominals": 0.6377,
-    "bulk": 0.5114,
+    "bulk": 0.5074,
     "calves": 0.9366,
     "deltoids": 0.9013,
     "forearms": 0.9366,
@@ -161,7 +161,7 @@
     "hair": "ran",
     "moves": "ran"
    },
-   "verts": 16089
+   "verts": 16820
   },
   "muscle_normal": {
    "bake": {
@@ -201,7 +201,7 @@
     "moves": "ran",
     "muscle": "ran"
    },
-   "verts": 16089
+   "verts": 16820
   },
   "quality": {
    "draft": {

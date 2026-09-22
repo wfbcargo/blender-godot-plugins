@@ -1,12 +1,12 @@
 {
  "fixture": "pipeline_ponytail",
  "plugins": {
-  "character-pipeline": "0.17.0",
-  "follow-through": "0.10.0",
-  "humanform": "0.18.0",
-  "lookdev": "0.12.0",
-  "rig-anything": "0.40.0",
-  "wardrobe": "0.8.0"
+  "character-pipeline": "0.20.0",
+  "follow-through": "0.12.0",
+  "humanform": "0.20.0",
+  "lookdev": "0.12.1",
+  "rig-anything": "0.43.0",
+  "wardrobe": "0.9.0"
  },
  "report": {
   "body": {
@@ -16,25 +16,26 @@
     "HF_iris_PonyWoman_eyes",
     "HF_limbal_PonyWoman_eyes",
     "HF_pupil",
+    "PonyWoman_teeth",
+    "PonyWoman_tongue",
+    "PonyWoman_mouth",
     "PonyWoman_hair"
    ],
    "strand_group": false,
-   "verts": 18265
+   "verts": 18962
   },
   "body_glb": {
    "chain_bones": [
     "ft_strand_PonyWoman_hair_strand_00",
     "ft_strand_PonyWoman_hair_strand_01",
     "ft_strand_PonyWoman_hair_strand_02",
-    "ft_strand_PonyWoman_hair_strand_03",
-    "ft_strand_PonyWoman_hair_strand_04"
+    "ft_strand_PonyWoman_hair_strand_03"
    ],
    "chain_bones_in_skin": [
     "ft_strand_PonyWoman_hair_strand_00",
     "ft_strand_PonyWoman_hair_strand_01",
     "ft_strand_PonyWoman_hair_strand_02",
-    "ft_strand_PonyWoman_hair_strand_03",
-    "ft_strand_PonyWoman_hair_strand_04"
+    "ft_strand_PonyWoman_hair_strand_03"
    ],
    "meshes": [
     "PonyWoman_body"
@@ -56,7 +57,7 @@
      "node": "PonyWoman_hair_strand",
      "problems": [],
      "route": "spring_bones",
-     "strand_bones": 5,
+     "strand_bones": 4,
      "strand_chains": 1,
      "strand_head_error_m": 1e-05
     }
@@ -66,17 +67,17 @@
    "contract": {
     "ft_root_bone": "spine.005",
     "ft_type": "strand",
-    "length_m": 0.3181,
+    "length_m": 0.292,
     "order": {
-     "root_group_to_first_point_m": 0.0133,
-     "tip_group_to_last_point_m": 0.0132
+     "root_group_to_first_point_m": 0.0122,
+     "tip_group_to_last_point_m": 0.0121
     },
     "passed": true,
     "points": 12,
     "problems": [],
     "spacing_m": [
-     0.0274,
-     0.0291
+     0.025,
+     0.0267
     ]
    },
    "joined": [
@@ -94,15 +95,13 @@
     "ft_strand_PonyWoman_hair_strand_00",
     "ft_strand_PonyWoman_hair_strand_01",
     "ft_strand_PonyWoman_hair_strand_02",
-    "ft_strand_PonyWoman_hair_strand_03",
-    "ft_strand_PonyWoman_hair_strand_04"
+    "ft_strand_PonyWoman_hair_strand_03"
    ],
    "chain_bones_in_skin": [
     "ft_strand_PonyWoman_hair_strand_00",
     "ft_strand_PonyWoman_hair_strand_01",
     "ft_strand_PonyWoman_hair_strand_02",
-    "ft_strand_PonyWoman_hair_strand_03",
-    "ft_strand_PonyWoman_hair_strand_04"
+    "ft_strand_PonyWoman_hair_strand_03"
    ],
    "meshes": [
     "PonyWoman_hair_strand"
@@ -126,8 +125,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.107,
-       -0.095
+       -0.103,
+       -0.091
       ],
       "upper_arm_deg": [
        3.0,
@@ -145,8 +144,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.107,
-       -0.095
+       -0.103,
+       -0.091
       ],
       "upper_arm_deg": [
        3.0,
@@ -166,8 +165,8 @@
        85.0
       ],
       "hand_rise": [
-       0.166,
-       0.492
+       0.169,
+       0.494
       ],
       "upper_arm_deg": [
        -39.8,
@@ -185,8 +184,8 @@
        85.0
       ],
       "hand_rise": [
-       0.166,
-       0.492
+       0.169,
+       0.494
       ],
       "upper_arm_deg": [
        -39.8,
@@ -200,8 +199,8 @@
     "Run": "PonyWoman_Run"
    },
    "collider": {
-    "height": 1.6844,
-    "radius": 0.2183
+    "height": 1.6859,
+    "radius": 0.2179
    },
    "dropped_clips": [],
    "fields": [
@@ -233,24 +232,24 @@
    ],
    "gaits": {
     "Run": {
-     "duty_factor": 0.342,
+     "duty_factor": 0.343,
      "froude": 2.0,
      "gait": "run",
-     "hip_height_m": 0.8487,
-     "natural_speed_mps": 4.0807,
+     "hip_height_m": 0.8489,
+     "natural_speed_mps": 4.0812,
      "spine_flex_deg": 0.0,
      "stance_knee_flex_deg": {
       "thigh.L": 50.1,
       "thigh.R": 50.1
      },
      "stride_frequency_hz": 1.698,
-     "stride_m": 2.4033,
-     "stroke_m": 0.8227,
+     "stride_m": 2.4039,
+     "stroke_m": 0.8234,
      "vault": false
     }
    },
    "height_m": {
-    "stand": 1.6777
+    "stand": 1.68
    },
    "loops": [
     "PonyWoman_Idle",
@@ -317,21 +316,19 @@
        "ft_strand_PonyWoman_hair_strand_00",
        "ft_strand_PonyWoman_hair_strand_01",
        "ft_strand_PonyWoman_hair_strand_02",
-       "ft_strand_PonyWoman_hair_strand_03",
-       "ft_strand_PonyWoman_hair_strand_04"
+       "ft_strand_PonyWoman_hair_strand_03"
       ],
-      "bones": 5,
+      "bones": 4,
       "centreline": {
        "method": "custom property ft_centreline"
       },
       "frequency_hz": [
-       1.0825,
-       1.2103,
-       1.3975,
-       1.7116,
-       2.4206
+       1.1299,
+       1.3047,
+       1.5979,
+       2.2598
       ],
-      "length_m": 0.3181,
+      "length_m": 0.292,
       "name": "ft_strand_PonyWoman_hair_strand"
      }
     ],
@@ -340,13 +337,13 @@
      {
       "bone": "spine.005",
       "name": "head",
-      "radius_m": 0.1191,
+      "radius_m": 0.1156,
       "shape": "ellipsoid"
      },
      {
       "bone": "spine.004",
       "name": "neck_spine_004",
-      "radius_m": 0.0572,
+      "radius_m": 0.0557,
       "shape": "capsule"
      }
     ],
@@ -358,7 +355,7 @@
     "type_source": "custom property ft_strand_type",
     "warnings": [],
     "weights": {
-     "furthest_from_centreline_m": 0.03,
+     "furthest_from_centreline_m": 0.0275,
      "vertices": 434
     }
    }
@@ -380,7 +377,6 @@
     "ft_strand_PonyWoman_hair_strand_01",
     "ft_strand_PonyWoman_hair_strand_02",
     "ft_strand_PonyWoman_hair_strand_03",
-    "ft_strand_PonyWoman_hair_strand_04",
     "spine.005"
    ],
    "materials": [

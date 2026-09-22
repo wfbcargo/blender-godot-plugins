@@ -1,8 +1,8 @@
 {
  "fixture": "rigify_human",
  "plugins": {
-  "follow-through": "0.10.0",
-  "rig-anything": "0.40.0"
+  "follow-through": "0.12.0",
+  "rig-anything": "0.43.0"
  },
  "report": {
   "arm_swing": {
@@ -2028,7 +2028,8 @@
     "name",
     "rig",
     "scene",
-    "verified"
+    "verified",
+    "warnings"
    ],
    "gaits": {
     "Run": {

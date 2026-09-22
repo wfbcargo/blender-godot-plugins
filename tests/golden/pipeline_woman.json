@@ -1,15 +1,15 @@
 {
  "fixture": "pipeline_woman",
  "plugins": {
-  "character-pipeline": "0.18.0",
-  "follow-through": "0.10.0",
-  "humanform": "0.18.0",
-  "lookdev": "0.12.0",
-  "rig-anything": "0.41.0",
-  "wardrobe": "0.8.0"
+  "character-pipeline": "0.20.0",
+  "follow-through": "0.12.0",
+  "humanform": "0.20.0",
+  "lookdev": "0.12.1",
+  "rig-anything": "0.43.0",
+  "wardrobe": "0.9.0"
  },
  "report": {
-  "body_stature": 1.6985,
+  "body_stature": 1.6957,
   "close": {
    "close_json": true,
    "close_off": {
@@ -123,7 +123,7 @@
    },
    "tiles": {
     "bust": {
-     "coverage": 0.76,
+     "coverage": 0.75,
      "distance_m": 0.8,
      "ok": true,
      "on_body": true,
@@ -131,7 +131,7 @@
      "subject_off": 0.14
     },
     "crotch": {
-     "coverage": 0.74,
+     "coverage": 0.72,
      "distance_m": 0.8,
      "ok": true,
      "on_body": true,
@@ -163,7 +163,7 @@
      "subject_off": 0.07
     },
     "feet": {
-     "coverage": 0.24,
+     "coverage": 0.23,
      "distance_m": 1.0,
      "ok": true,
      "on_body": true,
@@ -219,7 +219,7 @@
      "subject_off": 0.1
     },
     "hand_palm.L": {
-     "coverage": 0.52,
+     "coverage": 0.51,
      "distance_m": 0.5,
      "ok": true,
      "on_body": true,
@@ -227,7 +227,7 @@
      "subject_off": 0.14
     },
     "hand_palm.R": {
-     "coverage": 0.52,
+     "coverage": 0.51,
      "distance_m": 0.5,
      "ok": true,
      "on_body": true,
@@ -255,7 +255,7 @@
      "distance_m": 0.8,
      "ok": true,
      "on_body": true,
-     "subject_margin": 0.32,
+     "subject_margin": 0.33,
      "subject_off": 0.0
     },
     "under_bust": {
@@ -336,11 +336,11 @@
    "missed": [
     {
      "claimed": 0,
-     "min_size": 46,
+     "min_size": 48,
      "reason": "too_little",
-     "seeds": 321,
+     "seeds": 331,
      "type": "bloater_belly",
-     "zone_vertices": 590
+     "zone_vertices": 588
     }
    ],
    "with_may_miss": {
@@ -377,8 +377,8 @@
      "breast.L": {
       "head_share": 0.0,
       "ok": false,
-      "pivot_rise_m": -0.0289,
-      "tail_z": 1.27,
+      "pivot_rise_m": -0.0299,
+      "tail_z": 1.271,
       "weight_10cm_above": 0.0,
       "weight_at_apex": 0.0,
       "weight_on_thigh": 0.0
@@ -386,8 +386,8 @@
      "breast.R": {
       "head_share": 0.0,
       "ok": false,
-      "pivot_rise_m": -0.0289,
-      "tail_z": 1.27,
+      "pivot_rise_m": -0.0299,
+      "tail_z": 1.271,
       "weight_10cm_above": 0.0,
       "weight_at_apex": 0.0,
       "weight_on_thigh": 0.0
@@ -395,20 +395,20 @@
      "butt.L": {
       "head_share": 0.0,
       "ok": false,
-      "pivot_rise_m": 0.0071,
-      "tail_z": 0.864,
-      "weight_10cm_above": 0.998,
+      "pivot_rise_m": 0.0114,
+      "tail_z": 0.836,
+      "weight_10cm_above": 0.996,
       "weight_at_apex": 0.0,
-      "weight_on_thigh": 0.442
+      "weight_on_thigh": 0.813
      },
      "butt.R": {
       "head_share": 0.0,
       "ok": false,
-      "pivot_rise_m": 0.0067,
-      "tail_z": 0.864,
-      "weight_10cm_above": 0.998,
+      "pivot_rise_m": 0.0111,
+      "tail_z": 0.837,
+      "weight_10cm_above": 0.996,
       "weight_at_apex": 0.0,
-      "weight_on_thigh": 0.442
+      "weight_on_thigh": 0.813
      }
     }
    },
@@ -418,21 +418,21 @@
     "ok": false,
     "regions": {
      "breast.L": {
-      "head_share": 0.745,
+      "head_share": 0.805,
       "ok": false,
       "pivot_rise_m": 0.03,
-      "tail_z": 1.498,
+      "tail_z": 1.506,
       "weight_10cm_above": 0.0,
-      "weight_at_apex": 0.937,
+      "weight_at_apex": 0.961,
       "weight_on_thigh": 0.0
      },
      "breast.R": {
-      "head_share": 0.745,
+      "head_share": 0.823,
       "ok": false,
       "pivot_rise_m": 0.03,
-      "tail_z": 1.498,
+      "tail_z": 1.506,
       "weight_10cm_above": 0.0,
-      "weight_at_apex": 0.937,
+      "weight_at_apex": 0.961,
       "weight_on_thigh": 0.0
      }
     }
@@ -445,36 +445,36 @@
       "head_share": 0.0,
       "ok": true,
       "pivot_rise_m": 0.06,
-      "tail_z": 1.234,
+      "tail_z": 1.233,
       "weight_10cm_above": 0.0,
-      "weight_at_apex": 0.991,
+      "weight_at_apex": 0.993,
       "weight_on_thigh": 0.0
      },
      "breast.R": {
       "head_share": 0.0,
       "ok": true,
       "pivot_rise_m": 0.06,
-      "tail_z": 1.234,
+      "tail_z": 1.233,
       "weight_10cm_above": 0.0,
-      "weight_at_apex": 0.991,
+      "weight_at_apex": 0.993,
       "weight_on_thigh": 0.0
      },
      "butt.L": {
       "head_share": 0.0,
       "ok": true,
       "pivot_rise_m": 0.06,
-      "tail_z": 0.874,
+      "tail_z": 0.869,
       "weight_10cm_above": 0.0,
-      "weight_at_apex": 0.992,
+      "weight_at_apex": 0.994,
       "weight_on_thigh": 0.0
      },
      "butt.R": {
       "head_share": 0.0,
       "ok": true,
       "pivot_rise_m": 0.06,
-      "tail_z": 0.874,
+      "tail_z": 0.869,
       "weight_10cm_above": 0.0,
-      "weight_at_apex": 0.994,
+      "weight_at_apex": 0.997,
       "weight_on_thigh": 0.0
      }
     }
@@ -485,18 +485,18 @@
      "head_share": 0.0,
      "ok": true,
      "pivot_rise_m": 0.06,
-     "tail_z": 1.234,
+     "tail_z": 1.233,
      "weight_10cm_above": 0.0,
-     "weight_at_apex": 0.991,
+     "weight_at_apex": 0.993,
      "weight_on_thigh": 0.0
     },
     "breast.R": {
      "head_share": 0.0,
      "ok": true,
      "pivot_rise_m": 0.06,
-     "tail_z": 1.234,
+     "tail_z": 1.233,
      "weight_10cm_above": 0.0,
-     "weight_at_apex": 0.991,
+     "weight_at_apex": 0.993,
      "weight_on_thigh": 0.0
     }
    }
@@ -509,32 +509,32 @@
   ],
   "flesh_stage_placement": [
    {
-    "centre_height": 0.73,
+    "centre_height": 0.732,
     "head_share": 0.0,
     "name": "breast.L",
     "ok": true,
-    "tail_height": 0.74
+    "tail_height": 0.742
    },
    {
-    "centre_height": 0.73,
+    "centre_height": 0.732,
     "head_share": 0.0,
     "name": "breast.R",
     "ok": true,
-    "tail_height": 0.74
+    "tail_height": 0.742
    },
    {
-    "centre_height": 0.011,
+    "centre_height": 0.01,
     "head_share": 0.0,
     "name": "butt.L",
     "ok": true,
-    "tail_height": -0.005
+    "tail_height": -0.007
    },
    {
-    "centre_height": 0.011,
+    "centre_height": 0.01,
     "head_share": 0.0,
     "name": "butt.R",
     "ok": true,
-    "tail_height": -0.005
+    "tail_height": -0.007
    }
   ],
   "fresh_session": {
@@ -566,7 +566,7 @@
      "ft_jiggle_butt.R"
     ],
     "passed": true,
-    "verts": 620
+    "verts": 618
    },
    "SportsTop": {
     "jiggle_groups": [
@@ -576,11 +576,11 @@
      "ft_jiggle_butt.R"
     ],
     "passed": true,
-    "verts": 1184
+    "verts": 1189
    }
   },
   "height_field": "export.height was removed: height_m.stand is always the Idle clip's standing height (a hair bun does not raise it) - delete the line",
-  "idle_standing_height_m": 1.6991,
+  "idle_standing_height_m": 1.6964,
   "manifest": {
    "arm_gait_on_disk": {
     "FixWoman_Idle": "walk",
@@ -600,8 +600,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.15,
-       -0.138
+       -0.136,
+       -0.124
       ],
       "upper_arm_deg": [
        3.0,
@@ -619,8 +619,8 @@
        12.0
       ],
       "hand_rise": [
-       -0.15,
-       -0.138
+       -0.136,
+       -0.124
       ],
       "upper_arm_deg": [
        3.0,
@@ -634,14 +634,14 @@
        1.5,
        53.2
       ],
-      "arm_swing_deg": 51.6,
+      "arm_swing_deg": 51.7,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.137,
-       0.471
+       0.147,
+       0.478
       ],
       "upper_arm_deg": [
        -39.8,
@@ -653,14 +653,14 @@
        1.5,
        53.2
       ],
-      "arm_swing_deg": 51.6,
+      "arm_swing_deg": 51.7,
       "elbow_flex_deg": [
        85.0,
        85.0
       ],
       "hand_rise": [
-       0.137,
-       0.471
+       0.147,
+       0.478
       ],
       "upper_arm_deg": [
        -39.8,
@@ -680,8 +680,8 @@
        23.0
       ],
       "hand_rise": [
-       -0.191,
-       0.009
+       -0.178,
+       0.02
       ],
       "upper_arm_deg": [
        -13.6,
@@ -699,8 +699,8 @@
        22.9
       ],
       "hand_rise": [
-       -0.192,
-       0.01
+       -0.179,
+       0.021
       ],
       "upper_arm_deg": [
        -13.8,
@@ -715,8 +715,8 @@
     "Walk": "FixWoman_Walk"
    },
    "collider": {
-    "height": 1.6985,
-    "radius": 0.2254
+    "height": 1.6957,
+    "radius": 0.2249
    },
    "dropped_clips": [],
    "fields": [
@@ -752,37 +752,37 @@
      "duty_factor": 0.345,
      "froude": 2.0,
      "gait": "run",
-     "hip_height_m": 0.8635,
-     "natural_speed_mps": 4.1161,
+     "hip_height_m": 0.859,
+     "natural_speed_mps": 4.1054,
      "spine_flex_deg": 0.0,
      "stance_knee_flex_deg": {
       "thigh.L": 51.1,
       "thigh.R": 51.1
      },
-     "stride_frequency_hz": 1.683,
-     "stride_m": 2.4452,
-     "stroke_m": 0.8425,
+     "stride_frequency_hz": 1.688,
+     "stride_m": 2.4325,
+     "stroke_m": 0.839,
      "vault": false
     },
     "Walk": {
-     "duty_factor": 0.627,
+     "duty_factor": 0.628,
      "froude": 0.2,
      "gait": "walk",
-     "hip_height_m": 0.8635,
-     "natural_speed_mps": 1.3016,
+     "hip_height_m": 0.859,
+     "natural_speed_mps": 1.2982,
      "spine_flex_deg": 0.0,
      "stance_knee_flex_deg": {
       "thigh.L": 11.5,
       "thigh.R": 11.5
      },
-     "stride_frequency_hz": 1.062,
-     "stride_m": 1.2255,
-     "stroke_m": 0.7681,
+     "stride_frequency_hz": 1.065,
+     "stride_m": 1.2191,
+     "stroke_m": 0.7656,
      "vault": true
     }
    },
    "height_m": {
-    "stand": 1.6991
+    "stand": 1.6964
    },
    "loops": [
     "FixWoman_Idle",
@@ -799,10 +799,10 @@
      "damping_ratio": 0.25,
      "frequency_hz": 2.4,
      "material": "soft_fat",
-     "max_offset_m": 0.0542,
+     "max_offset_m": 0.0551,
      "name": "breast.L",
      "parent": "spine.003",
-     "peak_m": 0.0821,
+     "peak_m": 0.0835,
      "type": "breast"
     },
     {
@@ -810,10 +810,10 @@
      "damping_ratio": 0.25,
      "frequency_hz": 2.4,
      "material": "soft_fat",
-     "max_offset_m": 0.0542,
+     "max_offset_m": 0.0551,
      "name": "breast.R",
      "parent": "spine.003",
-     "peak_m": 0.0821,
+     "peak_m": 0.0835,
      "type": "breast"
     },
     {
@@ -821,10 +821,10 @@
      "damping_ratio": 0.3,
      "frequency_hz": 3.0,
      "material": "soft_fat",
-     "max_offset_m": 0.0796,
+     "max_offset_m": 0.084,
      "name": "butt.L",
      "parent": "spine",
-     "peak_m": 0.0885,
+     "peak_m": 0.0933,
      "type": "butt"
     },
     {
@@ -832,10 +832,10 @@
      "damping_ratio": 0.3,
      "frequency_hz": 3.0,
      "material": "soft_fat",
-     "max_offset_m": 0.0796,
+     "max_offset_m": 0.084,
      "name": "butt.R",
      "parent": "spine",
-     "peak_m": 0.0885,
+     "peak_m": 0.0933,
      "type": "butt"
     }
    ],
@@ -852,12 +852,12 @@
     "passed": true
    },
    "Run": {
-    "drop_m": 0.0604,
+    "drop_m": 0.0601,
     "failures": [],
     "passed": true
    },
    "Walk": {
-    "drop_m": 0.0302,
+    "drop_m": 0.0301,
     "failures": [],
     "passed": true
    }
@@ -1101,6 +1101,6 @@
    "moves": "ran",
    "review": "ran"
   },
-  "unknown_flesh_type": "[flesh] types ['moobs']: not flesh types follow-through's registry has (one of ['arm_flab', 'belly', 'bloater_belly', 'breast', 'butt', 'love_handle', 'thigh']); a name like 'moob' or 'gut' is recognised on a mesh, but a spec names the type"
+  "unknown_flesh_type": "[flesh] types ['moobs']: not flesh types follow-through's registry has (one of ['arm_flab', 'belly', 'bloater_belly', 'breast', 'butt', 'genital', 'love_handle', 'thigh']); a name like 'moob' or 'gut' is recognised on a mesh, but a spec names the type"
  }
 }
