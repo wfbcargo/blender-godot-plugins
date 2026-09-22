@@ -510,3 +510,51 @@ Open:
 - The tail's root has a slight ridge where it leaves the sacrum: `graft` fairs its seam band radially and this
   does not. A tuft at the tip (`tuft` is reserved in `tail.KEYS`) is not made.
 - A tail is skinned but has no follow-through spec of its own yet: its sway is the gait's, not sprung.
+
+### Round 2b: a foot plan (species-2-legs, 2026-09-22)
+
+The flaw the first digitigrade body showed in Godot: a raised hock over a human foot with five long toes lying
+flat reads as **a person on tiptoe, not a paw**. `humanform/feet.py` is the other half of the leg plan, and it
+is parameters rather than names - `foot = "paw"`, `"hoof"`, or a table of either (the key is `foot`, not
+`feet`: `feet` is already the observable for foot LENGTH). `human` is the setting that changes nothing.
+
+- **`toes`**: the five hm08 toes are never deleted (the vertex order is what the skin regions and the brow fits
+  index). Each vertex is assigned to its own toe by **MPFB's own joint helpers** (`joint-l-toe-N-K`) and the
+  toes are **fused** onto `toes` contiguous groups, fully at the tips and not at all at the ball. `splay`
+  spreads the groups, `width` fattens one across the foot - and only a third of that through it, because
+  scaling the whole offset doubled the toes' depth and put the sole 3 cm through the floor.
+- **The pads** (`pad`, `toe_pad`, `heel_pad`) are domes pressed into the sole in toe lengths, under the
+  standing ball, under each toe group and at the back of the foot; the body is re-stood afterwards, so a pad
+  adds its own thickness under the foot as an animal's does (11-13 mm on these bodies).
+- **A claw and a hoof are the head's own attached-part mechanism** (`features._part`, read-only from here),
+  anchored on the **distal flesh of each toe group** - a nail grows out of the TOP of the toe's end, and
+  centred its base ring dipped below the pads whatever its length was - and skinned 100% to the toe bone in
+  `<human>_footparts`. A hoof is that mechanism blunt: short, nearly as wide at the tip as the base, curved
+  down hard, sunk deep enough to cap the toe. A claw is data, not a mesh.
+- **The nail's length is solved, not guessed.** Which length works depends on the leg plan's toe, the fuse and
+  the pads: the fraction that put a paw's claws 13 mm through the floor left the satyr's hoof 11 mm in the air.
+  The build lays the nails, measures what carries with the contact check, corrects and lays them again; a
+  solved length outside 0.15-1.6 toe lengths is refused ("it is reaching for the ground sideways"), and an
+  explicit `claw.length` is taken as given and held to the same check.
+- **The check that matters** (`feet.contact`): what the plan nominates must be the lowest thing on the foot.
+  The paw's claws stand 3.5 mm ABOVE the pads and the satyr's hooves 6 mm BELOW the flesh; a claw that would
+  walk the creature on its nails and a hoof left in the air are each refused with the millimetres measured.
+  Both controls were seen to fail before the defaults landed.
+- The plan measures what it did to hm08's toenails against the foot they sit on, before and after the whole
+  body plan, and hands that to the anatomy inventory as `expected` - as the eyes hand it their allometry - so a
+  fused, shortened set of nails is graded against the plan rather than against a human's foot.
+  `species.inventory` now looks `expected` up by a sub-part's full name first, so that credit cannot excuse the
+  fingernails.
+
+The satyr is the hoof example (and its digits are now 0.95 of a human's: a goat's length is in the cannon, not
+the toes). Both it and a paw-footed digitigrade body build fresh, pass 13 anatomy parts with no fails, pass all
+eight clips' playback checks and export with verified durations.
+
+**In Godot at 4 m and close**: the satyr now reads as a goat leg - hock high, a long cannon, a short cloven toe
+capped in dark horn - where the same body a round ago read as a long-footed person. The paw's four fused toes
+spread on the ground with small claws clear of them, and mid-swing the whole foot folds back under the leg. In
+the walk the contact is a short patch under the toe pads: the hoof sets the horn down first and rolls over it,
+and the paw lands and leaves on its pads with the claw tips visibly off the floor.
+
+Open: the paw's toes are still long, because the leg plan's `toe` default is 1.7 and a paw wants less; there is
+no hand plan yet; the pads are a smooth dome rather than separate lobes, and nothing paints them a darker tone.
