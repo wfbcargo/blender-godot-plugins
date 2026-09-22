@@ -390,10 +390,13 @@ def run_bake(ch, ctx):
         # default is 1024, which every final build shipped until this was passed (06 rank 12)
         look.skin(ob, skin, name=f"{ch.name}_skin", size=quality_mod.settings(ctx["quality"], "skin")["size"],
                   species_skin=species_skin)
-    eyes = _obj(ch.eyes)
-    if eyes is not None:
-        with bpy.context.temp_override(active_object=ob, selected_editable_objects=[ob, eyes], object=ob,
-                                       selected_objects=[ob, eyes]):
+    # the eyes, and a species head's parts and teeth (humanform.features: `<name>_headparts`, `<name>_teeth`,
+    # skinned to their bones) keep their own materials; `_separate_joined` takes them off again as the eyes
+    # object on a rebake
+    parts = [o for o in (_obj(ch.eyes), _obj(ch.name + "_headparts"), _obj(ch.name + "_teeth")) if o is not None]
+    if parts:
+        with bpy.context.temp_override(active_object=ob, selected_editable_objects=[ob] + parts, object=ob,
+                                       selected_objects=[ob] + parts):
             bpy.ops.object.join()
     unweighted = sum(1 for v in ob.data.vertices if not any(g.weight > 1e-4 for g in v.groups))
     out = {"verts": len(ob.data.vertices), "groups": len(ob.vertex_groups), "unweighted": unweighted,
