@@ -60,6 +60,12 @@ class Refused(Exception):
     pass
 
 
+def _specs(project):
+    """The character specs in `<project>/characters`: every .toml but the project's pipeline config
+    (`characters/pipeline.toml`, character-pipeline's PROJECT_CONFIG - where blends go, not a character)."""
+    return [t for t in sorted((Path(project) / "characters").glob("*.toml")) if t.name != "pipeline.toml"]
+
+
 def fwd(path):
     """C:/-style: what Blender, Godot and a TOML file want on Windows."""
     return str(Path(path).resolve()).replace("\\", "/")
@@ -141,7 +147,7 @@ def make(out, who=DEFAULT_WHO, checkout=REPO, game=GAME, game_blend_dir=None, li
                 done["addons_from_checkout"].append(addon)
 
     # every spec's blend into the copy; the chosen ones' current blends and exports copied
-    for toml in sorted((out / "characters").glob("*.toml")):
+    for toml in _specs(out):
         text = toml.read_text(encoding="utf-8")
         new, old = rewrite_blend(text)
         if old:
@@ -163,8 +169,14 @@ def make(out, who=DEFAULT_WHO, checkout=REPO, game=GAME, game_blend_dir=None, li
     done["dropped_root_files"] = drop_unresolved(out)
     done["main_scene"] = fix_main_scene(out)
     outside = {}
-    for toml in sorted((out / "characters").glob("*.toml")):
-        ch = spec.load(str(toml))
+    for toml in _specs(out):
+        try:
+            ch = spec.load(str(toml))
+        except spec.SpecError as e:
+            # a spec the checkout refuses cannot build, so it cannot save anywhere either: named, not fatal
+            # (a species spec ahead of the humanform that knows the species, say)
+            done.setdefault("unloadable_specs", {})[toml.stem] = str(e)
+            continue
         p = spec.resolve_blend(ch.export.blend, str(out), blend_dir_override=str(blends))
         if p and not spec.inside(p, [str(out)]):
             outside[toml.stem] = fwd(p)

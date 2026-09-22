@@ -6,6 +6,47 @@ code that turns data into a body, a rig and a gait is shared by every species, i
 > **Picking this up?** Step 1 (species presets and the proportion warp) is the round this was written for
 > (branch `species-1`, 2026-09-21). The rest is in order below.
 
+> **The goal (the user's rule, 2026-09-21): tools that make *any* creature, not recipes for a dwarf.** A
+> preset for a dwarf is worth little on its own. What we build is (1) a **method** for working out what any
+> described creature's numbers should be, (2) a **general parameter space** those numbers live in, with
+> general laws (allometry, square-cube, Froude) filling in what a description leaves out, and (3) **tools** that
+> turn the parameters into a consistent body, head, surface and gait, and check it. The named species are
+> worked examples and test cases for the method. Code never branches on a species name; everything is driven
+> by the numbers, so a species invented inline in one character spec needs no file and no code.
+
+## The method: from a description to a creature
+
+This is the procedure the tools support, and what `humanform/references/species-design.md` teaches in full.
+Each step has a tool, and each tool refuses what it cannot do with the range in its message.
+
+1. **Read the description into observables.** Only things a person can state or measure on a concept image:
+   stature, head count, where the hanging fingertips land (hip, mid-thigh, knee), crotch height or leg
+   fraction, trunk-to-leg ratio, shoulder and hip width against a human's, spine angle (hunch), build words,
+   skin tone and pattern, head features. How to measure each on an image, and how to pick a real-world
+   analogue for what is not given (achondroplasia for short limbs on a normal trunk, proportionate short
+   stature for a scaled-down body, gigantism and large-animal data for size, the Froude law for gait), is
+   the method's reference. Each number is labelled given, derived or folklore.
+2. **Solve the observables into the parameter space** (`humanform.species_design.solve`). Any subset may be
+   given. What is missing comes from general laws, not from per-species rules:
+   - **allometry**: head size grows slower than stature, so a short creature is big-headed without being
+     told (the exponent from human and cross-species data);
+   - **square-cube**: a creature of the same build is heavier per unit height as it grows (BMI scales with
+     stature), which drives girth, stockiness and the gait;
+   - **proportionate against disproportionate**: short limbs on a full trunk is a different body from a
+     scaled-down one, and the solver says which it read;
+   - **reach landmarks** set arm length from where the hands hang.
+
+   Contradictions (5 heads and 2.5 m and a human head size) are reported, not silently resolved.
+3. **Design the preset** (`species_design.design(**params)`): every joint height, segment, width and the head
+   count, in `presets.json`'s format, consistent by construction (joints ordered, heads = 1/(1 - chin),
+   segments sum to the joint heights). `explain(preset)` prints it as a table a person can check.
+4. **Build**: the nearest human is fitted, then warped to the preset (layer 1); head features, surface and
+   gait follow the other layers. Each is a general mechanism with named presets on top: a head feature is a
+   region, a displacement and an optional attached part; a skin is a tone, derived region shifts and a pattern;
+   a gait style comes from what is measured on the built body.
+5. **Check, then look**: humancheck grades the body against its own preset; rig-anything checks the Froude
+   number, foot drift and reach; then the body is looked at in Godot, beside a human at true scale.
+
 ---
 
 ## The problem
@@ -21,6 +62,7 @@ humanform builds adult humans and nothing else. Everything outside that is refus
   are about 50% shorter than a human's relative to the trunk. No MPFB target reaches that.
 - Skin is a human tone: `skin.py`'s regions and contrast checks assume human palms, lips and areolae.
 - There is no fur, no muzzle, no tail and no digitigrade leg on a humanform body.
+- Nothing checks that a changed body still has all of its anatomy (nipples, genitals, navel, nails, teeth).
 
 The rest of the pipeline is already species-agnostic:
 
@@ -189,6 +231,39 @@ spec's own `[moves] style` (the user's words win). A species may add named style
 **Checks**: every baked walk's Fr lies between 0.18 and 0.35; planted feet drift under the existing limit;
 the hands reach the hips and the top of the head (a dwarf with a helmet, drinking), warned if not.
 
+### Every drawn part of the body: full anatomy on every species
+
+A species body is a whole body, with the same anatomical coverage as a human one, never a simplified doll
+(the user's rule, 2026-09-21). Everything the human work draws is carried through every layer:
+
+| part | where it comes from for a human | what a species must do with it |
+|---|---|---|
+| nipples and areolae | MPFB's `nipple`/`nippleTip` groups; skin region `nipple` | kept, warped with the chest, tinted relative to the species tone |
+| genitals, male and female | skin region `genital`; geometry from `humanform.genitals` (branch `fig-genital-anatomy`, opt-in via `[body] genitals`), thigh-clearance corrective bones | kept, warped with the pelvis; genital skin tone-relative; the clearance correctives run on the warped legs (a short-legged body crowds the crotch more, so it is a test case) |
+| breasts, butt, belly, other flesh | follow-through flesh zones and jiggle bones | the zones are anatomical, read off the skeleton, so they follow the warp; species builds run `[flesh]` like humans |
+| navel, nails, knuckles, knees, elbows, palms and soles | MPFB groups; skin regions | kept and tone-relative |
+| eyes, lashes, brows, teeth, tongue, ears | MPFB proxies and humanform eyes, brows, hair | kept, skinned to the rig, moved by the warp; head features (tusks, pointed ears) add to them, never replace them |
+| body hair, beards | humanform hair | kept; fur (layer 3) is added over the same coverage maps |
+
+Rules that follow from this:
+
+- **A skin region is never turned off because of its colour.** Region shifts are relative to the tone
+  (layer 3), so a green body's nipples, lips and genital skin are darker and more saturated in green, not
+  removed. `regions_off` exists only for anatomy the *description* says the creature does not have. A reptile
+  folk with no nipples, or an egg-layer with no navel, is stated as `anatomy.absent` with a reason, and the
+  report says so.
+- **Anatomy scales with the body by the same general laws.** Sizes are relative to the part they sit on
+  (areola to chest breadth, genitals to pelvis), so a warped body keeps plausible anatomy without a
+  per-species rule. A description may override a size (`anatomy.scale`), and the check reports it.
+- **An inventory check.** After the warp, the bake and the export, every expected part is present, skinned
+  and not inside another part (genitals against the thighs, nipples against a garment's backstop), for every
+  species. A part that is missing and not declared absent fails the build.
+- **Non-human baselines** (layer 5: a gnoll's canine body) need their own anatomy designed with the same
+  coverage before they ship. A grafted head or leg never leaves the body's anatomy out.
+- The conventions of the human work carry over. Genitals stay opt-in, never in a default build. The
+  likeness rules (no jiggle, no revealing garment) are for real people's likenesses and do not apply to
+  invented creatures.
+
 ### Layer 5: anatomy (later)
 
 Digitigrade legs (gnoll, satyr) add a segment: rig-anything already rigs the hopper leg (rabbit, cricket) and
@@ -225,31 +300,47 @@ humancheck grades a species exactly as it grades the realistic preset. `segments
 warp's factors against the fitted human; the warp solves the final factors so the measured joints land on
 `ratios`, and these are its starting point and the shape of the change.
 
-In a brief and a character spec, a species is one field:
+In a brief and a character spec, a species is a named preset **or an inline description**. A name is a shortcut
+for a worked example; an inline table is how a user's own creature is made, with no file and no code:
 
 ```toml
 [body]
-species = "dwarf"          # humanform/data/species/dwarf.json; omitted is "human"
+species = "dwarf"          # a worked example: humanform/data/species/dwarf.json; omitted is "human"
 sex = "male"
 stature = 1.32
 build = "muscular"
-skin = [0.70, 0.52, 0.42]
+```
+
+```toml
+[body]                     # a creature nobody wrote a preset for
+sex = "female"
+stature = 1.15
+build = "stocky"
+
+[body.species]             # observables, solved by species_design.solve; anything left out is derived
+heads = 5.0
+fingertips_at = "knee"
+trunk_to_leg = 0.85
+hunch_deg = 15
+skin = { tone = [0.46, 0.50, 0.40], pattern = { kind = "blotches", colour = [0.30, 0.34, 0.26], amount = 0.5 } }
+head = { shape = "square", features = { brow_ridge = 0.6, ears_large = 0.8 } }
 ```
 
 `style` (realistic, stylized) still chooses how the pre-warp human is drawn.
 
-**First species**, by how far each is from a human (and so how much each proves):
+**Worked examples**, chosen because each exercises a different part of the method (they are test cases, not
+the product):
 
-| species | heads | what it proves | layers |
+| example | heads | what it exercises | layers |
 |---|---|---|---|
-| elf | 8.3 | a small warp: long legs, slender girth, long neck, pointed ears | 1, 2 |
-| halfling | 5.5 | a proportionate shrink with a bigger head | 1 |
-| gnome | 4.2 | the same pushed further: 1.0 m, a big head, big nose | 1, 2 |
-| dwarf | 4.6 | the disproportionate warp: short limbs, long trunk, broad | 1, 2, 4 |
-| orc | 7.5 | widths and girth, green skin, tusks, heavy brow | 1, 2, 3 |
-| goblin | 5.0 | small and hunched: the spine curve, big ears, green skin | 1, 2, 3 |
-| troll | 7.0 at 2.6 m | large: kyphosis, long arms, grey-green skin, the heavy gait | 1, 2, 3, 4 |
-| gnoll | - | a non-human head, fur, digitigrade legs | 2 (graft), 3 (fur), 5 |
+| elf | 8.3 | a small warp past the human range: long legs, slender girth, long neck | 1, 2 |
+| halfling | 5.5 | proportionate short stature; allometry makes the head big | 1 |
+| gnome | 4.3 | the same at its limit (1.0 m) | 1, 2 |
+| dwarf | 5.0 | disproportionate: short limbs (femur, humerus most) on a full trunk | 1, 2, 4 |
+| orc | 7.5 | widths and girth; a non-human tone; attached parts (tusks) | 1, 2, 3 |
+| goblin | 5.0 | short and hunched: the spine curve with a big-headed body | 1, 2, 3 |
+| troll | 7.0 at 2.6 m | large: square-cube mass, kyphosis, reach to the knee, the heavy gait | 1, 2, 3, 4 |
+| gnoll | - | past the human baseline: a grafted head, fur, digitigrade legs | 2 (graft), 3 (fur), 5 |
 
 ## Steps
 
@@ -260,8 +351,9 @@ skin = [0.70, 0.52, 0.42]
 2. **Head features** (humanform): pointed ears, brow ridge, heavy nose, tusk bumps as parts; tusks as meshes.
 3. **Movement from the build** (rig-anything): `derive_style`, the Fr and reach checks.
 4. **Surface** (humanform, lookdev): species palettes, patterns, subsurface tint; turn off human-only regions.
-5. **A species from a description**: a user's words ("stocky, 1.2 m, long arms, grey skin") to a species preset
-   by nearest species plus stated overrides, with the same checks.
+5. **The method end to end**: `species_design.solve` / `design` / `explain`, inline `[body.species]`, and
+   `references/species-design.md` (how to read a description or a concept image into observables). *Pulled
+   into this round (the user's direction): it is the product, the presets are its examples.*
 6. **Fur**: Godot shell fur plus strand cards; coverage maps on hm08.
 7. **Head grafts and digitigrade legs**: the gnoll round.
 
@@ -272,5 +364,8 @@ skin = [0.70, 0.52, 0.42]
 - In Godot (`people_demo` or a species demo), orbiting in close, each reads as its species at a glance, and the
   dwarf's walk is visibly quicker and shorter-stepped than the human beside it.
 - The human smoke bodies build unchanged (a species of `human` takes no new code path).
+- Every species build passes the anatomy inventory: nipples, genital skin (and genital geometry when opted in),
+  navel, nails, eyes, teeth and tongue present, skinned, tone-relative and not interpenetrating. A dwarf and a
+  troll build with `[flesh]` and, once `fig-genital-anatomy` is merged, with `genitals = true` as smoke cases.
 - A spec asking for something the warp cannot do (a 0.5 m dwarf, heads out of the species' range, an unknown
   species) is refused before a build, with the range in the message.

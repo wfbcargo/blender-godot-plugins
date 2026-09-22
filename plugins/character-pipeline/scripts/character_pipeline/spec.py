@@ -10,7 +10,11 @@ that belong to a plugin.
     species = "human"            # optional, default "human": humanform/data/species/<id>.json (improvements
                                  # 08), passed to the brief when not human; a non-human species also
                                  # turns on [moves] derive, and one whose preset has a skin.palette
-                                 # may leave skin out
+                                 # may leave skin out. Or a creature nobody wrote a preset for, inline:
+    [body.species]               # observables and knobs (humanform.species_design; checked against its
+    heads = 5.0                  # names when it is present), plus skin = {tone, pattern = {kind, colour,
+    trunk_to_leg = 0.85          # scale, amount, regions}, regions_off, subsurface_tint} and head =
+    fingertips_at = "knee"       # {shape, shape_weight, features = {name = weight or a definition}}
     sex = "female"
     age = 28
     stature = 1.70
@@ -99,6 +103,7 @@ import hashlib
 import json
 import math
 import os
+import sys
 import tomllib
 from dataclasses import asdict, dataclass, field
 
@@ -130,16 +135,87 @@ class SpecError(ValueError):
     pass
 
 
-def species_dir():
-    """humanform's species presets folder (`<humanform>/data/species`), from HF_SCRIPTS when set, else the
-    humanform beside this plugin (the repo's plugins/ or ~/.claude/skills/). None when it does not exist."""
+def _humanform_roots():
+    """Where humanform's plugin folder may be: HF_SCRIPTS's parent when set, else the humanform beside this
+    plugin (the repo's plugins/ or ~/.claude/skills/)."""
     hf = os.environ.get("HF_SCRIPTS")
     here = os.path.dirname(os.path.abspath(__file__))
-    for base in ([os.path.dirname(hf)] if hf else []) + [os.path.join(here, "..", "..", "..", "humanform")]:
-        d = os.path.normpath(os.path.join(base, "data", "species"))
+    return [os.path.normpath(p) for p in ([os.path.dirname(hf)] if hf else [])
+            + [os.path.join(here, "..", "..", "..", "humanform")]]
+
+
+def species_dir():
+    """humanform's species presets folder (`<humanform>/data/species`). None when it does not exist."""
+    for base in _humanform_roots():
+        d = os.path.join(base, "data", "species")
         if os.path.isdir(d):
             return d
     return None
+
+
+def species_design():
+    """humanform's `species_design` module (standard library only, so it loads outside Blender), or None
+    when this humanform has none. Loaded from its file: the spec is read before any plugin is imported."""
+    import importlib.util
+    for base in _humanform_roots():
+        path = os.path.join(base, "scripts", "humanform", "species_design.py")
+        if os.path.isfile(path):
+            key = "_cp_species_design_" + hashlib.sha1(path.encode()).hexdigest()[:8]
+            if key not in sys.modules:
+                spec_ = importlib.util.spec_from_file_location(key, path)
+                mod = importlib.util.module_from_spec(spec_)
+                sys.modules[key] = mod
+                try:
+                    spec_.loader.exec_module(mod)
+                except Exception:                                   # a broken humanform: accept any keys
+                    del sys.modules[key]
+                    return None
+            return sys.modules[key]
+    return None
+
+
+# An inline `[body.species]`'s look, checked here whatever humanform is present (improvements 08, "The spec")
+SPECIES_LOOK = {
+    "skin": ("tone", "pattern", "regions_off", "subsurface_tint"),
+    "skin.pattern": ("kind", "colour", "scale", "amount", "regions"),
+    "head": ("shape", "shape_weight", "features"),
+}
+SPECIES_META = ("id", "label")
+
+
+def check_species_table(table):
+    """Refuse (SpecError) an inline `[body.species]` key humanform would not know: the top level against
+    `species_design`'s observables and knobs when it can be loaded (any key otherwise), and `skin` and `head`
+    against SPECIES_LOOK. Returns the table."""
+    sd = species_design()
+    if sd is not None:
+        known = set(getattr(sd, "OBSERVABLES", {})) | set(getattr(sd, "KNOBS", {})) | set(SPECIES_LOOK)             | set(SPECIES_META)
+        known.discard("skin.pattern")
+        extra = sorted(set(table) - known)
+        if extra:
+            raise SpecError(f"[body.species]: unknown field(s) {', '.join(extra)} - it takes the observables "
+                            f"{', '.join(sorted(sd.OBSERVABLES))}, the knobs {', '.join(sorted(sd.KNOBS))}, and "
+                            f"skin, head, id, label")
+    for part in ("skin", "head"):
+        if part in table:
+            v = table[part]
+            if not isinstance(v, dict):
+                raise SpecError(f"body.species.{part} must be a table, not {type(v).__name__}")
+            _unknown(v, SPECIES_LOOK[part], f"[body.species.{part}]")
+    pattern = (table.get("skin") or {}).get("pattern")
+    if pattern is not None:
+        if not isinstance(pattern, dict):
+            raise SpecError("body.species.skin.pattern must be a table")
+        _unknown(pattern, SPECIES_LOOK["skin.pattern"], "[body.species.skin.pattern]")
+    feats = (table.get("head") or {}).get("features")
+    if feats is not None:
+        if not isinstance(feats, dict):
+            raise SpecError("body.species.head.features must be a table of name = weight (or an inline definition)")
+        for name, w in feats.items():
+            if isinstance(w, bool) or not isinstance(w, (int, float, dict)):
+                raise SpecError(f"body.species.head.features.{name} must be a weight or an inline definition "
+                                f"table, not {w!r}")
+    return table
 
 
 def species_ids():
@@ -174,7 +250,8 @@ class Body:
     brief: dict = field(default_factory=dict)   # humanform sheet.new(**brief)
     parts: dict = field(default_factory=dict)   # face / hands / feet library ids
     skin: list | None = None                    # source = "blend": the skin colour humanform would apply
-    species: str = "human"                      # humanform/data/species/<id>; in `brief` too when not human
+    species: str | dict = "human"               # a humanform/data/species/<id>, or an inline table (observables,
+                                                # skin, head); in `brief` too when not human
 
 
 @dataclass
@@ -600,10 +677,13 @@ def parse(data, path=None):
     b = dict(_take(data, "body", dict, required=True))
     source = b.pop("source", "brief")
     species = b.pop("species", "human")
-    if not isinstance(species, str) or not species:
-        raise SpecError(f"body.species must be a species id string, not {species!r}")
+    if isinstance(species, dict):
+        # a creature nobody wrote a preset for: observables (and knobs), solved by humanform's species_design
+        species = check_species_table(dict(species))
+    elif not isinstance(species, str) or not species:
+        raise SpecError(f"body.species must be a species id or an inline table, not {species!r}")
     known = species_ids()
-    if known is not None and species not in known:
+    if isinstance(species, str) and known is not None and species not in known:
         raise SpecError(f"body.species {species!r} is not a humanform species - known: {', '.join(known)} "
                         f"(presets in {species_dir()})")
     if source not in BRIEF_SOURCES:
@@ -613,7 +693,9 @@ def parse(data, path=None):
     skin = b.get("skin") if source == "brief" else b.pop("skin", None)
     if source == "blend" and not obj:
         raise SpecError("body.object is required when body.source = \"blend\"")
-    if source == "brief" and b.get("skin") is None and species != "human" and species_palette(species):
+    if source == "brief" and b.get("skin") is None and isinstance(species, dict)             and (species.get("skin") or {}).get("tone") is not None:
+        pass        # the inline species' own skin tone
+    elif source == "brief" and b.get("skin") is None and isinstance(species, str) and species != "human"             and species_palette(species):
         pass        # the species preset's own skin palette (its `skin.palette`): humanform draws the tone from it
     elif source == "brief" and b.get("skin") is None:
         # without one humanform never applies its skin look and the body ships in MPFB's untextured material:
