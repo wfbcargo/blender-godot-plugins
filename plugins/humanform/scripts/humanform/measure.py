@@ -510,7 +510,11 @@ def measurements(ob, sex=None, fast=False, only=None, levels=None):
         for zz in np.linspace(m["knee_z"] - 0.05 * H, m["knee_z"] - 0.12 * H, 8):
             ls = [lp for lp in slicing.horizontal(b, floor + zz) if 0.0 < lp.centre.x < 0.2 * H]
             if ls:
-                best = max(best, max(lp.perimeter for lp in ls if lp.perimeter < 0.6))
+                # a limb section, not one that took in both legs; a species body's limit grows with its size
+                calf_max = 0.6 if not levels else 0.6 * max(1.0, 1.5 * H / 1.75)
+                ps = [lp.perimeter for lp in ls if lp.perimeter < calf_max]
+                if ps:
+                    best = max(best, max(ps))
         if best:
             m["calf_circ"] = best
     sh_l, el_l = b.mark("shoulder.L"), b.mark("elbow.L")

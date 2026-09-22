@@ -48,13 +48,24 @@ WARM = 1.6
 
 
 def _finish_look(human, s, eyes):
-    """Rigged body -> eyes and skin, from the brief's screen colours."""
+    """Rigged body -> eyes, teeth and tongue, and skin, from the brief's screen colours. The teeth and tongue
+    (`features.mouth`: MPFB's hidden mouth helpers as a skinned mesh of their own) go on every body: a body is
+    drawn with all its parts."""
     from . import look
     if eyes:
         from . import eyes as _eyes
         _eyes.add(human, iris=s.get("iris"))
+    _mouth(human)
     if s.get("skin") is not None:
         look.skin(human, s["skin"])
+
+
+def _mouth(human):
+    try:
+        from . import features
+    except ImportError:
+        return None
+    return features.mouth(human)
 
 
 def _macros(human, names=("age", "weight", "muscle", "height", "firmness", "proportions", "cupsize")):
@@ -113,6 +124,7 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, **kw):
     t = dict(res["timing"])
     t1 = time.time()
     feats = species.apply_features(human, sp)
+    _mouth(human)                   # rebuilt where the head features have put the mouth, before the warp moves it
     t["features"] = time.time() - t1
     t2 = time.time()
     rep = dict(info)

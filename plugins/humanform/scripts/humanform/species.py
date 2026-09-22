@@ -43,7 +43,7 @@ LEVEL_KEYS = ("ankle_joint", "knee_joint", "crotch", "hip_joint", "shoulder_join
 # how far each factor may go: past these a limb folds or a head swallows the neck
 LIMITS = {"length": (0.25, 2.5), "head": (0.5, 2.0), "ankle": (0.4, 2.0), "girth_follow": (0.8, 1.25)}
 # an individual keeps its own deviation from the human mean, up to this many tolerances (in the species')
-INDIVIDUAL = 0.75
+INDIVIDUAL = 0.5
 SOFT = 0.10               # the share of a bone's shaft next to its head that keeps its length (see _along)
 TOL_REFINE = 0.25          # passes stop once every solved measure is within this share of its tolerance
 
@@ -418,6 +418,7 @@ class _Rig:
         self.length = np.array([b.length for b in bones], float)
         self.deform = np.array([b.use_deform for b in bones])
         self.connect = {b.name: b.use_connect for b in bones}
+        self.children = [[self.ix[c.name] for c in b.children] for b in bones]
         kids = {n: [] for n in self.names}
         for b in bones:
             if b.parent is not None:
@@ -560,28 +561,28 @@ class _Mesh:
         return co
 
 
-def _along(s, L, l):
+def _along(s, L, l, k, m):
     """How far along a bone a point at `s` (its distance along the old bone from the head) lands. Above the head
-    it moves rigidly (slope 1): the flesh over a joint weighted to the bone below it (a buttock over the hip, a
-    deltoid over the shoulder) keeps its shape instead of being squeezed toward the joint. Over the first SOFT
-    of the shaft the slope eases from 1 to the shaft's, which lands the tail exactly where the affine scale
-    puts it (`l * L`); past the tail it is the affine scale again, so the child's side of the joint matches."""
+    it scales by `k`, the parent's scale along this bone's axis, and past the tail by `m`, the child's: the flesh
+    over a joint weighted to one side of it (a buttock over the hip, a heel under the ankle) goes the way the part
+    it sits on goes, so both sides of every joint agree. Over the first SOFT of the shaft the slope eases from k
+    to the shaft's, which lands the tail exactly where the bone's scale puts it (`l * L`)."""
     a = SOFT * L
-    c = (l * L - 0.5 * a) / np.maximum(L - 0.5 * a, 1e-9)
-    return np.where(s < 0.0, s,
-                    np.where(s < a, s + (c - 1.0) * s * s / (2.0 * a),
-                             np.where(s < L, 0.5 * a * (1.0 + c) + c * (s - a), l * s)))
+    c = (l * L - 0.5 * a * k) / np.maximum(L - 0.5 * a, 1e-9)
+    return np.where(s < 0.0, k * s,
+                    np.where(s < a, k * s + (c - k) * s * s / (2.0 * a),
+                             np.where(s < L, 0.5 * a * (k + c) + c * (s - a), l * L + m * (s - L))))
 
 
 def _lbs(co, idx, w, T):
     """sum_i w_i T_i(v) for every vertex: T_i affine (A_i v + t_i), with the length scale moved from the whole
     bone onto its shaft (`_along`)."""
-    A, t, _, _, _, (h0, y0, L, l, Y) = T
+    A, t, _, _, _, (h0, y0, L, l, k, mm, Y) = T
     Aw = np.einsum("nk,nkij->nij", w, A[idx])
     tw = np.einsum("nk,nki->ni", w, t[idx])
     out = np.einsum("nij,nj->ni", Aw, co) + tw
     s = np.einsum("nkj,nkj->nk", co[:, None, :] - h0[idx], y0[idx])
-    corr = _along(s, L[idx], l[idx]) - l[idx] * s
+    corr = _along(s, L[idx], l[idx], k[idx], mm[idx]) - l[idx] * s
     return out + np.einsum("nk,nk,nkj->nj", w, corr, Y[idx])
 
 
@@ -664,7 +665,8 @@ class _Warp:
         l_tib, l_fem, l_sp, l_neck, s_head, f_ank = x
         f = self.fixed
         gl, ga, gn, gt = (self.girth[k] for k in ("legs", "arms", "neck", "torso"))
-        chest_x = math.sqrt(max(self.widths["shoulder_width"], 1e-3))
+        # the chest's breadth, beyond its girth: half of what broad shoulders ask over the torso's own girth
+        chest_x = float(np.clip(math.sqrt(max(self.widths["shoulder_width"] / max(gt, 1e-3), 1e-3)), 0.8, 1.25))
         chest = self.r.spine[-1]
         S = {}
         for n in self.r.names:
@@ -731,9 +733,30 @@ class _Warp:
         y0 = np.vstack([r.R[:, :, 1], np.array([[0.0, 0.0, 1.0]])])
         Ln = np.append(np.maximum(r.length, 1e-6), 1.0)
         # a uniform scale (head, hand) needs no shaft correction: its whole bone scales alike
-        ln = np.array([1.0 if S[nm][0] == S[nm][1] == S[nm][2] else S[nm][1] for nm in r.names] + [1.0])
+        uni = [S[nm][0] == S[nm][1] == S[nm][2] for nm in r.names]
+        ln = np.array([1.0 if u else S[nm][1] for nm, u in zip(r.names, uni)] + [1.0])
+        # above its head a bone's flesh takes its parent's scale along this bone's axis, past its tail its
+        # child's (the child whose head is at the tail) - or its own, where there is none or it is not scaled;
+        # a uniform scale needs no correction at all
+        def along_scale(j, axis):
+            return float(np.linalg.norm(np.array(S[r.names[j]]) * (r.R[j].T @ axis)))
+
+        kn, mn = np.ones(n + 1), np.ones(n + 1)
+        for i, nm in enumerate(r.names):
+            if uni[i]:
+                continue
+            p = r.parent[i]
+            kp = along_scale(p, r.R[i][:, 1]) if p >= 0 and r.kind.get(r.names[p]) else ln[i]
+            kids = [j for j in r.children[i] if r.kind.get(r.names[j])]
+            if kids:
+                c = min(kids, key=lambda j: np.linalg.norm(r.head[j] - r.tail[i]))
+                mc = along_scale(c, r.R[i][:, 1])
+            else:
+                mc = ln[i]
+            kn[i] = float(np.clip(kp, *LIMITS["head"]))
+            mn[i] = float(np.clip(mc, *LIMITS["head"]))
         Y = np.vstack([R[:, :, 1], np.array([[0.0, 0.0, 1.0]])])
-        T = [A, t, H, R, S, (h0, y0, Ln, ln, Y)]
+        T = [A, t, H, R, S, (h0, y0, Ln, ln, kn, mn, Y)]
         _shift(T, r, shift)
         return tuple(T)
 
@@ -810,7 +833,7 @@ def targets(m0, sp, sex, H, style="realistic"):
     return out
 
 
-def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clamp_scale=1.0, passes=4,
+def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clamp_scale=1.0, passes=6,
          verbose=False):
     """Warp a fitted, rigged human to the species in place: every skinned mesh, every shape key, the rig's rest
     bones. `stature` is the species body's height (floor to vertex, spine curve included); `clamp_scale` the
@@ -1034,6 +1057,9 @@ PARTS = {
     "lashes": {"groups": ("helper-l-eyelashes-1", "helper-r-eyelashes-1"), "host": "head"},
     "genitals": {"groups": ("helper-genital",), "host": "pelvis", "opt_in": "hf_genitals"},
 }
+# the parts that are meshes of their own on the rig, by the suffix humanform names them with: the eyeballs
+# (humanform.eyes) and the teeth and tongue (humanform.features.mouth). Missing and not declared absent fails.
+OBJECT_PARTS = {"eyes": "_eyes", "teeth": "_teeth"}
 # a part's size over its host's may change this much through a warp before it is a warn / a fail
 RATIO_WARN, RATIO_FAIL = (0.67, 1.5), (0.5, 2.0)
 SKINNED_SHARE = 0.99       # the share of a part's vertices that must carry deform weights
@@ -1157,8 +1183,9 @@ def inventory(human, sp=None, reference=None):
     for name, mm in meshes.items():
         if name == human.name:
             continue
-        row = {"part": f"object:{name}"}
-        if name in absent:
+        label = next((f"{p}.object" for p, suf in OBJECT_PARTS.items() if name == human.name + suf), None)
+        row = {"part": label or f"object:{name}"}
+        if name in absent or (label and label.split(".")[0] in absent):
             rows.append(dict(row, status="skip", reason=f"declared absent: {absent[name]}"))
             continue
         pts = mm.mixed(mm.keys) if mm.keys else mm.base
@@ -1172,6 +1199,11 @@ def inventory(human, sp=None, reference=None):
         size = _size(pts)
         row.update(size_m=round(size, 4), host_m=round(hs, 4), ratio=round(size / hs, 4) if hs > 1e-6 else None)
         rows.append(judge(row))
+    for part, suf in OBJECT_PARTS.items():
+        if part in absent or any(r["part"] == f"{part}.object" for r in rows):
+            continue
+        rows.append({"part": f"{part}.object", "status": "fail",
+                     "reason": f"missing: no {human.name}{suf} skinned to {rig.name}, and not declared absent"})
     for part, reason in absent.items():
         if not any(r["part"].split(".")[0] in (part, f"object:{part}") for r in rows):
             rows.append({"part": part, "status": "skip", "reason": f"declared absent: {reason}"})
