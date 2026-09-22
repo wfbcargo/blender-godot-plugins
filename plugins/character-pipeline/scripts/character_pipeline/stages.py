@@ -238,6 +238,7 @@ def species_summary(sp, prewarp=None):
     return {"id": sp.get("species"), "stature": sp.get("stature"), "stature_pre": sp.get("stature_pre"),
             "clamp_scale": sp.get("clamp_scale"), "notes": sp.get("notes"),
             "prewarp_check": (prewarp or {}).get("check"),
+            "check_findings": sp.get("check_findings"),
             "features": dict({k: feats[k] for k in ("unknown", "skipped", "error", "eyes_moved_mm", "intersections")
                               if k in feats}, applied={n: f.get("weight") for n, f in
                                                        (feats.get("features") or {}).items()}),
