@@ -30,14 +30,17 @@ horizontal lines at the floor and the top of the head, and read every height as 
 | `shoulder_to_hip` | shoulder (deltoid) breadth over hip breadth | the widest points across a front view. A human man is 1.48, a woman 1.28 |
 | `shoulder_heads` | shoulder breadth in head lengths | lay the head sideways across the shoulders. A human is ~2.2 |
 | `hunch_deg`, `sway_deg` | extra upper-back curve forward, and extra lower-back hollow | on the side view, the angle between the lower- and upper-back tangents, minus a human's |
-| `build` | how fat or muscled it reads: `scrawny` ... `average` ... `massive` | the pre-warp human's BMI (`BUILDS`) |
-| `bmi`, `mass_kg` | the finished body's, when stated | girth keeps its shape and is scaled to land it |
+| `build` | how fat or muscled it reads: `scrawny` ... `average` ... `massive` | an adult's BMI at *any* stature (`BUILDS`, the adult build law) |
+| `bmi`, `mass_kg` | the finished body's, when stated | girth keeps its shape and is scaled to land it. Prefer `build`: a BMI that fights the stated girth is warned |
+| `barrel_chest` | 0 a human's chest, 1 a barrel | side view: the ribcage as deep as it is broad |
+| `chest_depth_to_breadth` | ribcage depth over breadth (a man 0.88, a woman 0.92 on ANSUR) | side-view depth over front-view breadth under the armpits |
+| `forearms` | forearm thickness over the arm's (`heavy`, `thick`, a factor) | the forearm's widest against the upper arm's |
 | `rhizomelic` | limbs shortened at the root (femur, humerus), 0-1 | the upper arm short against the forearm |
 | `proportionate` | a scaled person: trunk and arms in a human's ratio to the legs | set when it "looks like a small person" |
-| `hands`, `feet`, `neck`, `girth` | a factor, or a word (`big`, `long`, `short`, `slender`, `stout`...) | hand against the face (~0.75 face length), foot against the head (~1.2) |
+| `hands`, `feet`, `neck`, `girth` | a factor, or a word (`big`, `long`, `short`, `slender`, `stout`...); `girth` also per region: legs, arms, neck, torso, forearm | hand against the face (~0.75 face length), foot against the head (~1.2) |
 
 Anything that no observable expresses is given as a **knob** (`KNOBS`: `shoulder_scale`, `trunk_scale`,
-`waist_to_hip`, ...). Each knob has a meaning, a unit, a human default and a range, and an explicit knob always
+`waist_to_hip`, `chest_depth`, `chest_breadth`, `girth_forearm`, ...). Each knob has a meaning, a unit, a human default and a range, and an explicit knob always
 wins over an observable. Head shape, features, skin and moves are the `look` and are passed through as they are.
 
 ### Reach for a real analogue, and label every number
@@ -75,9 +78,34 @@ The laws fill whatever you leave out:
   9.9 heads. For a disproportionate body the head follows its trunk-matched human, since a dwarf's head is its
   trunk's. When a stated `heads` departs from the law by more than 10%, the report says so, and that number is
   folklore.
-- **Square-cube mass.** Mass is volume: the pre-warp human's mass times each segment's share of body mass
-  (de Leva 1996) times its length factor and its girth squared. A body scaled up whole gains BMI in proportion
-  to height. A small one loses it, so a 1 m proportionate body at a human's build has a child's BMI (~15).
+- **Mass and build.** Two different things, and the method keeps them apart.
+  - *Mass* is volume, always: the pre-warp human's mass times each segment's share of body mass (de Leva 1996)
+    times its length factor and its girth squared. It is what the gait and loads use, and square-cube by
+    construction.
+  - *Build* is how thick a body is for its length, and among adults it does not follow the square-cube law.
+    BMI is stature-free in adults: on ANSUR II weight goes as H^2.00 in men (2.19 in women), corr(BMI, stature)
+    +0.002 **[measured here, scripts/derive_girth_law.py]**, as in NHANES (Benn index 2.0-2.2, W/H^2 uncorrelated
+    with height) **[measured]**; pygmy adults at 1.42-1.55 m (Baka, Efe) have BMI 20.5-21.3, over 85% in the
+    normal range **[measured]**. It holds because every girth grows only as **H^a with a ~ 0.5** at a fixed BMI
+    (ANSUR II: thigh 0.61, calf 0.52-0.58, biceps 0.47-0.51, forearm 0.55, chest depth and breadth 0.52-0.58,
+    neck 0.33-0.38, bideltoid 0.51, hip breadth 0.66-0.69). So a short adult is thicker for his length than a
+    tall one, never a geometric shrink: a 1 m geometric shrink of an average man has a four-year-old's BMI
+    (~15) and stick limbs.
+  - **The adult build law** (`GIRTH_LAW`, `WIDTH_LAW`): a body shrunk by s from its pre-warp human takes each
+    girth and breadth by s^a, not s, so a `build` word means an adult of that build at any stature: the gnome at
+    1 m and an average build is BMI 20-27, 25 kg. The hips carry the thighs: a hip breadth is never narrower
+    than the thighs' girth, and the warp spreads the pelvis when the crotch still comes out low (a thick short
+    thigh met below the crotch otherwise). The chest's depth follows its breadth when broad shoulders spread
+    it (depth over breadth does not vary with stature: ANSUR II ~H^0.02, only BMI^0.34).
+  - **Support girth, only for big bodies.** A body scaled *up* keeps its shape (BMI grows with H: square-cube),
+    and its limbs thicken with the load: limb bone circumference goes as M^0.364 across tetrapods against a
+    geometric M^0.333 (Campione & Evans 2012) and steeper in large mammals (Christiansen 1999; McMahon 1975's
+    elastic similarity in ungulates) **[measured, bones; applied to the limb's girth: derived]**. A limb above
+    a human of the build's mass takes (M / M_human)^0.06 (`SUPPORT_EXP`): the troll's limbs 1.07. Gigantism is
+    the counter-example: Wadlow at 2.72 m kept a human's BMI 27, and his legs failed him.
+  - **The look, as numbers.** `design` reports each limb's girth over its joint-to-joint length against the
+    adult band for its stature and build (`limb_band`: ANSUR II's c/L ~ H^-0.5..-0.7 BMI^0.4..0.6 with its
+    5th-95th percentile spread, extended below 1.45 m by the same law), and the chest's depth over breadth.
 - **Proportionate or not.** If the trunk-to-leg and arm-to-leg ratios are within 12% of a human's, the body is
   proportionate. That choice picks the head law and the pre-warp basis.
 - **Reach.** With nothing stated, the arms keep a human's arm-to-leg ratio. `fingertips_at` solves the arm so
@@ -129,6 +157,22 @@ written by hand). **A region is never turned off because of its colour.** Region
 `regions_off` that no absent part backs. `scale` takes a factor from 0.3 to 3, and `explain()` reports it. The
 preset's `anatomy.parts` gives each part's host and its size factor per sex against the pre-warp human.
 
+### Catch it before the build
+
+`design()` warns (`preset["design"]["warnings"]`, printed by `explain`, and by character-pipeline before a
+spec builds) when the build will not read as an adult:
+
+- **stick limbs**: a limb's girth over its length under the adult band's 5th percentile for its stature and
+  build (`stick limbs: shin girth/length 1.01 (male) against the adult band 1.11..1.50 at 1.04 m for a build of
+  BMI 21-28 - state a heavier build, or drop a slender girth`). The first gnome, a geometric shrink, fires it;
+- **child-light BMI**: a finished BMI under the build's band on a body that was not scaled up;
+- **a stated BMI that thins the stated girth** by more than 8%: the girth says the build, so drop the BMI.
+
+After the build, humancheck (species) reports `limb_build.<limb>` - the mesh's girth over length against the
+same band (`MESH_CAL` converts humancheck's relaxed, joint-to-joint measures), warning under it - and
+`chest_depth_to_breadth`. The warp's report (`species.build`) shows each girth it asked for against what
+landed on the mesh.
+
 To add the species to the catalogue, add its observables to `scripts/derive_species.py` and run it. Run
 `--explain <id>` for the table and `--chart <scratch>/s.svg` for a picture.
 
@@ -148,22 +192,26 @@ To add the species to the catalogue, add its observables to `scripts/derive_spec
 2. **Analogue:** achondroplasia [measured]. It has a sitting height near a human's (`trunk_scale` 0.97), and an
    upper-to-lower ratio of 1.9-2.1 that we soften to **1.5** so the dwarf reads heroic rather than clinical.
    The shortening is rhizomelic (**0.35**). The arm span loses ~35% where the legs lose ~50%, so the arms lose
-   0.7 of the legs' share (`arm_to_leg` **0.74** against a human's 0.70). Achondroplastic adults' BMI runs
-   around 30, so a fantasy dwarf gets **bmi 33**.
+   0.7 of the legs' share (`arm_to_leg` **0.74** against a human's 0.70). The build is carried by the trunk:
+   `barrel_chest` **1** (the ribcage as deep as it is broad), `forearms` **heavy**, and a girth of legs 1.05,
+   arms 1.12, neck 1.25, torso 1.12 over a stocky human. No BMI is stated: achondroplastic adults run ~30
+   [measured], and this shape comes out at ~42 (74 kg at 1.32 m, near D&D's ~68 kg [documented]). A stated 33
+   thinned every girth to 0.85 of itself, and the dwarf read as a short man.
 3. **Heads:** art draws dwarves at 4-4.5 heads [folklore]. On a human-sized trunk that is a 0.29 m head, and the
    law gives 6.0. We state **5.0** (0.26 m), and the report labels it folklore.
-4. **Solve:** `leg_scale` 0.727 from the segment ratio, `arm_scale` 0.779 from `arm_to_leg`, and girth scaled to
-   BMI 33. There are no contradictions.
-5. **Result:** hip joint at 0.437 H (a human's is 0.510), trunk/leg 0.91 (0.69), disproportionate, so the
-   pre-warp human is trunk-matched (1.35-1.64 m, below ANSUR's floor at the short end, which the warp handles
-   by a uniform scale). Mass ~57 kg at 1.32 m. On the chart it reads stocky and long-trunked.
+4. **Solve:** `leg_scale` 0.77 from the segment ratio, `arm_scale` 0.83 from `arm_to_leg`, `chest_depth` 1.18
+   from the barrel chest. There are no contradictions and no warnings.
+5. **Result:** hip joint at 0.435 H (a human's is 0.510), trunk/leg 0.83 (0.69), disproportionate, so the
+   pre-warp human is trunk-matched (below ANSUR's floor at the short end, which the warp handles by a uniform
+   scale). Mass ~74 kg at 1.32 m. Built, its chest depth over breadth rose from the pre-warp human's 0.71 to
+   0.84 on humancheck's measure (a barrel is ~0.87 there), its thighs 2.5 girths per length.
 
 ## Worked example: the troll
 
 1. **Description:** "huge, 2.4-2.8 m, hunched, long arms with hands to the knee, heavy."
 2. **Analogues:** square-cube scaling and large-animal gait [measured]. For contrast there is gigantism: Wadlow
    at 2.72 m was BMI 27 because a tall human is slender. A troll is a heavy human scaled up whole: `build`
-   "heavy" (BMI 32) would reach ~48 at 2.65 m, and we state **bmi 45**, so girth is solved (1.05).
+   "heavy" (BMI 32) would reach ~48 at 2.65 m, and we state **bmi 45**, so girth is solved (1.01, with the limbs' support girth 1.07 on top).
 3. **Reach:** `fingertips_at` **"knee"** solves `arm_scale` to 1.02 against legs shortened to 0.83 (from
    `trunk_to_leg` **0.77**). Arm-to-leg ends at 0.87, far outside a human's, so the body is disproportionate.
 4. **Hunch:** `hunch_deg` **32**, applied over the thoracic span. Every ratio is measured on the bent body.

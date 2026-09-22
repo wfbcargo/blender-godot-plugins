@@ -335,7 +335,7 @@ def _head(b, m, fwd, floor, zs, f, nose, chin, hs=1.0):
 HUMAN_HEAD_M = 0.225       # an adult human head, chin to vertex: the scale of the head's search distances
 
 
-def measurements(ob, sex=None, fast=False, only=None, levels=None):
+def measurements(ob, sex=None, fast=False, only=None, levels=None, girths=None):
     """Raw numbers. `fast` skips what a proportion solver does not need - finger counts, joint
     centring, mesh health and symmetry, hand and foot breadths and girths - for about a third of the
     time. `only="extremities"` measures just the hands and feet, for their own fit stage.
@@ -343,7 +343,12 @@ def measurements(ob, sex=None, fast=False, only=None, levels=None):
     `levels` ((src, dst) control points, `species.levels`) is for a species body: every height humancheck
     searches or cuts at as a fraction of a human's stature (the waist at the navel, the chest, the nose's
     window) is mapped through the species' joint heights, and the head's search distances scale with its
-    measured size. None - every human body - measures exactly as before."""
+    measured size. None - every human body - measures exactly as before.
+
+    `girths` (on for a species body, i.e. with `levels`, else off unless asked) adds what the build is read
+    from: `chest_breadth` (the chest section's breadth, with chest_depth), `forearm_circ` (mid-forearm, across
+    it) and each limb's girth over its length (`thigh_girth_to_length` ..., species_design.LIMB_BAND's terms)."""
+    girths = bool(levels) if girths is None else girths
     b = ob if isinstance(ob, _body.Body) else _body.load(ob)
     lv = (lambda fr: float(np.interp(fr, levels[0], levels[1]))) if levels else (lambda fr: fr)
     m = {"object": b.ob.name, "rig": b.rig.name if b.rig else None,
@@ -504,6 +509,8 @@ def measurements(ob, sex=None, fast=False, only=None, levels=None):
         m["chest_circ"] = lp.perimeter
         m["chest_depth"] = float(lp.max[1] - lp.min[1])
         m["chest_arms_merged"] = bool(m.get("shoulder_width") and lp.width_x > 0.9 * m["shoulder_width"])
+        if girths:
+            m["chest_breadth"] = float(lp.width_x)
 
     # limb and neck girths (left side), where ANSUR takes them: thigh just below the buttock fold,
     # calf at its widest, upper arm at mid-humerus (ANSUR's biceps is flexed; compare with care),
@@ -532,6 +539,19 @@ def measurements(ob, sex=None, fast=False, only=None, levels=None):
         arm = [lp for lp in slicing.cut(b, mid, (el_l - sh_l).normalized()) if (lp.centre - mid).length < 0.06]
         if arm:
             m["upper_arm_circ"] = min(arm, key=lambda lp: (lp.centre - mid).length).perimeter
+    wr_l = b.mark("wrist.L")
+    if girths and el_l is not None and wr_l is not None:
+        mid = (el_l + wr_l) * 0.5
+        fa = [lp for lp in slicing.cut(b, mid, (wr_l - el_l).normalized()) if (lp.centre - mid).length < 0.05]
+        if fa:
+            m["forearm_circ"] = min(fa, key=lambda lp: (lp.centre - mid).length).perimeter
+    if girths:
+        for limb, circ in (("thigh", "thigh_circ"), ("shin", "calf_circ"), ("upper_arm", "upper_arm_circ"),
+                           ("forearm", "forearm_circ")):
+            if m.get(circ) and m.get(limb):
+                m[f"{limb}_girth_to_length"] = m[circ] / m[limb]
+        if m.get("chest_depth") and m.get("chest_breadth") and not m.get("chest_arms_merged"):
+            m["chest_depth_to_breadth"] = m["chest_depth"] / m["chest_breadth"]
     if m.get("chin_z") is not None:
         # 2.5% of H under the chin is below the jaw and above the trapezius; a section wider than 12% of
         # H there is shoulders, not neck (halfway between shoulder joint and chin read up to 37 cm thick)
@@ -680,6 +700,8 @@ def check(m, preset="realistic", sex=None, build=None):
 
     if p.get("species") and m.get("head_length"):
         _reads_adult(m, add)
+    if p.get("species") and sex in ("female", "male"):
+        _limb_build(m, p, sex, add)
 
     if m.get("kind") == "landmarks":
         return out          # a landmark set has no surface to judge
@@ -781,6 +803,41 @@ def _reads_adult(m, add):
     add("reads_adult", "proportion", "fail",
         f"reads as a child: a big head ({1 / r['head_fraction']:.1f} heads) on a child's proportions - {what}",
         r["head_fraction"])
+
+
+def limb_build(m, sex, bmi):
+    """Each limb's girth over its length on the mesh against an adult's band at this stature and BMI range
+    (species_design.limb_band, times MESH_CAL for how humancheck measures): {limb: (value, lo, hi)}."""
+    from . import species_design as sd
+    out = {}
+    for limb in sd.LIMB_REGION:
+        v = m.get(f"{limb}_girth_to_length")
+        if v is None:
+            continue
+        lo, _mid, hi = sd.limb_band(sex, limb, m["stature"], bmi)
+        cal = sd.MESH_CAL.get(limb, 1.0)
+        out[limb] = (v, lo * cal, hi * cal)
+    return out
+
+
+def _limb_build(m, p, sex, add):
+    """limb_build as findings: a limb under the adult band warns (stick limbs), one over it is information (a
+    heavy or disproportionate build is meant to be), inside passes. The chest's depth over breadth is reported."""
+    from . import species_design as sd
+    bmi = p.get("bmi") or [21.0, 28.0]
+    for limb, (v, lo, hi) in limb_build(m, sex, bmi).items():
+        st = "warn" if v < lo else "info" if v > hi else "pass"
+        msg = (f"{limb} girth/length {v:.2f}, an adult's {lo:.2f}-{hi:.2f} at {m['stature']:.2f} m and BMI "
+               f"{bmi[0]:.0f}-{bmi[1]:.0f}")
+        if st == "warn":
+            msg += " - stick limbs: thicker than this reads as an adult (the species' girth, or its build)"
+        add(f"limb_build.{limb}", "proportion", st, msg, v, [round(lo, 3), round(hi, 3)])
+    if m.get("chest_depth_to_breadth"):
+        add("chest_depth_to_breadth", "proportion", "info",
+            f"chest depth/breadth {m['chest_depth_to_breadth']:.2f} (on this measure a human man's "
+            f"{0.877 * sd.MESH_CAL['chest_depth_to_breadth']:.2f}, woman's {0.918 * sd.MESH_CAL['chest_depth_to_breadth']:.2f}; "
+            f"a barrel {sd.BARREL_DB * sd.MESH_CAL['chest_depth_to_breadth']:.2f})",
+            m["chest_depth_to_breadth"])
 
 
 def run(ob, preset="realistic", sex=None, out_dir=None, build=None):

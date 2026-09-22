@@ -1151,6 +1151,14 @@ def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M)
         if near.sum() == 0 or float(graded[near].mean()) >= ATTACH_APEX_MIN:
             break
         graded = np.clip(graded / max(float(graded[near].mean()), 1e-6), 0.0, 1.0)
+    # Still short, the ball holds a vertex the thigh mostly moves (0 by the leg cut, so no normalising lifts it):
+    # a thick short thigh (a dwarf on the adult build law) reaches within 2 cm of the seat's apex. That vertex is
+    # thigh, not buttock: normalise on the rest. Only here, so a body that reached the apex weight keeps its weights
+    ball = near & (leg < ATTACH_LEG_OFF)
+    for _ in range(4):
+        if not ball.any() or float(graded[near].mean()) >= ATTACH_APEX_MIN                 or float(graded[ball].mean()) >= ATTACH_APEX_MIN:
+            break
+        graded = np.clip(graded / max(float(graded[ball].mean()), 1e-6), 0.0, 1.0)
     report = {"apex": [round(float(x), 4) for x in apex], "rise_m": round(rise, 4),
               "under_lean_m": round(under, 4), "leg_share_max": round(float(leg.max()), 3),
               "weight_before_grading_at_apex": round(float(w[top].mean()), 3)}
@@ -1210,7 +1218,9 @@ def _attachment_measures(t, r, verts, w, above_m=ATTACH_ABOVE_M):
     above = (dz > above_m - 0.01 * s) & (dz < above_m + 0.01 * s) & (horiz < 0.04 * s)
     leg = _leg_share(bpy.data.objects[t["object"]], t, verts) >= 0.5
     return {"pivot_rise_m": round(float((head - tail) @ up), 4),
-            "weight_at_apex": round(float(w[near].mean()), 3) if near.any() else 0.0,
+            # the ball's buttock, not the thigh a thick short leg brings within 2 cm (weight_on_thigh judges that)
+            "weight_at_apex": (round(float(w[near & ~leg].mean()), 3) if (near & ~leg).any() else
+                               round(float(w[near].mean()), 3) if near.any() else 0.0),
             "weight_10cm_above": round(float(w[above].max()), 3) if above.any() else 0.0, "above_m": above_m,
             "weight_on_thigh": round(float(w[leg].max()), 3) if leg.any() else 0.0}
 

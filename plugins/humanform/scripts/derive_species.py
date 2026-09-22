@@ -115,10 +115,13 @@ SPECIES = {
             "feet": (0.85, "short broad feet"),
             "neck": (0.6, "a thick short neck [folklore]"),
             "build": ("stocky", "a stocky human with the dwarf's trunk is the start"),
-            "bmi": (33.0, "achondroplastic adults' BMI runs high, ~30 [measured]: a human trunk on short legs; a "
-                          "fantasy dwarf a little heavier. Girth keeps its shape and is scaled to land it"),
             "girth": ({"legs": 1.05, "arms": 1.12, "neck": 1.25, "torso": 1.12},
-                      "heavy forearms, thick neck, barrel chest; a short thigh stays as thick [folklore]"),
+                      "heavy limbs, thick neck, a deep trunk; a short thigh stays as thick [folklore]. No bmi: "
+                      "achondroplastic adults run ~30 [measured], and this shape comes out above it, as a stocky "
+                      "man on a dwarf's legs should - a stated 33 thinned every girth to 0.85 of itself"),
+            "forearms": ("heavy", "heavy forearms, the smith's [folklore]"),
+            "barrel_chest": (1.0, "a barrel chest: the ribcage as deep as it is broad [folklore]; a broad "
+                                  "shoulder alone only widens a chest, which read as a short man"),
             "sway_deg": (8.0, "exaggerated lumbar lordosis, as in achondroplasia [measured]"),
         },
         "knobs": {"trunk_scale": (0.97, "sitting height only mildly reduced in achondroplasia [measured]"),
@@ -166,8 +169,8 @@ SPECIES = {
             "fingertips_at": ("knee+0.05", "long arms: fingertips 0.05 H above the knee, a human's ~0.08 [folklore]"),
             "hands": (1.18, "big grasping hands [folklore]"), "feet": (1.2, "big feet [folklore]"),
             "neck": (0.8, "the head carried forward on a short neck"),
-            "build": ("lean", "scrawny: a lean human scaled to 1.1 m is already a child's BMI by square-cube"),
-            "girth": ({"legs": 0.9, "arms": 0.9}, "stringy limbs"),
+            "build": ("scrawny", "scrawny and stringy-limbed: the build word says it, at an adult's BMI (the "
+                                 "adult build law); a thinner girth on top read as a child's"),
             "hunch_deg": (26.0, "the hunch [folklore]"), "sway_deg": (-4.0, "a flat lower back under the hunch"),
         },
         "knobs": {"shoulder_scale": (0.92, "narrow, scrawny"), "hip_scale": (0.92, ""),

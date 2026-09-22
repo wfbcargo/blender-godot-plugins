@@ -28,7 +28,7 @@
     "ratios": "fractions of the final standing stature (spine curve applied), as presets.json; tolerances are the realistic preset's scaled with the value and by 1.3",
     "proportion": "not graded: the observables this body shows, with the human's beside",
     "segments": "bone length factors against the pre-warp human (pre_warp); girth and widths likewise absolute. The warp solves the final factors so the measured joints land on `ratios`",
-    "bmi": "the finished body's, by the square-cube volume law from the pre-warp human's (pre_warp.bmi)"
+    "bmi": "the finished body's mass (its volume, square-cube) over its stature^2; its girths follow the adult build law (girth_law), so a short body of a build keeps an adult's BMI"
   },
   "knobs": {
     "heads": 5.5,
@@ -40,12 +40,15 @@
     "hand_scale": 1.213,
     "foot_scale": 1.22,
     "neck_scale": 1.2795,
-    "shoulder_scale": 1.2748337208124578,
+    "shoulder_scale": 1.0705780277889059,
     "hip_scale": 1.06,
     "girth_legs": 1.08,
     "girth_arms": 1.05,
     "girth_neck": 1.05,
     "girth_torso": 1.1,
+    "girth_forearm": 1.0,
+    "chest_depth": 1.0,
+    "chest_breadth": 1.0,
     "hunch_deg": 0.0,
     "sway_deg": 3.0,
     "build_bmi": 28.0,
@@ -62,17 +65,104 @@
       "male": 5.67
     },
     "mass_kg_mid": {
-      "female": 21.9,
-      "male": 24.0
+      "female": 27.7,
+      "male": 30.3
     },
     "adult_cues": {
       "shoulder_scale": {
         "from": 1.04,
         "metric": "shoulder_head",
         "floor": 1.9,
-        "to": 1.2748
+        "to": 1.0706
       }
     },
+    "limbs": {
+      "female": {
+        "thigh": {
+          "girth_to_length": 2.614,
+          "band": [
+            1.918,
+            2.667
+          ],
+          "adult_mean": 2.277,
+          "human_mean": 1.629
+        },
+        "shin": {
+          "girth_to_length": 1.504,
+          "band": [
+            1.171,
+            1.589
+          ],
+          "adult_mean": 1.368,
+          "human_mean": 0.928
+        },
+        "upper_arm": {
+          "girth_to_length": 1.482,
+          "band": [
+            1.117,
+            1.561
+          ],
+          "adult_mean": 1.327,
+          "human_mean": 0.916
+        },
+        "forearm": {
+          "girth_to_length": 1.723,
+          "band": [
+            1.332,
+            1.744
+          ],
+          "adult_mean": 1.526,
+          "human_mean": 1.097
+        }
+      },
+      "male": {
+        "thigh": {
+          "girth_to_length": 2.43,
+          "band": [
+            1.816,
+            2.586
+          ],
+          "adult_mean": 2.176,
+          "human_mean": 1.534
+        },
+        "shin": {
+          "girth_to_length": 1.537,
+          "band": [
+            1.242,
+            1.648
+          ],
+          "adult_mean": 1.438,
+          "human_mean": 0.94
+        },
+        "upper_arm": {
+          "girth_to_length": 1.552,
+          "band": [
+            1.18,
+            1.654
+          ],
+          "adult_mean": 1.398,
+          "human_mean": 0.987
+        },
+        "forearm": {
+          "girth_to_length": 1.79,
+          "band": [
+            1.37,
+            1.795
+          ],
+          "adult_mean": 1.57,
+          "human_mean": 1.16
+        }
+      }
+    },
+    "chest_depth_to_breadth": {
+      "female": 0.948,
+      "male": 0.88
+    },
+    "support": {
+      "female": 1.0,
+      "male": 1.0
+    },
+    "warnings": [],
     "given": [
       "build",
       "feet",
@@ -101,6 +191,9 @@
       "trunk_scale": "human default",
       "leg_root_share": "human default",
       "arm_root_share": "human default",
+      "girth_forearm": "human default",
+      "chest_depth": "human default",
+      "chest_breadth": "human default",
       "hunch_deg": "human default",
       "tol_scale": "human default"
     },
@@ -141,8 +234,8 @@
     ]
   },
   "bmi": [
-    21.7,
-    27.9
+    27.4,
+    35.3
   ],
   "heads": {
     "any": [
@@ -257,19 +350,19 @@
         0.0417
       ],
       "male": [
-        0.3634,
+        0.3632,
         0.0448
       ],
       "source": "species_design: realistic shoulder_width through the halfling knobs"
     },
     "hip_width": {
       "female": [
-        0.2257,
-        0.0309
+        0.2671,
+        0.0366
       ],
       "male": [
-        0.2047,
-        0.0262
+        0.2421,
+        0.031
       ],
       "source": "species_design: realistic hip_width through the halfling knobs"
     },
@@ -306,11 +399,11 @@
   "derived": {
     "shoulder_to_hip_width": {
       "female": [
-        1.531,
+        1.294,
         0.139
       ],
       "male": [
-        1.775,
+        1.5,
         0.14
       ],
       "source": "shoulder_width / hip_width of this species"
@@ -349,7 +442,7 @@
       "arm_length": 0.4207,
       "fingertip": 0.3274,
       "fingertip_above_knee": 0.0588,
-      "shoulder_to_hip": 1.5307,
+      "shoulder_to_hip": 1.2935,
       "shoulder_heads": 1.9,
       "heads": 5.5,
       "human": {
@@ -381,8 +474,8 @@
       "arm_length": 0.4235,
       "fingertip": 0.3274,
       "fingertip_above_knee": 0.0632,
-      "shoulder_to_hip": 1.7753,
-      "shoulder_heads": 1.9987,
+      "shoulder_to_hip": 1.5001,
+      "shoulder_heads": 1.9978,
       "heads": 5.5,
       "human": {
         "hip_fraction": 0.5099,
@@ -452,27 +545,46 @@
   },
   "girth": {
     "female": {
-      "legs": 0.7562,
-      "arms": 0.7352,
-      "neck": 0.7352,
-      "torso": 0.7702
+      "legs": 0.8783,
+      "arms": 0.8724,
+      "neck": 0.9236,
+      "torso": 0.9042,
+      "forearm": 1.0,
+      "chest_depth": 1.0,
+      "chest_breadth": 1.0
     },
     "male": {
-      "legs": 0.757,
-      "arms": 0.7359,
-      "neck": 0.7359,
-      "torso": 0.771
+      "legs": 0.8788,
+      "arms": 0.8728,
+      "neck": 0.9239,
+      "torso": 0.9047,
+      "forearm": 1.0,
+      "chest_depth": 1.0,
+      "chest_breadth": 1.0
     }
   },
   "widths": {
     "female": {
       "shoulder_width": 0.8927,
-      "hip_width": 0.7422
+      "hip_width": 0.8783
     },
     "male": {
-      "shoulder_width": 0.8935,
-      "hip_width": 0.7429
+      "shoulder_width": 0.8931,
+      "hip_width": 0.8788
     }
+  },
+  "girth_law": {
+    "exponents": {
+      "legs": 0.58,
+      "arms": 0.52,
+      "neck": 0.36,
+      "torso": 0.55
+    },
+    "support": {
+      "female": 1.0,
+      "male": 1.0
+    },
+    "note": "legs/arms/neck/torso are absolute against the pre-warp human, by the adult build law (a shrink by s takes s^exponent) and support; forearm, chest_depth and chest_breadth multiply on top. A clamped pre-warp human's extra uniform scale takes the same law (species.py)"
   },
   "spine": {
     "kyphosis_deg": 0.0,
@@ -521,7 +633,7 @@
         "on": "chest",
         "scale": {
           "female": 0.8927,
-          "male": 0.8935
+          "male": 0.8931
         },
         "relative": 1.0,
         "source": "law: with its host"
@@ -530,7 +642,7 @@
         "on": "chest",
         "scale": {
           "female": 0.8927,
-          "male": 0.8935
+          "male": 0.8931
         },
         "relative": 1.0,
         "source": "law: with its host"
@@ -538,8 +650,8 @@
       "navel": {
         "on": "torso",
         "scale": {
-          "female": 0.7344,
-          "male": 0.7351
+          "female": 0.7957,
+          "male": 0.7963
         },
         "relative": 1.0,
         "source": "law: with its host"
@@ -547,8 +659,8 @@
       "genitals": {
         "on": "pelvis",
         "scale": {
-          "female": 0.7422,
-          "male": 0.7429
+          "female": 0.8783,
+          "male": 0.8788
         },
         "relative": 1.0,
         "source": "law: with its host"
@@ -556,8 +668,8 @@
       "buttocks": {
         "on": "pelvis",
         "scale": {
-          "female": 0.7422,
-          "male": 0.7429
+          "female": 0.8783,
+          "male": 0.8788
         },
         "relative": 1.0,
         "source": "law: with its host"
@@ -565,8 +677,8 @@
       "belly": {
         "on": "torso",
         "scale": {
-          "female": 0.7344,
-          "male": 0.7351
+          "female": 0.7957,
+          "male": 0.7963
         },
         "relative": 1.0,
         "source": "law: with its host"
@@ -673,8 +785,8 @@
       "knees": {
         "on": "leg",
         "scale": {
-          "female": 0.7562,
-          "male": 0.757
+          "female": 0.8783,
+          "male": 0.8788
         },
         "relative": 1.0,
         "source": "law: with its host"
@@ -682,8 +794,8 @@
       "elbows": {
         "on": "arm",
         "scale": {
-          "female": 0.7352,
-          "male": 0.7359
+          "female": 0.8724,
+          "male": 0.8728
         },
         "relative": 1.0,
         "source": "law: with its host"

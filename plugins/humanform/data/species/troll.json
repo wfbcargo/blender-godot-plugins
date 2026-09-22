@@ -28,7 +28,7 @@
     "ratios": "fractions of the final standing stature (spine curve applied), as presets.json; tolerances are the realistic preset's scaled with the value and by 1.3",
     "proportion": "not graded: the observables this body shows, with the human's beside",
     "segments": "bone length factors against the pre-warp human (pre_warp); girth and widths likewise absolute. The warp solves the final factors so the measured joints land on `ratios`",
-    "bmi": "the finished body's, by the square-cube volume law from the pre-warp human's (pre_warp.bmi)"
+    "bmi": "the finished body's mass (its volume, square-cube) over its stature^2; its girths follow the adult build law (girth_law), so a short body of a build keeps an adult's BMI"
   },
   "knobs": {
     "heads": 7.0,
@@ -42,10 +42,13 @@
     "neck_scale": 0.6382,
     "shoulder_scale": 1.28,
     "hip_scale": 1.12,
-    "girth_legs": 1.0526,
-    "girth_arms": 1.0526,
-    "girth_neck": 1.0526,
-    "girth_torso": 1.0526,
+    "girth_legs": 0.984,
+    "girth_arms": 0.984,
+    "girth_neck": 0.984,
+    "girth_torso": 0.984,
+    "girth_forearm": 1.0,
+    "chest_depth": 1.0,
+    "chest_breadth": 1.0,
     "hunch_deg": 32.0,
     "sway_deg": 0.0,
     "build_bmi": 32.0,
@@ -62,10 +65,97 @@
       "male": 9.89
     },
     "mass_kg_mid": {
-      "female": 282.6,
-      "male": 310.7
+      "female": 283.0,
+      "male": 310.2
     },
     "adult_cues": {},
+    "limbs": {
+      "female": {
+        "thigh": {
+          "girth_to_length": 1.795,
+          "band": [
+            1.258,
+            1.782
+          ],
+          "adult_mean": 1.509,
+          "human_mean": 1.629
+        },
+        "shin": {
+          "girth_to_length": 0.904,
+          "band": [
+            0.655,
+            0.899
+          ],
+          "adult_mean": 0.77,
+          "human_mean": 0.928
+        },
+        "upper_arm": {
+          "girth_to_length": 0.796,
+          "band": [
+            0.693,
+            0.988
+          ],
+          "adult_mean": 0.833,
+          "human_mean": 0.916
+        },
+        "forearm": {
+          "girth_to_length": 0.907,
+          "band": [
+            0.817,
+            1.083
+          ],
+          "adult_mean": 0.942,
+          "human_mean": 1.097
+        }
+      },
+      "male": {
+        "thigh": {
+          "girth_to_length": 1.567,
+          "band": [
+            1.099,
+            1.596
+          ],
+          "adult_mean": 1.332,
+          "human_mean": 1.534
+        },
+        "shin": {
+          "girth_to_length": 0.871,
+          "band": [
+            0.643,
+            0.865
+          ],
+          "adult_mean": 0.75,
+          "human_mean": 0.94
+        },
+        "upper_arm": {
+          "girth_to_length": 0.81,
+          "band": [
+            0.709,
+            1.012
+          ],
+          "adult_mean": 0.849,
+          "human_mean": 0.987
+        },
+        "forearm": {
+          "girth_to_length": 0.961,
+          "band": [
+            0.864,
+            1.145
+          ],
+          "adult_mean": 0.996,
+          "human_mean": 1.16
+        }
+      }
+    },
+    "chest_depth_to_breadth": {
+      "female": 0.992,
+      "male": 0.921
+    },
+    "support": {
+      "female": 1.0711,
+      "male": 1.0676
+    },
+    "warnings": [],
     "given": [
       "bmi",
       "build",
@@ -96,6 +186,9 @@
       "trunk_scale": "human default",
       "leg_root_share": "human default",
       "arm_root_share": "human default",
+      "girth_forearm": "human default",
+      "chest_depth": "human default",
+      "chest_breadth": "human default",
       "sway_deg": "human default",
       "tol_scale": "human default",
       "heads_note": "heads 7.0 against the allometric 10.0: a stylised head larger than the law's - label it [folklore]"
@@ -445,16 +538,22 @@
   },
   "girth": {
     "female": {
-      "legs": 1.0526,
-      "arms": 1.0526,
-      "neck": 1.0526,
-      "torso": 1.0526
+      "legs": 1.054,
+      "arms": 1.054,
+      "neck": 0.984,
+      "torso": 0.984,
+      "forearm": 1.0,
+      "chest_depth": 1.0,
+      "chest_breadth": 1.0
     },
     "male": {
-      "legs": 1.0526,
-      "arms": 1.0526,
-      "neck": 1.0526,
-      "torso": 1.0526
+      "legs": 1.0505,
+      "arms": 1.0505,
+      "neck": 0.984,
+      "torso": 0.984,
+      "forearm": 1.0,
+      "chest_depth": 1.0,
+      "chest_breadth": 1.0
     }
   },
   "widths": {
@@ -466,6 +565,19 @@
       "shoulder_width": 1.28,
       "hip_width": 1.12
     }
+  },
+  "girth_law": {
+    "exponents": {
+      "legs": 0.58,
+      "arms": 0.52,
+      "neck": 0.36,
+      "torso": 0.55
+    },
+    "support": {
+      "female": 1.0711,
+      "male": 1.0676
+    },
+    "note": "legs/arms/neck/torso are absolute against the pre-warp human, by the adult build law (a shrink by s takes s^exponent) and support; forearm, chest_depth and chest_breadth multiply on top. A clamped pre-warp human's extra uniform scale takes the same law (species.py)"
   },
   "spine": {
     "kyphosis_deg": 32.0,
@@ -531,8 +643,8 @@
       "navel": {
         "on": "torso",
         "scale": {
-          "female": 1.026,
-          "male": 1.026
+          "female": 0.992,
+          "male": 0.992
         },
         "relative": 1.0,
         "source": "law: with its host"
@@ -558,8 +670,8 @@
       "belly": {
         "on": "torso",
         "scale": {
-          "female": 1.026,
-          "male": 1.026
+          "female": 0.992,
+          "male": 0.992
         },
         "relative": 1.0,
         "source": "law: with its host"
@@ -666,8 +778,8 @@
       "knees": {
         "on": "leg",
         "scale": {
-          "female": 1.0526,
-          "male": 1.0526
+          "female": 1.054,
+          "male": 1.0505
         },
         "relative": 1.0,
         "source": "law: with its host"
@@ -675,8 +787,8 @@
       "elbows": {
         "on": "arm",
         "scale": {
-          "female": 1.0526,
-          "male": 1.0526
+          "female": 1.054,
+          "male": 1.0505
         },
         "relative": 1.0,
         "source": "law: with its host"
