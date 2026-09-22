@@ -680,8 +680,12 @@ def run_moves(ch, ctx):
         options[role] = dict(options.get(role, {}), **extra)
     # This character's own fixed left/right asymmetry, drawn from its identity. None or
     # `asymmetry = 0` (the default) is the identity and every clip is the one it always was.
+    # A species' build implies a style (rig-anything's morphology.derive_style: a long trunk's roll, a stocky
+    # body's ground time), laid under the spec's own, which wins key by key. Off for a human unless asked, and
+    # a human-proportioned body derives nothing anyway, so a human's clips are the ones it always had.
+    derive = ch.derive_moves
     res = actions.move_set(ch.rig, prefix=ch.name, roles=tuple(ch.moves.roles), options=options,
-                           variability=variability_block(ch))
+                           variability=variability_block(ch), derive=derive)
     if "error" in res:
         raise RuntimeError(f"moves: {res['error']}")
     out = {}
@@ -701,6 +705,21 @@ def run_moves(ch, ctx):
         c = verify.limb_clearance(ch.rig, res[role]["action"], mesh_name=ch.mesh, every=2)
         out[role]["limb_clearance"] = {k: c.get(k) for k in ("closest_m", "at_frame", "samples_inside", "error")
                                        if k in c}
+    # Warned, never refused (each with its fix), and printed before a failing clip refuses the stage: a walk
+    # outside Froude 0.18-0.35, hands that cannot reach the hips or the top of the head (a dwarf's short arms).
+    # Only in the report when there is something to say.
+    from rig_analysis import bodymap, morphology
+    bm = bodymap.build(ch.rig, forward="-Y")
+    warnings = morphology.checks(res, morphology.measure(bm, with_mass=False)) if "error" not in bm else []
+    for w in warnings:
+        print(f"[{ch.id}] moves WARNING {w}")
+    if warnings:
+        out["warnings"] = warnings
+    if derive:
+        got = next((res[r]["morphology"] for r in ch.moves.roles if res[r].get("morphology")), None)
+        if got:
+            out["derived_style"] = got["derived"]
+            out["morphology"] = got["measured"]
     failing = sorted(role for role in ch.moves.roles if out[role]["failures"] and role not in ch.moves.may_fail)
     if failing:
         # each failing clip with what failed and by how much, so the fix (a [moves.per_gait.<role>] option, or

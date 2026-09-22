@@ -970,8 +970,8 @@ def export_character(mesh_name, rig_name, glb_path, name=None, reports=None, res
     Writes creature, name, rig, scene, clips, loops, implied_speed_mps (by role), height_m (stand
     is the mesh top at rest; crouch and crouch_walk when those roles were exported), gaits,
     contacts, verified, clip_checks, forced_clips, known_failures (authoring failures by role),
-    collider (`collider`), and dropped_clips when any were. Returns {glb, moves, manifest,
-    verified, clips, bones, problems, export}, or {error, ...} with nothing written after the
+    collider (`collider`), dropped_clips when any were, and warnings (`morphology.checks`) when
+    there are any. Returns {glb, moves, manifest, verified, warnings, clips, bones, problems, export}, or {error, ...} with nothing written after the
     refusal."""
     from . import bodymap, locomotion, stored
     reports = stored.resolve(reports, rig_name, roles)
@@ -1062,11 +1062,20 @@ def export_character(mesh_name, rig_name, glb_path, name=None, reports=None, res
         moves["turns"] = turns
     if e.get("dropped_clips"):
         moves["dropped_clips"] = e["dropped_clips"]
+    # The build's own checks (`morphology.checks`), warned with the fix in each: a walk outside Froude
+    # 0.18-0.35, hands that cannot reach the hips or the top of the head. Written only when there is one,
+    # so a manifest with nothing to say is what it always was.
+    from . import morphology
+    bm_w = bodymap.build(rig_name, forward=forward, up=up, floor=floor)
+    warnings = (morphology.checks({r: reports[r] for r in kept}, morphology.measure(bm_w, with_mass=False))
+                if "error" not in bm_w else [])
+    if warnings:
+        moves["warnings"] = warnings
     moves.update(extra or {})
     path = base + ".moves.json"
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(moves, fh, indent=2)
-    return {"glb": glb_path, "moves": path, "manifest": moves, "verified": e["verified"],
+    return {"glb": glb_path, "moves": path, "manifest": moves, "verified": e["verified"], "warnings": warnings,
             "clips": [clip[r] for r in kept], "bones": e["preflight"]["bones"],
             "problems": loco["problems"] + (["review: " + e["review"]["error"]]
                                             if "error" in (e.get("review") or {}) else []),

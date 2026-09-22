@@ -7,6 +7,10 @@ that belong to a plugin.
 
     [body]                       # humanform's brief (sheet.new), passed through
     source = "brief"             # or "blend": an object already in the open file (`object = "Tomas"`)
+    species = "human"            # optional, default "human": humanform/data/species/<id>.json (improvements
+                                 # 08), passed to the brief when not human; a non-human species also
+                                 # turns on [moves] derive, and one whose preset has a skin.palette
+                                 # may leave skin out
     sex = "female"
     age = 28
     stature = 1.70
@@ -20,6 +24,10 @@ that belong to a plugin.
     roles = ["Idle", "Walk", "Run", "Crouch"]    # default: Idle and the gaits
     loops = ["Idle", "Walk", "Run"]              # default: every role
     style = "adult"              # locomotion.GAIT_STYLES
+    derive = true                # optional: lay rig-anything's morphology.derive_style (the style the
+                                 # build implies - a long trunk's roll, a stocky body's ground time) under
+                                 # `style`, which wins key by key. Default: true when body.species is not
+                                 # "human"; a human-proportioned body derives nothing either way
     stance_width = 1.15
     gaits = { Walk = 0.2, Run = 2.0 }            # role -> Froude number
     [moves.per_gait.Walk]        # anything move_set takes per role, over the style
@@ -122,6 +130,43 @@ class SpecError(ValueError):
     pass
 
 
+def species_dir():
+    """humanform's species presets folder (`<humanform>/data/species`), from HF_SCRIPTS when set, else the
+    humanform beside this plugin (the repo's plugins/ or ~/.claude/skills/). None when it does not exist."""
+    hf = os.environ.get("HF_SCRIPTS")
+    here = os.path.dirname(os.path.abspath(__file__))
+    for base in ([os.path.dirname(hf)] if hf else []) + [os.path.join(here, "..", "..", "..", "humanform")]:
+        d = os.path.normpath(os.path.join(base, "data", "species"))
+        if os.path.isdir(d):
+            return d
+    return None
+
+
+def species_ids():
+    """The species ids humanform knows (its `data/species/*.json`, plus "human"), or None when it has no
+    species folder - an older humanform, in which case any species is accepted and left to humanform."""
+    d = species_dir()
+    if d is None:
+        return None
+    return sorted({"human"} | {os.path.splitext(f)[0] for f in os.listdir(d) if f.endswith(".json")})
+
+
+def species_palette(species):
+    """The species preset's `skin.palette` (a list of screen colours), or None when it has none or there is
+    no preset to read."""
+    d = species_dir()
+    path = os.path.join(d, species + ".json") if d else None
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            preset = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    pal = (preset.get("skin") or {}).get("palette") if isinstance(preset, dict) else None
+    return pal or None
+
+
 @dataclass
 class Body:
     source: str = "brief"
@@ -129,6 +174,7 @@ class Body:
     brief: dict = field(default_factory=dict)   # humanform sheet.new(**brief)
     parts: dict = field(default_factory=dict)   # face / hands / feet library ids
     skin: list | None = None                    # source = "blend": the skin colour humanform would apply
+    species: str = "human"                      # humanform/data/species/<id>; in `brief` too when not human
 
 
 @dataclass
@@ -138,6 +184,7 @@ class Moves:
     loops: list = field(default_factory=list)
     export_gaits: list = field(default_factory=list)
     style: str = "adult"
+    derive: bool | None = None                  # None: derive_style when body.species is not human
     stance_width: float | None = None
     posture: dict | None = None
     per_gait: dict = field(default_factory=dict)  # role -> move_set options over the style
@@ -310,6 +357,12 @@ class Character:
             if not out.get("fringe"):
                 out.pop("fringe", None)
             return out
+        if name == "body":
+            # a human body hashes as it did before species existed
+            out = asdict(value)
+            if out.get("species") == "human":
+                out.pop("species")
+            return out
         if name == "moves":
             # [variability] rides the moves section rather than having one of its own, and only
             # when the spec asked for something: a section that is always there would change the
@@ -317,12 +370,24 @@ class Character:
             # that is what an unstated seed is derived from, so two specs that differ only in
             # their id do not share a moves hash once one of them is asymmetric.
             out = asdict(value)
+            # derive, unset, hashes as before it existed; what the stage will do rides along only when
+            # it derives, so a human spec's moves hash is unchanged and a dwarf's covers the switch
+            if out.get("derive") is None:
+                out.pop("derive", None)
+            if self.derive_moves:
+                out["derive_moves"] = True
             if self.variability is not None and self.variability.asked():
                 out["variability"] = dict(asdict(self.variability), identity=self.id)
             return out
         if isinstance(value, list):
             return [asdict(v) if hasattr(v, "__dataclass_fields__") else v for v in value]
         return asdict(value) if hasattr(value, "__dataclass_fields__") else value
+
+    @property
+    def derive_moves(self):
+        """Whether the moves stage lays rig-anything's derived style under the spec's: `[moves] derive`,
+        else on for any species but human."""
+        return self.moves.derive if self.moves.derive is not None else self.body.species != "human"
 
     def digest(self, *sections):
         text = json.dumps({s: self.section(s) for s in sections}, sort_keys=True, default=str)
@@ -534,6 +599,13 @@ def parse(data, path=None):
 
     b = dict(_take(data, "body", dict, required=True))
     source = b.pop("source", "brief")
+    species = b.pop("species", "human")
+    if not isinstance(species, str) or not species:
+        raise SpecError(f"body.species must be a species id string, not {species!r}")
+    known = species_ids()
+    if known is not None and species not in known:
+        raise SpecError(f"body.species {species!r} is not a humanform species - known: {', '.join(known)} "
+                        f"(presets in {species_dir()})")
     if source not in BRIEF_SOURCES:
         raise SpecError(f"body.source must be one of {BRIEF_SOURCES}, not {source!r}")
     parts = b.pop("parts", {})
@@ -541,7 +613,9 @@ def parse(data, path=None):
     skin = b.get("skin") if source == "brief" else b.pop("skin", None)
     if source == "blend" and not obj:
         raise SpecError("body.object is required when body.source = \"blend\"")
-    if source == "brief" and b.get("skin") is None:
+    if source == "brief" and b.get("skin") is None and species != "human" and species_palette(species):
+        pass        # the species preset's own skin palette (its `skin.palette`): humanform draws the tone from it
+    elif source == "brief" and b.get("skin") is None:
         # without one humanform never applies its skin look and the body ships in MPFB's untextured material:
         # the first smoke bodies came out chalk white, 5-9% of the figure past white in Godot's review
         raise SpecError("body.skin is required: a screen (sRGB) colour, e.g. [0.87, 0.72, 0.60] light, "
@@ -551,10 +625,15 @@ def parse(data, path=None):
         b.setdefault("name", name)
         if b["name"] != name:
             raise SpecError(f"body.name {b['name']!r} must match character.name {name!r}")
-    body = Body(source=source, object=obj, brief=b if source == "brief" else {}, parts=parts, skin=skin)
+    if source == "brief" and species != "human":
+        # humanform's brief carries it; a human brief is left without the key, so it and its hashes are
+        # exactly what they were before species existed
+        b["species"] = species
+    body = Body(source=source, object=obj, brief=b if source == "brief" else {}, parts=parts, skin=skin,
+                species=species)
 
     m = _take(data, "moves", dict, required=True)
-    _unknown(m, ("gaits", "roles", "loops", "export_gaits", "style", "stance_width", "posture",
+    _unknown(m, ("gaits", "roles", "loops", "export_gaits", "style", "derive", "stance_width", "posture",
                  "per_gait", "may_fail", "clearance_check"), "[moves]")
     gaits = {k: float(v) for k, v in _take(m, "gaits", dict, required=True, where="moves.").items()}
     roles = list(_take(m, "roles", list, default=["Idle", *gaits]))
@@ -571,6 +650,7 @@ def parse(data, path=None):
     moves = Moves(gaits=gaits, roles=roles, loops=loops,
                   export_gaits=list(_take(m, "export_gaits", list, default=list(gaits))),
                   style=_take(m, "style", str, default="adult"),
+                  derive=_take(m, "derive", bool),
                   stance_width=_take(m, "stance_width", float),
                   posture=_take(m, "posture", dict), per_gait=per_gait,
                   may_fail=list(_take(m, "may_fail", list, default=[])),

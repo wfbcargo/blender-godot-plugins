@@ -61,6 +61,9 @@ measurements = { chestcircumference = 1.02, waistcircumference = 0.72, buttockci
 skin = [0.78, 0.58, 0.47]
 iris = [0.36, 0.45, 0.30]
 ancestry = { caucasian = 1.0 }     # optional: MPFB's african / asian / caucasian shares, normalised
+species = "human"                  # optional: humanform/data/species/<id>.json (refused if unknown when
+                                   #   that folder exists); in the brief when not human; a preset with a
+                                   #   skin.palette may leave skin out
 [body.parts]                       # humanform library parts
 face = "face-female-11-1-49f17892"
 [body.face]                        # optional: a likeness, ratios read off a frontal photo (humanform
@@ -78,6 +81,8 @@ roles = ["Idle", "Walk", "Trot", "Run", "Crouch", "CrouchWalk", "Jump"]
 loops = ["Idle", "Walk", "Trot", "Run", "CrouchWalk"]
 gaits = { Walk = 0.2, Trot = 1.0, Run = 2.0 }     # role -> Froude number
 style = "adult"                    # locomotion.GAIT_STYLES
+derive = true                      # optional: rig-anything's morphology.derive_style under `style` (style
+                                   #   wins key by key); default true only when body.species is not human
 stance_width = 1.15
 export_gaits = ["Walk", "Trot", "Run", "CrouchWalk"]
 clearance_check = ["Crouch", "CrouchWalk", "Jump"]
