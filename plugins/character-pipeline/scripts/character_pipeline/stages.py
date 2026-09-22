@@ -157,6 +157,22 @@ def chained(ch):
 CHAINED_STRAND_KINDS = ("tube",)
 
 
+def beard_has_chain(ch):
+    """Whether this spec's beard hangs far enough below the chin to be sprung (humanform's own answer).
+
+    A hanging beard is strand cards, not a shell, so it leaves its own mesh (`<name>_beard_strand`) with
+    follow-through's contract on it, exactly as a ponytail does - and like a ponytail it must not be joined
+    into the body, or the join drops the properties the chain is built from."""
+    if ch.hair is None or not getattr(ch.hair, "beard", None):
+        return False
+    from humanform import brows as hf_brows
+    try:
+        spec = hf_brows.beard_spec(ch.hair.beard, ch.hair.beard_length, ch.hair.beard_volume)
+    except (KeyError, ValueError):
+        return False
+    return spec["hang_m"] > 0 and spec.get("cards") is not None
+
+
 def hair_strand_kind(ch):
     """The shape of the strand part this spec's hair preset grows (`tube`, `curtain`), or None -
     humanform's own answer, not a list kept here, so a preset that grows one later needs no edit."""
@@ -571,6 +587,8 @@ def run_hair(ch, ctx):
     ob = _obj(ch.mesh)
     made = dict(rep["objects"])
     strand = made.pop("strand") if "strand" in made and hair_has_chain(ch) else None
+    # a hanging beard's cards are a strand mesh too, and never joined: the join would drop ft_centrelines
+    beard_strand = made.pop("beard_strand", None)
     parts = [_obj(n) for n in made.values()]
     selected = [ob] + parts
     with bpy.context.temp_override(active_object=ob, selected_editable_objects=selected, object=ob,
@@ -583,6 +601,7 @@ def run_hair(ch, ctx):
         out["face"] = rep["face"]
     out["strand_object"] = strand                   # None: there is none, or it was joined like the rest
     out["strand_kind"] = hair_strand_kind(ch)
+    out["beard_strand_object"] = beard_strand
     if "contract" in rep:
         out["strand_contract"] = rep["contract"]
         if not rep["contract"]["passed"]:
@@ -892,7 +911,8 @@ def check_strand(ch):
         return problem
     if not strand_meshes(ch):
         return ("strand needs hair: no mesh with ft_type = \"strand\" for %s in the file - run hair first "
-                "(the %s preset grows one)" % (ch.name, (ch.hair.preset if ch.hair else None) or "ponytail"))
+                "(the %s preset grows one, and a beard past 6 cm grows one of its own)"
+                % (ch.name, (ch.hair.preset if ch.hair else None) or "ponytail"))
     missing = [r for r in ch.moves.roles if r not in moves_stored(ch)]
     if missing:
         return (f"strand needs moves: no stored clips for {missing} - run moves before strand (rig-anything "
@@ -1278,7 +1298,8 @@ STAGES = [
     ("hair", ("bake",), ("hair",), check_hair, run_hair, lambda ch: ch.hair is not None),
     ("flesh", ("bake", "hair"), ("flesh",), check_not_dressed("flesh"), run_flesh, lambda ch: ch.flesh is not None),
     ("moves", ("bake", "hair", "flesh"), ("moves",), check_not_dressed("moves"), run_moves, lambda ch: True),
-    ("strand", ("hair", "moves"), ("hair",), check_strand, run_strand, hair_has_chain),
+    ("strand", ("hair", "moves"), ("hair",), check_strand, run_strand,
+     lambda ch: hair_has_chain(ch) or beard_has_chain(ch)),
     ("garments", ("moves", "flesh", "strand"), ("outfit",), check_garments, run_garments, lambda ch: bool(ch.outfit)),
     ("export", ("moves", "garments", "strand"), ("export", "moves"), check_export, run_export, lambda ch: True),
     ("review", ("export",), ("review",), check_review, run_review, lambda ch: ch.review.enabled),

@@ -349,10 +349,11 @@ the hair stage joins them into the body with the rest of the hair.
 - **Body hair** (off unless asked) is a shell 0.3 mm off the skin cut by bone weight (and facing, on the
   torso), with the hair texture thinned to 22% of its strand bands, each staggered, repeating every 14 mm
   along the limb so it reads as short hairs.
-- **Beard** (`hair.add(beard=, beard_colour=, beard_length=, beard_volume=)`, a brief's `hair.beard`, a spec's
-  `[hair] beard` / `beard_colour` / `beard_length` (m at the chin) / `beard_volume` (0..1); off unless asked):
+- **Beard** (`hair.add(beard=, beard_colour=, beard_length=, beard_volume=, beard_braids=)`, a brief's
+  `hair.beard`, a spec's `[hair] beard` / `beard_colour` / `beard_length` (m at the chin) / `beard_volume`
+  (0..1) / `beard_braids` (0..6); off unless asked):
   `brows.BEARD_STYLES` - `stubble` (0.3 mm off the skin, skin between the hairs), `short`, `goatee`,
-  `moustache`, `full` (3.5 cm, standing off in layers) and `long` (24 cm: a dwarf's chest-length beard, hanging).
+  `moustache`, `full` (5.5 cm) and `long` (24 cm: a dwarf's chest-length beard, hanging).
   Where it grows is a signed distance on the face (`brows.beard_field`: the mouth's slit and corners and the
   nose's base from `face_features.json`, the chin as the lowest front point of the head, the head and neck
   weights): `moustache` between the nose's base and the upper lip, `corners` round the mouth's corners (joining
@@ -360,13 +361,27 @@ the hair stage joins them into the body with the rest of the hair.
   below a line from the nose's base at the mouth's corner to the mouth's height 7 cm out; never the lips' red,
   the slit or the nostrils, and below the chin only the jaw's underside. The edge fades over `feather_m` across
   that field's zero line (a colour attribute's alpha, COLOR_0 in glTF, multiplied in Godot), so it is a smooth
-  curve thinning into single hairs, not a line of whole faces. `volume` gives 1-6 layers, each standing further
-  off (more at the chin than the moustache) and sparser; past 6 cm `length` a closed, flattened tube hangs from
-  under the chin, narrowing to a ragged tip, held 2 cm in front of the chest and skinned from the head into the
-  neck and chest. All of it scales with the head (`hair.head_scale`). Texture and UVs are square on the skin
-  (`beard_pixels`), and `hairtex.mip_check` refuses a beard whose holes Godot's mips would draw as patches.
+  curve thinning into single hairs, not a line of whole faces.
+  **Everything but stubble is strand cards over one shell.** The shell is the root mat that hides the skin, as a
+  scalp's cap does; over it `_beard_cards` scatters roots across the field at the style's `density` and grows a
+  bowed three-column ribbon from each, following the face's surface and then falling into gravity, held off the
+  body all the way (2 cm below the chin, so it hangs clear of the chest and the shirt on it). `volume` raises
+  the card count, `clump` gathers them into locks (each clump's members bend into its spine over their second
+  half), `beard_braids` winds the hanging ones into plaits, and a card's fade falls to 0.42 over its last
+  half, which drops the texture's hairs one by one and leaves a scatter of tips rather than a cut. Stubble
+  keeps the shell alone, and the code says why: at 2.5 mm a hair is a third of a screen pixel long at 4 m.
+  A beard past 6 cm leaves `objects["beard_strand"]`, its hanging cards as their own mesh with follow-through's
+  strand contract - one `ft_centrelines` chain a lock, since one chain down a sheet as wide as a jaw twists it -
+  which the pipeline keeps out of the join and the strand stage springs (the registry's `beard` type stiffens
+  and damps it: on the hair material's own limits a dwarf's beard swung 70 degrees and went into his own face).
+  All of it scales with the head (`hair.head_scale`). Texture and UVs are square on the skin (`beard_pixels`;
+  the cards have a second sheet with no under-layer, so their gaps show), and three checks refuse a bad beard
+  before the export: `hairtex.mip_check` (holes Godot's mips would draw as patches), `_coverage_check` (a bald
+  region of the field - the notch under the lip, the corners) and `hairtex.silhouette_check` (an outline that
+  does not wander at 0.6 m or 4 m: a decal, not hair).
   Colour: the hair colour times 0.95 unless `beard_colour`. The report's `face.parts.beard` has the regions'
-  vertex counts, the marks, layers, the hanging part and the Godot sampling check.
+  vertex counts, the marks, the cards and their coverage, the strand mesh and its contract, and the Godot
+  sampling and silhouette checks.
 - **Fringe** (`hair.add(fringe=True)` or a dict over `hair.FRINGE`, a brief's `hair.fringe`, a spec's
   `[hair] fringe = true`): a sheet over any preset from near the crown (0.95 h) down to the brows (0.2 h),
   62 degrees either side of the front, hung straight down from the widest point above (over the brow ridge,

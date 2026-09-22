@@ -166,6 +166,13 @@
     "long_hair":     {"family": "strand", "classes": ["strand"], "material": "hair",
                       "names": ["hair", "lock", "locks", "tress", "tresses", "mane", "strand"],
                       "description": "a lock of loose long hair: one chain per lock, hanging from the head"},
+    "beard":         {"family": "strand", "classes": ["strand"], "material": "hair",
+                      "names": ["beard", "whiskers", "goatee"],
+                      "description": "the hanging part of a long beard, in locks from the chin: it lags a nod and a step, and must stay off the chest",
+                      "strand": {"max_angle_deg": 12.0, "root_max_angle_deg": 16.0, "segment_m": 0.06,
+                                 "damping_ratio": 0.85, "min_bones": 3, "max_bones": 5,
+                                 "collision_friction": 0.35},
+                      "source": "A beard is not a ponytail: its locks are short, packed against one another and lying on the chest, so what limits them is not gravity alone but the mass beside them and the body behind. Left at the hair material's own limits (40/60 degrees, damping 0.5) a dwarf's beard swung 70-75 degrees on a run and went 4 cm into his own face; held to 12/16 degrees and damped 0.85 it swings 24 degrees, settles in 0.8 s and stays out of him (6 mm at 16/22, 3 mm here, against a 5 mm limit)."},
 
     "flag":          {"family": "shell", "classes": ["hanging_sheet"], "fabric": "cotton", "names": ["flag", "banner", "pennant", "standard"]},
     "curtain":       {"family": "shell", "classes": ["hanging_sheet"], "fabric": "cotton", "names": ["curtain", "drape", "tapestry"]},

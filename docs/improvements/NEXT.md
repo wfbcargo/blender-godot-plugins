@@ -68,7 +68,11 @@ fixed).
 **Open, in order:**
 1. The cyclops' pupil renders as a dark square close up; a shadow band at eye height from the closed side
    sockets; pale specks where the brow cards meet.
-2. Beards are layered shells, not strands; the long beard is rigid (no sway, no braids).
+2. ~~Beards are layered shells, not strands; the long beard is rigid (no sway, no braids).~~ Done on
+   `species-2-hair`: a root mat under strand cards grown from the beard field (density, width, clumping,
+   `braids`), the hanging part its own strand mesh with a chain a lock and a chest collider, and three checks -
+   a coverage check on the field's regions, a silhouette check at 0.6 m and 4 m, and the swing check in motion
+   (which caught a beard swinging 4 cm into its own face). Stubble stays a shell, and the code says why.
 3. Dwarf and gnome hands cannot reach the top of the head (warned); cast_morgan walks at Froude 0.12.
 4. Tails only replace legs, are at most leg length, have no side fins; mass treats a mermaid as having legs.
 5. Eyes have no bone of their own; no jaw bone, so no open mouth (bites, roars).
@@ -200,8 +204,9 @@ What changed, baked-clip numbers from `rigify_human` (walk / run) and Godot (`mo
 jaw (aged after the fit, and the photo's jaw is under a beard). ~~The beard's back edge is saw-toothed~~ (round 2
 of `species-1-beard`: the region is a signed distance on the face, `brows.beard_field`, faded across its zero line,
 so the edge is a smooth curve; beards also got `full` / `long`, layers, a hanging part, and `beard_length` /
-`beard_volume`). Open: the long beard's hanging part is a rigid tube skinned head-to-chest, no follow-through
-sway yet, and no braids. ~~The beard's square patches in Godot~~ fixed on `species-1-beard`: V repeated every 12 mm on
+`beard_volume`). ~~Open: the long beard's hanging part is a rigid tube skinned head-to-chest, no follow-through
+sway yet, and no braids~~ (round 2 of `species-2-hair`: the whole beard is strand cards, the hanging part is a
+follow-through strand mesh with one chain a lock, and `hair.beard_braids` plaits it). ~~The beard's square patches in Godot~~ fixed on `species-1-beard`: V repeated every 12 mm on
 512 rows (texels 7:1), so Godot's mip blurred U into blocks and scissor cut the texture's 35% holes out whole;
 now square texels, an opaque under-layer and `humanform.hairtex.mip_check`, which refuses such a shell. Reading a photo's ratios is by hand (a canvas grid in the browser, ~5 min a face; see humanform
 SKILL.md) - a landmark detector would make it one call. Likenesses set proportions, not identity: skin detail,

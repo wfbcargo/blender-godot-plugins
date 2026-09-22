@@ -1,8 +1,9 @@
-"""How a hair shell's texture will sample in Godot: texel shape on the skin and holes that survive the mips.
+"""How a hair part will read in Godot: its texture's texels and mips, and its outline at a distance.
 
     from humanform import hairtex
     rep = hairtex.mip_check(ob)          # a hair shell object with a lookdev hair material
     rep["ok"], rep["problems"]           # False and the reasons when Godot will draw holes as patches
+    rep = hairtex.silhouette_check(ob)   # ... and when its outline is a curve, not the ends of hairs
 
 Why this exists. The first beards were a shell whose V repeated every 12 mm (a strand's length) while U repeated
 every 40 mm, on a 256 x 512 texture: a texel was 0.16 mm across the strands and 0.023 mm along them, 7:1. Godot
@@ -225,3 +226,149 @@ def arrays(ob, material=None):
         tf = (ld.get("godot") or {}).get("texture_filter")
         look["anisotropic"] = 4 if tf in (4, 5) else 0     # *_WITH_MIPMAPS_ANISOTROPIC; Godot's default is 4x
     return co[verts].reshape(-1, 3, 3), uv[loops].reshape(-1, 3, 2), A, alpha, look
+
+
+# --------------------------------------------------------------------------- the silhouette at a distance
+
+# Why this exists. A beard grown as layered shells over the skin has a smooth outline: every edge of it is
+# the fade's zero line on the face, a curve. Hair does not - its outline is the ends of thousands of hairs,
+# so the edge wanders by a few millimetres from column to column. That is most of what tells the eye "hair"
+# from "a brown decal", and it is the one thing the mip check cannot see (it only looks at the texture).
+# `silhouette_check` rasterises the part's own geometry, with the fade's vertex alpha, at the screen
+# resolution a camera has at `distances_m`, and measures how far the outline wanders from a smoothed copy
+# of itself. A shell measures near zero at every distance; strand cards measure several pixels close up and
+# still a fraction of one across a room. It also measures how much of the part survives to 4 m, because a
+# beard made only of thin cards can dissolve into nothing at a distance.
+SIL_DISTANCES_M = (0.6, 4.0)
+SIL_ROUGH_MIN_PX = {0.6: 1.5, 4.0: 0.35}    # the outline must wander at least this far from its own smoothing
+SIL_WINDOW_M = 0.012        # the outline is smoothed over this much of the subject, not a fixed number of
+                            # pixels: at 0.6 m that is 40 screen pixels and at 4 m it is 6, so the measure asks
+                            # the same question at both - do the ends of the hairs still break the edge up?
+SIL_ALPHA_CUTOFF = 0.5      # vertex alpha (the fade) below which a triangle does not draw
+SIL_KEEP_MIN = 0.6          # the area left at the far distance, as a share of the near one's
+SIL_MAX_SAMPLES = 1500000
+SIL_DIRECTIONS = (("front", (0.0, -1.0, 0.0)), ("side", (-1.0, 0.0, 0.0)))
+
+
+def _rasterise(P, A, eye, forward, up, f, cutoff=SIL_ALPHA_CUTOFF, max_samples=SIL_MAX_SAMPLES):
+    """A boolean coverage mask of triangles P (T, 3, 3) with corner alpha A (T, 3), seen from `eye` along
+    `forward`, at `f` metres a pixel on the subject. Points are scattered inside each triangle at about one
+    per pixel (at least three), so a card narrower than a pixel still marks the pixels it crosses."""
+    right = np.cross(forward, up)
+    right = right / max(np.linalg.norm(right), 1e-12)
+    up = np.cross(right, forward)
+    E1, E2 = P[:, 1] - P[:, 0], P[:, 2] - P[:, 0]
+    area = 0.5 * np.linalg.norm(np.cross(E1, E2), axis=1)
+    per = np.clip(np.ceil(area / (f * f)).astype(np.int64) * 2, 3, 400)
+    if per.sum() > max_samples:
+        per = np.maximum(3, (per * (max_samples / per.sum())).astype(np.int64))
+    idx = np.repeat(np.arange(len(P)), per)
+    rng = np.random.RandomState(5)
+    u = rng.uniform(size=len(idx))
+    v = rng.uniform(size=len(idx))
+    flip = u + v > 1.0
+    u, v = np.where(flip, 1.0 - u, u), np.where(flip, 1.0 - v, v)
+    pts = P[idx, 0] + E1[idx] * u[:, None] + E2[idx] * v[:, None]
+    al = A[idx, 0] * (1 - u - v) + A[idx, 1] * u + A[idx, 2] * v
+    pts = pts[al >= cutoff]
+    if not len(pts):
+        return np.zeros((1, 1), bool)
+    d = pts - eye
+    depth = d @ forward
+    depth = np.where(depth > 1e-6, depth, 1e-6)
+    # a perspective camera whose pixel is `f` metres at the subject's own depth
+    scale = float(np.median(depth))
+    x = (d @ right) / depth * scale / f
+    y = (d @ up) / depth * scale / f
+    xi = np.round(x - x.min()).astype(np.int64)
+    yi = np.round(y - y.min()).astype(np.int64)
+    W, H = int(xi.max()) + 1, int(yi.max()) + 1
+    if W * H > 40000000:
+        return np.zeros((1, 1), bool)
+    mask = np.zeros((H, W), bool)
+    mask[yi, xi] = True
+    return mask
+
+
+def _wander(mask, window):
+    """How far the silhouette's lower outline (the hair's ends) wanders from a `window`-wide moving average
+    of itself, in pixels. Near zero for a smooth curve, several pixels for tips."""
+    window = max(3, int(window) | 1)
+    cols = np.nonzero(mask.any(axis=0))[0]
+    if len(cols) < window + 2:
+        return 0.0, len(cols)
+    # the image's rows run up with z, so the hair's ends are the SMALLEST row of each column
+    rows = np.arange(mask.shape[0])[:, None]
+    low = np.where(mask, rows, mask.shape[0]).min(axis=0)[cols].astype(np.float64)
+    pad = np.concatenate([np.full(window // 2, low[0]), low, np.full(window // 2, low[-1])])
+    smooth = np.convolve(pad, np.ones(window) / window, mode="valid")
+    return float(np.abs(low - smooth).mean()), len(cols)
+
+
+def silhouette_check(ob=None, *, P=None, A=None, distances_m=SIL_DISTANCES_M, vfov_deg=VFOV_DEG,
+                     image_px=IMAGE_PX, rough_min_px=None, keep_min=SIL_KEEP_MIN,
+                     directions=SIL_DIRECTIONS, name=None):
+    """Whether a hair part's outline reads as hair at each of `distances_m`. Pass a Blender object `ob`
+    (every triangle of it, with the vertex alpha of its fade colour attribute) or the arrays P (T, 3, 3)
+    and A (T, 3). World space, z up, the face toward -y.
+
+    {ok, problems, views: {"<dir> <d>m": {wander_px, wander_mm, columns, area_m2}}}. A view fails when its
+    outline wanders less than `rough_min_px` (SIL_ROUGH_MIN_PX): it is then a curve, not hair. The far
+    distance also fails when less than `keep_min` of the near distance's area is left - a beard of cards so
+    thin it dissolves across a room."""
+    rough_min_px = dict(SIL_ROUGH_MIN_PX if rough_min_px is None else rough_min_px)
+    if ob is not None:
+        name = name or ob.name
+        P, A = _tri_alpha(ob)
+    rep = {"name": name, "triangles": int(len(P)), "views": {}}
+    problems = []
+    centre = P.reshape(-1, 3).mean(axis=0)
+    for dname, fwd in directions:
+        fwd = np.asarray(fwd, np.float64)
+        fwd = fwd / np.linalg.norm(fwd)
+        areas = {}
+        for d in distances_m:
+            f = d * 2.0 * math.tan(math.radians(vfov_deg) / 2.0) / image_px
+            mask = _rasterise(P, A, centre - fwd * d, fwd, np.array([0.0, 0.0, 1.0]), f)
+            wander, cols = _wander(mask, round(SIL_WINDOW_M / f))
+            areas[d] = float(mask.sum()) * f * f
+            rep["views"][f"{dname} {d:g}m"] = {"wander_px": round(wander, 2),
+                                               "wander_mm": round(wander * f * 1000, 2),
+                                               "columns": cols, "area_m2": round(areas[d], 6)}
+            lo = rough_min_px.get(d)
+            if lo is not None and cols >= SIL_WINDOW_M / f + 2 and wander < lo:
+                problems.append(f"{dname} at {d:g} m: the outline wanders {wander:.2f} px from its own smoothing "
+                                f"(at least {lo} wanted) - a smooth curve reads as a decal, not as hair; grow it "
+                                "as strand cards with ragged lengths, or fade their tips further")
+        near, far = min(distances_m), max(distances_m)
+        if areas.get(near, 0) > 0 and areas.get(far, 0) / areas[near] < keep_min:
+            problems.append(f"{dname}: {areas[far] / areas[near]:.0%} of its area is left at {far:g} m "
+                            f"(at least {keep_min:.0%} wanted) - the cards are too thin or too few to hold "
+                            "the shape across a room")
+    rep["ok"] = not problems
+    rep["problems"] = problems
+    return rep
+
+
+def _tri_alpha(ob):
+    """(P (T, 3, 3) world corner positions, A (T, 3) corner alpha) of every triangle of `ob`; alpha comes
+    from its first colour attribute (the fade), 1 without one."""
+    me = ob.data
+    me.calc_loop_triangles()
+    tris = me.loop_triangles
+    loops = np.empty(len(tris) * 3, np.int64)
+    tris.foreach_get("loops", loops)
+    verts = np.empty(len(tris) * 3, np.int64)
+    tris.foreach_get("vertices", verts)
+    co = np.empty(len(me.vertices) * 3, np.float64)
+    me.vertices.foreach_get("co", co)
+    m = np.array(ob.matrix_world, np.float64)
+    co = co.reshape(-1, 3) @ m[:3, :3].T + m[:3, 3]
+    A = np.ones((len(tris), 3))
+    ca = me.color_attributes[0] if len(me.color_attributes) else None
+    if ca is not None:
+        c = np.empty(len(ca.data) * 4, np.float64)
+        ca.data.foreach_get("color", c)
+        c = c.reshape(-1, 4)[:, 3]
+        A = (c[loops] if ca.domain == "CORNER" else c[verts]).reshape(-1, 3)
+    return co[verts].reshape(-1, 3, 3), A
