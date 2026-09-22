@@ -174,7 +174,8 @@ def preset(sp, doc=None):
     h = sp["heads"]
     p = {"label": sp.get("label", sp["id"]), "species": sp["id"],
          "heads": h if isinstance(h, dict) else {"any": list(h)},
-         "ratios": sp["ratios"], "derived": sp.get("derived") or real["derived"],
+         "ratios": sp["ratios"], "derived": sp.get("derived") or real["derived"], "bmi": sp.get("bmi"),
+         "bmi_build": (sp.get("pre_warp") or {}).get("bmi"),
          "features": copy.deepcopy(sp.get("features") or {}), "levels": {}}
     for sex in ("female", "male"):
         src, dst = [0.0], [0.0]
@@ -333,7 +334,12 @@ def pre_warp(s, sp):
     elif rng_pre and isinstance(s.get("build"), str):
         from . import sheet
         b = (sheet.BUILDS.get(s["build"]) or {}).get("bmi")
-        if b is not None and not rng_pre[0] <= b <= rng_pre[1]:
+        if b is None:
+            # a build word with no BMI ("average") fits ANSUR's mean for the sex, which is the species' build only
+            # when it lies in its pre-warp range: a scrawny goblin's average brief came out an average man's
+            from . import species_design as sd
+            b = sd.LIMB_BAND[sex]["bmi"]
+        if not rng_pre[0] <= b <= rng_pre[1]:
             out["bmi"] = round(float(np.clip(b, *rng_pre)), 2)
             notes.append(f"build {s['build']!r} (BMI {b}) held at BMI {out['bmi']}, inside the pre-warp range "
                          f"{rng_pre[0]}-{rng_pre[1]}")
@@ -636,6 +642,23 @@ def _lbs(co, idx, w, T):
     return out + np.einsum("nk,nk,nkj->nj", w, corr, Y[idx])
 
 
+def _clamp_girth(sp, sex, region, extra):
+    """The girth factor the clamp's uniform scale `extra` gives a region: by the adult build law on the whole scale
+    from the fitted human (species_design.clamp_girth, with the preset's girth_law), else geometric (`extra`, a
+    preset without one)."""
+    gl = sp.get("girth_law") or {}
+    a = (gl.get("exponents") or {}).get(region)
+    s = (gl.get("scale") or {}).get(sex)
+    if a is None or abs(extra - 1.0) < 1e-9:
+        return extra
+
+    def law(x):
+        return x ** float(a) if x < 1.0 else x
+    if s is None:                                 # a preset before girth_law.scale: the law on the clamp alone
+        return law(extra)
+    return law(float(s) * extra) / law(float(s))
+
+
 class _Warp:
     """What the solve varies (x) and what the preset fixes, turned into per-bone transforms by role."""
 
@@ -647,7 +670,16 @@ class _Warp:
         self.seg = {k: float(seg.get(k, 1.0)) * extra for k in
                     ("femur", "tibia", "humerus", "forearm", "hand", "foot", "spine", "neck", "head")}
         g = sexed(sp.get("girth"), sex)
-        self.girth = {k: float(g.get(k, 1.0)) * extra for k in ("legs", "arms", "neck", "torso")}
+        # a pre-warp human clamped to STATURE_PRE is scaled by `extra` after the fit: its girths take the adult
+        # build law (species_design.GIRTH_LAW, in the preset's girth_law) when it is shrunk, as design() did
+        self.girth = {k: float(g.get(k, 1.0)) * _clamp_girth(sp, sex, k, extra) for k in ("legs", "arms", "neck", "torso")}
+        # the ribcage's own depth and breadth and the forearm's girth, on top (1 on a preset without them)
+        self.extra_girth = {k: float(g.get(k, 1.0)) for k in ("forearm", "chest_depth", "chest_breadth")}
+        # a preset with a girth_law gives the chest a depth that follows the breadth broad shoulders spread it to
+        self.chest_follows = bool(sp.get("girth_law"))
+        # the limbs' support girth (a big body's): the limbs', not the pelvis's - the buttocks and the hip section
+        # keep the trunk's build (a troll's waist over hip fell 1.02 -> 0.86 with it on the pelvis)
+        self.support = float((((sp.get("girth_law") or {}).get("support") or {}).get(sex)) or 1.0)
         w = sexed(sp.get("widths"), sex)
         self.widths = {k: float(w.get(k, 1.0)) * extra for k in ("shoulder_width", "hip_width")}
         sc = sp.get("spine") or {}
@@ -738,15 +770,23 @@ class _Warp:
         # the chest's breadth, beyond its girth: half of what broad shoulders ask over the torso's own girth
         chest_x = float(np.clip(math.sqrt(max(self.widths["shoulder_width"] / max(gt, 1e-3), 1e-3)), 0.8, 1.25))
         chest = self.r.spine[-1]
+        # the ribcage: the upper two bones of the spine above the pelvis (the chest and the one under it)
+        ribs = set(self.r.spine[max(1, len(self.r.spine) - 2):])
+        cd, cb, gf = (self.extra_girth[k] for k in ("chest_depth", "chest_breadth", "forearm"))
         S = {}
         for n in self.r.names:
             k = self.r.kind.get(n)
             if k == "pelvis":
                 # the pelvis carries the buttocks and the tops of the thighs: it takes the legs' girth, so a
                 # buttock does not overhang a thigh girthed less than the trunk
-                S[n] = (gl * f["pelvis_x"], l_sp, gl)
+                gp = gl / self.support
+                S[n] = (gp * f["pelvis_x"], l_sp, gp)
             elif k == "spine":
-                S[n] = (gt * (chest_x if n == chest else 1.0), l_sp, gt)
+                bx = chest_x if n == chest else 1.0
+                dz = chest_x if (n == chest and self.chest_follows) else 1.0
+                if n in ribs:
+                    bx, dz = bx * cb, dz * cd
+                S[n] = (gt * bx, l_sp, gt * dz)
             elif k == "neck":
                 S[n] = (gn, l_neck, gn)
             elif k == "head":
@@ -757,7 +797,7 @@ class _Warp:
                 g = ga * self._follow(f["humerus"], self.seg["humerus"])
                 S[n] = (g, f["humerus"], g)
             elif k == "fore":
-                g = ga * self._follow(f["forearm"], self.seg["forearm"])
+                g = ga * self._follow(f["forearm"], self.seg["forearm"]) * gf
                 S[n] = (g, f["forearm"], g)
             elif k in ("hand", "digit"):
                 S[n] = (f["hand"],) * 3
@@ -989,7 +1029,7 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
     lv = levels(sp, sex)
 
     bpy.context.view_layer.update()
-    m0 = measure.measurements(human, sex, fast=True)
+    m0 = measure.measurements(human, sex, fast=True, girths=True)
     if verbose:
         print("species setup", round(time.time() - t0, 2), "s")
     tg = targets(m0, sp, sex, H, style)
@@ -1019,7 +1059,7 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
     if "shoulder_width" in tg and m0.get("shoulder_width") and clav:
         wp.fixed["clavicle"] = 1.0 + (tg["shoulder_width"]["m"] - m0["shoulder_width"] * wp.girth["arms"]) / (2 * clav_x)
     if "hip_width" in tg and m0.get("hip_width"):
-        wp.fixed["pelvis_x"] = tg["hip_width"]["m"] / (m0["hip_width"] * wp.girth["legs"])
+        wp.fixed["pelvis_x"] = tg["hip_width"]["m"] / (m0["hip_width"] * wp.girth["legs"] / wp.support)
 
     lean = _balance(wp, rigd, body, mask, mix0, float(m0["stature"]), H) if (wp.kyph or wp.lord) else 0.0
 
@@ -1083,6 +1123,14 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
                 want = H if key == "top" else tg[key]["m"]
                 tol = 0.01 if key == "top" else tg[key]["tol"] * H
                 errs[key] = (m[meas] - want, tol)
+        # the crotch: thighs thickened by the build meet below it when the hips stay narrow (the first halfling
+        # and dwarf on the adult build law: 6-8 cm low, the hip joints outside the pelvis). Scored with the rest
+        # and, when low, answered by spreading the pelvis rather than holding the hip breadth
+        crotch_low = 0.0
+        if "crotch" in tg and m.get("crotch_z") is not None:
+            errs["crotch"] = (m["crotch_z"] - tg["crotch"]["m"], tg["crotch"]["tol"] * H)
+            if errs["crotch"][0] < -0.5 * errs["crotch"][1]:
+                crotch_low = -errs["crotch"][0] / H
         history.append({k: round(v[0] / v[1], 3) for k, v in errs.items()})
         score = max((abs(e) / tol for e, tol in errs.values()), default=0.0)
         if best is None or score < best[0]:
@@ -1102,7 +1150,9 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
                 wp.fixed[fk] *= tg[key]["m"] / m[key]
         if "shoulder_width" in errs and clav:
             wp.fixed["clavicle"] -= errs["shoulder_width"][0] / (2 * clav_x)
-        if "hip_width" in errs:
+        if crotch_low:
+            wp.fixed["pelvis_x"] *= 1.0 + min(0.15, 2.0 * crotch_low)
+        elif "hip_width" in errs:
             wp.fixed["pelvis_x"] *= tg["hip_width"]["m"] / m["hip_width"]
 
     if best is not None and best[3] != len(history) - 1:
@@ -1125,6 +1175,7 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
             achieved[key] = {"target": row["frac"], "value": round(v, 4), "species": round(row["species"], 4),
                              "off_tol": round((v - row["frac"]) / max(row["tol"], 1e-4), 2)}
     hd = (Hm / float(m["head_length"])) if m.get("head_length") else None
+    report.update({"build": _build_landed(m0, m, wp, x, rigd)})
     report.update({
         "species": sp["id"], "warped": True, "stature": round(Hm, 4), "stature_target": H,
         "stature_pre": round(float(m0["stature"]), 4),
@@ -1141,6 +1192,38 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
         "meshes": [mm.ob.name for mm in meshes], "shape_keys": len(body.keys),
         "seconds": round(time.time() - t0, 2)})
     return report
+
+
+def _build_landed(m0, m, wp, x, rigd):
+    """Whether the girth the preset asks for lands on the mesh: each limb's girth over its length before and
+    after the warp, their ratio (`landed`) against the bones' own girth-over-length scale (`asked`), and the
+    chest's depth and breadth likewise (the ribcage bones' depth and breadth scales)."""
+    S = wp.scales(x)
+    first = {k: ch for k, ch in (("thigh", rigd.legs), ("shin", rigd.legs), ("upper_arm", rigd.arms),
+                                 ("forearm", rigd.arms))}
+    idx = {"thigh": 0, "shin": 1, "upper_arm": 1, "forearm": 2}
+    out = {}
+    for limb, limbs in first.items():
+        ch = next(iter(limbs.values()), None)
+        key = f"{limb}_girth_to_length"
+        if not ch or len(ch) <= idx[limb] or not ch[idx[limb]] or m0.get(key) is None or m.get(key) is None:
+            continue
+        sx, sy, _ = S[ch[idx[limb]]]
+        out[limb] = {"before": round(m0[key], 3), "after": round(m[key], 3), "landed": round(m[key] / m0[key], 3),
+                     "asked": round(sx / sy, 3)}
+    chest = rigd.spine[-1]
+    if m0.get("chest_depth") and m.get("chest_depth") and m0.get("chest_breadth") and m.get("chest_breadth"):
+        sx, _, sz = S[chest]
+        out["chest"] = {"depth_to_breadth": {"before": round(m0["chest_depth"] / m0["chest_breadth"], 3),
+                                             "after": round(m["chest_depth"] / m["chest_breadth"], 3)},
+                        "depth_landed": round(m["chest_depth"] / m0["chest_depth"], 3),
+                        "breadth_landed": round(m["chest_breadth"] / m0["chest_breadth"], 3),
+                        "asked_depth": round(sz, 3), "asked_breadth": round(sx, 3),
+                        "merged_with_arms": bool(m.get("chest_arms_merged"))}
+    for k in ("thigh_circ", "calf_circ", "upper_arm_circ", "forearm_circ", "neck_circ", "chest_circ"):
+        if m0.get(k) and m.get(k):
+            out.setdefault("circ_m", {})[k] = [round(m0[k], 4), round(m[k], 4)]
+    return out
 
 
 EYE_FALLOFF = 2.4         # eyeball radii out from the eye's centre over which its region's scale fades to none
