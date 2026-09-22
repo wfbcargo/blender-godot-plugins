@@ -410,3 +410,20 @@ Round 2 (the coordinator's follow-ups):
   (`FAIR`) and reports the band's facing (`seam_band_nz`, warned under `FAIR_NZ_MIN`); the scales' shading is
   normalised to a mean of 1 (`_scale_mean_shade`), and `skin.seam_tone` checks the albedo's mean across the seam
   (the bake stage fails when a band leaves the skin-to-scales range).
+
+Round 3 (the cyclops' face):
+
+- **Brows follow the eyes** (`eye_layout._brow_cards`, `brows._side_cards`): every new eye gets a brow arch, the
+  person's brow carried from their eye and scaled with the new one; a median eye takes both halves, heads meeting on
+  the midline (`BROW_GAP` apart) - one continuous arch. A body without an eye layout takes the human pair unchanged.
+- **Lashes lie along the lid.** The picket fence had a plain cause: MPFB's lash UVs are an atlas, and `V < 0.2` taken
+  as the root row called half of each card roots, all laid on the lid margin with the rest standing off it. Roots are
+  now the points nearest the ball (`_lash_roots`), and the rest keep their offset in the lid's own frame
+  (`_lid_frames`). Check: `lash_angles` - the mean angle out of the lid, against the person's (60 deg; the new eye's
+  63 / 61), fails past `LASH_ANGLE_TOL`.
+- **The socket is the person's, scaled** (`_socket`): the skin's depth round a new eye - lid fold, brow ridge
+  overhang and height, the rim - read off the person's eye in its radii and laid round the new eye in its radii
+  (their outer half on both sides of a median eye), before the lids are carved. The exposed share holds (19%).
+- Open: a band of shadow still runs across the face at the eye's height under the midday sun, from the closed
+  orbits either side under the brow ridge; the brow cards' heads show pale specks where the card texture's head
+  lies on skin.

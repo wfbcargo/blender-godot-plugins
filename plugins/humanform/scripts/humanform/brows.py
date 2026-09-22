@@ -620,14 +620,18 @@ HEAD_SHARE_MIN = 0.6      # brow and lash cards: the least head weight their tri
 
 
 def _side_cards(ob, part, d):
-    """[(name, card)] a part is laid from: the human pair, or for lashes on a head whose eyes humanform.eye_layout
-    arranged (its PROP on the body), the human cards of the eyes it kept and one set per eye it placed."""
-    lay = ob.get("hf_eye_layout") if part == "lashes" else None
+    """[(name, card)] a part is laid from: the human pair, or on a head whose eyes humanform.eye_layout arranged (its
+    PROP on the body), the human cards of the eyes it kept and one set per eye it placed - lashes on its lids, and a
+    brow arch over it (one continuous arch across the midline over a median eye). A human body has no PROP and takes
+    exactly the human pair."""
+    lay = ob.get("hf_eye_layout") if part in ("lashes", "brows") else None
     if not lay:
         return [("L", d["L"]), ("R", d["R"])]
     lay = json.loads(lay)
-    out = [(side, d[side]) for side in ("L", "R") if side not in lay.get("hide_lashes", [])]
-    return out + [(f"e{i}", c) for i, c in enumerate(lay.get("lashes", []))]
+    if part == "brows" and "brows" not in lay:
+        return [("L", d["L"]), ("R", d["R"])]              # a layout from before brows followed the eyes
+    out = [(side, d[side]) for side in ("L", "R") if side not in lay.get(f"hide_{part}", [])]
+    return out + [(f"e{i}", c) for i, c in enumerate(lay.get(part, []))]
 
 
 def _cards(ob, co, part, base, rig, colour, uv_name, head, brow_shape="natural", scale=1.0):
