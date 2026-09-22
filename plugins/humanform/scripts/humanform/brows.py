@@ -78,17 +78,20 @@ LOOK = {
     "body_hair": {"texture_px": [256, 512], "strands_per_tile": 48, "root_zone": [0.05, 0.4], "tip_zone": [0.6, 0.95],
                   "root_fade": [0.0, 0.2], "tip_mult": 1.15, "gap_mult": 0.5, "wave_px": 1.2},
     "beard": {"texture_px": [512, 512]},     # its own pixels (`beard_pixels`)
+    # the strand cards' own sheet: the same hairs at the same size, but no under-layer between them - a card
+    # has to show skin (or the shell) through its gaps or it is a brown strip
+    "beard_cards": {"texture_px": [512, 512]},
 }
 
-# Facial hair (`add(beard=...)`): layered shells over the lower face and, for a long beard, a part hanging below
-# the chin, placed from the face's own features (data/face_features.json: the mouth's slit and corners, the nose's
+# Facial hair (`add(beard=...)`): a shell over the lower face with strand cards grown out of it and, for a long
+# beard, a hanging part that sways, placed from the face's own features (data/face_features.json: the mouth's slit and corners, the nose's
 # base) and the head bone's weights. Where it grows is a signed distance on the face (`beard_field`), so its edge
 # is a smooth curve faded over `feather_m` (vertex alpha, interpolated across faces), not a line of whole faces.
 # Each style: the regions it covers, `lift_m` off the skin, a hair's length in the texture (`strand_m`), the share
 # of the texture its hairs cover (`cover`), whether an opaque under-layer fills between them (`under`: a full
 # beard hides the skin the way a scalp's cap does; stubble shows it), the fade (`feather_m`), and its `length_m`
-# at the chin and `volume` (0..1): `beard_spec` turns those into layers standing further off toward the chin and,
-# past BEARD_HANG_MIN_M, a hanging part. A spec can set `hair.beard_length` / `hair.beard_volume`.
+# at the chin and `volume` (0..1): `beard_spec` turns those into the cards' count and length and, past
+# BEARD_HANG_MIN_M, a hanging part of its own. A spec can set `hair.beard_length` / `beard_volume` / `beard_braids`.
 #
 # The texture (`beard_pixels`) is square on the skin: BEARD_PX texels over TILE_M both ways, and every part's UVs
 # are arc lengths in those units, so a texel is as long along the hairs as across them. The first beards
@@ -96,19 +99,39 @@ LOOK = {
 # sampled U seven times too coarse, and the texture's 35% holes - kept at every level by the coverage mips - came
 # out as a grid of square patches of skin in the game (Blender's review samples level 0). `hairtex.mip_check`
 # fails a beard like that before it is exported.
+#
+# **Cards.** A beard is hair, so everything longer than a few millimetres grows as strand cards - the same
+# thing scalp hair's fall and strands are - and the shell is only the root mat under them (a style's `cards`;
+# `_beard_cards`). Layered shells were what made a beard read as a brown decal: a layer is the face's own
+# surface offset along its normal, so its outline is the fade's zero line, a smooth curve, and no texture makes
+# a curve look like the ends of hairs. `hairtex.silhouette_check` is the check that says so, in pixels.
+# **Stubble keeps the shell and grows no cards**, because a shell is right there: a 2.5 mm hair is a third of a
+# screen pixel long at 4 m and eight at 0.6 m, so a card could not show its length, only cost its geometry -
+# what reads as stubble is the texture's dots on the skin, which is exactly what a shell draws.
 BEARD_STYLES = {
     "stubble": {"regions": ("moustache", "corners", "chin", "jaw"), "lift_m": 0.0003, "strand_m": 0.0025,
-                "cover": 0.4, "under": False, "feather_m": 0.005, "length_m": 0.0025, "volume": 0.0},
+                "cover": 0.4, "under": False, "feather_m": 0.005, "length_m": 0.0025, "volume": 0.0,
+                "cards": None},
     "short": {"regions": ("moustache", "corners", "chin", "jaw"), "lift_m": 0.0025, "strand_m": 0.012,
-              "cover": 0.85, "under": True, "feather_m": 0.005, "length_m": 0.012, "volume": 0.25},
+              "cover": 0.85, "under": True, "feather_m": 0.005, "length_m": 0.014, "volume": 0.25,
+              "cards": {"density": 40000, "width_m": 0.0055, "clump": 0.45, "cover": 0.5, "strand_m": 0.012,
+                        "jitter": 0.3, "sweep": 0.15, "droop": 0.18, "taper": 0.45}},
     "goatee": {"regions": ("moustache", "corners", "chin"), "lift_m": 0.0025, "strand_m": 0.012, "cover": 0.85,
-               "under": True, "feather_m": 0.005, "length_m": 0.012, "volume": 0.25},
+               "under": True, "feather_m": 0.005, "length_m": 0.014, "volume": 0.25,
+               "cards": {"density": 40000, "width_m": 0.0055, "clump": 0.45, "cover": 0.5, "strand_m": 0.012,
+                         "jitter": 0.3, "sweep": 0.15, "droop": 0.18, "taper": 0.45}},
     "moustache": {"regions": ("moustache",), "lift_m": 0.002, "strand_m": 0.010, "cover": 0.85, "under": True,
-                  "feather_m": 0.003, "length_m": 0.010, "volume": 0.2},
+                  "feather_m": 0.003, "length_m": 0.012, "volume": 0.2,
+                  "cards": {"density": 70000, "width_m": 0.005, "clump": 0.5, "cover": 0.5, "strand_m": 0.010,
+                            "jitter": 0.3, "sweep": 0.45, "droop": 0.12, "taper": 0.4}},
     "full": {"regions": ("moustache", "corners", "chin", "jaw"), "lift_m": 0.003, "strand_m": 0.02, "cover": 0.85,
-             "under": True, "feather_m": 0.007, "length_m": 0.035, "volume": 0.6},
+             "under": True, "feather_m": 0.007, "length_m": 0.055, "volume": 0.6,
+             "cards": {"density": 26000, "width_m": 0.0085, "clump": 0.55, "cover": 0.5, "strand_m": 0.02,
+                       "jitter": 0.35, "sweep": 0.2, "droop": 0.3, "taper": 0.35}},
     "long": {"regions": ("moustache", "corners", "chin", "jaw"), "lift_m": 0.003, "strand_m": 0.03, "cover": 0.85,
-             "under": True, "feather_m": 0.007, "length_m": 0.24, "volume": 0.7},
+             "under": True, "feather_m": 0.007, "length_m": 0.24, "volume": 0.7,
+             "cards": {"density": 24000, "width_m": 0.011, "clump": 0.7, "cover": 0.5, "strand_m": 0.03,
+                       "jitter": 0.4, "sweep": 0.2, "droop": 0.5, "taper": 0.3}},
 }
 BEARD_PX = 512              # texels per TILE_M, both ways (0.08 mm: a beard hair is 0.1-0.15 mm)
 BEARD_UNDER_ALPHA = 0.55    # a full beard's alpha between its hairs: over the 0.5 cutoff at every mip
@@ -124,6 +147,25 @@ BEARD_HAIR_ATTR = "hf_hair"     # point attribute set on the beard: hair, not sk
 BEARD_HANG_CLEAR_M = 0.02   # a hanging beard's back stays this far in front of the body (and the shirt on it)
 BEARD_DARKEN = 0.95
 BEARD_AXIS_M = 0.07         # the beard's UVs run round and down about a centre this far behind the mouth
+# strand cards (`_beard_cards`)
+BEARD_CARD_SEG_M = 0.022    # a card gets a segment every this far along it ...
+BEARD_CARD_SEGS = (3, 10)   # ... within these bounds
+BEARD_CARD_COLS = 3         # columns across it: a bowed ribbon, so it does not vanish edge-on
+BEARD_CARD_BOW = 0.35       # the middle column stands this much of the half width out of the chord
+BEARD_CARD_CLEAR_M = 0.0018     # a card never comes nearer the skin than this
+BEARD_CARD_TIP_AT = 0.45    # from this share of a card's length its fade falls ...
+BEARD_CARD_TIP_FADE = 0.42  # ... to this, which drops the texture's hairs one by one by rank, so the card's
+                            # end is a scatter of tips and not a cut across the texture
+BEARD_CARD_TAPER_POW = 1.6  # how the width narrows toward the tip
+BEARD_MOUSTACHE_MAX_M = 0.02    # a moustache card is never longer: a long beard's would bury the mouth
+BEARD_CARD_SEED = 23
+BEARD_CARD_SINK_MAX_M = 0.002   # a card's outer column may cut this far into the skin it lies on, no further
+BEARD_CLUMP_SIZE = 4.0      # cards a clump gathers at clump 0, and twice that at clump 1
+BEARD_HANG_SPLIT_M = 0.03   # a card whose tip falls this far below the chin hangs, and goes in the strand mesh
+BEARD_LOCKS = 3             # chains the hanging part is sprung on: one down each side and one in the middle
+                            # (follow-through turns a single chain through a wide sheet into a twisted wedge)
+BEARD_GAP_MAX = 3.0         # the widest gap between a root and the next, as a multiple of the nominal spacing
+BEARD_ROOTS_MIN = 8         # a region of the field with fewer roots than this is bald
 # Godot: no rim, backlight or anisotropic sheen on hairs this fine - at a grazing angle (a brow's tail round
 # the temple) they light a whole card's strands into a grey sliver
 CARD_GODOT = {"transparency": GODOT_BLEND, "rim_enabled": False, "backlight_enabled": False,
@@ -232,14 +274,18 @@ def _material(name, colour, uv_name, part, double_sided=False):
         p = ld_hair.preset("hair", **over)
         lin = _srgb_to_linear(np.asarray(colour[:3], np.float64))
         pixels = _sparse(*ld_hair.strand_texture(lin, p, seed=0))
-    elif part == "beard":
+    elif part in ("beard", "beard_cards"):
         style = over.pop("style")
-        spec = BEARD_STYLES[style]
+        spec = dict(BEARD_STYLES[style])
+        if part == "beard_cards":
+            # the cards' sheet: the style's card parameters, and never an under-layer
+            cards = BEARD_STYLES[style]["cards"] or {}
+            spec.update(under=False, cover=cards.get("cover", 0.5), strand_m=cards.get("strand_m", spec["strand_m"]))
         # square texels, the fade's vertex alpha multiplied in, and no coverage-kept mips for a full beard (its
-        # under-layer keeps every level over the cutoff); stubble keeps its hairs' share at a distance
+        # under-layer keeps every level over the cutoff); stubble and the cards keep their hairs' share at a distance
         godot.update(texture_filter=GODOT_FILTER_ANISOTROPIC, vertex_color_use_as_albedo=True)
         over["alpha"] = None if spec["under"] else {"coverage_mips": 0.5, "edge": 0.5}
-        *pixels, beard_rep = beard_pixels(style, colour, BEARD_PX, TILE_M)
+        *pixels, beard_rep = beard_pixels(style, colour, BEARD_PX, TILE_M, spec=spec)
         card_rep = beard_rep
     over["godot"] = godot
     mat, rep = ld_hair.material(name, colour, uv_map=uv_name, pixels=pixels, **over)
@@ -249,7 +295,7 @@ def _material(name, colour, uv_name, part, double_sided=False):
         mat.use_transparent_shadow = True       # a card's shadow is its strands', not the whole card's
     if double_sided:
         mat.use_backface_culling = False
-    if part == "beard":
+    if part in ("beard", "beard_cards"):
         _fade_nodes(mat)
     tile = 1.0 if part in ("brows", "lashes") else rep["tile_m"]
     return mat, dict(rep, source="lookdev", double_sided=double_sided), tile
@@ -401,7 +447,7 @@ def _periodic(u, v, rng, terms=4, max_k=3):
     return out / math.sqrt(terms / 2.0)
 
 
-def beard_pixels(style, colour, px=BEARD_PX, tile_m=TILE_M, seed=11):
+def beard_pixels(style, colour, px=BEARD_PX, tile_m=TILE_M, seed=11, spec=None):
     """(colour, normal, report) for a beard shell in `style` (BEARD_STYLES), for lookdev's
     `hair.material(pixels=...)`: `px` x `px` texels over `tile_m` x `tile_m` on the skin, tiling both ways, V down
     the face. Separate hairs `strand_m` long (about 0.12 mm wide at the root, tapering), rooted anywhere in the
@@ -409,8 +455,9 @@ def beard_pixels(style, colour, px=BEARD_PX, tile_m=TILE_M, seed=11):
     and gathered into loose clumps, until they cover `cover` of it. A full beard (`under`) fills between them
     with a darker under-layer at alpha BEARD_UNDER_ALPHA, over the 0.5 cutoff, so no mip level has a hole;
     stubble has none (skin between its hairs). Arrays are (H, W, 4), rows bottom-up (row 0 is V = 0), colour
-    sRGB with straight alpha, normal a tangent-space map (each hair a ridge across U)."""
-    spec = BEARD_STYLES[style]
+    sRGB with straight alpha, normal a tangent-space map (each hair a ridge across U). `spec` overrides the
+    style's own (the cards' sheet passes `under` off and their own `cover` and `strand_m`)."""
+    spec = BEARD_STYLES[style] if spec is None else spec
     rng = np.random.RandomState(seed)
     N = int(px)
     texel = tile_m / N
@@ -916,10 +963,12 @@ def beard_regions(ob, co, normals, head_bone, neck_bone=None, scale=1.0):
     return {r: m for r, m in masks.items() if m.any()}, marks
 
 
-def beard_spec(style, length_m=None, volume=None, scale=1.0):
+def beard_spec(style, length_m=None, volume=None, scale=1.0, braids=None):
     """BEARD_STYLES[style] with a `length_m` / `volume` override, every length times `scale`, and what follows
-    from them: `shells` (layers), `stand_m` (how far the outer layer stands off the inner at the chin) and
-    `hang_m` (a hanging part's length below the chin; 0 for a beard shorter than BEARD_HANG_MIN_M)."""
+    from them: `shells` (layers of the root mat - one whenever cards grow over it), `stand_m` (how far the
+    outer layer stands off the inner at the chin), `hang_m` (a hanging part's length below the chin; 0 for a
+    beard shorter than BEARD_HANG_MIN_M) and, for a carded style, its `cards` block with the lengths scaled,
+    a card count per square metre raised with the volume, and `braids` (0: loose locks)."""
     spec = dict(BEARD_STYLES[style])
     if length_m is not None:
         spec["length_m"] = float(length_m)
@@ -928,20 +977,57 @@ def beard_spec(style, length_m=None, volume=None, scale=1.0):
     k = float(scale)
     for key in ("lift_m", "strand_m", "feather_m", "length_m"):
         spec[key] = spec[key] * k
-    spec["shells"] = 1 + int(round(spec["volume"] * 5))
+    cards = spec.get("cards")
+    if cards is not None:
+        cards = dict(cards)
+        for key in ("width_m", "strand_m"):
+            cards[key] = cards[key] * k
+        # more cards on a fuller beard, and fewer per square metre on a bigger head (a card is wider there too)
+        cards["density"] = cards["density"] * (0.4 + 0.6 * spec["volume"] / max(BEARD_STYLES[style]["volume"], 1e-6)) \
+            / max(k * k, 1e-6)
+        cards["braids"] = int(braids or 0)
+        spec["cards"] = cards
+    # with cards the shell is only the root mat under them: one layer. Layers were the old volume, and layers
+    # are what read as a decal.
+    spec["shells"] = 1 if cards is not None else 1 + int(round(spec["volume"] * 5))
     spec["stand_m"] = spec["volume"] * min(spec["length_m"], BEARD_STAND_MAX_M * k)
     spec["hang_m"] = spec["length_m"] if spec["length_m"] > BEARD_HANG_MIN_M * k else 0.0
     return spec
 
 
-def _beard(ob, co, base, rig, colour, uv_name, style, head_bone, scale=1.0, length_m=None, volume=None):
-    """A beard in `style` (BEARD_STYLES; `length_m` and `volume` override its own): `shells` layers cut from the
-    body's faces round `beard_field`'s regions, the first `lift_m` off the skin and each further one standing
-    further off (up to `stand_m`, more toward the chin than at the moustache) and sparser; below the chin a
-    hanging part when `hang_m` > 0. Its edge fades over `feather_m` across the field's zero line (vertex alpha in
-    BEARD_FADE); skinned like the face under it (the hanging part blends from the head into the neck and chest)."""
+def _smooth_np(t):
+    return t * t * (3 - 2 * t)
+
+
+def _named_weights(ob, indices):
+    """[{group name: weight}] for body vertices `indices`."""
+    names = {g.index: g.name for g in ob.vertex_groups}
+    return [{names[e.group]: e.weight for e in ob.data.vertices[i].groups if e.group in names and e.weight > 1e-4}
+            for i in indices]
+
+
+def _smooth1(e0, e1, x):
+    t = min(1.0, max(0.0, (x - e0) / (e1 - e0)))
+    return t * t * (3 - 2 * t)
+
+
+def _beard(ob, co, base, rig, colour, uv_name, style, head_bone, scale=1.0, length_m=None, volume=None,
+           braids=None):
+    """A beard in `style` (BEARD_STYLES; `length_m`, `volume` and `braids` override its own).
+
+    Two pieces, both in the same UV space (arc length over the texture's tile, so every texel is square):
+
+    - the **root mat**, one shell of the body's own faces round `beard_field`'s regions, `lift_m` off the skin,
+      with the under-layer texture that hides the skin the way a scalp's cap does. For `stubble` that is the
+      whole beard: at 2.5 mm a hair is shorter than a card could show.
+    - the **strand cards** (`_beard_cards`), rooted over the field at the style's density, each following the
+      face and then falling under gravity, gathered into clumps, and - past the chin - hanging, where they go
+      into a second mesh of their own with follow-through's strand contract so they sway.
+
+    Everything fades over `feather_m` across the field's zero line (vertex alpha in BEARD_FADE) and is skinned
+    like the face under it. Returns ({"beard": ob, "beard_strand": ob or absent}, report)."""
     k = float(scale)
-    spec = beard_spec(style, length_m, volume, k)
+    spec = beard_spec(style, length_m, volume, k, braids=braids)
     me = ob.data
     nrm = np.empty(len(me.vertices) * 3, np.float32)
     me.vertices.foreach_get("normal", nrm)
@@ -958,13 +1044,20 @@ def _beard(ob, co, base, rig, colour, uv_name, style, head_bone, scale=1.0, leng
     sd = np.full(len(me.vertices), -1.0)
     sd[:n] = np.minimum(face, np.maximum.reduce([field[r] for r in spec["regions"]]))
     fo, fi = 0.4 * spec["feather_m"], 0.6 * spec["feather_m"]
-    saved = LOOK["beard"]
-    LOOK["beard"] = dict(saved, style=style)
-    try:
-        mat, mat_rep, tile = _material(f"{base}_beard", colour, uv_name, "beard")
-    finally:
-        LOOK["beard"] = saved
+
+    def _mat(part):
+        saved = LOOK[part]
+        LOOK[part] = dict(saved, style=style)
+        try:
+            return _material(f"{base}_{part}", colour, uv_name, part, double_sided=(part == "beard_cards"))
+        finally:
+            LOOK[part] = saved
+
+    mat, mat_rep, tile = _mat("beard")
     tile = tile * k
+    mat_cards = cards_rep = None
+    if spec["cards"] is not None:
+        mat_cards, cards_mat_rep, _tile_c = _mat("beard_cards")
     # the faces round the region: any corner inside the fade, none far outside it
     polys = [tuple(p.vertices) for p in me.polygons if max(p.vertices) < n
              and max(sd[i] for i in p.vertices) > -fo and min(sd[i] for i in p.vertices) > -(fo + 0.02 * k)]
@@ -979,6 +1072,12 @@ def _beard(ob, co, base, rig, colour, uv_name, style, head_bone, scale=1.0, leng
     g = 0.35 + 0.65 * _smooth_np(np.clip((z_m - base_co[:, 2]) / max(z_m - chin_z, 1e-6), 0.0, 1.0))
     wts = _named_weights(ob, used)
     c = Vector((0.0, marks["mouth_y"] + BEARD_AXIS_M * k, marks["mouth_z"]))
+    # the root mat's UVs are arc lengths on a sphere of ONE radius round that centre, not of each point's own:
+    # with the point's own radius the map is not affine across a face, and the faces where it changes fastest
+    # (the moustache's, the underside of the chin) came out with texels 2.8x longer one way than the other and
+    # a millimetre across - `hairtex.mip_check` refused a moustache-only beard and a stubble outright. At one
+    # radius a texel is the texture's own size where the skin is at R and finer toward the chin, never coarser.
+    beard_r = float(np.median(np.linalg.norm(base_co - np.array(tuple(c)), axis=1))) or 0.05 * k
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new(uv_name)
     col = bm.verts.layers.float_color.new(BEARD_FADE)
@@ -1003,11 +1102,22 @@ def _beard(ob, co, base, rig, colour, uv_name, style, head_bone, scale=1.0, leng
             for loop in fc.loops:
                 d = loop.vert.co - c
                 rho = math.hypot(d.x, d.y)
-                loop[uv].uv = (math.atan2(d.x, -d.y) * rho / tile + du,
-                               -math.atan2(d.z, rho) * d.length / tile + dv)
-    hang_rep = None
-    if spec["hang_m"] > 0:
-        hang_rep = _hang(bm, uv, col, vweights, ob, co, sd, spec, marks, tile, k, head_bone, neck, chest)
+                loop[uv].uv = (math.atan2(d.x, -d.y) * beard_r / tile + du,
+                               -math.atan2(d.z, rho) * beard_r / tile + dv)
+    shell_faces = set(bm.faces)
+    sbm = suv = scol = None
+    svweights, sshare, slocks = [], [], []
+    if spec["cards"] is not None:
+        sbm = bmesh.new()
+        suv = sbm.loops.layers.uv.new(uv_name)
+        scol = sbm.verts.layers.float_color.new(BEARD_FADE)
+        cards_rep = _beard_cards(bm, uv, col, vweights, sbm, suv, scol, svweights, sshare, slocks,
+                                 ob, co, base_co, vn, sd[used], {r: field[r][used] for r in spec["regions"]},
+                                 face[used], fade0, polys, local, wts, spec, marks,
+                                 tile, k, head_bone, neck, chest)
+        for fc in bm.faces:
+            if fc not in shell_faces:
+                fc.material_index = 1
     weights = {}
     for i, w in enumerate(vweights):
         for name, x in w.items():
@@ -1017,148 +1127,528 @@ def _beard(ob, co, base, rig, colour, uv_name, style, head_bone, scale=1.0, leng
     hob = _object(f"{base}_beard", bm, ob, rig, weights)
     bm.free()
     hob.data.materials.append(mat)
+    if mat_cards is not None:
+        hob.data.materials.append(mat_cards)
     hob["humanform_hair"] = {"part": "beard", "style": style}
     # marked as hair for whatever reads the body after the join (follow-through's flesh leaves it out)
     at = hob.data.attributes.new(BEARD_HAIR_ATTR, "FLOAT", "POINT")
     at.data.foreach_set("value", np.ones(len(hob.data.vertices), np.float32))
+    objects = {"beard": hob}
     rep = {"style": style, "faces": len(hob.data.polygons), "verts": len(hob.data.vertices),
            "regions": {r: int(((field[r] > 0) & (face > 0)).sum()) for r in spec["regions"]},
            "marks": marks, "shells": ns, "length_m": round(spec["length_m"], 4), "volume": spec["volume"],
            "stand_m": round(spec["stand_m"], 4), "lift_m": spec["lift_m"], "feather_m": spec["feather_m"],
-           "hang": hang_rep, "material": {x: mat_rep.get(x) for x in ("material", "source", "gltf", "texture")}}
+           "cards": cards_rep, "braids": (spec["cards"] or {}).get("braids", 0),
+           "material": {x: mat_rep.get(x) for x in ("material", "source", "gltf", "texture")},
+           "card_material": ({x: cards_mat_rep.get(x) for x in ("material", "source", "gltf", "texture")}
+                             if mat_cards is not None else None)}
+    if sbm is not None and len(sbm.faces):
+        sw = {"ft_strand": np.maximum(np.array(sshare), 1e-3)}
+        for i, w in enumerate(svweights):
+            for name, x in w.items():
+                sw.setdefault(name, np.zeros(len(svweights)))[i] = x
+        sbm.verts.index_update()
+        sob = _object(f"{base}_beard_strand", sbm, ob, rig, sw)
+        sob.data.materials.append(mat_cards)
+        inv = ob.matrix_world.inverted()
+        lines = [[tuple(inv @ Vector(p)) for p in line] for line in slocks]
+        sob["ft_type"] = "strand"
+        sob["ft_root_bone"] = head_bone
+        sob["ft_strand_type"] = "beard"
+        sob["ft_centrelines"] = [[round(float(x), 5) for p in line for x in p] for line in lines]
+        sob["ft_length_m"] = round(max(_polyline_m(ln) for ln in slocks), 4)
+        sob["humanform_hair"] = {"preset": None, "part": "strand", "kind": "beard", "style": style}
+        at = sob.data.attributes.new(BEARD_HAIR_ATTR, "FLOAT", "POINT")
+        at.data.foreach_set("value", np.ones(len(sob.data.vertices), np.float32))
+        objects["beard_strand"] = sob
+        rep["strand"] = {"object": sob.name, "verts": len(sob.data.vertices), "faces": len(sob.data.polygons),
+                         "locks": len(slocks), "length_m": sob["ft_length_m"],
+                         "contract": beard_strand_contract(sob)}
+        if not rep["strand"]["contract"]["passed"]:
+            raise RuntimeError(f"{sob.name}: the hanging beard does not meet follow-through's strand "
+                               f"contract: {rep['strand']['contract']['problems']}")
+    if sbm is not None:
+        sbm.free()
     if mat_rep.get("source") == "lookdev":
         # how it will sample in Godot: a beard whose holes survive the mips as patches is refused here, before it
         # is exported (the first beards' square patches cost four rebuilds to find by eye)
         from . import hairtex
-        check = hairtex.mip_check(hob)
-        rep["godot_sampling"] = {x: check[x] for x in ("ok", "across_to_along_p90", "texel_mm", "views")}
-        if not check["ok"]:
-            raise RuntimeError(f"{hob.name}: the beard would draw as patches in Godot - " + "; ".join(check["problems"]))
-    return hob, rep
+        rep["godot_sampling"] = {}
+        for slot, mm in enumerate([m for m in (mat, mat_cards) if m is not None]):
+            check = hairtex.mip_check(hob, material=mm.name)
+            rep["godot_sampling"][mm.name] = {x: check[x] for x in ("ok", "across_to_along_p90", "texel_mm", "views")}
+            if not check["ok"]:
+                raise RuntimeError(f"{hob.name}: the beard would draw as patches in Godot - "
+                                   + "; ".join(check["problems"]))
+    # and how its outline reads: a shell's is a smooth curve (a decal), hair's is the ends of its hairs
+    from . import hairtex
+    limits = None if spec["cards"] is not None else {}
+    rep["silhouette"] = {}
+    bad = []
+    for part, o in objects.items():
+        sil = hairtex.silhouette_check(o, rough_min_px=limits, name=o.name)
+        rep["silhouette"][part] = {"ok": sil["ok"], "views": sil["views"], "problems": sil["problems"]}
+        bad += sil["problems"]
+    if bad:
+        raise RuntimeError(f"{hob.name}: the beard's outline does not read as hair - " + "; ".join(bad))
+    c = cards_rep or {}
+    print(f"[beard] {style}: {c.get('roots', 0)} cards in {c.get('clumps', 0)} clumps "
+          f"({c.get('on_face', 0)} on the face, {c.get('hanging', 0)} hanging, "
+          f"{c.get('cut_at_chin', 0)} cut at the chin, {c.get('braided', 0)} braided), "
+          f"{rep['verts']} + {rep.get('strand', {}).get('verts', 0)} verts, "
+          f"clearance {(c.get('min_clearance_m') or 0) * 1000:.1f} mm; gaps "
+          + ", ".join(f"{b} {v['gap_p99_mm']}/{v['nominal_mm']} mm ({v['roots']} roots)"
+                      for b, v in (c.get("coverage", {}).get("regions") or {}).items())
+          + "; outline " + ", ".join(f"{part} " + " ".join(f"{k.split()[0]}@{k.split()[1]} {x['wander_px']}px"
+                                                           for k, x in s["views"].items())
+                                     for part, s in rep["silhouette"].items()), flush=True)
+    return objects, rep
 
 
-def _smooth_np(t):
-    return t * t * (3 - 2 * t)
+def _polyline_m(pts):
+    return float(sum((Vector(b) - Vector(a)).length for a, b in zip(pts[:-1], pts[1:])))
 
 
-def _named_weights(ob, indices):
-    """[{group name: weight}] for body vertices `indices`."""
-    names = {g.index: g.name for g in ob.vertex_groups}
-    return [{names[e.group]: e.weight for e in ob.data.vertices[i].groups if e.group in names and e.weight > 1e-4}
-            for i in indices]
+def beard_strand_contract(ob):
+    """follow-through's strand contract as a hanging beard carries it, checked (`ft_centrelines`: one chain a
+    lock, since one chain through a sheet as wide as a jaw twists it). {passed, problems, ...}."""
+    problems = []
+    if ob.get("ft_type") != "strand":
+        problems.append(f"ft_type is {ob.get('ft_type')!r}, not 'strand'")
+    if not ob.get("ft_root_bone"):
+        problems.append("no ft_root_bone")
+    lines = [list(x) for x in (ob.get("ft_centrelines") or [])]
+    if not lines:
+        problems.append("no ft_centrelines")
+    for i, flat in enumerate(lines):
+        if len(flat) < 6 or len(flat) % 3:
+            problems.append(f"lock {i}: a centreline must be a flat [x, y, z, ...] of at least two points")
+    g = ob.vertex_groups.get("ft_strand")
+    if g is None:
+        problems.append("no ft_strand vertex group")
+    order = None
+    if g is not None and lines and not problems:
+        from .hair import _weights
+        w = _weights(ob, "ft_strand")
+        co = np.empty(len(ob.data.vertices) * 3, np.float32)
+        ob.data.vertices.foreach_get("co", co)
+        co = co.reshape(-1, 3)
+        pts = np.array(lines[len(lines) // 2], np.float64).reshape(-1, 3)
+        root, tip = w < 0.1, w > 0.9
+        if root.any() and tip.any():
+            order = {"root_group_z": round(float(co[root][:, 2].mean()), 4),
+                     "tip_group_z": round(float(co[tip][:, 2].mean()), 4),
+                     "first_point_z": round(float(pts[0][2]), 4), "last_point_z": round(float(pts[-1][2]), 4)}
+            if order["tip_group_z"] > order["root_group_z"]:
+                problems.append("ft_strand weights do not run down the beard: its tips are above its roots")
+    return {"passed": not problems, "problems": problems, "locks": len(lines),
+            "points": [len(x) // 3 for x in lines], "order": order}
 
 
-def _smooth1(e0, e1, x):
-    t = min(1.0, max(0.0, (x - e0) / (e1 - e0)))
-    return t * t * (3 - 2 * t)
+def _beard_cards(bm, uv, col, vweights, sbm, suv, scol, svweights, sshare, slocks,
+                 ob, co, base_co, vn, sd_used, field_used, face_used, fade0, polys, local, wts, spec, marks,
+                 tile, k, head_bone, neck, chest):
+    """Grow the beard's strand cards and write them into `bm` (the ones that stay on the face) and `sbm` (the
+    ones that hang below the chin, which become the follow-through strand mesh).
 
+    A card is a ribbon of `BEARD_CARD_COLS` columns bowed out of its own chord - flat cards vanish edge-on -
+    grown from a root on the beard field: it starts along the skin's own downhill direction (world down
+    projected onto the tangent plane; straight down where the skin faces down, as under the chin), turns
+    toward gravity by `droop` at every step, and is held `BEARD_CARD_CLEAR_M` off the body the whole way -
+    below the chin BEARD_HANG_CLEAR_M, so it hangs clear of the chest and the shirt on it. Its length is the
+    style's at the chin, less toward the moustache (the same ramp the shell's layers use) and jittered per
+    card, so the outline is the ends of hairs. `clump` gathers the cards: each clump grows a spine, and its
+    members bend toward it over their second half, which is what makes locks rather than a fur pelt. With
+    `braids` the hanging clumps wind round their spine instead (a dwarf's braided beard).
 
-def _hang(bm, uv, col, vweights, ob, co, sd, spec, marks, tile, k, head_bone, neck, chest):
-    """The part of a long beard that hangs below the chin: a closed, flattened tube (front and back sheets
-    joined at the sides) from under the chin and jaw straight down `hang_m`, as wide as the jaw at the top and
-    narrowing toward a point, as deep as chin-to-throat at the top and thinning, held BEARD_HANG_CLEAR_M in front
-    of the body the whole way (a dwarf's chest stands out under it), its tip ragged per column. U runs round the
-    section and V down it, both in metres over the tile, so its texels are square like the shell's. Faded in over
-    its top (where it meets the shell) and out toward the tip, so the hairs thin into a ragged end. Skinned from
-    the head at the top into the neck and chest toward the tip, so a nod does not swing it through the chest."""
-    n = regions()["n_body"]
+    Its UVs are arc length across and along the card over the texture's tile, so a texel is square; its fade
+    is the root's (the field's edge) falling to BEARD_CARD_TIP_FADE over the last of the card, which drops the
+    texture's hairs one by one by rank and leaves a scatter of tips instead of a cut across the texture."""
+    cards = spec["cards"]
+    rng = np.random.RandomState(BEARD_CARD_SEED)
     bvh = _body_bvh(ob, co)
-    L = spec["hang_m"]
-    P = co[:n][sd[:n] > 0]
-    chin_z = marks["chin_z"]
-    lowjaw = P[P[:, 2] < marks["mouth_z"] - 0.01 * k]
-    if not len(lowjaw):
-        return None
-    wj = min(float(np.abs(lowjaw[:, 0]).max()), 0.11 * k)          # as wide as the jaw's beard
-    front_pts = P[(np.abs(P[:, 0]) < 0.012 * k) & (P[:, 2] < chin_z + 0.025 * k)]
-    # its front as far forward as the shell's outer layer at the chin
-    y_front0 = (float(front_pts[:, 1].min()) if len(front_pts) else marks["mouth_y"]) - spec["stand_m"]
+    chin_z, z_m = marks["chin_z"], marks["mouth_z"]
+    down = Vector((0.0, 0.0, -1.0))
+    hang_from = chin_z - BEARD_HANG_SPLIT_M * k
+    clear_near, clear_hang = BEARD_CARD_CLEAR_M * k, BEARD_HANG_CLEAR_M * k
 
-    def body_front(z):
-        hit = bvh.ray_cast(Vector((0.0, y_front0 - 0.5, z)), Vector((0.0, 1.0, 0.0)), 1.0)
-        return hit[0].y if hit[0] is not None else None
+    def clear_of(z):
+        return clear_near + (clear_hang - clear_near) * _smooth1(chin_z, chin_z - 0.04 * k, z)
 
-    z0 = chin_z + 0.025 * k                                 # from inside the chin's layers
-    y_throat = body_front(chin_z - 0.02 * k)
-    y_throat = y_throat if y_throat is not None else y_front0 + 0.06 * k
-    dy0 = max(0.5 * (y_throat - y_front0), 0.01 * k)
-    clear = BEARD_HANG_CLEAR_M * k
-    nr, M = 26, 32
-    rng = np.random.RandomState(17)
-    ragged = rng.uniform(0.0, 0.18 * L, M + 1)
-    ragged[M] = ragged[0]
-    # where each column's hair starts showing below the chin's layers: per column, so the join is ragged hair,
-    # not a line across the chin
-    start = rng.uniform(0.0, 0.1, M + 1)
-    start[M] = start[0]
-    ts = np.linspace(0.0, 1.0, nr)
-    cys, dys, wxs = [], [], []
-    for t in ts:
-        z = z0 - t * L
-        dy = max(dy0 * (1.0 - 0.55 * t), 0.006 * k)
-        wx = max(wj * (1.0 - 0.8 * t ** 2), 0.006 * k)
-        yb = body_front(z)
-        cy = y_front0 + dy
-        if yb is not None and t > 0.15:                  # below the jaw, the body's front pushes it forward
-            cy = min(cy, yb - clear - dy)
-        cys.append(cy)
-        dys.append(dy)
-        wxs.append(wx)
-    cys = np.array(cys)
-    for _ in range(3):                                      # no kink where the chest takes over
-        cys[1:-1] = 0.25 * cys[:-2] + 0.5 * cys[1:-1] + 0.25 * cys[2:]
-    first = len(bm.verts)
+    roots, normals, rweights, lengths = [], [], [], []
+    fo, fi = 0.4 * spec["feather_m"], 0.6 * spec["feather_m"]
+    for p in polys:
+        idx = [local[i] for i in p]
+        inside = float(np.clip((float(np.mean(sd_used[idx])) + fo) / (fo + fi), 0.0, 1.0))
+        if inside <= 0.0:
+            continue
+        tris = [(idx[0], idx[i], idx[i + 1]) for i in range(1, len(idx) - 1)]
+        areas = [0.5 * float(np.linalg.norm(np.cross(base_co[b] - base_co[a], base_co[c2] - base_co[a])))
+                 for a, b, c2 in tris]
+        want = cards["density"] * sum(areas) * inside
+        count = int(want) + (1 if rng.uniform() < want - int(want) else 0)
+        for _ in range(count):
+            ti = int(np.searchsorted(np.cumsum(areas), rng.uniform() * max(sum(areas), 1e-12)))
+            a, b, c2 = tris[min(ti, len(tris) - 1)]
+            u1, u2 = rng.uniform(), rng.uniform()
+            if u1 + u2 > 1.0:
+                u1, u2 = 1.0 - u1, 1.0 - u2
+            bw = (1.0 - u1 - u2, u1, u2)
+            pos = bw[0] * base_co[a] + bw[1] * base_co[b] + bw[2] * base_co[c2]
+            nor = bw[0] * vn[a] + bw[1] * vn[b] + bw[2] * vn[c2]
+            nor = nor / max(np.linalg.norm(nor), 1e-9)
+            w = {}
+            for j, s in zip((a, b, c2), bw):
+                for name, x in wts[j].items():
+                    w[name] = w.get(name, 0.0) + s * x
+            tot = sum(w.values()) or 1.0
+            roots.append(Vector(pos))
+            normals.append(Vector(nor))
+            rweights.append({name: x / tot for name, x in w.items() if x / tot > 1e-4})
+            fade = float(bw[0] * fade0[a] + bw[1] * fade0[b] + bw[2] * fade0[c2])
+            ramp = 0.35 + 0.65 * _smooth1(0.0, 1.0, float(np.clip((z_m - pos[2]) / max(z_m - chin_z, 1e-6), 0, 1)))
+            L = spec["length_m"] * ramp * (1.0 + cards["jitter"] * (rng.uniform() * 2.0 - 1.0))
+            if pos[2] > z_m:
+                # the moustache: capped so a long beard does not bury the mouth, and the cap jittered per card,
+                # or every moustache hair would end on one line above the lip
+                L = min(L, BEARD_MOUSTACHE_MAX_M * k * rng.uniform(0.55, 1.0))
+            lengths.append((max(L, 0.004 * k), fade))
+    if not roots:
+        raise RuntimeError("beard: the field grew no card roots - check beard_field and the style's density")
+    # clumps: a spine each, and its members bend into it over their second half
+    npos = np.array([tuple(p) for p in roots])
+    size = BEARD_CLUMP_SIZE * (1.0 + cards["clump"])
+    ncl = max(1, int(round(len(roots) / size)))
+    centres = npos[rng.choice(len(roots), ncl, replace=False)] if ncl < len(roots) else npos
+    owner = np.argmin(((npos[:, None, :] - centres[None, :, :]) ** 2).sum(axis=2), axis=1)
+    paths, outs = [], []
+    for i, (root, nor) in enumerate(zip(roots, normals)):
+        t = down - nor * down.dot(nor)
+        t = t.normalized() if t.length > 0.25 else down.copy()
+        side = Vector((math.copysign(1.0, root.x) if abs(root.x) > 1e-4 else 0.0, 0.0, 0.0))
+        d0 = (t * 0.9 + nor * 0.3 + side * cards["sweep"] * min(1.0, abs(root.x) / max(0.03 * k, 1e-6))).normalized()
+        pts, outv = _grow_card(bvh, root + nor * spec["lift_m"], nor, d0, lengths[i][0], cards["droop"], clear_of)
+        paths.append(pts)
+        outs.append(outv)
+    paths = _clump(paths, owner, ncl, cards["clump"])
+    hanging = [spec["hang_m"] > 0 and p[-1].z < hang_from for p in paths]
+    braided = set()
+    if cards["braids"]:
+        braided = _braid(paths, npos, hanging, cards, spec)
+    from .hair import _push_out
+    for i, pts in enumerate(paths):
+        for j in range(1, len(pts)):
+            pts[j] = _push_out(bvh, pts[j], clear_of(pts[j].z))
+    made = {"face": 0, "hang": 0, "split": 0}
+    for i, pts in enumerate(paths):
+        u0 = rng.uniform() * tile
+        v0 = rng.uniform() * tile
+        w_root = rweights[i]
+        rigid = lambda p, w_root=w_root: w_root                             # noqa: E731
+        if not hanging[i]:
+            _emit_card(bm, uv, col, vweights, pts, outs[i], cards["width_m"], cards["taper"],
+                       lengths[i][1], rigid, tile, u0, v0)
+            made["face"] += 1
+            continue
+
+        # A hanging card is cut at the chin and only the part below it goes in the strand mesh. The part
+        # above rides the jaw rigidly, as the skin it grows out of does: left in the strand mesh it was
+        # weighted onto the chain's first bone, which swung it back into the hollow under the jaw - and the
+        # head's surface there is the jaw itself, so `verify_strands` read 3.8 cm of beard inside the dwarf's
+        # own face on every run, at every rate, however stiff the chain was made.
+        def wfun(p, w_root=w_root):
+            return _hang_weights(w_root, p.z, chin_z, spec["hang_m"], neck, chest)
+
+        def sfun(p):
+            return min(1.0, max(0.0, (chin_z - p.z) / max(spec["hang_m"], 1e-6)))
+        upper, lower, cut_at = _cut_at_z(pts, outs[i], hang_from)
+        if upper is not None:
+            _emit_card(bm, uv, col, vweights, upper[0], upper[1], cards["width_m"], cards["taper"],
+                       lengths[i][1], rigid, tile, u0, v0, span=(0.0, cut_at))
+            made["split"] += 1
+        _emit_card(sbm, suv, scol, svweights, lower[0], lower[1], cards["width_m"], cards["taper"],
+                   lengths[i][1], wfun, tile, u0, v0 + cut_at * _polyline_m(pts), share=sshare, sfun=sfun,
+                   span=(cut_at, 1.0))
+        made["hang"] += 1
+    if made["hang"]:
+        slocks.extend(_locks(paths, hanging, npos, cards["braids"] or BEARD_LOCKS, hang_from))
+    gaps = _coverage_check(npos, field_used, face_used, base_co, spec, cards)
+    # how near the skin the cards came: a ribbon is held off the body along its spine, but its outer columns
+    # cut the chord of whatever it lies on, so a wide card on a tight curve (the lip, the corner of the mouth)
+    # can still sink in. Measured, not assumed - "no hair through the lips" is one of the beard's own rules.
+    from .hair import _clearance
+    clear = _clearance(bvh, [Vector(p) for pts in paths for p in pts[1:]])
+    rep = {"roots": len(roots), "clumps": ncl, "on_face": made["face"], "hanging": made["hang"],
+           "cut_at_chin": made["split"],
+           "braided": len(braided), "density_per_m2": round(cards["density"], 1),
+           "width_m": round(cards["width_m"], 4), "clump": cards["clump"],
+           "length_m": [round(min(x[0] for x in lengths), 4), round(max(x[0] for x in lengths), 4)],
+           "coverage": gaps, "min_clearance_m": clear}
+    if not gaps["ok"]:
+        raise RuntimeError("beard: the strand cards leave the field bald - " + "; ".join(gaps["problems"]))
+    if clear is not None and clear < -BEARD_CARD_SINK_MAX_M * k:
+        raise RuntimeError(f"beard: a strand card runs {-clear * 1000:.1f} mm inside the skin (at most "
+                           f"{BEARD_CARD_SINK_MAX_M * k * 1000:.1f} mm) - a card wider than the curve it lies "
+                           "on cuts the chord; narrow `width_m` or raise BEARD_CARD_CLEAR_M")
+    return rep
+
+
+def _grow_card(bvh, root, normal, d0, length, droop, clear_of, segs=None):
+    """One card's path: `segs` + 1 points from the root, following the body and falling into gravity, with the
+    outward normal at each. Walked four times as finely as it is kept, so the push off the skin does not
+    corner."""
+    from .hair import _push_out
+    segs = segs or int(min(BEARD_CARD_SEGS[1], max(BEARD_CARD_SEGS[0], round(length / BEARD_CARD_SEG_M))))
+    down = Vector((0.0, 0.0, -1.0))
+    fine = 4 * segs
+    ds = length / fine
+    pts = [root.copy()]
+    outv = [normal.copy()]
+    d = d0.normalized()
+    out = normal.copy()
+    for _i in range(fine):
+        d = (d * (1.0 - droop) + down * droop).normalized()
+        cand = _push_out(bvh, pts[-1] + d * ds, clear_of(pts[-1].z - ds))
+        step = cand - pts[-1]
+        cand = pts[-1] + (step.normalized() if step.length > 1e-9 else d) * ds
+        d = (cand - pts[-1]).normalized()
+        hit = bvh.find_nearest(cand)
+        if hit[0] is not None:
+            off = cand - hit[0]
+            out = off.normalized() if off.length > 1e-6 and off.dot(hit[1]) > 0 else Vector(hit[1])
+        pts.append(cand)
+        outv.append(out.copy())
+    return pts[::4], outv[::4]
+
+
+BEARD_MEAN_SAMPLES = 11     # points a clump's, a rope's or a lock's mean path is measured at
+
+
+def _sample(path, u):
+    """The point a fraction `u` along a path by index (cards have different numbers of points: a long one
+    gets a segment every BEARD_CARD_SEG_M, a stubby one the minimum)."""
+    x = max(0.0, min(1.0, u)) * (len(path) - 1)
+    i = min(len(path) - 2, int(x))
+    return path[i].lerp(path[i + 1], x - i)
+
+
+def _mean_path(paths, members, r=BEARD_MEAN_SAMPLES):
+    return [Vector(tuple(np.mean([tuple(_sample(paths[i], j / (r - 1))) for i in members], axis=0)))
+            for j in range(r)]
+
+
+def _clump(paths, owner, ncl, clump):
+    """Bend each card into its clump's mean path over its second half: locks, not a pelt."""
+    if clump <= 0:
+        return paths
+    means = {}
+    for ci in range(ncl):
+        members = [i for i in range(len(paths)) if owner[i] == ci]
+        if len(members) >= 2:
+            means[ci] = _mean_path(paths, members)
+    out = []
+    for i, pts in enumerate(paths):
+        mean = means.get(int(owner[i]))
+        if mean is None:
+            out.append(pts)
+            continue
+        n = len(pts)
+        out.append([p.lerp(_sample(mean, j / (n - 1)), clump * _smooth1(0.25, 1.0, j / (n - 1)))
+                    for j, p in enumerate(pts)])
+    return out
+
+
+def _braid(paths, npos, hanging, cards, spec):
+    """Wind the hanging cards round `braids` ropes instead of letting them hang in loose clumps: each rope is
+    the mean path of its share of the cards (split left to right), and every card of it spirals round that
+    path at its own phase, on a radius that pulses down the rope - which is what a plait's bulges are. Cheap,
+    because the cards and their spines are already there: it only re-places the points."""
+    idx = [i for i, h in enumerate(hanging) if h]
+    if not idx or cards["braids"] < 1:
+        return set()
+    order = sorted(idx, key=lambda i: npos[i][0])
+    # contiguous across the chin, so a rope is a rope: interleaving put every rope's cards across the whole
+    # width and all three spines landed on top of one another
+    B = cards["braids"]
+    ropes = [order[j * len(order) // B:(j + 1) * len(order) // B] for j in range(B)]
+    done = set()
+    for rope in ropes:
+        if len(rope) < 3:
+            continue
+        spine = _mean_path(paths, rope)
+        r0 = max(cards["width_m"] * 1.2, float(np.std([npos[i][0] for i in rope])) * 1.3)
+        turns = max(1.0, spec["hang_m"] / max(6.0 * r0, 1e-4))
+        for m, i in enumerate(rope):
+            phi = 2 * math.pi * m / len(rope)
+            n = len(paths[i])
+            new = []
+            for j in range(n):
+                u = j / (n - 1)
+                c0 = _sample(spine, u)
+                d = _sample(spine, min(1.0, u + 0.05)) - _sample(spine, max(0.0, u - 0.05))
+                d = d.normalized() if d.length > 1e-9 else Vector((0.0, 0.0, -1.0))
+                b = Vector((1.0, 0.0, 0.0)) if abs(d.x) < 0.95 else Vector((0.0, 1.0, 0.0))
+                b = (b - d * b.dot(d)).normalized()
+                c2 = d.cross(b)
+                ang = phi + 2 * math.pi * turns * u
+                r = r0 * (1.0 - 0.6 * u) * (0.75 + 0.25 * math.cos(3.0 * ang))
+                new.append(c0.lerp(c0 + b * (r * math.cos(ang)) + c2 * (r * math.sin(ang)),
+                                   _smooth1(0.0, 0.25, u)))
+            paths[i] = new
+            done.add(i)
+    return done
+
+
+def _locks(paths, hanging, npos, n_locks, z_start):
+    """The hanging part's centrelines, one a lock: the cards split left to right into `n_locks` groups, each
+    group's mean path **from `z_start` down** - the chin, not the roots. follow-through hangs one spring chain
+    on each and every vertex joins its nearest; a vertex above the first joint projects to the chain's start
+    and stays rigid on the head bone, which is what a card's root on the jaw has to be. A chain that started at
+    the roots swung that jaw skin with its first bone, and the verifier measured 3.8 cm of beard inside the
+    dwarf's own face on every run. One chain for the whole width twists it instead (the long_loose curtain is
+    not chained for that reason), hence a lock each."""
+    idx = [i for i, h in enumerate(hanging) if h]
+    if not idx:
+        return []
+    idx.sort(key=lambda i: npos[i][0])
+    n_locks = max(1, min(n_locks, len(idx)))
+    out = []
+    for j in range(n_locks):
+        group = idx[j * len(idx) // n_locks:(j + 1) * len(idx) // n_locks] or idx
+        line = _mean_path(paths, group)
+        k = next((i for i, p in enumerate(line) if p.z <= z_start), 0)
+        if k > 0:                                       # start where the mean path passes the chin
+            a, b = line[k - 1], line[k]
+            f = (a.z - z_start) / max(a.z - b.z, 1e-9)
+            line = [a.lerp(b, min(1.0, max(0.0, f)))] + line[k:]
+        out.append([tuple(p) for p in line])
+    return [ln for ln in out if _polyline_m(ln) > 1e-3]
+
+
+def _hang_weights(w_root, z, chin_z, hang_m, neck, chest):
+    """A hanging card's rigid fallback weights at height `z`: the root's (the head's) at the chin, blending
+    into the neck and then the chest toward the tip, so a nod does not swing it through the chest before
+    follow-through's chain takes over."""
+    u = min(1.0, max(0.0, (chin_z - z) / max(hang_m, 1e-6)))
+    a = _smooth1(0.1, 0.6, u)
+    b = _smooth1(0.5, 1.0, u)
+    w = {name: x * (1.0 - a) for name, x in w_root.items()}
+    if neck:
+        w[neck] = w.get(neck, 0.0) + (a * (1.0 - b) if chest else a)
+    if chest:
+        w[chest] = w.get(chest, 0.0) + a * b
+    return {name: x for name, x in w.items() if x > 1e-4}
+
+
+def _cut_at_z(pts, outv, z):
+    """Split a card's path where it first falls past `z`: ((upper points, upper normals) or None,
+    (lower points, lower normals), the cut's share of the whole card's length). Both pieces share the cut
+    point, so the hair runs on across it."""
+    k = next((j for j, p in enumerate(pts) if p.z <= z), None)
+    if k is None or k == 0:
+        return None, (pts, outv), 0.0
+    a, b = pts[k - 1], pts[k]
+    f = min(1.0, max(0.0, (a.z - z) / max(a.z - b.z, 1e-9)))
+    cut = a.lerp(b, f)
+    n_out = outv[k - 1].lerp(outv[k], f)
+    upper = (pts[:k] + [cut], outv[:k] + [n_out])
+    lower = ([cut] + pts[k:], [n_out] + outv[k:])
+    whole = _polyline_m(pts)
+    return upper, lower, (_polyline_m(upper[0]) / whole if whole > 1e-9 else 0.0)
+
+
+def _emit_card(bm, uv, col, vweights, pts, outv, width, taper, fade_root, wfun, tile, u0, v0,
+               cols=BEARD_CARD_COLS, share=None, sfun=None, span=(0.0, 1.0)):
+    """Write one card into `bm`: a bowed ribbon along `pts`, `width` across at the root narrowing to `taper`
+    of it, UVs in metres over `tile` both ways (square texels) and the fade in `col`. `span` is this piece's
+    share of the whole card, so a card cut at the chin tapers and fades as one card across the two meshes."""
+    n = len(pts)
+    arc = [0.0]
+    for a, b in zip(pts[:-1], pts[1:]):
+        arc.append(arc[-1] + (b - a).length)
+    L = max(arc[-1], 1e-6)
     grid = []
-    phis = np.linspace(0.0, 2 * math.pi, M + 1)
-    rmax = max(float(ragged.max()), 1e-9)
-    for r, t in enumerate(ts):
-        pts = [Vector((wxs[r] * math.sin(ph), cys[r] - dys[r] * math.cos(ph), z0 - t * L)) for ph in phis]
-        per = [0.0]
-        for a_, b_ in zip(pts[:-1], pts[1:]):
-            per.append(per[-1] + (b_ - a_).length)
-        a_ = _smooth1(0.1, 0.6, t)
-        b_ = _smooth1(0.5, 1.0, t)
-        w = {head_bone: 1.0 - a_}
-        if neck:
-            w[neck] = a_ * (1.0 - b_) if chest else a_
-        if chest:
-            w[chest] = a_ * b_
-        w = {b: x for b, x in w.items() if x > 1e-4}
-        fade = 1.0 - 0.45 * _smooth1(0.6, 1.0, t)
+    for i, p in enumerate(pts):
+        t = span[0] + (span[1] - span[0]) * (arc[i] / L)
+        d = pts[min(i + 1, n - 1)] - pts[max(i - 1, 0)]
+        d = d.normalized() if d.length > 1e-9 else Vector((0.0, 0.0, -1.0))
+        o = outv[i] - d * outv[i].dot(d)
+        o = o.normalized() if o.length > 1e-6 else Vector((0.0, -1.0, 0.0))
+        sidev = d.cross(o).normalized()
+        hw = 0.5 * width * (1.0 - (1.0 - taper) * t ** BEARD_CARD_TAPER_POW)
+        a = fade_root * (1.0 - (1.0 - BEARD_CARD_TIP_FADE) * _smooth1(BEARD_CARD_TIP_AT, 1.0, t))
         row = []
-        for j, p in enumerate(pts):
-            drop = ragged[j] * _smooth1(0.75, 1.0, t)
-            v = bm.verts.new(p - Vector((0.0, 0.0, drop)))
-            top = 0.4 + 0.6 * _smooth1(start[j], start[j] + 0.07, t)
-            v[col] = (1.0, 1.0, 1.0, float(top * fade * (1.0 - 0.1 * _smooth1(0.85, 1.0, t) * ragged[j] / rmax)))
-            vweights.append(w)
-            row.append((v, per[j], t * L + drop))
+        for j in range(cols):
+            f = -1.0 + 2.0 * j / (cols - 1)
+            pos = p + sidev * (hw * f) + o * (hw * BEARD_CARD_BOW * (1.0 - f * f))
+            v = bm.verts.new(pos)
+            v[col] = (1.0, 1.0, 1.0, float(a))
+            vweights.append(wfun(pos))
+            if share is not None:
+                share.append(sfun(pos))
+            row.append((v, (u0 + hw * f) / tile, (v0 + arc[i]) / tile))
         grid.append(row)
-    faces = []
-    for r in range(nr - 1):
-        for j in range(M):
-            q = [grid[r][j], grid[r][j + 1], grid[r + 1][j + 1], grid[r + 1][j]]
+    for i in range(n - 1):
+        for j in range(cols - 1):
+            q = [grid[i][j], grid[i][j + 1], grid[i + 1][j + 1], grid[i + 1][j]]
             fc = bm.faces.new([x[0] for x in q])
             fc.smooth = True
-            for loop, (_v, u_m, v_m) in zip(fc.loops, q):
-                loop[uv].uv = (u_m / tile, v_m / tile)
-            faces.append(fc)
-    # outward: the front (phi ~ 0, the first column) must face -y
-    bm.normal_update()
-    if faces[0].normal.y > 0:
-        for fc in faces:
-            fc.normal_flip()
-    return {"length_m": round(L, 4), "half_width_m": round(wj, 4), "top_depth_m": round(2 * dy0, 4),
-            "clear_m": round(clear, 4), "rows": nr, "columns": M, "verts": len(bm.verts) - first}
+            for loop, (_v, uu, vv) in zip(fc.loops, q):
+                loop[uv].uv = (uu, vv)
+    return L
+
+
+def _coverage_check(roots, field_used, face_used, base_co, spec, cards):
+    """Whether the cards cover the field: for every point of the body well inside each of the beard's own
+    regions - `moustache`, `corners` (round the mouth's corners), `chin` (the soul patch and the skin under
+    the lower lip) and `jaw` - the distance to the nearest card root, against the spacing the density asks
+    for (1 / sqrt(density)).
+
+    This is what catches a bald patch before a build ships. The notch of skin under the lower lip and the
+    corners of the mouth are where the field is narrowest, so they are the first places a sampler that only
+    takes whole faces, or a density too low for a region, leaves bare; the shell's own version of that was
+    found by eye instead, four rebuilds in. A region with fewer than BEARD_ROOTS_MIN roots is bald outright."""
+    from mathutils.kdtree import KDTree
+    kd = KDTree(len(roots))
+    for i, p in enumerate(roots):
+        kd.insert(Vector(p), i)
+    kd.balance()
+    body = KDTree(len(base_co))
+    for i, p in enumerate(base_co):
+        body.insert(Vector(p), i)
+    body.balance()
+    home = [body.find(Vector(p))[1] for p in roots]         # the body vertex each root sits on
+    nominal = 1.0 / math.sqrt(max(cards["density"], 1e-6))
+    out, problems = {}, []
+    for name in spec["regions"]:
+        m = np.asarray(field_used[name])
+        sel = np.nonzero((m > 0.6 * spec["feather_m"]) & (face_used > 0))[0]
+        if not len(sel):
+            continue
+        near = np.sort(np.array([kd.find(Vector(base_co[i]))[2] for i in sel]))
+        p99 = float(near[min(len(near) - 1, int(0.99 * len(near)))])
+        n_roots = int(sum(1 for j in home if m[j] > 0))
+        out[name] = {"points": int(len(sel)), "roots": n_roots, "nominal_mm": round(nominal * 1000, 2),
+                     "gap_p99_mm": round(p99 * 1000, 2), "gap_max_mm": round(float(near[-1]) * 1000, 2)}
+        if n_roots < BEARD_ROOTS_MIN:
+            problems.append(f"{name}: {n_roots} card roots over {len(sel)} points of the region - it is bald")
+        elif p99 > BEARD_GAP_MAX * nominal:
+            problems.append(f"{name}: skin {p99 * 1000:.1f} mm from the nearest card root (99th percentile; the "
+                            f"density asks for {nominal * 1000:.1f} mm, at most {BEARD_GAP_MAX}x) - the region "
+                            "has a gap the cards never reach")
+    return {"ok": not problems, "problems": problems, "regions": out}
 
 
 # ------------------------------------------------------------------------------------------ entry
 
 def add(body, lm, colour, base, rig=None, uv_name="UVMap", brows=True, lashes=True, body_hair=False, sex=None,
-        brow_shape=None, beard=None, beard_colour=None, beard_length=None, beard_volume=None):
+        brow_shape=None, beard=None, beard_colour=None, beard_length=None, beard_volume=None, beard_braids=None):
     """Brows, lashes and (optionally) body hair and a beard on a baked MPFB body. `lm` is `hair.landmarks(body)`;
     `colour` the scalp hair's screen (sRGB) colour; `brow_shape` one of `BROW_SHAPES` (None: "natural");
-    `beard` one of `BEARD_STYLES` (None: none), in `beard_colour` (None: the hair colour darkened by BEARD_DARKEN).
+    `beard` one of `BEARD_STYLES` (None: none), in `beard_colour` (None: the hair colour darkened by BEARD_DARKEN),
+    with `beard_braids` ropes wound out of its hanging part (a dwarf's plaited beard; 0 or None: loose locks).
+    A beard long enough to hang leaves a second object, `<base>_beard_strand`, which carries follow-through's
+    strand contract and must not be joined into the body.
     Returns {objects, parts, skipped}."""
     if beard is not None and beard not in BEARD_STYLES:
         raise ValueError(f"beard {beard!r} is not one of {tuple(BEARD_STYLES)}")
@@ -1189,8 +1679,9 @@ def add(body, lm, colour, base, rig=None, uv_name="UVMap", brows=True, lashes=Tr
         out["parts"]["body_hair"] = rep
     if beard:
         bcol = tuple(beard_colour) if beard_colour is not None else _darken(colour, BEARD_DARKEN)
-        bob, rep = _beard(ob, co, base, rig, bcol, uv_name, beard, head, scale=lm.get("scale", 1.0),
-                          length_m=beard_length, volume=beard_volume)
-        out["objects"]["beard"] = bob.name
+        made, rep = _beard(ob, co, base, rig, bcol, uv_name, beard, head, scale=lm.get("scale", 1.0),
+                           length_m=beard_length, volume=beard_volume, braids=beard_braids)
+        for part, o in made.items():
+            out["objects"][part] = o.name
         out["parts"]["beard"] = rep
     return out

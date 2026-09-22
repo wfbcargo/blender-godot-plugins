@@ -247,21 +247,30 @@ def _median(xs):
     return xs[len(xs) // 2] if xs else 0.0
 
 
-def collider_bones(rig):
-    """The head and neck bones: rig-anything's body map when it is importable, else by name."""
+def collider_bones(rig, torso=False):
+    """The head and neck bones - and with `torso`, the chest and spine too: rig-anything's body map when it is
+    importable, else by name. A beard hangs in front of the chest, so what keeps it out of the head is not
+    enough; a ponytail hangs behind an empty back and asks for no torso, so it is off by default."""
+    def _torso(roles):
+        out = []
+        for role in ("chest", "spine", "upper_chest"):
+            v = roles.get(role)
+            out += list(v) if isinstance(v, (list, tuple)) else ([v] if v else [])
+        return out
     try:
         from rig_analysis import bodymap
         roles = bodymap.build(rig.name)["roles"]
         head = roles.get("head")
         neck = list(roles.get("neck") or [])
         if head:
-            return head, neck, "rig-anything body map"
+            return head, neck, (_torso(roles) if torso else []), "rig-anything body map"
     except Exception:                                   # rig-anything missing or the map failed
         pass
     names = [b.name for b in rig.data.bones]
     head = next((n for n in names if re.search(r"(^|[^a-z])head($|[^a-z])", n.lower())), None)
     neck = [n for n in names if "neck" in n.lower()]
-    return head, neck, "bone names"
+    chest = [n for n in names if "chest" in n.lower() or "spine" in n.lower()] if torso else []
+    return head, neck, chest, "bone names"
 
 
 COLLIDER_PERCENTILE = 0.95  # of the skin's distances from a collider's axis: its radius
@@ -272,7 +281,7 @@ def _percentile(xs, q):
     return xs[min(len(xs) - 1, int(q * len(xs)))] if xs else 0.0
 
 
-def colliders(rig, bodies, exclude=()):
+def colliders(rig, bodies, exclude=(), torso=False):
     """What keeps a strand out of the head and neck, from the skin that rides those bones, world space.
 
     The head is an ellipsoid on its bone's axes: centred on the middle of its skin's bounds in that
@@ -283,8 +292,9 @@ def colliders(rig, bodies, exclude=()):
     (her dense face pulled the centroid 5 cm forward). Each neck bone is a capsule along the bone
     through the middle of its skin's bounds, with the 95th percentile of that skin's distance from
     the axis (over the middle half of its length) for its radius, its ends pulled in by the radius."""
-    head, neck, source = collider_bones(rig)
-    wanted = ([head] if head else []) + list(neck)
+    head, neck, chest, source = collider_bones(rig, torso=torso)
+    chest = [n for n in chest if n != head and n not in neck]
+    wanted = ([head] if head else []) + list(neck) + list(chest)
     pos = {}
     for body in bodies:
         if body.name in exclude:
@@ -317,7 +327,8 @@ def colliders(rig, bodies, exclude=()):
         ta, tb = a0 + r, a1 - r
         if ta > tb:
             ta = tb = (a0 + a1) / 2
-        out.append({"name": "neck_" + re.sub(r"[^A-Za-z0-9]+", "_", bname), "bone": bname, "shape": "capsule",
+        out.append({"name": ("torso_" if bname in chest else "neck_") + re.sub(r"[^A-Za-z0-9]+", "_", bname),
+                    "bone": bname, "shape": "capsule",
                     "a": c + axis * ta, "b": c + axis * tb, "radius_m": r})
     return out, source
 
@@ -335,6 +346,9 @@ def _material(kind):
     mat = entry.get("material", "hair")
     params = dict(DEFAULTS)
     params.update(reg["materials"].get(mat, {}).get("strand", {}))
+    # a type may stiffen or damp what its material says: hair is hair, but a beard packed against the chest
+    # swings nothing like a ponytail hanging free behind the head
+    params.update(entry.get("strand", {}))
     return mat, params
 
 
@@ -415,7 +429,9 @@ def prepare(obj_name, rig_name=None, root_bone=None, kind=None, overrides=None, 
     bodies = bodies if bodies is not None else [
         o for o in bpy.data.objects if o.type == "MESH" and o is not obj and not is_strand(o)
         and any(m.type == "ARMATURE" and m.object is rig for m in o.modifiers)]
-    caps, cap_source = colliders(rig, [bpy.data.objects[b] if isinstance(b, str) else b for b in bodies])
+    # a beard hangs down the front of the chest: without a torso collider a fling throws it through the ribs
+    caps, cap_source = colliders(rig, [bpy.data.objects[b] if isinstance(b, str) else b for b in bodies],
+                                 torso=(kind == "beard"))
     if not caps:
         report["warnings"].append("no head or neck collider: nothing keeps the strand out of the head")
 

@@ -386,6 +386,7 @@ class Hair:
     beard_colour: list | None = None            # screen (sRGB); None: the hair colour a little darker
     beard_length: float | None = None           # m at the chin (a hanging beard past ~6 cm); None: the style's
     beard_volume: float | None = None           # 0..1, how far the beard stands off the skin; None: the style's
+    beard_braids: int | None = None             # ropes wound out of a hanging beard (a dwarf's); None / 0: locks
     fringe: bool = False                        # humanform.hair FRINGE across the forehead, over any preset
 
     FACE = ("brows", "lashes", "body_hair")
@@ -403,6 +404,8 @@ class Hair:
             for k in ("beard_length", "beard_volume"):
                 if getattr(self, k) is not None:
                     out[k] = float(getattr(self, k))
+            if self.beard_braids:
+                out["beard_braids"] = int(self.beard_braids)
         if self.fringe:
             out["fringe"] = True
         return out
@@ -544,7 +547,8 @@ class Character:
                     out.pop(k, None)
             if out.get("brow_shape") in (None, "natural"):
                 out.pop("brow_shape", None)         # the default hashes as before the field existed
-            for k in ("beard", "beard_colour", "beard_length", "beard_volume"):   # unset hashes as before
+            for k in ("beard", "beard_colour", "beard_length", "beard_volume",
+                      "beard_braids"):                                  # unset hashes as before
                 if out.get(k) is None:
                     out.pop(k, None)
             if not out.get("fringe"):
@@ -908,8 +912,8 @@ def parse(data, path=None):
     if "hair" in data:
         h = dict(_take(data, "hair", dict))
         if "preset" in h:
-            _unknown(h, ("preset", "colour", "brow_shape", "beard", "beard_colour", "beard_length", "beard_volume",
-                         "fringe") + Hair.FACE, "[hair]")
+            _unknown(h, ("preset", "colour", "brow_shape", "beard", "beard_colour", "beard_length",
+                         "beard_volume", "beard_braids", "fringe") + Hair.FACE, "[hair]")
             preset = _take(h, "preset", str, where="hair.")
             if preset not in HAIR_PRESETS:
                 raise SpecError(f"hair.preset {preset!r} is not one of {HAIR_PRESETS}")
@@ -944,6 +948,13 @@ def parse(data, path=None):
                 if not lo <= float(v) <= hi:
                     raise SpecError(f"hair.{k} must be {lo}..{hi}, got {v}")
                 shape[k] = float(v)
+            braids = _take(h, "beard_braids", int, where="hair.")
+            if braids is not None:
+                if beard is None:
+                    raise SpecError("hair.beard_braids needs hair.beard")
+                if not 0 <= int(braids) <= 6:
+                    raise SpecError(f"hair.beard_braids must be 0..6, got {braids}")
+                shape["beard_braids"] = int(braids)
             hair = Hair(kind="preset", preset=preset, colour=[float(c) for c in colour] if colour else None,
                         brow_shape=brow_shape, beard=beard, fringe=bool(_take(h, "fringe", bool, where="hair.")),
                         beard_colour=[float(c) for c in beard_colour] if beard_colour else None, **shape,

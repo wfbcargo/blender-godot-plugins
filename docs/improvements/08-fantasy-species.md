@@ -414,6 +414,53 @@ is hair, so it should be the same strand cards as scalp hair, rooted on the bear
 volume driving the cards, and follow-through sway on the long ones. The shell stays for stubble, where it is
 right.
 
+### Beards as strand cards (done, `species-2-hair`)
+
+A beard is now a **root mat plus strand cards** (`humanform.brows._beard_cards`), and the layered shells are
+gone. One shell of the body's own faces stays as the mat under the hairs - the thing that hides skin, as a
+scalp's cap does - and everything above it is cards:
+
+- **Roots** are scattered over `beard_field` at the style's `density` (cards per square metre), per body face,
+  by area and by how far inside the fade that face is, so the edge thins instead of stopping.
+- **A card** is a ribbon of three columns bowed out of its own chord (a flat card vanishes edge-on). It starts
+  along the skin's own downhill direction - world down projected onto the tangent plane, straight down where
+  the skin faces down, as under the chin - turns toward gravity by `droop` at each step, and is held
+  `BEARD_CARD_CLEAR_M` off the body all the way; below the chin that clearance grows to `BEARD_HANG_CLEAR_M`,
+  so it hangs in front of the chest and the shirt on it rather than through them.
+- **Length** is the style's at the chin, less toward the moustache on the same ramp the layers used, jittered
+  per card; a moustache card is capped (`BEARD_MOUSTACHE_MAX_M`, jittered) or a long beard buries the mouth.
+- **Clumps.** Each clump grows a spine and its members bend into it over their second half: locks, not a pelt.
+  `braids` winds the hanging clumps round their spine instead, on a radius that pulses down the rope - a
+  dwarf's plait, for the price of re-placing points that were already there.
+- **The texture is the beard's own**, in a second material with no under-layer (a card must show gaps), and
+  the UVs are arc length across and along the card over the tile, so texels stay square and the mip check
+  still passes. The fade falls from the root's value to `BEARD_CARD_TIP_FADE` over the last of the card,
+  which drops the texture's hairs one by one by rank: the end is a scatter of tips, not a cut across the
+  texture. That is what the silhouette check measures.
+- **The hanging part is its own mesh** (`<name>_beard_strand`) with follow-through's strand contract, one
+  chain per lock (`ft_centrelines`: a single chain down a sheet as wide as a jaw twists it, which is why the
+  long_loose curtain is not chained). The pipeline keeps it loose exactly as it keeps a ponytail, and the
+  strand stage springs it.
+
+**Three checks that catch what the eye caught before:**
+
+- `brows._coverage_check` - for every point well inside each of the field's own regions (`moustache`,
+  `corners`, `chin`, `jaw`), the distance to the nearest card root against the spacing the density asks for.
+  It names the bald region: the notch under the lower lip and the corners of the mouth are where the field is
+  narrowest and are the first places a face-by-face sampler leaves bare.
+- `hairtex.silhouette_check` - rasterises the part's own geometry with the fade's vertex alpha at the screen
+  resolution of 0.6 m and 4 m, front and side, and measures how far its lower outline wanders from a smoothed
+  copy of itself. A shell's outline is the fade's zero line, a curve, and measures near nothing; the cards
+  measure 2-5 px close up and still a fraction of one across a room. It also fails a beard whose area
+  collapses between the two distances - cards too thin to hold the shape at a distance.
+- `verify_strands.gd` now measures penetration against **every collider bone the strand must clear**, the
+  chest included (`torso_*`), not the head alone, and `follow_through.strand.colliders(torso=True)` measures
+  those capsules for a beard. It earned its keep at once: on the hair material's own limits the dwarf's beard
+  swung 70-75 degrees on a run and went 4 cm into his own face, so the registry's `beard` type stiffens and
+  damps it (16/22 degrees, damping 0.85).
+
+`hair.beard_braids` (0..6) is the spec dial; `stubble` stays a pure shell and says why in the code.
+
 **A non-human head** is a **parametric muzzle**, not an imported mesh: the head features mechanism (regions,
 landmarks, displacement, attached parts) already reshapes a head, so a snout is a general feature with a
 length, a width, a bridge height, a nose pad and a lip line, growing the human face forward along the jaw's
