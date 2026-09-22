@@ -65,8 +65,8 @@
       "male": 5.67
     },
     "mass_kg_mid": {
-      "female": 27.7,
-      "male": 30.3
+      "female": 27.0,
+      "male": 30.0
     },
     "adult_cues": {
       "shoulder_scale": {
@@ -79,7 +79,7 @@
     "limbs": {
       "female": {
         "thigh": {
-          "girth_to_length": 2.614,
+          "girth_to_length": 2.596,
           "band": [
             1.918,
             2.667
@@ -88,7 +88,7 @@
           "human_mean": 1.629
         },
         "shin": {
-          "girth_to_length": 1.504,
+          "girth_to_length": 1.475,
           "band": [
             1.171,
             1.589
@@ -97,7 +97,7 @@
           "human_mean": 0.928
         },
         "upper_arm": {
-          "girth_to_length": 1.482,
+          "girth_to_length": 1.472,
           "band": [
             1.117,
             1.561
@@ -106,7 +106,7 @@
           "human_mean": 0.916
         },
         "forearm": {
-          "girth_to_length": 1.723,
+          "girth_to_length": 1.714,
           "band": [
             1.332,
             1.744
@@ -117,7 +117,7 @@
       },
       "male": {
         "thigh": {
-          "girth_to_length": 2.43,
+          "girth_to_length": 2.412,
           "band": [
             1.816,
             2.586
@@ -126,7 +126,7 @@
           "human_mean": 1.534
         },
         "shin": {
-          "girth_to_length": 1.537,
+          "girth_to_length": 1.516,
           "band": [
             1.242,
             1.648
@@ -135,7 +135,7 @@
           "human_mean": 0.94
         },
         "upper_arm": {
-          "girth_to_length": 1.552,
+          "girth_to_length": 1.545,
           "band": [
             1.18,
             1.654
@@ -144,7 +144,7 @@
           "human_mean": 0.987
         },
         "forearm": {
-          "girth_to_length": 1.79,
+          "girth_to_length": 1.788,
           "band": [
             1.37,
             1.795
@@ -163,6 +163,10 @@
       "male": 1.0
     },
     "warnings": [],
+    "scale_total": {
+      "female": 0.6416,
+      "male": 0.6693
+    },
     "given": [
       "build",
       "feet",
@@ -234,8 +238,8 @@
     ]
   },
   "bmi": [
-    27.4,
-    35.3
+    25.4,
+    35.8
   ],
   "heads": {
     "any": [
@@ -357,12 +361,12 @@
     },
     "hip_width": {
       "female": [
-        0.2671,
-        0.0366
+        0.2831,
+        0.0388
       ],
       "male": [
-        0.2421,
-        0.031
+        0.2567,
+        0.0329
       ],
       "source": "species_design: realistic hip_width through the halfling knobs"
     },
@@ -399,11 +403,11 @@
   "derived": {
     "shoulder_to_hip_width": {
       "female": [
-        1.294,
+        1.22,
         0.139
       ],
       "male": [
-        1.5,
+        1.415,
         0.14
       ],
       "source": "shoulder_width / hip_width of this species"
@@ -442,7 +446,7 @@
       "arm_length": 0.4207,
       "fingertip": 0.3274,
       "fingertip_above_knee": 0.0588,
-      "shoulder_to_hip": 1.2935,
+      "shoulder_to_hip": 1.2203,
       "shoulder_heads": 1.9,
       "heads": 5.5,
       "human": {
@@ -474,7 +478,7 @@
       "arm_length": 0.4235,
       "fingertip": 0.3274,
       "fingertip_above_knee": 0.0632,
-      "shoulder_to_hip": 1.5001,
+      "shoulder_to_hip": 1.4152,
       "shoulder_heads": 1.9978,
       "heads": 5.5,
       "human": {
@@ -566,11 +570,11 @@
   "widths": {
     "female": {
       "shoulder_width": 0.8927,
-      "hip_width": 0.8783
+      "hip_width": 0.931
     },
     "male": {
       "shoulder_width": 0.8931,
-      "hip_width": 0.8788
+      "hip_width": 0.9316
     }
   },
   "girth_law": {
@@ -583,6 +587,10 @@
     "support": {
       "female": 1.0,
       "male": 1.0
+    },
+    "scale": {
+      "female": 0.70022,
+      "male": 0.70089
     },
     "note": "legs/arms/neck/torso are absolute against the pre-warp human, by the adult build law (a shrink by s takes s^exponent) and support; forearm, chest_depth and chest_breadth multiply on top. A clamped pre-warp human's extra uniform scale takes the same law (species.py)"
   },
@@ -659,8 +667,8 @@
       "genitals": {
         "on": "pelvis",
         "scale": {
-          "female": 0.8783,
-          "male": 0.8788
+          "female": 0.931,
+          "male": 0.9316
         },
         "relative": 1.0,
         "source": "law: with its host"
@@ -668,8 +676,8 @@
       "buttocks": {
         "on": "pelvis",
         "scale": {
-          "female": 0.8783,
-          "male": 0.8788
+          "female": 0.931,
+          "male": 0.9316
         },
         "relative": 1.0,
         "source": "law: with its host"

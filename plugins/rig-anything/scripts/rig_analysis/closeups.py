@@ -243,8 +243,12 @@ def _aim(view, dist, P, frozen, fwd_rest, up_rest, left_rest, stature):
         hl = hu.cross(hf).normalized()                  # the head's left
         eyes = _eyes(frozen, left_rest)
         head_mid = (P.p("head") + P.p("head", tail=True)) / 2.0
-        if eyes:
+        if eyes and len(eyes) == 2:
             centre, ipd = (eyes[0] + eyes[1]) / 2.0, (eyes[0] - eyes[1]).length
+            if ipd < 0.035 * stature / 1.7:
+                # one eye (humanform.eye_layout), split in two halves by the side test: the framing takes a
+                # person's eye spacing at this stature, not the halves' (a cyclops' face_3q was cut, 2026-09-21)
+                ipd = 0.063 * stature / 1.7
         else:
             nl = (P.p("head") - P.p("neck")).length
             centre, ipd = P.p("head") + hu * nl * 0.9 + hf * nl * 0.7, 0.063 * stature / 1.7

@@ -154,6 +154,10 @@
       "male": 1.0054
     },
     "warnings": [],
+    "scale_total": {
+      "female": 1.0526,
+      "male": 1.0532
+    },
     "given": [
       "build",
       "hands",
@@ -567,6 +571,10 @@
     "support": {
       "female": 1.0078,
       "male": 1.0054
+    },
+    "scale": {
+      "female": 1.05265,
+      "male": 1.05325
     },
     "note": "legs/arms/neck/torso are absolute against the pre-warp human, by the adult build law (a shrink by s takes s^exponent) and support; forearm, chest_depth and chest_breadth multiply on top. A clamped pre-warp human's extra uniform scale takes the same law (species.py)"
   },

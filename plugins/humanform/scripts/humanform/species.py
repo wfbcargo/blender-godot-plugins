@@ -87,14 +87,19 @@ def inline(d):
         raise ValueError("an inline species needs `ratios` and `heads` (a whole humanform-species/1 preset): "
                          "humanform.species_design, which designs one from observables or knobs, is not installed")
     sid, label = d.pop("id", None) or "custom", d.pop("label", None)
-    look = {k: d.pop(k) for k in ("head", "skin", "moves") if k in d} or None
+    look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft") if k in d} or None
     anatomy = d.pop("anatomy", None)
     if "knobs" in d:
         knobs = dict(d.pop("knobs"))
         stature = d.pop("stature", knobs.pop("stature", None))
         out = sd.design(id=sid, label=label, stature=stature, look=look, anatomy=anatomy, **knobs)
     else:
-        out = sd.design_from(d.pop("observables", d), id=sid, look=look, anatomy=anatomy)
+        obs = dict(d.pop("observables", d))
+        # a knob beside the observables (character-pipeline's [body.species] takes both at the top level, and
+        # species-design.md: "anything no observable expresses is given as a knob") goes to solve() as a knob;
+        # a name that is both (hunch_deg, sway_deg) stays an observable
+        knobs = {n: obs.pop(n) for n in list(obs) if n in sd.KNOBS and n not in sd.OBSERVABLES}
+        out = sd.design_from(obs, id=sid, look=look, anatomy=anatomy, **knobs)
     if label:
         out["label"] = label
     return out
@@ -170,6 +175,7 @@ def preset(sp, doc=None):
     p = {"label": sp.get("label", sp["id"]), "species": sp["id"],
          "heads": h if isinstance(h, dict) else {"any": list(h)},
          "ratios": sp["ratios"], "derived": sp.get("derived") or real["derived"], "bmi": sp.get("bmi"),
+         "bmi_build": (sp.get("pre_warp") or {}).get("bmi"),
          "features": copy.deepcopy(sp.get("features") or {}), "levels": {}}
     for sex in ("female", "male"):
         src, dst = [0.0], [0.0]
@@ -636,6 +642,23 @@ def _lbs(co, idx, w, T):
     return out + np.einsum("nk,nk,nkj->nj", w, corr, Y[idx])
 
 
+def _clamp_girth(sp, sex, region, extra):
+    """The girth factor the clamp's uniform scale `extra` gives a region: by the adult build law on the whole scale
+    from the fitted human (species_design.clamp_girth, with the preset's girth_law), else geometric (`extra`, a
+    preset without one)."""
+    gl = sp.get("girth_law") or {}
+    a = (gl.get("exponents") or {}).get(region)
+    s = (gl.get("scale") or {}).get(sex)
+    if a is None or abs(extra - 1.0) < 1e-9:
+        return extra
+
+    def law(x):
+        return x ** float(a) if x < 1.0 else x
+    if s is None:                                 # a preset before girth_law.scale: the law on the clamp alone
+        return law(extra)
+    return law(float(s) * extra) / law(float(s))
+
+
 class _Warp:
     """What the solve varies (x) and what the preset fixes, turned into per-bone transforms by role."""
 
@@ -649,12 +672,14 @@ class _Warp:
         g = sexed(sp.get("girth"), sex)
         # a pre-warp human clamped to STATURE_PRE is scaled by `extra` after the fit: its girths take the adult
         # build law (species_design.GIRTH_LAW, in the preset's girth_law) when it is shrunk, as design() did
-        law = ((sp.get("girth_law") or {}).get("exponents") or {}) if extra < 1.0 else {}
-        self.girth = {k: float(g.get(k, 1.0)) * extra ** float(law.get(k, 1.0)) for k in ("legs", "arms", "neck", "torso")}
+        self.girth = {k: float(g.get(k, 1.0)) * _clamp_girth(sp, sex, k, extra) for k in ("legs", "arms", "neck", "torso")}
         # the ribcage's own depth and breadth and the forearm's girth, on top (1 on a preset without them)
         self.extra_girth = {k: float(g.get(k, 1.0)) for k in ("forearm", "chest_depth", "chest_breadth")}
         # a preset with a girth_law gives the chest a depth that follows the breadth broad shoulders spread it to
         self.chest_follows = bool(sp.get("girth_law"))
+        # the limbs' support girth (a big body's): the limbs', not the pelvis's - the buttocks and the hip section
+        # keep the trunk's build (a troll's waist over hip fell 1.02 -> 0.86 with it on the pelvis)
+        self.support = float((((sp.get("girth_law") or {}).get("support") or {}).get(sex)) or 1.0)
         w = sexed(sp.get("widths"), sex)
         self.widths = {k: float(w.get(k, 1.0)) * extra for k in ("shoulder_width", "hip_width")}
         sc = sp.get("spine") or {}
@@ -754,7 +779,8 @@ class _Warp:
             if k == "pelvis":
                 # the pelvis carries the buttocks and the tops of the thighs: it takes the legs' girth, so a
                 # buttock does not overhang a thigh girthed less than the trunk
-                S[n] = (gl * f["pelvis_x"], l_sp, gl)
+                gp = gl / self.support
+                S[n] = (gp * f["pelvis_x"], l_sp, gp)
             elif k == "spine":
                 bx = chest_x if n == chest else 1.0
                 dz = chest_x if (n == chest and self.chest_follows) else 1.0
@@ -1033,7 +1059,7 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
     if "shoulder_width" in tg and m0.get("shoulder_width") and clav:
         wp.fixed["clavicle"] = 1.0 + (tg["shoulder_width"]["m"] - m0["shoulder_width"] * wp.girth["arms"]) / (2 * clav_x)
     if "hip_width" in tg and m0.get("hip_width"):
-        wp.fixed["pelvis_x"] = tg["hip_width"]["m"] / (m0["hip_width"] * wp.girth["legs"])
+        wp.fixed["pelvis_x"] = tg["hip_width"]["m"] / (m0["hip_width"] * wp.girth["legs"] / wp.support)
 
     lean = _balance(wp, rigd, body, mask, mix0, float(m0["stature"]), H) if (wp.kyph or wp.lord) else 0.0
 
@@ -1361,6 +1387,16 @@ def _members(ob, names, thresh=0.5):
                      if any(e.group in gids and e.weight > thresh for e in v.groups)], int)
 
 
+def _key_moved(human, mesh, key, least=5e-4):
+    """The vertices a shape key moves at least `least` metres off its reference, or None without the key."""
+    by = dict(mesh.keys)
+    if key not in by:
+        return None
+    kb = human.data.shape_keys.key_blocks[key]
+    d = np.linalg.norm(by[key] - by.get(kb.relative_key.name, mesh.keys[0][1]), axis=1)
+    return np.flatnonzero(d >= least)
+
+
 def _size(pts):
     return float(np.linalg.norm(np.ptp(pts, axis=0))) if len(pts) > 1 else 0.0
 
@@ -1429,13 +1465,20 @@ def inventory(human, sp=None, reference=None, expected=None):
     for part, spec in PARTS.items():
         row = {"part": part, "host": spec["host"]}
         name = part.split(".")[0]
-        if name in absent:
-            rows.append(dict(row, status="skip", reason=f"declared absent: {absent[name]}"))
+        if part in absent or name in absent:        # the part (nails.toes) or the whole part it is of (nails)
+            rows.append(dict(row, status="skip", reason=f"declared absent: {absent.get(part) or absent[name]}"))
             continue
         if spec.get("opt_in") and not human.get(spec["opt_in"]):
             rows.append(dict(row, status="skip", reason=f"not asked for (opt-in: {spec['opt_in']} is unset)"))
             continue
         idx = _members(human, spec["groups"])
+        if part == "genitals" and human.get("hf_genitals") == "female":
+            # a woman's part is humanform.genitals' relief (a delta key), not MPFB's male shell: the vertices it moves
+            idx = _key_moved(human, bm, "hfd:genital")
+            if idx is None:
+                rows.append(dict(row, status="fail", reason="missing: hf_genitals is 'female' and there is no "
+                                                            "hfd:genital relief key (humanform.genitals.relief)"))
+                continue
         if idx is None or not len(idx):
             rows.append(dict(row, status="fail", reason=f"missing: no vertices in {', '.join(spec['groups'])}, "
                                                         "and not declared absent (anatomy.absent)"))
@@ -1483,7 +1526,7 @@ def inventory(human, sp=None, reference=None, expected=None):
         rows.append({"part": f"{part}.object", "status": "fail",
                      "reason": f"missing: no {human.name}{suf} skinned to {rig.name}, and not declared absent"})
     for part, reason in absent.items():
-        if not any(r["part"].split(".")[0] in (part, f"object:{part}") for r in rows):
+        if not any(r["part"] in (part, f"object:{part}") or r["part"].split(".")[0] == part for r in rows):
             rows.append({"part": part, "status": "skip", "reason": f"declared absent: {reason}"})
     counts = {k: sum(1 for r in rows if r["status"] == k) for k in ("pass", "warn", "fail", "skip")}
     return {"parts": rows, "counts": counts, "fail": counts["fail"]}

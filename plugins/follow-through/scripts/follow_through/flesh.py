@@ -1203,7 +1203,7 @@ def _leg_share(obj, t, verts):
     return out
 
 
-def _attachment_measures(t, r, verts, w, above_m=ATTACH_ABOVE_M):
+def _attachment_measures(t, r, verts, w, above_m=ATTACH_ABOVE_M, scale=1.0):
     """How a hanging mass's bone and weight sit (check_placement): the pivot's rise over the tail, the mean weight
     within 2 cm of the tail, the most weight on region vertices 9-11 cm above the tail within 4 cm of it
     horizontally, and the most on vertices with half or more of their skin on a leg. Free values, never clamped."""
@@ -1223,6 +1223,9 @@ def _attachment_measures(t, r, verts, w, above_m=ATTACH_ABOVE_M):
                                round(float(w[near].mean()), 3) if near.any() else 0.0),
             "weight_10cm_above": round(float(w[above].max()), 3) if above.any() else 0.0, "above_m": above_m,
             "weight_on_thigh": round(float(w[leg].max()), 3) if leg.any() else 0.0}
+
+
+TRUNK_SPAN_HUMAN_MAX = 0.62   # hip joints to shoulder joints (m) of the tallest person built (2.02 m smoke: ~0.60)
 
 
 def check_placement(t, regions, c=None):

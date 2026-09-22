@@ -824,10 +824,12 @@ def _limb_build(m, p, sex, add):
     """limb_build as findings: a limb under the adult band warns (stick limbs), one over it is information (a
     heavy or disproportionate build is meant to be), inside passes. The chest's depth over breadth is reported."""
     from . import species_design as sd
-    bmi = p.get("bmi") or [21.0, 28.0]
+    # the band of the build (the pre-warp human's BMI range): a body scaled up whole has a square-cube BMI far past
+    # it, while its limbs' girth over length is a build's
+    bmi = p.get("bmi_build") or p.get("bmi") or [21.0, 28.0]
     for limb, (v, lo, hi) in limb_build(m, sex, bmi).items():
         st = "warn" if v < lo else "info" if v > hi else "pass"
-        msg = (f"{limb} girth/length {v:.2f}, an adult's {lo:.2f}-{hi:.2f} at {m['stature']:.2f} m and BMI "
+        msg = (f"{limb} girth/length {v:.2f}, an adult's {lo:.2f}-{hi:.2f} at {m['stature']:.2f} m for a build of BMI "
                f"{bmi[0]:.0f}-{bmi[1]:.0f}")
         if st == "warn":
             msg += " - stick limbs: thicker than this reads as an adult (the species' girth, or its build)"

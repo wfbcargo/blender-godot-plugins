@@ -147,8 +147,10 @@ SPECIES = {
             "shoulder_to_hip": (1.65, "broad shoulders on narrower hips (a human man's 1.48) [folklore]"),
             "hands": (1.08, "big hands"), "feet": (1.05, ""), "neck": (0.7, "a short, thick neck"),
             "build": ("muscular", "heavily muscled [folklore]"),
-            "bmi": (32.0, "a strongman's BMI (30-35) [measured]; girth scaled to land it"),
-            "girth": ({"legs": 1.15, "arms": 1.22, "neck": 1.30, "torso": 1.15}, "heavy muscle"),
+            # no bmi: a strongman's 30-35 [measured] is what the build and the widths already give (~35); a stated
+            # 32 thinned the girth to 0.92 of itself
+            "girth": ({"arms": 1.05, "neck": 1.15}, "heavy arms and a bull neck; a heavy girth everywhere on top of "
+                                                    "the muscular build made BMI ~44"),
             "hunch_deg": (6.0, "a slight forward carriage of the shoulders"),
         },
         "knobs": {"hip_scale": (1.04, ""), "waist_to_hip": ({"female": 0.86, "male": 0.95}, "a thick waist")},
@@ -195,10 +197,14 @@ SPECIES = {
                            "[folklore]"),
             "trunk_to_leg": (0.77, "a long heavy trunk on shorter legs [folklore]"),
             "fingertips_at": ("knee", "hands to the knee [folklore]"),
+            "girth": ({"arms": 1.15, "forearm": 1.1}, "long arms as heavy as they are long: at the legs' girth "
+                                                      "the arms to the knee came out under the adult band "
+                                                      "(upper arm 0.74, forearm 0.69 girths per length, built)"),
             "hands": (1.25, "huge hands"), "feet": (1.12, ""), "neck": (0.6, "the head slung forward"),
-            "build": ("heavy", "a heavy human is the start"),
-            "bmi": (45.0, "square-cube: a heavy human (BMI 32) scaled whole to 2.65 m would be ~48; a troll is "
-                          "bulky but not solid. Girth is solved to land it [measured, scaling law]"),
+            "build": ("average", "an average human scaled whole: square-cube and the limbs' support girth make it "
+                                 "~400 kg at 2.65 m (BMI ~56) [measured, scaling law]. No bmi: a stated 45 thinned "
+                                 "every girth to 0.69 once the fit's clamp (1.95 m, then scaled 1.4x) was counted, "
+                                 "and the limbs came out sticks"),
             "hunch_deg": (32.0, "the hunch [folklore]"),
         },
         "knobs": {"shoulder_scale": (1.28, "massive shoulders"), "hip_scale": (1.12, ""),
@@ -207,7 +213,7 @@ SPECIES = {
                           "features": {"ears_pointed": 0.3, "brow_ridge": 1.0, "nose_size": 0.6, "tusks": 0.4}},
                  "skin": {"palette": [[0.52, 0.55, 0.48], [0.44, 0.49, 0.40], [0.37, 0.42, 0.35], [0.30, 0.33, 0.29]],
                           "regions_off": []},
-                 "moves": {"style": None, "notes": "large-animal gait from the mass (~300 kg): straight legs, duty "
+                 "moves": {"style": None, "notes": "large-animal gait from the mass (~400 kg): straight legs, duty "
                                                    "factor up, no aerial phase [measured, animals]"}},
         "skin_why": "grey-green, stony; every region kept, tone-relative",
     },

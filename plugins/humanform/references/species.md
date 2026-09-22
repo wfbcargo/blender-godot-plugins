@@ -18,9 +18,9 @@ growth canons) rest on measurements. The rest are labelled conventions.
 | halfling | 0.85-1.05 / 0.88-1.10 | 5.5 (5.7) | 0.482 | 0.74 | 1.21 | 0.088 | 27-35 | head | `trunk_to_leg` 0.72, feet 1.22, stocky |
 | gnome | 0.92-1.08 / 0.95-1.12 | 4.3 (5.8) | 0.460 | 0.76 | 1.32 | 0.082 | 20-27 | head | `trunk_to_leg` 0.74, a big head, big nose |
 | dwarf | 1.15-1.40 / 1.20-1.45 | 5.0 (6.0) | 0.437 | 0.91 | 1.49 | 0.081 | 37-48 | trunk | `upper_to_lower` 1.5, rhizomelic 0.35, `arm_to_leg` 0.74, `barrel_chest` 1, heavy forearms (~74 kg) |
-| orc | 1.70-1.90 / 1.80-2.05 | 7.5 (8.2) | 0.501 | 0.75 | 1.13 | 0.070 | 28-36 | head | `trunk_to_leg` 0.73, `shoulder_to_hip` 1.65, bmi 32, tusks |
+| orc | 1.70-1.90 / 1.80-2.05 | 7.5 (8.2) | 0.501 | 0.75 | 1.13 | 0.070 | 30-41 | head | `trunk_to_leg` 0.73, `shoulder_to_hip` 1.65, muscular, heavy arms and neck, tusks |
 | goblin | 0.95-1.15 / 1.00-1.20 | 5.0 (5.9) | 0.483 | 0.72 | 1.19 | 0.052 | 16-21 | head | `fingertips_at` knee+0.05, hunch 26, scrawny, big hands, feet and ears |
-| troll | 2.35-2.70 / 2.45-2.85 | 7.0 (9.9) | 0.489 | 0.79 | 1.21 | 0.002 | 39-51 | trunk | `fingertips_at` knee, hunch 32, bmi 45 (~310 kg) |
+| troll | 2.35-2.70 / 2.45-2.85 | 7.0 (9.9) | 0.489 | 0.79 | 1.21 | 0.002 | 43-69 | trunk | `fingertips_at` knee, hunch 32, average build scaled whole, heavy arms (~400 kg) |
 
 - **heads (law)** is what head allometry gives a body of that size. Wherever the stated count departs from it,
   the head is a stylised one [folklore]: bigger on the small species and the troll, smaller on the elf.
@@ -46,8 +46,9 @@ growth canons) rest on measurements. The rest are labelled conventions.
   1.5 softens it into the design's 1.3-1.6.
 - **Gnome at 4.3 heads, not 4.2.** Its head is already 0.23 m at 1.0 m.
 - **Elf is Tolkien-tall**, not D&D-short.
-- **Troll BMI 45.** A heavy human scaled whole to 2.65 m would be ~48, and a gigantic human (Wadlow) was 27.
-  The troll sits near the scaled shape.
+- **Troll ~400 kg, no stated BMI.** An average human fitted at 1.95 m and scaled 1.4x whole is BMI ~56 by
+  square-cube; a gigantic human (Wadlow) was 27, and his legs failed him. A stated 45 thinned the troll's girth to
+  0.69 and its arms read as sticks.
 
 ## What a file holds
 

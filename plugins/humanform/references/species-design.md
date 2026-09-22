@@ -103,6 +103,13 @@ The laws fill whatever you leave out:
     elastic similarity in ungulates) **[measured, bones; applied to the limb's girth: derived]**. A limb above
     a human of the build's mass takes (M / M_human)^0.06 (`SUPPORT_EXP`): the troll's limbs 1.07. Gigantism is
     the counter-example: Wadlow at 2.72 m kept a human's BMI 27, and his legs failed him.
+  - **The clamp is part of the scale.** A pre-warp human outside ANSUR (1.45-1.95 m) is fitted at the limit and
+    scaled whole by c = H_pre / limit (`species.prewarp_stature`). Everything above is taken against the human
+    actually fitted: the whole scale is s x c, the adult build law and the support girth apply to that
+    (`clamp_girth`; the warp does the same from the preset's `girth_law.scale`), and the mass is the fitted
+    human's BMI x its stature^2 x the volume factor. Designed against built (male, BMI from the mesh volume over
+    the pre-warp human's, at the brief's BMI): troll (stated bmi 45 then) 43.2 / 42.1, cyclops (3.1 m, c 1.8) 72.5 / 75.0, dwarf
+    (1.32 m, c 0.93) 39.6 / 39.5, halfling 30.6 / 29.7, gnome 28.7 / 27.7.
   - **The look, as numbers.** `design` reports each limb's girth over its joint-to-joint length against the
     adult band for its stature and build (`limb_band`: ANSUR II's c/L ~ H^-0.5..-0.7 BMI^0.4..0.6 with its
     5th-95th percentile spread, extended below 1.45 m by the same law), and the chest's depth over breadth.
@@ -210,14 +217,17 @@ To add the species to the catalogue, add its observables to `scripts/derive_spec
 
 1. **Description:** "huge, 2.4-2.8 m, hunched, long arms with hands to the knee, heavy."
 2. **Analogues:** square-cube scaling and large-animal gait [measured]. For contrast there is gigantism: Wadlow
-   at 2.72 m was BMI 27 because a tall human is slender. A troll is a heavy human scaled up whole: `build`
-   "heavy" (BMI 32) would reach ~48 at 2.65 m, and we state **bmi 45**, so girth is solved (1.01, with the limbs' support girth 1.07 on top).
+   at 2.72 m was BMI 27 because a tall human is slender. A troll is a human scaled up whole: `build`
+   **"average"**, fitted at 1.95 m and scaled 1.4x, comes out ~400 kg (BMI ~56) by square-cube, its limbs
+   thickened by the support girth (1.07). No BMI is stated: a stated 45 thinned every girth to 0.69 once the
+   clamp was counted, and the built arms read under the adult band. `girth` arms **1.15**, forearm **1.1**:
+   arms to the knee as heavy as they are long.
 3. **Reach:** `fingertips_at` **"knee"** solves `arm_scale` to 1.02 against legs shortened to 0.83 (from
    `trunk_to_leg` **0.77**). Arm-to-leg ends at 0.87, far outside a human's, so the body is disproportionate.
 4. **Hunch:** `hunch_deg` **32**, applied over the thoracic span. Every ratio is measured on the bent body.
 5. **Heads:** the law gives 9.9, because a giant is small-headed. We state **7.0** for the brute's big head, and
    it is labelled folklore.
-6. **Result:** ~310 kg at 2.65 m. The pre-warp human (2.75-3.2 m) is above ANSUR, so it is fitted at 1.95 m and
+6. **Result:** ~400 kg at 2.65 m. The pre-warp human (2.75-3.2 m) is above ANSUR, so it is fitted at 1.95 m and
    scaled up uniformly. `moves` notes the large-animal gait: straight legs and no aerial phase.
 
 ## A new creature, in five lines
@@ -230,3 +240,50 @@ p = sd.design_from({"stature": 1.6, "heads": 6.5, "crotch_fraction": 0.40, "fing
                          "skin": {"palette": [[0.45, 0.50, 0.38], [0.36, 0.40, 0.30]], "regions_off": ["flush"]}})
 print(sd.explain(p))            # read the derived knobs and any contradiction before building
 ```
+
+## Past the human body plan: eyes, a tail, swimming
+
+Three general mechanisms take a design past a person's layout. Each is data in the species (inline or a file),
+never a species name, and each refuses what it cannot do with the range in its message. They were built for the
+first user trials (a drow, a cyclops and a mermaid, 2026-09-21) and are how any creature with the same
+differences is made.
+
+**How many eyes, and where** - `head.eyes` (`humanform.eye_layout`). `{ count = 1, size = 1.5 }` is one median
+eye 1.5x a person's; `{ count = 3 }` keeps the pair and adds one on the forehead; `at = [{ x, rise, size }, ...]`
+places any set (`x` in human eye-offsets from the midline, `rise` metres up on the reference head). Sockets no eye
+takes are closed to skin (a harmonic fill over the orbit), each new eye gets a carved socket (an almond
+`aperture` in eyeball radii, lids hugging the ball), an eyeball, and the human lash cards carried onto its lids -
+a median eye takes both, one per half. The eyes ride the head bone, as a person's do, so the gaze (rig-anything's
+head hold) aims them. Analogue: cyclopia puts one median eye at the nasion [measured]; folklore puts it higher.
+
+**A limb pair replaced** - `graft = { legs = { to = "tail", ... } }` (`humanform.graft`). A seam round the body
+at the hip joints, the seam's own ring lofted down to a peduncle and a fluke (`fluke.span` in body lengths:
+cetaceans 0.2-0.27 [measured], `chord`, `sweep`, `notch`, `plane` horizontal or vertical), the leg bones
+swapped for a tail chain, the UVs in the atlas the legs freed. What a replacement takes must be in
+`anatomy.absent`, each with the description's reason - legs to a tail take `knees`, `soles`, `nails.toes` and
+`genitals` - and the design refuses a graft whose absences are not stated. The skin's pattern region `graft`
+covers the tail and fades up over the seam (`fade`), so `pattern = { kind = "scales", regions = ["graft"] }` is
+a skin-to-scales transition; the tone is held over the skin, not the tail.
+
+**Moving by another mode** - `[moves] locomotion = "swim"` (character-pipeline): rig-anything's
+`swim.upright_set` for a body that stands at rest and swims. Idle floats upright, treading water; Swim, Sprint,
+Glide and the turns are worked out along the tail-to-head line and laid prone. The mode comes from the tail's
+tip (flukes wider across than through swim up and down: cetacean), the wave rises from the waist as a person's
+dolphin kick does, and speeds come from length (Strouhal 0.2-0.4 [measured, Rohr & Fish 2004]). No Froude
+number, foot-drift or reach check is run on a swimmer: they are a walker's.
+
+**Size.** A body past the tallest pre-warp human is fitted at the limit and scaled whole, so square-cube lifts
+its BMI with the scale (a person's build at 3 m is BMI ~45). The BMI warning scales with it. At that size BMI
+is the wrong observable for how heavy a body *looks*: a 3 m man at bmi 40 was solved to girth 0.91 and read as a
+lean person scaled up. State the shape (`girth = "thick"`) and let the mass follow.
+
+### Gaps (what the trials could not do yet)
+
+- A tail longer than the legs (a curled or trailing tail at rest) is refused: `length` is at most 1.
+- Only legs can be grafted, only to a tail. Arms to wings, a second pair of arms, a centaur's body: not made.
+- The scales are albedo only (no normal relief), and there are no side fins on a graft (rig-anything's
+  `fins` rigs fins it finds on a mesh; the graft makes none).
+- An eye has no bone of its own: it aims with the head. Lashes on a carved eye stand straighter than a person's.
+- Flesh zones on a heavy body (a thick-girthed giant's belly) fail follow-through's placement check - the same
+  open problem as the BMI 38 smoke body.
+- Genital geometry (`[body] genitals`) was not tried: fig-genital-anatomy was not merged into species-1.
