@@ -62,6 +62,7 @@ humanform builds adult humans and nothing else. Everything outside that is refus
   are about 50% shorter than a human's relative to the trunk. No MPFB target reaches that.
 - Skin is a human tone: `skin.py`'s regions and contrast checks assume human palms, lips and areolae.
 - There is no fur, no muzzle, no tail and no digitigrade leg on a humanform body.
+- Nothing checks that a changed body still has all of its anatomy (nipples, genitals, navel, nails, teeth).
 
 The rest of the pipeline is already species-agnostic:
 
@@ -230,6 +231,39 @@ spec's own `[moves] style` (the user's words win). A species may add named style
 **Checks**: every baked walk's Fr lies between 0.18 and 0.35; planted feet drift under the existing limit;
 the hands reach the hips and the top of the head (a dwarf with a helmet, drinking), warned if not.
 
+### Every drawn part of the body: full anatomy on every species
+
+A species body is a whole body, with the same anatomical coverage as a human one, never a simplified doll
+(the user's rule, 2026-09-21). Everything the human work draws is carried through every layer:
+
+| part | where it comes from for a human | what a species must do with it |
+|---|---|---|
+| nipples and areolae | MPFB's `nipple`/`nippleTip` groups; skin region `nipple` | kept, warped with the chest, tinted relative to the species tone |
+| genitals, male and female | skin region `genital`; geometry from `humanform.genitals` (branch `fig-genital-anatomy`, opt-in via `[body] genitals`), thigh-clearance corrective bones | kept, warped with the pelvis; genital skin tone-relative; the clearance correctives run on the warped legs (a short-legged body crowds the crotch more, so it is a test case) |
+| breasts, butt, belly, other flesh | follow-through flesh zones and jiggle bones | the zones are anatomical, read off the skeleton, so they follow the warp; species builds run `[flesh]` like humans |
+| navel, nails, knuckles, knees, elbows, palms and soles | MPFB groups; skin regions | kept and tone-relative |
+| eyes, lashes, brows, teeth, tongue, ears | MPFB proxies and humanform eyes, brows, hair | kept, skinned to the rig, moved by the warp; head features (tusks, pointed ears) add to them, never replace them |
+| body hair, beards | humanform hair | kept; fur (layer 3) is added over the same coverage maps |
+
+Rules that follow from this:
+
+- **A skin region is never turned off because of its colour.** Region shifts are relative to the tone
+  (layer 3), so a green body's nipples, lips and genital skin are darker and more saturated in green, not
+  removed. `regions_off` exists only for anatomy the *description* says the creature does not have. A reptile
+  folk with no nipples, or an egg-layer with no navel, is stated as `anatomy.absent` with a reason, and the
+  report says so.
+- **Anatomy scales with the body by the same general laws.** Sizes are relative to the part they sit on
+  (areola to chest breadth, genitals to pelvis), so a warped body keeps plausible anatomy without a
+  per-species rule. A description may override a size (`anatomy.scale`), and the check reports it.
+- **An inventory check.** After the warp, the bake and the export, every expected part is present, skinned
+  and not inside another part (genitals against the thighs, nipples against a garment's backstop), for every
+  species. A part that is missing and not declared absent fails the build.
+- **Non-human baselines** (layer 5: a gnoll's canine body) need their own anatomy designed with the same
+  coverage before they ship. A grafted head or leg never leaves the body's anatomy out.
+- The conventions of the human work carry over. Genitals stay opt-in, never in a default build. The
+  likeness rules (no jiggle, no revealing garment) are for real people's likenesses and do not apply to
+  invented creatures.
+
 ### Layer 5: anatomy (later)
 
 Digitigrade legs (gnoll, satyr) add a segment: rig-anything already rigs the hopper leg (rabbit, cricket) and
@@ -330,5 +364,8 @@ the product):
 - In Godot (`people_demo` or a species demo), orbiting in close, each reads as its species at a glance, and the
   dwarf's walk is visibly quicker and shorter-stepped than the human beside it.
 - The human smoke bodies build unchanged (a species of `human` takes no new code path).
+- Every species build passes the anatomy inventory: nipples, genital skin (and genital geometry when opted in),
+  navel, nails, eyes, teeth and tongue present, skinned, tone-relative and not interpenetrating. A dwarf and a
+  troll build with `[flesh]` and, once `fig-genital-anatomy` is merged, with `genitals = true` as smoke cases.
 - A spec asking for something the warp cannot do (a 0.5 m dwarf, heads out of the species' range, an unknown
   species) is refused before a build, with the range in the message.
