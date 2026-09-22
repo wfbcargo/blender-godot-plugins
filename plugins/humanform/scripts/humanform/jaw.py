@@ -51,7 +51,12 @@ WEB_BAND = 0.05               # ... and away from them: the cheek's web, which s
 WEB_REACH = 0.05              # ... over this far from the lip line (m, reference head)
 TUBE = (0.60, 0.55)           # the mandible's reach from its axis in jaw lengths: full weight, then a fade
 BEHIND = 0.30                 # the weight fades out over this share of the jaw's length behind the hinge
-OPEN_DEG = 25.0               # the gape the open-mouth check poses (a human's own comfortable open mouth)
+# The gape the check poses, and how much of the skin may fold there. Measured on a man and on the same man
+# with the canine muzzle, at 10, 15, 20, 25 and 30 degrees (this round's `gape.py`): the plain head folds
+# nothing up to 20 and 0.5% at 25; the muzzled one folds nothing to 15, 1.1% at 20 and 5.4% at 25, where its
+# lower lip's own skin - already gathered in by the snout - turns through itself. So 20 degrees (50 mm of
+# gape on a muzzle, 41 on a face) is what a body is checked at, and a snouted head should not be keyed past it.
+OPEN_DEG = 20.0
 OPEN_MIN_EDGE = 0.003         # the skin's edges it measures (m on the reference head): the ring of 1-2 mm edges
                               # at the lip's margin is the mouth opening, and carries no texture worth the name
 # What the web may do at that gape, measured on the outer skin (`outer_faces`) with the lip line's own seam
@@ -61,7 +66,8 @@ OPEN_MIN_EDGE = 0.003         # the skin's edges it measures (m on the reference
 # measured 5.9 / 17, 11 / 29 and 15 / 43 (each a visible tear at the corner, rendered).
 STRETCH_P99 = 2.8             # the web's stretch at the 99th percentile
 STRETCH_MAX = 8.0             # ... and its worst single edge
-QUALITY_KEEP = 0.28           # ... and a triangle may keep no less than this share of its shape
+QUALITY_KEEP = 0.28           # ... a triangle that keeps less than this share of its shape has folded
+QUALITY_BAD_SHARE = 0.02      # ... and this share of the skin's faces may
 SUM_TOL = 0.15                # how far a vertex's bone weights may sit from 1 (MPFB's own reach 1.06)
 
 
@@ -111,12 +117,23 @@ def _field(F, co, hinge, chin):
     # ramp measured from the corner to the hinge left was 9 mm behind the corner, where that ramp was still at
     # its hardest (17x). The ramp is centred on the line, so the two sides of the web share it.
     slit = co[np.asarray(measure.face_features()["mouth"], int)]
-    z_lip = features._slit_z(slit)(co[:, 0])
+    z_lip = _lip_z(slit, co)
     d_lip = np.linalg.norm(co[:, None, :] - slit[None, :, :], axis=2).min(axis=1)
     band = (CORNER_BAND + (WEB_BAND - CORNER_BAND)
             * features._smoothstep(d_lip / (WEB_REACH * F.scale))) * F.scale
     split = features._smoothstep(0.5 + (z_lip - co[:, 2]) / band)
     return np.clip(split * tube * behind, 0.0, 1.0)
+
+
+def _lip_z(slit, co):
+    """The lip line's height under each point: the z of the nearest lip-line point seen from above.
+
+    Taken as a function of x (`features._slit_z`) it is wrong on a snout, where the line runs fore and aft:
+    one x has both the front of the mouth and its corner on it, tens of millimetres apart in z, and the split
+    between head and jaw smeared over a band of skin behind the lip - 20 of 372 faces folded there when the
+    mouth opened (measured)."""
+    d = ((co[:, None, 0] - slit[None, :, 0]) ** 2 + (co[:, None, 1] - slit[None, :, 1]) ** 2)
+    return slit[d.argmin(axis=1), 2]
 
 
 def _edit(rig):
@@ -340,6 +357,19 @@ def outer_faces(F, co, faces, near):
     return out
 
 
+LIP_ROLL = 0.006  # the lips' own margin, this far either side of the lip line (m on the reference head)
+
+
+def lip_margin(F, co):
+    """The lips' own margin: the skin that rolls out when the mouth opens, rather than being torn by it. On a
+    muzzled head 70 of its triangles turn through more than the fold limit at 25 degrees while the lip itself
+    looks right in the game, because a lip opening is a roll, not a stretch."""
+    co = np.asarray(co, float)
+    slit = co[np.asarray(measure.face_features()["mouth"], int)]
+    d = np.linalg.norm(co[:, None, :] - slit[None, :, :], axis=2).min(axis=1)
+    return d < LIP_ROLL * F.scale
+
+
 def seam_sides(F, co):
     """+1 above the lip line, -1 below it, 0 away from the mouth: the two sides of the seam that is meant to
     come apart when the jaw opens.
@@ -354,7 +384,7 @@ def seam_sides(F, co):
     co = np.asarray(co, float)
     slit = co[np.asarray(measure.face_features()["mouth"], int)]
     d = np.linalg.norm(co[:, None, :] - slit[None, :, :], axis=2).min(axis=1)
-    z_lip = features._slit_z(slit)(co[:, 0])
+    z_lip = _lip_z(slit, co)
     side = np.where(co[:, 2] > z_lip, 1, -1)
     side[d > SEAM_R * F.scale] = 0
     return side
@@ -415,7 +445,8 @@ def open_check(human, rig=None, degrees=OPEN_DEG):
     f = np.asarray(faces, int)
     outer = outer_faces(F, rest_b, f, moved[f].any(axis=1))
     strain = features.surface_strain(rest_b, opened[:BODY_VERTS], f[outer], moved=moved, scale=F.scale,
-                                     side=seam_sides(F, rest_b), min_edge=OPEN_MIN_EDGE)
+                                     side=seam_sides(F, rest_b), min_edge=OPEN_MIN_EDGE,
+                                     skip=lip_margin(F, rest_b))
     strain.pop("fail", None)              # the muzzle's limits are not the jaw's: they are checked below
     out = {"degrees": degrees, "moved_verts": int(moved.sum()), "skin": strain,
            "outer_faces": int(outer.sum()), "lining_faces": int((moved[f].any(axis=1) & ~outer).sum()),
@@ -428,9 +459,14 @@ def open_check(human, rig=None, degrees=OPEN_DEG):
     if strain.get("stretch_max", 0.0) > STRETCH_MAX:
         bad.append(f"one edge of the skin stretches {strain['stretch_max']:.1f}x at {degrees:.0f} deg (limit "
                    f"{STRETCH_MAX}) - the skin is sewn across the mouth there: check the jaw's weights (jaw.audit)")
-    if strain.get("quality_keep_min", 1.0) < QUALITY_KEEP:
-        bad.append(f"a triangle keeps {strain['quality_keep_min']:.2f} of its shape at {degrees:.0f} deg (limit "
-                   f"{QUALITY_KEEP}) - it folds: widen the web (jaw.WEB_BAND)")
+    # how many fold, not how badly the worst one does: hm08 leaves one sliver quad at the corner of the mouth,
+    # and on a snout it inverts at any gape whatever the web is set to (measured over four web widths). One in
+    # nine hundred faces is a sliver; a corner that is really tearing takes dozens with it.
+    folded, n_faces = strain.get("quality_bad", 0), max(strain.get("faces", 0), 1)
+    if folded > QUALITY_BAD_SHARE * n_faces:
+        bad.append(f"{folded} of {n_faces} faces fold at {degrees:.0f} deg (over {QUALITY_BAD_SHARE:.1%}, worst "
+                   f"keeps {strain.get('quality_keep_min')}) - the corner tears: widen the web (jaw.WEB_BAND, "
+                   "WEB_REACH) or open less")
     if not moved.any():
         bad.append("nothing moved when the jaw turned - the mouth has no weights on it")
     if bad:

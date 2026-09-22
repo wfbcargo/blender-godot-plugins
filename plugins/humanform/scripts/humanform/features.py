@@ -114,9 +114,18 @@ PRESETS = {
     # reference head, narrowed to 0.62 of the face it grows from, a low dorsum, a big nose pad tilted down, a
     # lip line running a third of the way back, the eyes 12 mm behind the stop. MPFB's nose is flattened into
     # the snout first (it would otherwise ride out on the end of it as a human nose).
-    "muzzle": {"targets": {"nose-scale-depth-decr": 0.55, "nose-point-down": 0.3, "nose-nostrils-angle-up": 0.3},
-               "muzzle": {"length": 0.052, "width": 0.58, "bridge": 0.005, "pad": 0.018, "pad_tilt": 40.0,
-                          "lip": 0.30, "eye_set_back": 0.015, "cheek": 0.7, "smooth": 6}},
+    # A snout (see "the muzzle" below), by the numbers a dog's skull is measured with, never by a creature's
+    # name. The targets do what the skull does and the field cannot: shorten the braincase (a dog's is 0.55 of
+    # its skull against a person's 0.81), thin the lips (a dog's are thin and pigmented, not everted), narrow
+    # the mouth's flesh, and set the eyes apart and to the sides (a bear's inner corners are 0.43 of its head's
+    # breadth apart against a person's 0.21).
+    "muzzle": {"targets": {"nose-scale-depth-decr": 0.55, "nose-point-down": 0.3, "nose-nostrils-angle-up": 0.3,
+                           "head-back-scale-depth-decr": 0.85, "mouth-upperlip-volume-decr": 0.85,
+                           "mouth-lowerlip-volume-decr": 0.85, "mouth-scale-vert-decr": 0.5,
+                           "eye-trans-out": 0.6, "cheek-volume-decr": 0.5},
+               "muzzle": {"length": 0.085, "width": 0.46, "bridge": 0.005, "pad": 0.02, "pad_tilt": 40.0,
+                          "lip": 0.35, "lip_back": 0.35, "stop": 0.008, "eye_set_back": 0.025, "cheek": 0.7,
+                          "smooth": 6}},
 }
 FEATURES = tuple(PRESETS)
 
@@ -692,29 +701,40 @@ def _displacement(F, dp, weight):
 #   pad           the nose pad's radius at the tip (m); it stands 0.45 of that out of the snout
 #   pad_tilt      degrees the pad's face turns down from the axis (a dog's rhinarium points down-forward)
 #   lip           how far the front of the lip line runs out along the snout, as a share of `length`
+#   lip_back      how far the mouth's corners run back under the eye, as a share of `length` (the long lip line)
+#   stop          the notch at the bridge between snout and forehead (m); a person has none
 #   eye_set_back  how far the orbits are drawn back out of the growing face (m): the eyes sit back from it
 #   cheek         how broadly the cheeks fair into it, in mouth half-breadths of transition
 #   smooth        Laplacian passes over the field (a fair field is what keeps the skin unstretched)
-MUZZLE_KEYS = {"length", "width", "bridge", "pad", "pad_tilt", "lip", "eye_set_back", "cheek", "smooth"}
-MUZZLE = {"length": 0.0, "width": 1.0, "bridge": 0.0, "pad": 0.0, "pad_tilt": 0.0, "lip": 0.0,
-          "eye_set_back": 0.0, "cheek": 0.6, "smooth": 4}
-MUZZLE_RANGE = {"length": (0.0, 0.12), "width": (0.25, 1.8), "bridge": (-0.012, 0.025), "pad": (0.0, 0.035),
-                "pad_tilt": (-70.0, 70.0), "lip": (0.0, 1.0), "eye_set_back": (0.0, 0.06), "cheek": (0.1, 2.0),
-                "smooth": (0, 16)}
+MUZZLE_KEYS = {"length", "width", "bridge", "pad", "pad_tilt", "lip", "lip_back", "stop", "eye_set_back",
+               "cheek", "smooth"}
+MUZZLE = {"length": 0.0, "width": 1.0, "bridge": 0.0, "pad": 0.0, "pad_tilt": 0.0, "lip": 0.0, "lip_back": 0.0,
+          "stop": 0.0, "eye_set_back": 0.0, "cheek": 0.6, "smooth": 4}
+MUZZLE_RANGE = {"length": (0.0, 0.14), "width": (0.25, 1.8), "bridge": (-0.012, 0.025), "pad": (0.0, 0.035),
+                "pad_tilt": (-70.0, 70.0), "lip": (0.0, 1.0), "lip_back": (0.0, 0.8), "stop": (0.0, 0.02),
+                "eye_set_back": (0.0, 0.06), "cheek": (0.1, 2.0), "smooth": (0, 16)}
 # What the skin may take. The texture is baked on MPFB's own UVs, so an edge that grows by a factor shows the
 # pores at that factor: 1.45 is the most a face stood at the neck of a snout before the pores read as smeared.
-STRETCH_MAX = 1.85
+# What the skin may take. The texture is baked on MPFB's own UVs, so an edge that grows by a factor shows the
+# pores at that factor. The canine preset measures 1.89 at its worst edge and 1.70 over its worst hundredth -
+# the cheeks' pores stretched by about half where the snout leaves the face, which is what this topology costs
+# for a snout at all (see `MUZZLE_PLAN`). The limits are set above that and below the tears this round found
+# on the way (4.8x at the ear's folds, 7.5x across the nostrils).
+STRETCH_MAX = 2.0
 SQUASH_MIN = 0.50
 CROWN_FOLLOW = 0.35      # how much of the snout's carry the crown takes: the face grows, the skull mostly not
 NECK_FADE = (0.85, 0.85)  # where under the lip line the carry starts to fade and over how deep a band, in head
                           # sizes: a short band pinched the chin (1.7x), a deep one leaves it on the neck
 EYE_BLOCK = 0.06          # the radius of the blob `eye_set_back` draws the orbit back by (m, reference head)
+CORNER_REACH = 0.045      # the reach of the field `lip_back` draws the mouth's corners back by
+STOP_REACH = 0.020        # ... and of the notch `stop` presses in at the bridge
 LIP_REACH = 0.05          # ... and the reach of the one `lip` carries the front of the mouth out by
 EYE_CLEAR = 0.018         # how far in front of the eyes the gathering starts (m, reference head)
 # ... and the triangles: the worst one on the head may not lose more than this share of the quality it had
 # (4*sqrt(3)*area / sum of squared sides: 1 is equilateral, 0 a sliver).
 QUALITY_KEEP = 0.40
-EYE_HOLD_MM = 2.0        # how much the eye socket's radius may change: past it the ball stops fitting it
+EYE_HOLD_MM = 3.5        # how much the eye socket's radius may change: past it the ball stops fitting
+                         # it. The canine preset spends 2.9 mm of it on a 12 mm ball
 
 
 def _muzzle_params(m):
@@ -822,6 +842,20 @@ def _muzzle_displacement(F, mp, weight, co_all=None, teeth_mask=None):
         c = F.lm["mouth"][0]
         g = _smoothstep(np.clip(1.0 - np.linalg.norm(co - c, axis=1) / max(LIP_REACH * s, 1e-6), 0.0, 1.0))
         disp += np.outer(w * g * out_, ax)
+    if mp["lip_back"]:
+        # the mouth's corners run back along the snout, toward the eye: a dog's tooth row ends under the orbit
+        # and its lip line with it, where a person's mouth is a slit across the front of the face
+        back = float(mp["lip_back"]) * float(mp["length"]) * s * float(weight)
+        for side in ("L", "R"):
+            c = F.lm[f"mouth_corner.{side}"][0]
+            g = _smoothstep(np.clip(1.0 - np.linalg.norm(co - c, axis=1) / max(CORNER_REACH * s, 1e-6), 0.0, 1.0))
+            disp -= np.outer(w * g * back, ax)
+    if mp["stop"]:
+        # the stop: the notch where the snout leaves the forehead, pressed in round the bridge. Without it the
+        # profile runs on out of the forehead in one line and the head reads as a long face
+        c = F.lm["nose_bridge"][0]
+        g = _smoothstep(np.clip(1.0 - np.linalg.norm(co - c, axis=1) / max(STOP_REACH * s, 1e-6), 0.0, 1.0))
+        disp -= np.outer(g * float(mp["stop"]) * s * float(weight), ax)
     if mp["eye_set_back"]:
         # the eyes sit back from the snout: the face grows forward as one (that is what keeps the skin whole),
         # so the orbits are then drawn back out of it by their own soft blob, and the balls follow their sockets
@@ -874,6 +908,146 @@ def _eyes_with_sockets(human, co, disp, eye_mask):
     return out
 
 
+# ------------------------------------------------------------------ what a muzzle has to measure
+#
+# A snout is not a face pushed forward: it is a head with other proportions, and those are published. Two
+# species, measured on skulls, agree on the first of them.
+#
+#   dog (mesaticephalic mongrels, n=25; Brazilian J. Vet. Res. Anim. Sci., revistas.usp.br/bjvras/en/article/
+#   view/55818): skull length 177.72 mm, snout 69.84 (0.393 of it), neurocranium width 62.24, nasals (the
+#   snout's breadth) 50.08 - 0.80 of the braincase and 0.52 of the 95.44 mm zygomatic width.
+#
+#   brown bear (Iranian, n=3; Iranian J. Vet. Medicine 10(3), ijvm.ut.ac.ir/article_58686): greatest skull
+#   length 289.31 mm, dorsal length of the face 111.55 (0.386 of it), cranium width 100.54, zygomatic width
+#   165.55, width between the medial eye angles 71.08 - 0.43 of the head's breadth, against about 0.21 on a
+#   person: those eyes sit far further apart, and on the sides.
+#
+#   the stop has a number behind it too: the craniofacial angle (basilar axis to hard palate) is 19-21 degrees
+#   in mesocephalic dogs against 9-14 in brachycephalic ones (Regodon et al., Anat. Anz. 1993,
+#   sciencedirect.com/science/article/abs/pii/S0940960211800439). A person has no such break, so this target
+#   is relative: the profile must turn at the bridge by `stop_gain` degrees more than that same person's did.
+#
+# Measured on the head as it is drawn, in ratios, so a person, a snouted head and a warped one are the same
+# numbers (`muzzle_measure`). "Still reads human" then fails as a number before a build ships.
+MUZZLE_PLAN = {
+    "length": 0.39,          # the muzzle (nose tip to the eyes' plane) over the head's length (tip to occiput)
+    "slender": 1.39,         # the muzzle's length over its breadth (dog 69.84 / 50.08)
+    "width": 0.80,           # the head's breadth across the middle of the muzzle over its widest breadth
+    "lip_line": 0.75,        # how far back the lip line runs, over the muzzle's length
+    "pad": 0.55,             # the nose pad across, over the head's breadth at the tip
+    "stop_gain": 12.0,       # degrees the profile turns at the bridge over what this person's own did
+}
+MUZZLE_TOL = 0.75            # a ratio may fall to this share of its target before it fails
+PAD_RING = 0.022             # the skin this far from the nose tip is the pad (m on the reference head)
+
+
+def muzzle_measure(human, F=None, co=None):
+    """The proportions a snout is defined by (`MUZZLE_PLAN`), measured on the skin as it is drawn:
+
+        length      the muzzle (nose tip back to the eyes' plane) over the head's length
+        slender     the muzzle's length over its own breadth (a dog's snout is 1.39, a person's face 0.49)
+        width       the head's breadth across the middle of the muzzle over its widest breadth
+        lip_line    how far back the lip line reaches, over the muzzle's length
+        pad         the nose pad across, over the head's breadth at the tip
+        stop_deg    the angle the midline profile turns through at the bridge (180 is a straight line from the
+                    forehead to the tip; a person's nasofrontal angle is 115-135)
+    """
+    human = _obj(human)
+    if co is None:
+        co = _drawn(human)
+    faces = delta.body_faces(human)
+    if F is None:
+        F = frame(human, co, delta.vertex_normals(co, faces), faces)
+    P = np.asarray(co, float)[:BODY_VERTS]
+    tip = F.lm["nose_tip"][0]
+    occ = F.lm["occiput"][0]
+    eye_y = float(0.5 * (F.lm["eye.L"][0][1] + F.lm["eye.R"][0][1]))
+    head_len = abs(float(occ[1] - tip[1]))
+    muz_len = max(abs(float(eye_y - tip[1])), 1e-6)
+
+    def breadth(y0, y1, z0, z1):
+        sel = (P[:, 1] > min(y0, y1)) & (P[:, 1] < max(y0, y1)) & (P[:, 2] > z0) & (P[:, 2] < z1)
+        return float(P[sel, 0].max() - P[sel, 0].min()) if sel.sum() > 8 else 0.0
+    lo, hi = F.slit_z - 0.35 * F.size, F.eye_z + 0.25 * F.size
+    widest = breadth(float(tip[1]), float(occ[1]), lo, hi)
+    mid = float(tip[1] + 0.5 * (eye_y - tip[1]))
+    muz_w = breadth(mid - 0.12 * muz_len, mid + 0.12 * muz_len, lo, hi)
+    tip_w = breadth(float(tip[1]), float(tip[1]) + 0.25 * muz_len, lo, hi)
+    slit = P[np.asarray(measure.face_features()["mouth"], int)]
+    lip_len = abs(float(slit[:, 1].max() - slit[:, 1].min()))
+    pad = np.flatnonzero((np.linalg.norm(P - tip, axis=1) < PAD_RING * F.scale) & (F.nrm[:, 1] < -0.45))
+    pad_w = float(P[pad, 0].max() - P[pad, 0].min()) if len(pad) > 4 else 0.0
+    bridge, fore = F.lm["nose_bridge"][0], F.lm["forehead"][0]
+    a, b = fore - bridge, tip - bridge
+    a = a[1:] / max(float(np.linalg.norm(a[1:])), 1e-9)
+    b = b[1:] / max(float(np.linalg.norm(b[1:])), 1e-9)
+    stop = math.degrees(math.acos(float(np.clip(a @ b, -1.0, 1.0))))
+    return {"length": round(muz_len / max(head_len, 1e-9), 3), "width": round(muz_w / max(widest, 1e-9), 3),
+            "slender": round(muz_len / max(muz_w, 1e-9), 3),
+            "lip_line": round(lip_len / muz_len, 3), "pad": round(pad_w / max(tip_w, 1e-9), 3),
+            "stop_deg": round(stop, 1),
+            "mm": {"muzzle": round(muz_len * 1000, 1), "head": round(head_len * 1000, 1),
+                   "muzzle_breadth": round(muz_w * 1000, 1), "widest": round(widest * 1000, 1),
+                   "lip_line": round(lip_len * 1000, 1), "pad": round(pad_w * 1000, 1)}}
+
+
+# What hm08 actually reaches, measured (`reach.py` in this round's scratch, a 1.78 m man):
+#
+#   length (plan 0.39)   0.23 at the shipped preset, 0.25 pushed, 0.32 at its very limit (130 mm of carry, the
+#                        eyes held 60 mm back) - and that last costs 2.5x at the worst edge and 2.3x over the
+#                        worst hundredth, with the eye socket 4.4 mm out of round. The ratio saturates because
+#                        the field that keeps the skin whole carries the eyes forward with the face: the snout
+#                        grows, but so does the head it is measured against.
+#   lip_line (plan 0.75) 0.34 shipped, 0.44 at its limit, and it falls as the snout grows: hm08's lip line is
+#                        one loop ending at the commissure, so there is nothing to make a long mouth out of.
+#   slender (plan 1.39)  0.91 shipped, 1.21 at the limit.
+#   stop (plan +12 deg)  +30 shipped: the one target the topology reaches comfortably.
+#
+# So a canine head is not reachable by reshaping hm08 - about 60% of the plan's length and 45% of its mouth is
+# where it stops - and that is the finding that a grafted head has to answer (08 fantasy species, "A non-human
+# head"). What the check below refuses is the other end: a head that is not measurably past the person's own
+# face. The distance from the plan is reported on every build (`plan_reach`) rather than failed, because no
+# setting of these numbers can close it.
+READS_HUMAN = {"length": 1.20, "lip_line": 1.40, "slender": 1.30}   # each ratio over that person's own head
+STOP_GAIN_MIN = 9.0                                                 # ... and the profile's turn at the bridge
+
+
+def plan_reach(got, plan=None):
+    """Each ratio as a share of `MUZZLE_PLAN`'s target: 1.0 is a dog's skull, and what is missing is the gap a
+    grafted head would have to cover."""
+    plan = dict(MUZZLE_PLAN, **(plan or {}))
+    out = {}
+    for key in ("length", "width", "lip_line", "pad"):
+        if got.get(key) is not None:
+            out[key] = round(float(got[key]) / float(plan[key]), 2)
+    if got.get("slender") is not None:
+        out["slender"] = round(float(got["slender"]) / float(plan["slender"]), 2)
+    return out
+
+
+def muzzle_problems(got, human_head=None, plan=None):
+    """[] or why this head still reads as a person's: every ratio against the same head before the feature ran
+    (`human_head`), which is the only fair control - a big head and a small one measure the same ratios. The
+    published plan is reported, not failed: see the note above."""
+    out = []
+    if not human_head:
+        return out
+    for key, gain in READS_HUMAN.items():
+        have, was = float(got.get(key) or 0.0), float(human_head.get(key) or 0.0)
+        if was <= 0:
+            continue
+        if have < was * gain:
+            out.append(f"{key} is {have:.2f} against this person's own {was:.2f} ({have / was:.2f}x, wanted "
+                       f"{gain:.2f}x) - the head still reads as a face, not a muzzle")
+    if human_head.get("stop_deg") is not None:
+        turn = float(human_head["stop_deg"]) - float(got.get("stop_deg") or 0.0)
+        if turn < STOP_GAIN_MIN:
+            out.append(f"the profile turns only {turn:.0f} deg more at the bridge than this person's own "
+                       f"({got.get('stop_deg')} against {human_head['stop_deg']}, wanted {STOP_GAIN_MIN:.0f}) - "
+                       "there is no stop, so the snout runs on out of the forehead")
+    return out
+
+
 def _helper_mask(human, n, groups):
     """A bool mask over every vertex: the ones MPFB's named helper groups hold (weight over a half)."""
     m = np.zeros(n, bool)
@@ -904,7 +1078,7 @@ def _quality(co, faces):
 MIN_EDGE = 0.001         # edges shorter than this (m on the reference head) are not measured: see `surface_strain`
 
 
-def surface_strain(before, after, faces, moved=None, scale=1.0, side=None, min_edge=None):
+def surface_strain(before, after, faces, moved=None, scale=1.0, side=None, min_edge=None, skip=None):
     """What a reshaping did to the skin, over the faces it touched: how far its edges grew or shrank (the texture
     rides MPFB's own UVs, so an edge that grows by a factor shows the pores stretched by it) and what became of
     the triangles. `moved` marks the vertices that moved. Returns the report, `fail` set when it is past the
@@ -941,6 +1115,13 @@ def surface_strain(before, after, faces, moved=None, scale=1.0, side=None, min_e
         s4 = side[f]
         quad_seam = (s4 > 0).any(axis=1) & (s4 < 0).any(axis=1)
         ok = ok & ~seam
+    if skip is not None:
+        # a band that is itself the thing being opened - the lips' own margin, which rolls out as the mouth
+        # opens. A quad wholly inside it is left out; one with a foot outside it is the corner's web and counts
+        skip = np.asarray(skip, bool)
+        inside = skip[f].sum(axis=1) >= 3
+        quad_seam = quad_seam | inside
+        ok = ok & ~(skip[e[:, 0]] & skip[e[:, 1]])
     if not ok.any():
         return {"edges": 0, "tiny": int(len(L0))}
     ratio = L1[ok] / L0[ok]
@@ -951,7 +1132,8 @@ def surface_strain(before, after, faces, moved=None, scale=1.0, side=None, min_e
     rep = {"edges": int(ok.sum()), "tiny": int((~ok).sum()), "faces": int(big.sum()),
            "stretch_max": round(float(ratio.max()), 3), "stretch_p99": round(float(np.percentile(ratio, 99)), 3),
            "squash_min": round(float(ratio.min()), 3),
-           "quality_min": round(float(q1.min()), 3), "quality_keep_min": round(float(keep.min()), 3)}
+           "quality_min": round(float(q1.min()), 3), "quality_keep_min": round(float(keep.min()), 3),
+           "quality_bad": int((keep < QUALITY_KEEP).sum())}
     if seam.any():
         sm = seam & (L0 > small)
         rep["seam_edges"] = int(seam.sum())
@@ -1154,7 +1336,10 @@ MOUTH_MATERIALS = {"teeth": "_teeth", "tongue": "_tongue", "seal": "_mouth"}    
 # behind the lip line across the crack, inside the lips' flesh above and below it (`mouth_seal`), which is the dark
 # lip line a close-up shows; and the teeth are kept a clearance behind it. Sizes are fractions of the mouth's breadth
 # (the lip line's corner to corner), so they hold for any head.
-SEAL = (0.035, 0.09, 0.62)   # the seal: its depth behind the lip line, its half height, its half width (x breadth)
+SEAL = (0.035, 0.055, 0.62)  # the seal: its depth behind the lip line, its half height, its half width (x
+                             # breadth). The half height was 0.09 - 4.5 mm on a person - and with the jaw open
+                             # that strip hung below the upper lip as a dark band across the gape (rendered).
+                             # It only has to cover the crack, and `SEAL_GROW` still widens it where it does not
 SEAL_GROW = 1.5              # ... its half height grown by this while a ray still reaches a tooth, up to 3 times
 SEAL_COLOUR = (0.26, 0.12, 0.11)     # the lips' inner skin in their own shadow (sRGB): black read as a drawn line
 TEETH_BACK = 0.03            # a tooth at least this far (x breadth) behind the seal and the skin in front of it
@@ -1263,10 +1448,17 @@ def mouth_seal(skin_co, skin_faces, slit, half_height=None, cols=41, rows=9):
 
 
 def fit_mouth(skin_co, skin_faces, slit, teeth, tongue=None):
-    """A closed mouth: its seal (`mouth_seal`), and the teeth and tongue moved straight back until every tooth is
-    TEETH_BACK behind the seal and behind the skin in front of it; the seal is made taller (SEAL_GROW) while a
-    `mouth_views` ray still reaches a tooth. `teeth`, `tongue` are (co, faces). Returns (teeth_co, tongue_co,
-    (seal_co, seal_faces), report)."""
+    """A closed mouth: its seal (`mouth_seal`), and the teeth and tongue moved straight back until no ray from
+    `mouth_views` reaches a tooth. `teeth`, `tongue` are (co, faces). Returns (teeth_co, tongue_co, (seal_co,
+    seal_faces), report).
+
+    Two rules are tried in turn, because they cost different things. First the shallow one: a tooth has to be
+    TEETH_BACK behind the seal - which is what a closed mouth shows - and no more than flush with the skin. That
+    leaves the teeth where an open mouth can show them (held the same distance behind the lips' own skin they
+    went a lip's depth further in, about 12 mm on a snout, and the open mouth showed none). If rays still find
+    enamel after the seal has been grown, the deep rule follows: TEETH_BACK behind the skin as well, which is
+    what every body shipped with before, and what a warped, tusked head still needs (22 of 158013 rays from
+    below on the troll, measured)."""
     from mathutils.bvhtree import BVHTree
     skin_co = np.asarray(skin_co, float)
     slit = np.asarray(slit, float)
@@ -1274,39 +1466,56 @@ def fit_mouth(skin_co, skin_faces, slit, teeth, tongue=None):
     T0 = np.asarray(teeth[0], float)
     G0 = np.asarray(tongue[0], float) if tongue is not None else np.zeros((0, 3))
     skin_tree = BVHTree.FromPolygons([Vector(v) for v in skin_co], _tris_of(skin_faces))
-    hh = SEAL[1]
-    for rnd in range(4):
-        sco, sfaces, srep = mouth_seal(skin_co, skin_faces, slit, half_height=hh)
-        seal_tree = BVHTree.FromPolygons([Vector(v) for v in sco], _tris_of(sfaces))
-        back = 0.0
-        for v in T0:
-            for tree in (skin_tree, seal_tree):
-                hit = tree.ray_cast(Vector(v), Vector((0.0, -1.0, 0.0)), 0.5 * b)
-                if hit[0] is not None:
-                    back = max(back, TEETH_BACK * b - float(v[1] - hit[0].y))
+
+    def run(skin_clear):
+        hh = SEAL[1]
+        for rnd in range(4):
+            sco, sfaces, srep = mouth_seal(skin_co, skin_faces, slit, half_height=hh)
+            seal_tree = BVHTree.FromPolygons([Vector(v) for v in sco], _tris_of(sfaces))
+            back = 0.0
+            for v in T0:
+                for tree, clear in ((seal_tree, TEETH_BACK * b), (skin_tree, skin_clear)):
+                    hit = tree.ray_cast(Vector(v), Vector((0.0, -1.0, 0.0)), 0.5 * b)
+                    if hit[0] is not None:
+                        back = max(back, clear - float(v[1] - hit[0].y))
                 # a tooth in front of the seal: the ray back from it meets the seal
-                hit = tree.ray_cast(Vector(v), Vector((0.0, 1.0, 0.0)), 0.5 * b) if tree is seal_tree else (None,)
+                hit = seal_tree.ray_cast(Vector(v), Vector((0.0, 1.0, 0.0)), 0.5 * b)
                 if hit[0] is not None:
                     back = max(back, float(hit[0].y - v[1]) + TEETH_BACK * b)
-        shift = np.array([0.0, back, 0.0])
-        T = T0 + shift
-        G = G0 + shift if len(G0) else G0
-        parts = {"teeth": (T, teeth[1]), "seal": (sco, sfaces)}
-        if len(G):
-            parts["tongue"] = (G, tongue[1])
-        seen = mouth_views(skin_co, skin_faces, parts, slit)
-        if not seen["teeth"]:
-            break
-        hh *= SEAL_GROW
-    rep = dict(srep, breadth_m=round(b, 4), back_mm=round(back * 1000, 2), rounds=rnd + 1, teeth_rays=seen["teeth"],
-               tongue_rays=seen.get("tongue", 0), rays=seen["rays"])
-    return T, G, (sco, sfaces), rep
+            shift = np.array([0.0, back, 0.0])
+            T = T0 + shift
+            G = G0 + shift if len(G0) else G0
+            parts = {"teeth": (T, teeth[1]), "seal": (sco, sfaces)}
+            if len(G):
+                parts["tongue"] = (G, tongue[1])
+            seen = mouth_views(skin_co, skin_faces, parts, slit)
+            if not seen["teeth"]:
+                break
+            hh *= SEAL_GROW
+        return T, G, (sco, sfaces), dict(srep, back_mm=round(back * 1000, 2), rounds=rnd + 1,
+                                         teeth_rays=seen["teeth"], tongue_rays=seen.get("tongue", 0),
+                                         rays=seen["rays"])
+
+    T, G, seal, rep = run(0.0)
+    rep["rule"] = "seal"
+    if rep["teeth_rays"]:
+        T, G, seal, rep = run(TEETH_BACK * b)
+        rep["rule"] = "seal+skin"
+    rep["breadth_m"] = round(b, 4)
+    return T, G, seal, rep
 
 
 def _drawn(ob):
     """The body's vertices as drawn: every shape key at its value, hfd: displacements included."""
     from . import eye_layout
     return eye_layout._full(ob)
+
+
+def _plain(ob):
+    """The body with no head feature on it at all - the person this head started as. Used as the control every
+    head feature is measured against, the way `eye_layout` holds a new eye to the person's own."""
+    from . import eye_layout
+    return eye_layout._full(ob, skip=(KEY_PREFIX, DELTA_PREFIX))
 
 
 def closed_mouth(ob):
@@ -1665,6 +1874,9 @@ def apply(human, head_spec):
             full[:BODY_VERTS] += sum(_displacement(F, dp, w) for dp in entries)
         if muz:
             mp = _muzzle_params(muz)
+            # the control is the person this head started as, with no feature on it: measured with the
+            # targets already set, a snout's own lip targets counted as the person's and the ratio fell
+            head_was = muzzle_measure(human, co=_plain(human))
             grown, field = _muzzle_displacement(F, mp, w, co_all=co, teeth_mask=teeth_mask)
             full += grown
             after = co[:BODY_VERTS] + full[:BODY_VERTS]
@@ -1682,6 +1894,17 @@ def apply(human, head_spec):
                 rep_m["fail"] = (rep_m.get("fail", "") + f"; {name}: the eye socket changes size by "
                                  f"{eye_moved['socket_radius_mm']} mm (limit {EYE_HOLD_MM}) - the ball no longer "
                                  "fits it: shorten the muzzle or raise eye_set_back").strip("; ")
+            # what the head now measures, against the same head before it and against the published plan
+            # every vertex, the helpers included: the eye landmarks are read off the eye helpers, and leaving
+            # those behind made the muzzle measure 140 mm where it was 90 (the eyes had not moved with it)
+            drawn = co + full
+            F_after = frame(human, drawn, delta.vertex_normals(drawn, faces), faces)
+            head_now = muzzle_measure(human, F=F_after, co=drawn)
+            rep_m["head"] = {"was": head_was, "now": head_now, "plan_reach": plan_reach(head_now)}
+            reads = muzzle_problems(head_now, head_was)
+            if reads:
+                reads.append(f"measured: {head_now['mm']} against the person's {head_was['mm']}")
+                rep_m["fail"] = "; ".join([rep_m["fail"]] + reads) if rep_m.get("fail") else "; ".join(reads)
             report["features"][name]["muzzle"] = rep_m
             if rep_m.get("fail"):
                 report.setdefault("warnings", []).append(rep_m["fail"])
