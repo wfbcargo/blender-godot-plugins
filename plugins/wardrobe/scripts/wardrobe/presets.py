@@ -56,6 +56,33 @@ def _args(d):
     return {k: tuple(v) if isinstance(v, builtins.list) else v for k, v in (d or {}).items()}
 
 
+# The length arguments of each step that follow the body's size (rigmap.body_scale); the rest are
+# clearances and cloth thickness (`base`, `over_gap`, `backstop_margin`, `collider_margin`), which do not.
+SCALED = {
+    "paint": ("hem_band", "cuff_band", "neck_band", "leg_band", "waist_band"),
+    "ease": ("loose", "hang_window", "fade", "settle", "span_radius"),
+    "hem": ("hem_hinge", "cuff_hinge", "leg_hinge", "hinge_lift", "skin_band"),
+    "cover": ("max_gap", "margin", "behind", "crease"),
+    "soft": ("pin_below",),
+}
+
+
+def _scaled(fn, args, step, s):
+    """`args` with this step's length arguments (given, or `fn`'s defaults) times `s`. At s == 1 the
+    arguments are returned untouched, so a human-sized body's calls are the ones they always were."""
+    if s == 1.0:
+        return args
+    import inspect
+    defaults = {k: v.default for k, v in inspect.signature(fn).parameters.items()
+                if v.default is not inspect.Parameter.empty}
+    out = dict(args)
+    for k in SCALED[step]:
+        v = out.get(k, defaults.get(k))
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and v:
+            out[k] = float(v) * s
+    return out
+
+
 def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, over=(), soft=False):
     """Cut, fit, skin, hem, hide and export one preset garment on `body_name`.
 
@@ -77,19 +104,24 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
         raise ValueError(f"soft=True routes skirts and dresses to cloth; {p['cut']!r} is neither")
 
     g = cut(body, name=name, **_args(p.get("tailor")))
-    painted = fit.paint_ease(g, **_args(p["paint"])) if p.get("paint") is not None else None
+    sc = rigmap.garment_scale(g, body)
+    painted = (fit.paint_ease(g, **_scaled(fit.paint_ease, _args(p["paint"]), "paint", sc))
+               if p.get("paint") is not None else None)
     # null ease: skipped - a built skirt carries its ease already, and relaxing a tube shrinks it off its flare
-    er = fit.ease(g, body, over=over, **_args(p["ease"])) if p.get("ease") is not None else None
+    er = (fit.ease(g, body, over=over, **_scaled(fit.ease, _args(p["ease"]), "ease", sc),
+                   **({"scale": sc} if sc != 1.0 else {}))
+          if p.get("ease") is not None else None)
     sk = fit.skin(g, body, **_args(p.get("skin")))
     hr = None
     cloth = None
     if soft:
-        cloth = skirts.soft_body(g, body, **_args(p.get("soft")))
+        cloth = skirts.soft_body(g, body, **_scaled(skirts.soft_body, _args(p.get("soft")), "soft", sc))
     elif p.get("hem") is not None:
-        hr = hem.prepare(g, body, under=over, **_args(p["hem"]))
-    cr = cover.compute(g, body, **_args(p.get("cover")))
+        hr = hem.prepare(g, body, under=over, **_scaled(hem.prepare, _args(p["hem"]), "hem", sc))
+    cover_args = _scaled(cover.compute, _args(p.get("cover")), "cover", sc)
+    cr = cover.compute(g, body, **cover_args)
     lifted = None
-    behind = (p.get("cover") or {}).get("behind") or 0.0
+    behind = cover_args.get("behind") or 0.0
     if behind > 0:
         # a compression garment eased inside the skin: lift it over skin the engine still draws
         lifted = []
@@ -100,10 +132,11 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
             lift = p.get("lift") or {}
             gap = lift.get("gap", (p.get("ease") or {}).get("base", 0.006))
             lifted.append({"tris": len(tris), "verts_moved": fit.lift_over(g, body, tris, gap, smooth=lift.get("smooth", 0.0))})
-            cr = cover.compute(g, body, **_args(p.get("cover")))
+            cr = cover.compute(g, body, **cover_args)
         if lifted and er is not None:
-            er["detail"] = fit.detail(g, body, limit=(p.get("ease") or {}).get("detail_limit"))   # of the cloth as lifted
-    layers = {o: cover.compute(g, o, **_args(p.get("layer_cover"))) for o in over}
+            er["detail"] = fit.detail(g, body, limit=(p.get("ease") or {}).get("detail_limit"),   # of the cloth as lifted
+                                      band=fit.DETAIL_BAND * sc, reach=fit.DETAIL_REACH * sc)
+    layers = {o: cover.compute(g, o, **_scaled(cover.compute, _args(p.get("layer_cover")), "cover", sc)) for o in over}
     s = spec.build(g, body, cr, hr, er, kind=p.get("spec_kind", p["cut"]),
                    layer=layer if layer is not None else p.get("layer"), layers=layers or None)
     problems = spec.write(g, s)

@@ -731,6 +731,53 @@ def idle(rig_name, frames=48, forward="-Y", up="Z", floor=0.0, action_name="Idle
     return report
 
 
+TAKEOFF_CLEAR = 0.02    # of the leg's length: a foot leaving the floor clears it by this in its first moving frame
+
+
+def _takeoff_scrapes(P, posed):
+    """Legs whose foot, as posed, has moved off its rest spot by more than TAKEOFF_CLEAR of the leg
+    while its contact pivot (the foot bone's tail, what `_check_common`'s floor-skid test follows)
+    has risen less than that: leaving along the floor rather than up off it."""
+    out = set()
+    for l in P.legs:
+        n = l["end"] or l["lower"]
+        rest = P.rig.data.bones[n].tail_local
+        now = P.body.carried(posed, n, rest.copy())
+        clear = TAKEOFF_CLEAR * (l["a"] + l["b"])
+        d = now - rest
+        rise = d.dot(P.up)
+        along = (d - P.up * rise).length
+        if rise < clear and along > clear:
+            out.add(l["name"])
+    return out
+
+
+def _clear_hanging_feet(P, key, passes=8):
+    """Raise, in place, each leg target of an airborne key (a jump's tuck and reach) whose foot's
+    contact pivot hangs less than TAKEOFF_CLEAR of the leg above its rest height. The keys fold the
+    hip-to-ankle line to a share of the leg, which lifts a human's toe 3-5% of its leg on the reach;
+    a foot long for its leg pitches its toe down past that, and the gnome's reach met the floor 3 mm
+    up while still swinging in - a skid on the landing frames. A human's feet already clear it, so
+    its keys are left exactly as they were."""
+    for _ in range(passes):
+        posed, _info = P.pose(key)
+        raised = False
+        for l in P.legs:
+            spec = key.limbs.get(l["name"])
+            if not spec or spec.get("planted") or not callable(spec.get("target")):
+                continue
+            n = l["end"] or l["lower"]
+            rest = P.rig.data.bones[n].tail_local
+            rise = (P.body.carried(posed, n, rest.copy()) - rest).dot(P.up)
+            need = TAKEOFF_CLEAR * (l["a"] + l["b"]) - rise
+            if need > 1e-5:
+                old = spec["target"]
+                spec["target"] = (lambda p, limb, ps, old=old, d=need: old(p, limb, ps) + p.up * d)
+                raised = True
+        if not raised:
+            return
+
+
 def jump(rig_name, forward="-Y", up="Z", floor=0.0, action_name="Jump",
          timing=(6, 9, 14, 22), fps=None):
     """A one-shot jump for any number of legs, ending held on the landing reach.
@@ -746,6 +793,8 @@ def jump(rig_name, forward="-Y", up="Z", floor=0.0, action_name="Jump",
         return err
     bm, rig, body, P = ctx
     load, launch, tuck, reach = kp.jump_keys(P)
+    for k in (tuck, reach):
+        _clear_hanging_feet(P, k)
     keys = [kp.rest_key(), load, launch, tuck, reach]
     marks = [1] + list(timing)
     samples = []
@@ -755,8 +804,20 @@ def jump(rig_name, forward="-Y", up="Z", floor=0.0, action_name="Jump",
         u = (f - marks[seg]) / float(marks[seg + 1] - marks[seg])
         w = motion.smoothstep(min(1.0, u))
         # legs lead out of the launch: feet leave the ground as the body peaks
-        samples.append(P.blend(keys[seg], keys[seg + 1], w,
-                               w_legs=math.sqrt(w) if seg >= 2 else w))
+        wl = math.sqrt(w) if seg >= 2 else w
+        posed = P.blend(keys[seg], keys[seg + 1], w, w_legs=wl)
+        if seg == 1:
+            # A foot leaves the floor upward, not along it. It is released the frame its target
+            # clears the ground, and by then the launch's target is most of the way back and out,
+            # so the foot travels in one frame while its toe barely rises: a foot that is long for
+            # its leg (a dwarf's, a gnome's: the ankle 15-18% of the leg up against a human's 8-12%)
+            # pitches its toe down as the ankle lifts, and the dwarf's toe rose 5 mm while it moved
+            # 12 cm - a skid. Held planted that frame instead, it leaves on the next, clear. Measured
+            # against the leg, so a human, whose toe clears 3-5% of its leg that frame, is untouched.
+            scrape = _takeoff_scrapes(P, posed[0])
+            if scrape:
+                posed = P.blend(keys[seg], keys[seg + 1], w, w_legs=wl, hold=scrape)
+        samples.append(posed)
 
     def check(keyed, ev, infos_by_frame):
         r = _check_common(body, bm, keyed, ev, infos_by_frame, planted=[],

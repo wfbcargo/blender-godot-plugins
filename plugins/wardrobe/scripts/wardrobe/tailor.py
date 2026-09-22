@@ -160,7 +160,7 @@ def shirt(body, name="Shirt", sleeve=0.45, hem=-0.08, neck=(-0.04, 0.12)):
                                                                      "ft_jiggle_love"))]
     cuts["hem"] = _cut(bm, dl, idx(leg_bones + torso_bones), 0.0, Vector((0, 0, hem_z)), -up)
 
-    chest = H[hm["torso"][-1]] + fwd * 0.1
+    chest = H[hm["torso"][-1]] + fwd * (0.1 * rigmap.torso_scale(torso))
     cuts["pieces_dropped"] = _keep_piece(bm, chest)
 
     mesh = bpy.data.meshes.new(name)
@@ -241,7 +241,9 @@ def pants(body, name="Trousers", waist=0.30, leg=1.9, leg_angle=0.0):
     cuts["waist"] = _cut(bm, dl, set(group.values()), 0.0, Vector((0, 0, waist_z)), up)
     import math
     # the crotch: the lowest point of the body on its midline - below it the legs are apart
-    crotch_z = min((v.co.z for v in body.data.vertices if abs(v.co.x) < 0.004 and v.co.z < hip_z + 0.1), default=hip_z - 0.07)
+    sc = rigmap.torso_scale(torso)   # the offsets below were set on human hips (rigmap.HUMAN_TORSO_M)
+    crotch_z = min((v.co.z for v in body.data.vertices if abs(v.co.x) < 0.004 and v.co.z < hip_z + 0.1 * sc),
+                   default=hip_z - 0.07 * sc)
     for side, l in hm["legs"].items():
         sx = 1 if side == "L" else -1
         bones = [b for b in l.values() if b] + [g for g in group if g.startswith("ft_jiggle_thigh") and g.endswith("." + side)]
@@ -261,13 +263,13 @@ def pants(body, name="Trousers", waist=0.30, leg=1.9, leg_angle=0.0):
         # whole, and the inner thigh below it is still cut (a 3 cm midline band left a strip of
         # briefs hanging to the knee)
         mid = 0.35 * abs(H[l["thigh"]].x)
-        cuts["leg." + side] = _cut_side(bm, dl, idx, 0.25, co, no, sx, mid, crotch_z - 0.015)
+        cuts["leg." + side] = _cut_side(bm, dl, idx, 0.25, co, no, sx, mid, crotch_z - 0.015 * sc)
     front = hm["forward"]
-    cuts["pieces_dropped"] = _keep_piece(bm, Vector((0, 0, hip_z + 0.04)) + front * 0.12)
+    cuts["pieces_dropped"] = _keep_piece(bm, Vector((0, 0, hip_z + 0.04 * sc)) + front * (0.12 * sc))
     obj = _object(body, name, bm)
     obj["wardrobe_cut"] = {"kind": "pants", "body": body.name, "waist": waist, "leg": leg, "leg_angle": leg_angle,
                            "crotch_z": crotch_z,
-                           "waist_z": waist_z, "hip_z": hip_z, "torso_m": torso, "hang_below": hip_z - 0.06}
+                           "waist_z": waist_z, "hip_z": hip_z, "torso_m": torso, "hang_below": hip_z - 0.06 * sc}
     _warn(obj, cuts, flesh_order_warnings(body))
     obj["wardrobe_cut_report"] = cuts
     return obj

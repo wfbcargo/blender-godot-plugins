@@ -40,6 +40,18 @@ from mathutils import Vector
 
 AXIS_INDEX = {"X": 0, "Y": 1, "Z": 2}
 
+# Metre constants set on people (closeups' camera distances, upper's hand clearance and gaze) are
+# multiplied by `stature_scale`: exactly 1 inside this band, so a human's clips and close-ups are the
+# ones they always were, and the stature over the band's nearer end outside it (improvements 08).
+HUMAN_STATURE_M = (1.45, 2.10)
+
+
+def stature_scale(stature):
+    """1 inside HUMAN_STATURE_M, else `stature` over the band's nearer end (continuous at both)."""
+    lo, hi = HUMAN_STATURE_M
+    h = float(stature)
+    return h / lo if h < lo else h / hi if h > hi else 1.0
+
 PROFILE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profiles")
 PROFILE_PROP = "body_profile"
 # Bones another plugin adds to a finished rig - follow-through's jiggle bones, wardrobe's hem

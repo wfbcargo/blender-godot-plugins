@@ -101,6 +101,20 @@ ATTACH_THIGH_MAX = 0.05         # weight on vertices half or more skinned to a l
 # jiggle_block: a material's mass scaling of frequency is clipped to this range
 MASS_SCALE = (0.75, 1.33)
 
+# The attachment's lengths above (ATTACH_*_M, the 2 cm apex ball, the 10 cm band) and a region's 1 cm
+# peak floor were measured on human bodies. Every one is multiplied by `body_scale`: exactly 1 for a body
+# of human stature, so a human's flesh is what it always was, and stature over the band's nearer end
+# outside it - a 2.6 m troll's apex ball holds the same share of its belly as a human's (improvements
+# 08, fantasy species).
+HUMAN_STATURE_M = (1.45, 2.10)
+
+
+def body_scale(height):
+    """1 inside HUMAN_STATURE_M, else `height` over the band's nearer end (continuous at both)."""
+    lo, hi = HUMAN_STATURE_M
+    h = float(height)
+    return h / lo if h < lo else h / hi if h > hi else 1.0
+
 # FT_FLESH_LEGACY_PLACEMENT=1 puts back how regions were placed before check_placement existed - the face
 # seeding and growing regions, every patch in a zone merged - so check_placement has a control that must
 # fail (the cast builds' breast bones on the chin).
@@ -1002,7 +1016,7 @@ def _region(obj, t, c, rname, tname, entry, verts, area, normals, body_volume, n
     total = max(float(wm.sum()), 1e-18)
     surface = (P[verts] * wm[:, None]).sum(axis=0) / total
     depth = float((exc * wm).sum() / total)
-    peak = max(float(np.percentile(exc, 90)), 0.01)
+    peak = max(float(np.percentile(exc, 90)), 0.01 * body_scale(t["height"]))
     tail = surface
     head = surface - n_mean * (depth + 0.5 * peak)
     w_out = w
@@ -1059,6 +1073,9 @@ def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M)
     Returns head, tail, weights and a report of where they went."""
     P = t["P"][verts]
     up = np.asarray(t["frame"]["up"], dtype=float)
+    s = body_scale(t["height"])
+    rise_m = (rise_m[0] * s, rise_m[1] * s)
+    under = ATTACH_UNDER_LEAN_M * s
     out = (P - surface) @ n_mean
     strong = np.where(w >= 0.5)[0]
     if len(strong) < 3:
@@ -1069,7 +1086,7 @@ def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M)
     lean_at_apex = apex - n_mean * float(exc[top].mean())
     zs = P[w > 0.2] @ up if (w > 0.2).any() else P @ up
     rise = float(np.clip(0.6 * (np.percentile(zs, 90) - apex @ up), rise_m[0], rise_m[1]))
-    head = lean_at_apex - n_mean * ATTACH_UNDER_LEAN_M
+    head = lean_at_apex - n_mean * under
     # exactly `rise` above the apex: stepping in along a normal that tilts down lowered it (study_woman 2.8 cm)
     head = head + up * (float(apex @ up) + rise - float(head @ up))
     axis = apex - head
@@ -1082,12 +1099,20 @@ def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M)
     graded = w * g * _smoothstep((ATTACH_LEG_OFF - leg) / ATTACH_LEG_OFF)
     # full weight at the apex: most of the 2 cm round it at 1. Normalising on the outermost vertices alone left
     # study_man's and Marco's seat at 0.80-0.85 there, the thigh's share taking the rest
-    near = np.linalg.norm(P - apex, axis=1) < 0.02
+    near = np.linalg.norm(P - apex, axis=1) < 0.02 * s
     ref = graded[near] if near.sum() >= 3 else graded[top]
     at_apex = float(np.percentile(ref, 25))
     graded = np.clip(graded / max(at_apex, 1e-6), 0.0, 1.0)
+    # A butt's apex ball holds 2-4 vertices on MPFB's mesh, and the 25th percentile of three left one
+    # partly skinned to the thigh at 0.67: the ball's mean at 0.89, under ATTACH_APEX_MIN (an elf's and
+    # bench_mei's butt.L). Only then, normalised again on the ball's mean, so a region that already
+    # reads full weight at its apex - every human that built before - keeps exactly its weights.
+    for _ in range(4):
+        if near.sum() == 0 or float(graded[near].mean()) >= ATTACH_APEX_MIN:
+            break
+        graded = np.clip(graded / max(float(graded[near].mean()), 1e-6), 0.0, 1.0)
     report = {"apex": [round(float(x), 4) for x in apex], "rise_m": round(rise, 4),
-              "under_lean_m": ATTACH_UNDER_LEAN_M, "leg_share_max": round(float(leg.max()), 3),
+              "under_lean_m": round(under, 4), "leg_share_max": round(float(leg.max()), 3),
               "weight_before_grading_at_apex": round(float(w[top].mean()), 3)}
     return head, apex, graded, report
 
@@ -1140,8 +1165,9 @@ def _attachment_measures(t, r, verts, w, above_m=ATTACH_ABOVE_M):
     d = P - tail
     dz = d @ up
     horiz = np.linalg.norm(d - np.outer(dz, up), axis=1)
-    near = np.linalg.norm(d, axis=1) < 0.02
-    above = (dz > above_m - 0.01) & (dz < above_m + 0.01) & (horiz < 0.04)
+    s = body_scale(t["height"])
+    near = np.linalg.norm(d, axis=1) < 0.02 * s
+    above = (dz > above_m - 0.01 * s) & (dz < above_m + 0.01 * s) & (horiz < 0.04 * s)
     leg = _leg_share(bpy.data.objects[t["object"]], t, verts) >= 0.5
     return {"pivot_rise_m": round(float((head - tail) @ up), 4),
             "weight_at_apex": round(float(w[near].mean()), 3) if near.any() else 0.0,
@@ -1195,8 +1221,10 @@ def check_placement(t, regions, c=None):
                                            f"{r['type']} zone's {lo:.2f}-{hi:.2f} (0 hip joints, 1 shoulder joints)")
         entry = types.get(r["type"]) or {}
         if entry.get("attachment") == "upper":
-            rise_min = float(entry.get("attach_rise_m", ATTACH_UP_M)[0])
-            row.update(_attachment_measures(t, r, verts, w, above_m=float(entry.get("attach_above_m", ATTACH_ABOVE_M))))
+            s = body_scale(t["height"])
+            rise_min = float(entry.get("attach_rise_m", ATTACH_UP_M)[0]) * s
+            row.update(_attachment_measures(t, r, verts, w,
+                                            above_m=float(entry.get("attach_above_m", ATTACH_ABOVE_M)) * s))
             if row["pivot_rise_m"] < rise_min - 0.001:
                 row["problems"].append(f"{r['name']}: its pivot is {row['pivot_rise_m'] * 100:.1f} cm above its tail; a "
                                        f"mass hanging from above pivots at least {rise_min * 100:.0f} cm above its apex")

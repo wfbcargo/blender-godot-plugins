@@ -24,6 +24,41 @@ def _obj(name):
     return o
 
 
+# Garment lengths - hang windows, ease bands, hinge lengths, cover reach - were set on human torsos.
+# `body_scale` multiplies them: exactly 1 for a torso (hip joints to shoulder joints) in this band, so a
+# human's garments are cut and eased as they always were, and the torso over the band's nearer end
+# outside it - a 1.0 m gnome's shirt hangs over its own belly, not a human's 15 cm (improvements 08).
+HUMAN_TORSO_M = (0.40, 0.62)
+
+
+def torso_length(body):
+    """Hip joints to shoulder joints, vertically, in the body's object space."""
+    hm = humanoid(body)
+    sh = sum(hm["heads"][a["upper"]].z for a in hm["arms"].values()) / max(1, len(hm["arms"]))
+    hip = sum(hm["heads"][l["thigh"]].z for l in hm["legs"].values()) / max(1, len(hm["legs"]))
+    return float(sh - hip)
+
+
+def torso_scale(torso):
+    """1 inside HUMAN_TORSO_M, else `torso` (m) over the band's nearer end (continuous at both ends)."""
+    lo, hi = HUMAN_TORSO_M
+    t = float(torso)
+    return t / lo if t < lo else t / hi if t > hi else 1.0
+
+
+def body_scale(body):
+    """`torso_scale` of the body's torso. A garment cut from it carries the torso it measured
+    (`wardrobe_cut["torso_m"]`), and `garment_scale` reads that without asking the rig again."""
+    return torso_scale(torso_length(body))
+
+
+def garment_scale(garment, body):
+    """`torso_scale` of the torso the garment was cut against, else of `body`'s."""
+    cut = _obj(garment).get("wardrobe_cut")
+    t = cut.get("torso_m") if cut is not None else None
+    return torso_scale(t) if t is not None else body_scale(body)
+
+
 def rig_of(body):
     body = _obj(body)
     for m in body.modifiers:
