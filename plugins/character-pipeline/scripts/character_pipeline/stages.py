@@ -494,6 +494,8 @@ def run_bake(ch, ctx):
     sk = skin_manifest(ch)
     if sk is not None:
         out["skin"] = sk
+        if (sk.get("seam") or {}).get("fail"):
+            raise RuntimeError(f"bake: {sk['seam']['fail']}")
     if fused is not None:
         out["genitals"] = fused
     if ch.muscle is not None:
@@ -1146,6 +1148,11 @@ def skin_manifest(ch):
         out["contrast_ok"] = bool(rec.get("contrast_ok"))
         if rec.get("contrast_fail"):
             out["contrast_fail"] = [str(x) for x in rec["contrast_fail"]]
+    if rec.get("seam"):
+        # a graft's seam: the baked albedo's tone in bands across the fade (humanform skin.seam_tone)
+        seam = rec["seam"].to_dict() if hasattr(rec["seam"], "to_dict") else dict(rec["seam"])
+        out["seam"] = {"bands": [[float(a) if a is not None else None for a in b] for b in seam.get("bands", [])],
+                       **{k: seam[k] for k in ("scales", "skin", "fail") if k in seam}}
     if rec.get("roughness"):
         # the baked roughness over each region's texels, the T-zone's and plain skin's
         out["roughness"] = {str(k): round(float(v), 3) for k, v in dict(rec["roughness"]).items()}

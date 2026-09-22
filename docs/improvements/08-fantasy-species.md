@@ -392,3 +392,21 @@ Four defects seen in Godot on the drow, cyclops and mermaid, each now with a che
 
 Also: the palest species tone cap is 0.55 linear luma (the elf clipped past white at 0.59), and deep regions have
 a chroma ceiling in the skin contrast check (`skin.DEEP_CHROMA_MAX`).
+
+Round 2 (the coordinator's follow-ups):
+
+- **The cyclops eye read as a slit** once held to its own pre-warp man (a squinting 40-year-old: 15% bare, lids 0.24
+  as high as wide). A new eye is now held to the more open of that person's eye and `eye_layout.EYE_NORM` (a person's
+  eye as the game shows it, measured on baked MPFB bodies: 19% bare, 0.32), matching the bare share and the lid
+  shape (height over width), both relative, so the opening scales with the eye. The check fails a slit (too little
+  bare, too flat) as well as a stare. A single median eye under two separate brows looks odd; a continuous brow
+  arch over it is the next step (brows, not done here). Its upper lash cards stand up like a picket; also open.
+- **The dwarf's orange genitals** were the tint, not the light through the shell: rendered in Godot with
+  transmittance off, the pixels were identical (158, 110, 83 both). The species genital tint's saturation exponent
+  is 0.3 (was 0.7: 1.36x skin chroma, now 1.04x) and the contrast check caps genital chroma at 1.25x skin's.
+- **The mermaid's waist band at 4 m** was not albedo (the baked albedo's bands run monotonic from scales to skin) but
+  the shape: the belly curved in under itself onto the seam ring, and the tail bulged out below it - a crease facing
+  down (normal z -0.5 at the front). `graft` now fairs the band over the seam, the seam ring included, radially
+  (`FAIR`) and reports the band's facing (`seam_band_nz`, warned under `FAIR_NZ_MIN`); the scales' shading is
+  normalised to a mean of 1 (`_scale_mean_shade`), and `skin.seam_tone` checks the albedo's mean across the seam
+  (the bake stage fails when a band leaves the skin-to-scales range).

@@ -60,6 +60,12 @@ PROTRUDE = None              # the eyeball's front ahead of the face around it (
 RING = 1.6                   # the face around an eye: the skin this many radii from its centre, seen from the front
 EXPOSE_VIEWS = (0, 35, 60)   # the yaws (degrees, the worse side) a new eye's bare share is measured from
 EXPOSE_TOL = 0.25            # ... and it may exceed the person's eye on the same head by this share (+0.02) at most
+# a person's eye as the game shows it, measured with `exposure` on baked MPFB bodies (study_man 0.190 / 0.32,
+# smoke_petite 0.186 / 0.33, the drow 0.191): the bare share of the ball from the front and the opening's height over
+# its width. A new eye is held to the person's own eye or this, whichever is more open: the cyclops' pre-warp man
+# (40, muscular) measured 0.15 / 0.24, and a 1.5x copy of that read as a slit
+EYE_NORM = {"bare": 0.19, "ratio": 0.32}
+RATIO_TOL = 0.2              # ... and its opening's height over width within this share of theirs
 PROTRUDE_TOL = 0.15          # ... nor stand further out of its face than theirs by more than this many radii
 BLEND = 2.3                 # the carve fades back to the face by this many radii (in aperture units)
 LID = (1.05, 1.18)           # the lid band's distance from the eyeball's centre, at the margin and at its outer edge
@@ -139,8 +145,9 @@ def plan(spec):
 
 # ------------------------------------------------------------------------------------------------ the surface
 
-def _full(ob):
-    """Every vertex as the body is drawn: the basis and every shape key at its value, hfd: keys included."""
+def _full(ob, skip=()):
+    """Every vertex as the body is drawn: the basis and every shape key at its value, hfd: keys included (keys whose
+    names start with one of `skip` left out)."""
     me = ob.data
     n = len(me.vertices)
     co = np.empty(n * 3)
@@ -155,7 +162,7 @@ def _full(ob):
     tmp = np.empty(n * 3)
     cache = {basis.name: co}
     for kb in keys.key_blocks[1:]:
-        if kb.mute or abs(kb.value) < 1e-9:
+        if kb.mute or abs(kb.value) < 1e-9 or (skip and kb.name.startswith(tuple(skip))):
             continue
         kb.data.foreach_get("co", tmp)
         rel = kb.relative_key
@@ -370,7 +377,10 @@ def apply(human, spec, iris=None):
             report[f"closed_{side}"] = rep
     # the rule every new eye is held to: a person's eye on this very head, measured before anything moves - how far
     # its ball stands out of the face around it and how much of it the lids leave bare from the front, 3/4, and 60
-    human_eye = exposure(co[:BODY_VERTS], faces, *eyes_old["L"])
+    # the person's own eye, before the head features: a brow ridge or heavy brow pulls the lids down, and held to
+    # that the cyclops' eye came out a slit (lids 0.22 as high as wide against a person's 0.33)
+    plain = _full(human, skip=(features.KEY_PREFIX, features.DELTA_PREFIX))
+    human_eye = exposure(plain[:BODY_VERTS], faces, *eyes_old["L"])
     report["human_eye"] = human_eye
     # the opening's shape is the person's (their lids' half width and half height over the ball, seen from the
     # front); its size is then solved below. A fixed almond (0.95 x 0.50) solved to their bare share came out an
@@ -404,19 +414,21 @@ def apply(human, spec, iris=None):
 
     def bare(Q):
         return [exposure(Q, faces, e["centre"], e["radius"]) for e in new]
-    # the opening: its width and height scaled until the new eyes' lids leave the same opening over the ball as the
-    # person's do, seen from the front (an aperture the spec gives is taken as it is). The carve's almond is where
-    # skin passes through the ball, so the opening it leaves differs from it by the face around; a few multiplicative
-    # rounds find it
+    # the opening: the person's share of the ball left bare and their lids' shape (the opening's height over its
+    # width), both relative, so the opening grows with the eye - a 1.5x eye gets a 1.5x opening. Solved on the
+    # carve's almond by multiplicative rounds (an aperture the spec gives is taken as it is). Matching the opening's
+    # size in radii instead let a heavy brow's squint through, and gave a wide slit
     k = [1.0, 1.0]
-    want = human_eye.get("opening")
-    if not spec.get("aperture") and want:
-        for _ in range(5):
+    f_want = max(human_eye["bare"]["0"], EYE_NORM["bare"])
+    r_want = max(human_eye.get("ratio") or 0.0, EYE_NORM["ratio"])
+    report["eye_target"] = {"bare": round(f_want, 3), "ratio": round(r_want, 3)}
+    if not spec.get("aperture") and r_want:
+        for _ in range(7):
             got = bare(carve_all(k, {}))
-            gw = float(np.mean([g.get("opening", want)[0] for g in got]))
-            gh = float(np.mean([g.get("opening", want)[1] for g in got]))
-            k = [float(np.clip(k[0] * want[0] / max(gw, 1e-3), 0.4, 2.0)),
-                 float(np.clip(k[1] * want[1] / max(gh, 1e-3), 0.4, 2.0))]
+            f = float(np.mean([g["bare"]["0"] for g in got]))
+            r = float(np.mean([g.get("ratio") or r_want for g in got]))
+            a, q = math.sqrt(f_want / max(f, 1e-3)), math.sqrt(r_want / max(r, 1e-3))
+            k = [float(np.clip(k[0] * a / q, 0.4, 2.5)), float(np.clip(k[1] * a * q, 0.4, 2.5))]
     ap = (ap0[0] * k[0], ap0[1] * k[1])
     P = carve_all(k, report)
     report["aperture"] = [round(v, 3) for v in ap]
@@ -478,7 +490,9 @@ def apply(human, spec, iris=None):
         fails.append(f"eye(s) {bad}: the mesh has too few vertices in the aperture or the lid band "
                      f"(aperture {report['aperture_verts']}, lids {report['lid_verts']}) - make the eye bigger "
                      "(size) or open it wider (aperture)")
-    stare = exposure_problems(report["exposure"], human_eye)
+    target = dict(human_eye, bare=dict(human_eye["bare"], **{"0": report.get("eye_target", {}).get(
+        "bare", human_eye["bare"]["0"])}), ratio=report.get("eye_target", {}).get("ratio", human_eye.get("ratio")))
+    stare = exposure_problems(report["exposure"], target)
     if stare:
         report["stare"] = stare
         fails.append("; ".join(stare))
@@ -530,8 +544,10 @@ def exposure(P, faces, c, R, views=EXPOSE_VIEWS):
                         sw.append(float(w))
             worst = max(worst, seen / max(ball, 1))
             if yaw == 0 and su:
-                # the opening's size from the front: half its width and half its height, in radii
-                out["opening"] = [round(max(su) / R, 3), round((max(sw) - min(sw)) / (2 * R), 3)]
+                # the opening from the front: half its width and half its height in radii, and its shape
+                w_half, h_half = max(su) / R, (max(sw) - min(sw)) / (2 * R)
+                out["opening"] = [round(w_half, 3), round(h_half, 3)]
+                out["ratio"] = round(h_half / max(w_half, 1e-6), 3)
         out["bare"][str(yaw)] = round(worst, 3)
     return out
 
@@ -546,10 +562,14 @@ def exposure_problems(eyes_exposure, human):
             if v > limit:
                 out.append(f"eye {i} is {v:.0%} bare seen from {yaw} deg against a person's {human['bare'][yaw]:.0%} "
                            f"(limit {limit:.0%}) - the lids cover too little: narrow the aperture or leave it out")
-        op, hop = e.get("opening"), human.get("opening")
-        if op and hop and op[1] > hop[1] * (1 + EXPOSE_TOL) + 0.03:
-            out.append(f"eye {i}'s lids open {op[1]:.2f} radii each way from its middle against a person's "
-                       f"{hop[1]:.2f} - it stares: lower the aperture's height or leave it out")
+        f, hf = e["bare"].get("0"), human["bare"].get("0")
+        if f is not None and hf and f < hf * (1 - EXPOSE_TOL) - 0.02:
+            out.append(f"eye {i} is {f:.0%} bare from the front against a person's {hf:.0%} - the lids cover too "
+                       "much: it squints (open the aperture or leave it out)")
+        r, hr = e.get("ratio"), human.get("ratio")
+        if r and hr and not hr * (1 - RATIO_TOL) <= r <= hr * (1 + RATIO_TOL):
+            out.append(f"eye {i}'s opening is {r:.2f} as high as wide against a person's {hr:.2f} - "
+                       f"{'a slit' if r < hr else 'a stare'}: set the aperture's shape as theirs or leave it out")
         pr, hpr = e.get("protrude"), human.get("protrude")
         if pr is not None and hpr is not None and pr > hpr + PROTRUDE_TOL:
             out.append(f"eye {i} stands {e['protrude']:.2f} radii out of its face against a person's "
