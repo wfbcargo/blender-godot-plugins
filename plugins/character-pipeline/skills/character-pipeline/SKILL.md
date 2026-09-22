@@ -63,7 +63,11 @@ iris = [0.36, 0.45, 0.30]
 ancestry = { caucasian = 1.0 }     # optional: MPFB's african / asian / caucasian shares, normalised
 species = "human"                  # optional: humanform/data/species/<id>.json (refused if unknown when
                                    #   that folder exists); in the brief when not human; a preset with a
-                                   #   skin.palette may leave skin out
+                                   #   skin.palette may leave skin out. Or inline, for a creature with
+                                   #   no preset: [body.species] heads = 5.0, trunk_to_leg = 0.85,
+                                   #   fingertips_at = "knee", skin = { tone = [...], pattern = {...} },
+                                   #   head = { shape = "square", features = { brow_ridge = 0.6 } } -
+                                   #   keys checked against humanform.species_design when present
 [body.parts]                       # humanform library parts
 face = "face-female-11-1-49f17892"
 [body.face]                        # optional: a likeness, ratios read off a frontal photo (humanform
