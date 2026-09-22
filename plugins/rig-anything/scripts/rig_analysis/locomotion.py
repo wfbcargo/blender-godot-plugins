@@ -100,6 +100,11 @@ DUTY = ((0.0, 0.75), (0.45, 0.65), (0.7, 0.55), (1.0, 0.45), (1.6, 0.35),
 
 MIN_DUTY = 0.2
 
+# How far a hock - a standing end bone, the third segment of a digitigrade leg - may swing either way
+# about the toe over a stride. A plantigrade foot's roll is a heel lift and a small toe lift; a hock is
+# a joint of the leg and folds like one, so `Reach` widens both limits when the end bone stands.
+HOCK_SWING_DEG = 45.0
+
 # Ways of walking. Speed alone makes every body of a kind move alike; a style
 # says how this one differs at the same Froude number. Each is a dict of
 # `cycle` / `plan` arguments - duty, stride_scale, lift_scale, bounce_scale,
@@ -398,6 +403,13 @@ class Reach:
         # toe -> ankle at rest; the effector is the ankle, the contact the toe
         self.v = limb["rest_eff"] - self.pivot
         self.lims = (heel_lift_max, toe_lift_max) if limb["end"] else (0.0, 0.0)
+        # A standing end bone is not a foot rolling over its toe but a SEGMENT of the leg, and its
+        # joint - the hock - swings both ways through a stride the way a knee does. A plantigrade
+        # foot keeps its own limits (a heel lifts far, a toe barely), so no person's walk moves.
+        if limb.get("stand", 0.0) > 0.5 * (limb["rest_eff"] - self.pivot).length:
+            s = limb["stand"] / max((limb["rest_eff"] - self.pivot).length, 1e-9)
+            w = HOCK_SWING_DEG * min(1.0, s)
+            self.lims = (max(self.lims[0], w), max(self.lims[1], w))
 
     def ankle(self, contact, tilt):
         rot, _ = self.P.tilt_rotation(self.limb, tilt)
@@ -614,7 +626,10 @@ def plan(poser, froude=None, speed=None, gait_name=None, extension=0.97,
         "legs": legs, "contacts": contacts,
         "origin": origin, "normal": normal, "fwd": fwd, "lat": lat,
         "scale": scale, "limited_by": limited,
-        "lift": (swing_lift(froude) * (sum(l["a"] + l["b"] for l in legs) / len(legs))
+        # the swing foot's height is a share of the EFFECTIVE leg (hip to contact): on a digitigrade
+        # leg the standing metatarsus is part of what swings, and lifting only by the two links above
+        # the hock drags the toes (`bodymap`, the leg plan; a plantigrade leg's `ground` is a + b)
+        "lift": (swing_lift(froude) * (sum(l.get("ground") or (l["a"] + l["b"]) for l in legs) / len(legs))
                  * (1.0 if lift_scale is None else lift_scale)),
         "flex": spine_flex(froude, gait_name, bm),
     }

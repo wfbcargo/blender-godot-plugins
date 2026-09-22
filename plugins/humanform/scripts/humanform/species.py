@@ -74,8 +74,9 @@ def inline(d):
     humanform-species/1 preset (it has `ratios` and `heads`), or what humanform.species_design turns into one:
     observables (`species_design.design_from`: stature, heads, a trunk-to-leg ratio ... as a description gives
     them, bare or under "observables") or `{"knobs": {...}, "stature": ...}` (`species_design.design`). Beside
-    them, `head`, `skin` and `moves` are its look and `anatomy` its declared absences and scales; `id` and
-    `label` are kept (an unnamed species is "custom")."""
+    them, `head`, `skin` and `moves` are its look, `graft`, `legs` (a leg plan: humanform.legs) and `tail`
+    (humanform.tail) its body plan, and `anatomy` its declared absences and scales; `id` and `label` are kept
+    (an unnamed species is "custom")."""
     d = copy.deepcopy(d)
     if d.get("schema") == SCHEMA or ("ratios" in d and "heads" in d):
         d.setdefault("schema", SCHEMA)
@@ -87,7 +88,7 @@ def inline(d):
         raise ValueError("an inline species needs `ratios` and `heads` (a whole humanform-species/1 preset): "
                          "humanform.species_design, which designs one from observables or knobs, is not installed")
     sid, label = d.pop("id", None) or "custom", d.pop("label", None)
-    look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft") if k in d} or None
+    look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft", "legs", "tail") if k in d} or None
     anatomy = d.pop("anatomy", None)
     if "knobs" in d:
         knobs = dict(d.pop("knobs"))
@@ -1356,6 +1357,10 @@ PARTS = {
     "tongue": {"groups": ("helper-tongue",), "host": "head"},
     "lashes": {"groups": ("helper-l-eyelashes-1", "helper-r-eyelashes-1"), "host": "head"},
     "genitals": {"groups": ("helper-genital",), "host": "pelvis", "opt_in": "hf_genitals"},
+    # A tail (humanform.tail: the group is `tail.GROUP`, and `tail.PROP` on the body is what says one was
+    # grown). Present only on a species whose description gives it one, and then held to its size against
+    # the pelvis like any other part, so a bake or a later warp cannot quietly lose it.
+    "tail": {"groups": ("hf_tail",), "host": "pelvis", "opt_in": "hf_tail"},
 }
 # the parts that are meshes of their own on the rig, by the suffix humanform names them with: the eyeballs
 # (humanform.eyes) and the teeth and tongue (humanform.features.mouth). Missing and not declared absent fails.

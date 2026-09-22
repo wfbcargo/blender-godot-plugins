@@ -387,7 +387,11 @@ class Poser:
         if bm.get("maw"):
             from . import maw as maw_mod
             self.maw_rig = maw_mod.MawRig(body)
-        self.leg_len = (sum(l["a"] + l["b"] for l in self.legs) / len(self.legs)
+        # The EFFECTIVE leg: hip to the ground contact. On a plantigrade leg the foot is a plate on the
+        # floor and this is the two links, exactly what it always was; on a digitigrade one the standing
+        # metatarsus counts too (`bodymap`, the leg plan), so a step, a crouch and a sway are sized by
+        # the leg the creature stands on rather than by the part of it above the hock.
+        self.leg_len = (sum(l.get("ground") or (l["a"] + l["b"]) for l in self.legs) / len(self.legs)
                         if self.legs else 0.0)
         self.centre = (sum((l["rest_root"] for l in self.legs), Vector())
                        / len(self.legs) if self.legs else Vector())

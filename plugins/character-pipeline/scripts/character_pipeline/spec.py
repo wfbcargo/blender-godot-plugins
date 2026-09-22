@@ -184,7 +184,7 @@ SPECIES_LOOK = {
     "skin.pattern": ("kind", "colour", "scale", "amount", "regions"),
     "head": ("shape", "shape_weight", "features", "eyes"),
 }
-SPECIES_META = ("id", "label", "anatomy", "moves", "graft")
+SPECIES_META = ("id", "label", "anatomy", "moves", "graft", "legs", "tail")
 # `anatomy` (humanform.species_design): only what the description says the creature lacks, each with its reason,
 # and sizes it states - every other part is kept
 SPECIES_ANATOMY = ("absent", "scale")
@@ -202,7 +202,7 @@ def check_species_table(table):
         if extra:
             raise SpecError(f"[body.species]: unknown field(s) {', '.join(extra)} - it takes the observables "
                             f"{', '.join(sorted(sd.OBSERVABLES))}, the knobs {', '.join(sorted(sd.KNOBS))}, and "
-                            f"skin, head, id, label")
+                            f"skin, head, legs, tail, id, label")
     for part in ("skin", "head"):
         if part in table:
             v = table[part]
@@ -223,7 +223,7 @@ def check_species_table(table):
         # knob out of range, a graft whose absences the description does not state, numbers that disagree -
         # refused here, before any build, with the design's own message
         d = {k: v for k, v in table.items() if k not in ("id", "label")}
-        look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft") if k in d}
+        look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft", "legs", "tail") if k in d}
         anatomy = d.pop("anatomy", None)
         knobs = {n: d.pop(n) for n in list(d) if n in sd.KNOBS and n not in sd.OBSERVABLES}
         if "stature" not in d:
