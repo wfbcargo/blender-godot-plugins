@@ -68,6 +68,11 @@ species = "human"                  # optional: humanform/data/species/<id>.json 
                                    #   fingertips_at = "knee", skin = { tone = [...], pattern = {...} },
                                    #   head = { shape = "square", features = { brow_ridge = 0.6 } } -
                                    #   keys checked against humanform.species_design when present
+# genitals = true                  # optional, default false: humanform.genitals, neutral figure-study anatomy -
+                                   # a man keeps MPFB's shell (fused in bake), a woman a relief delta
+# genital_shape = { length = 0.5 } # men only: MPFB's penis-{length,circ,testicles} targets, 0..1 an adult's
+                                   # range (length about 6-12 cm), 0.5 neutral
+# genital_strength = 1.0           # women only: scales the relief
 [body.parts]                       # humanform library parts
 face = "face-female-11-1-49f17892"
 [body.face]                        # optional: a likeness, ratios read off a frontal photo (humanform
@@ -227,12 +232,12 @@ that no plugin owns yet. Tuned numbers live with their owners, and a spec only n
 
 | Stage | Needs | Checks in the file before it runs |
 |---|---|---|
-| `body` | - | a `blend` source's object is in the open file |
+| `body` | - | a `blend` source's object is in the open file. With `genitals = true` it calls `humanform.genitals.add` on the unbaked body (a man's shell kept past the helper mask, a woman's `hfd:genital` relief key) |
 | `muscle` | body | only with `[muscle]` (a `brief` body): the rig and the **unbaked** humanform mesh exist, no definition on it yet. Runs `humanform.muscle.define` (`hfd:muscle` at 1 for geometry, at 0 plus a `<name>_muscle_high` copy for a normal map; `hfd:muscle-bulk` always at 1) |
-| `bake` | body, muscle | the rig and the humanform mesh exist. With `output = "normal"` it bakes the high copy into the skin's normal map (lookdev `detail.bake_normal_from_high`, matched), packs the image and removes the copy; the glb carries it as the skin's `normalTexture` |
+| `bake` | body, muscle | the rig and the humanform mesh exist. A man with `genitals = true` has his shell fused to the baked body (`genitals.fuse`) before the eyes join it; the report's `genitals` block has the seam, the open edges before and after and the shell's bone shares; with `[muscle] output = "normal"` the muscle stage's high copy is first carried onto the fused topology (`genitals.refit_high`, reported as `genitals.muscle_high`), or the matched bake would fall back to rays. With `output = "normal"` it bakes the high copy into the skin's normal map (lookdev `detail.bake_normal_from_high`, matched), packs the image and removes the copy; the glb carries it as the skin's `normalTexture` |
 | `hair` | bake | baked; no garment bound; **no hair in the file already**. Runs humanform's `hair.add` and joins the hair into the body; a strand part the strand stage will chain stays its own object (its follow-through contract checked either way) |
 | `flesh` | bake, hair | baked; no garment bound - cut first, a garment carries no jiggle weights |
-| `moves` | bake, hair, flesh | baked; no garment bound - rig-anything measures arm hang against every mesh on the rig |
+| `moves` | bake, hair, flesh | baked; no garment bound - rig-anything measures arm hang against every mesh on the rig. A man with `genitals = true` then has humanform's corrective bones `hf_genital.L/.R` keyed per frame of every clip off the thighs (`genitals.clear_thighs`); the report's `genitals.clips` has each clip's worst frame before and after |
 | `strand` | hair, moves | only where the hair preset grows a strand that is a line (`ponytail`): a strand mesh is in the file and the move set is stored. Runs follow-through's `strand.prepare` |
 | `garments` | moves, flesh, strand | every role has a stored clip; jiggle bones present if the spec has flesh |
 | `export` | moves, garments, strand | every role has a stored clip; an outfit is bound if the spec has one; every strand mesh has its chain |
