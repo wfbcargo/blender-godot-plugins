@@ -126,6 +126,9 @@ def _descendants_names(bone, side):
 _PROFILES = None
 
 
+LEGLESS_SHARE = 0.3     # no limb ending below this share of the body's height: none of them is a leg
+
+
 def profiles():
     """Every rig profile in `profiles/`, {name: profile}, in name order. A profile is the facts
     known ahead of time about one body source: how to recognise it (`detect`), the roles its
@@ -502,8 +505,11 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0, meshes=None):
 
     lowest_any = min((l["lowest"] for l in limbs), default=0.0)
     ground_band = max(0.12 * body_height, lowest_any + 0.05 * body_height)
+    # a body whose every limb ends far above the floor stands on something else - a tail (merfolk, humanform's
+    # graft): its limbs are arms. (By the band alone a legless body's hands, the lowest limb ends, read as feet.)
+    stands_on_body = lowest_any > LEGLESS_SHARE * body_height
     for l in limbs:
-        l["role"] = "leg" if l["lowest"] <= ground_band else "arm"
+        l["role"] = "leg" if l["lowest"] <= ground_band and not stands_on_body else "arm"
 
     # Which way each mid-joint points. Measured from the rest shape when the
     # limb is clearly bent; otherwise a role default, because a dead-straight

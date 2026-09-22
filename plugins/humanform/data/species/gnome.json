@@ -103,6 +103,9 @@
       "heads_note": "heads 4.3 against the allometric 5.9: a stylised head larger than the law's - label it [folklore]"
     },
     "contradictions": [],
+    "warnings": [
+      "bmi 16.6 is outside a plausible 18-40 and nobody stated it: it is what build 'average' (pre-warp BMI 24.5); girth neck 1.1, torso 1.05 (from girth {'neck': 1.1, 'torso': 1.05}); stature 1.02 m (square-cube: BMI grows with height at one build) stacked up to. Drop one of them (a build word and a girth word each already thin or thicken the body), or state `bmi` and let the girth be solved"
+    ],
     "observables": {
       "stature": {
         "female": [
@@ -139,7 +142,7 @@
   },
   "bmi": [
     13.8,
-    18.9
+    19.4
   ],
   "heads": {
     "any": [

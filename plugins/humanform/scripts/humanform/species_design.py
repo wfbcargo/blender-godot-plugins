@@ -115,7 +115,12 @@ BUILDS = {   # word: (pre-warp BMI centre, its range)
     "scrawny": (19.0, (16.5, 21.5)), "slender": (20.0, (18.0, 22.5)), "lean": (21.0, (18.5, 23.5)),
     "average": (24.5, (21.0, 28.0)), "athletic": (25.0, (22.5, 28.0)), "muscular": (27.0, (24.0, 30.5)),
     "stocky": (28.0, (25.0, 32.0)), "heavy": (32.0, (28.0, 37.0)), "massive": (36.0, (31.0, 42.0)),
+    # humanform.sheet.BUILDS' own words, so [body] build and [body.species] build take one vocabulary (a drow's
+    # [body] build = "slender" was refused only at the body stage, 2026-09-21); sheet.BUILD_ALIASES maps the
+    # words above that sheet has no build for onto one of its own
+    "slim": (20.5, (18.5, 22.5)), "curvy": (25.5, (23.0, 28.5)), "soft": (27.0, (24.0, 30.5)),
 }
+BUILD_WORDS = tuple(sorted(BUILDS))
 SIZE_WORDS = {"tiny": 0.7, "small": 0.85, "short": 0.75, "human": 1.0, "long": 1.35, "big": 1.22, "large": 1.22,
               "huge": 1.4, "thin": 0.85, "thick": 1.2, "slender": 0.86, "stout": 1.15}
 
@@ -180,7 +185,11 @@ ANATOMY = {
     "elbows":    ("arm", 1.0, "elbow", "elbow skin"),
     "body_hair": ("body", 1.0, None, "body hair coverage (fur is added over the same maps)"),
 }
+# parts of a part, which a description may lack on their own (a tail in place of legs keeps the fingernails):
+# declaring one absent leaves its whole part, and that part's skin region, on
+ANATOMY_SUBPARTS = {"nails.toes": "nails", "nails.fingers": "nails"}
 ANATOMY_SCALE = (0.3, 3.0)
+BMI_PLAUSIBLE = (18.0, 40.0)        # a derived (unstated) BMI outside this is warned about in solve(): see there
 
 HEIGHTS = ("ankle_joint", "knee_joint", "crotch", "hip_joint", "shoulder_joint", "chin")
 LENGTHS = ("upper_arm", "forearm", "hand", "foot", "thigh", "shin", "shoulder_width", "hip_width")
@@ -193,6 +202,22 @@ class DesignError(ValueError):
 # ------------------------------------------------------------------------------------------------ the human
 _CACHE = {}
 
+
+def _sibling(name):
+    """A module beside this one, whether this file was imported in its package or loaded alone (character-pipeline
+    loads it by path to check a spec outside Blender)."""
+    import importlib
+    import importlib.util
+    import sys
+    if __package__:
+        return importlib.import_module("." + name, __package__)
+    key = "_hf_sd_" + name
+    if key not in sys.modules:
+        spec = importlib.util.spec_from_file_location(key, os.path.join(HERE, name + ".py"))
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[key] = mod
+        spec.loader.exec_module(mod)
+    return sys.modules[key]
 
 
 def _luma(c):
@@ -502,7 +527,8 @@ def _mid(st, sex):
 def design(id="custom", label=None, stature=None, look=None, sources=None, notes=None, report=None,
            knob_notes=None, basis=None, anatomy=None, adult_cues=True, **knobs):
     """A species preset (humanform-species/1) from knobs (KNOBS; unset ones take the human default, `heads` the
-    allometric law). `look`: {"head": {...}, "skin": {"palette", ...}, "moves": {...}}. `anatomy`: {"absent": [{"part", "reason"}],
+    allometric law). `look`: {"head": {...}, "skin": {"palette", ...}, "moves": {...}, "graft": {...}} (graft: a
+    limb pair replaced, humanform.graft - what it takes must be in anatomy.absent). `anatomy`: {"absent": [{"part", "reason"}],
     "scale": {part: factor}} - only what a description states; every other part is kept and scales with its host
     (ANATOMY). The skin's `regions_off` is derived from `absent` and nothing else. `report`: a
     solve() result, recorded in the preset's `design` block. `adult_cues` (on unless a description says the
@@ -593,9 +619,16 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
         mf = mass_factor(b, sex, girth_rel, {n: k[s] for n, s in (("shoulder_width", "shoulder_scale"),
                                                                   ("hip_width", "hip_scale"))}, 1.0 / (b["H"] * kf))
         ratio = mf * kf ** 2           # BMI_final / BMI_pre = mass factor x (H_pre / H)^2
-        bmi[sex] = [round(bl * ratio, 1), round(bh * ratio, 1)]
+
+        def clamp(H):
+            # a pre-warp human outside ANSUR is fitted at the limit and scaled whole (humanform.species
+            # .prewarp_stature), so its BMI scales by H_pre / limit too: square-cube on the fit itself. Without
+            # it a 3.1 m giant was designed at BMI 25-32 and built at ~43 (a cyclops trial, 2026-09-21)
+            hp = H * kf
+            return hp / min(max(hp, ANSUR_STATURE[0]), ANSUR_STATURE[1])
+        bmi[sex] = [round(bl * ratio * clamp(lo), 1), round(bh * ratio * clamp(hi), 1)]
         m = _mid(st, sex)
-        mass[sex] = round(k["build_bmi"] * ratio * m * m, 1)
+        mass[sex] = round(k["build_bmi"] * ratio * clamp(m) * m * m, 1)
 
     lookd = look or {}
     anat = _anatomy(anatomy, segments, girth, widths)
@@ -623,7 +656,8 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
         "design": {"proportionate": proportionate, "heads_law": {s: round(v, 2) for s, v in heads_law.items()},
                    "mass_kg_mid": mass, "adult_cues": cues,
                    **({"given": report["given"], "derived": report["derived"],
-                       "contradictions": report["contradictions"], "observables": report["observables"]}
+                       "contradictions": report["contradictions"], "warnings": report.get("warnings", []),
+                       "observables": report["observables"]}
                       if report else {})},
         "stature": {s: [round(v, 3) for v in st[s]] for s in SEXES},
         "bmi": [min(bmi[s][0] for s in SEXES), max(bmi[s][1] for s in SEXES)],
@@ -644,6 +678,13 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
         "anatomy": anat,
         "moves": lookd.get("moves", {"style": None, "notes": "derive_style from the build"}),
     }
+    if lookd.get("graft"):
+        # a body plan past the human one (humanform.graft): what it replaces must be declared absent
+        _graft = _sibling("graft")
+        gp = _graft.validate(lookd["graft"], absent=[e["part"] for e in anat["absent"]])
+        if gp:
+            raise DesignError(f"{id}: " + "; ".join(gp))
+        doc["graft"] = lookd["graft"]
     p = check(doc, per_sex)
     if p:
         raise DesignError(f"{id}: " + "; ".join(p))
@@ -659,9 +700,9 @@ def _anatomy(anatomy, segments, girth, widths):
         raise DesignError(f"anatomy keys {unknown}: only 'absent' and 'scale'")
     absent = []
     for e in a.get("absent", []):
-        if not isinstance(e, dict) or e.get("part") not in ANATOMY or not e.get("reason"):
-            raise DesignError(f"anatomy.absent entry {e!r}: needs part (one of {', '.join(ANATOMY)}) and the "
-                              "reason the description gives")
+        if not isinstance(e, dict) or e.get("part") not in set(ANATOMY) | set(ANATOMY_SUBPARTS)                 or not e.get("reason"):
+            raise DesignError(f"anatomy.absent entry {e!r}: needs part (one of {', '.join(ANATOMY)}, or a sub-part: "
+                              f"{', '.join(ANATOMY_SUBPARTS)}) and the reason the description gives")
         absent.append({"part": e["part"], "reason": e["reason"]})
     gone = {e["part"] for e in absent}
     scale = a.get("scale", {})
@@ -686,7 +727,7 @@ def _anatomy(anatomy, segments, girth, widths):
         parts[part] = {"on": host, "scale": per, "relative": scale.get(part, 1.0),
                        "source": "description" if part in scale else
                        "law: with its host" + ("" if exp == 1.0 else f" ^ {exp}")}
-    regions = sorted({ANATOMY[p][2] for p in gone if ANATOMY[p][2]})
+    regions = sorted({ANATOMY[p][2] for p in gone if p in ANATOMY and ANATOMY[p][2]})
     return {"parts": parts, "absent": absent, "regions_off": regions,
             "note": "every part a human has, kept and warped with its host unless the description says the creature "
                     "lacks it (absent, with its reason). scale: size factor against the pre-warp human's part"}
@@ -734,12 +775,19 @@ def check(doc, per_sex):
     b_lo, b_hi = doc["bmi"]
     need(8 < b_lo < b_hi < 90, f"bmi range {doc['bmi']}")
     pal = doc["skin"].get("palette") or []
-    need(2 <= len(pal) <= 4 and all(len(c) == 3 and all(0 <= x <= 1 for x in c) for c in pal),
-         "skin.palette: 2-4 sRGB tones in 0..1")
+    tone = doc["skin"].get("tone")
+    if tone is not None:
+        # one creature's own tone (an inline species, humanform.species.draw_skin), in place of a palette
+        need(len(tone) == 3 and all(0 <= x <= 1 for x in tone), f"skin.tone {tone!r}: one sRGB tone in 0..1")
+        need(not pal or (2 <= len(pal) <= 4 and all(len(c) == 3 and all(0 <= x <= 1 for x in c) for c in pal)),
+             "skin.palette: 2-4 sRGB tones in 0..1")
+    else:
+        need(2 <= len(pal) <= 4 and all(len(c) == 3 and all(0 <= x <= 1 for x in c) for c in pal),
+             "skin.palette: 2-4 sRGB tones in 0..1 (or skin.tone: one)")
     # a tone paler than the palest human skin the game ships clips past diffuse white in Godot's midday look
     # (lookdev's SKIN_PAST_WHITE failed the first elf, drawn from [0.94, 0.84, 0.76])
-    for c in pal:
-        need(_luma(c) <= PALEST_SKIN_LUMA + 1e-6, f"skin.palette tone {list(c)} is paler than the palest skin that "
+    for c in pal + ([tone] if tone is not None and len(tone) == 3 else []):
+        need(_luma(c) <= PALEST_SKIN_LUMA + 1e-6, f"skin tone {list(c)} is paler than the palest skin that "
              f"holds under Godot's lighting (luma {_luma(c):.3f} > {PALEST_SKIN_LUMA:.3f}, e.g. [0.90, 0.78, 0.68]): "
              "darken it, or it clips past white (lookdev SKIN_PAST_WHITE)")
     regions = skin_regions()
@@ -747,7 +795,7 @@ def check(doc, per_sex):
          f"skin.regions_off {doc['skin'].get('regions_off')} not all in skin.REGIONS {regions}")
     an = doc.get("anatomy", {})
     gone = {e["part"] for e in an.get("absent", [])}
-    backed = {ANATOMY[p][2] for p in gone if ANATOMY[p][2]}
+    backed = {ANATOMY[p][2] for p in gone if p in ANATOMY and ANATOMY[p][2]}
     need(set(doc["skin"].get("regions_off", [])) <= backed, "skin.regions_off must come only from anatomy.absent")
     need(all(p in an.get("parts", {}) or p in gone for p in ANATOMY),
          "every anatomical part must be kept or declared absent")
@@ -959,7 +1007,10 @@ def solve(observables, **knobs):
                     d = design(stature=st, **dict(_settable(k), heads=heads_now,
                                                   **{n: min(2.0, girth_base[n] * x) for n in girth_free}))
                 except DesignError:
-                    return 1e9           # only a far-too-heavy trial fails the check
+                    # a trial the check refuses is off one end: far too light (the BMI floor) below the base
+                    # girth, far too heavy above it. Always 1e9 made a thin body unreachable: bmi 18.5 at a
+                    # slender build failed because girth 0.55 is under BMI 8 (a drow, 2026-09-21)
+                    return -1e9 if x < 1.0 else 1e9
                 return sum(d["bmi"]) / 2 if what == "bmi" else sum(d["design"]["mass_kg_mid"].values()) / 2
             x = _bisect(f_mass, tgt, 0.55, 2.0 / max(girth_base.values()), n=40)
             if x is None:
@@ -1005,8 +1056,30 @@ def solve(observables, **knobs):
             derived["heads_note"] = (f"heads {obs['heads']} against the allometric {law:.1f}: a stylised head "
                                      f"{'larger' if obs['heads'] < law else 'smaller'} than the law's - label it "
                                      "[folklore]")
+    warnings = []
+    # past the tallest pre-warp human the body is a person scaled whole, and square-cube lifts its BMI in proportion
+    # to the scale (a 3 m giant of a person's build is BMI ~45): the plausible band scales with it, so a giant is
+    # warned only for what its build and girth add, not for the law
+    grow = max(1.0, (sum(_mid(st, s) for s in SEXES) / 2) / ANSUR_STATURE[1])
+    lo_b, hi_b = BMI_PLAUSIBLE[0] * grow, BMI_PLAUSIBLE[1] * grow
+    if "bmi" not in obs and "mass_kg" not in obs and not lo_b <= shown["bmi"] <= hi_b:
+        # nobody asked for this BMI: it is what the inputs stacked up to, so say which (a drow's build
+        # "slender" and girth "slender" multiplied to BMI 14-17, 2026-09-21)
+        stack = []
+        if "build" in obs:
+            stack.append(f"build {obs['build']!r} (pre-warp BMI {k['build_bmi']:g})")
+        g = {n: k[n] for n in ("girth_legs", "girth_arms", "girth_neck", "girth_torso") if abs(k[n] - 1.0) > 1e-6}
+        if g:
+            stack.append("girth " + ", ".join(f"{n[6:]} {v:g}" for n, v in g.items())
+                         + (f" (from girth {obs['girth']!r})" if "girth" in obs else ""))
+        mid = sum(_mid(st, s) for s in SEXES) / 2
+        stack.append(f"stature {mid:.2f} m (square-cube: BMI grows with height at one build)")
+        warnings.append(f"bmi {shown['bmi']:.1f} is outside a plausible {lo_b:.0f}-{hi_b:.0f} "
+                        f"and nobody stated it: it is what {'; '.join(stack)} stacked up to. Drop one of them "
+                        "(a build word and a girth word each already thin or thicken the body), or state `bmi` "
+                        "and let the girth be solved")
     return {"knobs": _settable(k), "given": given, "derived": derived, "contradictions": contra,
-            "observables": {o: obs[o] for o in obs}}
+            "warnings": warnings, "observables": {o: obs[o] for o in obs}}
 
 
 def _settable(k):
@@ -1065,6 +1138,8 @@ def explain(preset):
         lines.append(f"  anatomy scaled by the description: {stated}")
     for c in dz.get("contradictions", []):
         lines.append(f"  CONTRADICTION {c}")
+    for w in dz.get("warnings", []):
+        lines.append(f"  WARNING {w}")
     if der.get("heads_note"):
         lines.append(f"  note: {der['heads_note']}")
     return "\n".join(lines)

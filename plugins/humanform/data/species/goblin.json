@@ -110,6 +110,9 @@
       "heads_note": "heads 5.0 against the allometric 6.0: a stylised head larger than the law's - label it [folklore]"
     },
     "contradictions": [],
+    "warnings": [
+      "bmi 13.8 is outside a plausible 18-40 and nobody stated it: it is what build 'lean' (pre-warp BMI 21); girth legs 0.9, arms 0.9 (from girth {'legs': 0.9, 'arms': 0.9}); stature 1.07 m (square-cube: BMI grows with height at one build) stacked up to. Drop one of them (a build word and a girth word each already thin or thicken the body), or state `bmi` and let the girth be solved"
+    ],
     "observables": {
       "stature": {
         "female": [

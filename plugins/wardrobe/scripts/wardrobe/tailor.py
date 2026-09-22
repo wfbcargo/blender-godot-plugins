@@ -116,7 +116,7 @@ def shirt(body, name="Shirt", sleeve=0.45, hem=-0.08, neck=(-0.04, 0.12)):
     up = Vector((0, 0, 1))
     fwd = hm["forward"]
 
-    hip_z = sum(H[l["thigh"]].z for l in hm["legs"].values()) / max(1, len(hm["legs"]))
+    hip_z = hm["hip_z"]
     shoulder_z = sum(H[a["upper"]].z for a in hm["arms"].values()) / max(1, len(hm["arms"]))
     torso = shoulder_z - hip_z
 
@@ -155,7 +155,7 @@ def shirt(body, name="Shirt", sleeve=0.45, hem=-0.08, neck=(-0.04, 0.12)):
         cuts["neck"] = _cut(bm, dl, idx(neck_bones), 0.2, (front + back) * 0.5, no)
 
     hem_z = hip_z + hem * torso
-    leg_bones = [b for l in hm["legs"].values() for b in l.values() if b]
+    leg_bones = [b for l in hm["legs"].values() for b in l.values() if b] + list(hm.get("below") or [])
     torso_bones = hm["torso"] + [g for g in group if g.startswith(("pelvis", "ft_jiggle_butt", "ft_jiggle_belly",
                                                                      "ft_jiggle_love"))]
     cuts["hem"] = _cut(bm, dl, idx(leg_bones + torso_bones), 0.0, Vector((0, 0, hem_z)), -up)
@@ -228,7 +228,7 @@ def pants(body, name="Trousers", waist=0.30, leg=1.9, leg_angle=0.0):
     hm = rigmap.humanoid(body)
     H, T = hm["heads"], hm["tails"]
     up = Vector((0, 0, 1))
-    hip_z = sum(H[l["thigh"]].z for l in hm["legs"].values()) / max(1, len(hm["legs"]))
+    hip_z = hm["hip_z"]
     shoulder_z = sum(H[a["upper"]].z for a in hm["arms"].values()) / max(1, len(hm["arms"]))
     torso = shoulder_z - hip_z
 

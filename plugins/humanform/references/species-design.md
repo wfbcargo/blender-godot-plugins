@@ -182,3 +182,50 @@ p = sd.design_from({"stature": 1.6, "heads": 6.5, "crotch_fraction": 0.40, "fing
                          "skin": {"palette": [[0.45, 0.50, 0.38], [0.36, 0.40, 0.30]], "regions_off": ["flush"]}})
 print(sd.explain(p))            # read the derived knobs and any contradiction before building
 ```
+
+## Past the human body plan: eyes, a tail, swimming
+
+Three general mechanisms take a design past a person's layout. Each is data in the species (inline or a file),
+never a species name, and each refuses what it cannot do with the range in its message. They were built for the
+first user trials (a drow, a cyclops and a mermaid, 2026-09-21) and are how any creature with the same
+differences is made.
+
+**How many eyes, and where** - `head.eyes` (`humanform.eye_layout`). `{ count = 1, size = 1.5 }` is one median
+eye 1.5x a person's; `{ count = 3 }` keeps the pair and adds one on the forehead; `at = [{ x, rise, size }, ...]`
+places any set (`x` in human eye-offsets from the midline, `rise` metres up on the reference head). Sockets no eye
+takes are closed to skin (a harmonic fill over the orbit), each new eye gets a carved socket (an almond
+`aperture` in eyeball radii, lids hugging the ball), an eyeball, and the human lash cards carried onto its lids -
+a median eye takes both, one per half. The eyes ride the head bone, as a person's do, so the gaze (rig-anything's
+head hold) aims them. Analogue: cyclopia puts one median eye at the nasion [measured]; folklore puts it higher.
+
+**A limb pair replaced** - `graft = { legs = { to = "tail", ... } }` (`humanform.graft`). A seam round the body
+at the hip joints, the seam's own ring lofted down to a peduncle and a fluke (`fluke.span` in body lengths:
+cetaceans 0.2-0.27 [measured], `chord`, `sweep`, `notch`, `plane` horizontal or vertical), the leg bones
+swapped for a tail chain, the UVs in the atlas the legs freed. What a replacement takes must be in
+`anatomy.absent`, each with the description's reason - legs to a tail take `knees`, `soles`, `nails.toes` and
+`genitals` - and the design refuses a graft whose absences are not stated. The skin's pattern region `graft`
+covers the tail and fades up over the seam (`fade`), so `pattern = { kind = "scales", regions = ["graft"] }` is
+a skin-to-scales transition; the tone is held over the skin, not the tail.
+
+**Moving by another mode** - `[moves] locomotion = "swim"` (character-pipeline): rig-anything's
+`swim.upright_set` for a body that stands at rest and swims. Idle floats upright, treading water; Swim, Sprint,
+Glide and the turns are worked out along the tail-to-head line and laid prone. The mode comes from the tail's
+tip (flukes wider across than through swim up and down: cetacean), the wave rises from the waist as a person's
+dolphin kick does, and speeds come from length (Strouhal 0.2-0.4 [measured, Rohr & Fish 2004]). No Froude
+number, foot-drift or reach check is run on a swimmer: they are a walker's.
+
+**Size.** A body past the tallest pre-warp human is fitted at the limit and scaled whole, so square-cube lifts
+its BMI with the scale (a person's build at 3 m is BMI ~45). The BMI warning scales with it. At that size BMI
+is the wrong observable for how heavy a body *looks*: a 3 m man at bmi 40 was solved to girth 0.91 and read as a
+lean person scaled up. State the shape (`girth = "thick"`) and let the mass follow.
+
+### Gaps (what the trials could not do yet)
+
+- A tail longer than the legs (a curled or trailing tail at rest) is refused: `length` is at most 1.
+- Only legs can be grafted, only to a tail. Arms to wings, a second pair of arms, a centaur's body: not made.
+- The scales are albedo only (no normal relief), and there are no side fins on a graft (rig-anything's
+  `fins` rigs fins it finds on a mesh; the graft makes none).
+- An eye has no bone of its own: it aims with the head. Lashes on a carved eye stand straighter than a person's.
+- Flesh zones on a heavy body (a thick-girthed giant's belly) fail follow-through's placement check - the same
+  open problem as the BMI 38 smoke body.
+- Genital geometry (`[body] genitals`) was not tried: fig-genital-anatomy was not merged into species-1.

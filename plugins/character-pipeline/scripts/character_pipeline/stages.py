@@ -224,7 +224,33 @@ def run_body(ch, ctx):
     likeness = (res.get("fit") or {}).get("likeness")
     if likeness:                                    # a [body.face]: each measure as fitted against its target
         out["likeness"] = likeness
+    sp = res.get("species")
+    if sp:
+        out["species"] = species_summary(sp, res.get("prewarp"))
+        bad = [r for r in (sp.get("anatomy") or {}).get("parts", []) if r.get("status") == "fail"]
+        if bad:
+            # the design's rule: a part missing and not declared absent fails the build (08, "An inventory check")
+            raise RuntimeError("anatomy inventory: " + "; ".join(f"{r['part']}: {r.get('reason')}" for r in bad)
+                               + " - fix the body, or declare the part absent in [body.species] anatomy with the "
+                               "reason the description gives")
     return out
+
+
+def species_summary(sp, prewarp=None):
+    """The species half of a body stage's report, small enough for the file: the pre-warp human, the warp's
+    notes, the head features and every anatomy row that is not a plain pass."""
+    an = sp.get("anatomy") or {}
+    feats = sp.get("features") or {}
+    return {"id": sp.get("species"), "stature": sp.get("stature"), "stature_pre": sp.get("stature_pre"),
+            "clamp_scale": sp.get("clamp_scale"), "notes": sp.get("notes"),
+            "prewarp_check": (prewarp or {}).get("check"),
+            "check_findings": sp.get("check_findings"),
+            "features": dict({k: feats[k] for k in ("unknown", "skipped", "error", "eyes_moved_mm", "intersections")
+                              if k in feats}, applied={n: f.get("weight") for n, f in
+                                                       (feats.get("features") or {}).items()}),
+            **{k: sp[k] for k in ("eye_layout", "graft") if k in sp},
+            "anatomy": {"counts": an.get("counts"),
+                        "rows": [r for r in an.get("parts", []) if r.get("status") != "pass"]}}
 
 
 def _stature(res):
@@ -697,7 +723,36 @@ def run_flesh(ch, ctx):
     return out
 
 
+def run_swim(ch, ctx):
+    """The moves stage for a swimmer that stands at rest (`[moves] locomotion = "swim"`): rig-anything's
+    swim.upright_set - Idle treading water upright, the rest swimming prone - checked on playback like every
+    clip, with none of a walker's Froude or reach checks, which do not apply."""
+    from rig_analysis import swim
+    for a in list(bpy.data.actions):
+        if a.name.startswith(ch.name + "_"):
+            bpy.data.actions.remove(a)
+    res = swim.upright_set(ch.rig, prefix=ch.name, roles=tuple(ch.moves.roles))
+    out = {}
+    for role in ch.moves.roles:
+        r = res[role]
+        if "error" in r:
+            raise RuntimeError(f"moves {role}: {r['error']}")
+        out[role] = {"action": r["action"], "passed": r.get("passed"), "failures": r.get("failures", [])[:4],
+                     **{k: r[k] for k in ("mode", "tailbeat_hz", "speed_mps", "tail_pp_m", "lay", "period_s",
+                                          "standing_height_m") if r.get(k) is not None}}
+    out["locomotion"] = "swim"
+    failing = sorted(role for role in ch.moves.roles if out[role]["failures"] and role not in ch.moves.may_fail)
+    if failing:
+        why = "; ".join(f"{role}: {' | '.join(res[role].get('failures') or [])}" for role in failing)
+        raise RuntimeError(f"moves: clips failing their checks: {failing} - {why} (or list the role in "
+                           "moves.may_fail to export it forced)")
+    ctx["moves"] = res
+    return out
+
+
 def run_moves(ch, ctx):
+    if ch.moves.locomotion == "swim":
+        return run_swim(ch, ctx)
     from rig_analysis import actions, verify
     for a in list(bpy.data.actions):
         if a.name.startswith(ch.name + "_"):
@@ -931,10 +986,17 @@ def run_export(ch, ctx):
     var = variability_block(ch)
     if var is not None:
         extra["variability"] = var
-    e = ra_export.export_character(ch.mesh, ch.rig, glb, name=ch.name, creature=ch.id, reports=reports,
-                                   res_path=f"{ch.export.res_dir}/{ch.id}.glb", roles=list(ch.moves.roles),
-                                   loops=list(ch.moves.loops), gaits=list(ch.moves.export_gaits),
-                                   force=bool(ch.moves.may_fail), extra=extra, review=False)
+    if ch.moves.locomotion == "swim":
+        from rig_analysis import swim
+        e = swim.export_upright(ch.mesh, ch.rig, glb, reports=reports, roles=list(ch.moves.roles),
+                                loops=list(ch.moves.loops), name=ch.name, creature=ch.id,
+                                res_path=f"{ch.export.res_dir}/{ch.id}.glb", force=bool(ch.moves.may_fail),
+                                extra=extra)
+    else:
+        e = ra_export.export_character(ch.mesh, ch.rig, glb, name=ch.name, creature=ch.id, reports=reports,
+                                       res_path=f"{ch.export.res_dir}/{ch.id}.glb", roles=list(ch.moves.roles),
+                                       loops=list(ch.moves.loops), gaits=list(ch.moves.export_gaits),
+                                       force=bool(ch.moves.may_fail), extra=extra, review=False)
     if "error" in e:
         raise RuntimeError(f"export refused: {e['error']}")
     forced = sorted(set(e["manifest"].get("forced_clips") or [])
@@ -1087,7 +1149,11 @@ def run_close(ch, ctx, meshes, aim_override=None):
     test's control only (a camera aimed from the wrong bone must fail)."""
     from rig_analysis import closeups
     q = quality_mod.settings(ctx["quality"], "close")
-    r = closeups.look_set(meshes, ch.rig, close_dir(ch), views=q["views"], action=close_pose(ch),
+    views = q["views"]
+    if ch.grafted:
+        # the body plan has no legs to shoot (a tail): those views are left out, not failed
+        views = ch.views_without(views if views is not None else closeups.VIEWS)
+    r = closeups.look_set(meshes, ch.rig, close_dir(ch), views=views, action=close_pose(ch),
                           under_bust=bool(q["under_bust"]) and wears_top(ch), title=ch.name,
                           aim_override=aim_override)
     if "error" in r:
