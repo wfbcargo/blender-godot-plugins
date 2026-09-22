@@ -144,7 +144,10 @@ What changed, baked-clip numbers from `rigify_human` (walk / run) and Godot (`mo
 
 **The likeness round's open items.** Morgan Freeman's likeness misses by 2.7 mm at the mouth and 7 mm at the
 jaw (aged after the fit, and the photo's jaw is under a beard). The beard's back edge is saw-toothed (it follows
-whole faces). Reading a photo's ratios is by hand (a canvas grid in the browser, ~5 min a face; see humanform
+whole faces; since branch `species-1-beard` it thins into single hairs over `feather_m`, but the region is still
+cut on whole faces). ~~The beard's square patches in Godot~~ fixed on `species-1-beard`: V repeated every 12 mm on
+512 rows (texels 7:1), so Godot's mip blurred U into blocks and scissor cut the texture's 35% holes out whole;
+now square texels, an opaque under-layer and `humanform.hairtex.mip_check`, which refuses such a shell. Reading a photo's ratios is by hand (a canvas grid in the browser, ~5 min a face; see humanform
 SKILL.md) - a landmark detector would make it one call. Likenesses set proportions, not identity: skin detail,
 expression and makeup are still missing. The first builds' review took 61-73 s against 6-9 s since: a cold
 cache on first use, not a steady cost.
