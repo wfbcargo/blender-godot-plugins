@@ -273,6 +273,38 @@ def species_ids():
     return sorted({"human"} | {os.path.splitext(f)[0] for f in os.listdir(d) if f.endswith(".json")})
 
 
+def species_warnings(species):
+    """What humanform's species design warns about a species before it is built - stick limbs, a child-light BMI,
+    a stated BMI that thins the stated girth (species_design's `design.warnings`) - as spec warnings. A named
+    species reads its preset; an inline table is designed here (species_design is standard library only). A
+    species that cannot be designed is humanform's to refuse, not this: no warnings then."""
+    if species in (None, "human"):
+        return []
+    if isinstance(species, dict):
+        sd = species_design()
+        if sd is None:
+            return []
+        obs = {k: v for k, v in species.items() if k in getattr(sd, "OBSERVABLES", {})}
+        knobs = {k: v for k, v in species.items() if k in getattr(sd, "KNOBS", {}) and k not in obs}
+        try:
+            preset = sd.design_from(obs, id=species.get("id", "custom"), **knobs)
+        except Exception:
+            return []
+        name = species.get("id", "inline species")
+    else:
+        d = species_dir()
+        path = os.path.join(d, species + ".json") if d else None
+        if not path or not os.path.isfile(path):
+            return []
+        try:
+            with open(path, encoding="utf-8") as fh:
+                preset = json.load(fh)
+        except (OSError, ValueError):
+            return []
+        name = species
+    return [f"body.species {name}: {w}" for w in (preset.get("design") or {}).get("warnings") or []]
+
+
 def species_palette(species):
     """The species preset's `skin.palette` (a list of screen colours), or None when it has none or there is
     no preset to read."""
@@ -988,7 +1020,7 @@ def parse(data, path=None):
                      outfit=outfit, review=review, muscle=muscle, build=Build(quality=quality),
                      variability=variability,
                      path=os.path.abspath(path) if path else None, project=project,
-                     warnings=_sourced_pins(per_gait))
+                     warnings=_sourced_pins(per_gait) + species_warnings(body.species))
 
 
 def load(path):
