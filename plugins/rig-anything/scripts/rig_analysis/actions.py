@@ -1080,6 +1080,13 @@ def summarize(r):
     return "\n".join(lines)
 
 
+# How far past a leg's length `turn` lets its straight-line estimate of the planted legs' reach go before
+# it lowers the hips: 0.1%, about a millimetre on a human. The estimate ignores the foot's settling and the
+# arms' counter-lean, and reads a 1.9 m man's rest-width turn at 1.05% of drop where the 1% it always used
+# passes every check, so without the slack every human turn would move by half a millimetre.
+REACH_SLACK = 1.001
+
+
 def turn(rig_name, direction="L", degrees=90.0, frames=24, forward="-Y", up="Z", floor=0.0,
          action_name="Turn", fps=None, stance_width=None, posture=None, upper=None, style=None,
          lift=0.08, shift=0.5):
@@ -1159,6 +1166,34 @@ def turn(rig_name, direction="L", degrees=90.0, frames=24, forward="-Y", up="Z",
     end = about_pivot(total) @ start
     hip_half = 0.5 * abs(side_of[inside["name"]] - side_of[outside["name"]])
     lean_side = 1.0 if side_of[inside["name"]] > 0.0 else -1.0
+    # The hips lean a share of the HIP GAP over the pivot - a fixed distance - while how far a leg
+    # can follow is its own length. A human's legs reach it with the 1% drop the turn always had; a
+    # dwarf's (thigh and shin at 0.6, hips as wide) could not, and the planted outside leg needed
+    # 100-102% of itself just before it lifted and just after it landed. So the drop is what the legs
+    # need, measured on each while it is planted (hip to its stance ankle, no longer than the leg,
+    # where the IK clamps), and never less than that 1%: the pivot leg at full lean, the stepping leg
+    # at the most lean it bears on the floor (at A and B). Lean and drop scale together, and a leg's
+    # squared reach is convex in the lean, so those are the worst cases.
+    sway_full = shift * 2.0 * hip_half * lean_side
+    drop_pct = 0.01
+    roots = {l["name"]: l["rest_root"] for l in P.legs}
+    if posture:
+        posed0 = body.fk(body.bend_axial(Vector((0.0, 0.0, 0.0)), kp.posture_angles(bm, posture)))
+        roots = {l["name"]: posed0[l["upper"]].translation.copy() for l in P.legs}
+
+    planted_lean = {inside["name"]: 1.0,
+                    outside["name"]: math.sin(math.pi * min(1.0, max(0.0, (A - 0.02) / 0.96)))}
+
+    def over_reach(share):
+        return max(((roots[l["name"]] + (P.lat * sway_full - up_v * (share * L_leg)) * planted_lean[l["name"]])
+                    - (l["rest_eff"] + shifts[l["name"]])).length - REACH_SLACK * (l["a"] + l["b"])
+                   for l in P.legs)
+    if over_reach(drop_pct) > 0.0:
+        lo, hi = drop_pct, 0.25
+        for _ in range(30):
+            mid = 0.5 * (lo + hi)
+            lo, hi = (lo, mid) if over_reach(mid) <= 0.0 else (mid, hi)
+        drop_pct = hi
 
     params = upper_mod.resolve(P, upper, upper_mod.idle_defaults())
     stance = {l["name"]: {"target": (lambda p, limb, posed, s=shifts[l["name"]]: limb["rest_eff"] + s)}
@@ -1178,7 +1213,7 @@ def turn(rig_name, direction="L", degrees=90.0, frames=24, forward="-Y", up="Z",
             limbs.update(U.idle_key(0.0))
         lean = math.sin(math.pi * min(1.0, max(0.0, (t - 0.02) / 0.96)))
         return kp.Key(limbs=limbs, sway=shift * 2.0 * hip_half * lean * lean_side,
-                      drop=0.01 * L_leg * lean, posture=posture, head_level=0.5), theta
+                      drop=drop[0] * L_leg * lean, posture=posture, head_level=0.5), theta
 
     def sample(t):
         key, theta = key_at(t)
@@ -1191,15 +1226,26 @@ def turn(rig_name, direction="L", degrees=90.0, frames=24, forward="-Y", up="Z",
                              posed_limbs=P.legs, rest_floor=floor, starts_at_rest=False,
                              skid=True)
 
-    keyed, infos, action, report = upper_mod.author_clear(
-        U, rig_name, bm, lambda smp: _author_samples(body, rig, action_name, smp, fps, check),
-        lambda: [sample((f - 1) / float(frames)) for f in range(1, frames + 2)])
-    if "error" in report:
-        return report
+    # The estimate above is straight lines; the posed body (a posture, the arms' counter-lean) can ask a
+    # little more. A leg that still cannot reach lowers the hips a quarter more, twice at most - never
+    # reached by a body the estimate already fits, so those clips are exactly what they were.
+    drop = [drop_pct]
+    legs_named = {l["name"] for l in P.legs}
+    for attempt in range(3):
+        keyed, infos, action, report = upper_mod.author_clear(
+            U, rig_name, bm, lambda smp: _author_samples(body, rig, action_name, smp, fps, check),
+            lambda: [sample((f - 1) / float(frames)) for f in range(1, frames + 2)])
+        if "error" in report:
+            return report
+        short = any(i["clamped"] for fi in infos.values() for n, i in fi.items() if n in legs_named)
+        if not short or attempt == 2:
+            break
+        drop[0] *= 1.25
+    drop_pct = drop[0]
     origin_end = about_pivot(total) @ Vector((0.0, 0.0, 0.0))
     scale = sum(rig.matrix_world.to_scale()) / 3.0
     report.update({"rig": rig_name, "action": action.name, "frames": [1, frames + 1],
-                   "fps": bpy.context.scene.render.fps, "stance_width": stance_width,
+                   "fps": bpy.context.scene.render.fps, "stance_width": stance_width, "drop_share": round(drop_pct, 4),
                    "posture": dict(posture) if posture else None,
                    "upper": U.report() if U is not None else None,
                    "turn": {"yaw_deg": round(yaw_sign * degrees, 3),
