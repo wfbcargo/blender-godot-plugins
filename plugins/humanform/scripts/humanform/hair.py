@@ -81,6 +81,35 @@ from .sheet import HAIR_PRESETS as PRESETS
 
 EYE_MATERIALS = ("sclera", "iris", "pupil")
 TILE_M = 0.04          # the lookdev hair texture's tile width, used when lookdev is not importable
+# Hair scales with the head it is on. Every length here and in the presets (a key ending `_m`) was tuned on
+# human heads, whose crown stands HEAD_H_REF above the eyes, give or take a tenth (HEAD_BAND). A head outside
+# that band scales them all by how far outside it is (`head_scale`): a 3.1 m cyclops's head (h 0.19 m) had its
+# cap cut at a fixed 16 cm from the head's axis, and the back of his skull came out bald in whole faces.
+HEAD_H_REF = 0.12
+HEAD_BAND = (0.9, 1.1)
+
+
+def head_scale(lm):
+    """1 for a head within HEAD_BAND of HEAD_H_REF (every human's hair is as it was tuned), else the head's
+    height over the nearer end of the band: lengths scale with the head beyond it."""
+    h = float(lm["h"])
+    lo, hi = HEAD_H_REF * HEAD_BAND[0], HEAD_H_REF * HEAD_BAND[1]
+    return h / hi if h > hi else (h / lo if h < lo else 1.0)
+
+
+def scale_lengths(d, k):
+    """`d` with every number (or list of numbers) under a key ending `_m` multiplied by `k`, recursively."""
+    if isinstance(d, dict):
+        out = {}
+        for key, v in d.items():
+            if isinstance(key, str) and key.endswith("_m") and not isinstance(v, (dict, str, bool)):
+                out[key] = [x * k for x in v] if isinstance(v, (list, tuple)) else v * k
+            else:
+                out[key] = scale_lengths(v, k)
+        return out
+    if isinstance(d, list):
+        return [scale_lengths(v, k) for v in d]
+    return d
 
 
 def presets():
@@ -240,7 +269,7 @@ def signed_distance(p, lm, hp):
         slope_deg = h * (np.interp(a + eps, keys[:, 0], keys[:, 1]) - np.interp(a - eps, keys[:, 0], keys[:, 1])) / (2 * eps)
         warp_rate = np.where(np.abs(az[sel]) <= ear_az, 90.0 / ear_az, 90.0 / (180.0 - ear_az))
         # the head's radius where a hairline runs; not the point's own, which goes to 0 on top of the head
-        radius = np.maximum(np.hypot(p[sel, 0], p[sel, 1] - cy), 0.06)
+        radius = np.maximum(np.hypot(p[sel, 0], p[sel, 1] - cy), 0.06 * lm.get("scale", 1.0))
         slope = slope_deg * warp_rate / (radius * math.pi / 180.0)
         dz = (p[sel, 2] - line) / np.sqrt(1.0 + slope * slope)
         if "ear_half_m" in lm:
@@ -249,7 +278,7 @@ def signed_distance(p, lm, hp):
         else:
             ry, rz = hp["ear_ellipse_m"]
         q = np.sqrt(((p[sel, 1] - ear[1]) / ry) ** 2 + ((p[sel, 2] - ear[2]) / rz) ** 2)
-        lateral = (p[sel, 0] * sign) > (abs(ear[0]) - 0.035)
+        lateral = (p[sel, 0] * sign) > (abs(ear[0]) - 0.035 * lm.get("scale", 1.0))
         ear_d = (q - 1.0) * min(ry, rz)
         d[sel] = np.where(lateral, np.minimum(dz, ear_d), dz)
     kd = lm.get("_ear_kd")
@@ -324,7 +353,8 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
     hp = p["hairline"]
     ez, h = lm["eye"][2], lm["h"]
     d_all = np.full(len(co), -1.0)
-    near = (co[:, 2] > ez - 1.1 * h) & (np.hypot(co[:, 0], co[:, 1] - lm["cy"]) < 0.16)
+    k_ = lm.get("scale", 1.0)
+    near = (co[:, 2] > ez - 1.1 * h) & (np.hypot(co[:, 0], co[:, 1] - lm["cy"]) < 0.16 * k_)
     near[lm["_eye_vertices"]] = False
     d_all[near] = signed_distance(co[near], lm, hp)
 
@@ -412,7 +442,7 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
     else:
         axis = _dir(axis_to.get("azimuth", 180), axis_to.get("elevation", 70))
     a, r0, r1 = _axis_frame(axis)
-    turns = max(1, round(2 * math.pi * 0.09 / tile))
+    turns = max(1, round(2 * math.pi * 0.09 * k_ / tile))
     # V: distance from the hairline. Near the line it is `d`, across the hairline curve (the only measure that
     # knows an ear). A few centimetres in it becomes the distance along the strand axis's meridian from where
     # that meridian crosses the hairline. `d` alone is a height, and over the top of the head
@@ -433,7 +463,7 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
         dirs = (np.cos(thetas)[:, None] * ca + np.sin(thetas)[:, None] * (math.cos(ph) * c0 + math.sin(ph) * c1))
         hits = []
         for dv in dirs:
-            loc, _n, _i, _dist = bvh.ray_cast(centre + Vector(dv) * 0.3, Vector(-dv), 0.3)
+            loc, _n, _i, _dist = bvh.ray_cast(centre + Vector(dv) * 0.3 * k_, Vector(-dv), 0.3 * k_)
             hits.append(tuple(loc) if loc is not None else (np.nan,) * 3)
         hits = np.array(hits)
         ok = ~np.isnan(hits[:, 0])
@@ -462,11 +492,11 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
         fr = fb - i0
         lt = line_theta[i0 % nbins] * (1 - fr) + line_theta[(i0 + 1) % nbins] * fr
         meridian = (lt - theta) * qn
-        w = _smooth(0.008, 0.03, d)
+        w = _smooth(0.008 * k_, 0.03 * k_, d)
         # far from the line `d` counts for a quarter, so it wins only where the meridian has no hairline to
         # measure from (under an ear); a smooth maximum, so V has no crease where they trade places
-        d_far = np.where(d < 0.04, d, 0.04 + 0.25 * (d - 0.04))
-        k = 0.015
+        d_far = np.where(d < 0.04 * k_, d, 0.04 * k_ + 0.25 * (d - 0.04 * k_))
+        k = 0.015 * k_
         far_g = 0.5 * (meridian + d_far + np.sqrt((meridian - d_far) ** 2 + k * k))
         g = (1 - w) * d + w * far_g
     else:
@@ -490,7 +520,7 @@ def _cap(ob, lm, p, bvh, uv_name, tile):
         for k in range(3, 15):
             wav += wrng.normal() / k * np.sin(k * az + wrng.uniform(0, 2 * math.pi))
         wav /= max(float(np.abs(wav).max()), 1e-9)
-        v_of = v_of + wobble * wav * (1 - _smooth(0.01, 0.035, d)) / span
+        v_of = v_of + wobble * wav * (1 - _smooth(0.01 * k_, 0.035 * k_, d)) / span
     v_of = np.maximum(v_of, 0.001)
     v_of = np.where(boundary, np.minimum(v_of, 0.003), v_of)
     uv = bm.loops.layers.uv.new(uv_name)
@@ -719,8 +749,8 @@ def _fall(bm, uv, lm, p, bvh, tile):
         for i, z in enumerate(zs):
             a = math.radians(azs[i, j])
             dvec = Vector((math.sin(a), -math.cos(a), 0.0))
-            origin = Vector((0.0, cy, z)) + dvec * 0.4
-            loc, _n, _k, _dist = bvh.ray_cast(origin, -dvec, 0.4)
+            origin = Vector((0.0, cy, z)) + dvec * 0.4 * lm.get("scale", 1.0)
+            loc, _n, _k, _dist = bvh.ray_cast(origin, -dvec, 0.4 * lm.get("scale", 1.0))
             r[i, j] = (Vector((loc.x, loc.y - cy, 0.0)).length if loc is not None else (r[i - 1, j] if i else 0.02))
     r_skin = r.copy()
     r = np.maximum.accumulate(r, axis=0)            # hang straight down from the widest point above
@@ -769,7 +799,7 @@ def _fall(bm, uv, lm, p, bvh, tile):
             irow.append(bm.verts.new(base + dvec * (rr + max(o - t, 0.0005))))
         outer.append(orow)
         inner.append(irow)
-    r_nom = 0.1
+    r_nom = 0.1 * lm.get("scale", 1.0)
     v0, v1 = fp["v"]
 
     def u_of(j, i=None):
@@ -832,7 +862,8 @@ def _fringe(bm, uv, lm, p, bvh, tile, fp):
         a = math.radians(a_deg)
         dvec = Vector((math.sin(a), -math.cos(a), 0.0))
         for i, z in enumerate(zs):
-            loc, _n, _k, _d = bvh.ray_cast(Vector((0.0, cy, z)) + dvec * 0.4, -dvec, 0.4)
+            loc, _n, _k, _d = bvh.ray_cast(Vector((0.0, cy, z)) + dvec * 0.4 * lm.get("scale", 1.0), -dvec,
+                                           0.4 * lm.get("scale", 1.0))
             r[i, j] = Vector((loc.x, loc.y - cy, 0.0)).length if loc is not None else (r[i - 1, j] if i else 0.08)
     r = np.maximum.accumulate(r, axis=0)
     under = p["cap_thick_m"] + p["crown_extra_m"] + 0.0005
@@ -858,7 +889,7 @@ def _fringe(bm, uv, lm, p, bvh, tile, fp):
             irow.append(bm.verts.new(base + dvec * (r[i, j] + max(o - t, 0.0005))))
         outer.append(orow)
         inner.append(irow)
-    r_nom = 0.1
+    r_nom = 0.1 * lm.get("scale", 1.0)
     v0, v1 = fp["v"]
 
     def u_of(j):
@@ -1154,6 +1185,9 @@ def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lash
     colour = tuple(colour if colour is not None else brief.get("colour") or p["colour"])
     base = name or (ob.name[:-5] if ob.name.endswith("_body") else ob.name)
     lm = landmarks(ob)
+    lm["scale"] = head_scale(lm)
+    if lm["scale"] != 1.0:
+        p = scale_lengths(p, lm["scale"])
     if not p.get("ear_cut", True):
         # measured but not cut round (a control: what the cap did before it knew where the ears were)
         lm["_ear_kd"] = None
@@ -1199,7 +1233,7 @@ def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lash
     if "fall" in p["parts"]:
         report["parts"]["fall"] = _fall(bm, uv, lm, p, bvh, tile)
     if fringe:
-        fp = dict(FRINGE, **(fringe if isinstance(fringe, dict) else {}))
+        fp = scale_lengths(dict(FRINGE, **(fringe if isinstance(fringe, dict) else {})), lm["scale"])
         report["parts"]["fringe"] = _fringe(bm, uv, lm, p, bvh, tile, fp)
     for f in bm.faces:
         f.material_index = 0

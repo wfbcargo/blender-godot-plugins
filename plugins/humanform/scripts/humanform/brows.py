@@ -525,7 +525,7 @@ def _brow_heights(p, t):
     return np.array(out)
 
 
-def _shape_brow(p, uv, shape, bvh):
+def _shape_brow(p, uv, shape, bvh, scale=1.0):
     """Move one brow card along the skin to `shape` (a `BROW_SHAPES` name): each vertex goes up the skin (world +Z
     turned into the skin's tangent plane) by the shape's offset at its t, then back onto the skin at the height
     over it it had. Returns (points, report); the report's `shape_profile_mm` is the card's height at
@@ -539,7 +539,7 @@ def _shape_brow(p, uv, shape, bvh):
     if keys is None:
         return p, {"shape": shape, "shape_profile_mm": [round(float(x), 2) for x in (before - before[0]) * 1000]}
     k = np.array(keys, np.float64)
-    delta = np.interp(t, k[:, 0], k[:, 1])
+    delta = np.interp(t, k[:, 0], k[:, 1]) * scale      # a larger head's brow moves as far in proportion
     q = p.copy()
     up = np.array([0.0, 0.0, 1.0])
     for i in range(len(p)):
@@ -617,7 +617,7 @@ def _side_cards(ob, part, d):
     return out + [(f"e{i}", c) for i, c in enumerate(lay.get("lashes", []))]
 
 
-def _cards(ob, co, part, base, rig, colour, uv_name, head, brow_shape="natural"):
+def _cards(ob, co, part, base, rig, colour, uv_name, head, brow_shape="natural", scale=1.0):
     d = regions()[part]
     shaped = {}
     bvh = _body_bvh(ob, co) if part == "brows" and BROW_SHAPES[brow_shape] is not None else None
@@ -634,7 +634,7 @@ def _cards(ob, co, part, base, rig, colour, uv_name, head, brow_shape="natural")
         else:
             uv = card["uv"]
         if part == "brows" and tile == 1.0:
-            p, shaped[side] = _shape_brow(p, uv, brow_shape, bvh)
+            p, shaped[side] = _shape_brow(p, uv, brow_shape, bvh, scale)
         pts.extend(p.tolist())
         faces.extend([[off + i for i in q] for q in card["faces"]])
         uvs.extend(uv)
@@ -802,13 +802,15 @@ def _body_hair(ob, co, base, rig, colour, uv_name, sex):
                  "source_vertices": len(src)}
 
 
-def beard_regions(ob, co, normals, head_bone, neck_bone=None):
+def beard_regions(ob, co, normals, head_bone, neck_bone=None, scale=1.0):
     """({region: boolean vertex mask} over the body's first n_body vertices, the marks it placed them from):
     `moustache` (between the nose's base and the upper lip, out to just past the mouth's corners), `chin` (below
     the lower lip, over the chin and a little under it) and `jaw` (along the jaw from the chin back to in front of
     the ears, below a line from the nose's base at the mouth's corner down to the mouth's height at the side of
     the face). The lips' red, the mouth's slit and the nostrils are never covered. World space: z up, the face
-    towards -y."""
+    towards -y. Every distance was tuned on a human face; `scale` (hair.head_scale) scales them for a larger or
+    smaller head."""
+    k = float(scale)
     from mathutils.kdtree import KDTree
     from . import measure as _measure
     feats = _measure.face_features()
@@ -825,8 +827,8 @@ def beard_regions(ob, co, normals, head_bone, neck_bone=None):
     down = -normals[:, 2]
     ax = np.abs(co[:, 0])
     behind = co[:, 1] - y_m                     # depth behind the mouth
-    mid = (ax < 0.006) & (W > 0.5) & (behind < 0.03)
-    chin_z = float(co[mid, 2].min()) if mid.any() else z_m - 0.05
+    mid = (ax < 0.006 * k) & (W > 0.5) & (behind < 0.03 * k)
+    chin_z = float(co[mid, 2].min()) if mid.any() else z_m - 0.05 * k
     # clear of the lips' red and the slit: at least 2.5 mm from any of their vertices
     red = np.vstack([lips, mouth])
     kd = KDTree(len(red))
@@ -834,22 +836,22 @@ def beard_regions(ob, co, normals, head_bone, neck_bone=None):
         kd.insert(p, i)
     kd.balance()
     near = np.ones(len(co))
-    for i in np.nonzero((np.abs(co[:, 2] - z_m) < 0.04) & (ax < x_c + 0.02))[0]:
+    for i in np.nonzero((np.abs(co[:, 2] - z_m) < 0.04 * k) & (ax < x_c + 0.02 * k))[0]:
         near[i] = kd.find(co[i])[2]
-    face = (W > 0.5) & (near > 0.0025)
-    out = {"moustache": face & (co[:, 2] > z_m + 0.003) & (co[:, 2] < z_n - 0.0015) & (ax < x_c + 0.006)
+    face = (W > 0.5) & (near > 0.0025 * k)
+    out = {"moustache": face & (co[:, 2] > z_m + 0.003 * k) & (co[:, 2] < z_n - 0.0015 * k) & (ax < x_c + 0.006 * k)
            & (front > 0.3),
-           "chin": face & (co[:, 2] < z_m - 0.004) & (ax < x_c + 0.004) & (behind < 0.05)
+           "chin": face & (co[:, 2] < z_m - 0.004 * k) & (ax < x_c + 0.004 * k) & (behind < 0.05 * k)
            & (((co[:, 2] >= chin_z) & ((front > -0.2) | (down > 0.3)))
-              | ((co[:, 2] < chin_z) & (co[:, 2] > chin_z - 0.012) & (down > 0.45)))}
+              | ((co[:, 2] < chin_z) & (co[:, 2] > chin_z - 0.012 * k) & (down > 0.45)))}
     # the jaw: below the cheek line (the nose's base at the corner, falling to the mouth's height by 7 cm out).
     # Under the chin only the jaw's underside, which faces down: the neck's front faces forward, and taking
     # forward-facing skin there ran the first beard down the throat to the collar.
-    t = np.clip((ax - (x_c + 0.006)) / max(0.07 - (x_c + 0.006), 1e-6), 0.0, 1.0)
-    cheek_line = z_n - 0.0015 + t * ((z_m - 0.005) - (z_n - 0.0015))
+    t = np.clip((ax - (x_c + 0.006 * k)) / max(0.07 * k - (x_c + 0.006 * k), 1e-6), 0.0, 1.0)
+    cheek_line = z_n - 0.0015 * k + t * ((z_m - 0.005 * k) - (z_n - 0.0015 * k))
     over_jaw = (co[:, 2] >= chin_z) & ((front > -0.1) | (down > 0.3))
-    under_jaw = (co[:, 2] < chin_z) & (co[:, 2] > chin_z - 0.025) & (down > 0.45)
-    out["jaw"] = (face & (co[:, 2] < cheek_line) & (ax < 0.085) & (behind < 0.085)
+    under_jaw = (co[:, 2] < chin_z) & (co[:, 2] > chin_z - 0.025 * k) & (down > 0.45)
+    out["jaw"] = (face & (co[:, 2] < cheek_line) & (ax < 0.085 * k) & (behind < 0.085 * k)
                   & ~out["moustache"] & ~out["chin"] & (over_jaw | under_jaw))
     marks = {"mouth_z": round(z_m, 4), "mouth_y": round(y_m, 4), "nose_base_z": round(z_n, 4),
              "chin_z": round(chin_z, 4), "mouth_half_width": round(x_c, 4)}
@@ -857,10 +859,14 @@ def beard_regions(ob, co, normals, head_bone, neck_bone=None):
     return {k: v for k, v in out.items() if v.any()}, marks
 
 
-def _beard(ob, co, base, rig, colour, uv_name, style, head_bone):
+def _beard(ob, co, base, rig, colour, uv_name, style, head_bone, scale=1.0):
     """A beard shell in `style` (BEARD_STYLES): the body's faces over the style's regions, lifted `lift_m` along
     the skin's normals, V down the face every `strand_m`, skinned like the face under it."""
     spec = BEARD_STYLES[style]
+    # a larger or smaller head (hair.head_scale): every length scales, the texture's tile with them, so the
+    # hairs are as many per face and its texels as square
+    k = float(scale)
+    spec = dict(spec, lift_m=spec["lift_m"] * k, strand_m=spec["strand_m"] * k, feather_m=spec["feather_m"] * k)
     me = ob.data
     nrm = np.empty(len(me.vertices) * 3, np.float32)
     me.vertices.foreach_get("normal", nrm)
@@ -870,7 +876,7 @@ def _beard(ob, co, base, rig, colour, uv_name, style, head_bone):
     neck = None
     if rig is not None and head_bone in rig.data.bones and rig.data.bones[head_bone].parent is not None:
         neck = rig.data.bones[head_bone].parent.name
-    masks, marks = beard_regions(ob, co, nrm, head_bone, neck)
+    masks, marks = beard_regions(ob, co, nrm, head_bone, neck, scale=k)
     near_lips = marks.pop("_near_lips")
     n = regions()["n_body"]
     wanted = np.zeros(len(me.vertices), bool)
@@ -909,7 +915,8 @@ def _beard(ob, co, base, rig, colour, uv_name, style, head_bone):
     # then about as long along the hairs as across them, under the chin and round the jaw too, which is what
     # keeps Godot's mips from blurring U into blocks (`hairtex.mip_check` measures it). U from x alone smeared
     # the strands into bands on the side of the jaw, where x hardly changes.
-    c = Vector((0.0, marks["mouth_y"] + BEARD_AXIS_M, marks["mouth_z"]))
+    c = Vector((0.0, marks["mouth_y"] + BEARD_AXIS_M * k, marks["mouth_z"]))
+    tile = tile * k
     for f in bm.faces:
         f.smooth = True
         for loop in f.loops:
@@ -922,7 +929,7 @@ def _beard(ob, co, base, rig, colour, uv_name, style, head_bone):
     # under the alpha cutoff fewer and fewer of the texture's hairs pass toward the edge and it thins into skin
     # (the edge along the lips is not faded - the inner loops round the mouth, and any edge within
     # BEARD_LIP_EDGE_M of the lips: a moustache and a beard are densest at the lip)
-    fade = _edge_fade(bm, spec["feather_m"], [near_lips[i] > BEARD_LIP_EDGE_M if i < len(near_lips) else True
+    fade = _edge_fade(bm, spec["feather_m"], [near_lips[i] > BEARD_LIP_EDGE_M * k if i < len(near_lips) else True
                                               for i in src])
     col = bm.verts.layers.float_color.new(BEARD_FADE)
     for v in bm.verts:
@@ -1055,7 +1062,8 @@ def add(body, lm, colour, base, rig=None, uv_name="UVMap", brows=True, lashes=Tr
     for part, on, k in (("brows", brows, BROW_DARKEN), ("lashes", lashes, LASH_DARKEN)):
         if not on:
             continue
-        card, rep = _cards(ob, co, part, base, rig, _darken(colour, k), uv_name, head, brow_shape=brow_shape)
+        card, rep = _cards(ob, co, part, base, rig, _darken(colour, k), uv_name, head, brow_shape=brow_shape,
+                           scale=lm.get("scale", 1.0))
         out["objects"][part] = card.name
         out["parts"][part] = rep
     if body_hair:
@@ -1064,7 +1072,7 @@ def add(body, lm, colour, base, rig=None, uv_name="UVMap", brows=True, lashes=Tr
         out["parts"]["body_hair"] = rep
     if beard:
         bcol = tuple(beard_colour) if beard_colour is not None else _darken(colour, BEARD_DARKEN)
-        bob, rep = _beard(ob, co, base, rig, bcol, uv_name, beard, head)
+        bob, rep = _beard(ob, co, base, rig, bcol, uv_name, beard, head, scale=lm.get("scale", 1.0))
         out["objects"]["beard"] = bob.name
         out["parts"]["beard"] = rep
     return out
