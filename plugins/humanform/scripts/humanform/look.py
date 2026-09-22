@@ -71,19 +71,24 @@ def _is_mpfb_human(ob):
     return any(g.name.startswith("joint-") for g in ob.vertex_groups)
 
 
-def skin(ob, srgb, roughness=SKIN_ROUGHNESS, name=None, realistic=True, size=None):
+def skin(ob, srgb, roughness=SKIN_ROUGHNESS, name=None, realistic=True, size=None, species_skin=None):
     """Give a body mesh one skin material (`<object name>_skin` unless named): every other material slot
     is removed and every face uses it. Returns the material.
 
     `realistic` (the default) makes it `humanform.skin`'s: on an MPFB human the regions are marked and the
     material is flat (tone, subsurface) until a bake; on any other mesh (a baked game mesh carries the marks) it is baked to maps of
     `size` px (`SKIN_MAP_PX`), packed in the .blend. The bake's report is on the material as
-    `humanform_skin`. `realistic=False` is a flat colour at `roughness`."""
+    `humanform_skin`. `realistic=False` is a flat colour at `roughness`.
+
+    `species_skin` (realistic only; `humanform.skin`'s PATTERN block says what it holds) makes it a species skin:
+    region tints along the tone, `regions_off` plain, a pattern baked into the albedo and a scatter colour
+    that follows the tone. Pass it on both calls (the MPFB human's mark and the game mesh's bake). None is the
+    human skin, unchanged."""
     ob = bpy.data.objects[ob] if isinstance(ob, str) else ob
     name = name or f"{ob.name}_skin"
     if realistic:
         from . import skin as _skin
-        mat = _skin.material(name, srgb)
+        mat = _skin.material(name, srgb, species_skin=species_skin)
     else:
         mat = material(name, srgb=srgb, roughness=roughness)
     me = ob.data
@@ -94,7 +99,7 @@ def skin(ob, srgb, roughness=SKIN_ROUGHNESS, name=None, realistic=True, size=Non
     me.update()
     if realistic:
         if _is_mpfb_human(ob):
-            rep = _skin.mark(ob, tone=srgb)
+            rep = _skin.mark(ob, tone=srgb, species_skin=species_skin)
             mat["humanform_skin"] = dict(mat["humanform_skin"], stage="flat", marked=rep["regions"],
                                          notes=rep["notes"], pale=rep.get("pale", {}))
         else:
@@ -102,7 +107,7 @@ def skin(ob, srgb, roughness=SKIN_ROUGHNESS, name=None, realistic=True, size=Non
                 _skin.unmarked(ob)
             rep = _skin.bake(ob, mat, size=size or SKIN_MAP_PX)
             info = {k: rep[k] for k in ("size", "tone_target", "baked", "tone_error", "tone_ok", "regions", "contrast",
-                                         "contrast_ok", "contrast_fail", "roughness") if k in rep}
+                                         "contrast_ok", "contrast_fail", "roughness", "seam") if k in rep}
             mat["humanform_skin"] = dict(mat["humanform_skin"], stage="baked" if "error" not in rep else "flat",
                                          error=rep.get("error", ""), **info)
     return mat

@@ -1,7 +1,7 @@
 {
  "fixture": "quadruped",
  "plugins": {
-  "rig-anything": "0.30.0"
+  "rig-anything": "0.43.0"
  },
  "report": {
   "bind": {
@@ -464,8 +464,8 @@
     "action": "Dog_Run",
     "adjustments": [],
     "angular_momentum": {
-     "up_mean_abs": 0.00206,
-     "up_range": 0.00807
+     "up_mean_abs": 0.00187,
+     "up_range": 0.00698
     },
     "attempts": 1,
     "balance": null,
@@ -533,6 +533,12 @@
     "hip_height_m": 0.4253,
     "implied_speed_cycle_mps": 2.7198,
     "implied_speed_playback_mps": 2.5106,
+    "knee_plane_deg": {
+     "front.L": 0.0,
+     "front.R": 0.0,
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "lift_m": 0.082,
     "lift_scale": null,
     "limited_by": [],
@@ -602,8 +608,8 @@
     "action": "Dog_Trot",
     "adjustments": [],
     "angular_momentum": {
-     "up_mean_abs": 0.00203,
-     "up_range": 0.0077
+     "up_mean_abs": 0.00189,
+     "up_range": 0.00701
     },
     "attempts": 1,
     "balance": null,
@@ -671,6 +677,12 @@
     "hip_height_m": 0.4253,
     "implied_speed_cycle_mps": 1.9562,
     "implied_speed_playback_mps": 1.8057,
+    "knee_plane_deg": {
+     "front.L": 0.0,
+     "front.R": 0.0,
+     "thigh.L": 0.0,
+     "thigh.R": 0.0
+    },
     "lift_m": 0.0583,
     "lift_scale": null,
     "limited_by": [],
@@ -740,8 +752,8 @@
     "action": "Dog_Walk",
     "adjustments": [],
     "angular_momentum": {
-     "up_mean_abs": 0.01183,
-     "up_range": 0.03675
+     "up_mean_abs": 0.01076,
+     "up_range": 0.03395
     },
     "attempts": 1,
     "balance": null,
@@ -809,6 +821,10 @@
     "hip_height_m": 0.4253,
     "implied_speed_cycle_mps": 0.9053,
     "implied_speed_playback_mps": 0.852,
+    "knee_plane_deg": {
+     "front.L": 0.0,
+     "front.R": 0.0
+    },
     "lift_m": 0.0404,
     "lift_scale": null,
     "limited_by": [],

@@ -33,12 +33,12 @@ def reload_all():
     the stale list kept running its old code while its file was already fixed."""
     from . import (stored, measure, verify, views, report, fit, skin, decompose, build, gait,
                    export, bodymap, mass, motion, keyposes, upper, actions, locomotion, wings,
-                   flight, maw, fins, swim, radial, radial_moves, radial_samples)
+                   flight, maw, fins, swim, radial, radial_moves, radial_samples, morphology)
     # dependency order: stored imports nothing of ours; actions imports keyposes, motion and bodymap; flight
     # imports all of them; radial_moves imports radial and swim
     mods = [stored, measure, verify, views, report, fit, skin, decompose, build, gait, export,
             wings, maw, fins, radial, bodymap, mass, motion, keyposes, upper, actions, locomotion,
-            flight, swim,
+            morphology, flight, swim,
             radial_moves, radial_samples]
     here = os.path.dirname(__file__)
     for name in HOPPERS + PICTURES + OPTIONAL:

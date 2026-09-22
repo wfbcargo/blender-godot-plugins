@@ -48,6 +48,7 @@ units) does not. Skin mode stays: turning it off changes the screen-space scatte
 
 from __future__ import annotations
 
+import math
 import os
 import tempfile
 import zlib
@@ -151,6 +152,252 @@ DETAIL = {"normal": "pores", "tile_px": 512, "cells": 96, "uv2_scale": 40.0, "st
           "cavity": 0.26, "keep_base": True, "shared": True}
 MPFB_GROUPS = {"lips": "lips", "nipple": "nipple", "nippleTip": "nipple", "ears": "flush",
                "fingernails": "nail", "toenails": "nail"}
+
+# --- Creature skin (improvements 08, layer 3: surface): any tone, any pattern. Everything below is used only when
+# a caller passes `species_skin`; with None every function above and below takes exactly the human path it always
+# did. Nothing here knows a species: every default comes from the tone by the rules below, and the parameters are
+# the only way to ask for more. `references/skin.md` says how to get from a description to the parameters.
+#
+#     look.skin(ob, (0.45, 0.52, 0.42), species_skin={
+#         "regions_off": ["genital"],                        # REGIONS names left plain (and unchecked)
+#         "pattern": {"kind": "blotches",                    # spots | stripes | blotches | mottle
+#                     "colour": [0.33, 0.38, 0.30],          # sRGB, multiplied in as colour / tone
+#                     "scale": 0.18,                         # m: spot spacing, stripe period, blotch size
+#                     "amount": 0.6,                         # 0..1, the mask's strength
+#                     "regions": ["back", "arms", "legs"]},  # optional, PATTERN_AREAS, their union; default all
+#         "subsurface_tint": [0.5, 0.4, 0.3]})               # optional sRGB the scatter follows (default the tone)
+#
+# `{}` is a valid species_skin: the tone-relative rules with no pattern. (A species file's whole `skin` block may be
+# passed: its `palette` is ignored here, since choosing the tone is the caller's job.) The rules, for a tone t in
+# linear RGB with chroma c = t / geomean(t) (1, 1, 1 for a grey; its log is the direction of the tone's hue):
+# - **Darker regions** (lips, areolae, genital skin, knees, elbows, knuckles, the flush) go darker and more
+#   saturated ALONG THE TONE's own hue, never towards a human red: tint = d * c^s, normalised so it scales the
+#   tone's luminance by d (the human table's factor) while s > 0 pushes the chroma further the way it already
+#   points (SPECIES_DEEP). A green tone's lips are a deeper green, a tawny one's still come out warm.
+# - **Nails** lighten and desaturate towards grey (SPECIES_NAIL) instead of the human pink.
+# - **Palms and soles** keep `pale_tint`'s CIELAB lightness step from the tone's own L* (already tone-relative), but
+#   not its hue: they lose a little saturation along the tone (SPECIES_PALE_SAT) instead.
+# - **The contrast check**: a "red" floor becomes "deep" - the same dE floor, darker by DEEP_DL_MIN, and a CIELAB
+#   hue within DEEP_HUE_MAX of plain skin's; a "pale" floor keeps its lightness step and swaps "no redder than
+#   skin" for the same hue test; `regions_off` are not checked. The human tints on a green tone turn its lips
+#   brown (hue 25 degrees off), which fails.
+# - **Mottle** is stronger (SPECIES_MOTTLE) and its colour shift follows log c (darker patches more saturated in
+#   the tone's own hue) instead of adding red.
+# - **Subsurface**: the Blender radii are the human ones blended in log (SSS_TONE_SHARE) with radii proportional to
+#   c^SSS_EXP of the scatter colour (`subsurface_tint`, else the tone), at the human radii's geometric mean: blood
+#   still reddens the scatter, the tone decides which way it leans. Godot's skin-mode transmittance is a red
+#   profile whatever the colour's RGB, so where the scatter is not red-dominant (radius R/G under
+#   TRANSMIT_RG_MIN; the human radii are 2.7) transmittance is turned off rather than let a green ear glow red.
+PATTERN = "hf_skin_pattern"    # float per vertex: where a pattern may show (written by mark)
+PATTERN_KINDS = ("spots", "stripes", "blotches", "mottle", "scales")
+# `graft`: the surface humanform.graft grew (a tail), fading up over its seam by the graft's own `fade`
+PATTERN_AREAS = ("head", "torso", "arms", "legs", "back", "front", "graft")
+PATTERN_SKIP = ("palm", "sole", "lips", "nail")     # never patterned
+SPECIES_KEYS = ("regions_off", "pattern", "subsurface_tint", "palette")
+# (d, s): the luminance factors are the human table's; s is set so a low-chroma (greyish) tone still shows its
+# regions by hue as well as by value, and a saturated one's lips stay skin (at s 1.4 a saturated green's lips were a
+# toy's green, chroma 45 against the skin's 30)
+SPECIES_DEEP = {"lips": (0.52, 1.0), "nipple": (0.55, 0.8), "genital": (0.55, 0.3), "knee": (0.62, 0.6),
+                "elbow": (0.62, 0.6), "knuckle": (0.58, 0.6), "flush": (0.85, 0.6)}
+# stronger than a human's mottle (whose regional flush and vascular red already break the tone up), because along a
+# green or grey tone nothing else does
+SPECIES_MOTTLE = ((4.0, 0.11), (24.0, 0.05))
+SPECIES_REDNESS = 0.10         # the low octave's colour shift, along log c
+SPECIES_NAIL = (1.10, -0.4)    # luminance factor, saturation exponent (negative: towards grey)
+SPECIES_PALE_SAT = -0.25       # palms and soles: `pale_tint`'s lift, a little less saturated along the tone
+DEEP_DL_MIN = 1.0              # CIELAB L*: a deep region is darker than plain skin by at least this
+# degrees of CIELAB hue from plain skin's. The tone-relative tints move hue 0-2 degrees on green and grey tones and
+# up to 10 on a saturated warm one (its lips); the human tints on an olive tone move the lips 25
+DEEP_HUE_MAX = 15.0
+DEEP_CHROMA_MIN = 5.0          # below this chroma (on either) hue is not judged
+# a deep region's chroma over plain skin's, at most: past it a region reads painted on. The dwarf's genital skin at
+# 1.36x (saturation exponent 0.7 along a warm tone) read orange in Godot; rendered with transmittance off it was
+# the same, so the tint, not the light through the thin shell, was the cause. Genital skin is darker and browner,
+# not more saturated: its exponent is 0.3 (~1.1x). Lips and nipples are redder by nature and keep more
+DEEP_CHROMA_MAX = {"genital": 1.25, "nipple": 1.6, "lips": 1.75}
+SSS_TONE_SHARE = 0.5           # at 0.75 a saturated green's ear glowed chartreuse under a back light
+SSS_EXP = 1.25                 # radius ~ chroma^1.25 fits the human radii against a human tone
+TRANSMIT_RG_MIN = 1.8          # human 2.7, a tawny tone 2.3; grey-greens and olives 1.3-1.5
+
+
+def _chroma(lin):
+    lin = np.maximum(np.asarray(lin, np.float64)[:3], 1e-4)
+    return lin / np.exp(np.log(lin).mean())
+
+
+def _luma(lin):
+    return float(np.dot([0.2126, 0.7152, 0.0722], lin))
+
+
+def _along(lin, d, s):
+    """A linear multiplier that scales the tone's luminance by `d` and its chroma by the power `s`."""
+    c = _chroma(lin) ** s
+    t = np.asarray(lin, np.float64)[:3]
+    return tuple(round(float(v), 4) for v in d * c * _luma(t) / max(_luma(t * c), 1e-6))
+
+
+def _rgb(v, what):
+    try:
+        v = [float(x) for x in v]
+    except (TypeError, ValueError):
+        raise ValueError(f"species_skin {what}: expected [r, g, b] sRGB 0..1, got {v!r}") from None
+    if len(v) != 3 or not all(0.0 <= x <= 1.0 for x in v):
+        raise ValueError(f"species_skin {what}: expected [r, g, b] sRGB 0..1, got {v!r}")
+    return v
+
+
+def species_check(sp):
+    """`species_skin` validated and filled in (a plain dict, JSON-able), or None for None. Raises ValueError naming
+    the key and the allowed values."""
+    if sp is None:
+        return None
+    if not isinstance(sp, dict):
+        raise ValueError(f"species_skin must be a dict, got {type(sp).__name__}")
+    bad = sorted(set(sp) - set(SPECIES_KEYS))
+    if bad:
+        raise ValueError(f"species_skin: unknown key(s) {bad}; allowed {list(SPECIES_KEYS)}")
+    off = list(sp.get("regions_off") or [])
+    if any(k not in REGIONS for k in off):
+        raise ValueError(f"species_skin regions_off {off}: each must be one of {list(REGIONS)}")
+    out = {"regions_off": sorted(set(off))}
+    if sp.get("subsurface_tint") is not None:
+        out["subsurface_tint"] = _rgb(sp["subsurface_tint"], "subsurface_tint")
+    pat = sp.get("pattern")
+    if pat:
+        bad = sorted(set(pat) - {"kind", "colour", "scale", "amount", "regions", "frame"})
+        if bad:
+            raise ValueError(f"species_skin pattern: unknown key(s) {bad}")
+        if pat.get("kind") not in PATTERN_KINDS:
+            raise ValueError(f"species_skin pattern kind {pat.get('kind')!r}: one of {list(PATTERN_KINDS)}")
+        scale = float(pat.get("scale", 0.1))
+        amount = float(pat.get("amount", 0.5))
+        if not 0.005 <= scale <= 2.0:
+            raise ValueError(f"species_skin pattern scale {scale} m: 0.005..2.0")
+        if not 0.0 <= amount <= 1.0:
+            raise ValueError(f"species_skin pattern amount {amount}: 0..1")
+        areas = list(pat.get("regions") or [])
+        if any(a not in PATTERN_AREAS for a in areas):
+            raise ValueError(f"species_skin pattern regions {areas}: each one of {list(PATTERN_AREAS)}")
+        if "colour" not in pat:
+            raise ValueError("species_skin pattern: needs a colour [r, g, b] sRGB")
+        out["pattern"] = {"kind": pat["kind"], "colour": _rgb(pat["colour"], "pattern colour"), "scale": scale,
+                          "amount": amount, "regions": areas}
+        if pat.get("frame"):
+            out["pattern"]["frame"] = dict(pat["frame"])      # scale_frame's, measured on the body at the bake
+    return out
+
+
+def species_tints(tone, sp):
+    """The region tints a species skin uses for tone `tone` (sRGB): SPECIES_DEEP along the tone, the nail
+    lightened, palms and soles as `pale_tint`. Regions off are left out."""
+    lin = np.asarray(look.srgb_to_linear(tone)[:3], np.float64)
+    out = {k: _along(lin, d, s) for k, (d, s) in SPECIES_DEEP.items()}
+    out["nail"] = _along(lin, *SPECIES_NAIL)
+    for k in ("palm", "sole"):
+        # pale_tint's gain (its hue's red is 1) without its hue, which took green out and so read redder on a green body
+        out[k] = _along(lin, pale_tint(tone, k)[0][0] / PALE_HUE[k][0], SPECIES_PALE_SAT)
+    return {k: v for k, v in out.items() if k not in sp["regions_off"]}
+
+
+def species_scatter(tone, sp):
+    """(Blender subsurface radii in mm, Godot transmittance colour RGBA, transmittance on) for a species skin."""
+    src = sp.get("subsurface_tint") or list(tone)[:3]
+    c = _chroma(look.srgb_to_linear(src)[:3]) ** SSS_EXP
+    human = np.asarray(SUBSURFACE["radius"], np.float64)
+    gm = np.exp(np.log(human).mean())
+    r = np.exp((1 - SSS_TONE_SHARE) * np.log(human) + SSS_TONE_SHARE * np.log(c * gm))
+    col = r / r.max()
+    on = bool(r[0] / r[1] >= TRANSMIT_RG_MIN)
+    return (tuple(round(float(v), 4) for v in r), [round(float(v), 3) for v in col] + [0.2], on)
+
+
+def species_godot(tone, sp):
+    """GODOT for a species skin: transmittance tinted by the scatter colour, and off where skin mode would draw
+    red on a body that does not scatter red."""
+    _, col, on = species_scatter(tone, sp)
+    g = dict(GODOT, subsurf_scatter_transmittance_color=col)
+    if not on:
+        g["subsurf_scatter_transmittance_enabled"] = False
+    return g
+
+
+def _species_of(held):
+    import json
+    s = held.get("species")
+    return json.loads(s) if s else None
+
+
+def pattern_areas(ob, sp):
+    """Per-vertex weight (0..1) of where a species pattern shows on an MPFB human: the union of the pattern's
+    `regions` (PATTERN_AREAS; all of the body if none), never on palms, soles, lips or nails."""
+    from . import muscle
+    n = min(len(ob.data.vertices), delta.BODY_VERTS)
+    co = delta.mixed_coords(ob)
+    faces = delta.body_faces(ob)
+    p = co[:n]
+    nrm = delta.vertex_normals(co, faces)[:n]
+    areas = sp["pattern"]["regions"]
+    j = muscle._joints(ob, co)
+    need = ("joint-neck", "joint-pelvis", "joint-l-upper-leg", "joint-l-shoulder", "joint-l-elbow", "joint-l-hand")
+    if not areas:
+        m = np.ones(n)
+    elif any(k not in j for k in need):
+        m = np.ones(n)
+    else:
+        s = float((j["joint-neck"][2] - j["joint-pelvis"][2]) / 0.60)
+        head = _smooth(j["joint-neck"][2] - 0.01 * s, j["joint-neck"][2] + 0.04 * s, p[:, 2])
+        legs = 1.0 - _smooth(j["joint-l-upper-leg"][2] - 0.06 * s, j["joint-l-upper-leg"][2] + 0.02 * s, p[:, 2])
+        arm = np.zeros(n)
+        for side in (1.0, -1.0):
+            pts = [np.array(j[k], np.float64) * np.array([side, 1, 1])
+                   for k in ("joint-l-shoulder", "joint-l-elbow", "joint-l-hand")]
+            pts.append(pts[2] + (pts[2] - pts[1]) * 0.6)                 # past the wrist: the hand
+            d = np.full(n, 9.0)
+            for a, b in zip(pts[:-1], pts[1:]):
+                ab = b - a
+                t = np.clip(((p - a) @ ab) / max(ab @ ab, 1e-9), 0, 1)
+                d = np.minimum(d, np.linalg.norm(p - (a + np.outer(t, ab)), axis=1))
+            outward = _smooth(0.5, 1.0, np.abs(p[:, 0]) / max(abs(j["joint-l-shoulder"][0]), 1e-6))
+            arm = np.maximum(arm, (1.0 - _smooth(0.06 * s, 0.12 * s, d)) * outward)
+        arm = arm * (1 - head)
+        pick = {"head": head, "legs": legs * (1 - arm), "arms": arm, "graft": graft_area(ob, p) * (1 - arm),
+                "torso": np.clip(1 - np.maximum(np.maximum(head, legs), arm), 0, 1),
+                "back": _smooth(0.0, 0.45, nrm[:, 1]), "front": _smooth(0.0, 0.45, -nrm[:, 1])}   # MPFB faces -Y
+        m = np.zeros(n)
+        for a in areas:
+            m = np.maximum(m, pick[a])
+    w, _, _ = regions(ob)
+    for k in PATTERN_SKIP:
+        m = m * (1.0 - w[k])
+    # soft borders (a pattern fading out, not cut off at a seam between areas)
+    return np.clip(delta.smooth(m, faces, iterations=6, share=0.5)[:n], 0, 1)
+
+
+def graft_area(ob, p):
+    """0..1 over the body's own vertices `p`: 1 below a graft's seam (humanform.graft's PROP on the body), fading to 0
+    over its `fade` above it; 0 everywhere on a body with no graft. The graft's own vertices are marked in `mark`."""
+    import json
+    info = ob.get("hf_graft")
+    if not info:
+        return np.zeros(len(p))
+    info = json.loads(info)
+    z0, fade = float(info["seam_z"]), max(float(info.get("fade", 0.08)), 1e-4)
+    return 1.0 - _smooth(z0, z0 + fade, p[:, 2])
+
+
+def graft_vertices(ob):
+    """Indices of the vertices a graft added (its mesh attribute, which a bake keeps; else its vertex group), or an
+    empty array."""
+    a = ob.data.attributes.get("hf_graft_surface")
+    if a is not None and a.domain == "POINT":
+        v = np.empty(len(ob.data.vertices), np.float32)
+        a.data.foreach_get("value", v)
+        return np.flatnonzero(v > 0.5)
+    g = ob.vertex_groups.get("hf_graft")
+    if g is None:
+        return np.zeros(0, np.int64)
+    return np.array([v.index for v in ob.data.vertices if any(e.group == g.index and e.weight > 0.5 for e in v.groups)],
+                    np.int64)
 
 
 def legacy():
@@ -339,14 +586,37 @@ def pale_tint(srgb, region):
     return tuple(round(g * h, 4) for h in PALE_HUE[region]), round(dl, 2)
 
 
-def mark(ob, tone=None):
+def mark(ob, tone=None, species_skin=None):
     """Write `hf_skin_tint` and `hf_skin_oil` on an MPFB human (see `regions`). `tone` (the brief's sRGB) sets the
-    palm and sole lift (`pale_tint`); without it they take REGIONS' fixed tints. Returns a report."""
+    palm and sole lift (`pale_tint`); without it they take REGIONS' fixed tints. `species_skin` (see PATTERN; it
+    needs `tone`) takes its region tints along the tone, leaves `regions_off` plain and writes `hf_skin_pattern`.
+    Returns a report."""
     ob = bpy.data.objects[ob] if isinstance(ob, str) else ob
     w, extra, notes = regions(ob)
     prm = params()
     pale = {}
-    if tone is not None and not legacy():
+    sp = species_check(species_skin)
+    if sp is not None:
+        if tone is None:
+            raise ValueError("skin.mark: species_skin needs the tone")
+        tints = species_tints(tone, sp)
+        prm = dict(prm, REGIONS={k: dict(v, tint=tints.get(k, v["tint"])) for k, v in prm["REGIONS"].items()})
+        for k in sp["regions_off"]:
+            w[k] = np.zeros_like(w[k])
+        for k in ("palm", "sole"):
+            if k in tints:
+                pale[k] = {"tint": list(tints[k]), "dL": pale_tint(tone, k)[1]}
+        if "pattern" in sp:
+            pm = pattern_areas(ob, sp)
+            full = np.zeros(len(ob.data.vertices), np.float32)
+            full[:len(pm)] = pm
+            areas = sp["pattern"]["regions"]
+            if not areas or "graft" in areas:
+                full[graft_vertices(ob)] = 1.0          # a graft's own surface is all pattern
+            if PATTERN in ob.data.attributes:
+                ob.data.attributes.remove(ob.data.attributes[PATTERN])
+            ob.data.attributes.new(PATTERN, "FLOAT", "POINT").data.foreach_set("value", full)
+    elif tone is not None and not legacy():
         prm = dict(prm, REGIONS=dict(prm["REGIONS"]))
         for k in ("palm", "sole"):
             t, dl = pale_tint(tone, k)
@@ -387,22 +657,29 @@ def mark(ob, tone=None):
     # a vector, not a colour attribute: the glTF exporter writes every colour attribute as COLOR_n
     me.attributes.new(TINT, "FLOAT_VECTOR", "POINT").data.foreach_set("vector", tint[:, :3].astype(np.float32).ravel())
     me.attributes.new(OIL, "FLOAT", "POINT").data.foreach_set("value", rough.astype(np.float32))
-    return {"regions": {k: round(float((v > 0.5).sum()), 0) for k, v in w.items()},
-            "t_zone": int((extra["t_zone"] > 0.5).sum()), "limb": int((extra["limb"] > 0.5).sum()), "notes": notes,
-            "pale": pale}
+    rep = {"regions": {k: round(float((v > 0.5).sum()), 0) for k, v in w.items()},
+           "t_zone": int((extra["t_zone"] > 0.5).sum()), "limb": int((extra["limb"] > 0.5).sum()), "notes": notes,
+           "pale": pale}
+    if sp is not None:
+        rep["species"] = {"regions_off": sp["regions_off"], "pattern_verts": 0}
+        if "pattern" in sp:
+            pv = np.empty(len(me.vertices), np.float32)
+            me.attributes[PATTERN].data.foreach_get("value", pv)
+            rep["species"]["pattern_verts"] = int((pv > 0.5).sum())
+    return rep
 
 
 def seed_of(name):
     return zlib.crc32(name.encode("utf-8")) % 997
 
 
-def _principled_skin(bsdf, lin, roughness):
+def _principled_skin(bsdf, lin, roughness, radius=None):
     """What every skin material has, flat or procedural: the tone, a roughness, subsurface and skin's F0."""
     bsdf.inputs["Base Color"].default_value = (*lin, 1.0)
     bsdf.inputs["Roughness"].default_value = roughness
     bsdf.subsurface_method = "RANDOM_WALK"
     bsdf.inputs["Subsurface Weight"].default_value = SUBSURFACE["weight"]
-    bsdf.inputs["Subsurface Radius"].default_value = SUBSURFACE["radius"]
+    bsdf.inputs["Subsurface Radius"].default_value = SUBSURFACE["radius"] if radius is None else radius
     bsdf.inputs["Subsurface Scale"].default_value = SUBSURFACE["scale"]
     if "Subsurface IOR" in bsdf.inputs:
         bsdf.inputs["Subsurface IOR"].default_value = SUBSURFACE["ior"]
@@ -410,15 +687,18 @@ def _principled_skin(bsdf, lin, roughness):
     bsdf.inputs["IOR"].default_value = SUBSURFACE["ior"]
 
 
-def material(name, srgb, seed=None, roughness=BASE_ROUGH, procedural=False):
+def material(name, srgb, seed=None, roughness=BASE_ROUGH, procedural=False, species_skin=None):
     """The skin material, reused by name and rebuilt every call.
 
     By default it is FLAT: the brief's tone as an unlinked Base Color, one roughness, subsurface - what the glTF
     exporter can read (a linked Base Color it cannot trace to an image is exported as nothing, which Godot draws
     white) and it references no mesh attribute (so `hf_skin_*` are never exported as COLOR_n). A body exported
     without a bake gets this. `procedural=True` is what `bake` bakes and then replaces: the tone (linear) times
-    `hf_skin_tint` times mottling, roughness from `hf_skin_oil`, a fine bump."""
+    `hf_skin_tint` times mottling, roughness from `hf_skin_oil`, a fine bump. `species_skin` (see PATTERN) gives
+    the subsurface and Godot's transmittance the tone's scatter colour, mottles along the tone and adds the
+    pattern; it is stored on the material (`humanform_skin["species"]`, JSON), so `bake` rebuilds the same."""
     seed = seed_of(name) if seed is None else seed
+    sp = species_check(species_skin)
     lin = look.srgb_to_linear(srgb)[:3]
     mat = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     if mat.node_tree is None and hasattr(mat, "use_nodes"):
@@ -429,12 +709,15 @@ def material(name, srgb, seed=None, roughness=BASE_ROUGH, procedural=False):
     out = N("ShaderNodeOutputMaterial")
     bsdf = N("ShaderNodeBsdfPrincipled")
     L(bsdf.outputs["BSDF"], out.inputs["Surface"])
-    _principled_skin(bsdf, lin, roughness)
+    _principled_skin(bsdf, lin, roughness, radius=None if sp is None else species_scatter(srgb, sp)[0])
     mat.diffuse_color = (*lin, 1.0)
-    mat["lookdev"] = {"preset": "skin", "godot": dict(GODOT), "detail": dict(DETAIL, seed=int(seed)),
+    mat["lookdev"] = {"preset": "skin", "godot": dict(GODOT) if sp is None else species_godot(srgb, sp),
+                      "detail": dict(DETAIL, seed=int(seed)),
                       "tone_srgb": [round(float(c), 4) for c in tuple(srgb)[:3]]}
     mat["humanform_skin"] = {"seed": int(seed), "tone_srgb": [round(float(c), 4) for c in tuple(srgb)[:3]],
                              "stage": "flat"}
+    if sp is not None:
+        mat["humanform_skin"] = dict(mat["humanform_skin"], species=__import__("json").dumps(sp))
     if not procedural:
         return mat
     mat["humanform_skin"] = dict(mat["humanform_skin"], stage="procedural")
@@ -453,6 +736,8 @@ def material(name, srgb, seed=None, roughness=BASE_ROUGH, procedural=False):
     L(tint.outputs["Color"], tone.inputs[7])
     col = tone.outputs[2]
     prm = params()
+    if sp is not None:
+        prm = dict(prm, MOTTLE=SPECIES_MOTTLE, REDNESS=SPECIES_REDNESS)
     for i, (scale, share) in enumerate(prm["MOTTLE"]):
         nz = N("ShaderNodeTexNoise")
         nz.noise_dimensions = "4D"
@@ -468,7 +753,28 @@ def material(name, srgb, seed=None, roughness=BASE_ROUGH, procedural=False):
         gain.inputs["To Max"].default_value = 1.0 + share
         L(nz.outputs["Fac"], gain.inputs["Value"])
         red = N("ShaderNodeCombineColor")
-        if i == 0:
+        if i == 0 and sp is not None:
+            # a species mottles along its own tone: channel c gets gain * (1 + k_c (inv - 1)), k the tone's
+            # log-chroma scaled to 1 on its strongest channel (a human tone's k is red +1, blue about -1)
+            lc = np.log(_chroma(lin))
+            k = lc / max(float(np.abs(lc).max()), 1e-6)
+            inv = N("ShaderNodeMath")
+            inv.operation = "MULTIPLY_ADD"
+            L(gain.outputs["Result"], inv.inputs[0])
+            inv.inputs[1].default_value = -prm["REDNESS"] / share
+            inv.inputs[2].default_value = 1.0 + prm["REDNESS"] / share
+            for c, kc in zip(("Red", "Green", "Blue"), k):
+                f = N("ShaderNodeMath")
+                f.operation = "MULTIPLY_ADD"
+                L(inv.outputs["Value"], f.inputs[0])
+                f.inputs[1].default_value = float(kc)
+                f.inputs[2].default_value = 1.0 - float(kc)
+                both = N("ShaderNodeMath")
+                both.operation = "MULTIPLY"
+                L(f.outputs["Value"], both.inputs[0])
+                L(gain.outputs["Result"], both.inputs[1])
+                L(both.outputs["Value"], red.inputs[c])
+        elif i == 0:
             # more red where it is darker: blotchy vascular colour, not just lightness
             inv = N("ShaderNodeMath")
             inv.operation = "MULTIPLY_ADD"
@@ -494,6 +800,8 @@ def material(name, srgb, seed=None, roughness=BASE_ROUGH, procedural=False):
         L(col, mul.inputs[6])
         L(red.outputs["Color"], mul.inputs[7])
         col = mul.outputs[2]
+    if sp is not None and "pattern" in sp:
+        col = _pattern_nodes(tree, coord, col, lin, sp["pattern"], seed)
     L(col, bsdf.inputs["Base Color"])
     L(oil.outputs["Fac"], bsdf.inputs["Roughness"])
     bump_tex = N("ShaderNodeTexNoise")
@@ -508,6 +816,444 @@ def material(name, srgb, seed=None, roughness=BASE_ROUGH, procedural=False):
     L(bump_tex.outputs["Fac"], bump.inputs["Height"])
     L(bump.outputs["Normal"], bsdf.inputs["Normal"])
     return mat
+
+
+SCALE_ROWS = {"aspect": 0.6, "radius": 0.64, "levels": 3, "smallest": 0.008, "on": (0.6, 0.3, 0.1), "jitter": 0.14}
+# Scales in rows along the body's axis: a lattice of scale centres, rows `aspect` scale widths apart up the body (Z),
+# each row's centres a whole scale apart across (X and Y) and offset half a scale from the rows either side, every
+# scale a disc of `radius` widths with the row above lying over it - so on any surface the scales overlap downward,
+# the free rim toward the tail, and stand in staggered rows (a 3D lattice, not a map round an axis: a round-the-axis
+# map streaked on the flukes and on the skin sloping in above the seam). Across a fade the scales shrink by halves
+# (`levels`, down to `smallest` metres - smaller ones are dust in a 2k map), each level on where the fade's weight
+# at the scale's own centre passes `on` (+- jitter/2), so every edge of the transition is a scale's edge, and the
+# small scales take the pattern's colour in part, rising with the fade. The first mermaid's waist - random voronoi
+# cells dropping out one by one - read as dirty blotches, not scales emerging.
+
+
+def _scale_mean_shade(P=None):
+    """The mean of `_scale_rows`' shading over a whole lattice cell (its rim light, darker covered part and outline),
+    by the same arithmetic in numpy (the per-scale draw averages 1). The shading is divided by it, so the scales'
+    mean tone is the pattern's colour and a fade's mean runs from the skin's to it: undivided (0.72) the tail was
+    darker than its colour and the fade - small shaded scales over skin - a dark band at the waist from 4 m."""
+    P = P or SCALE_ROWS
+    A, R = P["aspect"], P["radius"]
+    U, V = np.meshgrid(np.linspace(0.0, 4.0, 401), np.linspace(0.0, 4.0, 401))
+    k = np.floor(V) + 1
+
+    def row(j):
+        o = np.mod(j, 2) * 0.5
+        du = U - (np.floor(U - o + 0.5) + o)
+        dv = (V - j) * A
+        return np.sqrt(du * du + dv * dv), dv
+    d0, dv0 = row(k)
+    d1, dv1 = row(k - 1)
+    win = d0 < R
+    d, dv = np.where(win, d0, d1), np.where(win, dv0, dv1)
+    bright = 0.6 + 0.4 * np.clip(-dv / R, 0.0, 1.0)
+    line = np.clip((d / R - 0.84) / 0.13, 0.0, 1.0)
+    return float((bright * (1.0 - 0.45 * line)).mean())
+
+
+SEAM_BANDS = (-4.0, 2.5, 0.5)    # the seam check's bands: from, to and width, in fades above the seam (down into the tail)
+SEAM_TOL = 0.05                  # a band's mean sRGB luma may leave the skin-to-scales range by this much
+
+
+def seam_tone(ob, image):
+    """The graft seam's tone across its fade, from the baked albedo `image`: the mean sRGB luma of the albedo at the
+    body's loops in bands of height (SEAM_BANDS, in fades over the seam), over the trunk (within the seam ring's width,
+    so no arm). `fail` when a band is darker or paler than both sides by over SEAM_TOL - such a band reads as a stripe
+    round the body from across a room."""
+    import json
+    info = ob.get("hf_graft")
+    if not info or image is None:
+        return None
+    info = json.loads(info)
+    z0, fade = float(info["seam_z"]), max(float(info.get("fade", 0.08)), 1e-3)
+    me = ob.data
+    if me.uv_layers.active is None:
+        return None
+    n = len(me.vertices)
+    co = np.empty(n * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(n, 3)
+    cx = float(info["centre"][0])
+    tail = graft_vertices(ob)
+    ring = co[tail][co[tail, 2] > co[tail, 2].max() - 0.01] if len(tail) else co[np.abs(co[:, 2] - z0) < 0.01]
+    half = 1.1 * float(np.abs(ring[:, 0] - cx).max()) if len(ring) else 0.2
+    lv = np.empty(len(me.loops), np.int64)
+    me.loops.foreach_get("vertex_index", lv)
+    uv = np.empty(len(me.loops) * 2, np.float32)
+    me.uv_layers.active.data.foreach_get("uv", uv)
+    uv = np.mod(uv.reshape(-1, 2), 1.0)
+    w, h = image.size
+    px = np.empty(w * h * 4, np.float32)
+    image.pixels.foreach_get(px)
+    px = px.reshape(h, w, 4)[:, :, :3]
+    xy = np.clip((uv * [w, h]).astype(np.int64), 0, [w - 1, h - 1])
+    col = px[xy[:, 1], xy[:, 0]].astype(np.float64)
+    if not image.colorspace_settings.name.lower().startswith("srgb"):
+        col = np.where(col <= 0.0031308, col * 12.92, 1.055 * np.power(np.clip(col, 0, 1), 1 / 2.4) - 0.055)
+    luma = col @ np.array([0.2126, 0.7152, 0.0722])
+    t = (co[lv, 2] - z0) / fade
+    trunk = np.abs(co[lv, 0] - cx) < half
+    lo, hi, step = SEAM_BANDS
+    bands = []
+    for a in np.arange(lo, hi, step):
+        sel = trunk & (t >= a) & (t < a + step)
+        bands.append([round(float(a), 2), round(float(luma[sel].mean()), 3) if sel.sum() >= 8 else None])
+    vals = [b[1] for b in bands if b[1] is not None]
+    if len(vals) < 3:
+        return {"bands": bands}
+    scales, skin = vals[0], vals[-1]
+    lo_v, hi_v = min(scales, skin) - SEAM_TOL, max(scales, skin) + SEAM_TOL
+    out = {"bands": bands, "scales": scales, "skin": skin}
+    bad = [b for b in bands if b[1] is not None and not lo_v <= b[1] <= hi_v]
+    if bad:
+        out["fail"] = (f"the graft seam's tone leaves the skin-to-scales range ({scales:.3f}..{skin:.3f} sRGB luma, "
+                       f"+-{SEAM_TOL}) at {[b[0] for b in bad]} fades over the seam ({[b[1] for b in bad]}): it reads "
+                       "as a band - the scales' shading or the fade's colour mix is off its mean")
+    return out
+
+
+def scale_frame(ob, pat):
+    """The frame `_scale_rows` needs for a scales pattern on a graft (humanform.graft's PROP): the seam's height, which
+    the rows start from, and the fade above it, whose weight each scale reads at its own centre. None without a graft
+    or for another pattern."""
+    import json
+    if not pat or pat.get("kind") != "scales" or not ob.get("hf_graft"):
+        return None
+    info = json.loads(ob["hf_graft"])
+    return {"z0": round(float(info["seam_z"]), 5), "fade": float(info.get("fade", 0.08))}
+
+
+def _scale_rows(tree, coord, pat, seed):
+    """The rows of scales (SCALE_ROWS) for a pattern with a `frame` (`scale_frame`). Returns (on, shading, colour
+    share) sockets: on 1 where a scale is, its shading (rim light, covered part darker, outline dark), and the share of
+    the pattern's colour it takes - full on full-size scales, rising with the fade on the small ones."""
+    N, L = tree.nodes.new, tree.links.new
+    fr = pat["frame"]
+    P = SCALE_ROWS
+    size = float(pat["scale"])
+
+    def m(op, a, b=None, c=None, clamp=False):
+        node = N("ShaderNodeMath")
+        node.operation = op
+        node.use_clamp = clamp
+        for i, v in enumerate((a, b, c)):
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                node.inputs[i].default_value = float(v)
+            else:
+                L(v, node.inputs[i])
+        return node.outputs[0]
+
+    def pick(cond, a, b):
+        """a where cond is 1, else b."""
+        return m("ADD", b, m("MULTIPLY", cond, m("SUBTRACT", a, b)))
+
+    xyz = N("ShaderNodeSeparateXYZ")
+    L(coord.outputs["Object"], xyz.inputs[0])
+    ox, oy = (seed * 0.371) % 1.0, (seed * 0.613) % 1.0
+    X0 = m("ADD", xyz.outputs["X"], ox * size)
+    Y0 = m("ADD", xyz.outputs["Y"], oy * size)
+    z = xyz.outputs["Z"]
+    attr = N("ShaderNodeAttribute")
+    attr.attribute_type = "GEOMETRY"
+    attr.attribute_name = PATTERN
+    area = m("MULTIPLY", attr.outputs["Fac"], 3.0, clamp=True)      # the arms and all off the pattern stay off
+    fade = max(float(fr.get("fade") or 0.0), 1e-4)
+    mean_shade = _scale_mean_shade(P)
+    n_levels = max(1, min(P["levels"], 1 + int(math.floor(math.log2(max(size / P["smallest"], 1.0))))))
+    levels = []
+    for lv in range(n_levels):
+        w_lv = size / 2 ** lv
+        h = P["aspect"] * w_lv
+        X, Y = m("DIVIDE", X0, w_lv), m("DIVIDE", Y0, w_lv)
+        V = m("DIVIDE", m("SUBTRACT", z, fr["z0"]), h)
+        k = m("ADD", m("FLOOR", V), 1.0)
+        rows = []
+        for j in (k, m("SUBTRACT", k, 1.0)):
+            o = m("MULTIPLY", m("FLOORED_MODULO", j, 2.0), 0.5)
+            cx = m("ADD", m("FLOOR", m("ADD", m("SUBTRACT", X, o), 0.5)), o)
+            cy = m("ADD", m("FLOOR", m("ADD", m("SUBTRACT", Y, o), 0.5)), o)
+            dx, dy = m("SUBTRACT", X, cx), m("SUBTRACT", Y, cy)
+            dv = m("MULTIPLY", m("SUBTRACT", V, j), P["aspect"])
+            d = m("SQRT", m("ADD", m("ADD", m("MULTIPLY", dx, dx), m("MULTIPLY", dy, dy)), m("MULTIPLY", dv, dv)))
+            rows.append((cx, cy, j, d, dv))
+        win = m("LESS_THAN", rows[0][3], P["radius"])              # the row above lies on top where it reaches
+        cx, cy, j, d, dv = (pick(win, a, b) for a, b in zip(rows[0], rows[1]))
+        # the scale's own draw, and the fade's weight at its own centre, so each scale is whole
+        wn = N("ShaderNodeTexWhiteNoise")
+        wn.noise_dimensions = "4D"
+        cv = N("ShaderNodeCombineXYZ")
+        L(cx, cv.inputs[0])
+        L(cy, cv.inputs[1])
+        L(j, cv.inputs[2])
+        L(cv.outputs[0], wn.inputs["Vector"])
+        wn.inputs["W"].default_value = float(lv) + (seed % 97) * 0.01
+        rnd = wn.outputs["Value"]
+        t = m("DIVIDE", m("MULTIPLY", j, h), fade, clamp=True)     # the centre's height over the seam, in fades
+        w = m("SUBTRACT", 1.0, m("MULTIPLY", m("MULTIPLY", t, t), m("SUBTRACT", 3.0, m("MULTIPLY", t, 2.0))))
+        w = m("MULTIPLY", w, area)
+        on_at = P["on"][lv] if lv < n_levels - 1 else P["on"][-1]
+        thr = m("ADD", on_at, m("MULTIPLY", m("SUBTRACT", rnd, 0.5), P["jitter"]))
+        on = m("GREATER_THAN", w, thr)
+        if lv == 0:
+            share = m("ADD", 1.0, 0.0)
+        else:
+            share = m("ADD", 0.4, m("MULTIPLY", m("SUBTRACT", w, thr), 0.6 / 0.3), clamp=True)
+        rim = m("DIVIDE", d, P["radius"])
+        low = m("DIVIDE", m("MULTIPLY", dv, -1.0), P["radius"], clamp=True)
+        bright = m("MULTIPLY_ADD", low, 0.4, 0.6)
+        line = m("MULTIPLY", m("SUBTRACT", rim, 0.84), 1.0 / 0.13, clamp=True)
+        shade = m("MULTIPLY", m("MULTIPLY", bright, m("SUBTRACT", 1.0, m("MULTIPLY", line, 0.45))),
+                  m("MULTIPLY_ADD", rnd, 0.16, 0.92))
+        shade = m("DIVIDE", shade, mean_shade)            # its mean over a scale is 1 (`_scale_mean_shade`)
+        levels.append((on, shade, share))
+    # the largest scale that is on wins: full size, else half, else quarter, else skin
+    on, shade, share = levels[-1]
+    for lo, sh, sa in reversed(levels[:-1]):
+        shade = pick(lo, sh, shade)
+        share = pick(lo, sa, share)
+        on = m("MAXIMUM", lo, on)
+    return on, shade, share
+
+
+def _pattern_nodes(tree, coord, col, lin, pat, seed):
+    """A species pattern on the procedural skin: a mask (0..1) in object space, times `amount` and the
+    `hf_skin_pattern` attribute, multiplying the colour by pattern colour / tone where it is 1. Returns the colour
+    socket. Object space is metres on a body, so `scale` is the pattern's size in metres."""
+    N, L = tree.nodes.new, tree.links.new
+    size = pat["scale"]
+    # the seed moves the pattern (wave has no W), and a low noise warps it so nothing is a perfect circle or line
+    off = N("ShaderNodeVectorMath")
+    off.operation = "ADD"
+    L(coord.outputs["Object"], off.inputs[0])
+    off.inputs[1].default_value = (seed * 0.371 % 17.0, seed * 0.613 % 13.0, seed * 0.137 % 11.0)
+    warp = N("ShaderNodeTexNoise")
+    warp.noise_dimensions = "3D"
+    warp.inputs["Scale"].default_value = 1.2 / size
+    warp.inputs["Detail"].default_value = 3.0
+    L(off.outputs["Vector"], warp.inputs["Vector"])
+    wc = N("ShaderNodeVectorMath")
+    wc.operation = "SUBTRACT"
+    L(warp.outputs["Color"], wc.inputs[0])
+    wc.inputs[1].default_value = (0.5, 0.5, 0.5)
+    ws = N("ShaderNodeVectorMath")
+    ws.operation = "MULTIPLY_ADD"
+    L(wc.outputs["Vector"], ws.inputs[0])
+    ws.inputs[1].default_value = (0.45 * size,) * 3
+    L(off.outputs["Vector"], ws.inputs[2])
+    p = ws.outputs["Vector"]
+
+    def ramp(value, lo, hi, invert=False):
+        m = N("ShaderNodeMapRange")
+        m.interpolation_type = "SMOOTHSTEP"
+        L(value, m.inputs["Value"])
+        m.inputs["From Min"].default_value = lo
+        m.inputs["From Max"].default_value = hi
+        m.inputs["To Min"].default_value = 1.0 if invert else 0.0
+        m.inputs["To Max"].default_value = 0.0 if invert else 1.0
+        return m
+
+    kind = pat["kind"]
+    if kind == "spots":
+        vor = N("ShaderNodeTexVoronoi")
+        vor.voronoi_dimensions = "3D"
+        vor.feature = "F1"
+        vor.inputs["Scale"].default_value = 1.0 / size
+        vor.inputs["Randomness"].default_value = 1.0
+        L(p, vor.inputs["Vector"])
+        sep = N("ShaderNodeSeparateColor")
+        L(vor.outputs["Color"], sep.inputs["Color"])
+        # a radius per spot, 0.16-0.32 of the spacing, from the cell's random colour
+        r0 = N("ShaderNodeMath")
+        r0.operation = "MULTIPLY_ADD"
+        L(sep.outputs["Green"], r0.inputs[0])
+        r0.inputs[1].default_value = 0.16
+        r0.inputs[2].default_value = 0.16 + 0.11          # the edge noise adds 0.11 on average
+        r1 = N("ShaderNodeMath")
+        r1.operation = "ADD"
+        L(r0.outputs["Value"], r1.inputs[0])
+        r1.inputs[1].default_value = 0.10
+        # ragged edges: a fine noise added to the distance, so a spot is a blot, not a disc
+        edge = N("ShaderNodeTexNoise")
+        edge.noise_dimensions = "3D"
+        edge.inputs["Scale"].default_value = 5.0 / size
+        edge.inputs["Detail"].default_value = 4.0
+        L(p, edge.inputs["Vector"])
+        dist = N("ShaderNodeMath")
+        dist.operation = "MULTIPLY_ADD"
+        L(edge.outputs["Fac"], dist.inputs[0])
+        dist.inputs[1].default_value = 0.22
+        L(vor.outputs["Distance"], dist.inputs[2])
+        m = ramp(dist.outputs["Value"], 0.0, 1.0, invert=True)
+        L(r0.outputs["Value"], m.inputs["From Min"])
+        L(r1.outputs["Value"], m.inputs["From Max"])
+        keep = ramp(sep.outputs["Red"], 0.12, 0.22)          # about one cell in six has no spot
+        dark = N("ShaderNodeMath")                            # and each is 0.6-1.0 as dark
+        dark.operation = "MULTIPLY_ADD"
+        L(sep.outputs["Blue"], dark.inputs[0])
+        dark.inputs[1].default_value = 0.4
+        dark.inputs[2].default_value = 0.6
+        mask = N("ShaderNodeMath")
+        mask.operation = "MULTIPLY"
+        L(m.outputs["Result"], mask.inputs[0])
+        L(keep.outputs["Result"], mask.inputs[1])
+        mask2 = N("ShaderNodeMath")
+        mask2.operation = "MULTIPLY"
+        L(mask.outputs["Value"], mask2.inputs[0])
+        L(dark.outputs["Value"], mask2.inputs[1])
+        mask = mask2.outputs["Value"]
+    elif kind == "stripes":
+        wave = N("ShaderNodeTexWave")
+        wave.wave_type = "BANDS"
+        wave.bands_direction = "Z"
+        wave.wave_profile = "SIN"
+        wave.inputs["Scale"].default_value = 0.3183 / size      # Blender's bands: sin(20 * scale * z), period `size`
+        wave.inputs["Distortion"].default_value = 4.0
+        wave.inputs["Detail"].default_value = 2.0
+        wave.inputs["Detail Scale"].default_value = 1.5
+        L(p, wave.inputs["Vector"])
+        mask = ramp(wave.outputs["Fac"], 0.62, 0.80).outputs["Result"]
+    elif kind == "scales" and pat.get("frame"):
+        mask, scale_shading, scale_fac = _scale_rows(tree, coord, pat, seed)
+    elif kind == "scales":
+        # overlapping scales: a semi-regular cell per scale, stretched a little along the body (Z), each shaded
+        # from its covered upper part (dark) to its free lower rim (light), with a dark outline. The mask is
+        # full: the colour is the pattern's, and the shading multiplies it below
+        sc = N("ShaderNodeVectorMath")
+        sc.operation = "MULTIPLY"
+        L(off.outputs["Vector"], sc.inputs[0])
+        sc.inputs[1].default_value = (1.0 / size, 1.0 / size, 1.0 / (0.8 * size))
+        vor = N("ShaderNodeTexVoronoi")
+        vor.voronoi_dimensions = "3D"
+        vor.feature = "F1"
+        vor.inputs["Scale"].default_value = 1.0
+        vor.inputs["Randomness"].default_value = 0.35
+        L(sc.outputs["Vector"], vor.inputs["Vector"])
+        loc = N("ShaderNodeVectorMath")
+        loc.operation = "SUBTRACT"
+        L(sc.outputs["Vector"], loc.inputs[0])
+        L(vor.outputs["Position"], loc.inputs[1])
+        sep = N("ShaderNodeSeparateXYZ")
+        L(loc.outputs["Vector"], sep.inputs[0])
+        shade = ramp(sep.outputs["Z"], -0.45, 0.45, invert=True)      # 1 at the free lower rim, 0 at the top
+        edge = N("ShaderNodeTexVoronoi")
+        edge.voronoi_dimensions = "3D"
+        edge.feature = "DISTANCE_TO_EDGE"
+        edge.inputs["Scale"].default_value = 1.0
+        edge.inputs["Randomness"].default_value = 0.35
+        L(sc.outputs["Vector"], edge.inputs["Vector"])
+        line = ramp(edge.outputs["Distance"], 0.0, 0.09, invert=True)  # 1 on a scale's outline
+        bright = N("ShaderNodeMath")
+        bright.operation = "MULTIPLY_ADD"
+        L(shade.outputs["Result"], bright.inputs[0])
+        bright.inputs[1].default_value = 0.45
+        bright.inputs[2].default_value = 0.6
+        dark = N("ShaderNodeMath")
+        dark.operation = "MULTIPLY_ADD"
+        L(line.outputs["Result"], dark.inputs[0])
+        dark.inputs[1].default_value = -0.45
+        dark.inputs[2].default_value = 1.0
+        shading = N("ShaderNodeMath")
+        shading.operation = "MULTIPLY"
+        L(bright.outputs["Value"], shading.inputs[0])
+        L(dark.outputs["Value"], shading.inputs[1])
+        one = N("ShaderNodeValue")
+        one.outputs[0].default_value = 1.0
+        mask = one.outputs[0]
+        scale_shading = shading.outputs["Value"]
+        # each scale's own random draw, so where the pattern fades (a graft's seam) whole scales thin out one by
+        # one instead of the colour cross-fading into a muddy band (the first mermaid's waist)
+        crand = N("ShaderNodeSeparateColor")
+        L(vor.outputs["Color"], crand.inputs["Color"])
+        scale_rand = crand.outputs["Red"]
+    else:
+        nz = N("ShaderNodeTexNoise")
+        nz.noise_dimensions = "3D"
+        nz.inputs["Scale"].default_value = 1.0 / size
+        nz.inputs["Detail"].default_value = 3.0 if kind == "blotches" else 4.0
+        nz.inputs["Roughness"].default_value = 0.55
+        L(p, nz.inputs["Vector"])
+        lo, hi = (0.50, 0.58) if kind == "blotches" else (0.36, 0.64)
+        mask = ramp(nz.outputs["Fac"], lo, hi).outputs["Result"]
+    where = N("ShaderNodeAttribute")
+    where.attribute_type = "GEOMETRY"
+    where.attribute_name = PATTERN
+    amt = N("ShaderNodeMath")
+    amt.operation = "MULTIPLY"
+    L(mask, amt.inputs[0])
+    if kind == "scales" and pat.get("frame"):
+        L(scale_fac, amt.inputs[1])                   # each scale's own colour share, constant over the scale
+    elif kind == "scales":
+        # a scale is there or not: on where the pattern's weight passes the scale's draw (a soft step of 0.08)
+        # the draw squeezed into 0.08..0.92, so no scale shows where the weight is 0 and none is missing at 1
+        # (a draw over the whole 0..1 put a scale in one cell in 25 across the skin, and a hole in the tail)
+        rq = N("ShaderNodeMath")
+        rq.operation = "MULTIPLY_ADD"
+        L(scale_rand, rq.inputs[0])
+        rq.inputs[1].default_value = 0.84
+        rq.inputs[2].default_value = 0.08
+        d = N("ShaderNodeMath")
+        d.operation = "SUBTRACT"
+        L(where.outputs["Fac"], d.inputs[0])
+        L(rq.outputs["Value"], d.inputs[1])
+        st = N("ShaderNodeMath")
+        st.operation = "MULTIPLY_ADD"
+        st.use_clamp = True
+        L(d.outputs["Value"], st.inputs[0])
+        st.inputs[1].default_value = 12.0
+        st.inputs[2].default_value = 0.5
+        L(st.outputs["Value"], amt.inputs[1])
+    else:
+        L(where.outputs["Fac"], amt.inputs[1])
+    fac = N("ShaderNodeMath")
+    fac.operation = "MULTIPLY"
+    fac.use_clamp = True
+    L(amt.outputs["Value"], fac.inputs[0])
+    fac.inputs[1].default_value = pat["amount"]
+    ratio = np.asarray(look.srgb_to_linear(pat["colour"])[:3]) / np.maximum(np.asarray(lin, np.float64), 1e-4)
+    mix = N("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    mix.blend_type = "MULTIPLY"
+    L(fac.outputs["Value"], mix.inputs["Factor"])
+    L(col, mix.inputs[6])
+    mix.inputs[7].default_value = (*[float(v) for v in ratio], 1.0)
+    if kind != "scales":
+        return mix.outputs[2]
+    # the scales' own shading, where the pattern is: colour x (1 - fac (1 - shading))
+    inv = N("ShaderNodeMath")
+    inv.operation = "SUBTRACT"
+    inv.inputs[0].default_value = 1.0
+    L(scale_shading, inv.inputs[1])
+    k = N("ShaderNodeMath")
+    k.operation = "MULTIPLY"
+    L(inv.outputs["Value"], k.inputs[0])
+    if pat.get("frame"):
+        # rows: a small scale near the skin is part skin-coloured but fully shaped - its relief is its own
+        on = N("ShaderNodeMath")
+        on.operation = "MULTIPLY"
+        L(mask, on.inputs[0])
+        on.inputs[1].default_value = pat["amount"]
+        L(on.outputs["Value"], k.inputs[1])
+    else:
+        L(fac.outputs["Value"], k.inputs[1])
+    g = N("ShaderNodeMath")
+    g.operation = "SUBTRACT"
+    g.inputs[0].default_value = 1.0
+    L(k.outputs["Value"], g.inputs[1])
+    mul = N("ShaderNodeMix")
+    mul.data_type = "RGBA"
+    mul.blend_type = "MULTIPLY"
+    mul.inputs["Factor"].default_value = 1.0
+    L(mix.outputs[2], mul.inputs[6])
+    gc = N("ShaderNodeCombineColor")
+    for ch in ("Red", "Green", "Blue"):
+        L(g.outputs["Value"], gc.inputs[ch])
+    L(gc.outputs["Color"], mul.inputs[7])
+    return mul.outputs[2]
 
 
 def _lookdev():
@@ -559,15 +1305,24 @@ def bake(ob, mat, size=1024, out_dir=None):
     held = mat["humanform_skin"].to_dict()
     target = np.array([float(v) for v in held["tone_srgb"]], np.float64)
     seed = int(held.get("seed", seed_of(mat.name)))
+    sp = _species_of(held)
 
     def flat():
         # the bake failed: back to the flat material the exporter reads (never a procedural one it cannot)
-        material(mat.name, target, seed=seed)
+        material(mat.name, target, seed=seed, species_skin=sp)
         mat["humanform_skin"] = dict(held, stage="flat")
 
     if TINT not in ob.data.attributes:
         unmarked(ob)
-    material(mat.name, target, seed=seed, procedural=True)
+    if sp is not None and "pattern" in sp and PATTERN not in ob.data.attributes:
+        # an unmarked mesh: the pattern everywhere
+        ob.data.attributes.new(PATTERN, "FLOAT", "POINT").data.foreach_set(
+            "value", np.ones(len(ob.data.vertices), np.float32))
+    if sp is not None and sp.get("pattern"):
+        frame = scale_frame(ob, sp["pattern"])        # scales on a graft: rows round its axis (SCALE_ROWS)
+        if frame is not None:
+            sp = dict(sp, pattern=dict(sp["pattern"], frame=frame))
+    material(mat.name, target, seed=seed, procedural=True, species_skin=sp)
     mat["humanform_skin"] = dict(held, stage="procedural")
     means = {}
 
@@ -592,6 +1347,17 @@ def bake(ob, mat, size=1024, out_dir=None):
             srgb = px.reshape(-1, 4)[:, :3].astype(np.float64)
             lin = _linear(srgb)
             cov = self.coverage
+            if graft_rect is not None:
+                # a graft's surface (a tail) has its own colour: the tone the brief gives is the skin's, so the
+                # mean is held over the rest of the atlas
+                side = int(round(np.sqrt(len(cov))))
+                yy, xx = np.divmod(np.arange(len(cov)), side)
+                u, v = (xx + 0.5) / side, (yy + 0.5) / side
+                u0, v0, u1, v1 = graft_rect
+                inside = (u >= u0) & (u <= u1) & (v >= v0) & (v <= v1)
+                if (cov & ~inside).any():
+                    cov = cov & ~inside
+                means["graft_texels"] = int((self.coverage & inside).sum())
             means["baked_raw"] = [round(float(v), 4) for v in srgb[cov].mean(axis=0)]
             gain = np.ones(3)
             lin_t = _linear(target)
@@ -610,14 +1376,22 @@ def bake(ob, mat, size=1024, out_dir=None):
                 texel = xy[:, 1] * side + xy[:, 0]
                 means["regions"] = {k: [round(float(v), 3) for v in out[texel[loop_region == i + 1], :3].mean(axis=0)]
                                     for i, k in enumerate(REGIONS) if (loop_region == i + 1).any()}
-                plain = out[texel[loop_region == 0], :3].astype(np.float64).mean(axis=0)
+                ref = loop_region == 0
+                if loop_plain is not None and (ref & loop_plain).sum() >= 0.05 * ref.sum():
+                    ref = ref & loop_plain          # plain skin the pattern cannot reach, if there is enough of it
+                plain = out[texel[ref], :3].astype(np.float64).mean(axis=0)
                 means["regions"]["skin"] = [round(float(v), 3) for v in plain]
                 means["contrast"] = contrast({k: out[texel[loop_region == i + 1], :3].astype(np.float64).mean(axis=0)
-                                              for i, k in enumerate(REGIONS) if (loop_region == i + 1).any()}, plain)
+                                              for i, k in enumerate(REGIONS) if (loop_region == i + 1).any()}, plain,
+                                             hue=sp is not None)
             return out.ravel()
 
+    graft_rect = None
+    if ob.get("hf_graft"):
+        import json as _json
+        graft_rect = (_json.loads(ob["hf_graft"]).get("uv_rect") or None)
     me = ob.data
-    loop_uv = loop_region = None
+    loop_uv = loop_region = loop_plain = None
     if REGION in me.attributes and me.uv_layers.active is not None:
         loop_uv = np.empty(len(me.loops) * 2, np.float32)
         me.uv_layers.active.data.foreach_get("uv", loop_uv)
@@ -627,6 +1401,11 @@ def bake(ob, mat, size=1024, out_dir=None):
         vr = np.empty(len(me.vertices), np.int32)
         me.attributes[REGION].data.foreach_get("value", vr)
         loop_region = vr[lv]
+        if sp is not None and "pattern" in sp and PATTERN in me.attributes:
+            # a pattern darkens plain skin's mean, and a region it does not reach (a face) would be judged against it
+            pv = np.empty(len(me.vertices), np.float32)
+            me.attributes[PATTERN].data.foreach_get("value", pv)
+            loop_plain = pv[lv] < 0.1
     out_dir = out_dir or tempfile.mkdtemp(prefix="hf_skin_")
     try:
         res = ld.bake_material(ob, mat, out_dir, size=size, maps=("base_color", "roughness", "normal"),
@@ -650,8 +1429,13 @@ def bake(ob, mat, size=1024, out_dir=None):
     err = float(np.abs(np.asarray(means.get("baked", [9, 9, 9])) - target).max())
     extra = {}
     if "contrast" in means:
-        extra["contrast_fail"] = contrast_fails(means["contrast"])
+        extra["contrast_fail"] = contrast_fails(means["contrast"], species=sp)
         extra["contrast_ok"] = not extra["contrast_fail"]
+    if graft_rect is not None and sp is not None and sp.get("pattern"):
+        img = bpy.data.images.get((res.get("images") or {}).get("base_color", ""))
+        seam = seam_tone(ob, img)
+        if seam is not None:
+            extra["seam"] = seam
     return {"size": size, "maps": res["maps"], "images": res["images"], "timings_s": res["timings_s"],
             "tone_target": [round(float(v), 4) for v in target], **means,
             "tone_error": round(err, 4), "tone_ok": err <= TONE_TOLERANCE, **extra, "detail_uv": DETAIL_UV}
@@ -666,9 +1450,15 @@ def _lab(srgb):
     return np.array([116.0 * f[1] - 16.0, 500.0 * (f[0] - f[1]), 200.0 * (f[1] - f[2])])
 
 
-def contrast(tones, plain):
+def _hue(lab):
+    return float(np.degrees(np.arctan2(lab[2], lab[1]))), float(np.hypot(lab[1], lab[2]))
+
+
+def contrast(tones, plain, hue=False):
     """Each region's baked tone against plain skin's (both sRGB): `dE` (CIELAB 1976), `dL` (lightness) and `rg`,
-    the region's red/green ratio over skin's (above 1 is redder). The free values; `contrast_fails` judges them."""
+    the region's red/green ratio over skin's (above 1 is redder). `hue` (a species skin) adds `dh`, the CIELAB
+    hue angle from plain skin's in degrees, and `C`, the region's chroma. The free values; `contrast_fails`
+    judges them."""
     plain = np.asarray(plain, np.float64)
     lp = _lab(plain)
     out = {}
@@ -677,26 +1467,54 @@ def contrast(tones, plain):
         lv = _lab(v)
         out[k] = {"dE": round(float(np.linalg.norm(lv - lp)), 2), "dL": round(float(lv[0] - lp[0]), 2),
                   "rg": round(float((v[0] / max(v[1], 1e-6)) / max(plain[0] / max(plain[1], 1e-6), 1e-6)), 3)}
+        if hue:
+            (h, c), (hp, cp) = _hue(lv), _hue(lp)
+            out[k]["dh"] = round(float((h - hp + 180.0) % 360.0 - 180.0), 1)
+            out[k]["C"] = round(c, 2)
+    if hue:
+        out["skin"] = {"C": round(_hue(lp)[1], 2), "h": round(_hue(lp)[0], 1)}
     return out
 
 
-def contrast_fails(c):
+def contrast_fails(c, species=None):
     """What in a `contrast` report is under CONTRAST_FLOOR: ["knee: dE 2.96 < 5.0", "palm: redder than skin
     (rg 1.04)", ...]. A floored region the body has no texels of fails too ("knee: no texels"): a mask that lost a
-    region must not pass by being absent. (Only a body with region marks gets a `contrast` report at all.)"""
+    region must not pass by being absent. (Only a body with region marks gets a `contrast` report at all.)
+
+    With `species` (a checked species_skin) a "red" floor is "deep": the same dE, darker by DEEP_DL_MIN, and a hue
+    within DEEP_HUE_MAX of plain skin's where both have chroma (so no human-red lip on a green body); the
+    species' `regions_off` are not judged."""
     fails = []
+    off = set(species["regions_off"]) if species else set()
     for k, (way, floor) in CONTRAST_FLOOR.items():
+        if k in off:
+            continue
+        if species and way == "red":
+            way = "deep"
         if k not in c:
             fails.append(f"{k}: no texels")
             continue
         r = c[k]
         if r["dE"] < floor:
             fails.append(f"{k}: dE {r['dE']} < {floor}")
+        if way == "deep":
+            if r["dL"] > -DEEP_DL_MIN:
+                fails.append(f"{k}: not darker than skin (dL {r['dL']} > -{DEEP_DL_MIN})")
+            cs = (c.get("skin") or {}).get("C", 0.0)
+            if "dh" in r and min(cs, r.get("C", 0.0)) >= DEEP_CHROMA_MIN and abs(r["dh"]) > DEEP_HUE_MAX:
+                fails.append(f"{k}: off the tone's hue (dh {r['dh']} deg, over {DEEP_HUE_MAX})")
+            cap = DEEP_CHROMA_MAX.get(k)
+            if cap and "C" in r and cs >= DEEP_CHROMA_MIN and r["C"] > cap * cs:
+                fails.append(f"{k}: too saturated for the tone (chroma {r['C']} over {cap} x skin's {cs})")
         if way == "red" and r["rg"] < RED_MIN:
             fails.append(f"{k}: not redder than skin (rg {r['rg']} < {RED_MIN})")
         if way == "pale" and r["dL"] < PALE_DL_MIN:
             fails.append(f"{k}: not paler than skin (dL {r['dL']} < {PALE_DL_MIN})")
-        if way == "pale" and r["rg"] > PALE_RG_MAX:
+        if way == "pale" and species:
+            cs = (c.get("skin") or {}).get("C", 0.0)
+            if "dh" in r and min(cs, r.get("C", 0.0)) >= DEEP_CHROMA_MIN and abs(r["dh"]) > DEEP_HUE_MAX:
+                fails.append(f"{k}: off the tone's hue (dh {r['dh']} deg, over {DEEP_HUE_MAX})")
+        elif way == "pale" and r["rg"] > PALE_RG_MAX:
             fails.append(f"{k}: redder than skin (rg {r['rg']} > {PALE_RG_MAX})")
     return fails
 

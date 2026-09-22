@@ -1,9 +1,9 @@
 {
  "fixture": "dressed_skirts",
  "plugins": {
-  "follow-through": "0.10.0",
-  "rig-anything": "0.26.0",
-  "wardrobe": "0.5.2"
+  "follow-through": "0.12.0",
+  "rig-anything": "0.43.0",
+  "wardrobe": "0.9.0"
  },
  "report": {
   "body": {
@@ -20,18 +20,18 @@
     "cover": {
      "body": "Figure",
      "body_verts": 17112,
-     "covered": 3766,
-     "disagree": 3,
-     "edge": 632,
+     "covered": 3786,
+     "disagree": 17,
+     "edge": 864,
      "floor_z": 0.89134,
      "garment": "Dress",
-     "hidden": 3134,
-     "hidden_gap_max_m": 0.0285,
-     "hidden_gap_median_m": 0.0088,
+     "hidden": 2922,
+     "hidden_gap_max_m": 0.0667,
+     "hidden_gap_median_m": 0.0235,
      "margin": 0.05,
      "max_front": 0.5,
      "max_gap": 0.1,
-     "tris_hidden": 6035,
+     "tris_hidden": 5541,
      "tris_total": 34220
     },
     "cut": {
@@ -78,17 +78,17 @@
      "wide_z": 0.91029
     },
     "export": {
-     "edge": 632,
+     "edge": 864,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0sc1s9x8\\a\\dressed_skirts\\dressed_skirts\\dress.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\dressed_skirts\\dressed_skirts\\dress.glb",
      "garment": "Dress",
      "hem_bones": 24,
      "hem_head_error_m": 1e-06,
-     "hidden": 3134,
+     "hidden": 2922,
      "joints": 110,
      "passed": true,
      "problems": [],
-     "size_bytes": 374872,
+     "size_bytes": 376420,
      "weight_sum_min": 1.0
     },
     "exported": true,
@@ -188,8 +188,8 @@
        }
       ],
       "frequency_hz": 1.78,
-      "gap_min_m": 0.0301,
-      "hinge_m": 0.406,
+      "gap_min_m": 0.0292,
+      "hinge_m": 0.405,
       "parents": [
        "spine"
       ],
@@ -201,9 +201,9 @@
     "preset": "dress_sleeveless",
     "problems": [],
     "shares": {
-     "hem_bones": 0.186482,
-     "pelvis": 0.023443,
-     "thighs": 0.021276
+     "hem_bones": 0.186639,
+     "pelvis": 0.023283,
+     "thighs": 0.021295
     },
     "soft": false,
     "vertices": 4733
@@ -265,7 +265,7 @@
     "export": {
      "edge": 108,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0sc1s9x8\\a\\dressed_skirts\\dressed_skirts\\skirtknee.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\dressed_skirts\\dressed_skirts\\skirtknee.glb",
      "garment": "SkirtKnee",
      "hem_bones": 24,
      "hem_head_error_m": 1e-06,
@@ -450,7 +450,7 @@
     "export": {
      "edge": 66,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0sc1s9x8\\a\\dressed_skirts\\dressed_skirts\\skirtmini.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\dressed_skirts\\dressed_skirts\\skirtmini.glb",
      "garment": "SkirtMini",
      "hem_bones": 24,
      "hem_head_error_m": 1e-06,
@@ -652,7 +652,7 @@
     "export": {
      "edge": 381,
      "exported": true,
-     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0sc1s9x8\\a\\dressed_skirts\\dressed_skirts\\skirtsoft.glb",
+     "file": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\dressed_skirts\\dressed_skirts\\skirtsoft.glb",
      "garment": "SkirtSoft",
      "hem_bones": 0,
      "hem_head_error_m": 0.0,
@@ -660,7 +660,7 @@
      "joints": 110,
      "passed": true,
      "problems": [],
-     "size_bytes": 113752,
+     "size_bytes": 113764,
      "weight_sum_min": 1.0
     },
     "exported": true,

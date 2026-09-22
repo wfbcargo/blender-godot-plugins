@@ -23,7 +23,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 DATA = os.path.join(ROOT, "data")
 
 # dependency order
-MODULES = ("body", "slicing", "sheet", "landmarks", "skeleton", "measure", "views", "scaffold", "library", "parts", "look", "eyes", "brows", "hair", "pipeline",
+MODULES = ("body", "slicing", "sheet", "landmarks", "skeleton", "measure", "views", "scaffold", "library", "parts", "look", "eyes", "brows", "hair",
+           "features", "eye_layout", "species_design", "species", "pipeline",
            "sdf", "delta", "muscle", "skin", "genitals")
 
 
@@ -42,6 +43,22 @@ def reload_all():
     return done
 
 
-def presets():
+def presets_file():
+    """data/presets.json as it is: the human presets (realistic, stylized) and the feature ranges."""
     with open(os.path.join(DATA, "presets.json"), encoding="utf-8") as fh:
         return json.load(fh)
+
+
+def presets():
+    """presets_file(), with every species (data/species/<id>.json) added under its id as a preset in the same
+    format, so humancheck and the contact sheet take `preset="dwarf"` as they take `"realistic"`. The human
+    presets are exactly the file's."""
+    doc = presets_file()
+    try:
+        from . import species
+        for sid in species.ids():
+            if sid != species.HUMAN and sid not in doc["presets"]:
+                doc["presets"][sid] = species.preset(sid, doc)
+    except ImportError:
+        pass
+    return doc

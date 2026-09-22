@@ -1,12 +1,12 @@
 {
  "fixture": "pipeline_genitals",
  "plugins": {
-  "character-pipeline": "0.19.0",
-  "follow-through": "0.11.0",
-  "humanform": "0.19.0",
-  "lookdev": "0.12.0",
-  "rig-anything": "0.42.0",
-  "wardrobe": "0.8.0"
+  "character-pipeline": "0.20.0",
+  "follow-through": "0.12.0",
+  "humanform": "0.20.0",
+  "lookdev": "0.12.1",
+  "rig-anything": "0.43.0",
+  "wardrobe": "0.9.0"
  },
  "report": {
   "hashing": {
@@ -15,28 +15,29 @@
     "object",
     "parts",
     "skin",
-    "source"
+    "source",
+    "species"
    ],
    "explicit_false_same_digest": true,
    "on_differs": true
   },
   "man": {
    "bake": {
-    "cut_faces": 12,
-    "cut_vertices": 5,
-    "flap_faces_trimmed": 382,
+    "cut_faces": 8,
+    "cut_vertices": 3,
+    "flap_faces_trimmed": 424,
     "muscle_high": {
-     "faces_after": 13781,
+     "faces_after": 13705,
      "faces_before": 13560,
      "moved": 13380
     },
     "open_edges_after": 0,
     "open_edges_before": 34,
-    "rim": 16,
-    "seam_faces": 69,
-    "seam_quads": 27,
+    "rim": 12,
+    "seam_faces": 31,
+    "seam_quads": 13,
     "shell_faces": 728,
-    "shell_loop": 80
+    "shell_loop": 32
    },
    "body": {
     "sex": "male",
@@ -46,8 +47,8 @@
     }
    },
    "chain_shares": {
-    "pelvis": 0.993,
-    "thigh": 0.007
+    "pelvis": 0.999,
+    "thigh": 0.001
    },
    "clearance": {
     "max_mm": 1.7,
@@ -59,16 +60,16 @@
     "Idle": {
      "crotch_frame": null,
      "crotch_mm": 0.0,
-     "part_frame": 6,
-     "part_mm": 2.9,
+     "part_frame": 21,
+     "part_mm": 1.7,
      "thigh_frame": null,
      "thigh_mm": 0.0
     },
     "Walk": {
      "crotch_frame": null,
      "crotch_mm": 0.0,
-     "part_frame": 9,
-     "part_mm": 8.7,
+     "part_frame": 15,
+     "part_mm": 8.5,
      "thigh_frame": null,
      "thigh_mm": 0.0
     }
@@ -78,8 +79,8 @@
     "genital": {
      "bone_parent": "spine",
      "material": "firm_flesh",
-     "max_offset_m": 0.0256,
-     "peak_m": 0.0852,
+     "max_offset_m": 0.0268,
+     "peak_m": 0.0893,
      "type": "genital"
     }
    },
@@ -115,7 +116,7 @@
     "skins": 1
    },
    "muscle_high": {
-    "faces_after": 13781,
+    "faces_after": 13705,
     "faces_before": 13560,
     "moved": 13380
    },
@@ -127,12 +128,12 @@
    "rest_not_pinched": "True",
    "rest_shape": [
     0.79,
-    0.9
+    0.91
    ],
    "shares": {
-    "spine": 0.938,
-    "thigh.L": 0.031,
-    "thigh.R": 0.031
+    "spine": 0.967,
+    "thigh.L": 0.016,
+    "thigh.R": 0.017
    },
    "stages": {
     "bake": "ran",
@@ -143,9 +144,9 @@
     "muscle": "ran"
    },
    "surface": {
-    "largest": 13762,
-    "open_edges": 128,
-    "pieces": 3
+    "largest": 13698,
+    "open_edges": 300,
+    "pieces": 7
    },
    "thigh_clearance": {
     "FixStudyMan_Idle": {
@@ -160,18 +161,18 @@
       20
      ],
      "key_max_deg": 0.0,
-     "key_max_mm": 24.0
+     "key_max_mm": 16.9
     },
     "FixStudyMan_Walk": {
      "after": [
-      2,
-      1.8,
+      1,
+      1.7,
       9
      ],
      "before": [
       83,
-      11.5,
-      7
+      19.9,
+      15
      ],
      "key_max_deg": 32.0,
      "key_max_mm": 50.0
@@ -229,12 +230,12 @@
       "weight": 1.0
      },
      "labia": {
-      "max_mm": 4.62,
+      "max_mm": 4.63,
       "vertices": 85,
       "weight": 1.0
      },
      "mons": {
-      "max_mm": 6.09,
+      "max_mm": 6.13,
       "vertices": 155,
       "weight": 1.0
      }
@@ -243,16 +244,16 @@
     "landmarks": {
      "crotch": [
       0.0,
-      -0.0851,
-      0.7968
+      -0.0846,
+      0.7965
      ],
      "mons": [
       0.0,
-      -0.1511,
-      0.8729
+      -0.1498,
+      0.8726
      ]
     },
-    "max_mm": 7.01,
+    "max_mm": 7.02,
     "sex": "female",
     "strength": 1.0
    },
@@ -262,8 +263,8 @@
    },
    "surface": {
     "largest": 13380,
-    "open_edges": 128,
-    "pieces": 3
+    "open_edges": 300,
+    "pieces": 7
    }
   }
  }

@@ -209,11 +209,18 @@ def run_body(ch, ctx):
     _clear_for(ch)
     from humanform import pipeline, sheet
     parts = ch.body.parts
+    species = ch.body.brief.get("species") not in (None, "human")
+    anatomy = _species_anatomy(ch)
     res = pipeline.make(sheet.new(**ch.body.brief), use_library=True, face_part=parts.get("face"),
                         hand_part=parts.get("hands"), foot_part=parts.get("feet"),
-                        **quality_mod.settings(ctx["quality"], "body"))
+                        **quality_mod.settings(ctx["quality"], "body"), **({"anatomy": anatomy} if species else {}))
     out = {k: res.get(k) for k in ("ansur", "check", "notes", "macros")}
-    if ch.body.genitals:
+    before = ((res.get("species") or {}).get("before_warp") or {})
+    if species:
+        out["species"] = {k: (res.get("species") or {}).get(k) for k in ("species", "stature", "heads", "anatomy")}
+    if "genitals" in before:
+        out["genitals"] = before["genitals"]
+    elif ch.body.genitals:
         from humanform import genitals
         sex = ch.body.brief.get("sex")
         out["genitals"] = genitals.add(_obj(ch.name), sex, shape=ch.body.genital_shape or None,
@@ -224,7 +231,48 @@ def run_body(ch, ctx):
     likeness = (res.get("fit") or {}).get("likeness")
     if likeness:                                    # a [body.face]: each measure as fitted against its target
         out["likeness"] = likeness
+    sp = res.get("species")
+    if sp:
+        out["species"] = species_summary(sp, res.get("prewarp"))
+        bad = [r for r in (sp.get("anatomy") or {}).get("parts", []) if r.get("status") == "fail"]
+        if bad:
+            # the design's rule: a part missing and not declared absent fails the build (08, "An inventory check")
+            raise RuntimeError("anatomy inventory: " + "; ".join(f"{r['part']}: {r.get('reason')}" for r in bad)
+                               + " - fix the body, or declare the part absent in [body.species] anatomy with the "
+                               "reason the description gives")
     return out
+
+
+def species_summary(sp, prewarp=None):
+    """The species half of a body stage's report, small enough for the file: the pre-warp human, the warp's
+    notes, the head features and every anatomy row that is not a plain pass."""
+    an = sp.get("anatomy") or {}
+    feats = sp.get("features") or {}
+    return {"id": sp.get("species"), "stature": sp.get("stature"), "stature_pre": sp.get("stature_pre"),
+            "clamp_scale": sp.get("clamp_scale"), "notes": sp.get("notes"),
+            "prewarp_check": (prewarp or {}).get("check"),
+            "check_findings": sp.get("check_findings"),
+            "features": dict({k: feats[k] for k in ("unknown", "skipped", "error", "eyes_moved_mm", "intersections")
+                              if k in feats}, applied={n: f.get("weight") for n, f in
+                                                       (feats.get("features") or {}).items()}),
+            **{k: sp[k] for k in ("eye_layout", "graft") if k in sp},
+            "anatomy": {"counts": an.get("counts"),
+                        "rows": [r for r in an.get("parts", []) if r.get("status") != "pass"]}}
+
+
+def _species_anatomy(ch):
+    """For a species body, what humanform puts on its pre-warp human so the warp carries it with the part it sits
+    on (humanform.pipeline._before_warp): the genitals and the muscle definition. None for a human."""
+    if ch.body.source != "brief" or ch.body.brief.get("species") in (None, "human"):
+        return None
+    anatomy = {}
+    if ch.body.genitals:
+        anatomy["genitals"] = {"shape": ch.body.genital_shape or None, "strength": ch.body.genital_strength}
+    if ch.muscle is not None:
+        anatomy["muscle"] = {"geometry": ch.muscle.output == "geometry", "strength": ch.muscle.strength,
+                             "weights_override": {g: 0.0 for g in spec_mod.MUSCLE_GROUPS
+                                                  if g not in ch.muscle.groups} or None}
+    return anatomy
 
 
 def _stature(res):
@@ -266,9 +314,23 @@ def check_muscle(ch):
             return ("muscle needs the unbaked body: %s is already baked - rebuild from body (definition is shape "
                     "keys on the humanform body, which bake bakes)" % ch.mesh)
         return "muscle needs body: no %s with its %s in the file - run body first" % (ch.name, ch.rig)
-    if muscled(ch):
+    if muscled(ch) and not _muscle_before_warp(ch):
         return "muscle is already on %s - rebuild from body to change [muscle]" % ch.name
     return None
+
+
+def _muscle_before_warp(ch):
+    """The define report when humanform put this species body's muscle on before its warp (the body stage), or
+    None."""
+    import json
+    human = _obj(ch.name)
+    if human is None or "muscle" not in json.loads(human.get("hf_before_warp") or "[]"):
+        return None
+    now = json.loads(json.dumps(_species_anatomy(ch) or {}, sort_keys=True, default=str))
+    made = json.loads(human.get("hf_before_warp_spec") or "{}")
+    if now.get("muscle") != made.get("muscle"):
+        return None                                 # made to another [muscle]: the body must be rebuilt
+    return json.loads(human.get("hf_muscle_report") or "{}")
 
 
 def run_muscle(ch, ctx):
@@ -281,7 +343,10 @@ def run_muscle(ch, ctx):
     brief = sheet.new(**ch.body.brief)
     off = {g: 0.0 for g in spec_mod.MUSCLE_GROUPS if g not in ch.muscle.groups}
     geometry = ch.muscle.output == "geometry"
-    rep = muscle.define(human, brief, geometry=geometry, strength=ch.muscle.strength, weights_override=off or None)
+    rep = _muscle_before_warp(ch)
+    if rep is None:
+        rep = muscle.define(human, brief, geometry=geometry, strength=ch.muscle.strength,
+                            weights_override=off or None)
     out = {"output": ch.muscle.output, "strength": ch.muscle.strength, "groups": list(ch.muscle.groups),
            "weights": rep["weights"], "body_fat_pct": rep["body_fat_pct"], "muscle_term": rep["muscle_term"],
            "definition_total": rep["definition_total"], "fitted_muscle": rep["fitted_muscle"],
@@ -391,21 +456,46 @@ def run_bake(ch, ctx):
             # matched normal bake below falls back to rays for the whole body
             fused["muscle_high"] = genitals.refit_high(ob, high, pre)
     skin = ch.body.brief.get("skin") if ch.body.source == "brief" else ch.body.skin
+    species_skin = None
+    sp_ref = ch.body.brief.get("species") if ch.body.source == "brief" else None
+    if sp_ref not in (None, "human"):
+        # a species body: its preset's (or inline table's) skin block, and a tone drawn from its palette when
+        # the spec gives none - the same draw humanform.species.pre_warp made. A human passes None: the
+        # skin takes exactly the path it always did
+        from humanform import species as hf_species
+        sp = hf_species.load(sp_ref)
+        species_skin = hf_species.skin_block(sp)
+        if skin is None:
+            skin = hf_species.draw_skin(sp, ch.body.brief)
     if skin is not None:
         # the maps' size is the build quality's (2048 px final, 1024 preview and draft): humanform's own
         # default is 1024, which every final build shipped until this was passed (06 rank 12)
-        look.skin(ob, skin, name=f"{ch.name}_skin", size=quality_mod.settings(ctx["quality"], "skin")["size"])
-    eyes = _obj(ch.eyes)
-    if eyes is not None:
-        with bpy.context.temp_override(active_object=ob, selected_editable_objects=[ob, eyes], object=ob,
-                                       selected_objects=[ob, eyes]):
+        look.skin(ob, skin, name=f"{ch.name}_skin", size=quality_mod.settings(ctx["quality"], "skin")["size"],
+                  species_skin=species_skin)
+    # the eyes, and a species head's parts and teeth (humanform.features: `<name>_headparts`, `<name>_teeth`,
+    # skinned to their bones) keep their own materials; `_separate_joined` takes them off again as the eyes
+    # object on a rebake
+    parts = [o for o in (_obj(ch.eyes), _obj(ch.name + "_headparts"), _obj(ch.name + "_teeth")) if o is not None]
+    if parts:
+        with bpy.context.temp_override(active_object=ob, selected_editable_objects=[ob] + parts, object=ob,
+                                       selected_objects=[ob] + parts):
             bpy.ops.object.join()
     unweighted = sum(1 for v in ob.data.vertices if not any(g.weight > 1e-4 for g in v.groups))
     out = {"verts": len(ob.data.vertices), "groups": len(ob.vertex_groups), "unweighted": unweighted,
            "materials": [m.name for m in ob.data.materials if m], "baked": b}
+    # a closed mouth shows no teeth (humanform.features.closed_mouth: rays at the lips from the front, 3/4 and near
+    # profile; a pale line at the lip crack was on every build before the mouth had its seal)
+    from humanform import features as hf_features
+    mouth = hf_features.closed_mouth(ob)
+    if mouth is not None:
+        out["closed_mouth"] = {k: mouth[k] for k in ("teeth", "tongue", "seal", "rays") if k in mouth}
+        if mouth.get("fail"):
+            raise RuntimeError(f"bake: {mouth['fail']}")
     sk = skin_manifest(ch)
     if sk is not None:
         out["skin"] = sk
+        if (sk.get("seam") or {}).get("fail"):
+            raise RuntimeError(f"bake: {sk['seam']['fail']}")
     if fused is not None:
         out["genitals"] = fused
     if ch.muscle is not None:
@@ -682,7 +772,36 @@ def run_flesh(ch, ctx):
     return out
 
 
+def run_swim(ch, ctx):
+    """The moves stage for a swimmer that stands at rest (`[moves] locomotion = "swim"`): rig-anything's
+    swim.upright_set - Idle treading water upright, the rest swimming prone - checked on playback like every
+    clip, with none of a walker's Froude or reach checks, which do not apply."""
+    from rig_analysis import swim
+    for a in list(bpy.data.actions):
+        if a.name.startswith(ch.name + "_"):
+            bpy.data.actions.remove(a)
+    res = swim.upright_set(ch.rig, prefix=ch.name, roles=tuple(ch.moves.roles))
+    out = {}
+    for role in ch.moves.roles:
+        r = res[role]
+        if "error" in r:
+            raise RuntimeError(f"moves {role}: {r['error']}")
+        out[role] = {"action": r["action"], "passed": r.get("passed"), "failures": r.get("failures", [])[:4],
+                     **{k: r[k] for k in ("mode", "tailbeat_hz", "speed_mps", "tail_pp_m", "lay", "period_s",
+                                          "standing_height_m") if r.get(k) is not None}}
+    out["locomotion"] = "swim"
+    failing = sorted(role for role in ch.moves.roles if out[role]["failures"] and role not in ch.moves.may_fail)
+    if failing:
+        why = "; ".join(f"{role}: {' | '.join(res[role].get('failures') or [])}" for role in failing)
+        raise RuntimeError(f"moves: clips failing their checks: {failing} - {why} (or list the role in "
+                           "moves.may_fail to export it forced)")
+    ctx["moves"] = res
+    return out
+
+
 def run_moves(ch, ctx):
+    if ch.moves.locomotion == "swim":
+        return run_swim(ch, ctx)
     from rig_analysis import actions, verify
     for a in list(bpy.data.actions):
         if a.name.startswith(ch.name + "_"):
@@ -699,8 +818,12 @@ def run_moves(ch, ctx):
         options[role] = dict(options.get(role, {}), **extra)
     # This character's own fixed left/right asymmetry, drawn from its identity. None or
     # `asymmetry = 0` (the default) is the identity and every clip is the one it always was.
+    # A species' build implies a style (rig-anything's morphology.derive_style: a long trunk's roll, a stocky
+    # body's ground time), laid under the spec's own, which wins key by key. Off for a human unless asked, and
+    # a human-proportioned body derives nothing anyway, so a human's clips are the ones it always had.
+    derive = ch.derive_moves
     res = actions.move_set(ch.rig, prefix=ch.name, roles=tuple(ch.moves.roles), options=options,
-                           variability=variability_block(ch))
+                           variability=variability_block(ch), derive=derive)
     if "error" in res:
         raise RuntimeError(f"moves: {res['error']}")
     out = {}
@@ -724,6 +847,21 @@ def run_moves(ch, ctx):
         c = verify.limb_clearance(ch.rig, res[role]["action"], mesh_name=ch.mesh, every=2)
         out[role]["limb_clearance"] = {k: c.get(k) for k in ("closest_m", "at_frame", "samples_inside", "error")
                                        if k in c}
+    # Warned, never refused (each with its fix), and printed before a failing clip refuses the stage: a walk
+    # outside Froude 0.18-0.35, hands that cannot reach the hips or the top of the head (a dwarf's short arms).
+    # Only in the report when there is something to say.
+    from rig_analysis import bodymap, morphology
+    bm = bodymap.build(ch.rig, forward="-Y")
+    warnings = morphology.checks(res, morphology.measure(bm, with_mass=False)) if "error" not in bm else []
+    for w in warnings:
+        print(f"[{ch.id}] moves WARNING {w}")
+    if warnings:
+        out["warnings"] = warnings
+    if derive:
+        got = next((res[r]["morphology"] for r in ch.moves.roles if res[r].get("morphology")), None)
+        if got:
+            out["derived_style"] = got["derived"]
+            out["morphology"] = got["measured"]
     # every clip: how far the skin between the legs passes through itself (thigh into thigh, into the crotch)
     # and through a genital part - linear blend skinning collapses the crotch, and nothing else measured it
     limit = None
@@ -736,7 +874,7 @@ def run_moves(ch, ctx):
         if limit and (c.get("part_mm") or 0.0) > limit:
             print(f"[{ch.id}] moves: {role}: the genital part goes {c['part_mm']} mm into a thigh at frame "
                   f"{c.get('part_frame')}, over humanform.genitals.CLEAR_LIMIT_MM ({limit} mm)")
-    failing =sorted(role for role in ch.moves.roles if out[role]["failures"] and role not in ch.moves.may_fail)
+    failing = sorted(role for role in ch.moves.roles if out[role]["failures"] and role not in ch.moves.may_fail)
     if failing:
         # each failing clip with what failed and by how much, so the fix (a [moves.per_gait.<role>] option, or
         # may_fail) can be chosen from the message alone instead of by rebuilding to read the stored report
@@ -897,10 +1035,17 @@ def run_export(ch, ctx):
     var = variability_block(ch)
     if var is not None:
         extra["variability"] = var
-    e = ra_export.export_character(ch.mesh, ch.rig, glb, name=ch.name, creature=ch.id, reports=reports,
-                                   res_path=f"{ch.export.res_dir}/{ch.id}.glb", roles=list(ch.moves.roles),
-                                   loops=list(ch.moves.loops), gaits=list(ch.moves.export_gaits),
-                                   force=bool(ch.moves.may_fail), extra=extra, review=False)
+    if ch.moves.locomotion == "swim":
+        from rig_analysis import swim
+        e = swim.export_upright(ch.mesh, ch.rig, glb, reports=reports, roles=list(ch.moves.roles),
+                                loops=list(ch.moves.loops), name=ch.name, creature=ch.id,
+                                res_path=f"{ch.export.res_dir}/{ch.id}.glb", force=bool(ch.moves.may_fail),
+                                extra=extra)
+    else:
+        e = ra_export.export_character(ch.mesh, ch.rig, glb, name=ch.name, creature=ch.id, reports=reports,
+                                       res_path=f"{ch.export.res_dir}/{ch.id}.glb", roles=list(ch.moves.roles),
+                                       loops=list(ch.moves.loops), gaits=list(ch.moves.export_gaits),
+                                       force=bool(ch.moves.may_fail), extra=extra, review=False)
     if "error" in e:
         raise RuntimeError(f"export refused: {e['error']}")
     forced = sorted(set(e["manifest"].get("forced_clips") or [])
@@ -1003,6 +1148,11 @@ def skin_manifest(ch):
         out["contrast_ok"] = bool(rec.get("contrast_ok"))
         if rec.get("contrast_fail"):
             out["contrast_fail"] = [str(x) for x in rec["contrast_fail"]]
+    if rec.get("seam"):
+        # a graft's seam: the baked albedo's tone in bands across the fade (humanform skin.seam_tone)
+        seam = rec["seam"].to_dict() if hasattr(rec["seam"], "to_dict") else dict(rec["seam"])
+        out["seam"] = {"bands": [[float(a) if a is not None else None for a in b] for b in seam.get("bands", [])],
+                       **{k: seam[k] for k in ("scales", "skin", "fail") if k in seam}}
     if rec.get("roughness"):
         # the baked roughness over each region's texels, the T-zone's and plain skin's
         out["roughness"] = {str(k): round(float(v), 3) for k, v in dict(rec["roughness"]).items()}
@@ -1053,7 +1203,11 @@ def run_close(ch, ctx, meshes, aim_override=None):
     test's control only (a camera aimed from the wrong bone must fail)."""
     from rig_analysis import closeups
     q = quality_mod.settings(ctx["quality"], "close")
-    r = closeups.look_set(meshes, ch.rig, close_dir(ch), views=q["views"], action=close_pose(ch),
+    views = q["views"]
+    if ch.grafted:
+        # the body plan has no legs to shoot (a tail): those views are left out, not failed
+        views = ch.views_without(views if views is not None else closeups.VIEWS)
+    r = closeups.look_set(meshes, ch.rig, close_dir(ch), views=views, action=close_pose(ch),
                           under_bust=bool(q["under_bust"]) and wears_top(ch), title=ch.name,
                           aim_override=aim_override)
     if "error" in r:
@@ -1139,7 +1293,8 @@ ORDER = [s[0] for s in STAGES]
 # - is no longer in the spec and the body still carries it.
 CARRIED = {"hair": lambda ch: bool(haired(ch)), "muscle": muscled}
 RESTARTS_FROM_BODY = {"hair": CARRIED["hair"],
-                      "muscle": lambda ch: muscled(ch) or (_obj(ch.name) is None and baked(ch)),
+                      "muscle": lambda ch: (muscled(ch) and _muscle_before_warp(ch) is None)
+                      or (_obj(ch.name) is None and baked(ch)),
                       # a bake that has to run again on a body that already has hair joined: humanform's look.skin
                       # gives every face the skin material (the hair's and eyes' too), and hair must follow it anyway
                       # and cannot go on twice - so start from body rather than bake, re-skin, then restart at hair

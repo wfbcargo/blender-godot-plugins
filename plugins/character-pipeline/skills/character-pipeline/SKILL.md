@@ -61,6 +61,15 @@ measurements = { chestcircumference = 1.02, waistcircumference = 0.72, buttockci
 skin = [0.78, 0.58, 0.47]
 iris = [0.36, 0.45, 0.30]
 ancestry = { caucasian = 1.0 }     # optional: MPFB's african / asian / caucasian shares, normalised
+species = "human"                  # optional: humanform/data/species/<id>.json (refused if unknown when
+                                   #   that folder exists); in the brief when not human; a preset with a
+                                   #   skin.palette may leave skin out. Or inline, for a creature with
+                                   #   no preset: [body.species] heads = 5.0, trunk_to_leg = 0.85,
+                                   #   fingertips_at = "knee", skin = { tone = [...], pattern = {...} },
+                                   #   head = { shape = "square", features = { brow_ridge = 0.6 },
+                                   #   eyes = { count = 1, size = 1.5 } }, graft = { legs = { to = "tail" } },
+                                   #   anatomy = { absent = [{ part, reason }] } - designed in full at load
+                                   #   (humanform.species_design), so a design error refuses the spec
 # genitals = true                  # optional, default false: humanform.genitals, neutral figure-study anatomy -
                                    # a man keeps MPFB's shell (fused in bake), a woman a relief delta
 # genital_shape = { length = 0.5 } # men only: MPFB's penis-{length,circ,testicles} targets, 0..1 an adult's
@@ -83,6 +92,11 @@ roles = ["Idle", "Walk", "Trot", "Run", "Crouch", "CrouchWalk", "Jump"]
 loops = ["Idle", "Walk", "Trot", "Run", "CrouchWalk"]
 gaits = { Walk = 0.2, Trot = 1.0, Run = 2.0 }     # role -> Froude number
 style = "adult"                    # locomotion.GAIT_STYLES
+# locomotion = "swim"              # optional, default "walk": a body that stands at rest and swims (a
+                                   #   graft's tail) - rig-anything swim.upright_set; roles from Idle, Swim,
+                                   #   Sprint, Glide, TurnL, TurnR; no gaits (speeds come from its length)
+derive = true                      # optional: rig-anything's morphology.derive_style under `style` (style
+                                   #   wins key by key); default true only when body.species is not human
 stance_width = 1.15
 export_gaits = ["Walk", "Trot", "Run", "CrouchWalk"]
 clearance_check = ["Crouch", "CrouchWalk", "Jump"]
@@ -118,7 +132,9 @@ colour = [0.17, 0.10, 0.06]        # screen (sRGB)
 brows = true                       # optional, default false: humanform.brows' brow and lash cards and
 lashes = true                      #   light body hair, in the hair colour darkened, joined with the hair
 body_hair = false                  #   (a switch left false hashes as before, so no build restarts)
-beard = "short"                    # optional: stubble, short, goatee, moustache (humanform.brows)
+beard = "short"                    # optional: stubble, short, goatee, moustache, full, long (humanform.brows)
+beard_length = 0.24                # optional, m at the chin (past 0.06 it hangs); default the style's
+beard_volume = 0.7                 # optional, 0..1: how far it stands off in layers; default the style's
 beard_colour = [0.70, 0.69, 0.68]  # optional, screen (sRGB); default the hair colour a little darker
 fringe = true                      # optional: a fringe across the forehead to the brows, over any preset
 

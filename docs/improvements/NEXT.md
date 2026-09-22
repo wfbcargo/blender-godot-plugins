@@ -21,6 +21,60 @@ does find something by eye, the fix is not done until the check that would have 
 The goal is plugins that produce assets, not perfect assets: capture the improvement, build fresh, move on;
 do not spend a round on small numeric drift.
 
+## Fantasy species round (branch `species-1`, 2026-09-22)
+
+[08-fantasy-species.md](08-fantasy-species.md) is the design. **The user's rule for it: tools and a method that
+make *any* creature, driven by numbers, never per-species code; full anatomy on every body; it must look great.**
+The named species are worked examples. Proven by a fresh `build_many` of 14 characters (the four species smoke
+specs, three trial creatures, the four human smoke bodies, both study figures, cast_morgan), all five demo
+selftests, and every Godot review sheet looked at.
+
+What shipped (humanform 0.20.0, rig-anything 0.43.0, follow-through 0.12.0, wardrobe 0.9.0, character-pipeline
+0.20.0, lookdev 0.12.1):
+
+- **The method** (`humanform/references/species-design.md`) and **`species_design`**: `solve(observables)` from
+  what a person can state or measure on concept art (21 observables), general laws for the rest - head
+  allometry (H^0.30 adult, ANSUR II), mass by segment volume (square-cube), a build means an adult's girth at any
+  stature (ANSUR II: BMI independent of stature; girth ~H^0.5) plus support girth for big bodies, reach landmarks,
+  proportionate vs disproportionate - then `design()` (a consistent preset), `explain()`. Designed BMI matches
+  the built body within ~3% from a 1 m gnome to a 3.1 m cyclops. Seven presets are generated examples
+  (`scripts/derive_species.py`).
+- **The warp** (`humanform/species.py`): the nearest human is fitted, then warped to the species by its own
+  skeleton (per-bone length, girth, head scale, widths, a smooth hunch with a balance lean), vertices by linear
+  blend skinning with seam-spread weights; eyes by their allometric factor. Genitals and muscle go on the
+  pre-warp human so the warp carries them. `reads_adult` fails a body in the child range; an anatomy inventory
+  fails a missing part not declared absent.
+- **A creature in a spec with no file**: `[body.species]` inline (observables, knobs, `skin`, `head`,
+  `anatomy.absent` with reasons, `graft`); the whole design runs when the spec loads, so a bad one is refused
+  before a build.
+- **Head** (`features.py`): features as MPFB targets + displacement at 19 landmarks + attached parts (horns,
+  tusks); teeth and tongue on every body (they never existed), with a closed-mouth ray check.
+  **Eyes** (`eye_layout.py`): any count and placement, sockets, lids, brows and lashes following them.
+- **Surface**: skin for any tone (regions shift in the tone's own hue; subsurface follows the tone), patterns
+  (spots, stripes, blotches, mottle, scales), a paler-than-holds tone refused, seam-tone and chroma checks.
+- **Lower-body graft** (`graft.py`): legs to a tail with fluke; rig-anything upright swim and float,
+  `[moves] locomotion = "swim"`.
+- **Movement from the build** (`rig_analysis/morphology.py`): trunk-to-leg, stockiness, mass and reach drive the
+  gait style; Froude and reach checks; turns and jumps on short legs.
+- **Size**: ~30 human-sized constants in follow-through, rig-anything and wardrobe now scale with the body
+  (exactly 1x across the human band).
+- **Beards**: the square-patch grid fixed (anisotropic texels; a mip check refuses a patchy beard), a smooth
+  outline, `beard_length`/`beard_volume`, `full` and `long` presets; hair scales with its head.
+
+Every human builds as before apart from teeth and tongue, the dark lip line and fuller beards (checked tile for
+tile). `regress --quick`: no errors, no pass/fail flips (the flesh_figure control flip this round caused is
+fixed).
+
+**Open, in order:**
+1. The cyclops' pupil renders as a dark square close up; a shadow band at eye height from the closed side
+   sockets; pale specks where the brow cards meet.
+2. Beards are layered shells, not strands; the long beard is rigid (no sway, no braids).
+3. Dwarf and gnome hands cannot reach the top of the head (warned); cast_morgan walks at Froude 0.12.
+4. Tails only replace legs, are at most leg length, have no side fins; mass treats a mermaid as having legs.
+5. Eyes have no bone of their own; no jaw bone, so no open mouth (bites, roars).
+6. The demos load no species figure: add one (a `species_demo`) so a selftest covers them.
+7. Step 6-7 of 08: fur (Godot shell fur plus strand cards) and head grafts / digitigrade legs (the gnoll).
+
 ## State at the end of 2026-09-21
 
 **Everything is merged and pushed.** `main` (blender-godot-plugins) and `master` (grungist-creek) are
@@ -143,8 +197,13 @@ What changed, baked-clip numbers from `rigify_human` (walk / run) and Godot (`mo
   of a wide range on purpose.
 
 **The likeness round's open items.** Morgan Freeman's likeness misses by 2.7 mm at the mouth and 7 mm at the
-jaw (aged after the fit, and the photo's jaw is under a beard). The beard's back edge is saw-toothed (it follows
-whole faces). Reading a photo's ratios is by hand (a canvas grid in the browser, ~5 min a face; see humanform
+jaw (aged after the fit, and the photo's jaw is under a beard). ~~The beard's back edge is saw-toothed~~ (round 2
+of `species-1-beard`: the region is a signed distance on the face, `brows.beard_field`, faded across its zero line,
+so the edge is a smooth curve; beards also got `full` / `long`, layers, a hanging part, and `beard_length` /
+`beard_volume`). Open: the long beard's hanging part is a rigid tube skinned head-to-chest, no follow-through
+sway yet, and no braids. ~~The beard's square patches in Godot~~ fixed on `species-1-beard`: V repeated every 12 mm on
+512 rows (texels 7:1), so Godot's mip blurred U into blocks and scissor cut the texture's 35% holes out whole;
+now square texels, an opaque under-layer and `humanform.hairtex.mip_check`, which refuses such a shell. Reading a photo's ratios is by hand (a canvas grid in the browser, ~5 min a face; see humanform
 SKILL.md) - a landmark detector would make it one call. Likenesses set proportions, not identity: skin detail,
 expression and makeup are still missing. The first builds' review took 61-73 s against 6-9 s since: a cold
 cache on first use, not a steady cost.
@@ -281,7 +340,7 @@ In the order I would take them:
    own branch.
 7. **Hair**: the benchmark's largest open look item, and every critic puts it in their top three.
    `short_crop` reads as a moulded cap (Morgan's white crop most of all), and `long_loose` stops at the
-   shoulder on Mei. The likeness round added beards and a fringe; the beard's back edge is saw-toothed.
+   shoulder on Mei. The likeness round added beards and a fringe.
 8. **An age layer**: the 40s and 60s briefs both read twenty-plus years young. Slackness, lip thinning,
    hand tendons and posture can all be authored on top of the 58-year fit.
 9. ~~**Ancestry as a sheet field**~~ - done in humanform 0.18.0 (`ancestry`). Still open: a decision on

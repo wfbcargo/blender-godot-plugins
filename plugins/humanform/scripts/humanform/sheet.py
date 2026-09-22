@@ -36,6 +36,12 @@ BUILDS = {
     "soft":      {"bmi": 27.0, "z": {"bicepscircumferenceflexed": -0.5, "waistcircumference": 0.5}},
     "heavy":     {"bmi": 31.0, "z": {"waistcircumference": 0.8}},
 }
+# build words humanform.species_design uses that sheet has no build of its own for: (the build it stands for, its BMI),
+# so a brief and a species take one vocabulary (species_design.BUILD_WORDS is the union). Only a brief that names one
+# of these is changed by it: the seven BUILDS words resolve exactly as they always did
+BUILD_ALIASES = {"scrawny": ("slim", 19.0), "slender": ("slim", 20.0), "lean": ("athletic", 21.0),
+                 "stocky": ("heavy", 28.0), "massive": ("muscular", 36.0)}
+BUILD_WORDS = tuple(sorted(set(BUILDS) | set(BUILD_ALIASES)))
 STYLES = ("realistic", "stylized")
 AGE_RANGE = (17.0, 58.0)      # ANSUR II subjects
 # MPFB's age slider: 0 is one year old, 1 is ninety
@@ -92,7 +98,7 @@ def anthropometry():
 def new(name="Human", sex="female", age=None, stature=None, weight=None, bmi=None, build="average",
         style="realistic", measurements=None, seed=None, variation=0.5, budget_tris=30000, notes="",
         firmness=None, proportions=None, muscle=None, cupsize=None, skin=None, iris=None, hair=None, face=None,
-        ancestry=None):
+        ancestry=None, species="human"):
     """A sheet. Leave anything unknown as None; resolve() fills it and marks it guessed.
 
     `firmness` (soft 0 .. firm 1), `proportions` (MPFB's regular 0 .. idealised 1), `muscle` (0..1) and
@@ -108,7 +114,15 @@ def new(name="Human", sex="female", age=None, stature=None, weight=None, bmi=Non
     likeness: any of `FACE_RATIOS` (ratios read off a frontal photo of the person) and optionally `shape`, one
     of `FACE_SHAPES`, with `shape_weight` (0..1, default 0.5). The ratios become targets for the face fit (see
     `landmarks.from_measurements`); a body fitted to them is never stored in the library. Neither key is in a
-    sheet that does not give it, so an older brief's sheet is unchanged."""
+    sheet that does not give it, so an older brief's sheet is unchanged.
+
+    `species` is a `humanform.species` id (data/species/<id>.json, e.g. "dwarf"); "human", the default, is no
+    species at all and leaves the sheet as it always was. For any other, `stature` is the species body's own
+    height, and `pipeline.make` fits the human `species.pre_warp` derives from the brief, then warps it."""
+    if isinstance(build, str) and build in BUILD_ALIASES:
+        build, alias_bmi = BUILD_ALIASES[build]
+        if bmi is None and weight is None:
+            bmi = alias_bmi
     s = {"schema": SCHEMA, "name": name, "sex": sex, "age": age, "stature": stature, "weight": weight,
             "bmi": bmi, "build": build, "style": style, "measurements": dict(measurements or {}),
             "seed": seed, "variation": variation, "budget_tris": budget_tris, "notes": notes,
@@ -120,6 +134,8 @@ def new(name="Human", sex="female", age=None, stature=None, weight=None, bmi=Non
                                                        else {}))}
     if face is not None:
         s["face"] = dict(face)
+    if species not in (None, "human"):
+        s["species"] = species if isinstance(species, str) else copy.deepcopy(dict(species))
     if ancestry is not None:
         s["ancestry"] = dict(ancestry)
         total = sum(float(v) for v in ancestry.values() if isinstance(v, (int, float)) and v >= 0)
@@ -140,14 +156,20 @@ def validate(s):
         p.append(f"style must be one of {STYLES}")
     b = s.get("build")
     if isinstance(b, str) and b not in BUILDS:
-        p.append(f"build {b!r} is not one of {sorted(BUILDS)} (or pass a dict with bmi and z)")
+        p.append(f"build {b!r} is not one of {list(BUILD_WORDS)} (or pass a dict with bmi and z)")
     age = s.get("age")
     if age is not None and not AGE_LIMITS[0] <= age <= AGE_LIMITS[1]:
         p.append(f"age {age} is outside {AGE_LIMITS[0]:g}-{AGE_LIMITS[1]:g} years (MPFB's age range)")
     kind = "child" if age is not None and age < AGE_RANGE[0] else "adult"
     lo, hi = STATURE[kind]
     st = s.get("stature")
-    if st is not None and not lo <= st <= hi:
+    sid = s.get("species") or "human"
+    if sid != "human":
+        # the adult floor is for the human that is fitted, not the species body: species.validate checks
+        # the stature against the species' range and the pre-warp human's against STATURE
+        from . import species as _species
+        p.extend(_species.validate(sid, s))
+    elif st is not None and not lo <= st <= hi:
         p.append(f"stature {st} m is outside {lo}-{hi} m for {'a child' if kind == 'child' else 'an adult'} "
                  "(is it in metres?)")
     for k in MACRO_FIELDS:

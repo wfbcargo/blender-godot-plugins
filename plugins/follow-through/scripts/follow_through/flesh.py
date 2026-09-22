@@ -71,6 +71,7 @@ import numpy as np
 SIDE_BONES = ("breast", "pelvis", "heel", "shoulder", "clavicle", "jiggle", "ft_", "twist",
               "ear", "eye", "jaw", "tongue", "tooth", "teeth", "finger", "thumb", "palm")
 COLLINEAR_DEG = 35.0      # a branch continues the chain through a child within this of straight on
+MIDLINE_BEND_DEG = 60.0   # the one midline child continues a midline chain within this, past COLLINEAR_DEG
 SECTORS = 24
 BANDS_PER_HEIGHT = 40     # ring thickness = body height / this
 OUTLIER = 1.08            # rings this far above the local envelope line are dropped and it is refitted
@@ -95,11 +96,26 @@ ATTACH_UNDER_LEAN_M = 0.02      # and its depth under the lean surface there
 ATTACH_U0 = 0.3                 # weight is 0 up to this far along pivot -> apex
 ATTACH_LEG_OFF = 0.5            # and 0 on a vertex with this share of its skin on a leg, rising to 1 at none
 # check_placement on such a type (research-flesh-jiggle.md B and C)
+APEX_BALL_FEW = 4               # an apex ball of this many vertices or fewer is renormalised on its mean
 ATTACH_APEX_MIN = 0.9           # mean weight within 2 cm of the tail, at least
 ATTACH_ABOVE_MAX = 0.3          # weight 10 cm above the apex, at most
 ATTACH_THIGH_MAX = 0.05         # weight on vertices half or more skinned to a leg, at most
 # jiggle_block: a material's mass scaling of frequency is clipped to this range
 MASS_SCALE = (0.75, 1.33)
+
+# The attachment's lengths above (ATTACH_*_M, the 2 cm apex ball, the 10 cm band) and a region's 1 cm
+# peak floor were measured on human bodies. Every one is multiplied by `body_scale`: exactly 1 for a body
+# of human stature, so a human's flesh is what it always was, and stature over the band's nearer end
+# outside it - a 2.6 m troll's apex ball holds the same share of its belly as a human's (improvements
+# 08, fantasy species).
+HUMAN_STATURE_M = (1.45, 2.10)
+
+
+def body_scale(height):
+    """1 inside HUMAN_STATURE_M, else `height` over the band's nearer end (continuous at both)."""
+    lo, hi = HUMAN_STATURE_M
+    h = float(height)
+    return h / lo if h < lo else h / hi if h > hi else 1.0
 
 # FT_FLESH_LEGACY_PLACEMENT=1 puts back how regions were placed before check_placement existed - the face
 # seeding and growing regions, every patch in a zone merged - so check_placement has a control that must
@@ -164,6 +180,18 @@ def chains(rig, side=SIDE_BONES):
                 best, best_dot = c, d.dot(dc)
         if best is None and len(kids(b)) == 1:
             best = kids(b)[0]
+        if best is None:
+            # a bent spine: a hunched body's neck leaves its chest ~36 degrees forward (a troll's), past
+            # COLLINEAR_DEG, and the chest's other core children are the two arms. The one child on the midline
+            # - not one of a mirrored pair - still continues it, within MIDLINE_BEND_DEG: split there, the chain
+            # reaching highest was the neck and head alone, and the belly's zone came out empty
+            mid = [c for c in kids(b) if abs(c.head_local.x) < 0.2 * max(b.length, 1e-6)
+                   and d.dot((c.tail_local - c.head_local).normalized()) > math.cos(math.radians(MIDLINE_BEND_DEG))]
+            # Only where the other children branch off above this bone's head - arms off a chest - not where
+            # they hang below it (legs off a pelvis: a human's chain starts above its pelvis, as it always has)
+            side = [c for c in kids(b) if c not in mid]
+            if len(mid) == 1 and abs(b.head_local.x) < 0.2 * max(b.length, 1e-6) and side                     and all(c.head_local.z > b.head_local.z for c in side):
+                best = mid[0]
         return best
 
     continued = set()
@@ -748,6 +776,9 @@ ORDER = ("bloater_belly", "breast", "butt", "belly", "love_handle", "arm_flab", 
 
 # ------------------------------------------------------------------ regions
 
+HAIR_ATTR = "hf_hair"       # a point attribute (> 0.5) on hair a build joined into the body
+
+
 def _point_mask(obj, name):
     """Per vertex, whether the float point attribute `name` is set (> 0.5) on `obj`; None when it has none."""
     at = obj.data.attributes.get(name)
@@ -804,6 +835,11 @@ def find_regions(obj_name, rig_name=None, types=None, t=None):
     regions, declined, missed = [], [], []
     legacy = _legacy_placement()
     not_face = np.ones(n, dtype=bool) if legacy else ~t.get("head_skinned", np.zeros(n, dtype=bool))
+    # hair joined into the body (HAIR_ATTR: humanform's beard, whose hanging part rides the neck and chest, not
+    # the head) is never flesh: it stood out in front of a dwarf's belly and took its apex (weight 0 there)
+    hair = _point_mask(obj, HAIR_ATTR)
+    if hair is not None and len(hair) == n:
+        not_face &= ~hair
     # a type's `reserved_attr` (a point attribute on the body, e.g. humanform's genital shell `hf_genital`) marks
     # vertices only that type may take: the shell stands out of the lean body in front of the crotch, and taken
     # into the belly's or a buttock's search it moved their apex onto a part their bone does not carry
@@ -1042,14 +1078,15 @@ def _region(obj, t, c, rname, tname, entry, verts, area, normals, body_volume, n
     total = max(float(wm.sum()), 1e-18)
     surface = (P[verts] * wm[:, None]).sum(axis=0) / total
     depth = float((exc * wm).sum() / total)
-    peak = max(float(np.percentile(exc, 90)), 0.01)
+    peak = max(float(np.percentile(exc, 90)), 0.01 * body_scale(t["height"]))
     tail = surface
     head = surface - n_mean * (depth + 0.5 * peak)
     w_out = w
     attach = None
     if entry.get("attachment") == "upper" and not _legacy_attachment():
         head, tail, w_out, attach = _hang_from_above(obj, t, verts, w, exc, n_mean, surface,
-                                                      rise_m=tuple(entry.get("attach_rise_m", ATTACH_UP_M)))
+                                                      rise_m=tuple(entry.get("attach_rise_m", ATTACH_UP_M)),
+                                                      above_m=float(entry.get("attach_above_m", ATTACH_ABOVE_M)))
     volume = float((exc * area[verts] * np.clip(w, 0, 1)).sum())
     coords = {k: float(np.average(c[k][verts], weights=w + 1e-9)) for k in ("height", "facing", "lateral")}
     roles = list(c["role"][verts])
@@ -1082,7 +1119,7 @@ def _legacy_attachment():
     return os.environ.get("FT_FLESH_LEGACY_ATTACHMENT") == "1"
 
 
-def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M):
+def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M, above_m=ATTACH_ABOVE_M):
     """A mass that hangs from its upper edge - a breast from the chest wall above it, a buttock from the
     iliac crest and sacrum - pivots there, not at its own height, and moves most at its apex (research-flesh-
     jiggle.md items B and C). Before this the bone's tail sat at the excess^2 centre, 5-8 cm inside the
@@ -1099,6 +1136,9 @@ def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M)
     Returns head, tail, weights and a report of where they went."""
     P = t["P"][verts]
     up = np.asarray(t["frame"]["up"], dtype=float)
+    s = body_scale(t["height"])
+    rise_m = (rise_m[0] * s, rise_m[1] * s)
+    under = ATTACH_UNDER_LEAN_M * s
     out = (P - surface) @ n_mean
     strong = np.where(w >= 0.5)[0]
     if len(strong) < 3:
@@ -1106,10 +1146,20 @@ def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M)
     k = max(3, int(round(0.05 * len(strong))))
     top = strong[np.argsort(out[strong])[-k:]]
     apex = P[top].mean(axis=0)
+    # The mean of the outermost vertices is the apex when they sit in one patch. On a big hunched belly they
+    # spread over a wide, flat front (a troll's: 31 vertices across 28 cm of bulge), and their mean fell inside
+    # the body, more than 2 cm from any skin: no vertex was near the tail, and the check read weight 0 there.
+    # Only then, the apex is the outermost vertex nearest that mean - a body whose apex is on its skin keeps it
+    d_apex = np.linalg.norm(P - apex, axis=1)
+    flat_front = float(d_apex.min()) > 0.02 * s
+    if flat_front:
+        near_top = top[np.argsort(np.linalg.norm(P[top] - apex, axis=1))[:3]]
+        apex = P[near_top].mean(axis=0) if float(np.ptp(P[near_top], axis=0).max()) < 0.02 * s else P[near_top[0]]
+        top = near_top
     lean_at_apex = apex - n_mean * float(exc[top].mean())
     zs = P[w > 0.2] @ up if (w > 0.2).any() else P @ up
     rise = float(np.clip(0.6 * (np.percentile(zs, 90) - apex @ up), rise_m[0], rise_m[1]))
-    head = lean_at_apex - n_mean * ATTACH_UNDER_LEAN_M
+    head = lean_at_apex - n_mean * under
     # exactly `rise` above the apex: stepping in along a normal that tilts down lowered it (study_woman 2.8 cm)
     head = head + up * (float(apex @ up) + rise - float(head @ up))
     axis = apex - head
@@ -1122,12 +1172,46 @@ def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M)
     graded = w * g * _smoothstep((ATTACH_LEG_OFF - leg) / ATTACH_LEG_OFF)
     # full weight at the apex: most of the 2 cm round it at 1. Normalising on the outermost vertices alone left
     # study_man's and Marco's seat at 0.80-0.85 there, the thigh's share taking the rest
-    near = np.linalg.norm(P - apex, axis=1) < 0.02
+    near = np.linalg.norm(P - apex, axis=1) < 0.02 * s
     ref = graded[near] if near.sum() >= 3 else graded[top]
     at_apex = float(np.percentile(ref, 25))
     graded = np.clip(graded / max(at_apex, 1e-6), 0.0, 1.0)
+    # A butt's apex ball holds 2-4 vertices on MPFB's mesh, and the 25th percentile of three left one
+    # partly skinned to the thigh at 0.67: the ball's mean at 0.89, under ATTACH_APEX_MIN (an elf's and
+    # bench_mei's butt.L). Only then, normalised again on the ball's mean, so a region that already
+    # reads full weight at its apex - every human that built before - keeps exactly its weights.
+    # (Only for that reason, a ball too small for a percentile: on a ball of more vertices a low mean is a real
+    # mistake check_placement must see - flesh_figure's control, an uncapped jiggle share, came back placed.)
+    for _ in range(4 if near.sum() <= APEX_BALL_FEW else 0):
+        if near.sum() == 0 or float(graded[near].mean()) >= ATTACH_APEX_MIN:
+            break
+        graded = np.clip(graded / max(float(graded[near].mean()), 1e-6), 0.0, 1.0)
+    # Still short, the ball holds a vertex the thigh mostly moves (0 by the leg cut, so no normalising lifts it):
+    # a thick short thigh (a dwarf on the adult build law) reaches within 2 cm of the seat's apex. That vertex is
+    # thigh, not buttock: normalise on the rest. Only here, so a body that reached the apex weight keeps its weights
+    ball = near & (leg < ATTACH_LEG_OFF)
+    for _ in range(4 if (near & (leg >= ATTACH_LEG_OFF)).any() else 0):
+        if not ball.any() or float(graded[near].mean()) >= ATTACH_APEX_MIN                 or float(graded[ball].mean()) >= ATTACH_APEX_MIN:
+            break
+        graded = np.clip(graded / max(float(graded[ball].mean()), 1e-6), 0.0, 1.0)
+    # A flat-fronted bulge (a big hunched belly, found by its apex falling off the skin above) runs far up the
+    # front: its axis from the pivot to the apex is nearly horizontal, so u reads forwardness, not height, and the
+    # skin a hand's breadth above the apex - the attachment - moved with the mass (a troll's belly 0.62 there, over
+    # ATTACH_ABOVE_MAX). Only on such a front, the weight fades with height from the pivot to just past where
+    # check_placement reads it. Never otherwise: weight above the apex on a rounded mass is a real mistake the
+    # check must see (flesh_figure's control: an uncapped jiggle share, a butt weighted 0.5 10 cm up)
+    d = P - apex
+    dz = d @ up
+    horiz = np.linalg.norm(d - np.outer(dz, up), axis=1)
+    above_s = above_m * s
+    ring = (dz > above_s - 0.01 * s) & (dz < above_s + 0.01 * s) & (horiz < 0.04 * s)
+    if flat_front and ring.any() and float(graded[ring].max()) > ATTACH_ABOVE_MAX:
+        z0 = rise                                   # the pivot's height over the apex: full weight up to it
+        z1 = max(above_s - 0.01 * s, z0 + 0.01 * s)
+        fade = _smoothstep((z1 - dz) / max(z1 - z0, 1e-6))
+        graded = graded * np.where(dz > z0, fade, 1.0)
     report = {"apex": [round(float(x), 4) for x in apex], "rise_m": round(rise, 4),
-              "under_lean_m": ATTACH_UNDER_LEAN_M, "leg_share_max": round(float(leg.max()), 3),
+              "under_lean_m": round(under, 4), "leg_share_max": round(float(leg.max()), 3),
               "weight_before_grading_at_apex": round(float(w[top].mean()), 3)}
     return head, apex, graded, report
 
@@ -1170,7 +1254,7 @@ def _leg_share(obj, t, verts):
     return out
 
 
-def _attachment_measures(t, r, verts, w, above_m=ATTACH_ABOVE_M):
+def _attachment_measures(t, r, verts, w, above_m=ATTACH_ABOVE_M, scale=1.0):
     """How a hanging mass's bone and weight sit (check_placement): the pivot's rise over the tail, the mean weight
     within 2 cm of the tail, the most weight on region vertices 9-11 cm above the tail within 4 cm of it
     horizontally, and the most on vertices with half or more of their skin on a leg. Free values, never clamped."""
@@ -1180,13 +1264,19 @@ def _attachment_measures(t, r, verts, w, above_m=ATTACH_ABOVE_M):
     d = P - tail
     dz = d @ up
     horiz = np.linalg.norm(d - np.outer(dz, up), axis=1)
-    near = np.linalg.norm(d, axis=1) < 0.02
-    above = (dz > above_m - 0.01) & (dz < above_m + 0.01) & (horiz < 0.04)
+    s = body_scale(t["height"])
+    near = np.linalg.norm(d, axis=1) < 0.02 * s
+    above = (dz > above_m - 0.01 * s) & (dz < above_m + 0.01 * s) & (horiz < 0.04 * s)
     leg = _leg_share(bpy.data.objects[t["object"]], t, verts) >= 0.5
     return {"pivot_rise_m": round(float((head - tail) @ up), 4),
-            "weight_at_apex": round(float(w[near].mean()), 3) if near.any() else 0.0,
+            # the ball's buttock, not the thigh a thick short leg brings within 2 cm (weight_on_thigh judges that)
+            "weight_at_apex": (round(float(w[near & ~leg].mean()), 3) if (near & ~leg).any() else
+                               round(float(w[near].mean()), 3) if near.any() else 0.0),
             "weight_10cm_above": round(float(w[above].max()), 3) if above.any() else 0.0, "above_m": above_m,
             "weight_on_thigh": round(float(w[leg].max()), 3) if leg.any() else 0.0}
+
+
+TRUNK_SPAN_HUMAN_MAX = 0.62   # hip joints to shoulder joints (m) of the tallest person built (2.02 m smoke: ~0.60)
 
 
 def check_placement(t, regions, c=None):
@@ -1235,8 +1325,10 @@ def check_placement(t, regions, c=None):
                                            f"{r['type']} zone's {lo:.2f}-{hi:.2f} (0 hip joints, 1 shoulder joints)")
         entry = types.get(r["type"]) or {}
         if entry.get("attachment") == "upper":
-            rise_min = float(entry.get("attach_rise_m", ATTACH_UP_M)[0])
-            row.update(_attachment_measures(t, r, verts, w, above_m=float(entry.get("attach_above_m", ATTACH_ABOVE_M))))
+            s = body_scale(t["height"])
+            rise_min = float(entry.get("attach_rise_m", ATTACH_UP_M)[0]) * s
+            row.update(_attachment_measures(t, r, verts, w,
+                                            above_m=float(entry.get("attach_above_m", ATTACH_ABOVE_M)) * s))
             if row["pivot_rise_m"] < rise_min - 0.001:
                 row["problems"].append(f"{r['name']}: its pivot is {row['pivot_rise_m'] * 100:.1f} cm above its tail; a "
                                        f"mass hanging from above pivots at least {rise_min * 100:.0f} cm above its apex")

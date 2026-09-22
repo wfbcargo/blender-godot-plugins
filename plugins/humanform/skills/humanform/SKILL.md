@@ -349,17 +349,24 @@ the hair stage joins them into the body with the rest of the hair.
 - **Body hair** (off unless asked) is a shell 0.3 mm off the skin cut by bone weight (and facing, on the
   torso), with the hair texture thinned to 22% of its strand bands, each staggered, repeating every 14 mm
   along the limb so it reads as short hairs.
-- **Beard** (`hair.add(beard=, beard_colour=)`, a brief's `hair.beard`, a spec's `[hair] beard` /
-  `beard_colour`; off unless asked): `brows.BEARD_STYLES` - `stubble` (0.3 mm off the skin), `short` (2.5 mm,
-  every strand band), `goatee` and `moustache`. A shell cut like body hair over regions placed from the face's
-  own features (`brows.beard_regions`: the mouth's slit and corners and the nose's base from
-  `face_features.json`, the chin as the lowest front point of the head, the head and neck weights):
-  `moustache` between the nose's base and the upper lip, `chin` below the lower lip, `jaw` along the jaw below a
-  line from the nose's base at the mouth's corner to the mouth's height 7 cm out; never the lips' red, the slit
-  or the nostrils, and below the chin only the jaw's underside (skin facing down - the neck's front faces
-  forward, and the first beard ran down the throat). U runs round the face about a vertical axis 7 cm behind
-  the mouth (U from x smeared strands into bands on the side of the jaw); V hangs down. Colour: the hair colour
-  times 0.95 unless `beard_colour`. The report's `face.parts.beard` has the regions' vertex counts and the marks.
+- **Beard** (`hair.add(beard=, beard_colour=, beard_length=, beard_volume=)`, a brief's `hair.beard`, a spec's
+  `[hair] beard` / `beard_colour` / `beard_length` (m at the chin) / `beard_volume` (0..1); off unless asked):
+  `brows.BEARD_STYLES` - `stubble` (0.3 mm off the skin, skin between the hairs), `short`, `goatee`,
+  `moustache`, `full` (3.5 cm, standing off in layers) and `long` (24 cm: a dwarf's chest-length beard, hanging).
+  Where it grows is a signed distance on the face (`brows.beard_field`: the mouth's slit and corners and the
+  nose's base from `face_features.json`, the chin as the lowest front point of the head, the head and neck
+  weights): `moustache` between the nose's base and the upper lip, `corners` round the mouth's corners (joining
+  moustache and chin), `chin` from just under the lower lip (the soul patch) over the chin, `jaw` along the jaw
+  below a line from the nose's base at the mouth's corner to the mouth's height 7 cm out; never the lips' red,
+  the slit or the nostrils, and below the chin only the jaw's underside. The edge fades over `feather_m` across
+  that field's zero line (a colour attribute's alpha, COLOR_0 in glTF, multiplied in Godot), so it is a smooth
+  curve thinning into single hairs, not a line of whole faces. `volume` gives 1-6 layers, each standing further
+  off (more at the chin than the moustache) and sparser; past 6 cm `length` a closed, flattened tube hangs from
+  under the chin, narrowing to a ragged tip, held 2 cm in front of the chest and skinned from the head into the
+  neck and chest. All of it scales with the head (`hair.head_scale`). Texture and UVs are square on the skin
+  (`beard_pixels`), and `hairtex.mip_check` refuses a beard whose holes Godot's mips would draw as patches.
+  Colour: the hair colour times 0.95 unless `beard_colour`. The report's `face.parts.beard` has the regions'
+  vertex counts, the marks, layers, the hanging part and the Godot sampling check.
 - **Fringe** (`hair.add(fringe=True)` or a dict over `hair.FRINGE`, a brief's `hair.fringe`, a spec's
   `[hair] fringe = true`): a sheet over any preset from near the crown (0.95 h) down to the brows (0.2 h),
   62 degrees either side of the front, hung straight down from the widest point above (over the brow ridge,
@@ -423,6 +430,17 @@ where a fall comes out past the cap below the widest part of the head. Hair does
 or the shoulders once animated - the strand is the part meant to move. In Godot the hair wants
 `LookdevMaterials.apply` (soft hairline, per-face tangents); without it the edge is alpha scissor and there
 is no anisotropy (see lookdev's `references/hair.md`).
+
+## Creature heads (`humanform.features`)
+
+`features.apply(human, {"shape", "shape_weight", "features": {name: weight | definition}})` on the unbaked body,
+before any proportion warp. It adds pointed or large ears, brow ridges, snouts, tusks and horns. Each feature
+is a region of the face moved by a displacement, plus optional MPFB targets and optional rigid parts
+(cone, horn, tusk) skinned to the head bone. The named features are presets over that mechanism, and a new
+one is written as a table without code. `features.validate` names every mistake. `apply` also gives the head
+its teeth and tongue (`<human>_teeth`) and keeps the eyes in their sockets. Its `warnings` catch skin pushed
+through skin. Designing a feature from a description:
+`${CLAUDE_PLUGIN_ROOT}/references/head-features.md`.
 
 ## Muscle definition
 

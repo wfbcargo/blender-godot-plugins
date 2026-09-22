@@ -1287,7 +1287,9 @@ def recheck(rig_name, action_name, forward="-Y", up="Z", floor=0.0, loop=True,
             skin_rest = skin[lo]
         at = min(skin, key=skin.get)
         out["skin_lowest"] = {"height": round(skin_low - floor, 4), "frame": at}
-        if skin_low < min(0.0, skin_rest) - floor - SKIN_TOL * height:
+        # heights over the floor on both sides (the floor was subtracted from one: any floor but 0 - a swimmer's,
+        # far below it - failed every clip; at floor 0 this is the test it always was)
+        if skin_low - floor < min(0.0, skin_rest - floor) - SKIN_TOL * height:
             failures.append("skin reaches %.4f, through the floor, at frame %d"
                             % (skin_low - floor, at))
 

@@ -731,6 +731,53 @@ def idle(rig_name, frames=48, forward="-Y", up="Z", floor=0.0, action_name="Idle
     return report
 
 
+TAKEOFF_CLEAR = 0.02    # of the leg's length: a foot leaving the floor clears it by this in its first moving frame
+
+
+def _takeoff_scrapes(P, posed):
+    """Legs whose foot, as posed, has moved off its rest spot by more than TAKEOFF_CLEAR of the leg
+    while its contact pivot (the foot bone's tail, what `_check_common`'s floor-skid test follows)
+    has risen less than that: leaving along the floor rather than up off it."""
+    out = set()
+    for l in P.legs:
+        n = l["end"] or l["lower"]
+        rest = P.rig.data.bones[n].tail_local
+        now = P.body.carried(posed, n, rest.copy())
+        clear = TAKEOFF_CLEAR * (l["a"] + l["b"])
+        d = now - rest
+        rise = d.dot(P.up)
+        along = (d - P.up * rise).length
+        if rise < clear and along > clear:
+            out.add(l["name"])
+    return out
+
+
+def _clear_hanging_feet(P, key, passes=8):
+    """Raise, in place, each leg target of an airborne key (a jump's tuck and reach) whose foot's
+    contact pivot hangs less than TAKEOFF_CLEAR of the leg above its rest height. The keys fold the
+    hip-to-ankle line to a share of the leg, which lifts a human's toe 3-5% of its leg on the reach;
+    a foot long for its leg pitches its toe down past that, and the gnome's reach met the floor 3 mm
+    up while still swinging in - a skid on the landing frames. A human's feet already clear it, so
+    its keys are left exactly as they were."""
+    for _ in range(passes):
+        posed, _info = P.pose(key)
+        raised = False
+        for l in P.legs:
+            spec = key.limbs.get(l["name"])
+            if not spec or spec.get("planted") or not callable(spec.get("target")):
+                continue
+            n = l["end"] or l["lower"]
+            rest = P.rig.data.bones[n].tail_local
+            rise = (P.body.carried(posed, n, rest.copy()) - rest).dot(P.up)
+            need = TAKEOFF_CLEAR * (l["a"] + l["b"]) - rise
+            if need > 1e-5:
+                old = spec["target"]
+                spec["target"] = (lambda p, limb, ps, old=old, d=need: old(p, limb, ps) + p.up * d)
+                raised = True
+        if not raised:
+            return
+
+
 def jump(rig_name, forward="-Y", up="Z", floor=0.0, action_name="Jump",
          timing=(6, 9, 14, 22), fps=None):
     """A one-shot jump for any number of legs, ending held on the landing reach.
@@ -746,6 +793,8 @@ def jump(rig_name, forward="-Y", up="Z", floor=0.0, action_name="Jump",
         return err
     bm, rig, body, P = ctx
     load, launch, tuck, reach = kp.jump_keys(P)
+    for k in (tuck, reach):
+        _clear_hanging_feet(P, k)
     keys = [kp.rest_key(), load, launch, tuck, reach]
     marks = [1] + list(timing)
     samples = []
@@ -755,8 +804,20 @@ def jump(rig_name, forward="-Y", up="Z", floor=0.0, action_name="Jump",
         u = (f - marks[seg]) / float(marks[seg + 1] - marks[seg])
         w = motion.smoothstep(min(1.0, u))
         # legs lead out of the launch: feet leave the ground as the body peaks
-        samples.append(P.blend(keys[seg], keys[seg + 1], w,
-                               w_legs=math.sqrt(w) if seg >= 2 else w))
+        wl = math.sqrt(w) if seg >= 2 else w
+        posed = P.blend(keys[seg], keys[seg + 1], w, w_legs=wl)
+        if seg == 1:
+            # A foot leaves the floor upward, not along it. It is released the frame its target
+            # clears the ground, and by then the launch's target is most of the way back and out,
+            # so the foot travels in one frame while its toe barely rises: a foot that is long for
+            # its leg (a dwarf's, a gnome's: the ankle 15-18% of the leg up against a human's 8-12%)
+            # pitches its toe down as the ankle lifts, and the dwarf's toe rose 5 mm while it moved
+            # 12 cm - a skid. Held planted that frame instead, it leaves on the next, clear. Measured
+            # against the leg, so a human, whose toe clears 3-5% of its leg that frame, is untouched.
+            scrape = _takeoff_scrapes(P, posed[0])
+            if scrape:
+                posed = P.blend(keys[seg], keys[seg + 1], w, w_legs=wl, hold=scrape)
+        samples.append(posed)
 
     def check(keyed, ev, infos_by_frame):
         r = _check_common(body, bm, keyed, ev, infos_by_frame, planted=[],
@@ -1080,6 +1141,13 @@ def summarize(r):
     return "\n".join(lines)
 
 
+# How far past a leg's length `turn` lets its straight-line estimate of the planted legs' reach go before
+# it lowers the hips: 0.1%, about a millimetre on a human. The estimate ignores the foot's settling and the
+# arms' counter-lean, and reads a 1.9 m man's rest-width turn at 1.05% of drop where the 1% it always used
+# passes every check, so without the slack every human turn would move by half a millimetre.
+REACH_SLACK = 1.001
+
+
 def turn(rig_name, direction="L", degrees=90.0, frames=24, forward="-Y", up="Z", floor=0.0,
          action_name="Turn", fps=None, stance_width=None, posture=None, upper=None, style=None,
          lift=0.08, shift=0.5):
@@ -1159,6 +1227,34 @@ def turn(rig_name, direction="L", degrees=90.0, frames=24, forward="-Y", up="Z",
     end = about_pivot(total) @ start
     hip_half = 0.5 * abs(side_of[inside["name"]] - side_of[outside["name"]])
     lean_side = 1.0 if side_of[inside["name"]] > 0.0 else -1.0
+    # The hips lean a share of the HIP GAP over the pivot - a fixed distance - while how far a leg
+    # can follow is its own length. A human's legs reach it with the 1% drop the turn always had; a
+    # dwarf's (thigh and shin at 0.6, hips as wide) could not, and the planted outside leg needed
+    # 100-102% of itself just before it lifted and just after it landed. So the drop is what the legs
+    # need, measured on each while it is planted (hip to its stance ankle, no longer than the leg,
+    # where the IK clamps), and never less than that 1%: the pivot leg at full lean, the stepping leg
+    # at the most lean it bears on the floor (at A and B). Lean and drop scale together, and a leg's
+    # squared reach is convex in the lean, so those are the worst cases.
+    sway_full = shift * 2.0 * hip_half * lean_side
+    drop_pct = 0.01
+    roots = {l["name"]: l["rest_root"] for l in P.legs}
+    if posture:
+        posed0 = body.fk(body.bend_axial(Vector((0.0, 0.0, 0.0)), kp.posture_angles(bm, posture)))
+        roots = {l["name"]: posed0[l["upper"]].translation.copy() for l in P.legs}
+
+    planted_lean = {inside["name"]: 1.0,
+                    outside["name"]: math.sin(math.pi * min(1.0, max(0.0, (A - 0.02) / 0.96)))}
+
+    def over_reach(share):
+        return max(((roots[l["name"]] + (P.lat * sway_full - up_v * (share * L_leg)) * planted_lean[l["name"]])
+                    - (l["rest_eff"] + shifts[l["name"]])).length - REACH_SLACK * (l["a"] + l["b"])
+                   for l in P.legs)
+    if over_reach(drop_pct) > 0.0:
+        lo, hi = drop_pct, 0.25
+        for _ in range(30):
+            mid = 0.5 * (lo + hi)
+            lo, hi = (lo, mid) if over_reach(mid) <= 0.0 else (mid, hi)
+        drop_pct = hi
 
     params = upper_mod.resolve(P, upper, upper_mod.idle_defaults())
     stance = {l["name"]: {"target": (lambda p, limb, posed, s=shifts[l["name"]]: limb["rest_eff"] + s)}
@@ -1178,7 +1274,7 @@ def turn(rig_name, direction="L", degrees=90.0, frames=24, forward="-Y", up="Z",
             limbs.update(U.idle_key(0.0))
         lean = math.sin(math.pi * min(1.0, max(0.0, (t - 0.02) / 0.96)))
         return kp.Key(limbs=limbs, sway=shift * 2.0 * hip_half * lean * lean_side,
-                      drop=0.01 * L_leg * lean, posture=posture, head_level=0.5), theta
+                      drop=drop[0] * L_leg * lean, posture=posture, head_level=0.5), theta
 
     def sample(t):
         key, theta = key_at(t)
@@ -1191,15 +1287,26 @@ def turn(rig_name, direction="L", degrees=90.0, frames=24, forward="-Y", up="Z",
                              posed_limbs=P.legs, rest_floor=floor, starts_at_rest=False,
                              skid=True)
 
-    keyed, infos, action, report = upper_mod.author_clear(
-        U, rig_name, bm, lambda smp: _author_samples(body, rig, action_name, smp, fps, check),
-        lambda: [sample((f - 1) / float(frames)) for f in range(1, frames + 2)])
-    if "error" in report:
-        return report
+    # The estimate above is straight lines; the posed body (a posture, the arms' counter-lean) can ask a
+    # little more. A leg that still cannot reach lowers the hips a quarter more, twice at most - never
+    # reached by a body the estimate already fits, so those clips are exactly what they were.
+    drop = [drop_pct]
+    legs_named = {l["name"] for l in P.legs}
+    for attempt in range(3):
+        keyed, infos, action, report = upper_mod.author_clear(
+            U, rig_name, bm, lambda smp: _author_samples(body, rig, action_name, smp, fps, check),
+            lambda: [sample((f - 1) / float(frames)) for f in range(1, frames + 2)])
+        if "error" in report:
+            return report
+        short = any(i["clamped"] for fi in infos.values() for n, i in fi.items() if n in legs_named)
+        if not short or attempt == 2:
+            break
+        drop[0] *= 1.25
+    drop_pct = drop[0]
     origin_end = about_pivot(total) @ Vector((0.0, 0.0, 0.0))
     scale = sum(rig.matrix_world.to_scale()) / 3.0
     report.update({"rig": rig_name, "action": action.name, "frames": [1, frames + 1],
-                   "fps": bpy.context.scene.render.fps, "stance_width": stance_width,
+                   "fps": bpy.context.scene.render.fps, "stance_width": stance_width, "drop_share": round(drop_pct, 4),
                    "posture": dict(posture) if posture else None,
                    "upper": U.report() if U is not None else None,
                    "turn": {"yaw_deg": round(yaw_sign * degrees, 3),
@@ -1222,7 +1329,7 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
                     "Slide", "SlideRecover", "SlideToCrouch"),
              # also known, not made unless asked: "TurnL", "TurnR" (`turn`)
              walk_froude="walk", trot_froude="trot", run_froude="sprint",
-             legacy_gaits=False, options=None, variability=None):
+             legacy_gaits=False, options=None, variability=None, derive=False, mass=None):
     """Author a playable move set for one creature. Returns {role: report}.
 
     `options` is {role: {keyword: value}}, handed to that role's maker over its
@@ -1249,6 +1356,12 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
     the walk at several times its rate. `legacy_gaits=True` restores the old
     `gait_cycle` walk and run and drops the trot. CrouchWalk stays on
     `gait_cycle`, which is built on the crouch pose.
+
+    `derive=True` measures the build (`morphology.derive_style`: trunk-to-leg ratio, stockiness,
+    mass - `mass` as `morphology.measure`) and lays the style it implies UNDER each role's own style,
+    key by key, for the roles that take a style (Idle, the gaits, the turns). A body inside the
+    human range derives {} and its clips are exactly the ones `derive=False` gives. Each of those
+    roles' reports then carries `morphology`: what was measured and the style derived.
 
     `variability` is this character's `[variability]` (`variability.py`): a fixed
     left/right asymmetry drawn once from its seed and baked into the gait clips -
@@ -1320,9 +1433,22 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
         for role, (fn, _kw) in makers.items():
             if fn is loco_mod.cycle:
                 options[role] = dict({"variability": variability}, **options.get(role, {}))
+    styled = ()
+    if derive:
+        from . import locomotion as loco_mod, morphology
+        measured = morphology.measure(bm, mass=mass)
+        derived = morphology.derive_style(bm, measured=measured)
+        styled = [role for role, (fn, _kw) in makers.items() if fn in (idle, turn, loco_mod.cycle)]
+        if derived:
+            for role in styled:
+                opts = dict(options.get(role, {}))
+                opts["style"] = morphology.merge_styles(derived, opts.get("style"))
+                options[role] = opts
     out = {}
     for role in roles:
         fn, kw = makers[role]
         out[role] = fn(rig_name, **dict(common, **dict(kw, **options.get(role, {}))))
+        if role in styled and isinstance(out[role], dict) and "error" not in out[role]:
+            out[role]["morphology"] = {"measured": measured, "derived": derived}
     stored.store(out, rig_name)
     return out

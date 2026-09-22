@@ -7,6 +7,14 @@ that belong to a plugin.
 
     [body]                       # humanform's brief (sheet.new), passed through
     source = "brief"             # or "blend": an object already in the open file (`object = "Tomas"`)
+    species = "human"            # optional, default "human": humanform/data/species/<id>.json (improvements
+                                 # 08), passed to the brief when not human; a non-human species also
+                                 # turns on [moves] derive, and one whose preset has a skin.palette
+                                 # may leave skin out. Or a creature nobody wrote a preset for, inline:
+    [body.species]               # observables and knobs (humanform.species_design; checked against its
+    heads = 5.0                  # names when it is present), plus skin = {tone, pattern = {kind, colour,
+    trunk_to_leg = 0.85          # scale, amount, regions}, regions_off, subsurface_tint} and head =
+    fingertips_at = "knee"       # {shape, shape_weight, features = {name = weight or a definition}}
     sex = "female"
     age = 28
     stature = 1.70
@@ -24,6 +32,10 @@ that belong to a plugin.
     roles = ["Idle", "Walk", "Run", "Crouch"]    # default: Idle and the gaits
     loops = ["Idle", "Walk", "Run"]              # default: every role
     style = "adult"              # locomotion.GAIT_STYLES
+    derive = true                # optional: lay rig-anything's morphology.derive_style (the style the
+                                 # build implies - a long trunk's roll, a stocky body's ground time) under
+                                 # `style`, which wins key by key. Default: true when body.species is not
+                                 # "human"; a human-proportioned body derives nothing either way
     stance_width = 1.15
     gaits = { Walk = 0.2, Run = 2.0 }            # role -> Froude number
     [moves.per_gait.Walk]        # anything move_set takes per role, over the style
@@ -95,6 +107,7 @@ import hashlib
 import json
 import math
 import os
+import sys
 import tomllib
 from dataclasses import asdict, dataclass, field
 
@@ -115,7 +128,7 @@ DEPRECATED = {
 }
 HAIR_PRESETS = ("short_crop", "bob", "bun", "ponytail", "long_loose")   # humanform.sheet.HAIR_PRESETS
 BROW_SHAPES = ("natural", "straight", "arched", "soft")                   # humanform.sheet.BROW_SHAPES
-BEARD_STYLES = ("stubble", "short", "goatee", "moustache")               # humanform.brows.BEARD_STYLES
+BEARD_STYLES = ("stubble", "short", "goatee", "moustache", "full", "long")   # humanform.brows.BEARD_STYLES
 MUSCLE_GROUPS = ("deltoids", "upper_arms", "pectorals", "abdominals", "obliques", "quadriceps", "calves",
                  "forearms", "relief", "bulk")                           # humanform.muscle.GROUPS
 MUSCLE_OUTPUTS = ("geometry", "normal")
@@ -126,6 +139,188 @@ class SpecError(ValueError):
     pass
 
 
+def _humanform_roots():
+    """Where humanform's plugin folder may be: HF_SCRIPTS's parent when set, else the humanform beside this
+    plugin (the repo's plugins/ or ~/.claude/skills/)."""
+    hf = os.environ.get("HF_SCRIPTS")
+    here = os.path.dirname(os.path.abspath(__file__))
+    return [os.path.normpath(p) for p in ([os.path.dirname(hf)] if hf else [])
+            + [os.path.join(here, "..", "..", "..", "humanform")]]
+
+
+def species_dir():
+    """humanform's species presets folder (`<humanform>/data/species`). None when it does not exist."""
+    for base in _humanform_roots():
+        d = os.path.join(base, "data", "species")
+        if os.path.isdir(d):
+            return d
+    return None
+
+
+def species_design():
+    """humanform's `species_design` module (standard library only, so it loads outside Blender), or None
+    when this humanform has none. Loaded from its file: the spec is read before any plugin is imported."""
+    import importlib.util
+    for base in _humanform_roots():
+        path = os.path.join(base, "scripts", "humanform", "species_design.py")
+        if os.path.isfile(path):
+            key = "_cp_species_design_" + hashlib.sha1(path.encode()).hexdigest()[:8]
+            if key not in sys.modules:
+                spec_ = importlib.util.spec_from_file_location(key, path)
+                mod = importlib.util.module_from_spec(spec_)
+                sys.modules[key] = mod
+                try:
+                    spec_.loader.exec_module(mod)
+                except Exception:                                   # a broken humanform: accept any keys
+                    del sys.modules[key]
+                    return None
+            return sys.modules[key]
+    return None
+
+
+# An inline `[body.species]`'s look, checked here whatever humanform is present (improvements 08, "The spec")
+SPECIES_LOOK = {
+    "skin": ("tone", "pattern", "regions_off", "subsurface_tint"),
+    "skin.pattern": ("kind", "colour", "scale", "amount", "regions"),
+    "head": ("shape", "shape_weight", "features", "eyes"),
+}
+SPECIES_META = ("id", "label", "anatomy", "moves", "graft")
+# `anatomy` (humanform.species_design): only what the description says the creature lacks, each with its reason,
+# and sizes it states - every other part is kept
+SPECIES_ANATOMY = ("absent", "scale")
+
+
+def check_species_table(table):
+    """Refuse (SpecError) an inline `[body.species]` key humanform would not know: the top level against
+    `species_design`'s observables and knobs when it can be loaded (any key otherwise), and `skin` and `head`
+    against SPECIES_LOOK. Returns the table."""
+    sd = species_design()
+    if sd is not None:
+        known = set(getattr(sd, "OBSERVABLES", {})) | set(getattr(sd, "KNOBS", {})) | set(SPECIES_LOOK)             | set(SPECIES_META)
+        known.discard("skin.pattern")
+        extra = sorted(set(table) - known)
+        if extra:
+            raise SpecError(f"[body.species]: unknown field(s) {', '.join(extra)} - it takes the observables "
+                            f"{', '.join(sorted(sd.OBSERVABLES))}, the knobs {', '.join(sorted(sd.KNOBS))}, and "
+                            f"skin, head, id, label")
+    for part in ("skin", "head"):
+        if part in table:
+            v = table[part]
+            if not isinstance(v, dict):
+                raise SpecError(f"body.species.{part} must be a table, not {type(v).__name__}")
+            _unknown(v, SPECIES_LOOK[part], f"[body.species.{part}]")
+    anat = table.get("anatomy")
+    if anat is not None:
+        if not isinstance(anat, dict):
+            raise SpecError("body.species.anatomy must be a table: absent = [{ part, reason }], scale = { part = x }")
+        _unknown(anat, SPECIES_ANATOMY, "[body.species.anatomy]")
+        for e in anat.get("absent", []):
+            if not isinstance(e, dict) or not e.get("part") or not e.get("reason"):
+                raise SpecError(f"body.species.anatomy.absent entry {e!r}: needs part and the reason the description "
+                                "gives (a part is declared absent only when the description says so)")
+    if sd is not None and hasattr(sd, "design_from"):
+        # the whole design, as humanform will make it at the body stage (milliseconds, standard library): a
+        # knob out of range, a graft whose absences the description does not state, numbers that disagree -
+        # refused here, before any build, with the design's own message
+        d = {k: v for k, v in table.items() if k not in ("id", "label")}
+        look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft") if k in d}
+        anatomy = d.pop("anatomy", None)
+        knobs = {n: d.pop(n) for n in list(d) if n in sd.KNOBS and n not in sd.OBSERVABLES}
+        if "stature" not in d:
+            raise SpecError("[body.species] needs stature (the creature's range, m: a number, [lo, hi] or "
+                            "{ female = [...], male = [...] })")
+        try:
+            sd.design_from(d, id=table.get("id") or "custom", look=look or None, anatomy=anatomy, **knobs)
+        except Exception as exc:                        # DesignError, or a malformed value
+            raise SpecError(f"[body.species]: {exc}")
+    pattern = (table.get("skin") or {}).get("pattern")
+    if pattern is not None:
+        if not isinstance(pattern, dict):
+            raise SpecError("body.species.skin.pattern must be a table")
+        _unknown(pattern, SPECIES_LOOK["skin.pattern"], "[body.species.skin.pattern]")
+    feats = (table.get("head") or {}).get("features")
+    if feats is not None:
+        if not isinstance(feats, dict):
+            raise SpecError("body.species.head.features must be a table of name = weight (or an inline definition)")
+        for name, w in feats.items():
+            if isinstance(w, bool) or not isinstance(w, (int, float, dict)):
+                raise SpecError(f"body.species.head.features.{name} must be a weight or an inline definition "
+                                f"table, not {w!r}")
+    return table
+
+
+def check_build_words(body):
+    """Refuse an unknown build word in [body] build or [body.species] build before anything runs, with the list:
+    both take humanform's one vocabulary (species_design.BUILD_WORDS: sheet's builds and the species words,
+    which sheet.BUILD_ALIASES maps onto them). Before, a word sheet did not know failed only at the body stage."""
+    sd = species_design()
+    words = getattr(sd, "BUILD_WORDS", None) if sd is not None else None
+    if not words:
+        return
+    for where, v in (("body.build", body.get("build")),
+                     ("body.species.build", (body.get("species") or {}).get("build")
+                      if isinstance(body.get("species"), dict) else None)):
+        if isinstance(v, str) and v not in words:
+            raise SpecError(f"{where} {v!r} is not a build word - one of {', '.join(words)}")
+
+
+def species_ids():
+    """The species ids humanform knows (its `data/species/*.json`, plus "human"), or None when it has no
+    species folder - an older humanform, in which case any species is accepted and left to humanform."""
+    d = species_dir()
+    if d is None:
+        return None
+    return sorted({"human"} | {os.path.splitext(f)[0] for f in os.listdir(d) if f.endswith(".json")})
+
+
+def species_warnings(species):
+    """What humanform's species design warns about a species before it is built - stick limbs, a child-light BMI,
+    a stated BMI that thins the stated girth (species_design's `design.warnings`) - as spec warnings. A named
+    species reads its preset; an inline table is designed here (species_design is standard library only). A
+    species that cannot be designed is humanform's to refuse, not this: no warnings then."""
+    if species in (None, "human"):
+        return []
+    if isinstance(species, dict):
+        sd = species_design()
+        if sd is None:
+            return []
+        obs = {k: v for k, v in species.items() if k in getattr(sd, "OBSERVABLES", {})}
+        knobs = {k: v for k, v in species.items() if k in getattr(sd, "KNOBS", {}) and k not in obs}
+        try:
+            preset = sd.design_from(obs, id=species.get("id", "custom"), **knobs)
+        except Exception:
+            return []
+        name = species.get("id", "inline species")
+    else:
+        d = species_dir()
+        path = os.path.join(d, species + ".json") if d else None
+        if not path or not os.path.isfile(path):
+            return []
+        try:
+            with open(path, encoding="utf-8") as fh:
+                preset = json.load(fh)
+        except (OSError, ValueError):
+            return []
+        name = species
+    return [f"body.species {name}: {w}" for w in (preset.get("design") or {}).get("warnings") or []]
+
+
+def species_palette(species):
+    """The species preset's `skin.palette` (a list of screen colours), or None when it has none or there is
+    no preset to read."""
+    d = species_dir()
+    path = os.path.join(d, species + ".json") if d else None
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            preset = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    pal = (preset.get("skin") or {}).get("palette") if isinstance(preset, dict) else None
+    return pal or None
+
+
 @dataclass
 class Body:
     source: str = "brief"
@@ -133,6 +328,8 @@ class Body:
     brief: dict = field(default_factory=dict)   # humanform sheet.new(**brief)
     parts: dict = field(default_factory=dict)   # face / hands / feet library ids
     skin: list | None = None                    # source = "blend": the skin colour humanform would apply
+    species: str | dict = "human"               # a humanform/data/species/<id>, or an inline table (observables,
+                                                # skin, head); in `brief` too when not human
     genitals: bool = False                      # humanform.genitals, added in the body stage, fused in bake
     genital_shape: dict = field(default_factory=dict)   # men: {length|circ|testicles: 0..1}, 0.5 neutral
     genital_strength: float = 1.0               # women: the relief's scale
@@ -145,11 +342,21 @@ class Moves:
     loops: list = field(default_factory=list)
     export_gaits: list = field(default_factory=list)
     style: str = "adult"
+    derive: bool | None = None                  # None: derive_style when body.species is not human
     stance_width: float | None = None
     posture: dict | None = None
     per_gait: dict = field(default_factory=dict)  # role -> move_set options over the style
     may_fail: list = field(default_factory=list)  # clips exported forced and listed, never silently
     clearance_check: list = field(default_factory=list)
+    locomotion: str = "walk"                    # "walk" (move_set, Froude gaits) or "swim" (rig-anything's
+                                                # swim.upright_set: a body that stands at rest and swims)
+
+
+LOCOMOTION = ("walk", "swim")
+# close-up views of the legs (rig-anything closeups, lookdev close-shot), which a body with no legs is not shot in
+LEG_VIEWS = ("crotch", "knees", "feet")
+# the clips a swimmer that stands has (rig-anything swim.upright_set): Idle floats upright, the rest swim prone
+SWIM_ROLES = ("Idle", "Swim", "Sprint", "Glide", "TurnL", "TurnR")
 
 
 @dataclass
@@ -164,6 +371,8 @@ class Hair:
     brow_shape: str | None = None               # humanform.brows BROW_SHAPES; None: "natural"
     beard: str | None = None                    # humanform.brows BEARD_STYLES; None: no facial hair
     beard_colour: list | None = None            # screen (sRGB); None: the hair colour a little darker
+    beard_length: float | None = None           # m at the chin (a hanging beard past ~6 cm); None: the style's
+    beard_volume: float | None = None           # 0..1, how far the beard stands off the skin; None: the style's
     fringe: bool = False                        # humanform.hair FRINGE across the forehead, over any preset
 
     FACE = ("brows", "lashes", "body_hair")
@@ -178,6 +387,9 @@ class Hair:
             out["beard"] = self.beard
             if self.beard_colour is not None:
                 out["beard_colour"] = list(self.beard_colour)
+            for k in ("beard_length", "beard_volume"):
+                if getattr(self, k) is not None:
+                    out[k] = float(getattr(self, k))
         if self.fringe:
             out["fringe"] = True
         return out
@@ -319,11 +531,17 @@ class Character:
                     out.pop(k, None)
             if out.get("brow_shape") in (None, "natural"):
                 out.pop("brow_shape", None)         # the default hashes as before the field existed
-            for k in ("beard", "beard_colour"):     # no beard hashes as before beards existed
+            for k in ("beard", "beard_colour", "beard_length", "beard_volume"):   # unset hashes as before
                 if out.get(k) is None:
                     out.pop(k, None)
             if not out.get("fringe"):
                 out.pop("fringe", None)
+            return out
+        if name == "body":
+            # a human body hashes as it did before species existed
+            out = asdict(value)
+            if out.get("species") == "human":
+                out.pop("species")
             return out
         if name == "moves":
             # [variability] rides the moves section rather than having one of its own, and only
@@ -332,12 +550,39 @@ class Character:
             # that is what an unstated seed is derived from, so two specs that differ only in
             # their id do not share a moves hash once one of them is asymmetric.
             out = asdict(value)
+            # derive, unset, hashes as before it existed; what the stage will do rides along only when
+            # it derives, so a human spec's moves hash is unchanged and a dwarf's covers the switch
+            if out.get("derive") is None:
+                out.pop("derive", None)
+            if out.get("locomotion") == "walk":
+                out.pop("locomotion", None)         # a walker hashes as before locomotion existed
+            if self.derive_moves:
+                out["derive_moves"] = True
             if self.variability is not None and self.variability.asked():
                 out["variability"] = dict(asdict(self.variability), identity=self.id)
             return out
         if isinstance(value, list):
             return [asdict(v) if hasattr(v, "__dataclass_fields__") else v for v in value]
         return asdict(value) if hasattr(value, "__dataclass_fields__") else value
+
+    @property
+    def grafted(self):
+        """The limb pairs this body's species replaces ([body.species] graft: {"legs": {...}}), {} for any other."""
+        sp = self.body.species
+        return dict(sp.get("graft") or {}) if isinstance(sp, dict) else {}
+
+    def views_without(self, views):
+        """`views` (close-up view names) less those that look at parts this body plan does not have: a body whose
+        legs a graft replaced has no crotch, knees or feet to shoot."""
+        if "legs" not in self.grafted:
+            return list(views)
+        return [v for v in views if v not in LEG_VIEWS and not v.startswith("foot")]
+
+    @property
+    def derive_moves(self):
+        """Whether the moves stage lays rig-anything's derived style under the spec's: `[moves] derive`,
+        else on for any species but human."""
+        return self.moves.derive if self.moves.derive is not None else self.body.species != "human"
 
     def digest(self, *sections):
         text = json.dumps({s: self.section(s) for s in sections}, sort_keys=True, default=str)
@@ -548,7 +793,18 @@ def parse(data, path=None):
     name = _take(c, "name", str, required=True, where="character.")
 
     b = dict(_take(data, "body", dict, required=True))
+    check_build_words(b)
     source = b.pop("source", "brief")
+    species = b.pop("species", "human")
+    if isinstance(species, dict):
+        # a creature nobody wrote a preset for: observables (and knobs), solved by humanform's species_design
+        species = check_species_table(dict(species))
+    elif not isinstance(species, str) or not species:
+        raise SpecError(f"body.species must be a species id or an inline table, not {species!r}")
+    known = species_ids()
+    if isinstance(species, str) and known is not None and species not in known:
+        raise SpecError(f"body.species {species!r} is not a humanform species - known: {', '.join(known)} "
+                        f"(presets in {species_dir()})")
     if source not in BRIEF_SOURCES:
         raise SpecError(f"body.source must be one of {BRIEF_SOURCES}, not {source!r}")
     parts = b.pop("parts", {})
@@ -556,7 +812,11 @@ def parse(data, path=None):
     skin = b.get("skin") if source == "brief" else b.pop("skin", None)
     if source == "blend" and not obj:
         raise SpecError("body.object is required when body.source = \"blend\"")
-    if source == "brief" and b.get("skin") is None:
+    if source == "brief" and b.get("skin") is None and isinstance(species, dict)             and (species.get("skin") or {}).get("tone") is not None:
+        pass        # the inline species' own skin tone
+    elif source == "brief" and b.get("skin") is None and isinstance(species, str) and species != "human"             and species_palette(species):
+        pass        # the species preset's own skin palette (its `skin.palette`): humanform draws the tone from it
+    elif source == "brief" and b.get("skin") is None:
         # without one humanform never applies its skin look and the body ships in MPFB's untextured material:
         # the first smoke bodies came out chalk white, 5-9% of the figure past white in Godot's review
         raise SpecError("body.skin is required: a screen (sRGB) colour, e.g. [0.87, 0.72, 0.60] light, "
@@ -566,6 +826,10 @@ def parse(data, path=None):
         b.setdefault("name", name)
         if b["name"] != name:
             raise SpecError(f"body.name {b['name']!r} must match character.name {name!r}")
+    if source == "brief" and species != "human":
+        # humanform's brief carries it; a human brief is left without the key, so it and its hashes are
+        # exactly what they were before species existed
+        b["species"] = species
     genitals = _take(b, "genitals", bool, False, where="body.")
     genital_shape = _take(b, "genital_shape", dict, {}, where="body.")
     genital_strength = _take(b, "genital_strength", float, 1.0, where="body.")
@@ -582,13 +846,30 @@ def parse(data, path=None):
     if (genital_shape or genital_strength != 1.0) and not genitals:
         raise SpecError("body.genital_shape / genital_strength need body.genitals = true")
     body = Body(source=source, object=obj, brief=b if source == "brief" else {}, parts=parts, skin=skin,
-                genitals=genitals, genital_shape={k: float(v) for k, v in genital_shape.items()},
+                species=species, genitals=genitals,
+                genital_shape={k: float(v) for k, v in genital_shape.items()},
                 genital_strength=float(genital_strength))
 
     m = _take(data, "moves", dict, required=True)
-    _unknown(m, ("gaits", "roles", "loops", "export_gaits", "style", "stance_width", "posture",
-                 "per_gait", "may_fail", "clearance_check"), "[moves]")
-    gaits = {k: float(v) for k, v in _take(m, "gaits", dict, required=True, where="moves.").items()}
+    _unknown(m, ("gaits", "roles", "loops", "export_gaits", "style", "derive", "stance_width", "posture",
+                 "per_gait", "may_fail", "clearance_check", "locomotion"), "[moves]")
+    locomotion = _take(m, "locomotion", str, default="walk")
+    if locomotion not in LOCOMOTION:
+        raise SpecError(f"moves.locomotion {locomotion!r}: one of {', '.join(LOCOMOTION)}")
+    gaits = {k: float(v) for k, v in _take(m, "gaits", dict, required=locomotion == "walk",
+                                           default={}, where="moves.").items()}
+    if locomotion == "swim":
+        # a swimmer's clips are its swim set's, never a walk's: the Froude gaits and their checks do not apply
+        if gaits:
+            raise SpecError("moves.gaits are Froude numbers for a walker; a swimmer (locomotion = \"swim\") "
+                            "takes none - its speeds come from its length (rig-anything swim)")
+        bad = [r for r in (m.get("roles") or []) if r not in SWIM_ROLES]
+        if bad:
+            raise SpecError(f"moves.roles {bad}: a swimmer's roles are {', '.join(SWIM_ROLES)} (Idle floats "
+                            "upright; the others swim prone)")
+        for k in ("export_gaits", "clearance_check", "stance_width", "posture", "per_gait"):
+            if m.get(k):
+                raise SpecError(f"moves.{k} is a walker's; a swimmer (locomotion = \"swim\") has none")
     roles = list(_take(m, "roles", list, default=["Idle", *gaits]))
     if "Idle" not in roles:
         raise SpecError("moves.roles must include Idle")
@@ -603,16 +884,19 @@ def parse(data, path=None):
     moves = Moves(gaits=gaits, roles=roles, loops=loops,
                   export_gaits=list(_take(m, "export_gaits", list, default=list(gaits))),
                   style=_take(m, "style", str, default="adult"),
+                  derive=_take(m, "derive", bool),
                   stance_width=_take(m, "stance_width", float),
                   posture=_take(m, "posture", dict), per_gait=per_gait,
                   may_fail=list(_take(m, "may_fail", list, default=[])),
-                  clearance_check=list(_take(m, "clearance_check", list, default=[])))
+                  clearance_check=list(_take(m, "clearance_check", list, default=[])),
+                  locomotion=locomotion)
 
     hair = None
     if "hair" in data:
         h = dict(_take(data, "hair", dict))
         if "preset" in h:
-            _unknown(h, ("preset", "colour", "brow_shape", "beard", "beard_colour", "fringe") + Hair.FACE, "[hair]")
+            _unknown(h, ("preset", "colour", "brow_shape", "beard", "beard_colour", "beard_length", "beard_volume",
+                         "fringe") + Hair.FACE, "[hair]")
             preset = _take(h, "preset", str, where="hair.")
             if preset not in HAIR_PRESETS:
                 raise SpecError(f"hair.preset {preset!r} is not one of {HAIR_PRESETS}")
@@ -637,9 +921,20 @@ def parse(data, path=None):
                 raise SpecError("hair.beard_colour must be [r, g, b], screen (sRGB) channels 0..1")
             if beard_colour is not None and beard is None:
                 raise SpecError("hair.beard_colour needs hair.beard")
+            shape = {}
+            for k, lo, hi in (("beard_length", 0.001, 0.6), ("beard_volume", 0.0, 1.0)):
+                v = _take(h, k, (int, float), where="hair.")
+                if v is None:
+                    continue
+                if beard is None:
+                    raise SpecError(f"hair.{k} needs hair.beard")
+                if not lo <= float(v) <= hi:
+                    raise SpecError(f"hair.{k} must be {lo}..{hi}, got {v}")
+                shape[k] = float(v)
             hair = Hair(kind="preset", preset=preset, colour=[float(c) for c in colour] if colour else None,
                         brow_shape=brow_shape, beard=beard, fringe=bool(_take(h, "fringe", bool, where="hair.")),
-                        beard_colour=[float(c) for c in beard_colour] if beard_colour else None, **switches)
+                        beard_colour=[float(c) for c in beard_colour] if beard_colour else None, **shape,
+                        **switches)
         else:
             kind = h.pop("kind", None)
             if kind != "shell_bun":
@@ -742,7 +1037,7 @@ def parse(data, path=None):
                      outfit=outfit, review=review, muscle=muscle, build=Build(quality=quality),
                      variability=variability,
                      path=os.path.abspath(path) if path else None, project=project,
-                     warnings=_sourced_pins(per_gait))
+                     warnings=_sourced_pins(per_gait) + species_warnings(body.species))
 
 
 def load(path):

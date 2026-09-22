@@ -40,6 +40,18 @@ from mathutils import Vector
 
 AXIS_INDEX = {"X": 0, "Y": 1, "Z": 2}
 
+# Metre constants set on people (closeups' camera distances, upper's hand clearance and gaze) are
+# multiplied by `stature_scale`: exactly 1 inside this band, so a human's clips and close-ups are the
+# ones they always were, and the stature over the band's nearer end outside it (improvements 08).
+HUMAN_STATURE_M = (1.45, 2.10)
+
+
+def stature_scale(stature):
+    """1 inside HUMAN_STATURE_M, else `stature` over the band's nearer end (continuous at both)."""
+    lo, hi = HUMAN_STATURE_M
+    h = float(stature)
+    return h / lo if h < lo else h / hi if h > hi else 1.0
+
 PROFILE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "profiles")
 PROFILE_PROP = "body_profile"
 # Bones another plugin adds to a finished rig - follow-through's jiggle bones, wardrobe's hem
@@ -112,6 +124,9 @@ def _descendants_names(bone, side):
 
 
 _PROFILES = None
+
+
+LEGLESS_SHARE = 0.3     # no limb ending below this share of the body's height: none of them is a leg
 
 
 def profiles():
@@ -490,8 +505,11 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0, meshes=None):
 
     lowest_any = min((l["lowest"] for l in limbs), default=0.0)
     ground_band = max(0.12 * body_height, lowest_any + 0.05 * body_height)
+    # a body whose every limb ends far above the floor stands on something else - a tail (merfolk, humanform's
+    # graft): its limbs are arms. (By the band alone a legless body's hands, the lowest limb ends, read as feet.)
+    stands_on_body = lowest_any > LEGLESS_SHARE * body_height
     for l in limbs:
-        l["role"] = "leg" if l["lowest"] <= ground_band else "arm"
+        l["role"] = "leg" if l["lowest"] <= ground_band and not stands_on_body else "arm"
 
     # Which way each mid-joint points. Measured from the rest shape when the
     # limb is clearly bent; otherwise a role default, because a dead-straight
