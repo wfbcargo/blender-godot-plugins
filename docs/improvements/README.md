@@ -31,7 +31,7 @@ before fixing it - the category says where the fix belongs.
 5. [Feature gaps](05-feature-gaps.md) - jump floor bug, hair, compression garments, skirts, muscle definition, garment and join nondeterminism. *5.1 and 5.6 done.*
 6. [Figure study lessons](06-figure-study-lessons.md) - what the September 2026 figure study round cost, the timing per stage, and a ranked list of plugin improvements by time saved per character.
 7. [Motion that reads as alive](07-motion-that-reads-as-alive.md) - why correct clips still look rigid: every upper-body DOF is an instantaneous function of one scalar. Lag, angular-momentum regulation and joint follow-through, none of it human-specific. *Steps 1 (mass model), 2 (girdle) and 3's trunk and limb rungs done; L2's momentum measurement arrived early, as the arbiter.*
-8. [Fantasy species](08-fantasy-species.md) - dwarves, elves, gnomes, trolls, gnolls: a species is data (proportion, head, surface, movement, anatomy) over a baseline body; the nearest human is fitted, then warped by its own skeleton. *Step 1 in progress.*
+8. [Fantasy species](08-fantasy-species.md) - dwarves, elves, gnomes, trolls, gnolls: a species is data (proportion, head, surface, movement, anatomy) over a baseline body; the nearest human is fitted, then warped by its own skeleton. *Steps 1-5 done (species-1); fur and grafts next.*
 
 Do 03 first if you are about to change shared code: without it every other item is verified on one
 character at a time.

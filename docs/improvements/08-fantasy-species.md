@@ -3,8 +3,9 @@
 Category: **6 feature gaps**, but every layer leans on work that already exists. A species is data, and the
 code that turns data into a body, a rig and a gait is shared by every species, including the human one.
 
-> **Picking this up?** Step 1 (species presets and the proportion warp) is the round this was written for
-> (branch `species-1`, 2026-09-21). The rest is in order below.
+> **Picking this up?** Steps 1-5 shipped in the `species-1` round (2026-09-22), with a legs-to-tail graft and
+> eye layouts from the step 7 list: see NEXT.md, "Fantasy species round", for what shipped and what is open.
+> Next: fur (step 6), then head grafts and digitigrade legs (step 7, the gnoll).
 
 > **The goal (the user's rule, 2026-09-21): tools that make *any* creature, not recipes for a dwarf.** A
 > preset for a dwarf is worth little on its own. What we build is (1) a **method** for working out what any

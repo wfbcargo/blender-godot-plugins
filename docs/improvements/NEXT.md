@@ -21,6 +21,60 @@ does find something by eye, the fix is not done until the check that would have 
 The goal is plugins that produce assets, not perfect assets: capture the improvement, build fresh, move on;
 do not spend a round on small numeric drift.
 
+## Fantasy species round (branch `species-1`, 2026-09-22)
+
+[08-fantasy-species.md](08-fantasy-species.md) is the design. **The user's rule for it: tools and a method that
+make *any* creature, driven by numbers, never per-species code; full anatomy on every body; it must look great.**
+The named species are worked examples. Proven by a fresh `build_many` of 14 characters (the four species smoke
+specs, three trial creatures, the four human smoke bodies, both study figures, cast_morgan), all five demo
+selftests, and every Godot review sheet looked at.
+
+What shipped (humanform 0.20.0, rig-anything 0.43.0, follow-through 0.12.0, wardrobe 0.9.0, character-pipeline
+0.20.0, lookdev 0.12.1):
+
+- **The method** (`humanform/references/species-design.md`) and **`species_design`**: `solve(observables)` from
+  what a person can state or measure on concept art (21 observables), general laws for the rest - head
+  allometry (H^0.30 adult, ANSUR II), mass by segment volume (square-cube), a build means an adult's girth at any
+  stature (ANSUR II: BMI independent of stature; girth ~H^0.5) plus support girth for big bodies, reach landmarks,
+  proportionate vs disproportionate - then `design()` (a consistent preset), `explain()`. Designed BMI matches
+  the built body within ~3% from a 1 m gnome to a 3.1 m cyclops. Seven presets are generated examples
+  (`scripts/derive_species.py`).
+- **The warp** (`humanform/species.py`): the nearest human is fitted, then warped to the species by its own
+  skeleton (per-bone length, girth, head scale, widths, a smooth hunch with a balance lean), vertices by linear
+  blend skinning with seam-spread weights; eyes by their allometric factor. Genitals and muscle go on the
+  pre-warp human so the warp carries them. `reads_adult` fails a body in the child range; an anatomy inventory
+  fails a missing part not declared absent.
+- **A creature in a spec with no file**: `[body.species]` inline (observables, knobs, `skin`, `head`,
+  `anatomy.absent` with reasons, `graft`); the whole design runs when the spec loads, so a bad one is refused
+  before a build.
+- **Head** (`features.py`): features as MPFB targets + displacement at 19 landmarks + attached parts (horns,
+  tusks); teeth and tongue on every body (they never existed), with a closed-mouth ray check.
+  **Eyes** (`eye_layout.py`): any count and placement, sockets, lids, brows and lashes following them.
+- **Surface**: skin for any tone (regions shift in the tone's own hue; subsurface follows the tone), patterns
+  (spots, stripes, blotches, mottle, scales), a paler-than-holds tone refused, seam-tone and chroma checks.
+- **Lower-body graft** (`graft.py`): legs to a tail with fluke; rig-anything upright swim and float,
+  `[moves] locomotion = "swim"`.
+- **Movement from the build** (`rig_analysis/morphology.py`): trunk-to-leg, stockiness, mass and reach drive the
+  gait style; Froude and reach checks; turns and jumps on short legs.
+- **Size**: ~30 human-sized constants in follow-through, rig-anything and wardrobe now scale with the body
+  (exactly 1x across the human band).
+- **Beards**: the square-patch grid fixed (anisotropic texels; a mip check refuses a patchy beard), a smooth
+  outline, `beard_length`/`beard_volume`, `full` and `long` presets; hair scales with its head.
+
+Every human builds as before apart from teeth and tongue, the dark lip line and fuller beards (checked tile for
+tile). `regress --quick`: no errors, no pass/fail flips (the flesh_figure control flip this round caused is
+fixed).
+
+**Open, in order:**
+1. The cyclops' pupil renders as a dark square close up; a shadow band at eye height from the closed side
+   sockets; pale specks where the brow cards meet.
+2. Beards are layered shells, not strands; the long beard is rigid (no sway, no braids).
+3. Dwarf and gnome hands cannot reach the top of the head (warned); cast_morgan walks at Froude 0.12.
+4. Tails only replace legs, are at most leg length, have no side fins; mass treats a mermaid as having legs.
+5. Eyes have no bone of their own; no jaw bone, so no open mouth (bites, roars).
+6. The demos load no species figure: add one (a `species_demo`) so a selftest covers them.
+7. Step 6-7 of 08: fur (Godot shell fur plus strand cards) and head grafts / digitigrade legs (the gnoll).
+
 ## State at the end of 2026-09-21
 
 **Everything is merged and pushed.** `main` (blender-godot-plugins) and `master` (grungist-creek) are
