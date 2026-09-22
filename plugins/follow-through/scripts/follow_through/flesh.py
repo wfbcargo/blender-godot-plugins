@@ -71,6 +71,7 @@ import numpy as np
 SIDE_BONES = ("breast", "pelvis", "heel", "shoulder", "clavicle", "jiggle", "ft_", "twist",
               "ear", "eye", "jaw", "tongue", "tooth", "teeth", "finger", "thumb", "palm")
 COLLINEAR_DEG = 35.0      # a branch continues the chain through a child within this of straight on
+MIDLINE_BEND_DEG = 60.0   # the one midline child continues a midline chain within this, past COLLINEAR_DEG
 SECTORS = 24
 BANDS_PER_HEIGHT = 40     # ring thickness = body height / this
 OUTLIER = 1.08            # rings this far above the local envelope line are dropped and it is refitted
@@ -178,6 +179,18 @@ def chains(rig, side=SIDE_BONES):
                 best, best_dot = c, d.dot(dc)
         if best is None and len(kids(b)) == 1:
             best = kids(b)[0]
+        if best is None:
+            # a bent spine: a hunched body's neck leaves its chest ~36 degrees forward (a troll's), past
+            # COLLINEAR_DEG, and the chest's other core children are the two arms. The one child on the midline
+            # - not one of a mirrored pair - still continues it, within MIDLINE_BEND_DEG: split there, the chain
+            # reaching highest was the neck and head alone, and the belly's zone came out empty
+            mid = [c for c in kids(b) if abs(c.head_local.x) < 0.2 * max(b.length, 1e-6)
+                   and d.dot((c.tail_local - c.head_local).normalized()) > math.cos(math.radians(MIDLINE_BEND_DEG))]
+            # Only where the other children branch off above this bone's head - arms off a chest - not where
+            # they hang below it (legs off a pelvis: a human's chain starts above its pelvis, as it always has)
+            side = [c for c in kids(b) if c not in mid]
+            if len(mid) == 1 and abs(b.head_local.x) < 0.2 * max(b.length, 1e-6) and side                     and all(c.head_local.z > b.head_local.z for c in side):
+                best = mid[0]
         return best
 
     continued = set()
@@ -1063,7 +1076,8 @@ def _region(obj, t, c, rname, tname, entry, verts, area, normals, body_volume, n
     attach = None
     if entry.get("attachment") == "upper" and not _legacy_attachment():
         head, tail, w_out, attach = _hang_from_above(obj, t, verts, w, exc, n_mean, surface,
-                                                      rise_m=tuple(entry.get("attach_rise_m", ATTACH_UP_M)))
+                                                      rise_m=tuple(entry.get("attach_rise_m", ATTACH_UP_M)),
+                                                      above_m=float(entry.get("attach_above_m", ATTACH_ABOVE_M)))
     volume = float((exc * area[verts] * np.clip(w, 0, 1)).sum())
     coords = {k: float(np.average(c[k][verts], weights=w + 1e-9)) for k in ("height", "facing", "lateral")}
     roles = list(c["role"][verts])
@@ -1096,7 +1110,7 @@ def _legacy_attachment():
     return os.environ.get("FT_FLESH_LEGACY_ATTACHMENT") == "1"
 
 
-def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M):
+def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M, above_m=ATTACH_ABOVE_M):
     """A mass that hangs from its upper edge - a breast from the chest wall above it, a buttock from the
     iliac crest and sacrum - pivots there, not at its own height, and moves most at its apex (research-flesh-
     jiggle.md items B and C). Before this the bone's tail sat at the excess^2 centre, 5-8 cm inside the
@@ -1123,6 +1137,15 @@ def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M)
     k = max(3, int(round(0.05 * len(strong))))
     top = strong[np.argsort(out[strong])[-k:]]
     apex = P[top].mean(axis=0)
+    # The mean of the outermost vertices is the apex when they sit in one patch. On a big hunched belly they
+    # spread over a wide, flat front (a troll's: 31 vertices across 28 cm of bulge), and their mean fell inside
+    # the body, more than 2 cm from any skin: no vertex was near the tail, and the check read weight 0 there.
+    # Only then, the apex is the outermost vertex nearest that mean - a body whose apex is on its skin keeps it
+    d_apex = np.linalg.norm(P - apex, axis=1)
+    if float(d_apex.min()) > 0.02 * s:
+        near_top = top[np.argsort(np.linalg.norm(P[top] - apex, axis=1))[:3]]
+        apex = P[near_top].mean(axis=0) if float(np.ptp(P[near_top], axis=0).max()) < 0.02 * s else P[near_top[0]]
+        top = near_top
     lean_at_apex = apex - n_mean * float(exc[top].mean())
     zs = P[w > 0.2] @ up if (w > 0.2).any() else P @ up
     rise = float(np.clip(0.6 * (np.percentile(zs, 90) - apex @ up), rise_m[0], rise_m[1]))
@@ -1159,6 +1182,21 @@ def _hang_from_above(obj, t, verts, w, exc, n_mean, surface, rise_m=ATTACH_UP_M)
         if not ball.any() or float(graded[near].mean()) >= ATTACH_APEX_MIN                 or float(graded[ball].mean()) >= ATTACH_APEX_MIN:
             break
         graded = np.clip(graded / max(float(graded[ball].mean()), 1e-6), 0.0, 1.0)
+    # A flat-fronted bulge (a big hunched belly) runs far up the front: its axis from the pivot to the apex is
+    # nearly horizontal, so u reads forwardness, not height, and the skin a hand's breadth above the apex - the
+    # attachment - moved with the mass (a troll's belly 0.62 there, over ATTACH_ABOVE_MAX). Only then, the weight
+    # fades with height from the pivot to just past where check_placement reads it: a mass that hangs from above
+    # keeps its attachment still. A body within the limit keeps its weights
+    d = P - apex
+    dz = d @ up
+    horiz = np.linalg.norm(d - np.outer(dz, up), axis=1)
+    above_s = above_m * s
+    ring = (dz > above_s - 0.01 * s) & (dz < above_s + 0.01 * s) & (horiz < 0.04 * s)
+    if ring.any() and float(graded[ring].max()) > ATTACH_ABOVE_MAX:
+        z0 = rise                                   # the pivot's height over the apex: full weight up to it
+        z1 = max(above_s - 0.01 * s, z0 + 0.01 * s)
+        fade = _smoothstep((z1 - dz) / max(z1 - z0, 1e-6))
+        graded = graded * np.where(dz > z0, fade, 1.0)
     report = {"apex": [round(float(x), 4) for x in apex], "rise_m": round(rise, 4),
               "under_lean_m": round(under, 4), "leg_share_max": round(float(leg.max()), 3),
               "weight_before_grading_at_apex": round(float(w[top].mean()), 3)}
