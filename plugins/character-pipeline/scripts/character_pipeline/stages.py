@@ -241,7 +241,7 @@ def species_summary(sp, prewarp=None):
             "features": dict({k: feats[k] for k in ("unknown", "skipped", "error", "eyes_moved_mm", "intersections")
                               if k in feats}, applied={n: f.get("weight") for n, f in
                                                        (feats.get("features") or {}).items()}),
-            **{k: sp[k] for k in ("eyes", "graft") if k in sp},
+            **{k: sp[k] for k in ("eye_layout", "graft") if k in sp},
             "anatomy": {"counts": an.get("counts"),
                         "rows": [r for r in an.get("parts", []) if r.get("status") != "pass"]}}
 

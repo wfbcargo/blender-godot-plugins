@@ -65,6 +65,7 @@
       "female": 98.6,
       "male": 113.8
     },
+    "adult_cues": {},
     "given": [
       "arm_to_leg",
       "bmi",
