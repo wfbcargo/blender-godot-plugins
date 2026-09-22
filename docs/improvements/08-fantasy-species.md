@@ -419,8 +419,17 @@ mane or a tail's brush did not, and want an API hair.py does not have (see "Open
   measured locally and not by binning the body: binned, the bands mix regions and a face nap's own paler
   colour read as a step that was not there. It caught the dark rings at 0.071 and they now measure 0.005
   (fur_pelt) and 0.013 (fur_dwarf).
-- **Open**: a dark band still runs across the hairline where the pelt's head exclusion feathers under the
-  hair cap, and the fur-to-bare edge at a wrist or an ankle reads as a dark ring. Strand cards for a mane,
+- **Black gloves and socks (the coordinator's second review).** At 2 m both furred bodies had black patches
+  at the wrists, the hands, the ankles and the hairline - worse than a tone step, and the edge check said
+  they were fine, because they were not a step in the *data*. The colour map was filled with **black** where
+  no triangle reached it and grown only two texels; round the small islands - the hands, the wrists, the
+  feet - a bilinear sample pulled that black straight into the coat. It is now filled with the body's own
+  skin tone and grown `DILATE_PASSES` (16) texels, and the patches are gone, the hairline band with them.
+  Check: **`fur.dark_patches`** - any patch of furred body more than `DARK_TOL` in luma below *its own
+  surface colour*, measured on the colour map as Godot samples it, mip by mip, at 0.6 m and 4 m. Against a
+  global coat mean it failed the pattern's own spots, which are meant to be dark; against the surface it
+  sits on, a spot passes and a bled black does not. 2.4% of the body failed it before, 0.0% after.
+- **Open**: strand cards for a mane,
   a ruff past 8 cm or a tail's brush need an entry point `hair.py` does not have: it grows scalp hair from
   a landmark hairline, with no way to hand it a painted region. What fur needs from it is
   `hair.cards(body, field, length_m, volume, colour, root_bone)` where `field` is a per-vertex weight -
