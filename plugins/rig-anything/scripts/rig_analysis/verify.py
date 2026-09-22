@@ -1254,23 +1254,42 @@ def tail_gap(body, bm, evaluated, frames, cap=TAIL_GAP_POINTS):
         A, B = points(T, mats), points(L, mats)
         return float(np.linalg.norm(A[:, None, :] - B[None, :, :], axis=2).min())
 
-    rest = gap({n: body.rest[n] for n in body.rest})
+    def points_at(mats):
+        return points(T, mats)
+
+    rest_mats = {n: body.rest[n] for n in body.rest}
+    rest = gap(rest_mats)
     worst, at = float("inf"), None
     for f in frames:
         g = gap(evaluated[f])
         if g < worst:
             worst, at = g, f
+    # WHAT THIS MEASURE CAN RESOLVE. It is the smallest distance between two SAMPLED surfaces, so it cannot
+    # see anything finer than the spacing of the samples themselves, and it cannot go negative - "the tail is
+    # touching the leg" and "the tail is through the leg" read the same number. So a tail that starts within
+    # that spacing of a leg is not judged at all: a rabbit's scut lies on its haunch, and a cricket's abdomen
+    # on its hind femur, and both had a jump launch refused for closing a gap that was never there.
+    A = points_at(rest_mats)
+    d = np.linalg.norm(A[:, None, :] - A[None, :, :], axis=2)
+    np.fill_diagonal(d, np.inf)
+    spacing = float(np.median(d.min(axis=1))) if len(A) > 1 else 0.0
     floor = TAIL_GAP_MIN * bm["height"]
     limit = min(floor, TAIL_GAP_REST * rest)
-    # A tail whose skin already TOUCHES a leg at rest cannot be judged this way: the measure is a distance
-    # between two surfaces and it cannot go negative, so "still touching" and "passing through" read the same.
-    # A rabbit's scut lies on its haunch at 2 mm, and its jump launch was refused for closing that to 0.
-    judged = rest > floor
+    # AND WHAT IT IS FOR. A tail hung on an UPRIGHT body swings between its legs and must not pass through
+    # one - that is the question this answers. A horizontal body's tail rests ON its legs by construction: a
+    # rabbit's scut lies on its haunch and a cricket's abdomen comes down on its hind femur through a jump
+    # launch, both by anatomy, and both had a clip refused for it. So the numbers are measured for every body
+    # and the verdict is passed only on the bodies the question is about.
+    judged = bool(bm.get("upright")) and rest > max(floor, spacing)
     return {"min_m": round(worst, 4), "at_frame": at, "rest_m": round(rest, 4),
             "limit_m": round(limit, 5), "points": [len(T), len(L)], "judged": judged,
-            "note": None if judged else ("the tail's skin already lies on a leg at rest (%.0f mm, under the "
-                                         "%.0f mm floor): a clip cannot be judged by closing a gap that is "
-                                         "not there" % (rest * 1000, floor * 1000)),
+            "spacing_m": round(spacing, 5),
+            "note": None if judged else
+            ("a horizontal body carries its tail on its legs by anatomy; measured, not judged"
+             if not bm.get("upright") else
+             "the tail's skin already lies on a leg at rest (%.1f mm, against a %.1f mm floor and %.1f mm "
+             "between the points this is measured on): a clip cannot be judged by closing a gap that is not "
+             "there" % (rest * 1000, floor * 1000, spacing * 1000)),
             "failed": judged and worst < limit}
 
 
