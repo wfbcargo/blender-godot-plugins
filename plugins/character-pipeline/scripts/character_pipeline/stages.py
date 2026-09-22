@@ -218,7 +218,32 @@ def run_body(ch, ctx):
     likeness = (res.get("fit") or {}).get("likeness")
     if likeness:                                    # a [body.face]: each measure as fitted against its target
         out["likeness"] = likeness
+    sp = res.get("species")
+    if sp:
+        out["species"] = species_summary(sp, res.get("prewarp"))
+        bad = [r for r in (sp.get("anatomy") or {}).get("parts", []) if r.get("status") == "fail"]
+        if bad:
+            # the design's rule: a part missing and not declared absent fails the build (08, "An inventory check")
+            raise RuntimeError("anatomy inventory: " + "; ".join(f"{r['part']}: {r.get('reason')}" for r in bad)
+                               + " - fix the body, or declare the part absent in [body.species] anatomy with the "
+                               "reason the description gives")
     return out
+
+
+def species_summary(sp, prewarp=None):
+    """The species half of a body stage's report, small enough for the file: the pre-warp human, the warp's
+    notes, the head features and every anatomy row that is not a plain pass."""
+    an = sp.get("anatomy") or {}
+    feats = sp.get("features") or {}
+    return {"id": sp.get("species"), "stature": sp.get("stature"), "stature_pre": sp.get("stature_pre"),
+            "clamp_scale": sp.get("clamp_scale"), "notes": sp.get("notes"),
+            "prewarp_check": (prewarp or {}).get("check"),
+            "features": dict({k: feats[k] for k in ("unknown", "skipped", "error", "eyes_moved_mm", "intersections")
+                              if k in feats}, applied={n: f.get("weight") for n, f in
+                                                       (feats.get("features") or {}).items()}),
+            **{k: sp[k] for k in ("eyes", "graft") if k in sp},
+            "anatomy": {"counts": an.get("counts"),
+                        "rows": [r for r in an.get("parts", []) if r.get("status") != "pass"]}}
 
 
 def _stature(res):

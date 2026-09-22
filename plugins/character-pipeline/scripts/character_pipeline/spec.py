@@ -178,7 +178,7 @@ def species_design():
 SPECIES_LOOK = {
     "skin": ("tone", "pattern", "regions_off", "subsurface_tint"),
     "skin.pattern": ("kind", "colour", "scale", "amount", "regions"),
-    "head": ("shape", "shape_weight", "features"),
+    "head": ("shape", "shape_weight", "features", "eyes"),
 }
 SPECIES_META = ("id", "label", "anatomy", "moves")
 # `anatomy` (humanform.species_design): only what the description says the creature lacks, each with its reason,
