@@ -95,6 +95,7 @@
       "tol_scale": "human default"
     },
     "contradictions": [],
+    "warnings": [],
     "observables": {
       "stature": {
         "female": [
@@ -477,9 +478,9 @@
   "skin": {
     "palette": [
       [
-        0.94,
-        0.84,
-        0.76
+        0.9,
+        0.78,
+        0.68
       ],
       [
         0.84,

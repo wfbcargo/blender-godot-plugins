@@ -52,6 +52,11 @@ from mathutils import Matrix, Vector
 from . import bodymap, fins as fin_mod, motion, stored
 
 STRIDE = 0.7            # body lengths per tail beat (0.6-0.8: Videler; Wardle)
+UPRIGHT = "ra_swims_upright"   # on a rig: it stands head-up at rest and swims (see upright_set)
+UPRIGHT_HOLD = 0.5      # such a swimmer's wave rises from nothing over this share of its head-to-pelvis length
+UPRIGHT_FRONT = 0.1     # and keeps this share of it at the head and chest
+ARMS_ALONG = 0.35       # how far such a swimmer's hanging arms are laid back along its body while it swims (0.55
+                        # folded a woman's armpit skin inside out: the flip check caught it)
 CAUDAL_MAX = 45.0       # tail fin against its peduncle, degrees - a design bound
 WATER = 1025.0          # kg/m3 - a fish is near neutrally buoyant
 
@@ -87,7 +92,11 @@ class Swimmer:
 
     def __init__(self, rig_name, mode=None, forward="-Y", up="Z"):
         rig = bpy.data.objects[rig_name]
-        bm = bodymap.build(rig_name, forward=forward, up=up)
+        # a body that stands head-up at rest and swims (merfolk: `UPRIGHT` on the rig, set by upright_set): its
+        # line runs from the tail's tip up to the head, the head leads, the back is its top - every clip is
+        # worked out in that frame and laid prone after (`lay_prone`)
+        self.upright = bool(rig.get(UPRIGHT))
+        bm = upright_bodymap(rig_name) if self.upright else bodymap.build(rig_name, forward=forward, up=up)
         if "error" in bm:
             raise ValueError(bm["error"])
         self.rig, self.bm = rig, bm
@@ -130,6 +139,8 @@ class Swimmer:
 
         if st.get("swims") == "dorsoventral":
             auto = "cetacean"
+        elif self.upright and self._flat_tip() == "horizontal":
+            auto = "cetacean"                       # flukes: a blade wider across the body than through it
         else:
             depth = max(self._depths(), default=0.0)
             auto = "anguilliform" if self.length / max(depth, 1e-9) > 12.0 else "carangiform"
@@ -143,6 +154,51 @@ class Swimmer:
         self._caudal_sign = self._probe_caudal() if self.caudal else 1.0
         # clean limits measured on this skin by `measure_fin_limits`
         self.limits = {k: st[k] for k in ("bend_clean_deg", "brake_clean") if k in st}
+
+    def arms_along(self, posed, share=None):
+        """Overrides turning each arm's upper bone about its shoulder toward the body's tail (`-fwd`, carried by
+        the bone the arm hangs from), a little out from the sides, the rest of the arm following: how a
+        swimmer that stands at rest (merfolk) streamlines. `share` 0 leaves the arm as it hangs."""
+        share = ARMS_ALONG if share is None else share
+        out = {}
+        fwd, lat = self.bm["fwd"], self.bm["lat"]
+        for l in (self.bm["roles"].get("limbs") or {}).values():
+            up, parent = l.get("upper"), None
+            if not up or up not in posed:
+                continue
+            b = self.rig.data.bones[up]
+            parent = b.parent.name if b.parent else None
+            m = posed[up]
+            head = m.translation.copy()
+            tail = (m @ self.body.rest[up].inverted() @ b.tail_local.to_4d()).to_3d()
+            d = (tail - head).normalized()
+            carry = ((posed[parent] @ self.body.rest[parent].inverted()).to_3x3() if parent in posed
+                     else Matrix.Identity(3))
+            side = 1.0 if (head - posed[self.bm["axial"][self.bm["pelvis_index"]]].translation).dot(lat) > 0 else -1.0
+            want = (carry @ (-fwd * 0.93 + lat * side * 0.28 + self.bm["up_vec"] * 0.2)).normalized()
+            target = d.lerp(want, share).normalized()
+            q = d.rotation_difference(target)
+            R = Matrix.Translation(head) @ q.to_matrix().to_4x4() @ Matrix.Translation(-head)
+            out[up] = R @ m
+        return out
+
+    def _flat_tip(self):
+        """How the last tenth of the body is flattened: "horizontal" when it spreads across the body (flukes),
+        "vertical" through it (a fish's tail), None when it is round."""
+        fwd, lat, upv = self.bm["fwd"], self.bm["lat"], self.bm["up_vec"]
+        to_arm = self.rig.matrix_world.inverted()
+        xs, ys = [], []
+        for o in fin_mod._bound(self.rig):
+            m = to_arm @ o.matrix_world
+            for v in o.data.vertices:
+                q = m @ v.co
+                if (q.dot(fwd) - self.tip_u) < 0.1 * self.length:
+                    xs.append(q.dot(lat))
+                    ys.append(q.dot(upv))
+        if len(xs) < 4:
+            return None
+        w, d = max(xs) - min(xs), max(ys) - min(ys)
+        return "horizontal" if w > 2.0 * d else ("vertical" if d > 2.0 * w else None)
 
     def _dedupe(self, pts):
         """One point per joint: bones in the chain share their joints, so the
@@ -205,7 +261,15 @@ class Swimmer:
     # ---------------------------------------------------------------- pose
     def offsets(self, phase, amp=1.0):
         lam, env = self.spec["wavelength"], self.spec["envelope"]
-        return [amp * env(z) * self.length * math.sin(2.0 * math.pi * (z / lam - phase)) for z in self.z]
+        out = [amp * env(z) * self.length * math.sin(2.0 * math.pi * (z / lam - phase)) for z in self.z]
+        if self.upright:
+            # a body built like a person's above its tail swims as a person dolphin-kicks: the chest and head held,
+            # the wave growing from the waist down (the whole-body envelope bent the chest and folded the armpits)
+            zp = self.z[len(self.pts) - 1 - self.bm["pelvis_index"]] if len(self.pts) > self.bm["pelvis_index"] else 0.5
+            zc = max(0.0, zp - UPRIGHT_HOLD * zp)
+            out = [o * (UPRIGHT_FRONT + (1 - UPRIGHT_FRONT) * _smooth((z - zc) / max(zp - zc, 1e-6)))
+                   for o, z in zip(out, self.z)]
+        return out
 
     def chain(self, offsets, bend_deg=0.0, anchor_z=0.33):
         """Rigid segments laid along the wave's offsets (in the wave's plane),
@@ -285,6 +349,10 @@ class Swimmer:
         new, rots = self.chain(offs, bend_deg)
         overrides = self.axial_overrides(new, rots)
         posed = body.fk(overrides)
+        if self.upright:
+            # arms that hang at rest are laid back along the body while it swims, streamlined
+            overrides.update(self.arms_along(posed))
+            posed = body.fk(overrides)
         if self.maw is not None and maw:
             from .maw import blend_states
             overrides.update(self.maw.pose(posed, blend_states(maw, maw, 1.0)))
@@ -652,7 +720,7 @@ def _finish(r, sw, action, frames, extra):
 
 
 def beat(rig_name, role="Swim", speed=None, frames=None, action_name=None, mode=None, fps=None,
-         forward="-Y", up="Z", mass_kg=None, min_frames=12):
+         forward="-Y", up="Z", mass_kg=None, min_frames=12, keep=False):
     """One looping tail beat at `speed` (default cruise for Swim, burst for Sprint)."""
     sw = Swimmer(rig_name, mode=mode, forward=forward, up=up)
     p = plan(sw, mass_kg)
@@ -665,9 +733,11 @@ def beat(rig_name, role="Swim", speed=None, frames=None, action_name=None, mode=
     samples = [sw.pose((k - 1) / float(n), fins=fin_states) for k in range(1, n + 2)]
     checks = SwimChecks(sw)
     amp = sw.spec["envelope"](1.0) * sw.length
-    _, _, action, r = _author(sw, action_name or role, samples, fps,
-                              lambda keyed, ev, infos: _check_swim(sw, checks, keyed, ev, infos, loop=True,
-                                                                    amp_plan=amp, wave=True))
+    keyed, _, action, r = _author(sw, action_name or role, samples, fps,
+                                  lambda keyed, ev, infos: _check_swim(sw, checks, keyed, ev, infos, loop=True,
+                                                                        amp_plan=amp, wave=True))
+    if keep:
+        r["_keyed"] = keyed          # upright_set lays the clip prone from these
     duration = (n + 1) / float(fps_now)
     return _finish(r, sw, action, n + 1, {
         "role": role, "plan": {k: (round(v, 4) if isinstance(v, float) else v) for k, v in p.items()},
@@ -676,15 +746,17 @@ def beat(rig_name, role="Swim", speed=None, frames=None, action_name=None, mode=
         "playback_speed_scale": round(f_beat * duration, 4)})
 
 
-def glide(rig_name, frames=48, action_name="Glide", mode=None, fps=None, forward="-Y", up="Z"):
+def glide(rig_name, frames=48, action_name="Glide", mode=None, fps=None, forward="-Y", up="Z", keep=False):
     """Coasting between kicks: body nearly straight, fins folded, a slow drift."""
     sw = Swimmer(rig_name, mode=mode, forward=forward, up=up)
     p = plan(sw)
     fin_states = _fin_states(p, p["burst_speed_mps"], glide=True)
     samples = [sw.pose((k - 1) / float(frames), amp=0.08, fins=fin_states) for k in range(1, frames + 2)]
     checks = SwimChecks(sw)
-    _, _, action, r = _author(sw, action_name, samples, fps,
-                              lambda keyed, ev, infos: _check_swim(sw, checks, keyed, ev, infos, loop=True))
+    keyed, _, action, r = _author(sw, action_name, samples, fps,
+                                  lambda keyed, ev, infos: _check_swim(sw, checks, keyed, ev, infos, loop=True))
+    if keep:
+        r["_keyed"] = keyed
     return _finish(r, sw, action, frames + 1, {"role": "Glide", "coast_share": round(p["coast_share"], 3)})
 
 
@@ -719,7 +791,7 @@ def hover(rig_name, frames=None, action_name="Hover", mode=None, fps=None, forwa
 
 
 def turn(rig_name, side="L", frames=None, action_name=None, mode=None, fps=None, forward="-Y", up="Z",
-         bend_deg=60.0):
+         bend_deg=60.0, keep=False):
     """A cruise beat with the body bent into the turn and back out. The engine
     turns the body by `turn_deg` over the clip - the arc swum at cruise on the
     mode's turning radius (0.05-0.1 L flexible fish, ~0.5 L a tuna)."""
@@ -737,8 +809,10 @@ def turn(rig_name, side="L", frames=None, action_name=None, mode=None, fps=None,
         t = (k - 1) / float(n - 1)
         samples.append(sw.pose(t, bend_deg=sign * bend_deg * math.sin(math.pi * t), fins=fin_states))
     checks = SwimChecks(sw)
-    _, _, action, r = _author(sw, action_name or "Turn" + side, samples, fps,
-                              lambda keyed, ev, infos: _check_swim(sw, checks, keyed, ev, infos))
+    keyed, _, action, r = _author(sw, action_name or "Turn" + side, samples, fps,
+                                  lambda keyed, ev, infos: _check_swim(sw, checks, keyed, ev, infos))
+    if keep:
+        r["_keyed"] = keyed
     dur = (n - 1) / float(fps_now)
     # heading change: the arc swum on the turning radius, but no more than 90
     # degrees a beat - a design cap; the radius alone gave a 1 m fish 380
@@ -843,6 +917,190 @@ def swim_set(rig_name, prefix=None, mode=None, fps=None, forward="-Y", up="Z", m
     out = {role: makers[role]() for role in roles}
     stored.store(out, rig_name)             # on the actions, so export works in a later session
     return out
+
+
+# --------------------------------------------------------------------------
+# a body that stands at rest and swims: merfolk, nagas, anything grafted
+# --------------------------------------------------------------------------
+
+import re as _re
+_SIDED = _re.compile(r"[._-]([LlRr])$")
+
+
+def upright_bodymap(rig_name):
+    """A body map for a swimmer whose rest pose stands head-up (a human upper body on a tail): the axial line is
+    the tail's tip, up the tail to the pelvis, up the spine to the head - the head leads (`fwd` +Z) and the back
+    is its top (`up_vec` +Y, the body facing -Y). The tail is found by structure: the longest chain of unsided
+    bones branching off the head's path to the root that is not that path."""
+    bm = bodymap.build(rig_name, forward="Z", up="Y")
+    if "error" in bm:
+        return bm
+    rig = bpy.data.objects[rig_name]
+    bones = rig.data.bones
+    head = (bm.get("roles") or {}).get("head")
+    if head not in bones:
+        return {"error": "%s: no head to swim from" % rig_name}
+    path = [head]
+    while bones[path[-1]].parent is not None:
+        path.append(bones[path[-1]].parent.name)
+    on_path = set(path)
+
+    def longest(b):
+        kids = [c for c in b.children if not _SIDED.search(c.name)]
+        if not kids:
+            return [b.name]
+        return [b.name] + max((longest(c) for c in kids), key=len)
+    best, at = [], None
+    for name in path:
+        for c in bones[name].children:
+            if c.name in on_path or _SIDED.search(c.name):
+                continue
+            ch = longest(c)
+            if len(ch) > len(best):
+                best, at = ch, name
+    if len(best) < 2:
+        return {"error": "%s stands at rest but has no tail below its pelvis to swim with" % rig_name}
+    i = path.index(at)
+    axial = list(reversed(best)) + path[i::-1]            # tail tip .. pelvis .. head
+    ab = [bones[n] for n in axial]
+    joints = []
+    for k, b in enumerate(ab):
+        if k + 1 < len(ab):
+            nx = ab[k + 1]
+
+            def gap(q, nx=nx):
+                return min((q - nx.head_local).length, (q - nx.tail_local).length)
+            joints.append((b.head_local if gap(b.head_local) > gap(b.tail_local) else b.tail_local).copy())
+        else:
+            joints.append((b.head_local if (b.head_local - joints[-1]).length < (b.tail_local - joints[-1]).length
+                           else b.tail_local).copy())
+    bm = dict(bm, axial=axial, axial_joints=joints, pelvis_index=len(best), upright_swimmer=True)
+    bm["roles"] = dict(bm["roles"], tail=list(best), pelvis=at)
+    return bm
+
+
+def lay_prone(sw, action, keyed):
+    """Re-key an authored clip with the whole body turned from standing to lying prone - the head forward
+    (-Y), the belly down - about the pelvis, which keeps its height. Everything the clip's checks measured is the
+    same body in the same frame; only where it lies changes."""
+    from . import motion as _motion
+    pivot = sw.bm["axial_joints"][sw.bm["pelvis_index"]].copy()
+    G = (Matrix.Translation(pivot) @ Matrix.Rotation(math.radians(90.0), 4, "X")
+         @ Matrix.Translation(-pivot))
+    turned = [(f, {n: G @ m for n, m in posed.items()}) for f, posed in keyed]
+    _motion.bake(sw.body, action, turned)
+    return {"laid": "prone", "pivot_z": round(float(pivot.z), 4)}
+
+
+def float_idle(rig_name, frames=None, action_name="Idle", mode=None, fps=None, amp=0.22, period_s=2.5,
+               scull_deg=14.0):
+    """Treading water, upright: the tail beating slowly at a fifth of its swimming amplitude, the arms sculling
+    out and in, a slow period (`period_s`). The idle a swimmer stands in, as a walker's Idle is standing."""
+    sw = Swimmer(rig_name, mode=mode)
+    if not sw.upright:
+        return {"error": "float_idle is for a body that stands at rest (upright_set)"}
+    fps_now = fps or bpy.context.scene.render.fps
+    n = int(frames or max(24, round(period_s * fps_now)))
+    body = sw.body
+    limbs = [l for l in (sw.bm["roles"].get("limbs") or {}).values() if l.get("upper") and l.get("lower")]
+    samples = []
+    for k in range(1, n + 2):
+        t = (k - 1) / float(n)
+        offs = sw.offsets(t, amp)
+        new, rots = sw.chain(offs)
+        ov = sw.axial_overrides(new, rots)
+        posed = body.fk(ov)
+        for l in limbs:
+            side = 1.0 if (posed[l["upper"]].translation.x > 0) else -1.0
+            for bone, a, lag in ((l["upper"], scull_deg, 0.0), (l["lower"], scull_deg * 1.3, 0.12)):
+                m = posed[bone]
+                ang = math.radians(a) * math.sin(2 * math.pi * (t - lag)) * side
+                R = (Matrix.Translation(m.translation) @ Matrix.Rotation(ang, 4, "Z")
+                     @ Matrix.Translation(-m.translation))
+                ov[bone] = R @ m
+                posed = body.fk(ov)
+        samples.append((posed, {}))
+    checks = SwimChecks(sw)
+    _, _, action, r = _author(sw, action_name, samples, fps,
+                              lambda keyed, ev, infos: _check_swim(sw, checks, keyed, ev, infos, loop=True))
+    top = max((o.matrix_world @ v.co).z for o in fin_mod._bound(sw.rig) for v in o.data.vertices)
+    return _finish(r, sw, action, n + 1, {"role": "Idle", "period_s": round(n / float(fps_now), 3),
+                                          "standing_height_m": round(float(top), 4)})
+
+
+def upright_set(rig_name, prefix=None, roles=("Idle", "Swim", "Sprint", "Glide", "TurnL", "TurnR"), mode=None,
+                fps=None, mass_kg=None):
+    """Every clip of a swimmer that stands at rest (a merfolk): Idle is `float_idle` (upright, treading water);
+    the swimming clips are worked out as for any swimmer along its tail-to-head line and laid prone
+    (`lay_prone`). The mode comes from the tail's tip unless given: flukes (wider across than through) swim up
+    and down (cetacean). Returns {role: report}, stored on the actions like swim_set's."""
+    rig = bpy.data.objects[rig_name]
+    rig[UPRIGHT] = True
+    prefix = prefix or rig_name
+    out = {}
+    sw = Swimmer(rig_name, mode=mode)
+    for role in roles:
+        an = "%s_%s" % (prefix, role)
+        if role == "Idle":
+            out[role] = float_idle(rig_name, action_name=an, mode=sw.mode, fps=fps)
+            continue
+        if role in ("Swim", "Sprint"):
+            r = beat(rig_name, role, action_name=an, mode=sw.mode, fps=fps, mass_kg=mass_kg, keep=True)
+        elif role == "Glide":
+            r = glide(rig_name, action_name=an, mode=sw.mode, fps=fps, keep=True)
+        elif role in ("TurnL", "TurnR"):
+            r = turn(rig_name, role[-1], action_name=an, mode=sw.mode, fps=fps, keep=True)
+        else:
+            out[role] = {"error": "%s: no %s clip for a swimmer that stands (Idle, Swim, Sprint, Glide, TurnL, "
+                                  "TurnR)" % (rig_name, role)}
+            continue
+        keyed = r.pop("_keyed", None)
+        if "error" not in r and keyed is not None:
+            r["lay"] = lay_prone(sw, bpy.data.actions[r["action"]], keyed)
+        out[role] = r
+    stored.store(out, rig_name)
+    return out
+
+
+def export_upright(mesh_name, rig_name, glb_path, reports=None, roles=None, loops=None, name=None, creature=None,
+                   res_path=None, force=False, extra=None):
+    """Export a swimmer that stands (upright_set's clips) and write its `.moves.json`: clips, loops, the `swim`
+    block (`engine_manifest`), `height_m.stand` from its Idle, `locomotion` "swim". No feet, and a floor far below
+    it, so no clip is judged for sliding or sinking."""
+    import json
+    import os
+    from . import export as _export
+    roles = list(roles or ("Idle", "Swim", "Sprint", "Glide", "TurnL", "TurnR"))
+    reports = stored.resolve(reports, rig_name, roles)
+    bad = ["%s: %s" % (r, (reports.get(r) or {}).get("error", "not authored")) for r in roles
+           if not isinstance(reports.get(r), dict) or "error" in reports[r]]
+    if bad:
+        return {"error": "not exporting roles that were not authored: " + "; ".join(bad)}
+    if "Idle" not in roles:
+        return {"error": "no Idle role - a character starts on its Idle clip (float_idle for a swimmer)"}
+    clip = {r: reports[r]["action"] for r in roles}
+    loops = list(loops) if loops is not None else [r for r in roles if r in ("Idle", "Swim", "Sprint", "Glide")]
+    e = _export.export(mesh_name, rig_name, glb_path, foot_bones=[], actions=list(clip.values()),
+                       loop_clips=[clip[r] for r in loops], floor=-100.0, force=force, sidecar=False, review=False)
+    if not e.get("exported"):
+        return {"error": "export refused at %s: %s" % (e.get("stage"), e.get("note") or e.get("error")), "export": e}
+    swim_block = engine_manifest({r: reports[r] for r in roles if r in ROLES})
+    moves = {"creature": creature or os.path.basename(os.path.splitext(glb_path)[0]), "name": name or creature,
+             "rig": rig_name, "scene": res_path or _export._res_path(glb_path),
+             "clips": clip, "loops": [clip[r] for r in loops], "locomotion": "swim",
+             "height_m": {"stand": reports["Idle"]["standing_height_m"]},
+             "swim": swim_block, "verified": e["verified"],
+             "clip_checks": {k: {"passed": c.get("passed"), "loop_seam": c.get("loop_seam"),
+                                 "failures": c.get("failures", [])} for k, c in e["clips"]["clips"].items()},
+             "forced_clips": e.get("forced_clips", {}),
+             "known_failures": {r: reports[r]["failures"] for r in roles if reports[r].get("failures")}}
+    moves.update(extra or {})
+    path = os.path.splitext(glb_path)[0] + ".moves.json"
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(moves, fh, indent=2)
+    return {"glb": glb_path, "moves": path, "manifest": moves, "verified": e["verified"],
+            "clips": list(clip.values()), "bones": e["preflight"]["bones"],
+            "problems": swim_block.get("problems", []), "export": e}
 
 
 ROLES = ("Swim", "Sprint", "Glide", "Hover", "TurnL", "TurnR", "Escape", "Brake")

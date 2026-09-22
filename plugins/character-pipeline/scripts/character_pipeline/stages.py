@@ -4,7 +4,8 @@
     muscle    humanform's muscle definition on the unbaked body: delta-part shape keys weighted by the brief,
               as geometry, or (output = "normal") a high copy the bake stage bakes into the skin's normal
               map (optional: `[muscle]`)
-    bake      one skinned mesh: shape keys and helpers baked, skin material, eyes joined
+    bake      one skinned mesh: shape keys and helpers baked, skin material, eyes joined; with `[body] genitals`
+              a man's kept genital shell is fused to the body first (humanform.genitals.fuse)
     hair      humanform's hair layer from a preset, joined into the body - except a strand part the
               strand stage will chain, which stays its own object (optional)
     flesh     follow-through jiggle bones (optional)
@@ -212,13 +213,44 @@ def run_body(ch, ctx):
                         hand_part=parts.get("hands"), foot_part=parts.get("feet"),
                         **quality_mod.settings(ctx["quality"], "body"))
     out = {k: res.get(k) for k in ("ansur", "check", "notes", "macros")}
+    if ch.body.genitals:
+        from humanform import genitals
+        sex = ch.body.brief.get("sex")
+        out["genitals"] = genitals.add(_obj(ch.name), sex, shape=ch.body.genital_shape or None,
+                                       strength=ch.body.genital_strength)
     out["stature"] = _stature(res)
     out["library"] = res.get("path")                # reuse | warm | fresh: where the body's seconds went
     out["timing"] = res.get("timing")
     likeness = (res.get("fit") or {}).get("likeness")
     if likeness:                                    # a [body.face]: each measure as fitted against its target
         out["likeness"] = likeness
+    sp = res.get("species")
+    if sp:
+        out["species"] = species_summary(sp, res.get("prewarp"))
+        bad = [r for r in (sp.get("anatomy") or {}).get("parts", []) if r.get("status") == "fail"]
+        if bad:
+            # the design's rule: a part missing and not declared absent fails the build (08, "An inventory check")
+            raise RuntimeError("anatomy inventory: " + "; ".join(f"{r['part']}: {r.get('reason')}" for r in bad)
+                               + " - fix the body, or declare the part absent in [body.species] anatomy with the "
+                               "reason the description gives")
     return out
+
+
+def species_summary(sp, prewarp=None):
+    """The species half of a body stage's report, small enough for the file: the pre-warp human, the warp's
+    notes, the head features and every anatomy row that is not a plain pass."""
+    an = sp.get("anatomy") or {}
+    feats = sp.get("features") or {}
+    return {"id": sp.get("species"), "stature": sp.get("stature"), "stature_pre": sp.get("stature_pre"),
+            "clamp_scale": sp.get("clamp_scale"), "notes": sp.get("notes"),
+            "prewarp_check": (prewarp or {}).get("check"),
+            "check_findings": sp.get("check_findings"),
+            "features": dict({k: feats[k] for k in ("unknown", "skipped", "error", "eyes_moved_mm", "intersections")
+                              if k in feats}, applied={n: f.get("weight") for n, f in
+                                                       (feats.get("features") or {}).items()}),
+            **{k: sp[k] for k in ("eye_layout", "graft") if k in sp},
+            "anatomy": {"counts": an.get("counts"),
+                        "rows": [r for r in an.get("parts", []) if r.get("status") != "pass"]}}
 
 
 def _stature(res):
@@ -373,6 +405,17 @@ def run_bake(ch, ctx):
             b["separated_for_rebake"] = split
     ob = _obj(ch.mesh)
     _obj(ch.rig).data.pose_position = "POSE"
+    fused = None
+    if ch.body.genitals and ch.body.brief.get("sex") == "male":
+        # the shell the body stage kept, fused on the baked mesh before the eyes join it (humanform.genitals)
+        from humanform import genitals
+        high = _obj(f"{ch.name}_muscle_high") if ch.muscle is not None and ch.muscle.output == "normal" else None
+        pre = genitals.mark_source(ob) if high is not None else None
+        fused = genitals.fuse(ob)
+        if high is not None:
+            # the muscle stage's high copy has the unfused topology: carried onto the fused one, or the
+            # matched normal bake below falls back to rays for the whole body
+            fused["muscle_high"] = genitals.refit_high(ob, high, pre)
     skin = ch.body.brief.get("skin") if ch.body.source == "brief" else ch.body.skin
     species_skin = None
     sp_ref = ch.body.brief.get("species") if ch.body.source == "brief" else None
@@ -404,6 +447,8 @@ def run_bake(ch, ctx):
     sk = skin_manifest(ch)
     if sk is not None:
         out["skin"] = sk
+    if fused is not None:
+        out["genitals"] = fused
     if ch.muscle is not None:
         if ch.muscle.output == "normal":
             out["muscle_normal"] = _bake_muscle_normal(ch, ctx)
@@ -678,7 +723,36 @@ def run_flesh(ch, ctx):
     return out
 
 
+def run_swim(ch, ctx):
+    """The moves stage for a swimmer that stands at rest (`[moves] locomotion = "swim"`): rig-anything's
+    swim.upright_set - Idle treading water upright, the rest swimming prone - checked on playback like every
+    clip, with none of a walker's Froude or reach checks, which do not apply."""
+    from rig_analysis import swim
+    for a in list(bpy.data.actions):
+        if a.name.startswith(ch.name + "_"):
+            bpy.data.actions.remove(a)
+    res = swim.upright_set(ch.rig, prefix=ch.name, roles=tuple(ch.moves.roles))
+    out = {}
+    for role in ch.moves.roles:
+        r = res[role]
+        if "error" in r:
+            raise RuntimeError(f"moves {role}: {r['error']}")
+        out[role] = {"action": r["action"], "passed": r.get("passed"), "failures": r.get("failures", [])[:4],
+                     **{k: r[k] for k in ("mode", "tailbeat_hz", "speed_mps", "tail_pp_m", "lay", "period_s",
+                                          "standing_height_m") if r.get(k) is not None}}
+    out["locomotion"] = "swim"
+    failing = sorted(role for role in ch.moves.roles if out[role]["failures"] and role not in ch.moves.may_fail)
+    if failing:
+        why = "; ".join(f"{role}: {' | '.join(res[role].get('failures') or [])}" for role in failing)
+        raise RuntimeError(f"moves: clips failing their checks: {failing} - {why} (or list the role in "
+                           "moves.may_fail to export it forced)")
+    ctx["moves"] = res
+    return out
+
+
 def run_moves(ch, ctx):
+    if ch.moves.locomotion == "swim":
+        return run_swim(ch, ctx)
     from rig_analysis import actions, verify
     for a in list(bpy.data.actions):
         if a.name.startswith(ch.name + "_"):
@@ -716,6 +790,10 @@ def run_moves(ch, ctx):
             # what the asymmetry did, measured off the baked clip - only present when a spec
             # opted in, so a character at the default reports exactly what it always reported
             out[role]["variability"] = r["variability"]
+    if ch.body.genitals and ch.body.brief.get("sex") == "male":
+        # the thighs sweep through the scrotum in every clip: humanform keys its corrective bones per frame
+        from humanform import genitals
+        out["genitals"] = genitals.clear_thighs(ch.mesh, ch.rig, [res[r]["action"] for r in ch.moves.roles])
     for role in ch.moves.clearance_check:
         c = verify.limb_clearance(ch.rig, res[role]["action"], mesh_name=ch.mesh, every=2)
         out[role]["limb_clearance"] = {k: c.get(k) for k in ("closest_m", "at_frame", "samples_inside", "error")
@@ -735,6 +813,18 @@ def run_moves(ch, ctx):
         if got:
             out["derived_style"] = got["derived"]
             out["morphology"] = got["measured"]
+    # every clip: how far the skin between the legs passes through itself (thigh into thigh, into the crotch)
+    # and through a genital part - linear blend skinning collapses the crotch, and nothing else measured it
+    limit = None
+    if ch.body.genitals:
+        from humanform import genitals as hf_genitals
+        limit = hf_genitals.CLEAR_LIMIT_MM
+    for role in ch.moves.roles:
+        c = verify.crotch_clearance(ch.rig, res[role]["action"], mesh_name=ch.mesh, every=1 if limit else 2)
+        out[role]["crotch"] = {k: v for k, v in c.items() if k.endswith(("_mm", "_frame")) or k in ("skipped", "error")}
+        if limit and (c.get("part_mm") or 0.0) > limit:
+            print(f"[{ch.id}] moves: {role}: the genital part goes {c['part_mm']} mm into a thigh at frame "
+                  f"{c.get('part_frame')}, over humanform.genitals.CLEAR_LIMIT_MM ({limit} mm)")
     failing = sorted(role for role in ch.moves.roles if out[role]["failures"] and role not in ch.moves.may_fail)
     if failing:
         # each failing clip with what failed and by how much, so the fix (a [moves.per_gait.<role>] option, or
@@ -896,10 +986,17 @@ def run_export(ch, ctx):
     var = variability_block(ch)
     if var is not None:
         extra["variability"] = var
-    e = ra_export.export_character(ch.mesh, ch.rig, glb, name=ch.name, creature=ch.id, reports=reports,
-                                   res_path=f"{ch.export.res_dir}/{ch.id}.glb", roles=list(ch.moves.roles),
-                                   loops=list(ch.moves.loops), gaits=list(ch.moves.export_gaits),
-                                   force=bool(ch.moves.may_fail), extra=extra, review=False)
+    if ch.moves.locomotion == "swim":
+        from rig_analysis import swim
+        e = swim.export_upright(ch.mesh, ch.rig, glb, reports=reports, roles=list(ch.moves.roles),
+                                loops=list(ch.moves.loops), name=ch.name, creature=ch.id,
+                                res_path=f"{ch.export.res_dir}/{ch.id}.glb", force=bool(ch.moves.may_fail),
+                                extra=extra)
+    else:
+        e = ra_export.export_character(ch.mesh, ch.rig, glb, name=ch.name, creature=ch.id, reports=reports,
+                                       res_path=f"{ch.export.res_dir}/{ch.id}.glb", roles=list(ch.moves.roles),
+                                       loops=list(ch.moves.loops), gaits=list(ch.moves.export_gaits),
+                                       force=bool(ch.moves.may_fail), extra=extra, review=False)
     if "error" in e:
         raise RuntimeError(f"export refused: {e['error']}")
     forced = sorted(set(e["manifest"].get("forced_clips") or [])
@@ -1052,7 +1149,11 @@ def run_close(ch, ctx, meshes, aim_override=None):
     test's control only (a camera aimed from the wrong bone must fail)."""
     from rig_analysis import closeups
     q = quality_mod.settings(ctx["quality"], "close")
-    r = closeups.look_set(meshes, ch.rig, close_dir(ch), views=q["views"], action=close_pose(ch),
+    views = q["views"]
+    if ch.grafted:
+        # the body plan has no legs to shoot (a tail): those views are left out, not failed
+        views = ch.views_without(views if views is not None else closeups.VIEWS)
+    r = closeups.look_set(meshes, ch.rig, close_dir(ch), views=views, action=close_pose(ch),
                           under_bust=bool(q["under_bust"]) and wears_top(ch), title=ch.name,
                           aim_override=aim_override)
     if "error" in r:

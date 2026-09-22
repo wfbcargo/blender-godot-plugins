@@ -711,7 +711,10 @@ func _aim(v: Dictionary) -> Dictionary:
 			var top := box.end.y
 			var e := _eyes()
 			if not e.is_empty():
-				top = maxf(top, ((e[0] as Vector3).y + (e[1] as Vector3).y) * 0.5 + (e[0] as Vector3).distance_to(e[1]) * 2.1)
+				var sep := (e[0] as Vector3).distance_to(e[1])
+				if sep < 0.035 * _scale():
+					sep = 0.063 * _scale()      # one eye: a person's spacing at this stature (see _head)
+				top = maxf(top, ((e[0] as Vector3).y + (e[1] as Vector3).y) * 0.5 + sep * 2.1)
 			var bottom := minf(box.position.y, 0.0)
 			a["target"] = Vector3(box.get_center().x, (top + bottom) * 0.5, box.get_center().z)
 			a["frame"] = (top - bottom) * 1.1
@@ -777,6 +780,10 @@ func _head(view: String) -> Dictionary:
 	else:
 		centre = ((e[0] as Vector3) + (e[1] as Vector3)) * 0.5
 		ipd = (e[0] as Vector3).distance_to(e[1])
+		if ipd < 0.035 * _scale():
+			# one eye (humanform eye_layout), split in two halves by the side test: frame with a person's eye
+			# spacing at this stature, not the halves' (a cyclops' face_3q was cut)
+			ipd = 0.063 * _scale()
 	var top := centre + hu * ipd * 2.3
 	return {"hf": hf, "hu": hu, "hl": hu.cross(hf).normalized(), "eyes": e, "centre": centre, "ipd": ipd,
 		"top": top, "mid": centre + hu * ipd * 0.4}

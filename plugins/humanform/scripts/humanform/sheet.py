@@ -36,6 +36,12 @@ BUILDS = {
     "soft":      {"bmi": 27.0, "z": {"bicepscircumferenceflexed": -0.5, "waistcircumference": 0.5}},
     "heavy":     {"bmi": 31.0, "z": {"waistcircumference": 0.8}},
 }
+# build words humanform.species_design uses that sheet has no build of its own for: (the build it stands for, its BMI),
+# so a brief and a species take one vocabulary (species_design.BUILD_WORDS is the union). Only a brief that names one
+# of these is changed by it: the seven BUILDS words resolve exactly as they always did
+BUILD_ALIASES = {"scrawny": ("slim", 19.0), "slender": ("slim", 20.0), "lean": ("athletic", 21.0),
+                 "stocky": ("heavy", 28.0), "massive": ("muscular", 36.0)}
+BUILD_WORDS = tuple(sorted(set(BUILDS) | set(BUILD_ALIASES)))
 STYLES = ("realistic", "stylized")
 AGE_RANGE = (17.0, 58.0)      # ANSUR II subjects
 # MPFB's age slider: 0 is one year old, 1 is ninety
@@ -113,6 +119,10 @@ def new(name="Human", sex="female", age=None, stature=None, weight=None, bmi=Non
     `species` is a `humanform.species` id (data/species/<id>.json, e.g. "dwarf"); "human", the default, is no
     species at all and leaves the sheet as it always was. For any other, `stature` is the species body's own
     height, and `pipeline.make` fits the human `species.pre_warp` derives from the brief, then warps it."""
+    if isinstance(build, str) and build in BUILD_ALIASES:
+        build, alias_bmi = BUILD_ALIASES[build]
+        if bmi is None and weight is None:
+            bmi = alias_bmi
     s = {"schema": SCHEMA, "name": name, "sex": sex, "age": age, "stature": stature, "weight": weight,
             "bmi": bmi, "build": build, "style": style, "measurements": dict(measurements or {}),
             "seed": seed, "variation": variation, "budget_tris": budget_tris, "notes": notes,
@@ -146,7 +156,7 @@ def validate(s):
         p.append(f"style must be one of {STYLES}")
     b = s.get("build")
     if isinstance(b, str) and b not in BUILDS:
-        p.append(f"build {b!r} is not one of {sorted(BUILDS)} (or pass a dict with bmi and z)")
+        p.append(f"build {b!r} is not one of {list(BUILD_WORDS)} (or pass a dict with bmi and z)")
     age = s.get("age")
     if age is not None and not AGE_LIMITS[0] <= age <= AGE_LIMITS[1]:
         p.append(f"age {age} is outside {AGE_LIMITS[0]:g}-{AGE_LIMITS[1]:g} years (MPFB's age range)")

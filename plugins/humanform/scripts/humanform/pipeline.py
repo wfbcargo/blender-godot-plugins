@@ -126,12 +126,24 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, **kw):
     feats = species.apply_features(human, sp)
     _mouth(human)                   # rebuilt where the head features have put the mouth, before the warp moves it
     t["features"] = time.time() - t1
+    eyes_spec = ((sp.get("head") or {}).get("eyes"))
+    eyes_rep = None
+    if eyes_spec:
+        # how many eyes and where (humanform.eye_layout): after the features, before the warp carries the head
+        from . import eye_layout
+        t1 = time.time()
+        eyes_rep = eye_layout.apply(human, eyes_spec, iris=s.get("iris"))
+        t["eye_layout"] = time.time() - t1
+        if eyes_rep.get("fail"):
+            raise ValueError(f"eye layout: {eyes_rep['fail']}")
     t2 = time.time()
     rep = dict(info)
     before = species.inventory(human, sp)
     species.warp(human, sp, report=rep, sex=s["sex"], stature=info["stature"], style=s.get("style", "realistic"),
                  clamp_scale=info["clamp_scale"], verbose=verbose)
     rep["features"] = feats
+    if eyes_rep is not None:
+        rep["eye_layout"] = eyes_rep
     rep["anatomy"] = species.inventory(human, sp, reference=before,
                                        expected={"eyes": (rep.get("eyes") or {}).get("ratio", 1.0)})
     if tone is not None:
@@ -144,6 +156,20 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, **kw):
     pre = species.preset(sp)
     hc = measure.run(human.name, preset=pre, sex=s["sex"], out_dir=out_dir, build=build)
     t["species_check"] = time.time() - t3
+    # what the species check failed or warned on, so a stage report can say it without re-measuring
+    rep["check_findings"] = [{k: f.get(k) for k in ("id", "status", "value", "target", "message") if k in f}
+                             for f in hc.get("findings", []) if f.get("status") in ("fail", "warn")]
+    if sp.get("graft"):
+        # a body plan past the human one (humanform.graft): after the check, which grades the body the species'
+        # proportions describe (its hips, trunk and head); then the anatomy again, what the graft took declared
+        from . import graft
+        t5 = time.time()
+        rep["graft"] = graft.apply(human, sp["graft"])
+        rep["anatomy"] = species.inventory(human, sp, reference=before)
+        if tone is not None:
+            from . import look
+            look.skin(human, tone, species_skin=species.skin_block(sp))
+        t["graft"] = time.time() - t5
     if contact_sheet and out_dir:
         t4 = time.time()
         views.contact_sheet(human.name, out_dir, preset=pre, sex=s["sex"], report=hc)

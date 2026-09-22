@@ -385,9 +385,14 @@ def measurements(ob, sex=None, fast=False, only=None, levels=None):
     m["shin"] = _pair_len(b, "knee", "ankle")
 
     # crotch: scanning up from the knees, the first height where one loop crosses the midline -
-    # 1.5 cm steps, then bisection to 0.2 mm, on extent-only sections
+    # 1.5 cm steps, then bisection to 0.2 mm, on extent-only sections. On a body carrying humanform.genitals'
+    # shell (the `hf_genital` attribute) the loop must also be as wide as the two thighs together (over 8% of
+    # H): the shell hangs across the midline below the crotch in a section ~5% of H wide, and read as the
+    # crotch it put the study man's 6.7 cm low. Only there: on MPFB bodies the width test moved the fit
+    min_w = 0.08 * H if b.ob.type == "MESH" and b.ob.data.attributes.get("hf_genital") is not None else 0.0
+
     def joined(z):
-        return any(lp.spans_x0 and lp.width_x < 0.6 * H for lp in slicing.horizontal(b, z, hull=False))
+        return any(lp.spans_x0 and min_w < lp.width_x < 0.6 * H for lp in slicing.horizontal(b, z, hull=False))
 
     z_lo = floor + (m.get("knee_z") or lv(0.25) * H)
     z_hi = floor + (m.get("hip_z") or lv(0.55) * H) + 0.08 * H

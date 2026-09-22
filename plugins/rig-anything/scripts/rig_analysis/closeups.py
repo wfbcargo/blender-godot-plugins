@@ -94,6 +94,12 @@ ON_BODY_SHARE = 0.5       # a body view whose centroid misses the figure passes 
 # the outside front, a little below the knuckles - from above, the curled fingertips hide the nails
 HAND_BACK = (1.0, 0.8, -0.4)
 HAND_BACK_BEHIND = 0.02   # m: hand_back draws nothing further than the hand's deepest point and this (the thigh)
+# DISTANCES and the few metre offsets below were set on people. A body outside bodymap.HUMAN_STATURE_M
+# has them times `stature_scale`, so a gnome's face fills its tile as a human's does at the same lens;
+# inside it they are exactly what they were (improvements 08).
+from .bodymap import stature_scale  # noqa: E402
+
+
 SIZE_PX = 512
 LABEL_PX = 34
 SAMPLES = 16
@@ -237,8 +243,12 @@ def _aim(view, dist, P, frozen, fwd_rest, up_rest, left_rest, stature):
         hl = hu.cross(hf).normalized()                  # the head's left
         eyes = _eyes(frozen, left_rest)
         head_mid = (P.p("head") + P.p("head", tail=True)) / 2.0
-        if eyes:
+        if eyes and len(eyes) == 2:
             centre, ipd = (eyes[0] + eyes[1]) / 2.0, (eyes[0] - eyes[1]).length
+            if ipd < 0.035 * stature / 1.7:
+                # one eye (humanform.eye_layout), split in two halves by the side test: the framing takes a
+                # person's eye spacing at this stature, not the halves' (a cyclops' face_3q was cut, 2026-09-21)
+                ipd = 0.063 * stature / 1.7
         else:
             nl = (P.p("head") - P.p("neck")).length
             centre, ipd = P.p("head") + hu * nl * 0.9 + hf * nl * 0.7, 0.063 * stature / 1.7
@@ -296,7 +306,7 @@ def _aim(view, dist, P, frozen, fwd_rest, up_rest, left_rest, stature):
             a.update(target=(wrist + tip) / 2.0, dir=(-palm * HAND_BACK[0] + fwd * HAND_BACK[1]
                                                       + zup * HAND_BACK[2]).normalized(),
                      frame=length * 1.3, up=-along)
-            a["far_behind"] = HAND_BACK_BEHIND
+            a["far_behind"] = HAND_BACK_BEHIND * stature_scale(stature)
         a["subject"] = subject
         a["key_side"] = 0.0
         return a
@@ -350,7 +360,7 @@ def _aim(view, dist, P, frozen, fwd_rest, up_rest, left_rest, stature):
             hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
             foot_len = (P.p("foot.L") - P.p("toe.L")).length * 1.6
             c = (lo + hi) / 2.0
-            c.z = max(0.0, lo.z) * 0.5 + 0.03
+            c.z = max(0.0, lo.z) * 0.5 + 0.03 * stature_scale(stature)
             a.update(target=c, frame=max(hi.x - lo.x, hi.y - lo.y) + foot_len,
                      dir=(fwd + zup * 0.7).normalized(),
                      subject={f"{k}.{s}": p for s, f in feet.items() for k, p in f.items()})
@@ -358,7 +368,7 @@ def _aim(view, dist, P, frozen, fwd_rest, up_rest, left_rest, stature):
             s = view[-1]
             ankle, toe_end = feet[s]["ankle"], feet[s]["toe"]
             c = (ankle + toe_end) / 2.0
-            c.z = (ankle.z + max(0.0, toe_end.z)) / 2.0 - 0.01
+            c.z = (ankle.z + max(0.0, toe_end.z)) / 2.0 - 0.01 * stature_scale(stature)
             outer = left if s == "L" else -left              # away from the other foot
             inner = view.startswith("foot_inner")
             a.update(target=c, frame=(toe_end - ankle).length * 1.9,
@@ -367,7 +377,7 @@ def _aim(view, dist, P, frozen, fwd_rest, up_rest, left_rest, stature):
             if inner:
                 # the other foot stands between the camera and this foot's inner side: clip what is
                 # nearer than the foot's own half width
-                a["near"] = max(0.02, dist - 0.09 * stature / 1.7)
+                a["near"] = max(0.02 * stature_scale(stature), dist - 0.09 * stature / 1.7)
                 # ...and it still shades the big toe from the key though it is out of the picture: no key shadow
                 a["key_shadow"] = False
         return a
@@ -632,7 +642,8 @@ def look_set(meshes, rig_name, out_dir, views=None, action=None, frame=None, und
 
         aims = {}
         for view in views:
-            dist = float(dist_of[view])
+            # a default distance follows the body's size; one the caller gave is kept as given
+            dist = float(dist_of[view]) * (1.0 if view in (distances or {}) else stature_scale(stature))
             a = _aim(view, dist, P, frozen, fwd_rest, up_rest, left_rest, stature)
             if "error" in a:
                 return {"error": "%s: %s" % (view, a["error"])}

@@ -87,14 +87,19 @@ def inline(d):
         raise ValueError("an inline species needs `ratios` and `heads` (a whole humanform-species/1 preset): "
                          "humanform.species_design, which designs one from observables or knobs, is not installed")
     sid, label = d.pop("id", None) or "custom", d.pop("label", None)
-    look = {k: d.pop(k) for k in ("head", "skin", "moves") if k in d} or None
+    look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft") if k in d} or None
     anatomy = d.pop("anatomy", None)
     if "knobs" in d:
         knobs = dict(d.pop("knobs"))
         stature = d.pop("stature", knobs.pop("stature", None))
         out = sd.design(id=sid, label=label, stature=stature, look=look, anatomy=anatomy, **knobs)
     else:
-        out = sd.design_from(d.pop("observables", d), id=sid, look=look, anatomy=anatomy)
+        obs = dict(d.pop("observables", d))
+        # a knob beside the observables (character-pipeline's [body.species] takes both at the top level, and
+        # species-design.md: "anything no observable expresses is given as a knob") goes to solve() as a knob;
+        # a name that is both (hunch_deg, sway_deg) stays an observable
+        knobs = {n: obs.pop(n) for n in list(obs) if n in sd.KNOBS and n not in sd.OBSERVABLES}
+        out = sd.design_from(obs, id=sid, look=look, anatomy=anatomy, **knobs)
     if label:
         out["label"] = label
     return out
@@ -1367,8 +1372,8 @@ def inventory(human, sp=None, reference=None, expected=None):
     for part, spec in PARTS.items():
         row = {"part": part, "host": spec["host"]}
         name = part.split(".")[0]
-        if name in absent:
-            rows.append(dict(row, status="skip", reason=f"declared absent: {absent[name]}"))
+        if part in absent or name in absent:        # the part (nails.toes) or the whole part it is of (nails)
+            rows.append(dict(row, status="skip", reason=f"declared absent: {absent.get(part) or absent[name]}"))
             continue
         if spec.get("opt_in") and not human.get(spec["opt_in"]):
             rows.append(dict(row, status="skip", reason=f"not asked for (opt-in: {spec['opt_in']} is unset)"))
@@ -1421,7 +1426,7 @@ def inventory(human, sp=None, reference=None, expected=None):
         rows.append({"part": f"{part}.object", "status": "fail",
                      "reason": f"missing: no {human.name}{suf} skinned to {rig.name}, and not declared absent"})
     for part, reason in absent.items():
-        if not any(r["part"].split(".")[0] in (part, f"object:{part}") for r in rows):
+        if not any(r["part"] in (part, f"object:{part}") or r["part"].split(".")[0] == part for r in rows):
             rows.append({"part": part, "status": "skip", "reason": f"declared absent: {reason}"})
     counts = {k: sum(1 for r in rows if r["status"] == k) for k in ("pass", "warn", "fail", "skip")}
     return {"parts": rows, "counts": counts, "fail": counts["fail"]}

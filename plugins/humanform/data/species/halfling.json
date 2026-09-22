@@ -62,8 +62,8 @@
       "male": 5.67
     },
     "mass_kg_mid": {
-      "female": 21.9,
-      "male": 24.0
+      "female": 20.1,
+      "male": 22.9
     },
     "adult_cues": {
       "shoulder_scale": {
@@ -105,6 +105,7 @@
       "tol_scale": "human default"
     },
     "contradictions": [],
+    "warnings": [],
     "observables": {
       "stature": {
         "female": [
@@ -141,7 +142,7 @@
     ]
   },
   "bmi": [
-    21.7,
+    17.8,
     27.9
   ],
   "heads": {
@@ -493,9 +494,9 @@
   "skin": {
     "palette": [
       [
-        0.93,
-        0.78,
-        0.66
+        0.9,
+        0.75,
+        0.63
       ],
       [
         0.8,

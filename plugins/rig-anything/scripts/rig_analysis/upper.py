@@ -57,6 +57,8 @@ import math
 
 from mathutils import Vector
 
+from .bodymap import stature_scale
+
 # Every parameter `cycle(upper=...)` and `idle(upper=...)` take.
 PARAMS = ("arm_swing", "arm_forward", "arm_out", "elbow", "elbow_swing", "hand_in",
           "pelvis_turn", "pelvis_list", "thorax_turn", "side_bend", "lean", "lean_bob",
@@ -826,6 +828,14 @@ class Upper:
                  stride_hz=0.0, asym=None):
         self.P = poser
         self.params = dict(params)
+        # `hand_clearance` and `gaze_m` are metres set on people: a body outside HUMAN_STATURE_M takes
+        # them times its stature over the band's nearer end (a gnome's hands clear its hips by a gnome's
+        # margin, not a human's); inside it they are the numbers they always were.
+        s = stature_scale(poser.bm["height"])
+        if s != 1.0:
+            for k in ("hand_clearance", "gaze_m"):
+                if isinstance(self.params.get(k), (int, float)):
+                    self.params[k] = float(self.params[k]) * s
         # This character's fixed left/right asymmetry (`variability.Asym`). None is the
         # identity: every gain exactly 1.0, every offset exactly 0.0, so a body that asks
         # for nothing is posed by the same arithmetic to the same numbers it always was.

@@ -25,7 +25,7 @@ do not spend a round on small numeric drift.
 
 **Everything is merged and pushed.** `main` (blender-godot-plugins) and `master` (grungist-creek) are
 clean and in sync with origin. `~/.claude/skills` and the game's addons match `main`. The only other
-branch is the parked `fig-genital-anatomy` (`94ac682`), which still has its worktree.
+branch was the parked `fig-genital-anatomy`, since finished and merged (Step 3 below).
 
 The last rounds of the day: the likeness round ([plugins#7](https://github.com/wfbcargo/blender-godot-plugins/pull/7),
 [game#6](https://github.com/wfbcargo/grungist-creek/pull/6)), the regression rules and this list
@@ -582,7 +582,7 @@ round, and `tools/install.py` run from it downgrades the installed skill.
 and the game's `girdle-rebuild`) are merged and deleted; both repos went up through
 [plugins#2](https://github.com/wfbcargo/blender-godot-plugins/pull/2) and
 [grungist-creek#1](https://github.com/wfbcargo/grungist-creek/pull/1). `main` and `master` are in sync
-with origin, and the only branch left anywhere is the parked `fig-genital-anatomy`.
+with origin, and the only branch left anywhere was the parked `fig-genital-anatomy` (since merged).
 
 **All six figures are on 0.37.0** - study_man, study_woman and Belle from the ship step, the cast
 (Marco, Mei, Ruth) rebuilt 2026-09-21 - and every one of them carries `[variability] asymmetry = 0.35`
@@ -893,7 +893,7 @@ darker and flatter than clear_midday.
 | Natural-speed gaits with heel strike and toe off; a run with a flight phase; turns | An orange fleck at the man's thumb web under clear_midday |
 | The ponytail swings 44-46 deg on the run at any frame rate | Skin reads smooth at viewing distance: the pore detail is in the material but does not show past about 1 m |
 | Flesh bounded on every course; no neck stipple (sun soft-shadow filter) | study_man goes dark and muddy under overcast |
-| | **No genital anatomy:** both crotches are smooth; the branch that adds it is parked (below) |
+| | **Genital anatomy is opt-in** (`[body] genitals = true`, Step 3 below); the shipped figures build without it |
 | | golden_hour overexposes the pale woman and stripes the floor; interior_daylight was dropped from the demo |
 
 **Baseline after Step 0** (independent look critic, Godot close-shot sheets at 1 m and 4 m, clear_midday and
@@ -1347,43 +1347,61 @@ Notebook: [notebooks/realism-step2/ship.md](notebooks/realism-step2/ship.md).
   (0.53) passes only on the contrast gate; the woman is evenly front-lit (close-shot's sun is behind the camera).
   Notebook: [notebooks/realism-step2/lookdev-golden-hour.md](notebooks/realism-step2/lookdev-golden-hour.md).
 
-### Step 3 - anatomy: genitals (parked branch)
+### Step 3 - anatomy: genitals (shipped, opt-in: humanform 0.19.0, rig-anything 0.42.0, follow-through 0.11.0, character-pipeline 0.19.0)
 
-`fig-genital-anatomy` at `94ac682` fuses MPFB's helper-genital shell into the body, weights it, types
-it in follow-through (opt-in) and exports it. It failed its merge gate: in Crouch, Jump and Run the
-thighs pass 27-30 mm into it. 06 section 3C has all 13 attempts. The finding that matters: **the cause
-is not the genitals.** rig-anything's linear blend skinning collapses the crotch, and the two inner
-thighs cross each other in Walk and Run, so there is no free space to push into.
+`fig-genital-anatomy` was merged up to `main` (a real merge of 310 commits; five conflicts, both sides kept)
+and finished. `[body] genitals = true` builds MPFB's shell fused into a man and a relief delta on a woman;
+**a spec without it builds exactly as on main** (study_man built fresh on main and on the branch: the glb is
+byte-identical, JSON chunk and binary; the manifests differ only in paths and timings).
 
-**Measured 2026-09-20, and it changes this plan.** The crossing was reproduced on `study_man` - a shipped
-figure with no genitals at all - so it is general: left-right crotch interpenetrations are Idle 0, Walk 4,
-Run 12, Jump 34, **Crouch 58** (face pairs, adjacent faces excluded). The weights are not at fault: of the
-75 vertices involved, **none** carries any weight from the opposite thigh, and the mixes are the expected
-`thigh.L + spine`. The pose is not at fault either: the two thigh bones never come within **163 mm** of each
-other in any clip.
+**What fixed the failed gate: the shell's flat rim.** MPFB's helper does not rise from the body at its open
+loop - it spreads over the crotch as a flap about 1 mm off the skin, out into both groin folds (262 of its
+763 subdivided vertices within 3 mm of the body, 37 mm off the midline). Cut out and zipped, the flap
+replaced that skin with vertices on the pelvis while the skin round it moved with the thighs, so a flexed
+thigh swept 23 mm into it, and it creased into a collar when the thighs spread. `fuse` now drops it
+(`genitals._trim_flush`, 198 faces on the study man): the body keeps its own crotch skin and the shell joins
+where it stands out. The per-frame corrective bones stay, with wider caps (5 cm, 32 deg, squash 3 cm).
+The fixture `pipeline_genitals` gains `crotch` and `crotch_within_limit` (golden re-recorded, `--twice`).
 
-**But the volume-preserving fix does not apply, because there is no volume to preserve.** Sliced by height,
-the inner thigh surfaces at rest are already **1.1 to 4.7 mm apart from z 0.809 to 0.929** - the crotch -
-opening to 12 mm just below and 120 mm at the knee. In a crouch that band closes to **0.0 mm**. The two
-sides are in contact before any animation, and leg motion slides them through one another. A half-rotation
-hip helper was prototyped (helper bone at the thigh head, crotch blend-zone weight moved onto it, 251
-vertices): **58 crossings became 56**. The premise that skinning collapse is destroying clearance is wrong;
-the clearance was never there.
+**The gate is absolute: `genitals.CLEAR_LIMIT_MM` = 15 mm**, the deepest a thigh may go into the part in
+any clip (`verify.crotch_clearance` `part_mm`). At 0.45 m in Godot a thigh 1.5 cm into a ~5 cm scrotum reads
+as soft contact; the moves stage prints a line for every clip over it. Study man, `part_mm` on the branch as
+parked (rebuilt on main) -> shipped: Idle 0 -> 0.7, Walk 5.7 -> 6.0, Run 12.5 -> 12.4, **Crouch 23.3 -> 5.5,
+Jump 23.3 -> 4.8**, TurnL 6.9 -> 7.5, TurnR 6.7 -> 4.7. All under the limit.
 
-So the next attempt should not be a skinning change. What is left, in the order that looks most likely:
-put the shell where the thighs are not in contact (forward and below the contact band, which the slices
-locate exactly), weight it so it rides the thighs apart rather than being swept, or widen the crouch's
-stance (the bone gap does close from 226 mm in Idle to 192 mm in Crouch, so some of it is posing). Then
-rebase the branch onto `main` - it is 210 commits behind and predates the `plugins/<name>/SKILL.md` layout
-change - and re-run its gate with an **absolute** clearance limit rather than "better than before".
+Found and fixed on the way:
+- **The fuse shifted every hm08 index** after the crotch (it deleted the cut's body vertices), and what reads
+  MPFB's index lists after the bake landed on the wrong vertices: the man's brows and lashes came out 692
+  vertices short. The cut vertices are now kept as loose points (glTF exports none).
+- **The seam spanned two UV islands** (the shell's loop kept MPFB's helper UVs), and the skin bake drew each
+  seam face as a wedge across the atlas: a hard-edged pink band over the groin in Godot. The shell's side of
+  the seam takes the body's UV under it; the shell itself is marked genital skin (it read pale).
+- **The shell moved the belly's flesh bone** 2.7 cm down and off the midline (it shaped the spine's lean
+  envelope) and failed the placement check. A flesh type's `reserved_attr` (`genital`: `hf_genital`) keeps a
+  part out of every other type's search and out of the envelope.
+- **`genital_shape` 0..1 is an adult's range** (`SHAPE_SPAN_M`: length +-3 cm, circ +-2.5 mm, testicles
+  +-1.2 cm at the furthest vertex); 1.0 was MPFB's whole target (+16.2 cm length).
 
-**Genitals stay opt-in**: buildable when a spec asks, never in a default build. That is what `opt_in` on the
-follow-through type and the `[body] genitals` field are for - adding the type without it moved eleven
-goldens, because a new flesh type joins every default search.
+**New upfront check (06 rank 10): `rig_analysis.verify.crotch_clearance`**, run by the moves stage on every
+clip of every body (report-only; `[moves] <role>.crotch` in the stage report; about 0.3-1 s a clip). It gives
+`thigh_mm` (one inner thigh through the other), `crotch_mm` (the trunk's crotch skin through a thigh) and, with
+a genital shell, `part_mm`. It shows the general collapse as numbers: study_man Crouch 17.6 / 15.8 mm, Jump
+25.4 / 15.8; study_woman Crouch 4.0 / 21.9; smoke_petite Crouch 25.6 / 34.2, Jump 32.9 / 36.9; smoke_heavy
+thighs 10-35 mm in every clip but Idle.
 
-Also on this branch: `genital_shape = 1.0` maps onto MPFB's extreme length target (up to 16 cm longer);
-a neutral anatomical default needs a sane range. And add a posed limb-clearance check to humancheck
-(06 rank 10), so this failure shows up as a number.
+Tried and dropped: the skin's own weights on the flap (it tore into wings when the thighs spread); knees turned
+out 25-35 degrees in the crouch and the jump's load and tuck (part 0 mm and thighs 0 mm, but the crotch skin
+between the thighs stretched into a web - worth another look for every body, since it clears the general
+crouch collapse too).
+
+**Left:**
+- **A heavy body fails the gate.** smoke_heavy (BMI 38) with genitals: part_mm Idle 13, Walk 29, Run 34,
+  Crouch 33, Jump 33, turns 25 - its thighs meet and the part is engulfed; no corrective can make room.
+  Hal wears trousers, so it is hidden there. The check says so at build time; a heavy nude figure needs the
+  crotch collapse fixed first (a runtime collider, or thighs that yield).
+- The run's mid-stance still puts a thigh 12 mm into the scrotum's side on the study man (under the limit).
+- The shell's skin is blotchier than the body round it in Godot (MPFB's helper UV island in the baked maps).
+- Small notches at the shaft root where the seam meets it, visible at 0.45 m in a lit close-up.
 
 ### Step 4 - flesh correctness (06 rank 9)
 

@@ -24,6 +24,41 @@ def _obj(name):
     return o
 
 
+# Garment lengths - hang windows, ease bands, hinge lengths, cover reach - were set on human torsos.
+# `body_scale` multiplies them: exactly 1 for a torso (hip joints to shoulder joints) in this band, so a
+# human's garments are cut and eased as they always were, and the torso over the band's nearer end
+# outside it - a 1.0 m gnome's shirt hangs over its own belly, not a human's 15 cm (improvements 08).
+HUMAN_TORSO_M = (0.40, 0.62)
+
+
+def torso_length(body):
+    """Hip joints to shoulder joints, vertically, in the body's object space."""
+    hm = humanoid(body)
+    sh = sum(hm["heads"][a["upper"]].z for a in hm["arms"].values()) / max(1, len(hm["arms"]))
+    hip = sum(hm["heads"][l["thigh"]].z for l in hm["legs"].values()) / max(1, len(hm["legs"]))
+    return float(sh - hip)
+
+
+def torso_scale(torso):
+    """1 inside HUMAN_TORSO_M, else `torso` (m) over the band's nearer end (continuous at both ends)."""
+    lo, hi = HUMAN_TORSO_M
+    t = float(torso)
+    return t / lo if t < lo else t / hi if t > hi else 1.0
+
+
+def body_scale(body):
+    """`torso_scale` of the body's torso. A garment cut from it carries the torso it measured
+    (`wardrobe_cut["torso_m"]`), and `garment_scale` reads that without asking the rig again."""
+    return torso_scale(torso_length(body))
+
+
+def garment_scale(garment, body):
+    """`torso_scale` of the torso the garment was cut against, else of `body`'s."""
+    cut = _obj(garment).get("wardrobe_cut")
+    t = cut.get("torso_m") if cut is not None else None
+    return torso_scale(t) if t is not None else body_scale(body)
+
+
 def rig_of(body):
     body = _obj(body)
     for m in body.modifiers:
@@ -58,8 +93,33 @@ def humanoid(body):
 
     mapped = _from_roles(rig, body) or _from_names(rig)
     spine, torso, neck, arms, legs = mapped
+    below = _below(rig, spine, arms, legs)
+    if legs:
+        hip_z = sum(heads[l["thigh"]].z for l in legs.values()) / len(legs)
+    else:
+        # no legs (a tail in their place, humanform.graft): the hips are where the pelvis begins
+        hip_z = heads[spine[0]].z
     return {"rig": rig.name, "spine": spine, "torso": torso, "neck": neck, "arms": arms, "legs": legs,
+            "below": below, "hip_z": hip_z,
             "heads": heads, "tails": tails, "up": Vector((0, 0, 1)), "forward": _forward(heads, arms)}
+
+
+def _below(rig, spine, arms, legs):
+    """The deform bones that hang from the pelvis and are neither spine, arm nor leg - a tail in the legs' place:
+    a garment's lower cut takes them with the legs. [] on a person."""
+    import re
+    sided = re.compile(r"[._-]([LlRr])$")
+    known = set(spine) | {b for a in arms.values() for b in a.values() if b} | \
+        {b for l in legs.values() for b in l.values() if b}
+    out = []
+    bones = rig.data.bones
+    stack = [c for c in bones[spine[0]].children if c.name not in known and not sided.search(c.name)]
+    while stack:
+        b = stack.pop()
+        if b.use_deform:
+            out.append(b.name)
+        stack.extend(c for c in b.children if c.name not in known)
+    return sorted(out)
 
 
 def _from_roles(rig, body):
