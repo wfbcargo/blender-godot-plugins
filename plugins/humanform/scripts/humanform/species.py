@@ -649,6 +649,7 @@ class _Warp:
         self.kyph = math.radians(float(sc.get("kyphosis_deg", 0.0)))
         self.lord = math.radians(float(sc.get("lordosis_deg", 0.0)))
         self.lumbar = float(sc.get("lumbar_share", 0.4))
+        self.lean = 0.0            # an extra backward lumbar bend (radians) that keeps a curved body balanced
         # set outside the Newton solve (arms, hands, feet, widths), refined from measurement
         self.fixed = {"humerus": self.seg["humerus"], "forearm": self.seg["forearm"], "hand": self.seg["hand"],
                       "foot": self.seg["foot"], "clavicle": self.widths["shoulder_width"],
@@ -662,6 +663,10 @@ class _Warp:
     def _follow(self, solved, spec):
         return float(np.clip(solved / spec, *LIMITS["girth_follow"])) if spec > 1e-6 else 1.0
 
+    def set_lean(self, lean):
+        self.lean = float(lean)
+        self.bend = self._bends()
+
     def _bends(self):
         """{bone: radians about X} for the spine curve. Kyphosis is a smooth forward curve over the whole spine
         above the pelvis and the neck (KYPHOSIS_PROFILE: little in the lumbar spine, most at the upper back,
@@ -672,7 +677,7 @@ class _Warp:
         with the head forward, and each arm bends back at its shoulder joint, so the arms hang as they did."""
         r = self.r
         bend = {n: 0.0 for n in r.names}
-        if not (self.kyph or self.lord):
+        if not (self.kyph or self.lord or self.lean):
             return bend
         z0 = r.mean_head_z(r.head, r.legs, 0) or r.head[r.ix[r.spine[0]], 2]
         z1 = r.head[r.ix[r.neck[0]], 2] if r.neck else r.head[r.ix[r.headbone], 2]
@@ -705,7 +710,7 @@ class _Warp:
         ky = np.array([mass(a, b) for a, b in segs + necks])
         ky = ky / ky.sum() if ky.sum() > 0 else ky
         for i, n in enumerate(chain):
-            bend[n] = self.kyph * ky[i] - self.lord * lum[i] + self.lord * tho[i]
+            bend[n] = self.kyph * ky[i] - self.lord * lum[i] + self.lord * tho[i] - self.lean * lum[i]
         for i, n in enumerate(r.neck):
             bend[n] = self.kyph * ky[len(chain) + i]
         net = sum(bend[n] for n in chain) + sum(bend[n] for n in r.neck)
@@ -821,6 +826,65 @@ class _Warp:
         T = [A, t, H, R, S, (h0, y0, Ln, ln, kn, mn, Y)]
         _shift(T, r, shift)
         return tuple(T)
+
+
+BALANCE_ALLOW = 0.25       # of a foot's length (ankle to ball): how far a curved body's centre may move over its feet
+
+
+def _com_over_feet(co, feet):
+    """How far the body's centre (its vertices' mean, forward -Y) is in front of the middle of its feet."""
+    return float(np.mean(feet, axis=0)[1] - co[:, 1].mean())
+
+
+def _balance(wp, rigd, body, mask, mix0, H0, H):
+    """A spine curve moves the chest and head forward (a hunch) or back: balance it with a backward (or forward)
+    lumbar bend - as a stooped body leans back from the hips - only as far as it needs: the body's centre no
+    more than BALANCE_ALLOW of a foot's length further forward (or back) over its feet than the fitted human's
+    is, for its size. A hunch that stays inside that keeps its whole curve. Sets wp's lean; returns it
+    (radians)."""
+    sub = np.flatnonzero(mask)[::3]
+
+    def feet(Hh, R, S):
+        pts = []
+        for ch in rigd.legs.values():
+            i = rigd.ix[ch[2]]
+            pts += [Hh[i], Hh[i] + R[i][:, 1] * rigd.length[i] * S[ch[2]][1]]
+        return np.array(pts)
+
+    ident = [rigd.head, rigd.R, {n: (1.0, 1.0, 1.0) for n in rigd.names}]
+    base = _com_over_feet(mix0[sub], feet(*ident)) * H / H0
+    T0 = wp.transforms(wp.x0())
+    fp = feet(T0[2], T0[3], T0[4])
+    allow = BALANCE_ALLOW * float(np.mean([np.linalg.norm(fp[2 * i + 1] - fp[2 * i]) for i in range(len(fp) // 2)]))
+
+    def raw(lean):
+        wp.set_lean(lean)
+        T = wp.transforms(wp.x0())
+        return _com_over_feet(_lbs(mix0[sub], body.idx[sub], body.w[sub], T), feet(T[2], T[3], T[4])) - base
+
+    d0 = raw(0.0)
+    if abs(d0) <= allow:
+        wp.set_lean(0.0)
+        return 0.0
+    target = allow if d0 > 0 else -allow
+
+    def off(lean):
+        return raw(lean) - target
+
+    lo, hi = -0.6, 0.6               # a forward-heavy body leans back: more lean, less forward offset
+    f_lo, f_hi = off(lo), off(hi)
+    if f_lo * f_hi > 0:
+        wp.set_lean(lo if abs(f_lo) < abs(f_hi) else hi)
+        return wp.lean
+    for _ in range(24):
+        mid = (lo + hi) / 2
+        f = off(mid)
+        if (f > 0) == (f_lo > 0):
+            lo, f_lo = mid, f
+        else:
+            hi = mid
+    wp.set_lean((lo + hi) / 2)
+    return wp.lean
 
 
 def _shift(T, r, dz):
@@ -952,6 +1016,8 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
     if "hip_width" in tg and m0.get("hip_width"):
         wp.fixed["pelvis_x"] = tg["hip_width"]["m"] / (m0["hip_width"] * wp.girth["legs"])
 
+    lean = _balance(wp, rigd, body, mask, mix0, float(m0["stature"]), H) if (wp.kyph or wp.lord) else 0.0
+
     joints = {"ankle_joint": (rigd.legs, 2), "knee_joint": (rigd.legs, 1), "hip_joint": (rigd.legs, 0),
               "shoulder_joint": (rigd.arms, 1)}
 
@@ -1063,6 +1129,7 @@ def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clam
                     "girth": {k: round(v, 4) for k, v in wp.girth.items()},
                     "start": {k: round(v, 4) for k, v in wp.seg.items()},
                     "bend_deg": {k: round(math.degrees(v), 2) for k, v in wp.bend.items() if v}},
+        "balance_lean_deg": round(math.degrees(lean), 2),
         "roles": {"spine": rigd.spine, "neck": rigd.neck, "head": rigd.headbone, "legs": rigd.legs, "arms": rigd.arms},
         "achieved": achieved, "passes": history, "eyes": eyes_rep,
         "knee_off_line_mm": {"before": knee_before, "after": _knee_off_line(after, after.head)},
