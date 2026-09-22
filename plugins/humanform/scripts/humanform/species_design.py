@@ -115,7 +115,12 @@ BUILDS = {   # word: (pre-warp BMI centre, its range)
     "scrawny": (19.0, (16.5, 21.5)), "slender": (20.0, (18.0, 22.5)), "lean": (21.0, (18.5, 23.5)),
     "average": (24.5, (21.0, 28.0)), "athletic": (25.0, (22.5, 28.0)), "muscular": (27.0, (24.0, 30.5)),
     "stocky": (28.0, (25.0, 32.0)), "heavy": (32.0, (28.0, 37.0)), "massive": (36.0, (31.0, 42.0)),
+    # humanform.sheet.BUILDS' own words, so [body] build and [body.species] build take one vocabulary (a drow's
+    # [body] build = "slender" was refused only at the body stage, 2026-09-21); sheet.BUILD_ALIASES maps the
+    # words above that sheet has no build for onto one of its own
+    "slim": (20.5, (18.5, 22.5)), "curvy": (25.5, (23.0, 28.5)), "soft": (27.0, (24.0, 30.5)),
 }
+BUILD_WORDS = tuple(sorted(BUILDS))
 SIZE_WORDS = {"tiny": 0.7, "small": 0.85, "short": 0.75, "human": 1.0, "long": 1.35, "big": 1.22, "large": 1.22,
               "huge": 1.4, "thin": 0.85, "thick": 1.2, "slender": 0.86, "stout": 1.15}
 
@@ -180,6 +185,9 @@ ANATOMY = {
     "elbows":    ("arm", 1.0, "elbow", "elbow skin"),
     "body_hair": ("body", 1.0, None, "body hair coverage (fur is added over the same maps)"),
 }
+# parts of a part, which a description may lack on their own (a tail in place of legs keeps the fingernails):
+# declaring one absent leaves its whole part, and that part's skin region, on
+ANATOMY_SUBPARTS = {"nails.toes": "nails", "nails.fingers": "nails"}
 ANATOMY_SCALE = (0.3, 3.0)
 BMI_PLAUSIBLE = (18.0, 40.0)        # a derived (unstated) BMI outside this is warned about in solve(): see there
 
@@ -580,9 +588,9 @@ def _anatomy(anatomy, segments, girth, widths):
         raise DesignError(f"anatomy keys {unknown}: only 'absent' and 'scale'")
     absent = []
     for e in a.get("absent", []):
-        if not isinstance(e, dict) or e.get("part") not in ANATOMY or not e.get("reason"):
-            raise DesignError(f"anatomy.absent entry {e!r}: needs part (one of {', '.join(ANATOMY)}) and the "
-                              "reason the description gives")
+        if not isinstance(e, dict) or e.get("part") not in set(ANATOMY) | set(ANATOMY_SUBPARTS)                 or not e.get("reason"):
+            raise DesignError(f"anatomy.absent entry {e!r}: needs part (one of {', '.join(ANATOMY)}, or a sub-part: "
+                              f"{', '.join(ANATOMY_SUBPARTS)}) and the reason the description gives")
         absent.append({"part": e["part"], "reason": e["reason"]})
     gone = {e["part"] for e in absent}
     scale = a.get("scale", {})
@@ -607,7 +615,7 @@ def _anatomy(anatomy, segments, girth, widths):
         parts[part] = {"on": host, "scale": per, "relative": scale.get(part, 1.0),
                        "source": "description" if part in scale else
                        "law: with its host" + ("" if exp == 1.0 else f" ^ {exp}")}
-    regions = sorted({ANATOMY[p][2] for p in gone if ANATOMY[p][2]})
+    regions = sorted({ANATOMY[p][2] for p in gone if p in ANATOMY and ANATOMY[p][2]})
     return {"parts": parts, "absent": absent, "regions_off": regions,
             "note": "every part a human has, kept and warped with its host unless the description says the creature "
                     "lacks it (absent, with its reason). scale: size factor against the pre-warp human's part"}
@@ -669,7 +677,7 @@ def check(doc, per_sex):
          f"skin.regions_off {doc['skin'].get('regions_off')} not all in skin.REGIONS {regions}")
     an = doc.get("anatomy", {})
     gone = {e["part"] for e in an.get("absent", [])}
-    backed = {ANATOMY[p][2] for p in gone if ANATOMY[p][2]}
+    backed = {ANATOMY[p][2] for p in gone if p in ANATOMY and ANATOMY[p][2]}
     need(set(doc["skin"].get("regions_off", [])) <= backed, "skin.regions_off must come only from anatomy.absent")
     need(all(p in an.get("parts", {}) or p in gone for p in ANATOMY),
          "every anatomical part must be kept or declared absent")

@@ -1130,8 +1130,8 @@ def inventory(human, sp=None, reference=None):
     for part, spec in PARTS.items():
         row = {"part": part, "host": spec["host"]}
         name = part.split(".")[0]
-        if name in absent:
-            rows.append(dict(row, status="skip", reason=f"declared absent: {absent[name]}"))
+        if part in absent or name in absent:        # the part (nails.toes) or the whole part it is of (nails)
+            rows.append(dict(row, status="skip", reason=f"declared absent: {absent.get(part) or absent[name]}"))
             continue
         if spec.get("opt_in") and not human.get(spec["opt_in"]):
             rows.append(dict(row, status="skip", reason=f"not asked for (opt-in: {spec['opt_in']} is unset)"))
@@ -1178,7 +1178,7 @@ def inventory(human, sp=None, reference=None):
         row.update(size_m=round(size, 4), host_m=round(hs, 4), ratio=round(size / hs, 4) if hs > 1e-6 else None)
         rows.append(judge(row))
     for part, reason in absent.items():
-        if not any(r["part"].split(".")[0] in (part, f"object:{part}") for r in rows):
+        if not any(r["part"] in (part, f"object:{part}") or r["part"].split(".")[0] == part for r in rows):
             rows.append({"part": part, "status": "skip", "reason": f"declared absent: {reason}"})
     counts = {k: sum(1 for r in rows if r["status"] == k) for k in ("pass", "warn", "fail", "skip")}
     return {"parts": rows, "counts": counts, "fail": counts["fail"]}

@@ -230,6 +230,21 @@ def check_species_table(table):
     return table
 
 
+def check_build_words(body):
+    """Refuse an unknown build word in [body] build or [body.species] build before anything runs, with the list:
+    both take humanform's one vocabulary (species_design.BUILD_WORDS: sheet's builds and the species words,
+    which sheet.BUILD_ALIASES maps onto them). Before, a word sheet did not know failed only at the body stage."""
+    sd = species_design()
+    words = getattr(sd, "BUILD_WORDS", None) if sd is not None else None
+    if not words:
+        return
+    for where, v in (("body.build", body.get("build")),
+                     ("body.species.build", (body.get("species") or {}).get("build")
+                      if isinstance(body.get("species"), dict) else None)):
+        if isinstance(v, str) and v not in words:
+            raise SpecError(f"{where} {v!r} is not a build word - one of {', '.join(words)}")
+
+
 def species_ids():
     """The species ids humanform knows (its `data/species/*.json`, plus "human"), or None when it has no
     species folder - an older humanform, in which case any species is accepted and left to humanform."""
@@ -687,6 +702,7 @@ def parse(data, path=None):
     name = _take(c, "name", str, required=True, where="character.")
 
     b = dict(_take(data, "body", dict, required=True))
+    check_build_words(b)
     source = b.pop("source", "brief")
     species = b.pop("species", "human")
     if isinstance(species, dict):
