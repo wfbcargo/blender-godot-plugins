@@ -62,8 +62,8 @@
       "male": 5.67
     },
     "mass_kg_mid": {
-      "female": 22.4,
-      "male": 24.4
+      "female": 20.5,
+      "male": 23.3
     },
     "given": [
       "build",
@@ -97,6 +97,7 @@
       "tol_scale": "human default"
     },
     "contradictions": [],
+    "warnings": [],
     "observables": {
       "stature": {
         "female": [
@@ -133,7 +134,7 @@
     ]
   },
   "bmi": [
-    22.2,
+    18.2,
     28.4
   ],
   "heads": {

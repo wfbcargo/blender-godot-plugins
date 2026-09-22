@@ -94,6 +94,7 @@
       "tol_scale": "human default"
     },
     "contradictions": [],
+    "warnings": [],
     "observables": {
       "stature": {
         "female": [

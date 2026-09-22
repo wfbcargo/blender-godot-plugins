@@ -42,10 +42,10 @@
     "neck_scale": 0.7,
     "shoulder_scale": 1.248494303312449,
     "hip_scale": 1.04,
-    "girth_legs": 0.9838,
-    "girth_arms": 1.0436,
-    "girth_neck": 1.1121,
-    "girth_torso": 0.9838,
+    "girth_legs": 0.9548,
+    "girth_arms": 1.0129,
+    "girth_neck": 1.0793,
+    "girth_torso": 0.9548,
     "hunch_deg": 6.0,
     "sway_deg": 0.0,
     "build_bmi": 27.0,
@@ -62,8 +62,8 @@
       "male": 8.2
     },
     "mass_kg_mid": {
-      "female": 102.8,
-      "male": 117.2
+      "female": 98.6,
+      "male": 113.8
     },
     "given": [
       "arm_to_leg",
@@ -101,6 +101,7 @@
       "tol_scale": "human default"
     },
     "contradictions": [],
+    "warnings": [],
     "observables": {
       "stature": {
         "female": [
@@ -141,8 +142,8 @@
     ]
   },
   "bmi": [
-    28.1,
-    35.9
+    27.0,
+    37.0
   ],
   "heads": {
     "any": [
@@ -452,16 +453,16 @@
   },
   "girth": {
     "female": {
-      "legs": 1.0182,
-      "arms": 1.0801,
-      "neck": 1.1509,
-      "torso": 1.0182
+      "legs": 0.9881,
+      "arms": 1.0483,
+      "neck": 1.117,
+      "torso": 0.9881
     },
     "male": {
-      "legs": 1.0155,
-      "arms": 1.0772,
-      "neck": 1.1479,
-      "torso": 1.0155
+      "legs": 0.9855,
+      "arms": 1.0455,
+      "neck": 1.114,
+      "torso": 0.9855
     }
   },
   "widths": {
@@ -538,8 +539,8 @@
       "navel": {
         "on": "torso",
         "scale": {
-          "female": 1.0265,
-          "male": 1.0238
+          "female": 1.0112,
+          "male": 1.0086
         },
         "relative": 1.0,
         "source": "law: with its host"
@@ -565,8 +566,8 @@
       "belly": {
         "on": "torso",
         "scale": {
-          "female": 1.0265,
-          "male": 1.0238
+          "female": 1.0112,
+          "male": 1.0086
         },
         "relative": 1.0,
         "source": "law: with its host"
@@ -673,8 +674,8 @@
       "knees": {
         "on": "leg",
         "scale": {
-          "female": 1.0182,
-          "male": 1.0155
+          "female": 0.9881,
+          "male": 0.9855
         },
         "relative": 1.0,
         "source": "law: with its host"
@@ -682,8 +683,8 @@
       "elbows": {
         "on": "arm",
         "scale": {
-          "female": 1.0801,
-          "male": 1.0772
+          "female": 1.0483,
+          "male": 1.0455
         },
         "relative": 1.0,
         "source": "law: with its host"
