@@ -1,0 +1,1179 @@
+"""Layer 1 of a fantasy species: fit the nearest human, then warp its proportions.
+
+    sp = species.load("dwarf")                      # data/species/dwarf.json (schema humanform-species/1)
+    species.ids()                                   # ["human", "dwarf", "elf", ...]; "human" has no file
+    species.validate("dwarf", s)                    # problems, with the species' range in the message
+    s_pre, info = species.pre_warp(s, sp)           # the human sheet to fit (stature H_pre, BMI and build kept)
+    ... pipeline.make(s_pre) fits, rigs and checks that human ...
+    rep = species.warp(human, sp, report={}, sex="male", stature=1.32)
+
+A species is data (docs/improvements/08-fantasy-species.md, "Layer 1" and "The spec"). MPFB cannot reach a
+dwarf, so the body is a real human first - the one sharing the species body's trunk (a disproportionate
+species) or its head size (a proportionate one) - fitted, stored in the library and checked like any other.
+Then every bone gets a new rest transform: length along the bone, girth across it, the head a uniform scale
+about the neck joint, shoulders and hips spread by their roots, the spine bent by the species' kyphosis and
+lordosis. Vertices follow by linear blend skinning with the body's own weights (numpy, `v' = sum w T v`),
+applied to the base mesh, every shape key and every other mesh skinned to the rig (eyes, brows, teeth); then
+the rig's rest bones are moved to match. No modifier is applied and no Blender operator touches the mesh.
+
+The final factors are solved, not taken from the file: the file's `segments`, `girth` and `widths` are the
+starting point and the shape of the change, and each measured joint lands on the fitted human's own fraction
+shifted by (species mean - human preset mean), so two dwarves from different briefs still differ.
+"""
+
+from __future__ import annotations
+
+import copy
+import json
+import math
+import os
+import sys
+import time
+import zlib
+
+import numpy as np
+
+_pkg = sys.modules[__package__]
+SCHEMA = "humanform-species/1"
+HUMAN = "human"
+# the pre-warp human is a real one: inside ANSUR's plausible adults
+STATURE_PRE = (1.40, 2.05)
+# heights the measuring levels are warped through, in order up the body (as landmarks.WARP_KEYS)
+LEVEL_KEYS = ("ankle_joint", "knee_joint", "crotch", "hip_joint", "shoulder_joint", "chin")
+# how far each factor may go: past these a limb folds or a head swallows the neck
+LIMITS = {"length": (0.25, 2.5), "head": (0.5, 2.0), "ankle": (0.4, 2.0), "girth_follow": (0.8, 1.25)}
+# an individual keeps its own deviation from the human mean, up to this many tolerances (in the species')
+INDIVIDUAL = 0.75
+SOFT = 0.10               # the share of a bone's shaft next to its head that keeps its length (see _along)
+TOL_REFINE = 0.25          # passes stop once every solved measure is within this share of its tolerance
+
+
+# ------------------------------------------------------------------ data
+
+def _dir():
+    return os.path.join(_pkg.DATA, "species")
+
+
+def ids():
+    """Every species id: "human" (implicit, no file) and one per data/species/<id>.json."""
+    d = _dir()
+    found = sorted(f[:-5] for f in os.listdir(d) if f.endswith(".json")) if os.path.isdir(d) else []
+    return [HUMAN] + [i for i in found if i != HUMAN]
+
+
+_CACHE = {}
+
+
+def inline(d):
+    """A species given in place of an id - in a brief or a character spec, with no file. Either a whole
+    humanform-species/1 preset (it has `ratios` and `heads`), or what humanform.species_design turns into one:
+    observables (`species_design.design_from`: stature, heads, a trunk-to-leg ratio ... as a description gives
+    them, bare or under "observables") or `{"knobs": {...}, "stature": ...}` (`species_design.design`). Beside
+    them, `head`, `skin` and `moves` are its look and `anatomy` its declared absences and scales; `id` and
+    `label` are kept (an unnamed species is "custom")."""
+    d = copy.deepcopy(d)
+    if d.get("schema") == SCHEMA or ("ratios" in d and "heads" in d):
+        d.setdefault("schema", SCHEMA)
+        d.setdefault("id", "custom")
+        return d
+    try:
+        from . import species_design as sd
+    except ImportError:
+        raise ValueError("an inline species needs `ratios` and `heads` (a whole humanform-species/1 preset): "
+                         "humanform.species_design, which designs one from observables or knobs, is not installed")
+    sid, label = d.pop("id", None) or "custom", d.pop("label", None)
+    look = {k: d.pop(k) for k in ("head", "skin", "moves") if k in d} or None
+    anatomy = d.pop("anatomy", None)
+    if "knobs" in d:
+        knobs = dict(d.pop("knobs"))
+        stature = d.pop("stature", knobs.pop("stature", None))
+        out = sd.design(id=sid, label=label, stature=stature, look=look, anatomy=anatomy, **knobs)
+    else:
+        out = sd.design_from(d.pop("observables", d), id=sid, look=look, anatomy=anatomy)
+    if label:
+        out["label"] = label
+    return out
+
+
+def load(sid):
+    """The species dict for an id, or for an inline dict (`inline`). "human" and None are None: no warp."""
+    if isinstance(sid, dict):
+        return sid if sid.get("schema") == SCHEMA and "ratios" in sid else inline(sid)
+    if sid in (None, HUMAN):
+        return None
+    path = os.path.join(_dir(), f"{sid}.json")
+    if not isinstance(sid, str) or not os.path.isfile(path):
+        raise ValueError(f"unknown species {sid!r}: one of {ids()}")
+    mt = os.path.getmtime(path)
+    hit = _CACHE.get(path)
+    if hit is None or hit[0] != mt:
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+        if doc.get("schema") != SCHEMA:
+            raise ValueError(f"{path}: schema must be {SCHEMA}")
+        _CACHE[path] = hit = (mt, doc)
+    return copy.deepcopy(hit[1])
+
+
+def _t(entry, sex):
+    """[target, tol] (or a bare number / range) from a presets.json-style entry."""
+    if entry is None:
+        return None
+    if isinstance(entry, (list, tuple, int, float)):
+        return entry
+    return entry.get("any") if entry.get("any") is not None else entry.get(sex)
+
+
+def sexed(block, sex):
+    """A block keyed by sex ({"female": {...}, "male": {...}}), or one for both."""
+    block = block or {}
+    if sex in block and isinstance(block[sex], dict):
+        return block[sex]
+    if "any" in block and isinstance(block["any"], dict):
+        return block["any"]
+    return {k: v for k, v in block.items() if not isinstance(v, dict)}
+
+
+def _real():
+    return _pkg.presets_file()["presets"]
+
+
+def _mean(ratios, key, sex):
+    v = _t(ratios.get(key), sex)
+    return None if v is None else float(v[0])
+
+
+def heads(sp, sex):
+    return float(_t(sp["heads"], sex)[0])
+
+
+def _chin(sp, sex):
+    c = _mean(sp["ratios"], "chin", sex)
+    return c if c is not None else 1.0 - 1.0 / heads(sp, sex)
+
+
+def preset(sp, doc=None):
+    """The species as a humancheck preset, in presets.json's format: its `ratios`, `heads` and `derived`, the
+    human-only feature ranges it overrides (`features`), and the measuring `levels` per sex - where humancheck
+    takes its waist, hip and chest sections on this body (the human fractions mapped through the species'
+    joint heights)."""
+    sp = load(sp)
+    doc = doc or _pkg.presets_file()
+    real = doc["presets"]["realistic"]
+    feats = doc["features"]
+    h = sp["heads"]
+    p = {"label": sp.get("label", sp["id"]), "species": sp["id"],
+         "heads": h if isinstance(h, dict) else {"any": list(h)},
+         "ratios": sp["ratios"], "derived": sp.get("derived") or real["derived"],
+         "features": copy.deepcopy(sp.get("features") or {}), "levels": {}}
+    for sex in ("female", "male"):
+        src, dst = [0.0], [0.0]
+        for k in LEVEL_KEYS:
+            a = _mean(real["ratios"], k, sex)
+            b = _chin(sp, sex) if k == "chin" else _mean(sp["ratios"], k, sex)
+            if a is None or b is None or a <= src[-1] or b <= dst[-1]:
+                continue
+            src.append(a)
+            dst.append(b)
+        src.append(1.0)
+        dst.append(1.0)
+        p["levels"][sex] = [src, dst]
+    if "hip_above_crotch" not in p["features"]:
+        # a pelvis the warp scaled: the human range, scaled by how far the species' hip sits above its crotch
+        rows = []
+        for sex in ("female", "male"):
+            hs, cs = _mean(sp["ratios"], "hip_joint", sex), _mean(sp["ratios"], "crotch", sex)
+            hr, cr = _mean(real["ratios"], "hip_joint", sex), _mean(real["ratios"], "crotch", sex)
+            if None not in (hs, cs, hr, cr) and hr > cr:
+                rows.append((hs - cs) / (hr - cr))
+        if rows:
+            k = float(np.clip(np.mean(rows), 0.4, 2.5))
+            lo, hi = feats["hip_above_crotch"]["range"]
+            p["features"]["hip_above_crotch"] = {"range": [round(lo * min(k, 1.0), 4), round(hi * max(k, 1.0), 4)],
+                                                 "note": f"the human range scaled by the {sp['id']} pelvis ({k:.2f})"}
+    return p
+
+
+def levels(sp, sex):
+    """(src, dst) control points for measure.measurements(levels=...): a human height fraction -> this body's."""
+    sp = load(sp)
+    return None if sp is None else preset(sp)["levels"][sex]
+
+
+# ------------------------------------------------------------------ the brief
+
+def prewarp_stature(sp, sex, H):
+    """(H_pre, extra): the human stature to fit, and the uniform scale the clamp to STATURE_PRE took off it
+    (every start factor is multiplied by `extra`). `pre_warp.stature_factor` when the file gives one, else from
+    its basis: "trunk" (shoulder - hip joint, species over human) or "head" (human heads over species heads)."""
+    pw = sp.get("pre_warp") or {}
+    f = _t(pw.get("stature_factor"), sex)
+    if isinstance(f, (list, tuple)):
+        f = f[0]
+    if f is None:
+        real = _real()["realistic"]
+        basis = pw.get("basis") or ("head" if sp.get("proportionate") else "trunk")
+        if basis == "head":
+            f = float(_t(real["heads"], sex)[0]) / heads(sp, sex)
+        else:
+            f = ((_mean(sp["ratios"], "shoulder_joint", sex) - _mean(sp["ratios"], "hip_joint", sex))
+                 / (_mean(real["ratios"], "shoulder_joint", sex) - _mean(real["ratios"], "hip_joint", sex)))
+    raw = float(H) * float(f)
+    lo = max(float(pw.get("min_stature") or STATURE_PRE[0]), STATURE_PRE[0])
+    hi = min(float(pw.get("max_stature") or STATURE_PRE[1]), STATURE_PRE[1])
+    H_pre = float(np.clip(raw, lo, hi))
+    return H_pre, raw / H_pre
+
+
+def default_stature(sp, sex):
+    rng = _t(sp.get("stature"), sex)
+    return round((rng[0] + rng[1]) / 2, 3)
+
+
+def validate(species, s):
+    """Problems with a brief for this species; empty when it can be built. "human" has none of its own."""
+    try:
+        sp = load(species)
+    except (ValueError, TypeError, KeyError) as exc:
+        return [str(exc)]
+    if sp is None:
+        return []
+    p = []
+    sid = sp.get("id", "custom")
+    for key in ("stature", "heads", "ratios", "segments"):
+        if key not in sp:
+            p.append(f"species {sid}: its file has no {key!r} (see docs/improvements/08-fantasy-species.md)")
+    if p:
+        return p
+    sex = s.get("sex")
+    if sex not in ("female", "male"):
+        return p
+    from . import sheet
+    age = s.get("age")
+    if age is not None and age < sheet.AGE_RANGE[0]:
+        p.append(f"a {sid} body is built from an adult human: age {age:g} is below {sheet.AGE_RANGE[0]:g}")
+    rng = _t(sp["stature"], sex)
+    st = s.get("stature")
+    if st is not None and rng and not rng[0] <= st <= rng[1]:
+        p.append(f"stature {st} m is outside the {sid} range {rng[0]:.2f}-{rng[1]:.2f} m for a {sex}")
+    H = st if st is not None else default_stature(sp, sex)
+    bmi = s.get("bmi")
+    if s.get("weight") is not None and H:
+        bmi = s["weight"] / H ** 2
+    br = sp.get("bmi")
+    if bmi is not None and br and not br[0] <= bmi <= br[1]:
+        p.append(f"BMI {bmi:.1f} is outside the {sid} range {br[0]}-{br[1]}")
+    H_pre, _ = prewarp_stature(sp, sex, H)
+    lo, hi = sheet.STATURE["adult"]
+    if not lo <= H_pre <= hi:
+        p.append(f"the {sid}'s pre-warp human would be {H_pre:.2f} m, outside {lo}-{hi} m")
+    return p
+
+
+def draw_skin(sp, s):
+    """A screen colour from the species' palette, by the brief's seed (else its name): a random point between
+    two neighbouring palette tones."""
+    sk = sp.get("skin") or {}
+    if sk.get("tone") is not None:             # an inline species' own tone
+        return [round(float(c), 4) for c in sk["tone"]]
+    pal = sk.get("palette") or []
+    if not pal:
+        return None
+    seed = s.get("seed")
+    if seed is None:
+        seed = zlib.crc32(str(s.get("name", "")).encode("utf-8"))
+    rng = np.random.default_rng(int(seed) + 7919)
+    if len(pal) == 1:
+        return [round(float(c), 4) for c in pal[0]]
+    i = int(rng.integers(0, len(pal) - 1))
+    t = float(rng.random())
+    a, b = np.array(pal[i], float), np.array(pal[i + 1], float)
+    return [round(float(c), 4) for c in a + t * (b - a)]
+
+
+def pre_warp(s, sp):
+    """(sheet, info): the human sheet the warp starts from - the brief with stature H_pre, BMI kept (a weight
+    becomes the BMI it implies at the species stature), ANSUR measurements dropped (they would be a human's),
+    and a skin drawn from the species palette when the brief gives none."""
+    sp = load(sp)
+    sex = s["sex"]
+    H = float(s["stature"]) if s.get("stature") is not None else default_stature(sp, sex)
+    H_pre, extra = prewarp_stature(sp, sex, H)
+    out = copy.deepcopy(s)
+    out.pop("species", None)
+    out["stature"] = round(H_pre, 4)
+    notes = []
+    # the brief's BMI (or its weight at the species stature) is the species body's: it is mapped from the
+    # species' BMI range onto the pre-warp human's (`pre_warp.bmi`); a build word's BMI is a human's, only held
+    # inside that range
+    pw = sp.get("pre_warp") or {}
+    rng_pre, rng_sp = pw.get("bmi"), sp.get("bmi")
+    bmi = s.get("bmi")
+    if s.get("weight") is not None:
+        bmi = s["weight"] / H ** 2
+        out["weight"] = None
+    if bmi is not None:
+        if rng_pre and rng_sp and rng_sp[1] > rng_sp[0]:
+            t = float(np.clip((bmi - rng_sp[0]) / (rng_sp[1] - rng_sp[0]), 0.0, 1.0))
+            pre_bmi = rng_pre[0] + t * (rng_pre[1] - rng_pre[0])
+        else:
+            pre_bmi = bmi
+        out["bmi"] = round(float(pre_bmi), 2)
+        notes.append(f"BMI {bmi:.1f} (the {sp['id']}'s) fitted as BMI {out['bmi']} on the pre-warp human")
+    elif rng_pre and isinstance(s.get("build"), str):
+        from . import sheet
+        b = (sheet.BUILDS.get(s["build"]) or {}).get("bmi")
+        if b is not None and not rng_pre[0] <= b <= rng_pre[1]:
+            out["bmi"] = round(float(np.clip(b, *rng_pre)), 2)
+            notes.append(f"build {s['build']!r} (BMI {b}) held at BMI {out['bmi']}, inside the pre-warp range "
+                         f"{rng_pre[0]}-{rng_pre[1]}")
+    if out.get("measurements"):
+        notes.append("measurements dropped: they are ANSUR (human) measures, and the warp moves them")
+        out["measurements"] = {}
+    drawn = None
+    if out.get("skin") is None:
+        drawn = draw_skin(sp, s)
+        if drawn is not None:
+            out["skin"] = drawn
+    info = {"species": sp["id"], "stature": round(H, 4), "stature_pre": round(H_pre, 4),
+            "clamp_scale": round(extra, 4), "skin_drawn": drawn, "notes": notes}
+    if abs(extra - 1.0) > 1e-4:
+        notes.append(f"pre-warp human clamped to {H_pre:.2f} m (from {H_pre * extra:.2f} m): every start factor "
+                     f"is scaled {extra:.3f}")
+    return out, info
+
+
+def skin_block(sp):
+    """The species' `skin` block as humanform.skin's `species_skin` (regions off, pattern, subsurface tint), or
+    None for a human - whose skin then takes exactly the path it always did."""
+    sp = load(sp)
+    if sp is None:
+        return None
+    sk = {k: v for k, v in (sp.get("skin") or {}).items() if k not in ("palette", "tone")}
+    return sk or None
+
+
+def apply_features(human, sp):
+    """Head features (pointed ears, brow ridge ...) as shape deltas on the human, before the warp - through
+    humanform.features when it is installed; skipped, and said so, when it is not."""
+    head = (sp or {}).get("head") or {}
+    try:
+        from . import features
+    except ImportError:
+        return {"skipped": "humanform.features is not installed", "requested": head.get("features")}
+    try:
+        return features.apply(human, head) or {}
+    except Exception as exc:           # a feature pass must not cost the body
+        return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+# ------------------------------------------------------------------ the warp
+
+# The roles a rig's body profile names (rig-anything's `roles`), read from it when rig_analysis is importable.
+# Without it: the names humanform's own rig carries (scaffold.RENAME), as eyes.HEAD_BONE does. Limbs are never
+# named: a leg is a sided chain off the pelvis, an arm a sided chain off the spine above it.
+DEFAULT_ROLES = {"root": "root", "pelvis": "spine", "chest": "spine.003", "neck": ["spine.004"], "head": "spine.005"}
+
+
+def _rx(a):
+    c, s = math.cos(a), math.sin(a)
+    return np.array([[1, 0, 0], [0, c, -s], [0, s, c]], float)
+
+
+def profile_roles(rig):
+    roles = dict(DEFAULT_ROLES)
+    if rig.get("body_profile"):
+        try:
+            from rig_analysis import bodymap
+        except ImportError:
+            bodymap = None
+        if bodymap is not None:
+            roles.update((bodymap.load_profile(rig) or {}).get("roles") or {})
+    if isinstance(roles.get("neck"), str):
+        roles["neck"] = [roles["neck"]]
+    return roles
+
+
+class _Rig:
+    """The rest skeleton as arrays (parents before children), and what each bone is to the body: its role, found
+    from the profile's roles and the skeleton's structure, never from a limb's name."""
+
+    def __init__(self, rig):
+        from . import body as _body
+        bones = list(rig.data.bones)
+        depth = {}
+
+        def d(b):
+            if b.name not in depth:
+                depth[b.name] = 0 if b.parent is None else d(b.parent) + 1
+            return depth[b.name]
+
+        bones.sort(key=d)
+        self.names = [b.name for b in bones]
+        self.ix = {n: i for i, n in enumerate(self.names)}
+        self.parent = np.array([self.ix[b.parent.name] if b.parent else -1 for b in bones])
+        self.head = np.array([tuple(b.head_local) for b in bones], float)
+        self.tail = np.array([tuple(b.tail_local) for b in bones], float)
+        self.R = np.array([[list(r) for r in b.matrix_local.to_3x3()] for b in bones], float)
+        self.length = np.array([b.length for b in bones], float)
+        self.deform = np.array([b.use_deform for b in bones])
+        self.connect = {b.name: b.use_connect for b in bones}
+        kids = {n: [] for n in self.names}
+        for b in bones:
+            if b.parent is not None:
+                kids[b.parent.name].append(b.name)
+        size = {}
+
+        def count(n):
+            if n not in size:
+                size[n] = 1 + sum(count(c) for c in kids[n])
+            return size[n]
+
+        def chain(n, k):
+            out = [n]
+            while len(out) < k and kids[out[-1]]:
+                out.append(max(kids[out[-1]], key=count))
+            return out
+
+        def below(n):
+            out = []
+            for c in kids[n]:
+                out += [c] + below(c)
+            return out
+
+        roles = profile_roles(rig)
+        missing = [roles[k] for k in ("pelvis", "chest", "head") if roles.get(k) not in self.ix]
+        missing += [n for n in roles.get("neck") or [] if n not in self.ix]
+        if missing:
+            raise ValueError(f"{rig.name}: its body profile names bones it does not have: {missing}")
+        self.roles = roles
+        self.root = self.ix.get(roles.get("root"))
+        spine = [roles["chest"]]
+        while spine[-1] != roles["pelvis"]:
+            p = rig.data.bones[spine[-1]].parent
+            if p is None:
+                raise ValueError(f"{rig.name}: the chest {roles['chest']} is not under the pelvis {roles['pelvis']}")
+            spine.append(p.name)
+        self.spine = spine[::-1]                          # pelvis first, chest last
+        self.neck = list(roles.get("neck") or [])
+        self.headbone = roles["head"]
+        self.legs, self.arms = {}, {}
+        for c in kids[self.spine[0]]:
+            side = _body._side_of(c)
+            if side:
+                self.legs[side] = chain(c, 4)             # hip, knee, ankle, toe
+        for sb in self.spine[1:]:
+            for c in kids[sb]:
+                side = _body._side_of(c)
+                if side and side not in self.arms:
+                    ch = chain(c, 4)
+                    self.arms[side] = ch if len(ch) == 4 else [None] + ch    # clavicle, shoulder, elbow, wrist
+        self.kind = {}
+        for n in self.spine:
+            self.kind[n] = "pelvis" if n == self.spine[0] else "spine"
+        for n in self.neck:
+            self.kind[n] = "neck"
+        self.kind[self.headbone] = "head"
+        for ch in self.legs.values():
+            for n, k in zip(ch, ("thigh", "shin", "foot", "toe")):
+                self.kind[n] = k
+        for ch in self.arms.values():
+            for n, k in zip(ch, ("clavicle", "upper", "fore", "hand")):
+                if n:
+                    self.kind[n] = k
+            if ch[3]:
+                for dg in below(ch[3]):
+                    self.kind[dg] = "digit"
+
+    def mean_head_z(self, H, limb, i):
+        vals = [H[self.ix[ch[i]], 2] for ch in limb.values() if len(ch) > i and ch[i]]
+        return float(np.mean(vals)) if vals else None
+
+
+def _skinned(rig):
+    import bpy
+    return [o for o in bpy.data.objects if o.type == "MESH"
+            and any(m.type == "ARMATURE" and m.object is rig for m in o.modifiers)]
+
+
+def _weights(ob, rigd, k=8):
+    """(idx, w): each vertex's deform-bone influences, normalised, padded to k. A vertex with none rides a
+    pseudo-bone (index len(bones)) that only takes the floor shift."""
+    n_b = len(rigd.names)
+    gi = {g.index: rigd.ix.get(g.name) for g in ob.vertex_groups}
+    gi = {g: b for g, b in gi.items() if b is not None and rigd.deform[b]}
+    n = len(ob.data.vertices)
+    idx = np.full((n, k), n_b, int)
+    w = np.zeros((n, k))
+    for v in ob.data.vertices:
+        row = sorted(((gi[e.group], e.weight) for e in v.groups if e.group in gi and e.weight > 1e-6),
+                     key=lambda r: -r[1])[:k]
+        for j, (b, ww) in enumerate(row):
+            idx[v.index, j] = b
+            w[v.index, j] = ww
+    tot = w.sum(axis=1)
+    none = tot <= 1e-9
+    w[~none] /= tot[~none, None]
+    w[none, 0] = 1.0
+    return idx, w
+
+
+class _Mesh:
+    """One skinned mesh's original coordinates (armature space): the vertices, every shape key, the weights."""
+
+    def __init__(self, ob, rig, rigd):
+        mw = np.array(rig.matrix_world.inverted() @ ob.matrix_world, float)
+        self.ob, self.A = ob, mw
+        self.Ainv = np.linalg.inv(mw)
+        me = ob.data
+        n = len(me.vertices)
+        self.keys = []
+        if me.shape_keys is not None:
+            for kb in me.shape_keys.key_blocks:
+                co = np.empty(n * 3, np.float32)
+                kb.data.foreach_get("co", co)
+                self.keys.append((kb.name, self._arm(co.reshape(-1, 3))))
+        co = np.empty(n * 3, np.float32)
+        me.vertices.foreach_get("co", co)
+        self.base = self._arm(co.reshape(-1, 3))
+        self.idx, self.w = _weights(ob, rigd)
+
+    def _arm(self, co):
+        return co.astype(np.float64) @ self.A[:3, :3].T + self.A[:3, 3]
+
+    def _local(self, co):
+        return co @ self.Ainv[:3, :3].T + self.Ainv[:3, 3]
+
+    def mixed(self, keys):
+        """The shape as MPFB shows it (basis plus every key at its value) for these key coordinates."""
+        if not keys:
+            return None
+        kbs = self.ob.data.shape_keys.key_blocks
+        by = dict(keys)
+        basis = keys[0][1]
+        co = basis.copy()
+        for name, k in keys[1:]:
+            kb = kbs[name]
+            if kb.mute or kb.value == 0.0:
+                continue
+            co += kb.value * (k - by.get(kb.relative_key.name, basis))
+        return co
+
+
+def _along(s, L, l):
+    """How far along a bone a point at `s` (its distance along the old bone from the head) lands. Above the head
+    it moves rigidly (slope 1): the flesh over a joint weighted to the bone below it (a buttock over the hip, a
+    deltoid over the shoulder) keeps its shape instead of being squeezed toward the joint. Over the first SOFT
+    of the shaft the slope eases from 1 to the shaft's, which lands the tail exactly where the affine scale
+    puts it (`l * L`); past the tail it is the affine scale again, so the child's side of the joint matches."""
+    a = SOFT * L
+    c = (l * L - 0.5 * a) / np.maximum(L - 0.5 * a, 1e-9)
+    return np.where(s < 0.0, s,
+                    np.where(s < a, s + (c - 1.0) * s * s / (2.0 * a),
+                             np.where(s < L, 0.5 * a * (1.0 + c) + c * (s - a), l * s)))
+
+
+def _lbs(co, idx, w, T):
+    """sum_i w_i T_i(v) for every vertex: T_i affine (A_i v + t_i), with the length scale moved from the whole
+    bone onto its shaft (`_along`)."""
+    A, t, _, _, _, (h0, y0, L, l, Y) = T
+    Aw = np.einsum("nk,nkij->nij", w, A[idx])
+    tw = np.einsum("nk,nki->ni", w, t[idx])
+    out = np.einsum("nij,nj->ni", Aw, co) + tw
+    s = np.einsum("nkj,nkj->nk", co[:, None, :] - h0[idx], y0[idx])
+    corr = _along(s, L[idx], l[idx]) - l[idx] * s
+    return out + np.einsum("nk,nk,nkj->nj", w, corr, Y[idx])
+
+
+class _Warp:
+    """What the solve varies (x) and what the preset fixes, turned into per-bone transforms by role."""
+
+    SOLVED = ("tibia", "femur", "spine", "neck", "head", "ankle")
+
+    def __init__(self, rigd, sp, extra, sex):
+        self.r = rigd
+        seg = sexed(sp.get("segments"), sex)
+        self.seg = {k: float(seg.get(k, 1.0)) * extra for k in
+                    ("femur", "tibia", "humerus", "forearm", "hand", "foot", "spine", "neck", "head")}
+        g = sexed(sp.get("girth"), sex)
+        self.girth = {k: float(g.get(k, 1.0)) * extra for k in ("legs", "arms", "neck", "torso")}
+        w = sexed(sp.get("widths"), sex)
+        self.widths = {k: float(w.get(k, 1.0)) * extra for k in ("shoulder_width", "hip_width")}
+        sc = sp.get("spine") or {}
+        self.kyph = math.radians(float(sc.get("kyphosis_deg", 0.0)))
+        self.lord = math.radians(float(sc.get("lordosis_deg", 0.0)))
+        self.lumbar = float(sc.get("lumbar_share", 0.4))
+        # set outside the Newton solve (arms, hands, feet, widths), refined from measurement
+        self.fixed = {"humerus": self.seg["humerus"], "forearm": self.seg["forearm"], "hand": self.seg["hand"],
+                      "foot": self.seg["foot"], "clavicle": self.widths["shoulder_width"],
+                      "pelvis_x": self.widths["hip_width"]}
+        self.bend = self._bends()
+
+    def x0(self):
+        return np.array([self.seg["tibia"], self.seg["femur"], self.seg["spine"], self.seg["neck"],
+                         self.seg["head"], self.seg["foot"]], float)
+
+    def _follow(self, solved, spec):
+        return float(np.clip(solved / spec, *LIMITS["girth_follow"])) if spec > 1e-6 else 1.0
+
+    def _bends(self):
+        """{bone: radians about X} for the spine curve. Kyphosis rounds the thoracic span (the upper
+        1 - lumbar_share of hip joint to neck base) forward, lordosis bends the lumbar span back and the thoracic
+        forward again so the chest is upright; each spreads over the spine bones by how much of the span each
+        covers (a bone reaching to the next one's head). The neck and head bend back by what the chest took, so
+        the gaze stays level, and each arm bends back at its shoulder joint, so the arms hang as they did."""
+        r = self.r
+        bend = {n: 0.0 for n in r.names}
+        if not (self.kyph or self.lord):
+            return bend
+        z0 = r.mean_head_z(r.head, r.legs, 0) or r.head[r.ix[r.spine[0]], 2]
+        z1 = r.head[r.ix[r.neck[0]], 2] if r.neck else r.head[r.ix[r.headbone], 2]
+        span = max(z1 - z0, 1e-6)
+        chain = r.spine[1:]                               # the pelvis carries the legs: it is never bent
+        ends = [r.head[r.ix[n], 2] for n in chain] + [z1]
+        cut = self.lumbar
+
+        def overlap(a, b, lo, hi):
+            return max(0.0, min(b, hi) - max(a, lo))
+
+        lum = np.array([overlap((ends[i] - z0) / span, (ends[i + 1] - z0) / span, 0.0, cut) for i in range(len(chain))])
+        tho = np.array([overlap((ends[i] - z0) / span, (ends[i + 1] - z0) / span, cut, 1.0) for i in range(len(chain))])
+        if lum.sum() <= 0 and len(chain):
+            lum[0] = 1.0
+        if tho.sum() <= 0 and len(chain):
+            tho[-1] = 1.0
+        lum, tho = lum / lum.sum(), tho / tho.sum()
+        for i, n in enumerate(chain):
+            bend[n] = self.kyph * tho[i] - self.lord * lum[i] + self.lord * tho[i]
+        net = sum(bend[n] for n in chain)
+        for n in r.neck:
+            bend[n] = -0.6 * net / max(len(r.neck), 1)
+        bend[r.headbone] = -(net + sum(bend[n] for n in r.neck))
+        for side, ch in r.arms.items():
+            root = ch[0] or ch[1]
+            p = r.parent[r.ix[root]]
+            up = 0.0
+            while p >= 0:
+                up += bend.get(r.names[p], 0.0)
+                p = r.parent[p]
+            bend[ch[1]] = -up
+        return bend
+
+    def scales(self, x):
+        """{bone: (sx, sy, sz)} in each bone's own frame (y along it)."""
+        l_tib, l_fem, l_sp, l_neck, s_head, f_ank = x
+        f = self.fixed
+        gl, ga, gn, gt = (self.girth[k] for k in ("legs", "arms", "neck", "torso"))
+        chest_x = math.sqrt(max(self.widths["shoulder_width"], 1e-3))
+        chest = self.r.spine[-1]
+        S = {}
+        for n in self.r.names:
+            k = self.r.kind.get(n)
+            if k == "pelvis":
+                # the pelvis carries the buttocks and the tops of the thighs: it takes the legs' girth, so a
+                # buttock does not overhang a thigh girthed less than the trunk
+                S[n] = (gl * f["pelvis_x"], l_sp, gl)
+            elif k == "spine":
+                S[n] = (gt * (chest_x if n == chest else 1.0), l_sp, gt)
+            elif k == "neck":
+                S[n] = (gn, l_neck, gn)
+            elif k == "head":
+                S[n] = (s_head,) * 3
+            elif k == "clavicle":
+                S[n] = (gt, f["clavicle"], gt)
+            elif k == "upper":
+                g = ga * self._follow(f["humerus"], self.seg["humerus"])
+                S[n] = (g, f["humerus"], g)
+            elif k == "fore":
+                g = ga * self._follow(f["forearm"], self.seg["forearm"])
+                S[n] = (g, f["forearm"], g)
+            elif k in ("hand", "digit"):
+                S[n] = (f["hand"],) * 3
+            elif k == "thigh":
+                g = gl * self._follow(l_fem, self.seg["femur"])
+                S[n] = (g, l_fem, g)
+            elif k == "shin":
+                g = gl * self._follow(l_tib, self.seg["tibia"])
+                S[n] = (g, l_tib, g)
+            elif k in ("foot", "toe"):
+                # length and breadth with the foot, height (the bone's own z, near the world's up) with the ankle
+                S[n] = (f["foot"], f["foot"], f_ank)
+            else:
+                S[n] = (1.0, 1.0, 1.0)
+        return S
+
+    def transforms(self, x, shift=0.0):
+        """T = (A, t, head, R, S, along): each bone's affine skinning transform (the pseudo-bone last), its new
+        rest head and rotation, its scale, and the arrays `_along` needs."""
+        r = self.r
+        S = self.scales(x)
+        n = len(r.names)
+        A = np.zeros((n + 1, 3, 3))
+        t = np.zeros((n + 1, 3))
+        H = np.zeros((n, 3))
+        R = np.zeros((n, 3, 3))
+        Q = np.zeros((n, 3, 3))
+        for i, name in enumerate(r.names):
+            p = r.parent[i]
+            if p < 0:
+                h, q = r.head[i].copy(), np.eye(3)
+            else:
+                h, q = A[p] @ r.head[i] + t[p], Q[p]
+            b = self.bend.get(name, 0.0)
+            q = q @ _rx(b) if b else q
+            Q[i] = q
+            R[i] = q @ r.R[i]
+            A[i] = R[i] @ np.diag(S[name]) @ r.R[i].T
+            t[i] = h - A[i] @ r.head[i]
+            H[i] = h
+        A[n] = np.eye(3)
+        h0 = np.vstack([r.head, np.zeros((1, 3))])
+        y0 = np.vstack([r.R[:, :, 1], np.array([[0.0, 0.0, 1.0]])])
+        Ln = np.append(np.maximum(r.length, 1e-6), 1.0)
+        # a uniform scale (head, hand) needs no shaft correction: its whole bone scales alike
+        ln = np.array([1.0 if S[nm][0] == S[nm][1] == S[nm][2] else S[nm][1] for nm in r.names] + [1.0])
+        Y = np.vstack([R[:, :, 1], np.array([[0.0, 0.0, 1.0]])])
+        T = [A, t, H, R, S, (h0, y0, Ln, ln, Y)]
+        _shift(T, r, shift)
+        return tuple(T)
+
+
+def _shift(T, r, dz):
+    """Move everything but the root - which stays on the floor and carries no skin - up by dz."""
+    if not dz:
+        return
+    A, t, H = T[0], T[1], T[2]
+    for i in range(len(r.names)):
+        if i != r.root:
+            t[i, 2] += dz
+            H[i, 2] += dz
+    t[len(r.names), 2] += dz
+
+
+def _body_mask(ob):
+    g = ob.vertex_groups.get("body")
+    n = len(ob.data.vertices)
+    if g is None:
+        return np.ones(n, bool)
+    keep = np.zeros(n, bool)
+    for v in ob.data.vertices:
+        for e in v.groups:
+            if e.group == g.index and e.weight > 0.5:
+                keep[v.index] = True
+                break
+    return keep if keep.any() else np.ones(n, bool)
+
+
+def _knee_off_line(r, H):
+    """Each knee's distance (mm) off its hip-ankle line."""
+    out = {}
+    for s, ch in r.legs.items():
+        if len(ch) < 3:
+            continue
+        hp, kn, an = (H[r.ix[b]] for b in ch[:3])
+        d = an - hp
+        tt = float(np.dot(kn - hp, d) / np.dot(d, d))
+        out[s] = round(float(np.linalg.norm(kn - (hp + tt * d))) * 1000, 1)
+    return out
+
+
+MEASURE = {"ankle_joint": "ankle_z", "knee_joint": "knee_z", "hip_joint": "hip_z", "shoulder_joint": "shoulder_z",
+           "crotch": "crotch_z", "chin": "chin_z", "upper_arm": "upper_arm", "forearm": "forearm", "hand": "hand",
+           "foot": "foot", "thigh": "thigh", "shin": "shin", "shoulder_width": "shoulder_width",
+           "hip_width": "hip_width"}
+
+
+def targets(m0, sp, sex, H, style="realistic"):
+    """Absolute targets (metres) for the warped body: each species ratio is the fitted human's own fraction
+    shifted by (species mean - human preset mean) - its deviation carried in tolerances and capped at
+    INDIVIDUAL of them - times the species stature H."""
+    ref = _real().get(style, _real()["realistic"])["ratios"]
+    H0 = m0["stature"]
+    out = {}
+    for key, meas in MEASURE.items():
+        spm = _chin(sp, sex) if key == "chin" else _mean(sp["ratios"], key, sex)
+        if spm is None or m0.get(meas) is None:
+            continue
+        tol = (float(_t(sp["ratios"].get(key), sex)[1]) if key in sp["ratios"] else
+               float(_t(sp["heads"], sex)[1]) / heads(sp, sex) ** 2)
+        rt = _t(ref.get(key), sex)
+        own = m0[meas] / H0
+        if rt is None:
+            frac, dev = spm, 0.0
+        else:
+            # the individual's deviation from the human mean, in the human's tolerances, carried over in the
+            # species' - capped, so what the fit missed on the pre-warp human (MPFB's big head on a short body,
+            # a low shoulder) is not carried into the species body as if it were the person
+            dev = float(np.clip((own - float(rt[0])) / float(rt[1]), -INDIVIDUAL, INDIVIDUAL))
+            frac = spm + dev * tol
+        out[key] = {"frac": round(frac, 4), "m": frac * H, "species": spm, "tol": tol, "own_tol": round(dev, 2)}
+    return out
+
+
+def warp(human, sp, report=None, sex=None, stature=None, style="realistic", clamp_scale=1.0, passes=4,
+         verbose=False):
+    """Warp a fitted, rigged human to the species in place: every skinned mesh, every shape key, the rig's rest
+    bones. `stature` is the species body's height (floor to vertex, spine curve included); `clamp_scale` the
+    uniform scale pre_warp's clamp took off the human (`info["clamp_scale"]`). Returns `report`, filled in:
+    the solved factors, each target and what the mesh measures after the warp."""
+    import bpy
+    from . import body as _body
+    from . import measure
+
+    t0 = time.time()
+    report = {} if report is None else report
+    sp = load(sp)
+    if sp is None:
+        report.update({"species": HUMAN, "warped": False})
+        return report
+    human = _body.obj(human)
+    rig = _body.rig_of(human)
+    if rig is None:
+        raise ValueError(f"{human.name} has no rig: species.warp runs after scaffold.finish")
+    sex = sex or "female"
+    H = float(stature) if stature is not None else default_stature(sp, sex)
+    lv = levels(sp, sex)
+
+    bpy.context.view_layer.update()
+    m0 = measure.measurements(human, sex, fast=True)
+    tg = targets(m0, sp, sex, H, style)
+    rigd = _Rig(rig)
+    meshes = [_Mesh(o, rig, rigd) for o in _skinned(rig)]
+    body = next(m for m in meshes if m.ob is human)
+    mask = _body_mask(human)
+    mix0 = body.mixed(body.keys) if body.keys else body.base.copy()
+    # the chin as the profile finds it: the most forward midline vertex at the measured chin height
+    chin0 = m0.get("chin_z")
+    near = np.flatnonzero(mask & (np.abs(mix0[:, 0]) < 0.006) & (np.abs(mix0[:, 2] - chin0) < 0.008))
+    if not len(near):
+        near = np.flatnonzero(mask & (np.abs(mix0[:, 0]) < 0.02) & (np.abs(mix0[:, 2] - chin0) < 0.02))
+    chin_v = int(near[np.argmin(mix0[near, 1])])
+    sel = np.flatnonzero(mask)
+    knee_before = _knee_off_line(rigd, rigd.head)
+    wp = _Warp(rigd, sp, clamp_scale, sex)
+    # arms, hands, feet and widths: straight from their targets, refined by measurement below
+    for key, fk in (("upper_arm", "humerus"), ("forearm", "forearm"), ("hand", "hand"), ("foot", "foot")):
+        if key in tg and m0.get(MEASURE[key]):
+            wp.fixed[fk] = tg[key]["m"] / m0[MEASURE[key]]
+    clav = [rigd.ix[ch[0]] for ch in rigd.arms.values() if ch[0]]
+    clav_x = float(np.mean([abs(rigd.tail[i, 0] - rigd.head[i, 0]) for i in clav])) if clav else 0.15
+    if "shoulder_width" in tg and m0.get("shoulder_width") and clav:
+        wp.fixed["clavicle"] = 1.0 + (tg["shoulder_width"]["m"] - m0["shoulder_width"] * wp.girth["arms"]) / (2 * clav_x)
+    if "hip_width" in tg and m0.get("hip_width"):
+        wp.fixed["pelvis_x"] = tg["hip_width"]["m"] / (m0["hip_width"] * wp.girth["legs"])
+
+    joints = {"ankle_joint": (rigd.legs, 2), "knee_joint": (rigd.legs, 1), "hip_joint": (rigd.legs, 0),
+              "shoulder_joint": (rigd.arms, 1)}
+
+    def model(x):
+        T = wp.transforms(x)
+        co = _lbs(mix0[sel], body.idx[sel], body.w[sel], T)
+        floor = float(co[:, 2].min())
+        z = {k: rigd.mean_head_z(T[2], limb, i) for k, (limb, i) in joints.items()}
+        z = {k: v - floor for k, v in z.items() if v is not None}
+        z["chin"] = float(_lbs(mix0[chin_v:chin_v + 1], body.idx[chin_v:chin_v + 1], body.w[chin_v:chin_v + 1],
+                               T)[0, 2]) - floor
+        z["top"] = float(co[:, 2].max()) - floor
+        return z, floor
+
+    goal = {k: tg[k]["m"] for k in ("ankle_joint", "knee_joint", "hip_joint", "shoulder_joint", "chin") if k in tg}
+    goal["top"] = H
+    offset = {k: 0.0 for k in goal}          # model-to-mesh corrections from each measuring pass
+    lo = np.array([LIMITS["length"][0]] * 4 + [LIMITS["head"][0], LIMITS["ankle"][0]])
+    hi = np.array([LIMITS["length"][1]] * 4 + [LIMITS["head"][1], LIMITS["ankle"][1]])
+
+    def solve(x):
+        z0, _ = model(x)
+        use = [e for e in goal if e in z0]
+
+        def res(xx):
+            z, _ = model(xx)
+            return np.array([z[e] - (goal[e] + offset[e]) for e in use])
+
+        for _ in range(12):
+            r0 = res(x)
+            if np.max(np.abs(r0)) < 2e-4:
+                break
+            J = np.zeros((len(use), len(x)))
+            for j in range(len(x)):
+                dx = np.zeros(len(x))
+                dx[j] = 1e-3
+                J[:, j] = (res(x + dx) - r0) / 1e-3
+            x = np.clip(x + np.linalg.lstsq(J, -r0, rcond=None)[0], lo, hi)
+        return x
+
+    x = wp.x0()
+    history = []
+    m = None
+    for p in range(passes):
+        x = solve(x)
+        _, floor = model(x)
+        T = wp.transforms(x, shift=-floor)
+        _apply(meshes, body, mask, rigd, rig, T)
+        bpy.context.view_layer.update()
+        m = measure.measurements(human, sex, fast=True, levels=lv)
+        errs = {}
+        for key in list(goal) + ["hand", "foot", "shoulder_width", "hip_width"]:
+            meas = "stature" if key == "top" else MEASURE[key]
+            if (key in tg or key == "top") and m.get(meas) is not None:
+                want = H if key == "top" else tg[key]["m"]
+                tol = 0.01 if key == "top" else tg[key]["tol"] * H
+                errs[key] = (m[meas] - want, tol)
+        history.append({k: round(v[0] / v[1], 3) for k, v in errs.items()})
+        if verbose:
+            print("species pass", p, history[-1], "x", np.round(x, 3), wp.fixed)
+        if all(abs(e) <= TOL_REFINE * tol for e, tol in errs.values()) or p == passes - 1:
+            break
+        # correct the model by what the mesh says, and the fixed factors by their own ratio
+        for key in goal:
+            if key in errs:
+                offset[key] -= errs[key][0]
+        for key, fk in (("hand", "hand"), ("foot", "foot")):
+            if key in errs:
+                wp.fixed[fk] *= tg[key]["m"] / m[key]
+        if "shoulder_width" in errs and clav:
+            wp.fixed["clavicle"] -= errs["shoulder_width"][0] / (2 * clav_x)
+        if "hip_width" in errs:
+            wp.fixed["pelvis_x"] *= tg["hip_width"]["m"] / m["hip_width"]
+
+    after = _Rig(rig)
+    achieved = {}
+    Hm = float(m["stature"])
+    for key, row in tg.items():
+        v = m.get(MEASURE[key])
+        if v is not None:
+            v = float(v) / Hm
+            achieved[key] = {"target": row["frac"], "value": round(v, 4), "species": round(row["species"], 4),
+                             "off_tol": round((v - row["frac"]) / max(row["tol"], 1e-4), 2)}
+    hd = (Hm / float(m["head_length"])) if m.get("head_length") else None
+    report.update({
+        "species": sp["id"], "warped": True, "stature": round(Hm, 4), "stature_target": H,
+        "stature_pre": round(float(m0["stature"]), 4),
+        "heads": None if hd is None else round(hd, 2), "heads_target": round(heads(sp, sex), 2),
+        "factors": {"solved": dict(zip(_Warp.SOLVED, [round(float(v), 4) for v in x])),
+                    "fixed": {k: round(float(v), 4) for k, v in wp.fixed.items()},
+                    "girth": {k: round(v, 4) for k, v in wp.girth.items()},
+                    "start": {k: round(v, 4) for k, v in wp.seg.items()},
+                    "bend_deg": {k: round(math.degrees(v), 2) for k, v in wp.bend.items() if v}},
+        "roles": {"spine": rigd.spine, "neck": rigd.neck, "head": rigd.headbone, "legs": rigd.legs, "arms": rigd.arms},
+        "achieved": achieved, "passes": history,
+        "knee_off_line_mm": {"before": knee_before, "after": _knee_off_line(after, after.head)},
+        "meshes": [mm.ob.name for mm in meshes], "shape_keys": len(body.keys),
+        "seconds": round(time.time() - t0, 2)})
+    return report
+
+
+def _apply(meshes, body, mask, rigd, rig, T):
+    """Every mesh from its original coordinates, then the rest bones - so each pass starts from the human - and
+    the whole character stands on the floor again (the shaft mapping moves the soles a little)."""
+    import bpy
+    out = {}
+    for mm in meshes:
+        base = _lbs(mm.base, mm.idx, mm.w, T)
+        keys = [(name, _lbs(co, mm.idx, mm.w, T)) for name, co in mm.keys]
+        out[mm.ob.name] = (base, keys)
+    b_base, b_keys = out[body.ob.name]
+    mix = body.mixed(b_keys) if b_keys else b_base
+    dz = -float(mix[mask, 2].min())
+    T = [T[0], T[1], T[2].copy(), T[3], T[4], T[5]]
+    _shift(T, rigd, dz)
+    for mm in meshes:
+        base, keys = out[mm.ob.name]
+        me = mm.ob.data
+        for name, co in keys:
+            co = co.copy()
+            co[:, 2] += dz
+            me.shape_keys.key_blocks[name].data.foreach_set("co", mm._local(co).astype(np.float32).ravel())
+        base = base.copy()
+        base[:, 2] += dz
+        me.vertices.foreach_set("co", mm._local(base).astype(np.float32).ravel())
+        me.update()
+    Hh, R, S = T[2], T[3], T[4]
+    vl = bpy.context.view_layer
+    prev = vl.objects.active
+    hidden = rig.hide_get()
+    rig.hide_set(False)
+    vl.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    try:
+        ebs = rig.data.edit_bones
+        for eb in ebs:
+            eb.use_connect = False
+        for i, name in enumerate(rigd.names):
+            eb = ebs[name]
+            eb.head = tuple(Hh[i])
+            eb.tail = tuple(Hh[i] + R[i][:, 1] * rigd.length[i] * S[name][1])
+            eb.align_roll(tuple(R[i][:, 2]))
+        for name, c in rigd.connect.items():
+            if c:
+                ebs[name].use_connect = True
+    finally:
+        bpy.ops.object.mode_set(mode="OBJECT")
+        rig.hide_set(hidden)
+        if prev is not None:
+            vl.objects.active = prev
+
+
+# ------------------------------------------------------------------ the anatomy inventory
+
+# The drawn parts of an MPFB body, by the groups MPFB made for them (skin.MPFB_GROUPS reads the same ones), and
+# what each is measured against: the part it sits on. "pair" parts are split by side and measured against the
+# distance between their halves (areolae across the chest, eye sockets across the face); the rest against a
+# body region read off the skin weights (the head, a hand, a foot, the hip joints' spacing).
+# Part names are species_design's ANATOMY names (a preset's `anatomy.parts` and `anatomy.absent`); a name with
+# a suffix ("nails.toes") answers to the name before the dot.
+PARTS = {
+    "nipples": {"groups": ("nipple", "nippleTip"), "host": "pair"},
+    "lips": {"groups": ("lips",), "host": "head"},
+    "ears": {"groups": ("ears",), "host": "head"},
+    "nails": {"groups": ("fingernails",), "host": "hand"},
+    "nails.toes": {"groups": ("toenails",), "host": "foot"},
+    "eyes": {"groups": ("helper-l-eye", "helper-r-eye"), "host": "pair"},
+    "teeth": {"groups": ("helper-upper-teeth", "helper-lower-teeth"), "host": "head"},
+    "tongue": {"groups": ("helper-tongue",), "host": "head"},
+    "lashes": {"groups": ("helper-l-eyelashes-1", "helper-r-eyelashes-1"), "host": "head"},
+    "genitals": {"groups": ("helper-genital",), "host": "pelvis", "opt_in": "hf_genitals"},
+}
+# a part's size over its host's may change this much through a warp before it is a warn / a fail
+RATIO_WARN, RATIO_FAIL = (0.67, 1.5), (0.5, 2.0)
+SKINNED_SHARE = 0.99       # the share of a part's vertices that must carry deform weights
+
+
+def _absent(sp):
+    """{part: reason} the preset (or an inline species) declares the creature does not have."""
+    a = ((sp or {}).get("anatomy") or {}).get("absent") or {}
+    if isinstance(a, dict):
+        return {k: str(v) for k, v in a.items()}
+    out = {}
+    for row in a:
+        if isinstance(row, dict):
+            out[row.get("part")] = str(row.get("reason", "declared absent"))
+        else:
+            out[str(row)] = "declared absent"
+    return out
+
+
+def _members(ob, names, thresh=0.5):
+    gids = {ob.vertex_groups[n].index for n in names if n in ob.vertex_groups}
+    if not gids:
+        return None
+    return np.array([v.index for v in ob.data.vertices
+                     if any(e.group in gids and e.weight > thresh for e in v.groups)], int)
+
+
+def _size(pts):
+    return float(np.linalg.norm(np.ptp(pts, axis=0))) if len(pts) > 1 else 0.0
+
+
+def inventory(human, sp=None, reference=None):
+    """Every drawn part of the body - MPFB's areolae, lips, ears, nails, eye sockets, teeth, tongue and lashes,
+    the genital shell when it was asked for, and every other mesh skinned to the rig (eyes, brows, lashes, hair,
+    tusks) - checked present, skinned and not degenerate, and, given the `reference` inventory taken before a
+    warp, still the size it was against the part it sits on. A part the species declares absent
+    (`anatomy.absent`) is skipped with its reason; one missing and not declared absent fails.
+    Returns {parts, counts, fail}."""
+    from . import body as _body
+    human = _body.obj(human)
+    rig = _body.rig_of(human)
+    absent = _absent(load(sp) if sp is not None else None)
+    if rig is None:
+        return {"parts": [], "counts": {"fail": 1}, "fail": 1, "error": f"{human.name} is not skinned to a rig"}
+    rigd = _Rig(rig)
+    meshes = {o.name: _Mesh(o, rig, rigd) for o in _skinned(rig)}
+    bm = meshes.get(human.name)
+    if bm is None:
+        return {"parts": [], "counts": {"fail": 1}, "fail": 1, "error": f"{human.name} is not skinned to {rig.name}"}
+    co = bm.mixed(bm.keys) if bm.keys else bm.base
+    nb = len(rigd.names)
+
+    def top_bone(mm):
+        return mm.idx[np.arange(len(mm.idx)), np.argmax(mm.w, axis=1)]
+
+    def dominant(mm, kinds):
+        ids = [rigd.ix[n] for n, k in rigd.kind.items() if k in kinds]
+        return np.isin(top_bone(mm), ids)
+
+    hosts = {"head": _size(co[dominant(bm, ("head",))]),
+             "hand": _size(co[dominant(bm, ("hand", "digit")) & (co[:, 0] > 0)]),
+             "foot": _size(co[dominant(bm, ("foot", "toe")) & (co[:, 0] > 0)]), "pelvis": 0.0}
+    hips = [rigd.head[rigd.ix[ch[0]]] for ch in rigd.legs.values()]
+    if len(hips) > 1:
+        hosts["pelvis"] = float(np.linalg.norm(hips[0] - hips[-1]))
+    ref = {r["part"]: r for r in (reference or {}).get("parts", [])}
+
+    def judge(row):
+        r0 = ref.get(row["part"])
+        if r0 and r0.get("ratio") and row.get("ratio"):
+            ch = row["ratio"] / r0["ratio"]
+            row["ratio_change"] = round(ch, 3)
+            if not RATIO_FAIL[0] <= ch <= RATIO_FAIL[1]:
+                return dict(row, status="fail", reason=f"{ch:.2f}x the size it was against its {row['host']}: "
+                                                        "the warp did not carry it with the part it sits on")
+            if not RATIO_WARN[0] <= ch <= RATIO_WARN[1]:
+                return dict(row, status="warn", reason=f"{ch:.2f}x the size it was against its {row['host']}")
+        return dict(row, status="pass")
+
+    def basic(row, pts, on):
+        row.update(verts=int(len(pts)), skinned=round(float(on.mean()) if len(on) else 0.0, 3))
+        if not len(pts) or not np.isfinite(pts).all() or _size(pts) < 1e-4:
+            return dict(row, status="fail", reason="degenerate: empty, collapsed or not finite")
+        if row["skinned"] < SKINNED_SHARE:
+            return dict(row, status="fail", reason=f"only {row['skinned']:.0%} of its vertices carry deform weights")
+        return None
+
+    rows = []
+    for part, spec in PARTS.items():
+        row = {"part": part, "host": spec["host"]}
+        name = part.split(".")[0]
+        if name in absent:
+            rows.append(dict(row, status="skip", reason=f"declared absent: {absent[name]}"))
+            continue
+        if spec.get("opt_in") and not human.get(spec["opt_in"]):
+            rows.append(dict(row, status="skip", reason=f"not asked for (opt-in: {spec['opt_in']} is unset)"))
+            continue
+        idx = _members(human, spec["groups"])
+        if idx is None or not len(idx):
+            rows.append(dict(row, status="fail", reason=f"missing: no vertices in {', '.join(spec['groups'])}, "
+                                                        "and not declared absent (anatomy.absent)"))
+            continue
+        pts = co[idx]
+        bad = basic(row, pts, bm.idx[idx, 0] < nb)
+        if bad:
+            rows.append(bad)
+            continue
+        if spec["host"] == "pair":
+            l, r = pts[pts[:, 0] > 0], pts[pts[:, 0] <= 0]
+            if not len(l) or not len(r):
+                rows.append(dict(row, status="fail", reason="one side is missing"))
+                continue
+            host, size = float(np.linalg.norm(l.mean(axis=0) - r.mean(axis=0))), (_size(l) + _size(r)) / 2
+        else:
+            host = hosts.get(spec["host"], 0.0)
+            size = _size(pts[pts[:, 0] > 0]) if spec["host"] in ("hand", "foot") else _size(pts)
+        row.update(size_m=round(size, 4), host_m=round(host, 4), ratio=round(size / host, 4) if host > 1e-6 else None)
+        rows.append(judge(row))
+
+    # every other mesh on the rig: eyes, brows, lashes, hair, tusks
+    for name, mm in meshes.items():
+        if name == human.name:
+            continue
+        row = {"part": f"object:{name}"}
+        if name in absent:
+            rows.append(dict(row, status="skip", reason=f"declared absent: {absent[name]}"))
+            continue
+        pts = mm.mixed(mm.keys) if mm.keys else mm.base
+        bad = basic(row, pts, mm.idx[:, 0] < nb)
+        if bad:
+            rows.append(bad)
+            continue
+        kinds = {rigd.kind.get(rigd.names[b]) for b in set(top_bone(mm).tolist()) if b < nb}
+        row["host"] = "head" if kinds <= {"head", "neck"} else "body"
+        hs = hosts["head"] if row["host"] == "head" else _size(co)
+        size = _size(pts)
+        row.update(size_m=round(size, 4), host_m=round(hs, 4), ratio=round(size / hs, 4) if hs > 1e-6 else None)
+        rows.append(judge(row))
+    for part, reason in absent.items():
+        if not any(r["part"].split(".")[0] in (part, f"object:{part}") for r in rows):
+            rows.append({"part": part, "status": "skip", "reason": f"declared absent: {reason}"})
+    counts = {k: sum(1 for r in rows if r["status"] == k) for k in ("pass", "warn", "fail", "skip")}
+    return {"parts": rows, "counts": counts, "fail": counts["fail"]}

@@ -258,7 +258,7 @@ def face_features():
     return _FEATURES
 
 
-def _face_features(b, m, fw, face_front, depth, chin):
+def _face_features(b, m, fw, face_front, depth, chin, hs=1.0):
     """The measures a face's likeness is fitted to beyond ANSUR's head set, on an MPFB body (its joint groups
     still on, so its first vertices are the base mesh's): alar breadth (`nose_breadth`), the mouth's corners
     (`mouth_breadth`), the face's outline across at the mouth (`jaw_breadth`, taken as bizygomatic is: skin within
@@ -275,15 +275,16 @@ def _face_features(b, m, fw, face_front, depth, chin):
     m["nose_chin"] = float(nose[:, 2].min()) - chin
     z = float(mouth[:, 2].mean())
     pts, _, _ = slicing.points(b, (0, 0, z), (0, 0, 1))
-    front = pts[((pts[:, :2] @ fw) > face_front - 0.40 * depth) & (np.abs(pts[:, 0]) < 0.12)]
+    front = pts[((pts[:, :2] @ fw) > face_front - 0.40 * depth) & (np.abs(pts[:, 0]) < 0.12 * hs)]
     if len(front):
         m["jaw_breadth"] = float(front[:, 0].max() - front[:, 0].min())
 
 
-def _head(b, m, fwd, floor, zs, f, nose, chin):
+def _head(b, m, fwd, floor, zs, f, nose, chin, hs=1.0):
     """ANSUR II's head measurements: sellion (nasion) height, menton-sellion, interpupillary,
-    head breadth and length above the ears, head circumference, bizygomatic breadth."""
-    up = np.isfinite(f) & (zs > nose + 0.012) & (zs < nose + 0.05)
+    head breadth and length above the ears, head circumference, bizygomatic breadth. `hs`: the head's size
+    against a human's, for a species body (every distance below is a human head's, in metres)."""
+    up = np.isfinite(f) & (zs > nose + 0.012 * hs) & (zs < nose + 0.05 * hs)
     if up.any():
         idx = np.flatnonzero(up)[int(np.nanargmin(f[up]))]
         m["sellion_z"] = float(zs[idx]) - floor
@@ -293,24 +294,24 @@ def _head(b, m, fwd, floor, zs, f, nose, chin):
         m["interpupillary"] = float((eyes[0] - eyes[1]).length)
         eye_z = float((eyes[0].z + eyes[1].z) / 2)
     else:
-        eye_z = float(zs[idx]) if up.any() else nose + 0.03
+        eye_z = float(zs[idx]) if up.any() else nose + 0.03 * hs
     fw = np.array([fwd.x, fwd.y])
 
     def head_loop(z):
-        loops = [lp for lp in slicing.horizontal(b, z) if lp.spans_x0 and lp.width_x < 0.25]
+        loops = [lp for lp in slicing.horizontal(b, z) if lp.spans_x0 and lp.width_x < 0.25 * hs]
         return min(loops, key=lambda lp: abs(lp.centre.x)) if loops else None
 
     breadth = depth = circ = 0.0
     face_front = None
-    for z in np.arange(eye_z + 0.01, eye_z + 0.11, 0.01):
+    for z in np.arange(eye_z + 0.01 * hs, eye_z + 0.11 * hs, 0.01 * hs):
         lp = head_loop(z)
         if lp is None:
             continue
         ext = lp.points[:, :2] @ fw                        # forward coordinate of the section
-        if z <= eye_z + 0.06:                              # glabella to opisthocranion, brow level
+        if z <= eye_z + 0.06 * hs:                         # glabella to opisthocranion, brow level
             depth = max(depth, float(ext.max() - ext.min()))
             face_front = float(ext.max()) if face_front is None else max(face_front, float(ext.max()))
-        if z >= eye_z + 0.03:          # above the ears: breadth and circumference exclude them
+        if z >= eye_z + 0.03 * hs:          # above the ears: breadth and circumference exclude them
             breadth = max(breadth, lp.width_x)
             circ = max(circ, lp.perimeter)
     if breadth:
@@ -321,19 +322,28 @@ def _head(b, m, fwd, floor, zs, f, nose, chin):
         biz = 0.0
         for z in np.linspace(nose, eye_z, 5):
             pts, _, _ = slicing.points(b, (0, 0, z), (0, 0, 1))
-            front = pts[((pts[:, :2] @ fw) > face_front - 0.40 * depth) & (np.abs(pts[:, 0]) < 0.12)]
+            front = pts[((pts[:, :2] @ fw) > face_front - 0.40 * depth) & (np.abs(pts[:, 0]) < 0.12 * hs)]
             if len(front):
                 biz = max(biz, float(front[:, 0].max() - front[:, 0].min()))
         if biz:
             m["bizygomatic"] = biz
-        _face_features(b, m, fw, face_front, depth, chin)
+        _face_features(b, m, fw, face_front, depth, chin, hs)
 
 
-def measurements(ob, sex=None, fast=False, only=None):
+HUMAN_HEAD_M = 0.225       # an adult human head, chin to vertex: the scale of the head's search distances
+
+
+def measurements(ob, sex=None, fast=False, only=None, levels=None):
     """Raw numbers. `fast` skips what a proportion solver does not need - finger counts, joint
     centring, mesh health and symmetry, hand and foot breadths and girths - for about a third of the
-    time. `only="extremities"` measures just the hands and feet, for their own fit stage."""
+    time. `only="extremities"` measures just the hands and feet, for their own fit stage.
+
+    `levels` ((src, dst) control points, `species.levels`) is for a species body: every height humancheck
+    searches or cuts at as a fraction of a human's stature (the waist at the navel, the chest, the nose's
+    window) is mapped through the species' joint heights, and the head's search distances scale with its
+    measured size. None - every human body - measures exactly as before."""
     b = ob if isinstance(ob, _body.Body) else _body.load(ob)
+    lv = (lambda fr: float(np.interp(fr, levels[0], levels[1]))) if levels else (lambda fr: fr)
     m = {"object": b.ob.name, "rig": b.rig.name if b.rig else None,
          "landmark_source": b.landmark_source, "landmarks": {k: [round(c, 4) for c in v] for k, v in b.landmarks.items()}}
     floor, top = b.floor, b.top
@@ -377,8 +387,8 @@ def measurements(ob, sex=None, fast=False, only=None):
     def joined(z):
         return any(lp.spans_x0 and lp.width_x < 0.6 * H for lp in slicing.horizontal(b, z, hull=False))
 
-    z_lo = floor + (m.get("knee_z") or 0.25 * H)
-    z_hi = floor + (m.get("hip_z") or 0.55 * H) + 0.08 * H
+    z_lo = floor + (m.get("knee_z") or lv(0.25) * H)
+    z_hi = floor + (m.get("hip_z") or lv(0.55) * H) + 0.08 * H
     crotch = None
     prev = z_lo
     for z in np.arange(z_lo, z_hi, 0.015):
@@ -396,11 +406,14 @@ def measurements(ob, sex=None, fast=False, only=None):
     m["crotch_z"] = None if crotch is None else crotch - floor
 
     # head: front profile along the midline
-    sh = (m.get("shoulder_z") or 0.8 * H) + floor
+    sh = (m.get("shoulder_z") or lv(0.8) * H) + floor
     zs, f = _front_profile(b, sh + 0.01, top, fwd)
     chin = nose = None
     if np.isfinite(f).any():
-        win = (zs > top - 0.10 * H) & (zs < top - 0.035 * H) & np.isfinite(f)
+        if levels:
+            win = (zs > floor + lv(0.90) * H) & (zs < floor + lv(0.965) * H) & np.isfinite(f)
+        else:
+            win = (zs > top - 0.10 * H) & (zs < top - 0.035 * H) & np.isfinite(f)
         if win.any():
             i_nose = int(np.flatnonzero(win)[np.nanargmax(f[win])])
             nose = float(zs[i_nose])
@@ -411,12 +424,14 @@ def measurements(ob, sex=None, fast=False, only=None):
             while i > 0 and np.isfinite(f[i - 1]) and f[i - 1] > thresh:
                 i -= 1
             chin = float(zs[i])
-            up = np.isfinite(f) & (zs > nose + 0.012) & (zs < nose + 0.05)
+            hs0 = (top - float(zs[i])) / HUMAN_HEAD_M if levels else 1.0
+            up = np.isfinite(f) & (zs > nose + 0.012 * hs0) & (zs < nose + 0.05 * hs0)
             m["face_relief"] = float(f[i_nose] - np.nanmin(f[up])) if up.any() else 0.0
     m["chin_z"] = None if chin is None else chin - floor
     m["nose_z"] = None if nose is None else nose - floor
+    hs = (top - chin) / HUMAN_HEAD_M if levels and chin is not None else 1.0
     if chin is not None and nose is not None:
-        _head(b, m, fwd, floor, zs, f, nose, chin)
+        _head(b, m, fwd, floor, zs, f, nose, chin, hs)
     if chin is not None:
         m["head_length"] = top - chin
         m["heads"] = H / m["head_length"] if m["head_length"] > 0 else None
@@ -441,18 +456,18 @@ def measurements(ob, sex=None, fast=False, only=None):
     # there, standing); the widest section above the crotch is kept as hip_max_*, but on a body
     # standing with its legs apart it catches the thighs splaying and reads 3-5 cm wide
     # (never below 2% of H over the crotch: a stylized or long-legged body's crotch can sit above it)
-    hz = _ratio("buttockheight", sex, 0.51) * H
+    hz = lv(_ratio("buttockheight", sex, 0.51)) * H
     if m["crotch_z"] is not None:
         hz = max(hz, m["crotch_z"] + 0.02 * H)
     lp = torso_loop(floor + hz)
     if lp:
         m["hip_circ"], m["hip_width"], m["hip_circ_z"] = lp.perimeter, lp.width_x, hz
         m["hip_depth"] = float(lp.max[1] - lp.min[1])
-    hip_lo = floor + (m["crotch_z"] if m["crotch_z"] else 0.45 * H) + 0.005
+    hip_lo = floor + (m["crotch_z"] if m["crotch_z"] else lv(0.45) * H) + 0.005
     if fast:
         hip_lo = hip_hi = 0.0      # the widest and narrowest sections are reports, not fit residuals
     if not fast:
-        hip_hi = floor + (m.get("hip_z") or 0.52 * H) + 0.05 * H
+        hip_hi = floor + (m.get("hip_z") or lv(0.52) * H) + 0.05 * H
     best = None
     for z in np.arange(hip_lo, hip_hi, 0.01):
         lp = torso_loop(z)
@@ -462,20 +477,20 @@ def measurements(ob, sex=None, fast=False, only=None):
         m["hip_max_circ"], m["hip_max_z"], m["hip_max_width"] = best[1].perimeter, best[0] - floor, best[1].width_x
     # waist at the navel, as ANSUR II measures it (the narrowest section sits higher and reads several
     # cm smaller on most women); the narrowest is kept as waist_min_circ
-    omph = _ratio("waistheightomphalion", sex, 0.605)
+    omph = lv(_ratio("waistheightomphalion", sex, 0.605))
     lp = torso_loop(floor + omph * H)
     if lp:
         m["waist_circ"], m["waist_circ_z"] = lp.perimeter, omph * H
         # circumference alone cannot tell a wide waist from a belly pushed forward: breadth and depth can
         m["waist_breadth"], m["waist_depth"] = float(lp.max[0] - lp.min[0]), float(lp.max[1] - lp.min[1])
     best = None
-    for z in ([] if fast else np.arange(floor + 0.58 * H, floor + 0.68 * H, 0.01)):
+    for z in ([] if fast else np.arange(floor + lv(0.58) * H, floor + lv(0.68) * H, 0.01)):
         lp = torso_loop(z)
         if lp and (best is None or lp.perimeter < best[1].perimeter):
             best = (z, lp)
     if best:
         m["waist_min_circ"], m["waist_min_circ_z"] = best[1].perimeter, best[0] - floor
-    lp = torso_loop(floor + _ratio("chestheight", sex, 0.72) * H)
+    lp = torso_loop(floor + lv(_ratio("chestheight", sex, 0.72)) * H)
     if lp:
         m["chest_circ"] = lp.perimeter
         m["chest_depth"] = float(lp.max[1] - lp.min[1])
@@ -507,7 +522,8 @@ def measurements(ob, sex=None, fast=False, only=None):
     if m.get("chin_z") is not None:
         # 2.5% of H under the chin is below the jaw and above the trapezius; a section wider than 12% of
         # H there is shoulders, not neck (halfway between shoulder joint and chin read up to 37 cm thick)
-        neck = [lp for lp in slicing.horizontal(b, floor + m["chin_z"] - 0.025 * H) if lp.spans_x0 and lp.width_x < 0.12 * H]
+        neck_w = 0.12 * H if not levels else max(0.12 * H, 0.12 * 1.75 * hs)
+        neck = [lp for lp in slicing.horizontal(b, floor + m["chin_z"] - 0.025 * H) if lp.spans_x0 and lp.width_x < neck_w]
         if neck:
             m["neck_circ"] = min(neck, key=lambda lp: abs(lp.centre.x)).perimeter
 
@@ -570,8 +586,15 @@ def check(m, preset="realistic", sex=None, build=None):
     body-shape ratios the build deliberately moves - waist to hip, shoulder to hip - from warn or
     fail into info: a heavy brief is supposed to sit outside the population's waist-to-hip range."""
     data = _pkg.presets()
-    p = data["presets"][preset]
+    if isinstance(preset, dict):           # a preset in hand: a species given inline (species.preset)
+        p = preset
+    elif preset not in data["presets"]:
+        raise ValueError(f"unknown preset {preset!r}: one of {sorted(data['presets'])}")
+    else:
+        p = data["presets"][preset]
     feats = data["features"]
+    if p.get("features"):          # a species preset's own ranges for the human-only checks
+        feats = dict(feats, **{k: dict(feats.get(k, {}), **v) for k, v in p["features"].items()})
     H = m["stature"]
     out = []
 
@@ -711,8 +734,15 @@ def check(m, preset="realistic", sex=None, build=None):
 
 
 def run(ob, preset="realistic", sex=None, out_dir=None, build=None):
-    m = measurements(ob, sex)
+    lv = None
+    if isinstance(preset, dict):
+        lv = (preset.get("levels") or {}).get(sex)
+    elif preset not in ("realistic", "stylized"):
+        lv = (_pkg.presets()["presets"].get(preset) or {}).get("levels", {}).get(sex)
+    m = measurements(ob, sex, levels=lv)
     findings = check(m, preset, sex, build)
+    if isinstance(preset, dict):
+        preset = preset.get("species") or "custom"
     counts = {k: sum(1 for f in findings if f["status"] == k) for k in ("pass", "warn", "fail", "info")}
     rep = {"schema": _pkg.SCHEMA, "kind": "humancheck", "version": _pkg.VERSION, "body": m["object"],
            "preset": preset, "sex": sex, "stature_m": round(m["stature"], 4), "counts": counts,
