@@ -29,7 +29,7 @@ from mathutils import Vector
 
 from . import body as _body
 
-AUTO_INCLUDE = ("hair", "eye", "brow", "lash", "teeth", "tongue")
+AUTO_INCLUDE = ("hair", "eye", "brow", "lash", "teeth", "tongue", "headparts")
 TARGET_KEYS = (("chin", "chin_z"), ("shoulder_joint", "shoulder_z"), ("hip_joint", "hip_z"),
                ("crotch", "crotch_z"), ("knee_joint", "knee_z"))
 ORANGE = (1.0, 0.55, 0.1, 1.0)
