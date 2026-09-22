@@ -492,6 +492,12 @@ class _Rig:
         for n in self.neck:
             self.kind[n] = "neck"
         self.kind[self.headbone] = "head"
+        # a jaw (humanform.jaw, tagged the way rig-anything's maw tags one) hangs off the head and scales with
+        # it: left unknown it would keep a human's scale while the skin round it took the head's, and a
+        # troll's mouth would tear along the lip line
+        for c in below(self.headbone):
+            if rig.data.bones[c].get("maw_role"):
+                self.kind[c] = "head"
         for ch in self.legs.values():
             for n, k in zip(ch, ("thigh", "shin", "foot", "toe")):
                 self.kind[n] = k

@@ -50,13 +50,14 @@ WARM = 1.6
 
 
 def _finish_look(human, s, eyes):
-    """Rigged body -> eyes, teeth and tongue, and skin, from the brief's screen colours. The teeth and tongue
-    (`features.mouth`: MPFB's hidden mouth helpers as a skinned mesh of their own) go on every body: a body is
-    drawn with all its parts."""
+    """Rigged body -> eyes, a jaw, teeth and tongue, and skin, from the brief's screen colours. The teeth and
+    tongue (`features.mouth`: MPFB's hidden mouth helpers as a skinned mesh of their own) go on every body: a
+    body is drawn with all its parts. The jaw goes on before them, so they take its weights."""
     from . import look
     if eyes:
         from . import eyes as _eyes
         _eyes.add(human, iris=s.get("iris"))
+    _jaw(human)
     _mouth(human)
     if s.get("skin") is not None:
         look.skin(human, s["skin"])
@@ -68,6 +69,13 @@ def _mouth(human):
     except ImportError:
         return None
     return features.mouth(human)
+
+
+def _jaw(human):
+    """The jaw bone and the mouth's weights (`humanform.jaw`), before the teeth and the tongue are built: they
+    are given the skin's weights where they sit, so the lower ones come away with the jaw."""
+    from . import jaw
+    return jaw.add(human)
 
 
 def _macros(human, names=("age", "weight", "muscle", "height", "firmness", "proportions", "cupsize")):
@@ -155,7 +163,10 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw)
     t = dict(res["timing"])
     t1 = time.time()
     feats = species.apply_features(human, sp)
-    _mouth(human)                   # rebuilt where the head features have put the mouth, before the warp moves it
+    # the jaw where the features have left the lip line (a muzzle moves it forward), then the mouth on top of
+    # it: rebuilt before the warp moves the head
+    jaw_rep = _jaw(human)
+    _mouth(human)
     before_warp = _before_warp(human, s_pre, anatomy)
     t["features"] = time.time() - t1
     eyes_spec = ((sp.get("head") or {}).get("eyes"))
@@ -174,6 +185,7 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw)
     species.warp(human, sp, report=rep, sex=s["sex"], stature=info["stature"], style=s.get("style", "realistic"),
                  clamp_scale=info["clamp_scale"], verbose=verbose)
     rep["features"] = feats
+    rep["jaw"] = jaw_rep
     if eyes_rep is not None:
         rep["eye_layout"] = eyes_rep
     rep["before_warp"] = before_warp
