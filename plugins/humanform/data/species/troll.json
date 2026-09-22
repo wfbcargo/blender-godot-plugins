@@ -1,0 +1,430 @@
+{
+  "schema": "humanform-species/1",
+  "id": "troll",
+  "label": "Troll: huge (2.4-2.8 m), kyphotic, long-armed (hands to the knee), grey-green, square-cube heavy",
+  "baseline": "human",
+  "sources": [
+    "docs/improvements/08-fantasy-species.md (research, 2026-09-21)",
+    "Square-cube scaling and gait in large animals (duty factor and no aerial phase with size) - https://pmc.ncbi.nlm.nih.gov/articles/PMC8214834/"
+  ],
+  "notes": {
+    "generated": "by scripts/derive_species.py from the realistic preset - edit its knobs, not this file",
+    "stature": "the design's 2.4-2.8 m [folklore]",
+    "bmi": "square-cube: a body scaled up keeps its density, so mass grows as H^3 and BMI as H. A human at BMI 27 scaled to 2.6 m is BMI 40 [measured, scaling law]",
+    "knobs": {
+      "heads": "the design's 7 at 2.6 m: a small head for the bulk [folklore]",
+      "trunk": "a long heavy trunk",
+      "leg": "legs a little short against the trunk [folklore]",
+      "arm": "solved from `reach`",
+      "reach": "hands to the knee: hanging fingertips at the knee [folklore]",
+      "hand": "huge hands",
+      "neck": "the head slung forward on a short neck",
+      "shoulder_width": "massive shoulders",
+      "girth": "square-cube: bone section grows faster than length for the load [measured, scaling law]",
+      "kyphosis_deg": "the hunch [folklore]"
+    },
+    "skin": "grey-green, stony. Every red-shifted region is off: a troll's hide has no blood showing through; the paler palms, soles and nails stay",
+    "ratios": "fractions of the final standing stature (spine curve applied), as presets.json; tolerances are the realistic preset's scaled with the value and by 1.3",
+    "proportion": "not graded: the trunk (neck base - hip joint), upper/lower segment ((H - crotch) / crotch), relative sitting height (~1 - crotch) and hanging reach, with the human's beside",
+    "segments": "bone length factors against the pre-warp human (pre_warp); girth and widths likewise absolute. The warp solves the final factors so the measured joints land on `ratios`"
+  },
+  "knobs": {
+    "heads": 7.0,
+    "trunk": 1.08,
+    "leg": 0.93,
+    "leg_rhizo": 0.0,
+    "arm": 1.0,
+    "arm_rhizo": 0.0,
+    "reach": 0.01,
+    "hand": 1.25,
+    "foot": 1.12,
+    "neck": 0.6,
+    "shoulder_width": 1.28,
+    "hip_width": 1.12,
+    "girth": {
+      "legs": 1.35,
+      "arms": 1.35,
+      "neck": 1.45,
+      "torso": 1.3
+    },
+    "kyphosis_deg": 32.0,
+    "lordosis_deg": 0.0
+  },
+  "stature": {
+    "female": [
+      2.35,
+      2.7
+    ],
+    "male": [
+      2.45,
+      2.85
+    ]
+  },
+  "bmi": [
+    36.0,
+    50.0
+  ],
+  "heads": {
+    "any": [
+      7.0,
+      0.414
+    ],
+    "source": "1 / (1 - chin)"
+  },
+  "ratios": {
+    "shoulder_joint": {
+      "female": [
+        0.8101,
+        0.0173
+      ],
+      "male": [
+        0.8097,
+        0.019
+      ],
+      "source": "derive_species.py: realistic shoulder_joint through the troll knobs"
+    },
+    "hip_joint": {
+      "female": [
+        0.5027,
+        0.0275
+      ],
+      "male": [
+        0.4958,
+        0.0288
+      ],
+      "source": "derive_species.py: realistic hip_joint through the troll knobs"
+    },
+    "knee_joint": {
+      "female": [
+        0.2823,
+        0.0196
+      ],
+      "male": [
+        0.2761,
+        0.0154
+      ],
+      "source": "derive_species.py: realistic knee_joint through the troll knobs"
+    },
+    "ankle_joint": {
+      "female": [
+        0.0479,
+        0.009
+      ],
+      "male": [
+        0.0512,
+        0.009
+      ],
+      "source": "derive_species.py: realistic ankle_joint through the troll knobs"
+    },
+    "crotch": {
+      "female": [
+        0.4614,
+        0.0284
+      ],
+      "male": [
+        0.4631,
+        0.0265
+      ],
+      "source": "derive_species.py: realistic crotch through the troll knobs"
+    },
+    "upper_arm": {
+      "female": [
+        0.2023,
+        0.0147
+      ],
+      "male": [
+        0.2036,
+        0.0139
+      ],
+      "source": "derive_species.py: realistic upper_arm through the troll knobs"
+    },
+    "forearm": {
+      "female": [
+        0.1722,
+        0.0154
+      ],
+      "male": [
+        0.1786,
+        0.014
+      ],
+      "source": "derive_species.py: realistic forearm through the troll knobs"
+    },
+    "hand": {
+      "female": [
+        0.1433,
+        0.0119
+      ],
+      "male": [
+        0.1414,
+        0.0105
+      ],
+      "source": "derive_species.py: realistic hand through the troll knobs"
+    },
+    "foot": {
+      "female": [
+        0.1747,
+        0.012
+      ],
+      "male": [
+        0.1776,
+        0.0118
+      ],
+      "source": "derive_species.py: realistic foot through the troll knobs"
+    },
+    "shoulder_width": {
+      "female": [
+        0.3651,
+        0.0441
+      ],
+      "male": [
+        0.3823,
+        0.0472
+      ],
+      "source": "derive_species.py: realistic shoulder_width through the troll knobs"
+    },
+    "hip_width": {
+      "female": [
+        0.251,
+        0.0344
+      ],
+      "male": [
+        0.2266,
+        0.029
+      ],
+      "source": "derive_species.py: realistic hip_width through the troll knobs"
+    },
+    "thigh": {
+      "female": [
+        0.2204,
+        0.0201
+      ],
+      "male": [
+        0.2197,
+        0.0227
+      ],
+      "source": "derive_species.py: realistic thigh through the troll knobs"
+    },
+    "shin": {
+      "female": [
+        0.2344,
+        0.0201
+      ],
+      "male": [
+        0.2249,
+        0.0154
+      ],
+      "source": "derive_species.py: realistic shin through the troll knobs"
+    },
+    "chin": {
+      "any": [
+        0.8571,
+        0.0084
+      ],
+      "source": "1 - 1/heads, the tolerance from the heads tolerance"
+    }
+  },
+  "derived": {
+    "shoulder_to_hip_width": {
+      "female": [
+        1.455,
+        0.139
+      ],
+      "male": [
+        1.687,
+        0.14
+      ],
+      "source": "shoulder_width / hip_width of this species"
+    },
+    "waist_to_hip_circ": {
+      "female": [
+        0.98,
+        0.117
+      ],
+      "male": [
+        1.02,
+        0.114
+      ],
+      "source": "design choice: a belly as wide as the hips"
+    }
+  },
+  "features": {
+    "hip_above_crotch": {
+      "range": [
+        0.0173,
+        0.0922
+      ],
+      "note": "the human range scaled with this species' hip-to-crotch gap"
+    }
+  },
+  "proportion": {
+    "female": {
+      "hip_joint": 0.5027,
+      "neck_base": 0.8707,
+      "trunk": 0.3679,
+      "trunk_to_leg": 0.7319,
+      "upper_to_lower_segment": 1.1673,
+      "relative_sitting_height": 0.5436,
+      "arm_length": 0.5178,
+      "fingertip_above_knee": 0.01,
+      "head_length": 0.1429,
+      "human": {
+        "hip_joint": 0.516,
+        "neck_base": 0.8569,
+        "trunk": 0.3409,
+        "trunk_to_leg": 0.6608,
+        "upper_to_lower_segment": 1.0825,
+        "relative_sitting_height": 0.5248,
+        "arm_length": 0.4335,
+        "fingertip_above_knee": 0.0762,
+        "head_length": 0.13
+      },
+      "shoulder_forward": 0.0308,
+      "arm_factor": 1.1271
+    },
+    "male": {
+      "hip_joint": 0.4958,
+      "neck_base": 0.8764,
+      "trunk": 0.3806,
+      "trunk_to_leg": 0.7678,
+      "upper_to_lower_segment": 1.1593,
+      "relative_sitting_height": 0.5419,
+      "arm_length": 0.5236,
+      "fingertip_above_knee": 0.01,
+      "head_length": 0.1429,
+      "human": {
+        "hip_joint": 0.5099,
+        "neck_base": 0.8639,
+        "trunk": 0.354,
+        "trunk_to_leg": 0.6942,
+        "upper_to_lower_segment": 1.0768,
+        "relative_sitting_height": 0.5235,
+        "arm_length": 0.4365,
+        "fingertip_above_knee": 0.0799,
+        "head_length": 0.13
+      },
+      "shoulder_forward": 0.0302,
+      "arm_factor": 1.14
+    }
+  },
+  "pre_warp": {
+    "basis": "trunk",
+    "min_stature": 1.45,
+    "max_stature": 1.95,
+    "note": "H_pre = H * stature_factor (stature: the H_pre range). Outside min/max_stature, fit at the limit and scale every segment, girth and width factor by H_pre / limit (a uniform scale)",
+    "stature_factor": {
+      "female": 1.1134,
+      "male": 1.1094
+    },
+    "stature": {
+      "female": [
+        2.616,
+        3.006
+      ],
+      "male": [
+        2.718,
+        3.162
+      ]
+    }
+  },
+  "segments": {
+    "female": {
+      "femur": 0.8611,
+      "tibia": 0.8611,
+      "humerus": 1.0436,
+      "forearm": 1.0436,
+      "hand": 1.1574,
+      "foot": 1.037,
+      "spine": 1.0,
+      "neck": 0.5556,
+      "head": 0.987
+    },
+    "male": {
+      "femur": 0.8611,
+      "tibia": 0.8611,
+      "humerus": 1.0556,
+      "forearm": 1.0556,
+      "hand": 1.1574,
+      "foot": 1.037,
+      "spine": 1.0,
+      "neck": 0.5556,
+      "head": 0.9906
+    }
+  },
+  "girth": {
+    "female": {
+      "legs": 1.35,
+      "arms": 1.35,
+      "neck": 1.45,
+      "torso": 1.3
+    },
+    "male": {
+      "legs": 1.35,
+      "arms": 1.35,
+      "neck": 1.45,
+      "torso": 1.3
+    }
+  },
+  "widths": {
+    "female": {
+      "shoulder_width": 1.1852,
+      "hip_width": 1.037
+    },
+    "male": {
+      "shoulder_width": 1.1852,
+      "hip_width": 1.037
+    }
+  },
+  "spine": {
+    "kyphosis_deg": 32.0,
+    "lordosis_deg": 0.0,
+    "lumbar_share": 0.4,
+    "note": "extra bend over a human's; thoracic forward, lumbar back, spread evenly over each span"
+  },
+  "head": {
+    "shape": "rectangular",
+    "shape_weight": 0.8,
+    "features": {
+      "ears_pointed": 0.3,
+      "brow_ridge": 1.0,
+      "nose_size": 0.6,
+      "tusks": 0.4
+    }
+  },
+  "skin": {
+    "palette": [
+      [
+        0.52,
+        0.55,
+        0.48
+      ],
+      [
+        0.44,
+        0.49,
+        0.4
+      ],
+      [
+        0.37,
+        0.42,
+        0.35
+      ],
+      [
+        0.3,
+        0.33,
+        0.29
+      ]
+    ],
+    "regions_off": [
+      "lips",
+      "flush",
+      "nipple",
+      "genital",
+      "knee",
+      "elbow",
+      "knuckle"
+    ]
+  },
+  "moves": {
+    "style": null,
+    "notes": "large-animal gait from the mass (~300+ kg): straight legs, duty factor up, no aerial phase - a run is a fast walk [measured, animals]. The forward lean while walking is a posture on top of the rest-pose hunch"
+  }
+}
