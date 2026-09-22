@@ -402,6 +402,23 @@ mane or a tail's brush did not, and want an API hair.py does not have (see "Open
 - **Cost, measured** (Godot 4.7, one 1.78 m body at 900x900): 23 -> 59 draw calls, 59k -> 358k primitives,
   4.2 -> 6.2 ms a frame for 17 shells. The shells are the furred skin only, and only the base coat casts a
   shadow.
+- **A coat, not a speckle (the coordinator's review).** At 900 strands a square centimetre and 0.45 mm
+  across, a texel was a strand and the pelt read at 2 m as dirt on skin: per-texel noise is what dirt looks
+  like. Fur reads as fur by its **clumps**. The mask is now 230 strands a square centimetre at 0.95 mm,
+  gathered into clumps 4.2 mm apart (`CLUMP_PULL`, `CLUMP_SHARE`), and carries a second channel - each
+  strand's own tone, held along its whole length, so a clump lies together. The base coat sits close in
+  tone to the strands over it (`root_shade` 0.70 -> 0.86, `rim` 0.22 -> 0.12, AO floor 0.72 -> 0.86), or
+  every gap between strands reads as a dark fleck.
+- **The fur ends into the skin, not against it.** Its colour and its length are feathered over EDGE_RINGS
+  rings of the mesh from where the skin still shows through (COVER_DENSITY, not bare skin: a vertex at
+  density 0.03 is furred by the map and bare to the eye). Colour blends between regions with its own,
+  gentler weighting than length (BLEND_COLOUR against BLEND_SHARP): a 45 mm ruff must keep its length
+  against a 12 mm pelt, and must not keep its tone against it.
+  Check: **`fur.edge_tone`**, `skin.seam_tone`'s question asked of a fur boundary - the step in the fur's
+  tone across one edge of the mesh near where the fur ends, 99th percentile, against EDGE_TOL. It is
+  measured locally and not by binning the body: binned, the bands mix regions and a face nap's own paler
+  colour read as a step that was not there. It caught the dark rings at 0.071 and they now measure 0.005
+  (fur_pelt) and 0.013 (fur_dwarf).
 - **Open**: a dark band still runs across the hairline where the pelt's head exclusion feathers under the
   hair cap, and the fur-to-bare edge at a wrist or an ankle reads as a dark ring. Strand cards for a mane,
   a ruff past 8 cm or a tail's brush need an entry point `hair.py` does not have: it grows scalp hair from

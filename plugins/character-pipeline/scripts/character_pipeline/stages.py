@@ -1057,8 +1057,10 @@ def run_fur(ch):
     spec = rep["fur"]
     return {"textures": rep["textures"], "shells": spec["shells"], "regions": [r["name"] for r in spec["regions"]],
             "length_max_m": spec["length_max_m"], "uv_scale": spec["uv_scale"], "covered": rep["covered"],
+            "mask": rep.get("mask"), "atlas_overlap": (rep.get("atlas") or {}).get("share"),
             "mip": {k: rep["mip"].get(k) for k in ("ok", "across_to_along_p90", "views", "height", "coverage")},
-            "silhouette": {k: rep["silhouette"].get(k) for k in ("ok", "views", "shells")}}
+            "silhouette": {k: rep["silhouette"].get(k) for k in ("ok", "views", "shells")},
+            "edge": {k: rep["edge"].get(k) for k in ("step", "step_max", "tol", "edges", "skin")}}
 
 
 def run_export(ch, ctx):

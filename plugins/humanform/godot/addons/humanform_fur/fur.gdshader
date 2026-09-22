@@ -12,7 +12,9 @@ render_mode cull_back, depth_draw_opaque, diffuse_burley, specular_schlick_ggx;
 //              B and A the flow's (cos, sin) in the tangent frame. It is not a texture because hm08's UV
 //              atlas overlaps itself, and a coverage map rasterised into it came back with furred hands.
 //   fur_colour the fur's own colour, sRGB, the region's pattern already mixed in
-//   strands    tiled: per texel the height up the fur (0..1) the strand there reaches, 0 for bare skin
+//   strands    tiled: R the height up the fur (0..1) the strand at that texel reaches, 0 for bare skin;
+//              G that strand's own tone, the same the whole way along it. The strands are gathered into
+//              clumps, because fur reads as fur by its clumps - per-texel noise reads as dirt.
 //
 // A shell at height `shell_t` keeps the texels whose strand reaches over it, so every shell has a
 // different outline and no two stack into a band. The base coat (shell_t = 0) is opaque: it is what
@@ -31,8 +33,11 @@ uniform float min_density = 0.02;
 // (brows.BODY_HAIR_LIFT_M), and a hair does grow out of the skin, not along it.
 uniform float base_lift_m = 0.0004;
 uniform float cover_density = 0.75;     // at and above this the skin is not drawn, so the base coat is solid
-uniform float root_shade = 0.70;        // how dark the fur is at the root: the light does not reach in
-uniform float rim = 0.22;               // the tips catch the light
+// A coat, not a speckle: the base coat has to sit close in tone to the strands over it, or every gap
+// between strands reads as a dark fleck and the pelt reads at 2 m as dirt rather than as fur.
+uniform float root_shade = 0.86;        // how dark the fur is at the root: the light does not reach in
+uniform float rim = 0.12;               // the tips catch the light
+uniform float strand_tone = 0.20;       // how far one strand's tone may sit from its neighbour's
 uniform float roughness_v = 0.62;
 uniform float specular_v = 0.30;
 
@@ -76,7 +81,8 @@ void fragment() {
 	if (m.r < min_density) {
 		discard;
 	}
-	float h = texture(strands, v_uv * uv_scale).r;
+	vec2 st = texture(strands, v_uv * uv_scale).rg;
+	float h = st.r;
 	// How solid the fur is here: 1 where the skin under it is not drawn at all, falling to 0 at the edge
 	// of the coverage map. A hard cut-off drew a stair of whole texels at every wrist and ankle, because
 	// an alpha test cannot fade; so the edge is stochastic instead - the same strand texture read at
@@ -98,11 +104,12 @@ void fragment() {
 		discard;
 	}
 	vec3 c = texture(fur_colour, v_uv).rgb;
-	ALBEDO = c * mix(root_shade, 1.0 + rim, v_t);
+	// the tone belongs to the strand and holds along its whole length, so a clump lies together
+	ALBEDO = c * mix(root_shade, 1.0 + rim, v_t) * mix(1.0 - strand_tone, 1.0 + strand_tone, st.g);
 	ROUGHNESS = roughness_v;
 	SPECULAR = specular_v;
 	// the fur's own occlusion: dark at the root, open at the tips
-	AO = mix(0.72, 1.0, v_t);
+	AO = mix(0.86, 1.0, v_t);
 	AO_LIGHT_AFFECT = 1.0;
 	}
 }
