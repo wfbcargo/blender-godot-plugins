@@ -428,3 +428,45 @@ Round 3 (the cyclops' face):
 - Open: a band of shadow still runs across the face at the eye's height under the midday sun, from the closed
   orbits either side under the brow ridge; the brow cards' heads show pale specks where the card texture's head
   lies on skin.
+
+## Round 2, step 7: digitigrade legs and a tail on a biped (species-2-legs, 2026-09-22)
+
+A **leg plan** is now a thing the pipeline has, not a special case anyone branches on.
+
+- **`humanform/legs.py`** (a new module, not `graft.py`: a graft REPLACES a pair - it cuts at the hips and lofts
+  something else - while a digitigrade leg is a RESHAPE of the leg the body already has, so it borrows the warp's
+  machinery instead and every UV, vertex index, toe and toenail comes through untouched). Knobs: `stand` (how much
+  of the metatarsus is vertical; a person's foot already reads 0.43, a dog's cannon 0.85-0.95), `metatarsal`,
+  `toe`, `girth`, `knee` (the stifle's included angle) and `fold` (only knee forward / hock back is built).
+  The solve holds the hip where it stands and lays the toes flat from the ball, so **stature and hip height are
+  untouched**: the shank is scaled by the one factor that puts the hip back at its height and the leg folds under
+  the body. Refused before a vertex moves when the shank scale (0.55-1.15), the hock over the hip (0.10-0.45), the
+  metatarsus over the shank (0.10-0.60) or the toes over the metatarsus (0.10-0.85) leave their ranges.
+- **`humanform/tail.py`**: a tail BESIDE the legs (a tail instead of them is still the graft; both is refused).
+  A patch of skin at the sacrum goes and its boundary loop is lofted along an arc (`droop`, `curve`), rounded at
+  the tip, UVs in the atlas's free rectangle, a `tail.000...` chain off the pelvis - which `bodymap` already reads
+  as a tail, so every gait curls and swings it with no new code. Lengths are fractions of hip height.
+- **rig-anything reads the plan off the geometry**: `bodymap` calls an end bone within 30 degrees of the leg's
+  standing axis a standing segment and one past 60 a plate on the ground (pro rata between), and gives each leg
+  `plan`, `stand` and `ground` - the effective leg, `a + b` plantigrade (exactly as before) and `a + b + stand`
+  digitigrade. `Poser.leg_len` and the swing lift are that; `Reach` widens the end bone's roll when it stands.
+  The gait needed no new maths: Froude scales by hip height above the contact plane, which a leg plan preserves.
+- **Checks upfront**: the leg-plan solve above; `bodymap` warnings for a hock out of range; `verify.tail_gap` on
+  every clip (the tail's skin against the legs', failing a clip that closes the gap - the limit is the smaller of
+  0.008 of body height and half the rest gap, so a rabbit's resting scut is not failed for walking); the anatomy
+  inventory knows a tail; `species_design` and character-pipeline's spec check refuse `legs`/`tail` out of range.
+- **`satyr`** is the worked example preset (digitigrade legs, a short tail, ram horns).
+
+Measured, on one 1.80 m body built both ways at Froude 0.2: hip height 0.900 (plantigrade) against 0.904
+(digitigrade), stride 1.277 / 1.283 m, cadence 1.04 Hz both - **the Froude scaling holds**, because the plan
+preserves hip height by construction. What the longer effective leg (0.841 -> 1.009 m) changes is the posture and
+the swing: the stance knee folds to 89 degrees against 116, the swing foot lifts 0.126 m against 0.105, and the
+stroke is 0.76 of the leg against 0.92.
+
+Open:
+
+- The leg still reads as a long-footed person at four metres unless `stand`/`metatarsal` are pushed (the satyr
+  ships at 0.95 / 2.2). The toes are still five human toes; a hoof or a paw is a mesh job, not a plan.
+- The tail's root has a slight ridge where it leaves the sacrum: `graft` fairs its seam band radially and this
+  does not. A tuft at the tip (`tuft` is reserved in `tail.KEYS`) is not made.
+- A tail is skinned but has no follow-through spec of its own yet: its sway is the gait's, not sprung.
