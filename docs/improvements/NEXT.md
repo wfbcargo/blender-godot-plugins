@@ -21,6 +21,41 @@ does find something by eye, the fix is not done until the check that would have 
 The goal is plugins that produce assets, not perfect assets: capture the improvement, build fresh, move on;
 do not spend a round on small numeric drift.
 
+## Round 2 shipped incomplete - what is open (2026-09-22)
+
+Round 2 (fur, the gnoll, beards as strands, the muzzle and jaw, digitigrade legs) merged to `main` **without
+passing its own proof**, deliberately: the round had spent most of a weekly usage limit on visual iteration and
+the user called it. The tools are in and work; four things are known-open, in the order to take them.
+
+1. **The troll's flesh fails.** `species_troll` refuses at the flesh stage - `belly: weight 0.87 19 cm above its
+   apex, over 0.3`. follow-through is unchanged this round and the troll built clean in round 1, so **its body
+   moved**: bisect `main..` on the troll's body stage alone (the candidates are `feet.balance` re-standing the
+   body, `species._balance`, and the centre of mass that now skips hair). This is the only real regression of
+   the four and the only character that cannot be built.
+2. **Beards read worse in Godot than round 1's shell.** The mat's top edge is a sawtooth of whole triangles
+   across the cheeks (cast_morgan, a real person's likeness, reaches the lower eyelids and reads as a white
+   mask at 4 m), with stray cards down the neck and flecks onto the nape. The last thing measured before the
+   round stopped: **the beard field is being pushed 15-31 mm outward, and that is the sawtooth** - revert the
+   outward growth and feather inward instead. Every shipped check passes it and the Blender tiles look fine;
+   it only shows in Godot, so whatever check is added has to be measured the way Godot draws it.
+3. **Two checks warn instead of refusing** (`f80986c`), each needing work before it can refuse again:
+   - **hair clearance** (`stages.HAIR_UNDER_MAX`): give scalp hair the same `hang_clear_m` machinery
+     `humanform.cards` gives a beard, so a ponytail under a collar has a knob to turn.
+   - **neckline** (`wardrobe.presets`, `tailor.covers_head`): scale the limit by the neck's own length rather
+     than 0.03 of the torso, which refuses a short thick neck (smoke_heavy at 12.7 mm against 15.4).
+4. **A failed `garments` stage leaves the glbs it already wrote**, so a character can end up with garments built
+   against an older body (64 vs 63 nodes after the jaw bone) and Godot then refuses them: *"the garment's rig
+   differs from the body's"*. Make the stage atomic - run every check before anything is written, or write to a
+   temporary path and move into place on success - and check the other exporting stages for the same fault.
+
+Then: the gnoll's mane wants a stratified card scatter (a hyena's mane is its outline, and a dorsal strip a few
+centimetres wide leaves holes at the density cards need); the muzzle's ceiling (66% of a dog's snout, 73% only
+while tearing) is the case for a grafted head; the cyclops' pupil and lashes; fur's square texel blocks and the
+gnoll's pale thighs.
+
+**The round's own lesson is in CLAUDE.md**: state a budget before a round, send work back only for a regression
+or a wrong check, one proof run at the end.
+
 ## Fantasy species round (branch `species-1`, 2026-09-22)
 
 [08-fantasy-species.md](08-fantasy-species.md) is the design. **The user's rule for it: tools and a method that
