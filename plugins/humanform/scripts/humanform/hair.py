@@ -1336,6 +1336,33 @@ def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lash
     return report
 
 
+def cards(body, field, length_m, volume=None, colour=None, root_bone=None, **over):
+    """Strand cards out of a per-vertex `field` on `body` - `humanform.cards.grow`, the growth a beard, a
+    mane, a ruff and a tail brush all use.
+
+    `field` is one 0..1 weight per body vertex (hm08's `delta.BODY_VERTS`): the shape `brows.beard_field`
+    returns and the shape fur's `hf_fur_den` is in, so fur's coverage map drives cards without conversion.
+    `length_m` is a card's length where the field is 1; `volume` (0..1, default the parameters' own) raises
+    the card count; `colour` is the hairs' screen (sRGB) colour; `root_bone` is the bone a hanging part swings
+    from (default: whichever the roots carry most of). `**over` is any of `cards.PARAMS` - `density`,
+    `width_m`, `clump`, `braids`, `droop`, `jitter`, `cover`, `strand_m`, ... - plus the keywords `grow`
+    takes: `name`, `flow` (a direction per vertex, which fur has), `length_scale`, `max_length_m`,
+    `hang_below_z` (past which a card is cut and its lower part becomes a follow-through strand mesh),
+    `regions` (what the coverage check names) and `scale` (`head_scale`).
+
+    Returns `cards.grow`'s report: `objects` ({"cards": ..., "strand": ...}), the roots, the coverage check
+    and the least clearance off the skin.
+
+        from humanform import hair, fur
+        m = fur.read(body)["map"]["den"]                    # or any 0..1 array over the body's vertices
+        rep = hair.cards(body, m, 0.18, colour=(0.3, 0.2, 0.1), name="Gnoll_mane", hang_below_z=1.32)
+        rep["objects"]["strand"]                            # hand this to follow_through.strand.prepare"""
+    from . import cards as _cards
+    if volume is not None:
+        over.setdefault("density", _cards.PARAMS["density"] * (0.4 + 1.2 * float(volume)))
+    return _cards.grow(body, field, length_m, colour, root_bone=root_bone, **over)
+
+
 def contract(strand):
     """The follow-through strand contract as `strand` carries it, checked. {passed, problems, ...}."""
     ob = _body.obj(strand)

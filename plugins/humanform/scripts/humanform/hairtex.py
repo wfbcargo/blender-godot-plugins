@@ -305,19 +305,25 @@ def _wander(mask, window):
     return float(np.abs(low - smooth).mean()), len(cols)
 
 
-def silhouette_check(ob=None, *, P=None, A=None, distances_m=SIL_DISTANCES_M, vfov_deg=VFOV_DEG,
+def silhouette_check(ob=None, *, obs=None, P=None, A=None, distances_m=SIL_DISTANCES_M, vfov_deg=VFOV_DEG,
                      image_px=IMAGE_PX, rough_min_px=None, keep_min=SIL_KEEP_MIN,
                      directions=SIL_DIRECTIONS, name=None):
-    """Whether a hair part's outline reads as hair at each of `distances_m`. Pass a Blender object `ob`
-    (every triangle of it, with the vertex alpha of its fade colour attribute) or the arrays P (T, 3, 3)
-    and A (T, 3). World space, z up, the face toward -y.
+    """Whether a hair part's outline reads as hair at each of `distances_m`. Pass a Blender object `ob`,
+    several with `obs` (they are measured as one thing, which is what the eye sees: a beard's root mat, the
+    cards over it and the locks hanging off it have no outline of their own), or the arrays P (T, 3, 3) and
+    A (T, 3). World space, z up, the face toward -y.
 
     {ok, problems, views: {"<dir> <d>m": {wander_px, wander_mm, columns, area_m2}}}. A view fails when its
     outline wanders less than `rough_min_px` (SIL_ROUGH_MIN_PX): it is then a curve, not hair. The far
     distance also fails when less than `keep_min` of the near distance's area is left - a beard of cards so
     thin it dissolves across a room."""
     rough_min_px = dict(SIL_ROUGH_MIN_PX if rough_min_px is None else rough_min_px)
-    if ob is not None:
+    if obs:
+        name = name or "+".join(o.name for o in obs)
+        parts = [_tri_alpha(o) for o in obs]
+        P = np.concatenate([x[0] for x in parts]) if parts else np.zeros((0, 3, 3))
+        A = np.concatenate([x[1] for x in parts]) if parts else np.zeros((0, 3))
+    elif ob is not None:
         name = name or ob.name
         P, A = _tri_alpha(ob)
     rep = {"name": name, "triangles": int(len(P)), "views": {}}
