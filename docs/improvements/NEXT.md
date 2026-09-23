@@ -75,9 +75,98 @@ fixed).
    (which caught a beard swinging 4 cm into its own face). Stubble stays a shell, and the code says why.
 3. Dwarf and gnome hands cannot reach the top of the head (warned); cast_morgan walks at Froude 0.12.
 4. Tails only replace legs, are at most leg length, have no side fins; mass treats a mermaid as having legs.
-5. Eyes have no bone of their own; no jaw bone, so no open mouth (bites, roars).
+5. Eyes have no bone of their own. ~~No jaw bone, so no open mouth (bites, roars).~~ The jaw bone shipped
+   on `species-2-muzzle`, and `species-2-gnoll` gave it a clip: `[moves] roles = [..., "MouthOpen"]`. A
+   full maw set (Bite, Roar, a throat) on a humanform body still wants `maw.adopt` - see "The gnoll".
 6. The demos load no species figure: add one (a `species_demo`) so a selftest covers them.
 7. Step 6-7 of 08: fur (Godot shell fur plus strand cards) and head grafts / digitigrade legs (the gnoll).
+
+## The gnoll: round 2's tools used together for the first time (branch `species-2-gnoll`, 2026-09-22)
+
+The worked example the round was built for - a hyena-headed humanoid with a parametric muzzle, a jaw that
+opens, digitigrade legs on clawed paws, a brush tail and a spotted pelt with a mane - written as ONE inline
+`[body.species]`, with nothing added to the code that knows what a gnoll is. The spec is kept as
+`docs/improvements/notebooks/gnoll/trial_gnoll.toml`; it builds fresh in about 100 s (body 48, moves 17,
+export 14) with no `may_fail` and no forced clip, and `species_demo` and `figure_study` pass their selftests
+with it in the cast.
+
+**Every one of the round's tools works. None of the PAIRS did.** Each gap below cost one to six builds.
+
+1. **A body with a jaw could not open its mouth.** `humanform.jaw` gives every body a jaw bone and
+   `rig_analysis.maw` authors Gape, Bite and Roar - but only for a maw `maw.build` rigged itself, because
+   every one of those clips poses a throat and a mouth socket too, and `MawRig` needs all three. Fixed
+   generally: `actions.mouth_open` turns whatever bone carries `maw.ROLE == "jaw"`, checked on playback like
+   any other clip, and `move_set` offers it as the role `MouthOpen` (default 20 deg - `humanform.jaw.OPEN_DEG`,
+   the measured limit of a snouted face). The full maw set on a humanform body still wants a `maw.adopt` that
+   takes an existing jaw and measures a throat round it; that is the next step, not this one.
+2. **An unknown move role failed with a bare `KeyError` after the body, head, skin and hair stages had
+   run.** `actions.ROLES` now names every role `move_set` makes (and `move_set` refuses a name it cannot make,
+   and checks the two agree), and character-pipeline's spec check reads it out of the source and refuses a
+   role before Blender starts.
+3. **A tail could not carry fur.** `fur.areas` was measured over hm08's own vertices only, so everything a
+   body plan ADDED - `humanform.tail`'s tail, `graft`'s - took density zero and could never have a brush,
+   though `pipeline` already runs fur last "on whatever body the plan made". `AREAS` now has `tail` (and
+   `graft` covers the grafted surface as well as the fade above its seam), read off the vertex group that
+   made it, and the map is written over every vertex the body has.
+4. **A fur region with no core is blended away.** Weights are blended over each region's own mask so lengths
+   taper, but a mask was read against 1 and several landmark areas never reach it (`ruff` peaks near 0.55
+   here). The gnoll's 72 mm mane came out as 28 mm of pelt and its paler chest vanished. Each region is now
+   normalised by its OWN peak (which cannot grow it - a vertex it never reached is still zero) and a region
+   under `PEAK_FLOOR` is reported instead of silently diluted. Two more things the gnoll needed and the docs
+   did not say: `except_areas` of `front` or `back` leaves nothing (they are normal-based fields covering half
+   the body each), and a `body`-wide pelt must `except_areas` any region that wants its own length, or the
+   blend splits the difference (54/46 at the neck: 40 mm of neither).
+5. **A furred body was shot BARE in Godot.** lookdev's `close-shot` attaches strands and equips garments but
+   never built the fur shells, so every review sheet of a furred creature showed its skin - the one thing the
+   fur round says to judge in Godot. It now attaches `humanform_fur` after the garments, and close-shot's
+   timeout grows with the view count (a flat 300 s for the whole shot timed out on twelve furred views).
+6. **The fur colour map went black at a distance.** Its islands were rasterised onto a black background and
+   dilated two texels; the mip chain then averaged island with void, and at 4 m the gnoll wore black gloves, a
+   black vest and one black foot while the same fur was tawny at 0.6 m. The background is now the coat's own
+   mean, so every mip level lies between the coat's own colours.
+7. **A tall creature did not fit its own full-figure tile.** `close-shot`'s full view framed the SKELETON (a
+   bone origin is inside the flesh) at a fixed 4 m with a 1.1 margin, and the gnoll's crown sat under the label
+   band. The frame now includes the meshes' own bounds, the margin is 1.32, and `review_godot` backs the camera
+   off in proportion to stature.
+8. **The muzzle's reads-human check demanded what its own topology refuses.** `READS_HUMAN["lip_line"]` was
+   1.40x the person's own ratio, and the module's own table says hm08 reaches 0.34 against a person's 0.24 -
+   1.40x exactly. On a head whose jaw is not the reference man's (this one: square, heavy, 30 cm) the shipped
+   preset measures 1.33x, and the only way past 1.40 was to push the lip carry until the skin tore at the
+   commissure (2.2x its worst edge, limit 2.0). The build bounced between two failures with nothing in
+   between. The threshold is 1.30 and says why. Tried and dropped: widening each local bump until its height
+   over its reach was under a slope limit - it does cut the stretch, but the lip bump is the very thing that
+   draws the lip line and spreading it flattens what it draws (0.31 of the snout -> 0.21 at slope 0.7, 0.17 at
+   0.5). A longer mouth is a topology problem, and topology is the grafted head.
+9. **A hunch big enough to read as a sloping back stands a digitigrade body off its feet.** `species._balance`
+   leans the spine back until the centre of mass is over the PLANTIGRADE foot it was fitted with; `legs.apply`
+   then replaces that foot with a paw whose contact patch is a fraction of its length and sits `stance` ahead
+   of the hip, and nothing re-checks. At `stance` 0.05 (the canine default) the gnoll's centre stood 50 mm
+   outside its paws, every clip that starts from the rest pose (Crouch, MouthOpen) was refused at export, and
+   the message named neither cause. `stance = 0.12` in the spec fixes the body; the TOOL fix, NOT DONE HERE,
+   is for `legs.solve` to choose `stance` from the standing balance when the spec leaves it out, and to refuse
+   it upfront with the number rather than 100 s later at the export.
+
+**Where the muzzle got to.** Measured on this head: the shipped preset reads 0.259 of head length against a
+dog's 0.39 (66% - the round-2 notes' number, reproduced), and 92 mm of carry reads 0.286 (73%) while tearing
+the skin at the commissure (2.4x its worst edge, limit 2.0). The gnoll ships at 89 mm of carry, between the
+two, about 70% of a dog's. It stops there because the skin's stretch limit and the reads-human check meet at
+that point with almost nothing between them (gap 8). With the mouth SHUT the head reads as a heavy-browed, long-jawed brute
+rather than a hyena; with it open (`MouthOpen`, 20 deg) the profile is plainly canine - the snout, the stop
+and the long lip line all read. That is the strongest argument yet for the grafted head.
+
+**Still wrong, seen in Godot and not fixed:**
+
+- **A bald skin-coloured stripe down the midline of the back of the head and neck.** The coverage map is
+  uniform there (0.95 either side of x = 0, measured), so it is the Godot side: the shells are sheared along
+  the flow in the mesh's own tangent frame, and hm08's UV seam runs down that midline, where Godot's tangents
+  flip. `lay = 0` would test it; the fix is in `fur.gdshader`.
+- At four metres the figure reads as a tall sandy brute, not as a spotted hyena-man: 20 mm spots [measured]
+  scale to 34-42 mm on a 2.18 m body and still wash out against a coat of nearly the same value. The coat
+  wants two clearly different tones, not one tone plus a pattern.
+- The mane is 72 mm because shell fur stops at 80 mm; a hyena's is 70-80 mm on an animal a third this size.
+  Its own round said a mane wants strand cards, and `hair.cards(body, field, ...)` still does not exist.
+- Dark bands across the upper arm and forearm where the flow's limb-axis field ends.
+- The fur-to-bare edge at the lips still reads as a pale smear across a long muzzle's lip line.
 
 ## State at the end of 2026-09-21
 

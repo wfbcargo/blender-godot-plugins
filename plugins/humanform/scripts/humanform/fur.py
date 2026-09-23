@@ -91,8 +91,14 @@ VCOL = "hf_fur"
 
 # Landmark areas a region may name: `skin.PATTERN_AREAS`' words (one vocabulary for where something sits
 # on a body), widened by the parts fur asks for and a skin pattern never did - a face, a ruff, forearms.
+# `tail` and `graft` are the two areas that are NOT hm08: they are geometry a body plan added
+# (humanform.tail lofts a tail off the sacrum, humanform.graft lofts one where the legs were), whose
+# vertices sit past `delta.BODY_VERTS`. They are skin like any other - a hyena's tail is a brush - so
+# `areas` reads them off their own vertex groups rather than off hm08's landmarks.
 AREAS = ("body", "head", "face", "neck", "ruff", "shoulders", "back", "front", "torso", "chest",
-         "belly", "arms", "upper_arms", "forearms", "hands", "legs", "thighs", "shins", "feet", "graft")
+         "belly", "arms", "upper_arms", "forearms", "hands", "legs", "thighs", "shins", "feet",
+         "tail", "graft")
+TAIL_GROUP = "hf_tail"         # humanform.tail.GROUP: the vertices it lofted
 # never furred: the skin that has to stay skin (as `skin.PATTERN_SKIP`, plus the eyes and the mouth)
 SKIP_REGIONS = ("palm", "sole", "lips", "nail")
 EYE_RADII = 1.9                # eyeball radii round each eye kept bare
@@ -111,6 +117,9 @@ LAY = (0.0, 1.0)               # how far the fur lies over: 0 stands straight ou
 LAY_DEFAULT = 0.55
 BLEND_SHARP = 3.0              # how sharply a region keeps its own length against its neighbours' (see `apply`)
 RIM = (0.25, 0.60)             # an area weight is remapped through this: solid inside, feathered at the rim
+# ... after the area is normalised by its own peak (see `apply`). Under this peak there is no region worth
+# normalising - a couple of vertices clipping a landmark - and the build says so instead of scaling noise up.
+PEAK_FLOOR = 0.12
 
 COVER_DENSITY = 0.75           # skin under fur at least this dense is not drawn (the base coat covers it)
 MIN_DENSITY = 0.02             # under this a vertex carries no fur at all
@@ -290,11 +299,17 @@ def _seg_distance(p, pts):
 
 
 def areas(ob):
-    """({area: weight 0..1 over the body vertices}, {"flow": (n, 3) unit vectors, "scale": s}, notes) -
-    every `AREAS` name measured on this body's own joints, the way `skin.regions` measures a skin
-    region, so the same block lands in the same anatomical place on a dwarf and on a troll."""
+    """({area: weight 0..1 over EVERY vertex the body has}, {"flow": (n_all, 3) unit vectors, "scale": s},
+    notes) - every `AREAS` name measured on this body's own joints, the way `skin.regions` measures a skin
+    region, so the same block lands in the same anatomical place on a dwarf and on a troll.
+
+    The landmark areas are hm08's, so they are measured over its own vertices and are zero past them.
+    Geometry a body plan ADDED - a tail off the sacrum, a graft where the legs were - is skin too, and it
+    carries fur through its own area (`tail`, `graft`), read off the vertex group that made it. Before
+    that, everything past `delta.BODY_VERTS` took density zero and a tail could not be given a brush."""
     from . import muscle, skin
-    n = min(len(ob.data.vertices), _delta().BODY_VERTS)
+    n_all = len(ob.data.vertices)
+    n = min(n_all, _delta().BODY_VERTS)
     co = _delta().mixed_coords(ob)
     faces = _delta().body_faces(ob)
     p = co[:n]
@@ -306,11 +321,10 @@ def areas(ob):
     missing = [k for k in need if k not in j]
     A = {a: np.zeros(n) for a in AREAS}
     A["body"] = np.ones(n)
-    flow_down = np.tile(np.array([0.0, 0.0, -1.0]), (n, 1))
     if missing:
         notes.append(f"no joints {missing}: fur covers the whole body evenly")
-        return A, {"flow_down": flow_down, "flow_along": flow_down.copy(),
-                   "flow_back": np.tile(np.array([0.0, 1.0, 0.0]), (n, 1)), "scale": 1.0, "joints": j}, notes
+        A, ctx = _grow_to_mesh(ob, A, None, None, n, n_all, 1.0, j)
+        return A, ctx, notes
     s = float((j["joint-neck"][2] - j["joint-pelvis"][2]) / 0.60)
     xs = 1.0 if j["joint-l-hand"][0] > 0 else -1.0
     neck_z, sh_z = float(j["joint-neck"][2]), float(j["joint-l-shoulder"][2])
@@ -413,12 +427,76 @@ def areas(ob):
 
     flat = np.linalg.norm(along, axis=1) < 0.5
     along[flat] = np.array([0.0, 0.0, -1.0])
-    ctx = {"flow_down": _tangential(np.tile([0.0, 0.0, -1.0], (n, 1))),
-           "flow_back": _tangential(np.tile([0.0, 1.0, 0.0], (n, 1))),
-           "flow_out": _tangential(np.stack([np.sign(p[:, 0] + 1e-12), np.zeros(n), np.zeros(n)], axis=1)),
-           "flow_along": _tangential(-along), "scale": s, "joints": j, "normals": nrm, "co": p,
-           "faces": faces}
+    flows = {"flow_down": _tangential(np.tile([0.0, 0.0, -1.0], (n, 1))),
+             "flow_back": _tangential(np.tile([0.0, 1.0, 0.0], (n, 1))),
+             "flow_out": _tangential(np.stack([np.sign(p[:, 0] + 1e-12), np.zeros(n), np.zeros(n)], axis=1)),
+             "flow_along": _tangential(-along)}
+    A, ctx = _grow_to_mesh(ob, A, flows, nrm, n, n_all, s, j)
+    ctx["faces"] = faces
     return A, ctx, notes
+
+
+def _mesh_normals(ob, n_all):
+    """The mesh's own vertex normals, for the vertices hm08's landmark maths does not reach."""
+    v = np.empty(n_all * 3, np.float32)
+    try:
+        ob.data.vertex_normals.foreach_get("vector", v)
+    except (AttributeError, RuntimeError, ValueError):
+        return np.tile(np.array([0.0, -1.0, 0.0]), (n_all, 1))
+    v = v.reshape(n_all, 3).astype(np.float64)
+    L = np.linalg.norm(v, axis=1)
+    v[L < 1e-6] = np.array([0.0, -1.0, 0.0])
+    return v / np.maximum(np.linalg.norm(v, axis=1), 1e-9)[:, None]
+
+
+def _grow_to_mesh(ob, A, flows, nrm, n, n_all, s, j):
+    """Widen the hm08-sized areas and flows to every vertex the body has, and fill in the areas that are
+    not hm08 at all: `tail` (humanform.tail's vertex group) and the new half of `graft`."""
+    from . import skin as skin_mod
+    nrm_all = _mesh_normals(ob, n_all)
+    if nrm is not None and n:
+        nrm_all[:n] = nrm
+    co_all = _delta().mixed_coords(ob)[:n_all]
+
+    def grow(v, fill=0.0):
+        out = np.full((n_all,) + np.shape(v)[1:], fill, np.float64)
+        out[:n] = v
+        return out
+    tail_w = np.zeros(n_all)
+    g = ob.vertex_groups.get(TAIL_GROUP)
+    if g is not None:
+        for v in ob.data.vertices:
+            for e in v.groups:
+                if e.group == g.index:
+                    tail_w[v.index] = max(tail_w[v.index], min(1.0, float(e.weight)))
+    out = {a: grow(A[a]) for a in AREAS}
+    # a body is everything the body IS, whatever a plan added to it
+    out["body"] = np.ones(n_all)
+    out["tail"] = np.clip(tail_w, 0, 1)
+    gv = skin_mod.graft_vertices(ob)
+    if len(gv):
+        out["graft"] = out["graft"].copy()
+        out["graft"][np.asarray(gv, np.int64)] = 1.0
+
+    def tangential(v):
+        v = np.asarray(v, np.float64)
+        v = v - nrm_all * (v * nrm_all).sum(axis=1)[:, None]
+        L = np.linalg.norm(v, axis=1)
+        bad = L < 1e-6
+        if bad.any():
+            alt = np.array([0.0, 1.0, 0.0]) - nrm_all * (nrm_all @ np.array([0.0, 1.0, 0.0]))[:, None]
+            v[bad] = alt[bad]
+        return v / np.maximum(np.linalg.norm(v, axis=1), 1e-9)[:, None]
+    # past hm08 there are no limb axes to lie along, so every flow falls back to the one that is defined
+    # everywhere: straight down the surface. A tail's brush lies down its own length, which IS down it.
+    down = tangential(np.tile([0.0, 0.0, -1.0], (n_all, 1)))
+    ctx = {"scale": s, "joints": j, "normals": nrm_all, "co": co_all,
+           "faces": _delta().body_faces(ob), "body_verts": n}
+    for k in ("flow_down", "flow_back", "flow_out", "flow_along"):
+        ctx[k] = down.copy()
+        if flows is not None and k in flows:
+            ctx[k][:n] = flows[k]
+    return out, ctx
 
 
 # ------------------------------------------------------------------ the map on the body
@@ -460,6 +538,16 @@ def apply(ob, block, base_colour=None):
             m = np.maximum(m, A[a])
         for a in r["except_areas"]:
             m = m * (1.0 - A[a])
+        # A region is judged against ITS OWN peak, not against 1. The landmark areas are smoothed fields
+        # and several of them never reach 1 anywhere (`ruff` peaks near 0.55 on these bodies, and an
+        # `except_areas` multiplies whatever is left down again), so read raw, such a region had no core
+        # at all: the blend below gave the gnoll's 72 mm mane about an eighth of its own length and it came
+        # out as 28 mm of pelt - no mane on the body at all, and the same for its paler chest (2026-09-22).
+        # Normalising cannot GROW an area - a vertex the area never reached is still 0, and the round's own
+        # rule holds - it only says where that area's inside is.
+        peak = float(m.max()) if m.size else 0.0
+        if peak > PEAK_FLOOR:
+            m = m / peak
         # solid inside the region, feathered only at its rim. Taken raw, an area weight that peaks at 0.5
         # (a ruff is the overlap of a neck, the shoulders and the chest, each already smoothed) put half
         # the upper body in the band where the skin is still drawn under the fur, and the stochastic edge
@@ -467,8 +555,12 @@ def apply(ob, block, base_colour=None):
         m = _smooth(RIM[0], RIM[1], np.clip(m, 0, 1)) * r["density"]
         den = np.maximum(den, m)
         ws.append(m)
-        per.append({"name": r["name"], "vertices": int((m > MIN_DENSITY).sum()),
+        per.append({"name": r["name"], "vertices": int((m > MIN_DENSITY).sum()), "area_peak": round(peak, 3),
                     "length_m": r["length_m"], "density": r["density"], "flow": r["flow"]})
+        if peak <= PEAK_FLOOR:
+            notes.append(f"fur region {r['name']!r}: its areas {r['areas']} reach only {peak:.2f} on this "
+                         f"body (floor {PEAK_FLOOR}), so it has no solid inside and its length and colour "
+                         "are blended away into its neighbours - name a wider area, or drop an except_areas")
     W = np.stack([w ** BLEND_SHARP for w in ws])
     tot = W.sum(axis=0)
     on = tot > 1e-9
@@ -487,8 +579,12 @@ def apply(ob, block, base_colour=None):
     L = np.linalg.norm(flow, axis=1)
     flow[L < 1e-6] = ctx["flow_down"][L < 1e-6]
     flow /= np.maximum(np.linalg.norm(flow, axis=1), 1e-9)[:, None]
-    den = np.clip(_delta().smooth(den, ctx["faces"], iterations=2, share=0.5)[:n], 0, 1)
-    length = _delta().smooth(length, ctx["faces"], iterations=4, share=0.5)[:n]
+    # The Laplacian runs over hm08's own face graph, so it only reaches hm08's own vertices; a tail or a
+    # graft is smooth already (it is a loft) and is left as its area laid it.
+    nb = int(ctx.get("body_verts") or min(n, _delta().BODY_VERTS))
+    den[:nb] = np.clip(_delta().smooth(den[:nb], ctx["faces"], iterations=2, share=0.5)[:nb], 0, 1)
+    length[:nb] = _delta().smooth(length[:nb], ctx["faces"], iterations=4, share=0.5)[:nb]
+    den = np.clip(den, 0, 1)
     den[den < MIN_DENSITY] = 0.0
     length[den <= 0.0] = 0.0
     me = ob.data
@@ -743,7 +839,8 @@ def _pass(img, cov, P, values, lo, hi, T, conservative):
 
 
 def _dilate(img, cov, passes=2):
-    """Grow the covered texels outwards, so a bilinear sample just off an island edge reads fur, not black."""
+    """Grow the covered texels outwards, so a bilinear sample just off an island edge reads fur, not black.
+    Returns (image, the texels it now has), so a caller can fill the rest with something of its own."""
     out = img.copy()
     have = cov.copy()
     for _ in range(passes):
@@ -759,7 +856,7 @@ def _dilate(img, cov, passes=2):
         new = (~have) & (cnt > 0)
         out[new] = acc[new] / cnt[new][..., None]
         have |= new
-    return out
+    return out, have
 
 
 def strand_mask(px=MASK_PX, tile_m=TILE_M, seed=0, density=STRANDS_PER_CM2, width_mm=STRAND_MM):
@@ -890,8 +987,19 @@ def maps(ob, size=MAP_PX):
     # furred triangles last, so a contested texel carries the fur's colour and not the bare skin's
     order = sk[np.argsort(den[tri[sk]].min(axis=1), kind="stable")]
     col_img, cov = _rasterise(uv[order], colour[tri[order]], size, fill=0.0)
-    col_img = _dilate(col_img, cov)
+    mean = col_img[cov].mean(axis=0) if cov.any() else np.zeros(3)
+    col_img, filled = _dilate(col_img, cov)
+    # EVERYTHING the islands do not cover takes the coat's own mean colour, never black. Two passes of
+    # dilation keep a bilinear sample just off an island edge honest, and that is all they were ever for;
+    # the MIP CHAIN is the other half of the question and was not answered. Godot picks a coarse mip at a
+    # few metres, and each level averages an island with the gap beside it: with the gap at zero the gnoll's
+    # chest, forearms, hands and one foot came out SOLID BLACK at 4 m while the same fur was tawny at 0.6 m
+    # (Godot, 2026-09-22) - a body that looks right close up and wears black gloves across the room. With
+    # the background at the coat's mean every level of the chain lies between the coat's own colours, so the
+    # worst a mip can do is flatten the pattern, which is what distance should do anyway.
+    col_img[~filled] = mean
     rep = {"size": size, "covered_texels": int(cov.sum()), "texels": size * size,
+           "background": [round(float(c), 4) for c in mean],
            "skin_triangles": int(len(sk)), "triangles": int(len(tri)),
            "length_max_m": round(float(spec.get("length_max_m") or 0.0), 5)}
     return np.clip(_srgb(col_img), 0, 1), rep

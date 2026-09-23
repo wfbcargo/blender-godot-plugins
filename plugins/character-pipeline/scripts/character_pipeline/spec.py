@@ -107,6 +107,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import sys
 import tomllib
 from dataclasses import asdict, dataclass, field
@@ -370,6 +371,33 @@ LOCOMOTION = ("walk", "swim")
 LEG_VIEWS = ("crotch", "knees", "feet")
 # the clips a swimmer that stands has (rig-anything swim.upright_set): Idle floats upright, the rest swim prone
 SWIM_ROLES = ("Idle", "Swim", "Sprint", "Glide", "TurnL", "TurnR")
+# A fallback for `walk_roles()` when rig-anything cannot be found beside this plugin: what
+# `rig_analysis.actions.ROLES` named when this was written. The tuple there is the one that counts.
+WALK_ROLES = ("Idle", "Walk", "Trot", "Run", "Crouch", "CrouchWalk", "Jump", "TurnL", "TurnR",
+              "Slide", "SlideRecover", "SlideToCrouch", "MouthOpen")
+
+
+def walk_roles():
+    """Every role rig-anything's `actions.move_set` can author, read out of its source.
+
+    `actions.py` imports bpy and a spec is checked before Blender starts, so the tuple is read as text
+    rather than imported - the way humanform's face shapes and skin regions are read. An unknown role
+    used to fail deep inside the moves stage with a bare KeyError, after the body, head, skin and hair
+    stages had already run (the gnoll's MouthOpen, 2026-09-22)."""
+    ra = os.environ.get("RA_SCRIPTS")
+    here = os.path.dirname(os.path.abspath(__file__))
+    for path in ([os.path.join(ra, "rig_analysis", "actions.py")] if ra else []) + [
+            os.path.join(here, "..", "..", "..", "rig-anything", "scripts", "rig_analysis", "actions.py")]:
+        try:
+            with open(os.path.normpath(path), encoding="utf-8") as fh:
+                m = re.search(r"\nROLES = \(([^)]*)\)", fh.read(), re.S)
+        except OSError:
+            continue
+        if m:
+            found = tuple(re.findall(r'"(\w+)"', m.group(1)))
+            if found:
+                return found
+    return WALK_ROLES
 
 
 @dataclass
@@ -890,6 +918,12 @@ def parse(data, path=None):
     roles = list(_take(m, "roles", list, default=["Idle", *gaits]))
     if "Idle" not in roles:
         raise SpecError("moves.roles must include Idle")
+    if locomotion == "walk":
+        known = walk_roles()
+        bad = [r for r in roles if r not in known]
+        if bad:
+            raise SpecError(f"moves.roles {bad}: a walker's roles are {', '.join(known)} "
+                            "(rig_analysis.actions.move_set)")
     missing = [g for g in gaits if g not in roles]
     if missing:
         raise SpecError(f"moves.gaits {missing} are not in moves.roles")
