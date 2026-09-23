@@ -999,7 +999,10 @@ def run_garments(ch, ctx):
         if not r.get("passed"):
             raise RuntimeError(f"garments: {name} did not pass: {r.get('problems')}")
         made[g.preset] = name
-        out[name] = {k: r.get(k) for k in ("verts", "cut", "cover", "jiggle_groups", "export", "passed")}
+        # `head_clear`: how near this garment comes to the head's own skin (wardrobe.tailor.covers_head) - the
+        # check that catches a collar worn over the jaw
+        out[name] = {k: r.get(k) for k in ("verts", "cut", "cover", "jiggle_groups", "export", "passed",
+                                           "head_clear")}
         res.append(f"{ch.export.res_dir}/{ch.id}_{name.lower()}.glb")
     ctx["garment_res"] = res
     return {"garments": out, "res": res, "hair_clearance": hair_clearance(ch, sorted(made.values()))}
