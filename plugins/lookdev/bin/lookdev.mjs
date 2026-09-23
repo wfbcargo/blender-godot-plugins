@@ -788,7 +788,11 @@ async function closeShot(args) {
     "--fixed-fps", "60",
     "--audio-driver", "Dummy",
     "--", "--spec", fwd(specPath),
-  ], Number(args.timeout ?? 300));
+    // A flat 300 s was the whole shot's budget however many views it held, and a furred body blew
+    // through it: shell fur is built at runtime and drawn as N copies of the skin, so the gnoll's
+    // twelve views timed out where the same twelve bare took 63 s (2026-09-22). The budget now grows
+    // with the work - a fixed start-up allowance plus a per-view one - and --timeout still wins.
+  ], Number(args.timeout ?? Math.max(300, 120 + 90 * spec.views.length)));
   const scan = scanOutput(res.out);
   fs.writeFileSync(path.join(outDir, "godot.log"), res.out);
   const done = scan.events.find((e) => e.type === "done");

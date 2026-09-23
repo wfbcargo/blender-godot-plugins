@@ -1,0 +1,239 @@
+# Trial: Hruul, a gnoll - a hyena-headed humanoid. The worked example for fantasy-species round 2: the
+# parametric muzzle with a jaw that opens, digitigrade legs on paws with claws, a short brush tail, and a
+# spotted pelt with a mane - all of it inline, with no preset file and no code that knows what a gnoll is.
+#
+# The method (humanform/references/species-design.md). Every number is labelled [measured] (instrumented or
+# published data), [documented] (a rulebook) or [folklore] (artist convention with no data), and derived
+# numbers say what they were derived from.
+#
+# THE ANIMAL - spotted hyena, Crocuta crocuta
+#   - shoulder height 79.4-80.2 cm, head-and-body 144-179 cm, 40-86 kg [measured: San Diego Zoo Wildlife
+#     Alliance factsheet, ielc.libguides.com/sdzg/factsheets/spottedhyena/characteristics-page]; 95-150 cm
+#     and 45-70 kg, females the larger sex [measured: Animal Diversity Web, Crocuta_crocuta]
+#   - "front legs longer than hind legs", giving the back "a slightly odd, downward slope"; "massive neck
+#     and large head topped by rounded ears"; forequarters heavily built over relatively underdeveloped
+#     hindquarters [measured, qualitative - ADW. NO published fore/hind height ratio exists, so the slope
+#     and the shoulder/hip numbers below are DERIVED from this description, not measured]
+#   - four digits per foot, short non-retractable claws, broad toe pads [measured: ADW]
+#   - tail 25.5-36 cm, about two thirds bone and one third hair, bushy, black-tipped [measured: ADW, SDZG]
+#   - pelage: fine underhair 15-20 mm, coarse flat-sectioned bristle hair 30-40 mm, and 70-80 mm over the
+#     neck and shoulders "giving the appearance of a mane" [measured: SDZG]
+#   - colour light brown / beige / sandy / ginger; spots about 20 mm across, reddish to dark brown or nearly
+#     black, on neck, shoulders, back, flanks, rump, legs and tail base; THROAT AND CHEST UNSPOTTED; legs and
+#     belly less distinctly spotted; spots fade with age [measured: SDZG, ADW]
+#
+# THE GNOLL - what the description adds
+#   - "A gnoll is about 7 1/2 feet tall and weighs 300 pounds", hyena-headed [documented: d20 SRD, Gnoll];
+#     7'0"-7'6" [folklore: Forgotten Realms] -> stature 2.13-2.29 m. 300 lb at 7'6" is BMI 26.0, so
+#     `build = "muscular"` (pre-warp BMI 27) is the right build word, and no `bmi` is stated on top of it.
+#   - tall, lean-hipped, heavy in the shoulders, a sloping back [folklore: the brief] - the hyena's
+#     forequarter/hindquarter difference carried onto a biped. DERIVED, since no angle is published.
+#   - digitigrade, paws, a short bushy tail, spotted tawny fur, a mane along the neck and shoulders
+#     [folklore: the brief; each number below is the ANIMAL's, [measured]]
+[character]
+id = "trial_gnoll"
+name = "Hruul"
+
+[body]
+sex = "male"
+age = 26
+stature = 2.15                  # inside the 2.13-2.29 m range [documented: d20 SRD 7'6"]
+build = "muscular"              # 300 lb at 7'6" = BMI 26.0 [documented: d20 SRD] -> humanform's "muscular"
+style = "realistic"
+skin = [0.47, 0.37, 0.28]       # the hide UNDER the fur: tawny, and DARK. Short fur at 4-10 mm does not hide
+                                #   the skin between its strands, and at [0.58, 0.46, 0.35] the head flashed
+                                #   pale in 4 cm patches - the strand mask's own tile - through a dark nap
+                                #   (seen in Godot, 2026-09-22). The other bare parts show it too - the nose pad,
+                                #   the lips, the palms, the pads and the inner ear (linear luma 0.19, well
+                                #   under species_design.PALEST_SKIN_LUMA 0.55)
+iris = [0.52, 0.36, 0.12]       # amber-brown [measured, qualitative: hyena iris colour]
+seed = 337
+
+[body.species]
+id = "gnoll"
+label = "Gnoll: a hyena-headed humanoid - heavy shoulders over a sloping back, lean hips, digitigrade paws, a brush tail, a spotted pelt and a mane"
+stature = { female = [2.10, 2.26], male = [2.13, 2.29] }   # [documented: d20 SRD 7'0"-7'6"]
+heads = 7.1                     # a big head on a tall body. The allometric law gives 8.3 at 2.15 m (a
+                                #   small-headed giant); the hyena's "large head" is the animal's most
+                                #   conspicuous part [measured, qualitative: ADW], so this is stated.
+                                #   7.1 heads = a 303 mm head, against a 1.76 m man's 228 mm
+build = "muscular"
+mass_kg = 145                   # 300 lb at 7'6" is 136 kg [documented: d20 SRD], and this body at 2.15 m
+                                #   comes out there; 145 is the same figure at the range's MIDDLE (2.21 m),
+                                #   which is what this observable means. Stated rather than left derived
+                                #   because the build law alone gives 162 kg: a 2.2 m humanoid of a
+                                #   muscular build is heavier than a rulebook's number, and the rulebook's
+                                #   number is the description
+hunch_deg = 14                  # the sloping back. DERIVED from "front legs longer than hind legs, giving
+                                #   the back a slightly odd downward slope" [measured, qualitative: ADW];
+                                #   no fore/hind ratio is published, so the angle is a design number
+shoulder_scale = 1.16           # "forequarters heavily built" [measured, qualitative: ADW] -> +16% bideltoid
+hip_scale = 0.88                # "hindquarters relatively underdeveloped" -> -12% hip breadth (lean-hipped)
+girth = { legs = 0.95, arms = 1.05, neck = 1.32 }
+                                # a "massive neck" [measured, qualitative: ADW] is the one big number here;
+                                #   heavier fore limbs than hind ones follow the same fore/hind bias. These
+                                #   are RELATIVE: `mass_kg` above solves the overall scale, and each limb's
+                                #   girth-over-length then lands inside its adult band (species_design
+                                #   `limb_band`: thigh 1.31 in 1.11-1.58, forearm 1.20 in 0.90-1.17 at the
+                                #   top, upper arm 1.01 at 1.01)
+fingertips_at = "mid_thigh"     # a person's landmark (0.36 H): the gnoll's build is in its shoulders and
+                                #   head, not in a longer arm [folklore]
+neck = "human"                  # long in the animal, but a humanoid's neck carries a humanoid's head
+tol_scale = 1.5                 # the realistic tolerances widened: the hunch and the shoulder/hip bias move
+                                #   several ratios at once and this body is not a man
+
+# The head: as far as the parametric muzzle reaches, which is not far. head-features.md, "What a muzzle is
+# measured against", gives hm08's limits: muzzle over head length 0.26 at the shipped preset and 0.32 pushed
+# to its very edge, against a dog's 0.39. This is the preset pushed a little - the snout carries 89 mm rather
+# than 85, the orbits are held 26 mm back rather than 25, and the lip line runs 38% of the snout out rather
+# than 35% - and that is ALL there is room for: measured on this head, the preset reads 0.259 of head length
+# (66% of a dog's) and 0.092 of carry reads 0.286 (73%) while tearing the skin at the commissure (2.4x its
+# worst edge, limit 2.0). Everything between is what this spec sits in. `features.muzzle_measure` reports
+# what it reached and `surface_strain` refuses it if the skin tears; neither is a number to argue with.
+[body.species.head]
+shape = "square"                # a broad, heavy skull [measured, qualitative: "large head", ADW]
+shape_weight = 0.4
+
+[body.species.head.features]
+ears_large = 0.9                # "rounded ears", large for the head [measured, qualitative: ADW]
+brow_ridge = 0.45               # the heavy supraorbital shelf of a bone-cracking skull [measured: hyaenid
+                                #   craniology, qualitative]
+jaw_heavy = 0.5                 # the masseter shelf of the strongest bite among carnivorans [measured,
+                                #   qualitative]
+# The muzzle preset, pushed toward hm08's measured limit (head-features.md's table)
+muzzle = { muzzle = { length = 0.089, width = 0.45, lip = 0.38, lip_back = 0.37, eye_set_back = 0.026, stop = 0.010, cheek = 0.75, smooth = 7 } }
+# A crest: the hyaenid sagittal crest, the ridge of bone the jaw muscles anchor on, which on a living animal
+# reads as a raised line down the midline of the skull [measured, qualitative: hyaenid craniology]. An inline
+# definition, to show the general mechanism - a region, a direction, an amount - with no preset behind it.
+sagittal_crest = { displace = { region = { anchor = "crown", offset = [0.0, 0.012, -0.004], radius = 0.042, mirror = false }, direction = "up", falloff = "smooth", amount = 0.007, smooth = 3 } }
+
+[body.species.skin]
+tone = [0.47, 0.37, 0.28]
+pattern = { kind = "spots", colour = [0.20, 0.14, 0.09], scale = 0.035, amount = 0.5, regions = ["torso", "legs", "arms", "back"] }
+                                # spots ~20 mm across, reddish to dark brown [measured: SDZG]. On the SKIN as
+                                #   well as the fur, so the rim where fur thins out is not a flat tone
+
+# Digitigrade on canine ratios: a dog's leg, not a person's on tiptoe (humanform.legs RATIOS "canine":
+# femur 0.317 : tibia 0.343 : metatarsus 0.270 : digits 0.070, stifle 116 deg - Fischer & Blickhan 2006 and
+# Croft & Lorente 2021, both [measured]). A hyena IS a cursorial carnivoran, so these are its own ratios.
+[body.species.legs]
+plan = "digitigrade"
+ratios = "canine"
+stance = 0.12                   # where the contact patch stands, in hip heights ahead of the hip. The canine
+                                #   default is 0.05, set on a body with no hunch; this one carries a 14-degree
+                                #   slope and a 30 cm head, and at 0.05 its standing centre of mass fell 50 mm
+                                #   OUTSIDE its paws - every clip that starts from the rest pose (Crouch,
+                                #   MouthOpen) was refused at export. 0.12 puts the paws under the centre.
+
+# Four toes and short claws [measured: ADW, "four digits, short non-retractable claws, broad toe pads"].
+# `feet.LEG_RATIOS` would give "canine" by itself; the legs block above says so anyway.
+[body.species.foot]
+plan = "paw"
+toes = 4
+
+# A short bushy tail. 25.5-36 cm on an animal whose shoulder is 0.80 m [measured: ADW, SDZG] -> 0.32-0.45 of
+# shoulder height; taken at 0.34 of THIS body's hip height (1.08 m) = 37 cm. Thick and blunt for a brush:
+# the tail is a third hair by length [measured: ADW], and the fur below adds that.
+[body.species.tail]
+length = 0.34
+thickness = 0.11
+taper = 0.45
+base = 0.14
+droop = 24.0
+curve = 30.0
+
+# The pelt. Shell fur (humanform.fur): the lengths are the animal's own [measured: SDZG], since a coat's
+# length is a property of the hair and does not scale with the body the way a bone does.
+[body.species.fur]
+shells = 20                     # what fur.silhouette_check asked for once the 72 mm mane reached its own
+                                #   length: at 16 the outermost shells stood 14.9 screen px apart at 0.6 m
+                                #   (limit 12) and combed
+lay = 0.5                       # coarse bristle hair stands off the skin more than a soft coat does
+seed = 337
+
+[[body.species.fur.regions]]
+name = "pelt"
+areas = ["body"]
+except_areas = ["head", "tail", "ruff", "chest"]
+                                # the pelt stands back where a longer or paler coat has its own region. It
+                                #   is not enough for the mane to say it is the ruff: `body` is 1 everywhere,
+                                #   and the blend (fur.BLEND_SHARP) then split the neck 54/46 between a
+                                #   72 mm mane and a 22 mm pelt and drew 40 mm of neither (2026-09-22)
+length_m = 0.022                # bristle hair 30-40 mm lying over 15-20 mm of underhair [measured: SDZG];
+                                #   `length_m` is how far the coat stands OFF the skin, not the hair's length
+density = 0.95
+flow = "down"
+colour = [0.63, 0.48, 0.30]     # "light brown, beige, sandy, or ginger" [measured: SDZG]
+pattern_colour = [0.18, 0.12, 0.08]
+pattern = { kind = "spots", scale = 0.042, amount = 0.9 }
+                                # 20 mm spots [measured: SDZG] on an animal 1.3 m long; the same spot on a
+                                #   2.18 m body is 34 mm, and at 20 mm it read in Godot at 2 m as a fine
+                                #   mottle rather than as a spotted coat
+
+[[body.species.fur.regions]]
+name = "bib"                    # "the throat and chest are unspotted" [measured: ADW] - paler and plain
+areas = ["chest"]               # NOT `except_areas = ["back"]`: `front` and `back` are normal-based fields
+                                #   that cover half the body each, and subtracting one leaves a region with
+                                #   no core anywhere - the bib and the mane both vanished into the pelt
+                                #   (2026-09-22). fur.AREAS has no dorsal/ventral pair to intersect with.
+length_m = 0.018
+density = 0.9
+flow = "down"
+colour = [0.71, 0.59, 0.43]
+
+[[body.species.fur.regions]]
+name = "mane"                   # "the back of neck and shoulders have longer hair (70-80 mm), giving the
+areas = ["ruff"]                #   appearance of a mane" [measured: SDZG]. It goes right round the neck
+                                #   rather than down the dorsal midline alone: see the bib's note.
+length_m = 0.072
+density = 1.0
+flow = "down"
+colour = [0.44, 0.32, 0.19]     # the mane is darker than the coat [measured, qualitative]
+
+[[body.species.fur.regions]]
+name = "crown"                  # the head's own short coat, spots fainter on it
+areas = ["head"]
+except_areas = ["face"]
+length_m = 0.010
+density = 0.95
+flow = "back"
+colour = [0.60, 0.46, 0.29]
+pattern_colour = [0.26, 0.18, 0.12]
+pattern = { kind = "spots", scale = 0.016, amount = 0.35 }
+
+[[body.species.fur.regions]]
+name = "snout"                  # the nap on the muzzle: dark and very short [measured, qualitative: a
+areas = ["face"]                #   spotted hyena's muzzle is near-black]
+length_m = 0.004
+density = 0.95                   # over fur.COVER_DENSITY (0.75), or the skin under a 4 mm
+                                #   nap is still drawn and shows through it in patches
+flow = "down"
+colour = [0.34, 0.26, 0.19]
+
+[[body.species.fur.regions]]
+name = "brush"                  # the tail is a third hair by length and ends black [measured: ADW]
+areas = ["tail"]
+length_m = 0.050
+density = 1.0
+flow = "down"
+colour = [0.30, 0.22, 0.14]
+
+# No [hair]. A gnoll has no scalp hair, no human eyebrows and no human eyelashes: what grows on its head is
+# the `crown` and `snout` coats above. The cap and the brow and lash cards are meshes JOINED into the body
+# after the coverage map is written, and `hf_fur_skin` keeps fur off anything joined in later - so with them
+# on, each one punched a bare, pale hole through the pelt on the forehead and round the eyes (seen in Godot,
+# 2026-09-22). humanform's own anatomy inventory is taken before the bake, on MPFB's own helpers, so nothing
+# is reported missing.
+
+[moves]
+roles = ["Idle", "Walk", "Run", "Crouch", "Jump", "TurnL", "TurnR", "MouthOpen"]
+loops = ["Idle", "Walk", "Run"]
+gaits = { Walk = 0.22, Run = 1.7 }
+per_gait = { MouthOpen = { degrees = 20.0 } }
+                                # the snarl. 20 degrees is humanform.jaw.OPEN_DEG: measured over five gapes,
+                                #   a snouted head folds nothing to 20 and tears at 25
+
+[export]
+dir = "assets/trials/trial_gnoll"
+res_dir = "res://assets/trials/trial_gnoll"
+blend = "trial_gnoll.blend"

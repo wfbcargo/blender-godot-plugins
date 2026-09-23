@@ -608,7 +608,13 @@ lay = 0.6                   # 0 the fur stands out, 1 it lies flat along the flo
 [[body.species.fur.regions]]
 name = "pelt"
 areas = ["body"]            # fur.AREAS: body head face neck ruff shoulders back front torso chest belly
-except_areas = ["head", "hands", "feet"]   # arms upper_arms forearms hands legs thighs shins feet graft
+except_areas = ["head", "hands", "feet"]   # arms upper_arms forearms hands legs thighs shins feet tail graft
+                            # `tail` and `graft` are what a body PLAN added (humanform.tail, graft), read
+                            # off their own vertex groups; every other area is a landmark field on hm08.
+                            # Two traps the gnoll found: `front` and `back` are normal-based and cover half
+                            # the body each, so an `except_areas` of one leaves a region with no core
+                            # anywhere; and a `body`-wide pelt must except any region that wants its own
+                            # length, or the blend splits the difference between them.
 length_m = 0.012            # 0.8 mm .. 80 mm; past that hair hangs, and only strand cards hang
 density = 1.0               # at COVER_DENSITY (0.75) and above, the skin under it is not drawn
 flow = "down"               # down | back | out | along (down the limb)

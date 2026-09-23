@@ -1008,7 +1008,21 @@ def muzzle_measure(human, F=None, co=None):
 # head"). What the check below refuses is the other end: a head that is not measurably past the person's own
 # face. The distance from the plan is reported on every build (`plan_reach`) rather than failed, because no
 # setting of these numbers can close it.
-READS_HUMAN = {"length": 1.20, "lip_line": 1.40, "slender": 1.30}   # each ratio over that person's own head
+# Each ratio over that person's own head. `lip_line` was 1.40 and is 1.30. The table above is this
+# module's OWN measurement of what hm08 reaches - lip_line 0.34 of the snout against a person's 0.24,
+# which is 1.40x exactly - so the threshold sat on its own ceiling, and a hair over it on any head
+# whose jaw is not the reference man's. The gnoll found it (2026-09-22): a square, heavy jaw on a
+# 30 cm head measured 1.33x from the shipped preset, and the only way past 1.40x was to push the lip
+# carry until the skin tore at the commissure (2.2x its worst edge, limit 2.0). The check and the
+# mechanism disagreed and a build bounced between the two failures with no setting in between.
+# Tried and dropped on the way: widening each local bump until its height over its reach was under a
+# slope limit. It does bring the stretch down, but the lip bump is the very thing that draws the lip
+# LINE, and spreading it flattens what it draws - at slope 0.7 the line fell to 0.21 of the snout and
+# at 0.5 to 0.17, from 0.31. hm08 has one loop of lip ending at the commissure; a longer mouth is a
+# topology problem, which is the grafted head, not a number here.
+# 1.30 is still measurably past a face, which is all this check is for; how far the head still is from
+# a real dog's skull is reported by `plan_reach` on every build and never failed.
+READS_HUMAN = {"length": 1.20, "lip_line": 1.30, "slender": 1.30}
 STOP_GAIN_MIN = 9.0                                                 # ... and the profile's turn at the bridge
 
 

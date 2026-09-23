@@ -355,6 +355,20 @@ func _attach_extras(glb: String) -> String:
 				if not r.get("problems", PackedStringArray()).is_empty():
 					return "garment %s: %s" % [g, r["problems"]]
 		materials_mod.apply(model)
+	# Fur last, the order its own docs ask for: after the garments, so a garment hides the fur under
+	# it. A furred body used to be shot BARE here - the shells are built at runtime from the coverage
+	# map the glb carries, and nothing in this shot built them - so every review sheet of a furred
+	# creature showed its bare skin, and the one thing the fur round says to judge in Godot could not
+	# be seen there (the gnoll, 2026-09-22). A body with no fur map is untouched: `Fur.attach` finds
+	# no mesh carrying the property and returns an empty list.
+	if spec.get("fur", true) and ResourceLoader.exists("res://addons/humanform_fur/fur.gd"):
+		var fur: Script = load("res://addons/humanform_fur/fur.gd")
+		var reps: Array = fur.attach(model)
+		for r in reps:
+			if not r.get("problems", []).is_empty():
+				notes.append("fur: %s" % str(r["problems"]))
+		if not reps.is_empty():
+			materials_mod.apply(model)
 	return ""
 
 
@@ -708,6 +722,18 @@ func _aim(v: Dictionary) -> Dictionary:
 					continue            # follow-through's jiggle and strand bones hang off the body; a
 										# root bone can sit under the floor in a crouch
 				box = box.expand(skel.global_transform * skel.get_bone_global_pose(i).origin)
+			# ... and the SKIN, not the skeleton alone. A bone origin sits inside the flesh: on a person
+			# the crown stands about a head radius above the head bone and the eye allowance below covers
+			# that, but on a big-headed creature it does not - the gnoll's crown sat 1% of the frame
+			# outside the picture and every full tile failed SUBJECT_CUT (2026-09-22). The mesh knows
+			# where its own top is, a tail and fur shells included, so ask it.
+			for node in model.find_children("*", "MeshInstance3D", true, false):
+				var vi: MeshInstance3D = node
+				if not vi.visible or vi.mesh == null:
+					continue
+				var ab: AABB = vi.global_transform * vi.get_aabb()
+				box = box.expand(ab.position)
+				box = box.expand(ab.end)
 			var top := box.end.y
 			var e := _eyes()
 			if not e.is_empty():
@@ -717,7 +743,11 @@ func _aim(v: Dictionary) -> Dictionary:
 				top = maxf(top, ((e[0] as Vector3).y + (e[1] as Vector3).y) * 0.5 + sep * 2.1)
 			var bottom := minf(box.position.y, 0.0)
 			a["target"] = Vector3(box.get_center().x, (top + bottom) * 0.5, box.get_center().z)
-			a["frame"] = (top - bottom) * 1.1
+			# 1.1 left the crown 4.5% from the top of the picture, and the label band takes the top 10% of
+			# it: on a person the head anchor sits lower than the crown and it never showed, but a
+			# big-headed 2.18 m gnoll failed SUBJECT_CUT and LABEL_OVER_HEAD on every full tile
+			# (2026-09-22). 1.32 clears the band whatever is in the picture.
+			a["frame"] = (top - bottom) * 1.32
 			a["dir"] = (fwd + Vector3.UP * 0.05).normalized()
 			a["body"] = false
 			a["anchors"] = {"top": Vector3(box.get_center().x, top, box.get_center().z),
