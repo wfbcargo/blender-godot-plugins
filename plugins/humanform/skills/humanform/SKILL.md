@@ -362,7 +362,10 @@ the hair stage joins them into the body with the rest of the hair.
   the slit or the nostrils, and below the chin only the jaw's underside. The edge fades over `feather_m` across
   that field's zero line (a colour attribute's alpha, COLOR_0 in glTF, multiplied in Godot), so it is a smooth
   curve thinning into single hairs, not a line of whole faces.
-  **Everything but stubble is strand cards over one shell.** The shell is the root mat that hides the skin, as a
+  **Everything but stubble is strand cards over one shell** - `humanform.cards`, the shared growth, reached
+  through `hair.cards(body, field, length_m, volume=, colour=, root_bone=, **params)` where `field` is one
+  0..1 weight per body vertex (the shape `beard_field` returns and fur's `hf_fur_den` is in, so a mane, a ruff
+  past 8 cm and a tail brush grow from fur's own coverage map with no conversion). The shell is the root mat that hides the skin, as a
   scalp's cap does; over it `_beard_cards` scatters roots across the field at the style's `density` and grows a
   bowed three-column ribbon from each, following the face's surface and then falling into gravity, held off the
   body all the way (2 cm below the chin, so it hangs clear of the chest and the shirt on it). `volume` raises
