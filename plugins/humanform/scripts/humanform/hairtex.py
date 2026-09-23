@@ -243,6 +243,10 @@ SIL_DISTANCES_M = (0.6, 4.0)
 SIL_ROUGH_MIN_PX = {0.6: 1.5, 4.0: 0.35}    # the outline must wander at least this far from its own smoothing
 SIL_FLAT_PX = 0.6           # a boundary column this near its own smoothing is a straight edge there
 SIL_FLAT_MAX_MM = 22.0      # ... and a straight run longer than this reads as a cut edge, not as hair ends
+SIL_STEP_TOP = 0.05         # the share of an edge's columns the biggest steps are counted over ...
+SIL_STEP_MAX = 0.45         # ... and how much of its whole movement they may hold: a polygon staircase does
+                            # all its moving in a handful of risers with flat treads between, so nearly all of
+                            # it lands in that 5%; hair moves a little in every column and lands near 0.1
 SIL_WINDOW_M = 0.012        # the outline is smoothed over this much of the subject, not a fixed number of
                             # pixels: at 0.6 m that is 40 screen pixels and at 4 m it is 6, so the measure asks
                             # the same question at both - do the ends of the hairs still break the edge up?
@@ -292,31 +296,41 @@ def _rasterise(P, A, eye, forward, up, f, cutoff=SIL_ALPHA_CUTOFF, max_samples=S
     return mask
 
 
-def _wander(mask, window):
-    """How far the silhouette's lower outline (the hair's ends) wanders from a `window`-wide moving average
-    of itself, in pixels. Near zero for a smooth curve, several pixels for tips."""
+def _edge(mask, window, top=False):
+    """One outline of the silhouette - the bottom (`top` False: where the hair ends) or the top (`top` True:
+    where it leaves the skin) - measured three ways.
+
+    (wander, columns, flat_run, step_share): how far it strays from its own `window`-wide moving average in
+    pixels (near zero for a smooth curve, several pixels for tips); the longest unbroken run of columns
+    sitting on that average (a mass cut off on a line has one, hair tips do not); and how much of its whole
+    movement happens in its biggest `SIL_STEP_TOP` of columns - a polygon staircase does all its moving in a
+    few risers with flat treads between, which is what the root mat's own boundary looked like along the
+    cheek."""
     window = max(3, int(window) | 1)
     cols = np.nonzero(mask.any(axis=0))[0]
     if len(cols) < window + 2:
-        return 0.0, len(cols)
-    # the image's rows run up with z, so the hair's ends are the SMALLEST row of each column
+        return 0.0, len(cols), 0, 0.0
     rows = np.arange(mask.shape[0])[:, None]
-    low = np.where(mask, rows, mask.shape[0]).min(axis=0)[cols].astype(np.float64)
-    pad = np.concatenate([np.full(window // 2, low[0]), low, np.full(window // 2, low[-1])])
+    # the image's rows run up with z: the hair's ends are the smallest row of a column, the hairline the largest
+    line = (np.where(mask, rows, -1).max(axis=0) if top
+            else np.where(mask, rows, mask.shape[0]).min(axis=0))[cols].astype(np.float64)
+    pad = np.concatenate([np.full(window // 2, line[0]), line, np.full(window // 2, line[-1])])
     smooth = np.convolve(pad, np.ones(window) / window, mode="valid")
-    dev = np.abs(low - smooth)
-    # the longest unbroken run of columns whose bottom edge sits on its own smoothing: a beard cut off on a
-    # line has one, a beard that ends in hair tips does not, however ragged it is elsewhere
+    dev = np.abs(line - smooth)
     run = best = 0
     for flat in dev <= SIL_FLAT_PX:
         run = run + 1 if flat else 0
         best = max(best, run)
-    return float(dev.mean()), len(cols), int(best)
+    d = np.abs(np.diff(line))
+    big = max(1, int(round(SIL_STEP_TOP * len(d))))
+    step = float(np.sort(d)[-big:].sum() / max(d.sum(), 1e-9)) if len(d) else 0.0
+    return float(dev.mean()), len(cols), int(best), step
 
 
 def silhouette_check(ob=None, *, obs=None, P=None, A=None, distances_m=SIL_DISTANCES_M, vfov_deg=VFOV_DEG,
                      image_px=IMAGE_PX, rough_min_px=None, keep_min=SIL_KEEP_MIN,
-                     directions=SIL_DIRECTIONS, name=None, flat_max_mm=SIL_FLAT_MAX_MM):
+                     directions=SIL_DIRECTIONS, name=None, flat_max_mm=SIL_FLAT_MAX_MM,
+                     step_max=SIL_STEP_MAX):
     """Whether a hair part's outline reads as hair at each of `distances_m`. Pass a Blender object `ob`,
     several with `obs` (they are measured as one thing, which is what the eye sees: a beard's root mat, the
     cards over it and the locks hanging off it have no outline of their own), or the arrays P (T, 3, 3) and
@@ -326,7 +340,8 @@ def silhouette_check(ob=None, *, obs=None, P=None, A=None, distances_m=SIL_DISTA
     fails when its outline wanders less than `rough_min_px` (SIL_ROUGH_MIN_PX): it is then a curve, not hair.
     It fails too when the *bottom* edge runs straight for more than `flat_max_mm` at the near distance -
     a mass that ends on a line is a bib, whatever the rest of its outline does, and that is what a long beard
-    read as on a chest. The far distance also fails when less than `keep_min` of the near distance's area is
+    read as on a chest - and when either edge does more than `step_max` of its moving in its biggest few
+    columns, which is a staircase of whole faces (the root mat's own boundary along the cheek). The far distance also fails when less than `keep_min` of the near distance's area is
     left - a beard of cards so thin it dissolves across a room."""
     rough_min_px = dict(SIL_ROUGH_MIN_PX if rough_min_px is None else rough_min_px)
     if obs:
@@ -337,7 +352,7 @@ def silhouette_check(ob=None, *, obs=None, P=None, A=None, distances_m=SIL_DISTA
     elif ob is not None:
         name = name or ob.name
         P, A = _tri_alpha(ob)
-    rep = {"name": name, "triangles": int(len(P)), "views": {}}
+    rep = {"name": name, "triangles": int(len(P)), "views": {}, "warnings": []}
     problems = []
     centre = P.reshape(-1, 3).mean(axis=0)
     for dname, fwd in directions:
@@ -347,11 +362,17 @@ def silhouette_check(ob=None, *, obs=None, P=None, A=None, distances_m=SIL_DISTA
         for d in distances_m:
             f = d * 2.0 * math.tan(math.radians(vfov_deg) / 2.0) / image_px
             mask = _rasterise(P, A, centre - fwd * d, fwd, np.array([0.0, 0.0, 1.0]), f)
-            wander, cols, flat = _wander(mask, round(SIL_WINDOW_M / f))
+            win = round(SIL_WINDOW_M / f)
+            wander, cols, flat, step = _edge(mask, win)
+            t_wander, _c, t_flat, t_step = _edge(mask, win, top=True)
             areas[d] = float(mask.sum()) * f * f
             rep["views"][f"{dname} {d:g}m"] = {"wander_px": round(wander, 2),
                                                "wander_mm": round(wander * f * 1000, 2),
                                                "flat_run_mm": round(flat * f * 1000, 1),
+                                               "step_share": round(step, 2),
+                                               "top_wander_px": round(t_wander, 2),
+                                               "top_flat_run_mm": round(t_flat * f * 1000, 1),
+                                               "top_step_share": round(t_step, 2),
                                                "columns": cols, "area_m2": round(areas[d], 6)}
             lo = rough_min_px.get(d)
             if lo is not None and cols >= SIL_WINDOW_M / f + 2 and wander < lo:
@@ -362,6 +383,17 @@ def silhouette_check(ob=None, *, obs=None, P=None, A=None, distances_m=SIL_DISTA
                 problems.append(f"{dname} at {d:g} m: {flat * f * 1000:.0f} mm of its bottom edge runs straight "
                                 f"(at most {flat_max_mm:.0f} mm) - hair does not end on a line; break the mass "
                                 "into locks of unequal length, or scatter the tips")
+            # The TOP edge - where the hair leaves the skin. A staircase there is the shell's own polygon
+            # boundary, and this is where it shows; but a *warning*, not a refusal, because the same number
+            # rises on anatomy a part is entitled to: a goatee's top edge steps by a centimetre at each corner
+            # of the mouth, where the moustache sits above the chin patch, and read 53-68% with no staircase
+            # in it at all. What refuses a stepped mat is `brows`' own `mat_edge` - the alpha ramp measured in
+            # faces, on the mesh, where it is local and unambiguous. The bottom edge is allowed its big jumps
+            # too: that is one lock ending above the next, and `flat_run_mm` is its test.
+            if lo is not None and d == min(distances_m) and t_step > step_max:
+                rep["warnings"].append(f"{dname} at {d:g} m: {t_step:.0%} of the TOP edge's movement is in its "
+                                       f"biggest {SIL_STEP_TOP:.0%} of columns (over {step_max:.0%}) - look for "
+                                       "a staircase of whole faces where the hair leaves the skin")
         near, far = min(distances_m), max(distances_m)
         if areas.get(near, 0) > 0 and areas.get(far, 0) / areas[near] < keep_min:
             problems.append(f"{dname}: {areas[far] / areas[near]:.0%} of its area is left at {far:g} m "

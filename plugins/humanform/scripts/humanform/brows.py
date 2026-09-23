@@ -139,7 +139,13 @@ BEARD_STYLES = {
                        "locks": 3, "lock_spread": 0.3, "gather": 0.5, "narrow": 0.42}},
 }
 BEARD_PX = 512              # texels per TILE_M, both ways (0.08 mm: a beard hair is 0.1-0.15 mm)
-BEARD_UNDER_ALPHA = 0.55    # a full beard's alpha between its hairs: over the 0.5 cutoff at every mip
+BEARD_UNDER_ALPHA = 0.51    # a full beard's alpha between its hairs: over the 0.5 cutoff at every mip ...
+BEARD_UNDER_MAX = 1.0       # ... and up to this, varied over a few millimetres, so the fade takes it away
+                            # gradually instead of all at once (see `beard_pixels`). The span has to cover the
+                            # WHOLE fade ramp: a texel at alpha a is cut once the fade drops under 0.5/a, so
+                            # 0.55..0.92 all went between fade 0.9 and 0.55 - a third of the ramp, which on
+                            # hm08's 8-10 mm quads is still about one face. Stubble, which has no under-layer
+                            # at all, dissolves perfectly; this is what makes a full beard's mat do the same.
 BEARD_GAP = 0.45            # the under-layer's brightness against a hair's: the shadow between hairs
 BEARD_FADE = "hf_beard_fade"    # the colour attribute whose alpha thins the hairs toward the beard's edge
 BEARD_LIP_CLEAR_M = 0.0015  # the beard's edge along the lips: this far off the lips' red and the mouth's slit
@@ -160,6 +166,13 @@ BEARD_AXIS_M = 0.07         # the beard's UVs run round and down about a centre 
 # the strand cards `humanform.cards` grows out of the beard field (everything else about a card - its shape,
 # its clumping, its sheet, the cut where it starts to hang, its checks - is that module's, shared with fur's
 # mane, ruff and tail brush)
+BEARD_MAT_FEATHER_M = 0.024 # the root mat's ALPHA ramps from cut to solid over this much of the field,
+                            # several faces wide, not over `feather_m`. The mat is whole body faces, so a ramp
+                            # narrower than one face steps from face to face: the cheek line came out a
+                            # staircase (`hairtex.silhouette_check`'s top edge measures it now). The geometry
+                            # is still cut at the field; only the alpha reaches further in.
+BEARD_CARD_OVERHANG_M = 0.016   # how far past the root mat's rim the cards still take roots
+BEARD_MAT_SPAN_MAX = 0.30   # the most of that ramp one face may hold: 0.3 is two faces across it
 BEARD_CARD_CLEAR_M = 0.0018     # a card never comes nearer the skin than this
 BEARD_MOUSTACHE_MAX_M = 0.02    # a moustache card is never longer: a long beard's would bury the mouth
 BEARD_HANG_SPLIT_M = 0.055  # a card whose tip falls this far below the chin hangs, and is cut there: the
@@ -516,7 +529,14 @@ def beard_pixels(style, colour, px=BEARD_PX, tile_m=TILE_M, seed=11, spec=None):
     # edge, multiplied in) drops hairs one by one toward the edge - the under-layer first (at a fade under
     # 0.5 / BEARD_UNDER_ALPHA), then the hairs in rank order - rather than the whole shell at one line
     hair = cover >= 0.5
-    floor = BEARD_UNDER_ALPHA if spec["under"] else 0.0
+    # The under-layer's alpha is NOT one number. Scissored, a constant 0.55 times the fade crosses 0.5 within
+    # a fade span of 0.02 - about a millimetre of the field - so the whole mat switched from solid to gone
+    # inside one body face and its edge came out a staircase of quads along the cheek. Varied over a few
+    # millimetres, its texels cross at different fades and the mat thins out over two or three faces.
+    floor = 0.0
+    if spec["under"]:
+        blot = 0.5 + 0.5 * np.clip(_periodic(uu, vv, np.random.RandomState(seed + 4), terms=6, max_k=14), -1, 1)
+        floor = BEARD_UNDER_ALPHA + (BEARD_UNDER_MAX - BEARD_UNDER_ALPHA) * blot
     out[:, :, 3] = np.where(hair, np.maximum(floor, 0.5 + 0.5 * rk),
                             np.maximum(floor, np.clip(cover, 0.0, 0.499)))
     slope = (np.roll(cover, -1, axis=1) - np.roll(cover, 1, axis=1)) * 0.5
@@ -1053,15 +1073,19 @@ def _beard(ob, co, base, rig, colour, uv_name, style, head_bone, scale=1.0, leng
     finally:
         LOOK["beard"] = saved
     tile = tile * k
-    # the faces round the region: any corner inside the fade, none far outside it
+    # The mat reaches BEARD_MAT_FEATHER_M/2 past the field's zero line, not `feather_m`/2.5, so its alpha has
+    # two or three rings of faces to fade over. Cut at the narrow band, the ramp from solid to gone happened
+    # inside one face and the cheek line came out a staircase of whole faces - the same fault the shell's own
+    # outline had before the field was a signed distance.
+    out_m = fo + 0.5 * BEARD_MAT_FEATHER_M * k
     polys = [tuple(p.vertices) for p in me.polygons if max(p.vertices) < n
-             and max(sd[i] for i in p.vertices) > -fo and min(sd[i] for i in p.vertices) > -(fo + 0.02 * k)]
+             and max(sd[i] for i in p.vertices) > -out_m and min(sd[i] for i in p.vertices) > -(out_m + 0.02 * k)]
     used = sorted({i for p in polys for i in p})
     local = {i: j for j, i in enumerate(used)}
     mw = np.array(ob.matrix_world, np.float64)
     base_co = np.array([tuple(me.vertices[i].co) for i in used]) @ mw[:3, :3].T + mw[:3, 3]
     vn = nrm[used]
-    fade0 = 0.4 + 0.6 * np.clip((sd[used] + fo) / (fo + fi), 0.0, 1.0)
+    fade0 = 0.4 + 0.6 * np.clip((sd[used] + out_m) / (out_m + BEARD_MAT_FEATHER_M * k), 0.0, 1.0)
     z_m, chin_z = marks["mouth_z"], marks["chin_z"]
     g = 0.35 + 0.65 * _smooth_np(np.clip((z_m - base_co[:, 2]) / max(z_m - chin_z, 1e-6), 0.0, 1.0))
     wts = _named_weights(ob, used)
@@ -1128,8 +1152,13 @@ def _beard(ob, co, base, rig, colour, uv_name, style, head_bone, scale=1.0, leng
         # over the feather band instead of stopping at it, so the cards overhang the mat's own polygon edge
         # rather than leaving it as a sawtooth line across the cheek. `density` is per square metre of field
         # weighted by that ramp, which is why a beard's numbers are large.
+        # The cards root BEARD_CARD_OVERHANG_M further out than the mat, thinning to nothing there, so their
+        # bodies fall across the mat's rim and break it. The mat is whole body faces and its alpha alone could
+        # not soften that rim enough: the cheek line still stepped from quad to quad (which is what
+        # `hairtex.silhouette_check`'s top edge refuses).
+        card_out = out_m + BEARD_CARD_OVERHANG_M * k
         weight = np.zeros(len(me.vertices))
-        weight[:n] = np.clip((sd[:n] + fo) / (fo + fi), 0.0, 1.0)
+        weight[:n] = np.clip((sd[:n] + card_out) / (card_out + fi), 0.0, 1.0)
         fade_v = 0.4 + 0.6 * weight
         z = np.zeros(len(me.vertices))
         z[:n] = (np.array([tuple(me.vertices[i].co) for i in range(n)]) @ mw[:3, :3].T + mw[:3, 3])[:, 2]
@@ -1153,6 +1182,19 @@ def _beard(ob, co, base, rig, colour, uv_name, style, head_bone, scale=1.0, leng
                 raise RuntimeError("the hanging beard does not meet follow-through's strand contract: "
                                    f"{rep['cards']['contract']['problems']}")
 
+    # How many faces the mat's alpha takes to go from solid to gone. A ramp narrower than a face steps from
+    # face to face, and that is a staircase along the cheek - an INTERIOR boundary, which no silhouette can
+    # see, so it is measured here on the mesh instead.
+    edge = [q for q in polys if max(fade0[local[i]] for i in q) > 0.5 and min(fade0[local[i]] for i in q) < 0.95]
+    spread = sorted(max(fade0[local[i]] for i in q) - min(fade0[local[i]] for i in q) for q in edge) or [0.0]
+    span = float(spread[len(spread) // 2])
+    rep["mat_edge"] = {"faces": len(edge), "median_fade_span": round(span, 3),
+                       "ramp_faces": round(0.6 / max(span, 1e-6), 2), "feather_m": BEARD_MAT_FEATHER_M * k}
+    if edge and span > BEARD_MAT_SPAN_MAX:
+        raise RuntimeError(f"{base}_beard: the root mat's alpha crosses from solid to gone in {0.6 / span:.1f} "
+                           f"faces (at least {0.6 / BEARD_MAT_SPAN_MAX:.0f} wanted) - its edge will read as a "
+                           "staircase of whole faces along the cheek; widen BEARD_MAT_FEATHER_M")
+
     from . import hairtex
     rep["godot_sampling"], rep["silhouette"] = {}, {}
     bad = []
@@ -1172,8 +1214,11 @@ def _beard(ob, co, base, rig, colour, uv_name, style, head_bone, scale=1.0, leng
     # the locks take over). Stubble is the mat alone and is exempt: a shell is right there.
     sil = hairtex.silhouette_check(obs=list(objects.values()), name=f"{base}_beard",
                                    rough_min_px=(None if spec["cards"] is not None else {}))
-    rep["silhouette"]["beard"] = {"ok": sil["ok"], "views": sil["views"], "problems": sil["problems"]}
+    rep["silhouette"]["beard"] = {"ok": sil["ok"], "views": sil["views"], "problems": sil["problems"],
+                                  "warnings": sil.get("warnings", [])}
     bad += sil["problems"]
+    for w in sil.get("warnings", []):
+        print(f"[beard] WARN {base}: {w}", flush=True)
     for part, o in objects.items():
         if part != "beard":
             rep["silhouette"][part] = {"views": hairtex.silhouette_check(o, rough_min_px={},
