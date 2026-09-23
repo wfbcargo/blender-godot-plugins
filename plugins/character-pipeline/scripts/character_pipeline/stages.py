@@ -1153,7 +1153,8 @@ def run_fur(ch):
             "edge": {k: rep["edge"].get(k) for k in ("step", "step_max", "tol", "edges", "skin")},
             "dark": {k: rep["dark"].get(k) for k in ("share", "share_limit", "tol", "views")},
             "flow": {k: rep["flow"].get(k) for k in ("ok", "worst_deg", "p99_deg", "tol_deg", "skipped")
-                     if k in rep.get("flow", {})}}
+                     if k in rep.get("flow", {})},
+            "face": {k: rep["face"].get(k) for k in ("eye_over_mm", "margin_mm", "lips", "ok")}}
 
 
 def run_export(ch, ctx):

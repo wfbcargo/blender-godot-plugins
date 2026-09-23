@@ -660,6 +660,10 @@ body mesh as node extras.
   agree on it down to its sign: they did not (the UV tangent flips across a seam, hm08 has one down the
   midline of the back of the head, and the shells either side sheared apart and opened a bald stripe).
   The frame is `fur.flow_frame` now - built off the normal, which cannot flip - and this measures it.
+- `face_check` - how far fur stands over an eyeball (it is cleared by `EYE_CLEAR` radii *plus its own
+  length*, so a long pelt beside a short nap cannot lean across the eye), and the lip line's luma against
+  the fur round the mouth. `lip_pigment` (default 0.8 when a region covers the face or a muzzle) takes the
+  lips down on the skin's own tint: bare, they read as a pale smear along a furred mouth.
 - `atlas_overlap` - recorded, and why the map is a vertex colour.
 - the anatomy inventory (`species.inventory`): fur is a part in `species_design.ANATOMY`, so a body whose
   species says it has fur and carries no map fails.
