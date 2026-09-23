@@ -149,36 +149,47 @@ for, and it is the whole value of this entry. Fourteen gaps, each with the fix:
     armpit), this body still measures 5.7% of its furred edges over 60 deg from those, and telling a
     concentrated star from scattered points wants a control body this round did not build. The number and
     the worst edge's position are printed.
-14. **THE BLOCKER: a digitigrade body cannot be stood up on the merged leg/foot code.** `legs.solve` now
-    stands the contact patch under the body's own centre, which is the right idea - but the two centres are
-    not the same one: the solve balances the REST SKELETON while the export's clip check measures the
-    SKINNED body at frame 1. Measured on this spec, every combination:
-
-    | hunch | stance | centre outside the feet |
-    |---|---|---|
-    | 14 | solved | 65 mm |
-    | 14 | 0.02 | 63 mm |
-    | 14 | 0.12 | 57 mm |
-    | 14 | 0.14 | 44 mm (before the merge: it stood) |
-    | 10 | 0.17 | 86 mm (with lighter pads) |
-    | 6 | 0.12 | 54 mm |
-
-    `stance`'s whole legal range moves it about 6 mm and the hunch about 3 mm, against a 54-63 mm error, so
-    **no spec knob reaches it**; and `stance` cannot be pushed anyway - at 0.22 the foot plan refuses,
-    because the claw that still clears the pads solves to 0.12 toe lengths, under its own 0.15 floor. The
-    hunch, the stance, the pads and the claw are one system and its solution is outside all four ranges.
-    Crouch and MouthOpen are refused at the export, so **the gnoll does not build on `species-2` as merged**;
-    it built on the same spec one merge ago. The fix belongs in `legs.solve`: balance the centre the clip
-    check measures (`rig_analysis.motion.Body.com` on the skinned body), not the rest skeleton's, and report
-    the residual so a body that cannot be stood up says so before the moves stage rather than at the export.
+14. **A digitigrade body could not be stood up - and the cause was NOT the one I first named.** Crouch and
+    MouthOpen were refused at the export (the centre 54-63 mm outside the paws across every hunch and
+    stance this spec can hold, against about 6 mm of authority in stance's whole legal range). I read that
+    as two different CENTRES - the leg plan balancing the rest skeleton, the export measuring the skinned
+    body. It was not: the two centres are identical (0.2121 both). What differed was the **SUPPORT** - the
+    build measured the sole's lowest band and the export uses rig-anything's own contact points, a quarter
+    of a metre apart. `feet.balance` uses rig-anything's support and COM now, so what passes the build
+    passes the export, and a body that cannot balance is refused upfront with the residual and the knob to
+    move. The gnoll solves to `stance` 0.1348 and stands 19.4 mm inside its feet, with no range opened.
+15. **Hair is not body mass, and it was.** With that fixed the gnoll still stood 38 mm outside its feet on
+    THIS build and not on the one that found the support bug - the difference being that this one has its
+    fur. `motion._com_terms` weighed every skinned vertex the same, and the mane and tail brush are 54621
+    of the body's 71687 vertices - **76% of the mesh** - which dragged the centre 281 mm forward of the
+    body's own. A beard did the same thing more quietly. The centre of mass now skips vertices marked
+    `hf_hair`, the point attribute humanform already writes on a card mesh and follow-through's flesh
+    already reads, so nothing is invented and a body without it measures exactly what it always did;
+    `com_source` says how many vertices were left out.
+16. **A digitigrade leg's foot close-ups framed the cannon.** The review aims between the foot bone's HEAD
+    and the toe tip - on a standing foot that head is the hock, a quarter of a metre up - so the paw
+    covered 3.5% of its own tile and the review refused it as empty. The near end is the BALL now whenever
+    the foot bone stands more than it lies (`bodymap`'s own test), the combined tile is framed on the feet's
+    own extent rather than a stance width plus a foot length, and a standing pair is shot from further over
+    the top, where a paw's plan and its claws are what there is to see.
 
 ### What it reads as, and what a grafted head would buy
 
-Last look (pass 2's build, the last one that shipped): at 4.8 m **the mane is the silhouette** - a shaggy
-ruff standing off the neck and shoulders, the first thing about the figure that is not a man's - and the
-spots read as spots on the torso, hips and legs. The paw is a thin cannon flaring into a short splayed foot.
-With the mouth open the profile is plainly canine: snout, stop, long lip line.
+Last look (the final build: fresh, end to end, fur in, 8/8 clips, Godot review 12/12):
 
+- **4 m, walking.** The legs are the read - thin cannons over a high hock, small paws, the zig-zag folding
+  under the body - and the spots carry on the torso, hips and legs. It reads as a big spotted beast-man.
+- **2 m, from behind.** The mane is a low fringe on the nape and no longer stands off the outline. That is
+  a REGRESSION from pass 2, and an honest cost of getting the anatomy right: on `ruff` the mane wrapped the
+  chest and read as a fringed cape, so it moved to `nape` + `withers`, and `dorsal` - the word for the rest
+  of the crest - had to come off, because it is a strip a few centimetres wide and the card scatter leaves
+  holes in one that thin (39 mm to the nearest root where the density asks for 12, limit 3x). A hyena's
+  mane IS its outline, so the next thing this creature needs is a stratified scatter in `cards`.
+- **0.6 m, mouth open.** The profile is plainly canine: snout, stop, long lip line, the jaw dropping 20 deg.
+  Shut, the same head reads as a heavy-browed brute with a long face.
+- Still wrong: a dark seam down the midline of the back of the head (no longer bare skin - the shells meet
+  there now - but a visible parting); the thighs wash out pale; the eye is lost in the muzzle's nap at
+  0.6 m; occasional square texel blocks on a forearm.
 It still does not read as a hyena, and the muzzle's measured ceiling says why. On this head the shipped
 preset reaches **0.259 of head length against a dog's 0.39 - 66%** - and 92 mm of carry reaches 0.286 (73%)
 **while tearing the skin at the commissure** (2.4x its worst edge, limit 2.0). The lip line saturates in the
