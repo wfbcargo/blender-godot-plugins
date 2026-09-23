@@ -9,8 +9,13 @@ render_mode cull_back, depth_draw_opaque, diffuse_burley, specular_schlick_ggx;
 // between frames.
 //
 //   COLOR      the coverage map, as a vertex colour (glTF COLOR_0): R density, G length / length_max_m,
-//              B and A the flow's (cos, sin) in the tangent frame. It is not a texture because hm08's UV
-//              atlas overlaps itself, and a coverage map rasterised into it came back with furred hands.
+//              B and A the flow's (cos, sin) in the frame `humanform.fur.flow_frame` builds off the
+//              NORMAL - down projected onto the surface, and normal x that. Not the UV tangent frame: a
+//              tangent flips sign across a UV seam, and hm08's atlas has one straight down the midline of
+//              the back of the head and neck, so the shells either side of it sheared apart and opened a
+//              bald stripe from the crown to the middle of the back. A normal does not flip. It is a
+//              vertex colour and not a texture because hm08's UV atlas overlaps itself, and a coverage map
+//              rasterised into it came back with furred hands.
 //   fur_colour the fur's own colour, sRGB, the region's pattern already mixed in
 //   strands    tiled: R the height up the fur (0..1) the strand at that texel reaches, 0 for bare skin;
 //              G that strand's own tone, the same the whole way along it. The strands are gathered into
@@ -58,9 +63,19 @@ void vertex() {
 	v_map = m;
 	float len_m = m.g * length_max_m * step(min_density, m.r);
 	vec2 dir = normalize(vec2(m.b, m.a) * 2.0 - 1.0 + vec2(1e-6, 0.0));
+	// The same frame humanform wrote the angle in (`fur.flow_frame`), rebuilt here from the NORMAL: the
+	// body's own down projected onto the surface, and normal x that. Model space here is glTF's, so down
+	// is -Y and the fallback axis (the body's back, for skin facing straight up or down) is -Z.
+	vec3 nrm = normalize(NORMAL);
+	vec3 t = vec3(0.0, -1.0, 0.0) - nrm * dot(vec3(0.0, -1.0, 0.0), nrm);
+	if (dot(t, t) < 1e-10) {
+		t = vec3(0.0, 0.0, -1.0) - nrm * dot(vec3(0.0, 0.0, -1.0), nrm);
+	}
+	t = normalize(t);
+	vec3 b = cross(nrm, t);
 	// out along the normal, then over along the flow: the lean grows as t^2, so the fur bends rather
 	// than shearing, which is what makes a shell stack read as hair and not as a comb
-	vec3 along = dir.x * TANGENT + dir.y * BINORMAL;
+	vec3 along = dir.x * t + dir.y * b;
 	VERTEX += NORMAL * (base_lift_m + len_m * shell_t) + along * (len_m * shell_t * shell_t * lay);
 }
 

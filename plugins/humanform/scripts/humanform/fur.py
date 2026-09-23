@@ -81,6 +81,7 @@ PAT = "hf_fur_pat"
 # so one of their cards can span the whole atlas and paint its own (furless) values over the skin's. It did,
 # the first time. Marking the skin when the map is written is the one test that cannot be fooled by a UV.
 SKIN = "hf_fur_skin"
+CARD_FIELD = "hf_fur_card_"    # + the region name: the field a `cards` region grows its strands from
 # The map Godot reads, as a FLOAT_COLOR attribute: R density, G length / length_max_m, B and A the flow's
 # (cos, sin) in the mesh's tangent frame, mapped to 0..1. It is a vertex attribute and not a texture
 # because **hm08's UV atlas overlaps itself**: a fifth of its texels are claimed by two different parts of
@@ -108,6 +109,19 @@ FLOWS = ("down", "back", "out", "along")
 # apart to read as stacked sheets whatever their number, and hair that long hangs and swings, which is
 # strand cards' job (humanform.hair), not a shell's.
 LENGTH_M = (0.0008, 0.08)
+# ... unless the region says `cards = true`, which is how hair PAST that goes on: strand cards
+# (`humanform.cards`, reached through `hair.cards`), grown from this region's own mask. A mane, a ruff
+# past 8 cm and a tail's brush are the same growth a beard is, and the coverage map is already the
+# per-vertex field it takes. What the region leaves in the SHELL map is `CARD_MAT_M` of root mat at its
+# own density - the thing that hides the skin, as a scalp's cap does - and the cards stand on that.
+CARD_LENGTH_M = (0.02, 0.45)   # a card region's length: under 2 cm shells are cheaper and better
+CARD_MAT_M = 0.004             # the mat a card region leaves in the shell map
+CARD_DENSITY = 7000.0          # card roots a square metre of field: a beard's own is 26000, and a
+                               # mane runs the whole neck and both shoulders. The mat hides the skin;
+                               # the cards are there for the silhouette, so they are wider and sparser
+CARD_WIDTH_M = 0.014           # ... and this wide at the root (a beard's is 0.008)
+CARD_JITTER = 0.5              # ... and their length varies by this share, card to card: a beard's
+                               # 0.35 over a field this size still ended a mane on one line
 DENSITY = (0.05, 1.0)
 SHELLS = (4, 24)
 SHELLS_DEFAULT = 12
@@ -201,10 +215,10 @@ def normalise(block):
         if not isinstance(r, dict):
             raise ValueError(f"fur.regions[{i}] must be a table")
         bad = sorted(set(r) - {"name", "areas", "length_m", "density", "flow", "colour", "pattern_colour",
-                               "pattern", "except_areas"})
+                               "pattern", "except_areas", "cards"})
         if bad:
             raise ValueError(f"fur.regions[{i}] keys {bad}: only name, areas, except_areas, length_m, density, "
-                             "flow, colour, pattern_colour, pattern")
+                             "flow, colour, pattern_colour, pattern, cards")
         name = str(r.get("name") or f"fur{i + 1}")
         if name in names:
             raise ValueError(f"fur.regions: two regions named {name!r}")
@@ -221,13 +235,18 @@ def normalise(block):
         for a in skip:
             if a not in AREAS:
                 raise ValueError(f"fur.regions[{name}].except_areas {a!r}: one of {', '.join(AREAS)}")
-        length = _range(f"fur.regions[{name}].length_m", r.get("length_m", 0.008), *LENGTH_M, unit=" m")
+        as_cards = r.get("cards", False)
+        if not isinstance(as_cards, bool):
+            raise ValueError(f"fur.regions[{name}].cards must be true or false (strand cards, or shells)")
+        length = _range(f"fur.regions[{name}].length_m", r.get("length_m", 0.008),
+                        *(CARD_LENGTH_M if as_cards else LENGTH_M), unit=" m")
         density = _range(f"fur.regions[{name}].density", r.get("density", 1.0), *DENSITY)
         flow = r.get("flow", "down")
         if flow not in FLOWS:
             raise ValueError(f"fur.regions[{name}].flow {flow!r}: one of {', '.join(FLOWS)}")
         ent = {"name": name, "areas": list(areas), "except_areas": list(skip),
-               "length_m": round(length, 5), "density": round(density, 4), "flow": flow}
+               "length_m": round(length, 5), "density": round(density, 4), "flow": flow,
+               "cards": bool(as_cards)}
         if r.get("colour") is not None:
             ent["colour"] = _rgb(r["colour"], f"fur.regions[{name}].colour")
         if r.get("pattern_colour") is not None:
@@ -609,7 +628,10 @@ def apply(ob, block, base_colour=None):
     pat = np.zeros(n)
     for i, r in enumerate(b["regions"]):
         w = W[i]
-        length += w * r["length_m"]
+        # a cards region leaves only its root mat in the shell map: the shells are what hides the skin
+        # under the cards, and drawing them at the card's own length would be the collar of sheets the
+        # shell path is capped at 8 cm to avoid
+        length += w * (CARD_MAT_M if r.get("cards") else r["length_m"])
         flow += w[:, None] * ctx["flow_" + r["flow"]]
         c = np.asarray(_linear(r["colour"]) if r.get("colour") is not None else default)
         col += W_col[i][:, None] * (c - default)   # the weights sum to 1 where any region reaches
@@ -653,6 +675,14 @@ def apply(ob, block, base_colour=None):
 
     _f(DEN, den)
     _f(LEN, length)
+    # Each cards region's own mask, kept per vertex so the growth can happen LATER - the cards are grown on
+    # the baked body, where `areas` has no MPFB joints left to measure landmarks from. It is the field
+    # `hair.cards` takes, unchanged.
+    for name in [a.name for a in me.attributes if a.name.startswith(CARD_FIELD)]:
+        me.attributes.remove(me.attributes[name])
+    for i, r in enumerate(b["regions"]):
+        if r.get("cards"):
+            _f(CARD_FIELD + r["name"], np.clip(ws[i] / max(float(r["density"]), 1e-6), 0, 1))
     _f(PAT, pat)
     _vcol(ob, den, length, flow, n, n_all)
     # every vertex the body has NOW is skin; hair, brows and lashes are joined in after this
@@ -703,13 +733,36 @@ def _obj_of(ob):
     return bpy.data.objects[ob] if isinstance(ob, str) else ob
 
 
+def flow_frame(nrm):
+    """(T, B) per vertex: an orthonormal frame on the surface that depends on the NORMAL alone.
+
+    T is the body's own down projected onto the tangent plane (world +Y, the back, where the surface faces
+    straight up or down), B is `normal x T`. The flow's angle is written against this frame and the shader
+    rebuilds exactly it, so neither side needs the UVs.
+
+    It used to be written against the mesh's UV TANGENT, the frame Godot builds TANGENT and BINORMAL on -
+    and a tangent flips sign across a UV seam. hm08's atlas has a seam straight down the midline of the back
+    of the head and the neck, so the shells either side of it sheared in OPPOSITE directions and opened a
+    wedge: a bald, skin-coloured stripe from the crown to the middle of the back, in every Godot shot of the
+    gnoll, while the coverage map measured a uniform 0.95 either side of it (2026-09-22). A normal is
+    continuous across a UV seam; a tangent is not."""
+    nrm = np.asarray(nrm, np.float64)
+    down = np.tile(np.array([0.0, 0.0, -1.0]), (len(nrm), 1))          # Blender object space: z is up
+    t = down - nrm * (down * nrm).sum(axis=1)[:, None]
+    L = np.linalg.norm(t, axis=1)
+    bad = L < 1e-6
+    if bad.any():
+        alt = np.array([0.0, 1.0, 0.0])                                 # the body's back
+        t[bad] = (alt - nrm * (nrm @ alt)[:, None])[bad]
+    t /= np.maximum(np.linalg.norm(t, axis=1), 1e-9)[:, None]
+    return t, np.cross(nrm, t)
+
+
 def _vcol(ob, den, length, flow, n, n_all):
-    """The map Godot reads, as the `hf_fur` colour attribute (see VCOL). The flow is written in the mesh's
-    own tangent frame - the frame Godot builds TANGENT and BINORMAL on - so the shader can lay the fur over
-    without knowing anything about the body."""
+    """The map Godot reads, as the `hf_fur` colour attribute (see VCOL). The flow is written in the frame
+    `flow_frame` builds off the surface normal, which the shader rebuilds from NORMAL alone."""
     me = ob.data
-    tri, uv, pos = _triangles(ob)
-    T, B = _tangent_frames(tri, uv, pos, n_all)
+    T, B = flow_frame(_mesh_normals(ob, n_all))
     lmax = max(float(length.max()) if len(length) else 0.0, 1e-6)
     cs = (flow * T[:n]).sum(axis=1)
     sn = (flow * B[:n]).sum(axis=1)
@@ -1230,6 +1283,7 @@ EDGE_TOL = 0.04                # sRGB luma: the biggest step in the fur's tone a
 DILATE_PASSES = 16             # how far a map is grown past its islands, so a mip cannot sample past it
 DARK_TOL = 0.05                # sRGB luma a patch of coat may sit below the coat's own mean
 DARK_SHARE = 0.01              # ... over this share of the furred area, it is a patch and not a shading
+FLOW_TOL_DEG = 2.0             # how far a decoded flow may sit from the one that was written
 EDGE_RINGS = 5                 # how far from the edge of the fur its colour and length are feathered
 
 
@@ -1366,6 +1420,32 @@ def _luma_srgb(lin):
     return float(_srgb(np.array([float(lin[0]), float(lin[1]), float(lin[2])])) @ [0.2126, 0.7152, 0.0722])
 
 
+def card_fields(ob):
+    """[{name, field, length_m, colour, flow, density}] for every region the block marked `cards = true`.
+
+    `field` is one 0..1 weight per vertex of this body - exactly what `hair.cards` takes - and `flow` the
+    unit direction per vertex the shells lie along, which is the direction the cards should set off in.
+    Empty on a body with no fur or no cards region. The fields were written by `apply` before the bake,
+    because that is the only time `areas` can measure hm08's landmarks; growing them is a later job, after
+    the body is baked and its rig is final.
+    """
+    spec = read(ob) or {}
+    out = []
+    for r in spec.get("regions", []):
+        if not r.get("cards"):
+            continue
+        field = _attr(ob, CARD_FIELD + r["name"])
+        if field is None:
+            continue
+        skin = _attr(ob, SKIN)
+        if skin is not None:
+            field = field * (skin > 0.5)      # never on hair, brows or lashes joined in after the map
+        out.append({"name": r["name"], "field": np.clip(field, 0, 1), "length_m": float(r["length_m"]),
+                    "colour": tuple(r.get("colour") or (0.3, 0.22, 0.14)), "density": float(r["density"]),
+                    "flow": _attr(ob, FLOW, 3)})
+    return out
+
+
 def covered(ob):
     """The body vertex indices under fur dense enough to hide the skin (`COVER_DENSITY`), the way
     wardrobe lists the skin a garment covers. Empty when the block turns cover off."""
@@ -1467,12 +1547,55 @@ def bake(ob, out_dir, base=None, size=MAP_PX, mask_px=MASK_PX, checks=True):
         rep["silhouette"] = silhouette_check(ob)
         rep["edge"] = edge_tone(ob)
         rep["dark"] = dark_patches(ob, col_img)
+        rep["flow"] = flow_roundtrip(ob)
         bad = (list(rep["mip"].get("problems") or []) + list(rep["silhouette"].get("problems") or [])
                + ([rep["edge"]["fail"]] if rep["edge"].get("fail") else [])
-               + ([rep["dark"]["fail"]] if rep["dark"].get("fail") else []))
+               + ([rep["dark"]["fail"]] if rep["dark"].get("fail") else [])
+               + ([rep["flow"]["fail"]] if rep["flow"].get("fail") else []))
         if bad:
             rep["fail"] = "; ".join(([rep["fail"]] if rep.get("fail") else []) + bad)
     ob[PROP] = json.loads(json.dumps(spec))
+    return rep
+
+
+def flow_roundtrip(ob):
+    """Decode the flow back out of the colour attribute the way the SHADER will, and compare it with the
+    direction humanform meant. {worst_deg, p99_deg, vertices, ok, fail}.
+
+    The flow travels as an angle, which means it travels in a FRAME, and the writer and the shader have to
+    agree on that frame down to its sign. They did not: humanform wrote against the mesh's UV tangent and
+    the shader read TANGENT/BINORMAL, which flip across a UV seam - hm08 has one down the midline of the
+    back of the head and neck - so the shells either side sheared apart and opened a bald stripe there. The
+    map itself measured perfectly uniform across it, which is why nothing caught it; this decodes instead.
+    A frame that disagrees shows up here as a large angle at the vertices along the seam."""
+    den, flow = _attr(ob, DEN), _attr(ob, FLOW, 3)
+    if den is None or flow is None or VCOL not in ob.data.color_attributes:
+        return {"ok": True, "skipped": "no fur map"}
+    n_all = len(ob.data.vertices)
+    v = np.zeros(n_all * 4, np.float32)
+    ob.data.color_attributes[VCOL].data.foreach_get("color", v)
+    v = v.reshape(n_all, 4)
+    T, B = flow_frame(_mesh_normals(ob, n_all))
+    cs, sn = v[:, 2] * 2.0 - 1.0, v[:, 3] * 2.0 - 1.0
+    L = np.hypot(cs, sn)
+    got = (T * (cs / np.maximum(L, 1e-9))[:, None] + B * (sn / np.maximum(L, 1e-9))[:, None])
+    # the stored flow laid back into THIS frame's plane: the map was written before the bake and the
+    # normals have moved a little since, and that tilt is not what this check is about - the frame's
+    # agreement is, so both sides are compared in the plane the shader will shear in
+    want = T * (flow * T).sum(axis=1)[:, None] + B * (flow * B).sum(axis=1)[:, None]
+    want = want / np.maximum(np.linalg.norm(want, axis=1), 1e-9)[:, None]
+    on = (den > MIN_DENSITY) & (np.linalg.norm(flow, axis=1) > 1e-6) & (L > 1e-3)
+    if not on.any():
+        return {"ok": True, "skipped": "no furred vertex carries a flow"}
+    ang = np.degrees(np.arccos(np.clip((got[on] * want[on]).sum(axis=1), -1.0, 1.0)))
+    rep = {"vertices": int(on.sum()), "worst_deg": round(float(ang.max()), 2),
+           "p99_deg": round(float(np.percentile(ang, 99)), 2), "tol_deg": FLOW_TOL_DEG}
+    rep["ok"] = rep["p99_deg"] <= FLOW_TOL_DEG
+    if not rep["ok"]:
+        rep["fail"] = (f"the flow decodes {rep['p99_deg']:.1f} deg from where it was written over its worst "
+                       f"hundredth ({rep['worst_deg']:.1f} at worst, limit {FLOW_TOL_DEG}) - the shader's "
+                       "frame and humanform's disagree, and where they disagree the shells shear apart and "
+                       "open a bald stripe (see fur.flow_frame)")
     return rep
 
 

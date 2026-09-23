@@ -616,6 +616,13 @@ except_areas = ["head", "hands", "feet"]   # arms upper_arms forearms hands legs
                             # anywhere; and a `body`-wide pelt must except any region that wants its own
                             # length, or the blend splits the difference between them.
 length_m = 0.012            # 0.8 mm .. 80 mm; past that hair hangs, and only strand cards hang
+#cards = true               # ... which is what this says: grow THIS region as strand cards
+                            # (humanform.cards, through hair.cards) off its own coverage mask instead of
+                            # as shells, and take `length_m` in 0.02..0.45 m. A mane, a ruff past 8 cm and
+                            # a tail brush are the growth a beard is. The region still leaves
+                            # fur.CARD_MAT_M of root mat in the shell map, which is what hides the skin
+                            # under the strands, as a scalp cap does under hair. character-pipeline grows
+                            # them at the end of the bake stage and joins them into the body.
 density = 1.0               # at COVER_DENSITY (0.75) and above, the skin under it is not drawn
 flow = "down"               # down | back | out | along (down the limb)
 colour = [0.34, 0.24, 0.15]
@@ -648,6 +655,11 @@ body mesh as node extras.
   on the colour map as Godot samples it, mip by mip, at 0.6 m and 4 m. Measured against the surface it sits
   on and not against a global mean, so a pattern's spots pass and a black bled in from the map's unwritten
   space does not - that one drew black gloves and socks at the wrists and ankles.
+- `flow_roundtrip` - the flow decoded back out of the vertex colour the way the SHADER decodes it,
+  against the direction humanform meant. The angle travels in a frame, and writer and shader have to
+  agree on it down to its sign: they did not (the UV tangent flips across a seam, hm08 has one down the
+  midline of the back of the head, and the shells either side sheared apart and opened a bald stripe).
+  The frame is `fur.flow_frame` now - built off the normal, which cannot flip - and this measures it.
 - `atlas_overlap` - recorded, and why the map is a vertex colour.
 - the anatomy inventory (`species.inventory`): fur is a part in `species_design.ANATOMY`, so a body whose
   species says it has fur and carries no map fails.
