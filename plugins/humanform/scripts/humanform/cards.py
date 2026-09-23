@@ -46,6 +46,7 @@ from __future__ import annotations
 import math
 
 import bmesh
+import bpy
 import numpy as np
 from mathutils import Vector
 
@@ -83,6 +84,17 @@ PARAMS = {
     "cover": 0.5,           # the sheet's share of hairs
     "strand_m": 0.02,       # a hair's length in the sheet
     "tip_at": TIP_AT, "tip_fade": TIP_FADE, "bow": BOW, "cols": COLS, "seg_m": SEG_M,
+    # a hanging mass is not a sheet: it has depth, it narrows as it falls, and it is made of locks
+    "layers": 1,            # card layers out from the skin - 1 is a sheet, 3 reads as a volume
+    "layer_gap_m": 0.007,   # how far apart they stand by the tip
+    "layer_taper": 0.4,     # the outermost layer's length, as this much less than the innermost's
+    "locks": 3,             # how many locks the hanging cards gather into, and spring chains they get
+    "lock_spread": 0.0,     # 0..1: how unequal those locks are in length, so they do not end on a line
+    "gather": 0.0,          # 0..1: how far a lock's hanging cards converge on its own spine as they fall
+    "narrow": 0.0,          # 0..1: how far the hanging mass draws in toward the midline by its tip
+    "shade": 0.0,           # 0..1: tone between clumps (the vertex colour Godot multiplies into albedo)
+    "plumb": 0.0,           # 0..1: how far the hanging part keeps the forward position it had at the cut
+                            # instead of following the body in behind it
 }
 
 
@@ -128,8 +140,7 @@ def material(name, colour, uv_name, cover=0.5, strand_m=0.02, px=SHEET_PX, tile_
 
 def grow(body, field, length_m, colour=None, *, name=None, uv_name=None, rig=None, root_bone=None,
          scale=1.0, flow=None, length_scale=None, max_length_m=None, fade=None, hang_below_z=None,
-         hang_m=None, locks=LOCKS, seed=SEED, material_=None, tile=None, regions=None, what="cards",
-         **over):
+         hang_m=None, seed=SEED, material_=None, tile=None, regions=None, what="cards", **over):
     """Grow strand cards out of `field` (one 0..1 weight per body vertex) on `body`.
 
     length_m        a card's length where the field is 1 and `length_scale` is 1
@@ -191,8 +202,15 @@ def grow(body, field, length_m, colour=None, *, name=None, uv_name=None, rig=Non
     hang_z = -1e9 if hang_below_z is None else float(hang_below_z)
     clear_near, clear_hang = p["clear_m"], p["hang_clear_m"]
 
-    def clear_of(z):
-        return clear_near + (clear_hang - clear_near) * _smooth1(hang_z, hang_z - 0.04 * k, z)
+    def clear_of(z, t=0.0, layer=0.0):
+        """How far off the body a card spine is held at height `z`, `t` of the way along it: `clear_m` on the
+        face, opening to `hang_clear_m` past the hang line - and further out for each card layer, which is
+        what gives a hanging mass depth instead of laying every card on one sheet."""
+        past = _smooth1(hang_z, hang_z - 0.04 * k, z)
+        # the layers open only where the part hangs: a face card pushed a centimetre off the lip is not
+        # depth, it is a card standing in front of the mouth
+        return (clear_near + (clear_hang - clear_near) * past
+                + layer * p["layer_gap_m"] * _smooth1(0.0, 0.6, t) * past)
 
     rng = np.random.RandomState(seed)
     roots, normals, rweights, lengths, starts = _roots(polys, local, base_co, vn, dirs, field[used],
@@ -205,17 +223,54 @@ def grow(body, field, length_m, colour=None, *, name=None, uv_name=None, rig=Non
     ncl = max(1, int(round(len(roots) / (CLUMP_SIZE * (1.0 + p["clump"])))))
     centres = npos[rng.choice(len(roots), ncl, replace=False)] if ncl < len(roots) else npos
     owner = np.argmin(((npos[:, None, :] - centres[None, :, :]) ** 2).sum(axis=2), axis=1)
+    # Depth: every card takes a layer, the inner ones most populous and the outer ones shorter. A hanging
+    # mass whose cards all sit at one offset is a sheet however many of them there are - the long beard read
+    # as a flat bib laid on the shirt.
+    n_layers = max(1, int(p["layers"]))
+    layer = np.minimum(n_layers - 1, (n_layers * rng.uniform(size=len(roots)) ** 1.6).astype(int))
+    # Locks: contiguous bands across the body, each with a length of its own, so the mass ends in several
+    # tips at several heights instead of on one line.
+    n_locks = max(1, int(p["locks"]))
+    order = np.argsort(npos[:, 0])
+    lock = np.zeros(len(roots), int)
+    for j in range(n_locks):
+        lock[order[j * len(order) // n_locks:(j + 1) * len(order) // n_locks]] = j
+    lock_len = 1.0 - p["lock_spread"] * rng.uniform(size=n_locks)
+    # tone per CARD with a bias toward its clump's: all of a clump at one tone drew the mass in blocks the
+    # size of a clump, which is a different flatness from the one it was meant to cure
+    shade = (1.0 + p["shade"] * (0.6 * (rng.uniform(size=ncl) * 2.0 - 1.0)[owner]
+                                 + 0.4 * (rng.uniform(size=len(roots)) * 2.0 - 1.0)))
+    # the lock's length and the layer's shortening are the hanging mass's shape, so they apply to the cards
+    # that reach past the cut. A face card made shorter by them stopped overhanging the root mat and left its
+    # polygon edge as a sawtooth across the cheek.
+    def _shape(i, L):
+        if hang_below_z is None or roots[i].z - L >= hang_z:
+            return L
+        return L * lock_len[lock[i]] * (1.0 - p["layer_taper"] * layer[i] / max(n_layers - 1, 1))
+    lengths = [(_shape(i, L), f) for i, (L, f) in enumerate(lengths)]
     paths, outs = [], []
     for i, (root, nor) in enumerate(zip(roots, normals)):
-        pts, outv = _grow_card(bvh, root + nor * clear_near, nor, starts[i], lengths[i][0], p["droop"], clear_of)
+        cl = (lambda z, tt=0.0, lay=float(layer[i]): clear_of(z, tt, lay))
+        pts, outv = _grow_card(bvh, root + nor * clear_near, nor, starts[i], lengths[i][0], p["droop"], cl)
         paths.append(pts)
         outs.append(outv)
     paths = _clump(paths, owner, ncl, p["clump"])
     hanging = [hang_below_z is not None and q[-1].z < hang_z for q in paths]
     braided = _braid(paths, npos, hanging, p, hang_m) if p["braids"] else set()
-    for pts in paths:
+    if not braided and (p["gather"] > 0 or p["narrow"] > 0):
+        _gather(paths, hanging, lock, n_locks, p, hang_z, hang_m)
+    if p["plumb"] > 0:
+        # the torso's own front profile over the fall, not the skin nearest each point: a belly stands
+        # further forward than the chest, and a beard held only off its nearest skin falls in behind it
+        low = min((q[-1].z for i, q in enumerate(paths) if hanging[i]), default=hang_z)
+        band = base_co[(base_co[:, 2] < hang_z) & (base_co[:, 2] > low - 0.02) & (np.abs(base_co[:, 0]) < 0.14)]
+        co_all = np.array([tuple(v.co) for v in me.vertices]) @ mw[:3, :3].T + mw[:3, 3]
+        torso = co_all[(co_all[:, 2] < hang_z) & (co_all[:, 2] > low - 0.02) & (np.abs(co_all[:, 0]) < 0.14)]
+        front = float(torso[:, 1].min()) if len(torso) else (float(band[:, 1].min()) if len(band) else 0.0)
+        _plumb(paths, hanging, hang_z, p["plumb"], front - clear_hang)
+    for i, pts in enumerate(paths):
         for j in range(1, len(pts)):
-            pts[j] = _push_out(bvh, pts[j], clear_of(pts[j].z))
+            pts[j] = _push_out(bvh, pts[j], clear_of(pts[j].z, j / max(len(pts) - 1, 1), float(layer[i])))
 
     neck = chest = None
     head = root_bone or _strongest_bone(rweights)
@@ -233,8 +288,9 @@ def grow(body, field, length_m, colour=None, *, name=None, uv_name=None, rig=Non
         u0, v0 = rng.uniform() * tile, rng.uniform() * tile
         w_root = rweights[i]
         rigid = lambda q, w_root=w_root: w_root                             # noqa: E731
+        tone = float(shade[i])
         if not hanging[i]:
-            _emit_card(bm, uv, col, vweights, pts, outs[i], p, lengths[i][1], rigid, tile, u0, v0)
+            _emit_card(bm, uv, col, vweights, pts, outs[i], p, lengths[i][1], rigid, tile, u0, v0, tone=tone)
             made["rooted"] += 1
             continue
 
@@ -246,10 +302,10 @@ def grow(body, field, length_m, colour=None, *, name=None, uv_name=None, rig=Non
         upper, lower, cut_at = _cut_at_z(pts, outs[i], hang_z)
         if upper is not None:
             _emit_card(bm, uv, col, vweights, upper[0], upper[1], p, lengths[i][1], rigid, tile, u0, v0,
-                       span=(0.0, cut_at))
+                       span=(0.0, cut_at), tone=tone)
             made["cut"] += 1
         _emit_card(sbm, suv, scol, svweights, lower[0], lower[1], p, lengths[i][1], wfun, tile, u0,
-                   v0 + cut_at * _polyline_m(pts), share=sshare, sfun=sfun, span=(cut_at, 1.0))
+                   v0 + cut_at * _polyline_m(pts), share=sshare, sfun=sfun, span=(cut_at, 1.0), tone=tone)
         made["hanging"] += 1
 
     objects = {}
@@ -261,7 +317,7 @@ def grow(body, field, length_m, colour=None, *, name=None, uv_name=None, rig=Non
         sob = _make(f"{base}_strand", sbm, ob, rig, svweights, material_, _object,
                     extra={"ft_strand": np.maximum(np.array(sshare), 1e-3)})
         inv = ob.matrix_world.inverted()
-        lines = _locks(paths, hanging, npos, p["braids"] or locks, hang_z)
+        lines = _locks(paths, hanging, npos, p["braids"] or p["locks"], hang_z)
         sob["ft_type"] = "strand"
         sob["ft_root_bone"] = head
         sob["ft_strand_type"] = what
@@ -455,6 +511,51 @@ def _braid(paths, npos, hanging, p, hang_m):
     return done
 
 
+def _plumb(paths, hanging, cut_z, plumb, front_y):
+    """Past the cut, a card hangs from where it left the jaw rather than following the body in behind it.
+
+    Held only off the nearest skin, a long beard traced the chest and the belly - and a jersey shirt hung from
+    the apex of a stocky chest stands up to 9 cm off that skin, so a third of the dwarf's beard was under his
+    t-shirt however far the clearance was raised. Hair does not do that: it hangs. Each hanging point is kept
+    at least as far forward (-y) as the greater of where its card passed the cut and `front_y`, the torso's own
+    front profile over the fall less the hang clearance."""
+    for i, pts in enumerate(paths):
+        if not hanging[i]:
+            continue
+        y_cut = next((q.y for q in pts if q.z <= cut_z), None)
+        if y_cut is None:
+            continue
+        want = min(y_cut, front_y)
+        for j, q in enumerate(pts):
+            if q.z <= cut_z and q.y > want:
+                pts[j] = Vector((q.x, q.y + (want - q.y) * plumb, q.z))
+
+
+def _gather(paths, hanging, lock, n_locks, p, cut_z, hang_m):
+    """Shape the hanging mass: each lock's cards converge on that lock's own spine as they fall (`gather`),
+    and the whole mass draws in toward the midline by its tip (`narrow`).
+
+    Without this the hanging cards are a curtain as wide at the tip as the jaw is at the top - a flat brown
+    bib on the chest, which is what the long beard read as. A beard is widest where it leaves the jaw and
+    gathers into two or three locks below it."""
+    idx = [i for i, h in enumerate(hanging) if h]
+    if not idx:
+        return
+    for j in range(n_locks):
+        members = [i for i in idx if lock[i] == j]
+        if len(members) < 3:
+            continue
+        spine = _mean_path(paths, members)
+        for i in members:
+            n = len(paths[i])
+            new = []
+            for r, q in enumerate(paths[i]):
+                s = _smooth1(cut_z, cut_z - max(hang_m, 1e-6), q.z)       # 0 at the cut, 1 at the tip
+                g = q.lerp(_sample(spine, r / max(n - 1, 1)), p["gather"] * s)
+                new.append(Vector((g.x * (1.0 - p["narrow"] * s), g.y, g.z)))
+            paths[i] = new
+
+
 def _locks(paths, hanging, npos, n_locks, z_start):
     """The hanging part's centrelines, one a lock: the cards split left to right into `n_locks` groups, each
     group's mean path **from `z_start` down** - the cut, not the roots. follow-through hangs one spring chain
@@ -511,7 +612,7 @@ def _cut_at_z(pts, outv, z):
 
 
 def _emit_card(bm, uv, col, vweights, pts, outv, p, fade_root, wfun, tile, u0, v0,
-               share=None, sfun=None, span=(0.0, 1.0)):
+               share=None, sfun=None, span=(0.0, 1.0), tone=1.0):
     """Write one card into `bm`: a bowed ribbon along `pts`, `width_m` across at the root narrowing to
     `taper` of it, UVs in metres over `tile` both ways (square texels) and the fade in `col`. `span` is this
     piece's share of the whole card, so a card cut at the hang line tapers and fades as one card across the
@@ -537,7 +638,7 @@ def _emit_card(bm, uv, col, vweights, pts, outv, p, fade_root, wfun, tile, u0, v
             f = -1.0 + 2.0 * j / (cols - 1)
             pos = q + sidev * (hw * f) + o * (hw * p["bow"] * (1.0 - f * f))
             v = bm.verts.new(pos)
-            v[col] = (1.0, 1.0, 1.0, float(a))
+            v[col] = (tone, tone, tone, float(a))
             vweights.append(wfun(pos))
             if share is not None:
                 share.append(sfun(pos))
@@ -625,6 +726,85 @@ def _body_bvh(ob, co):
     n = len(co)
     polys = [tuple(q.vertices) for q in ob.data.polygons if max(q.vertices) < n]
     return BVHTree.FromPolygons([Vector(c) for c in co], polys)
+
+
+CLEAR_MARGIN_M = 0.004      # a strand must keep this much air between itself and the cloth over the skin
+CLEAR_STAND_MAX_M = 0.05    # cloth further off the skin than this is not cloth over that skin: the ray has
+                            # left through an opening (a neck hole) and hit the garment's far side
+
+
+def clearance(part, against, body=None, samples=1500):
+    """Whether `part` falls in front of what the body is wearing, or is caught under it.
+
+    For each of `part`'s points: the nearest point on the skin, the outward direction from it, and the first
+    garment surface along that ray. A point nearer the skin than that surface is **under the cloth**; one
+    further out is in front of it; one where the ray meets no garment has no cloth to be under.
+
+    A plain signed distance cannot answer this - a garment is an open shell, so the side of a distant face's
+    normal means nothing, and a beard 30 cm clear of the trousers read as "330 mm inside" them. This is how a
+    hanging part is checked against a **dressed** body: it grows in the hair stage, long before the garments
+    exist, so its `hang_clear_m` is measured off bare skin, and a jersey shirt hung from the apex of a stocky
+    chest stands a long way off that skin. The dwarf's long beard hung 38 mm off his chest and was still
+    inside his t-shirt.
+
+    {under_share, under_depth_m, min_gap_m, nearest, covered, sampled}."""
+    from mathutils.bvhtree import BVHTree
+    from . import body as _body
+
+    def tree(o, skin_only=False):
+        o = _body.obj(o)
+        me = o.data
+        co = [o.matrix_world @ v.co for v in me.vertices]
+        hair = np.zeros(len(me.vertices))
+        at = me.attributes.get(HAIR_ATTR) if skin_only else None
+        if at is not None:
+            buf = np.empty(len(at.data), np.float32)
+            at.data.foreach_get("value", buf)
+            hair[:len(buf)] = buf
+        # the body carries the cards joined into it, and a card is not skin: measured against the body as it
+        # stands, a beard vertex's "nearest skin" is its own neighbour and the ray out of it leaves through
+        # the far side of the shirt (494 mm)
+        polys = [tuple(q.vertices) for q in me.polygons if not any(hair[i] > 0.5 for i in q.vertices)]
+        return (o.name, BVHTree.FromPolygons(co, polys)) if co and polys else None
+
+    part = _body.obj(part)
+    against = [against] if not isinstance(against, (list, tuple)) else list(against)
+    cloth = [x for x in (tree(o) for o in against) if x]
+    if not cloth:
+        return None
+    skin = tree(body, skin_only=True) if body is not None else None
+    verts = [part.matrix_world @ v.co for v in part.data.vertices]
+    step = max(1, len(verts) // samples)
+    under, covered, taken, deepest, gap, where = 0, 0, 0, 0.0, 1.0, None
+    for v in verts[::step]:
+        taken += 1
+        for nm, tr in cloth:
+            hit = tr.find_nearest(v)
+            if hit[0] is not None and (v - hit[0]).length < gap:
+                gap, where = (v - hit[0]).length, nm
+        if skin is None:
+            continue
+        near = skin[1].find_nearest(v)
+        if near[0] is None:
+            continue
+        out = v - near[0]
+        if out.length < 1e-6:
+            continue
+        stand = None
+        for _nm, tr in cloth:
+            hit = tr.ray_cast(near[0] + out.normalized() * 1e-4, out.normalized(), 0.5)
+            if hit[0] is not None:
+                d = (hit[0] - near[0]).length
+                stand = d if stand is None else min(stand, d)
+        if stand is None or stand > CLEAR_STAND_MAX_M:
+            continue            # no cloth over this patch of skin, or the ray left through the neck hole
+        covered += 1
+        if out.length < stand + CLEAR_MARGIN_M:
+            under += 1
+            deepest = max(deepest, stand + CLEAR_MARGIN_M - out.length)
+    return {"under_share": round(under / max(covered, 1), 4), "under": under, "covered": covered,
+            "under_depth_m": round(deepest, 4), "min_gap_m": round(gap, 5), "nearest": where,
+            "sampled": taken, "against": [nm for nm, _ in cloth]}
 
 
 def contract(strand):
