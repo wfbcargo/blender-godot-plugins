@@ -115,23 +115,28 @@ BEARD_STYLES = {
     "short": {"regions": ("moustache", "corners", "chin", "jaw"), "lift_m": 0.0025, "strand_m": 0.012,
               "cover": 0.85, "under": True, "feather_m": 0.005, "length_m": 0.014, "volume": 0.25,
               "cards": {"density": 40000, "width_m": 0.0055, "clump": 0.45, "cover": 0.5, "strand_m": 0.012,
-                        "jitter": 0.3, "sweep": 0.15, "droop": 0.18, "taper": 0.45}},
+                        "jitter": 0.3, "sweep": 0.15, "droop": 0.18, "taper": 0.45, "shade": 0.1}},
     "goatee": {"regions": ("moustache", "corners", "chin"), "lift_m": 0.0025, "strand_m": 0.012, "cover": 0.85,
                "under": True, "feather_m": 0.005, "length_m": 0.014, "volume": 0.25,
                "cards": {"density": 40000, "width_m": 0.0055, "clump": 0.45, "cover": 0.5, "strand_m": 0.012,
-                         "jitter": 0.3, "sweep": 0.15, "droop": 0.18, "taper": 0.45}},
+                         "jitter": 0.3, "sweep": 0.15, "droop": 0.18, "taper": 0.45, "shade": 0.1}},
     "moustache": {"regions": ("moustache",), "lift_m": 0.002, "strand_m": 0.010, "cover": 0.85, "under": True,
                   "feather_m": 0.003, "length_m": 0.012, "volume": 0.2,
                   "cards": {"density": 70000, "width_m": 0.005, "clump": 0.5, "cover": 0.5, "strand_m": 0.010,
-                            "jitter": 0.3, "sweep": 0.45, "droop": 0.12, "taper": 0.4}},
+                            "jitter": 0.3, "sweep": 0.45, "droop": 0.12, "taper": 0.4, "shade": 0.1}},
     "full": {"regions": ("moustache", "corners", "chin", "jaw"), "lift_m": 0.003, "strand_m": 0.02, "cover": 0.85,
              "under": True, "feather_m": 0.007, "length_m": 0.055, "volume": 0.6,
              "cards": {"density": 26000, "width_m": 0.0085, "clump": 0.55, "cover": 0.5, "strand_m": 0.02,
-                       "jitter": 0.35, "sweep": 0.2, "droop": 0.3, "taper": 0.35}},
+                       "jitter": 0.35, "sweep": 0.2, "droop": 0.3, "taper": 0.35,
+                       "layers": 2, "layer_gap_m": 0.006, "layer_taper": 0.35, "shade": 0.14}},
+    # the long beard is a mass, not a curtain: three layers deep with the outer ones shorter, three locks of
+    # unequal length gathering as they fall, drawn in toward the midline by its tip, and a tone per clump
     "long": {"regions": ("moustache", "corners", "chin", "jaw"), "lift_m": 0.003, "strand_m": 0.03, "cover": 0.85,
              "under": True, "feather_m": 0.007, "length_m": 0.24, "volume": 0.7,
              "cards": {"density": 24000, "width_m": 0.011, "clump": 0.7, "cover": 0.5, "strand_m": 0.03,
-                       "jitter": 0.4, "sweep": 0.2, "droop": 0.5, "taper": 0.3}},
+                       "jitter": 0.45, "sweep": 0.2, "droop": 0.5, "taper": 0.28,
+                       "layers": 3, "layer_gap_m": 0.011, "layer_taper": 0.45, "shade": 0.17, "plumb": 0.92,
+                       "locks": 3, "lock_spread": 0.3, "gather": 0.5, "narrow": 0.42}},
 }
 BEARD_PX = 512              # texels per TILE_M, both ways (0.08 mm: a beard hair is 0.1-0.15 mm)
 BEARD_UNDER_ALPHA = 0.55    # a full beard's alpha between its hairs: over the 0.5 cutoff at every mip
@@ -144,7 +149,12 @@ BEARD_STAND_MAX_M = 0.025   # the layers stand off at most volume x this (a long
 BEARD_OUTER_THIN = 0.4      # the outermost layer's fade is this much lower: fewer, longer-looking hairs
 BEARD_HANG_MIN_M = 0.06     # a beard longer than this at the chin hangs below it
 BEARD_HAIR_ATTR = "hf_hair"     # point attribute set on the beard: hair, not skin (follow-through flesh.HAIR_ATTR)
-BEARD_HANG_CLEAR_M = 0.02   # a hanging beard's back stays this far in front of the body (and the shirt on it)
+BEARD_HANG_CLEAR_M = 0.055  # a hanging beard's back stays this far in front of the BARE body, and past the chin
+                            # it hangs plumb from where it left the jaw rather than following the chest in
+                            # (`cards` `plumb`). Clearance alone could not do this: a jersey shirt hung from the
+                            # apex of a stocky chest stands up to 9 cm off the skin, so at 20, 38 and 75 mm the
+                            # dwarf's beard was still under his t-shirt. `stages.hair_clearance` measures what
+                            # is actually left once the clothes are on.
 BEARD_DARKEN = 0.95
 BEARD_AXIS_M = 0.07         # the beard's UVs run round and down about a centre this far behind the mouth
 # the strand cards `humanform.cards` grows out of the beard field (everything else about a card - its shape,
@@ -156,8 +166,6 @@ BEARD_HANG_SPLIT_M = 0.055  # a card whose tip falls this far below the chin han
                             # strand mesh starts clear of the hollow under the jaw, which the head's own
                             # surface calls solid (at 30 mm the chain's first bone still swung its top rows
                             # into it and `verify_strands` read 6 mm; at 55 mm it reads under 2)
-BEARD_LOCKS = 3             # chains the hanging part is sprung on: one down each side and one in the middle
-                            # (follow-through turns a single chain through a wide sheet into a twisted wedge)
 # Godot: no rim, backlight or anisotropic sheen on hairs this fine - at a grazing angle (a brow's tail round
 # the temple) they light a whole card's strands into a grey sliver
 CARD_GODOT = {"transparency": GODOT_BLEND, "rim_enabled": False, "backlight_enabled": False,
@@ -972,7 +980,7 @@ def beard_spec(style, length_m=None, volume=None, scale=1.0, braids=None):
     cards = spec.get("cards")
     if cards is not None:
         cards = dict(cards)
-        for key in ("width_m", "strand_m"):
+        for key in [x for x in cards if x.endswith("_m")]:
             cards[key] = cards[key] * k
         # more cards on a fuller beard, and fewer per square metre on a bigger head (a card is wider there too)
         cards["density"] = cards["density"] * (0.4 + 0.6 * spec["volume"] / max(BEARD_STYLES[style]["volume"], 1e-6)) \
@@ -1132,10 +1140,9 @@ def _beard(ob, co, base, rig, colour, uv_name, style, head_bone, scale=1.0, leng
                            rig=rig, root_bone=head_bone, scale=1.0, length_scale=ramp[:n],
                            max_length_m=cap[:n], fade=fade_v[:n], what="beard",
                            hang_below_z=(chin_z - BEARD_HANG_SPLIT_M * k) if spec["hang_m"] > 0 else None,
-                           hang_m=spec["hang_m"], regions=inside, locks=BEARD_LOCKS,
+                           hang_m=spec["hang_m"], regions=inside,
                            clear_m=BEARD_CARD_CLEAR_M * k, hang_clear_m=BEARD_HANG_CLEAR_M * k, tile=tile,
-                           **{x: cp[x] for x in ("density", "width_m", "taper", "clump", "braids", "jitter",
-                                                 "droop", "sweep", "cover", "strand_m")})
+                           **{x: cp[x] for x in cp if x in _cards.PARAMS})
         for part, o in crep.pop("made").items():
             o["humanform_hair"] = {"part": f"beard_{part}", "style": style}
             objects[f"beard_{part}"] = o

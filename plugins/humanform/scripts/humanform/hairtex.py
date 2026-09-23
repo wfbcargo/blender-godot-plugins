@@ -241,6 +241,8 @@ def arrays(ob, material=None):
 # beard made only of thin cards can dissolve into nothing at a distance.
 SIL_DISTANCES_M = (0.6, 4.0)
 SIL_ROUGH_MIN_PX = {0.6: 1.5, 4.0: 0.35}    # the outline must wander at least this far from its own smoothing
+SIL_FLAT_PX = 0.6           # a boundary column this near its own smoothing is a straight edge there
+SIL_FLAT_MAX_MM = 22.0      # ... and a straight run longer than this reads as a cut edge, not as hair ends
 SIL_WINDOW_M = 0.012        # the outline is smoothed over this much of the subject, not a fixed number of
                             # pixels: at 0.6 m that is 40 screen pixels and at 4 m it is 6, so the measure asks
                             # the same question at both - do the ends of the hairs still break the edge up?
@@ -302,21 +304,30 @@ def _wander(mask, window):
     low = np.where(mask, rows, mask.shape[0]).min(axis=0)[cols].astype(np.float64)
     pad = np.concatenate([np.full(window // 2, low[0]), low, np.full(window // 2, low[-1])])
     smooth = np.convolve(pad, np.ones(window) / window, mode="valid")
-    return float(np.abs(low - smooth).mean()), len(cols)
+    dev = np.abs(low - smooth)
+    # the longest unbroken run of columns whose bottom edge sits on its own smoothing: a beard cut off on a
+    # line has one, a beard that ends in hair tips does not, however ragged it is elsewhere
+    run = best = 0
+    for flat in dev <= SIL_FLAT_PX:
+        run = run + 1 if flat else 0
+        best = max(best, run)
+    return float(dev.mean()), len(cols), int(best)
 
 
 def silhouette_check(ob=None, *, obs=None, P=None, A=None, distances_m=SIL_DISTANCES_M, vfov_deg=VFOV_DEG,
                      image_px=IMAGE_PX, rough_min_px=None, keep_min=SIL_KEEP_MIN,
-                     directions=SIL_DIRECTIONS, name=None):
+                     directions=SIL_DIRECTIONS, name=None, flat_max_mm=SIL_FLAT_MAX_MM):
     """Whether a hair part's outline reads as hair at each of `distances_m`. Pass a Blender object `ob`,
     several with `obs` (they are measured as one thing, which is what the eye sees: a beard's root mat, the
     cards over it and the locks hanging off it have no outline of their own), or the arrays P (T, 3, 3) and
     A (T, 3). World space, z up, the face toward -y.
 
-    {ok, problems, views: {"<dir> <d>m": {wander_px, wander_mm, columns, area_m2}}}. A view fails when its
-    outline wanders less than `rough_min_px` (SIL_ROUGH_MIN_PX): it is then a curve, not hair. The far
-    distance also fails when less than `keep_min` of the near distance's area is left - a beard of cards so
-    thin it dissolves across a room."""
+    {ok, problems, views: {"<dir> <d>m": {wander_px, wander_mm, flat_run_mm, columns, area_m2}}}. A view
+    fails when its outline wanders less than `rough_min_px` (SIL_ROUGH_MIN_PX): it is then a curve, not hair.
+    It fails too when the *bottom* edge runs straight for more than `flat_max_mm` at the near distance -
+    a mass that ends on a line is a bib, whatever the rest of its outline does, and that is what a long beard
+    read as on a chest. The far distance also fails when less than `keep_min` of the near distance's area is
+    left - a beard of cards so thin it dissolves across a room."""
     rough_min_px = dict(SIL_ROUGH_MIN_PX if rough_min_px is None else rough_min_px)
     if obs:
         name = name or "+".join(o.name for o in obs)
@@ -336,16 +347,21 @@ def silhouette_check(ob=None, *, obs=None, P=None, A=None, distances_m=SIL_DISTA
         for d in distances_m:
             f = d * 2.0 * math.tan(math.radians(vfov_deg) / 2.0) / image_px
             mask = _rasterise(P, A, centre - fwd * d, fwd, np.array([0.0, 0.0, 1.0]), f)
-            wander, cols = _wander(mask, round(SIL_WINDOW_M / f))
+            wander, cols, flat = _wander(mask, round(SIL_WINDOW_M / f))
             areas[d] = float(mask.sum()) * f * f
             rep["views"][f"{dname} {d:g}m"] = {"wander_px": round(wander, 2),
                                                "wander_mm": round(wander * f * 1000, 2),
+                                               "flat_run_mm": round(flat * f * 1000, 1),
                                                "columns": cols, "area_m2": round(areas[d], 6)}
             lo = rough_min_px.get(d)
             if lo is not None and cols >= SIL_WINDOW_M / f + 2 and wander < lo:
                 problems.append(f"{dname} at {d:g} m: the outline wanders {wander:.2f} px from its own smoothing "
                                 f"(at least {lo} wanted) - a smooth curve reads as a decal, not as hair; grow it "
                                 "as strand cards with ragged lengths, or fade their tips further")
+            if lo is not None and d == min(distances_m) and flat * f * 1000 > flat_max_mm:
+                problems.append(f"{dname} at {d:g} m: {flat * f * 1000:.0f} mm of its bottom edge runs straight "
+                                f"(at most {flat_max_mm:.0f} mm) - hair does not end on a line; break the mass "
+                                "into locks of unequal length, or scatter the tips")
         near, far = min(distances_m), max(distances_m)
         if areas.get(near, 0) > 0 and areas.get(far, 0) / areas[near] < keep_min:
             problems.append(f"{dname}: {areas[far] / areas[near]:.0%} of its area is left at {far:g} m "

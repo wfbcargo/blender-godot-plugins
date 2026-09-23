@@ -1002,7 +1002,39 @@ def run_garments(ch, ctx):
         out[name] = {k: r.get(k) for k in ("verts", "cut", "cover", "jiggle_groups", "export", "passed")}
         res.append(f"{ch.export.res_dir}/{ch.id}_{name.lower()}.glb")
     ctx["garment_res"] = res
-    return {"garments": out, "res": res}
+    return {"garments": out, "res": res, "hair_clearance": hair_clearance(ch, sorted(made.values()))}
+
+
+# A hanging part is grown off BARE skin in the hair stage, and a garment then takes 10-15 mm of its clearance
+# back. The dwarf's long beard came out lying on his t-shirt rather than falling in front of it, and no number
+# in the build said so - the hair stage's own clearance was measured against a body with no shirt on it.
+HAIR_UNDER_MAX = 0.05       # at most this share of a strand may be caught under the cloth over the skin
+
+
+def hair_clearance(ch, garments):
+    """Whether each loose strand mesh (a hanging beard, a mane, a tail brush) falls in FRONT of the garments
+    now on the body or is caught under them, on the dressed rest pose (`cards.clearance`). A hanging part is
+    grown off bare skin in the hair stage; the clothes come later and take its clearance back."""
+    if not garments:
+        return {}
+    from humanform import cards as hf_cards
+    out, bad = {}, []
+    for name in strand_meshes(ch):
+        r = hf_cards.clearance(name, garments, body=ch.mesh)
+        if r is None:
+            continue
+        out[name] = r
+        print(f"[{ch.id}] garments: {name} - {r['under_share']:.1%} of the part over cloth is under it "
+              f"(by up to {r['under_depth_m'] * 1000:.0f} mm), nearest cloth {r['min_gap_m'] * 1000:.0f} mm",
+              flush=True)
+        if r["under_share"] > HAIR_UNDER_MAX:
+            bad.append(f"{name}: {r['under_share']:.0%} of it is under {r['nearest']} rather than in front of "
+                       f"it, by up to {r['under_depth_m'] * 1000:.0f} mm (at most {HAIR_UNDER_MAX:.0%})")
+    if bad:
+        raise RuntimeError("garments: hair is caught under the clothes rather than falling in front of them: "
+                           + "; ".join(bad) + " - raise the part's `hang_clear_m`, which is measured off bare "
+                           "skin and has to allow for what the body wears over it")
+    return out
 
 
 def check_export(ch):
