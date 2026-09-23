@@ -716,6 +716,23 @@ def balance(human, rig=None):
     # forward is -Y, as everywhere in this package
     back, front = -float(band[:, 1].max()), -float(band[:, 1].min())
     com = -float(np.concatenate([_verts(o) for o in _skinned(rig)])[:, 1].mean())
+    sole = [round(back, 4), round(front, 4)]
+    # THE CHECK'S OWN NUMBERS. The sole's lowest band is this module's measure; what refuses a clip at export
+    # is rig-anything's - `keyposes.support` (the contact points its poser finds) against `motion.Body.com`
+    # (the skinned body). Predicting the export means using the export's measure, so where rig-anything can be
+    # imported it is, and the sole band stays in the report as the second opinion.
+    source = "the sole's lowest band"
+    try:
+        from rig_analysis import bodymap as _bm, motion as _mo, keyposes as _kp
+        b = _bm.build(rig.name)
+        if "error" not in b:
+            bod = _mo.Body(rig, b)
+            lo, hi = _kp.support(_kp.Poser(bod))
+            back, front = float(lo), float(hi)
+            com = float(bod.com(bod.fk()).dot(b["fwd"]))
+            source = "rig-anything's own support and centre of mass"
+    except ImportError:
+        pass
     span = max(front - back, 0.0)
     margin = min(com - back, front - com)
     limit = min(BALANCE_MARGIN * span, BALANCE_ABS)
@@ -725,6 +742,7 @@ def balance(human, rig=None):
     tb = rig.data.bones[rigd.legs[toe_b][3]]
     ball_f, dlen = -float(tb.head_local.y), max(float(tb.length), 1e-9)
     return {"com_fwd": round(com, 4), "patch_fwd": [round(back, 4), round(front, 4)],
+            "measured_by": source, "sole_band_fwd": sole,
             "patch_digits": [round((back - ball_f) / dlen, 3), round((front - ball_f) / dlen, 3)],
             "digit_m": round(dlen, 4),
             "margin_m": round(margin, 4),

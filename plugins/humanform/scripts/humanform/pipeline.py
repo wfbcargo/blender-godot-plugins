@@ -225,6 +225,8 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw)
             or sp.get("tail") not in (None, False)):
         touched = True
         from . import feet as feet_mod
+        from . import legs as _legs_lim
+        LEGS_STANCE_RANGE = _legs_lim.LIMITS["stance"]
         nails0 = feet_mod.nail_over_foot(human)
         t6 = time.time()
         if sp.get("legs") not in (None, "plantigrade"):
@@ -245,11 +247,21 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw)
             # and foot plans have moved the patch it really stands on (`feet.settle`)
             b, rows = feet_mod.settle(human, lspec, report=rep["feet"])
             if b and b["failed"]:
+                # Refused HERE, with the residual, rather than 140 seconds later when the export refuses a
+                # Crouch: this is the same support and the same centre of mass the clip check uses
+                # (`b["measured_by"]`), so what passes here passes there.
+                short = (b["patch_fwd"][0] - b["com_fwd"] if b["com_fwd"] < b["patch_fwd"][0]
+                         else b["com_fwd"] - b["patch_fwd"][1])
                 raise ValueError(
-                    f"foot: the body will not balance over its own contact patch - its centre stands "
-                    f"{b['com_fwd']:.3f} m forward while the pads run {b['patch_fwd'][0]:.3f}.."
-                    f"{b['patch_fwd'][1]:.3f}, a margin of {b['margin_m'] * 1000:.0f} mm against the "
-                    f"{b['limit_m'] * 1000:.0f} mm it needs, after {len(rows)} stance passes {rows}")
+                    f"foot: the body will not stand over its own feet. Its centre of mass is "
+                    f"{b['com_fwd']:.3f} m forward and the feet support {b['patch_fwd'][0]:.3f}.."
+                    f"{b['patch_fwd'][1]:.3f} ({b['measured_by']}), so it is {abs(short) * 1000:.0f} mm "
+                    f"{'behind' if short < 0 else 'ahead of'} them - a margin of {b['margin_m'] * 1000:.0f} mm "
+                    f"against the {b['limit_m'] * 1000:.0f} mm it needs, after {len(rows)} stance passes "
+                    f"{rows}. `legs.stance` moves the feet under the body ({LEGS_STANCE_RANGE[0]}.."
+                    f"{LEGS_STANCE_RANGE[1]} hip heights, and the solve already tried); after that it is "
+                    f"`hunch_deg` that carries the centre forward, `foot.pad`/`toe_pad` that lengthen the "
+                    f"patch, and `foot.claw.length` that moves its front edge")
             t["feet"] = time.time() - t6b
         if sp.get("tail") not in (None, False):
             t7 = time.time()

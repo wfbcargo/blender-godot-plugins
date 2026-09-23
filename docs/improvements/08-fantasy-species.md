@@ -765,3 +765,24 @@ Proved with the stance left unset: **gnoll solves to 0.1253** (its hand-tuned 0.
 35 pass / 0 fail, anatomy 13 pass / 0 fail, all eight clips pass, export verified. **Satyr** (hoof): three
 passes to 0.1369, anatomy 13/0, eight clips, export verified. **Paw body**: stance 0.0974, margin 22 mm (44% of
 the patch), eight clips, export verified.
+
+### Round 2e: the balance check uses the export's own measure (species-2-legs, 2026-09-22)
+
+The gnoll's spec pinned `stance = 0.12` with a note that the solve "balances the REST SKELETON while the
+export's clip check measures the SKINNED body". Measured on the gnoll, the two are the same number to four
+decimal places - `legs.apply`'s centre is the mean of every skinned vertex, which is exactly what
+`motion.Body.com` returns at rest (0.2121 both). What differed was the **support**: this package measured the
+sole's own lowest band while the export measures `keyposes.support`, the contact points rig-anything's poser
+finds, and on the gnoll those are 0.164..0.224 against -0.018..0.245 - a quarter of a metre apart.
+
+So `feet.balance` now takes rig-anything's own support and centre of mass where it can be imported, and the
+sole band stays in the report as a second opinion. A body that will not stand is refused by the BUILD with the
+residual in millimetres, which way its centre falls and which knob moves it - `legs.stance` first (the solve
+has already tried its whole range), then `hunch_deg`, then `foot.pad`/`toe_pad`, then `foot.claw.length` -
+instead of failing 140 seconds later on a Crouch at export.
+
+Proved with `stance` left unset, on the gnoll's own spec (its muzzle on, its pelt left to the fur agent):
+stance solves to **0.1348** in three passes, the body stands **19.4 mm** inside its feet against the 10 mm it
+needs, humancheck 35 pass / 0 fail, anatomy 13 / 0, and all eight clips - Idle, Walk, Run, Crouch, Jump, TurnL,
+TurnR and MouthOpen - pass and export with verified durations. Satyr (hoof) and the paw body the same: stance
+0.0964 and a 38 mm margin on the paw, eight clips each, both exports verified.

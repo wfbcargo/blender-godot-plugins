@@ -326,7 +326,17 @@ will leave (`feet.PATCH`). The legs are a third of the body, so moving them carr
 solve runs again from its own output - the leg plan's targets are absolute, so a second pass lands exactly where
 one pass with the final stance would - until the ball settles within a millimetre, usually in three. Then
 `feet.settle` measures the patch the body REALLY has, after the pads and the horn, and moves the feet again if
-the margin is short. The gnoll's spec no longer needs a stance: it solves to 0.125.
+the margin is short.
+
+That last measurement is made with **rig-anything's own numbers** where it can be imported - `keyposes.support`
+(the contact points its poser finds) against `motion.Body.com` (the skinned body) - because those are what
+refuse a clip at export, and a check that predicts the export has to use the export's measure. The sole's own
+lowest band stays in the report as a second opinion. When it cannot be met the BUILD refuses, with the residual
+in millimetres, which way the centre falls and which knob moves it - `legs.stance` first (and the solve has
+already tried its whole range), then `hunch_deg`, which carries the centre forward, then `foot.pad`/`toe_pad`,
+which lengthen the patch, and `foot.claw.length`, which moves its front edge. Before this, a body that would
+not stand failed 140 seconds later at the export, on a Crouch. The gnoll's spec no longer needs a stance: it
+solves to 0.135 with its muzzle on, and stands 19 mm inside its feet.
 
 **The silhouette check** is the one that answers "does it still read human": the built shares against the
 plan's, per segment, failing past 0.025 of the limb with both numbers in the message. Everything else in the
