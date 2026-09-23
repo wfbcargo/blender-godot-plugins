@@ -538,7 +538,65 @@ def run_bake(ch, ctx):
         if ch.muscle.output == "normal":
             out["muscle_normal"] = _bake_muscle_normal(ch, ctx)
         ob["cp_muscle"] = ch.muscle.output          # `muscled`: the baked body carries it now
+    cards = run_fur_cards(ch, ob)
+    if cards:
+        out["fur_cards"] = cards
     return out
+
+
+def run_fur_cards(ch, ob):
+    """Grow the fur regions the spec marked `cards = true` as strand cards, and join them into the body.
+
+    Shell fur stops at 8 cm (`fur.LENGTH_M`): past that the shells stand far enough apart to read as stacked
+    sheets whatever their number, and hair that long hangs. A mane, a ruff and a tail's brush are therefore
+    the same growth a beard is - `humanform.cards`, through `hair.cards` - and the coverage map is already
+    the per-vertex field it takes, so no conversion happens here at all. The region still leaves its root mat
+    in the shell map (`fur.CARD_MAT_M`), which is what hides the skin under the strands, exactly as a scalp's
+    cap does under hair.
+
+    It runs at the END of the bake, on the finished skinned body, because that is where the cards must sit:
+    the fields themselves were written before it, by `fur.apply`, since only then can `fur.areas` measure
+    hm08's landmarks. Nothing hangs (`hang_below_z` is not passed), so every card rides the skin rigidly and
+    there is no strand mesh to chain - a mane lies along the neck and a brush along the tail, and both are
+    carried by the bones their roots sit on."""
+    from humanform import fur as hf_fur, hair as hf_hair
+    if not hf_fur.carried(ob):
+        return None
+    fields = hf_fur.card_fields(ob)
+    if not fields:
+        return None
+    made, rows = [], []
+    for f in fields:
+        name = f"{ch.name}_fur_{f['name']}"
+        # A pelt's regions are far larger than a beard's field - a mane runs the whole neck and both
+        # shoulders - so the beard's root density (26000 a square metre) would put tens of thousands of
+        # cards on one body. Fur's cards are wider and sparser: the mat under them is what hides the skin,
+        # and the cards are there for the silhouette.
+        # The cards are longest where the region is solid and taper to nothing at its rim - `length_scale`
+        # is the field itself. Grown at one length over the whole field, the gnoll's mane hung as a straight
+        # fringe with a cut across the bottom and read as a poncho, not as a mane; a coat's hair is longest
+        # at the withers and shortens into the coat around it. The jitter is raised for the same reason:
+        # a hundred cards of one length end on one line.
+        rep = hf_hair.cards(ob, f["field"], f["length_m"], colour=f["colour"], flow=f["flow"], name=name,
+                            density=hf_fur.CARD_DENSITY, width_m=hf_fur.CARD_WIDTH_M,
+                            length_scale=f["field"], jitter=hf_fur.CARD_JITTER)
+        obj = (rep.get("objects") or {}).get("cards")
+        if obj is None:
+            raise RuntimeError(f"fur cards {f['name']}: nothing grew from its field")
+        made.append(obj)
+        rows.append({"region": f["name"], "object": obj, "length_m": f["length_m"],
+                     "roots": rep.get("roots"), "clumps": rep.get("clumps"),
+                     "min_clearance_m": rep.get("min_clearance_m"), "coverage": rep.get("coverage")})
+    parts = [_obj(n) for n in made]
+    selected = [ob] + parts
+    with bpy.context.temp_override(active_object=ob, selected_editable_objects=selected, object=ob,
+                                   selected_objects=selected):
+        bpy.ops.object.join()
+    # the join fills a COLOUR attribute's missing values with WHITE, so the coverage map has to be written
+    # again over the body as it now is (fur.refresh_vcol's own reason, and `hf_fur_skin` marks what was skin
+    # when the map was laid down - the cards are not)
+    hf_fur.refresh_vcol(ob)
+    return {"regions": rows, "joined": sorted(made)}
 
 
 def check_not_dressed(stage):
@@ -1061,7 +1119,9 @@ def run_fur(ch):
             "mip": {k: rep["mip"].get(k) for k in ("ok", "across_to_along_p90", "views", "height", "coverage")},
             "silhouette": {k: rep["silhouette"].get(k) for k in ("ok", "views", "shells")},
             "edge": {k: rep["edge"].get(k) for k in ("step", "step_max", "tol", "edges", "skin")},
-            "dark": {k: rep["dark"].get(k) for k in ("share", "share_limit", "tol", "views")}}
+            "dark": {k: rep["dark"].get(k) for k in ("share", "share_limit", "tol", "views")},
+            "flow": {k: rep["flow"].get(k) for k in ("ok", "worst_deg", "p99_deg", "tol_deg", "skipped")
+                     if k in rep.get("flow", {})}}
 
 
 def run_export(ch, ctx):

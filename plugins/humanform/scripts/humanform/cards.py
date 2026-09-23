@@ -69,6 +69,12 @@ ROOTS_MIN = 8               # a region of the field with fewer roots than this i
 SINK_MAX_M = 0.002          # a card's outer column may cut this far into the skin it lies on, no further
 SEED = 23
 
+# The most cards one growth may build. Each is a ribbon emitted vertex by vertex in Python, so the
+# cost is linear and steep: the gnoll asked for a MANE at the beard's own density (26000 a square
+# metre over the whole neck and both shoulders) and the build had not finished twelve minutes later,
+# with nothing on screen to say why. Refused now, before a single card is grown.
+ROOTS_MAX = 20000
+
 PARAMS = {
     "density": 26000.0,     # roots per square metre of field
     "width_m": 0.008,       # a card's width at its root
@@ -201,6 +207,12 @@ def grow(body, field, length_m, colour=None, *, name=None, uv_name=None, rig=Non
                                                        length_m, p, k, rng)
     if not roots:
         raise RuntimeError(f"{what}: the field grew no card roots - raise `density` or widen the field")
+    if len(roots) > ROOTS_MAX:
+        raise RuntimeError(
+            f"{what}: {len(roots)} card roots at density {p['density']:.0f} a square metre, over "
+            f"{ROOTS_MAX} - every card is built vertex by vertex, so this does not finish: lower `density`. "
+            "A beard's field is a few hundredths of a square metre and a pelt's region is a hundred times "
+            "that (fur.CARD_DENSITY is what fur passes for exactly this reason)")
     npos = np.array([tuple(q) for q in roots])
     ncl = max(1, int(round(len(roots) / (CLUMP_SIZE * (1.0 + p["clump"])))))
     centres = npos[rng.choice(len(roots), ncl, replace=False)] if ncl < len(roots) else npos

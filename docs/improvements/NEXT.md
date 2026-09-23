@@ -168,6 +168,64 @@ and the long lip line all read. That is the strongest argument yet for the graft
 - Dark bands across the upper arm and forearm where the flow's limb-axis field ends.
 - The fur-to-bare edge at the lips still reads as a pale smear across a long muzzle's lip line.
 
+### Pass 2: the mane as strand cards, and the seam the map could not see (2026-09-22)
+
+1. **A fur region can say `cards = true`**, and is then grown as strand cards (`humanform.cards`, through
+   `hair.cards`) off its own coverage mask instead of as shells, taking `length_m` in 0.02-0.45 m. That is
+   the mane, a ruff past 8 cm and a tail's brush - the growth a beard already was - and no conversion happens
+   anywhere, because fur's per-vertex mask IS the field `cards.grow` takes. The region still leaves
+   `fur.CARD_MAT_M` of root mat in the shell map, which hides the skin under the strands as a scalp's cap
+   does under hair. The wiring that makes it work end to end:
+   - `fur.apply` writes each cards region's own mask as `hf_fur_card_<name>`, because the growth has to
+     happen LATER - on the baked body, where the rig is final - while `fur.areas` can only measure hm08's
+     landmarks before the bake. `fur.card_fields(ob)` hands them out with the length, colour and flow.
+   - character-pipeline grows them at the end of the **bake** stage and joins them in, then writes the
+     coverage map again (a join fills a colour attribute with white). Nothing hangs, so there is no strand
+     mesh to chain: a mane lies along the neck and a brush along the tail, carried by the bones under them.
+   - **`fur.CARD_DENSITY` is 7000 roots a square metre against a beard's 26000, `CARD_WIDTH_M` 14 mm against
+     8**, and a card's length is scaled by the field itself (`length_scale`) at `CARD_JITTER` 0.5. Three
+     things the gnoll had to find the hard way: at the beard's density the mane grew tens of thousands of
+     cards and the build had not finished twelve minutes later; at one length over the whole field it hung
+     as a straight fringe with a cut across the bottom and read as a poncho rather than a mane; and a coat's
+     hair is longest where the coat is thickest and shortens into what surrounds it.
+   - **`cards.ROOTS_MAX` (20000) refuses a growth before a single card is built**, naming the density. Every
+     card is a ribbon emitted vertex by vertex in Python, so the cost is linear and steep, and a field a
+     hundred times a beard's with a beard's density is a build that never ends and never says why.
+
+2. **The bald stripe down the midline of the back of the head and neck is fixed, and there is a check.**
+   The flow travels as an ANGLE, which means it travels in a FRAME, and humanform and the shader have to
+   agree on that frame down to its sign. They did not: humanform wrote against the mesh's UV tangent and the
+   shader read `TANGENT`/`BINORMAL`, and a tangent flips across a UV seam. hm08's atlas has one straight down
+   that midline, so the shells either side sheared in opposite directions and opened a wedge - while the
+   coverage map measured a uniform 0.95 across it, which is why nothing caught it. `fur.flow_frame` now
+   builds the frame off the NORMAL alone (the body's own down projected onto the surface, and normal x that),
+   the shader rebuilds exactly that, and neither side touches the UVs.
+   Check: **`fur.flow_roundtrip`** - decode the angle back the way the shader will and compare it with the
+   direction humanform meant, in the shader's own plane (the map is written before the bake and the normals
+   move a little after it; that tilt is not what this is about). It measures the agreement itself rather
+   than the picture, so a future regression to a UV frame fails the build. It earned its keep on the way in:
+   the first run of it measured 26.2 deg over its worst hundredth and 87 at worst; it now measures 0.01.
+
+3. **Two tones, not one plus a tint.** The spots were [0.24, 0.16, 0.11] on a [0.63, 0.48, 0.30] coat - a
+   fifth of a stop apart - and at four metres they washed into a mottle. A spotted hyena's spots are
+   "reddish to dark brown or almost black" on a light ground [measured: SDZG], over two stops, and its
+   ground colour is not one flat tone: the legs and belly are less distinctly marked [measured: ADW]. The
+   spec now carries a separate `haunch` region with its own ground over the legs.
+
+4. The black-at-four-metres finding **stays fixed** on the merged code (the map's background is the body's
+   own skin tone, dilated 16 texels, with `dark_patches` watching it): rebuilt and looked at, no black patch
+   anywhere on the body at 0.6, 2 or 4 m.
+
+**The read now, honestly.** At 4.8 m the mane is the silhouette - a shaggy ruff standing off the neck and
+shoulders, which is the first thing about the figure that is not a man's - and the spots read as spots on
+the torso, hips and legs. Close up the muzzle reads as a snout with a dark nap and a stop. What is still
+wrong: the mane follows `ruff`, which wraps the chest as well as the withers, so from the front it is a
+collar rather than a dorsal crest (`except_areas = ["front"]` cannot cut it - see gap 4 of the first pass);
+the thighs wash out pale where the haunch's shorter coat lets the light through; the eye is lost in the
+muzzle's dark nap at 0.6 m; the lips stay bare (`fur.SKIP_REGIONS`) and read as a pale smear along a long
+lip line; and there are occasional square texel blocks on a forearm. It reads as a big spotted beast-man.
+It does not yet read as a hyena.
+
 ## State at the end of 2026-09-21
 
 **Everything is merged and pushed.** `main` (blender-godot-plugins) and `master` (grungist-creek) are

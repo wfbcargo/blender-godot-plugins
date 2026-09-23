@@ -154,7 +154,7 @@ seed = 337
 [[body.species.fur.regions]]
 name = "pelt"
 areas = ["body"]
-except_areas = ["head", "tail", "ruff", "chest"]
+except_areas = ["head", "tail", "ruff", "chest", "legs"]
                                 # the pelt stands back where a longer or paler coat has its own region. It
                                 #   is not enough for the mane to say it is the ruff: `body` is 1 everywhere,
                                 #   and the blend (fur.BLEND_SHARP) then split the neck 54/46 between a
@@ -163,9 +163,14 @@ length_m = 0.022                # bristle hair 30-40 mm lying over 15-20 mm of u
                                 #   `length_m` is how far the coat stands OFF the skin, not the hair's length
 density = 0.95
 flow = "down"
-colour = [0.63, 0.48, 0.30]     # "light brown, beige, sandy, or ginger" [measured: SDZG]
-pattern_colour = [0.18, 0.12, 0.08]
-pattern = { kind = "spots", scale = 0.042, amount = 0.9 }
+colour = [0.68, 0.52, 0.31]     # "light brown, beige, sandy, or ginger" [measured: SDZG]
+pattern_colour = [0.13, 0.09, 0.06]
+                                # TWO TONES, not one plus a tint. The spots were [0.24, 0.16, 0.11] against
+                                #   a [0.63, 0.48, 0.30] coat - a fifth of a stop apart in value - and at 4 m
+                                #   they washed into a mottle. A spotted hyena's spots are "reddish to dark
+                                #   brown or almost black" on a light ground [measured: SDZG]: that is 2.3
+                                #   stops, and it is the contrast that carries the animal at a distance.
+pattern = { kind = "spots", scale = 0.042, amount = 0.95 }
                                 # 20 mm spots [measured: SDZG] on an animal 1.3 m long; the same spot on a
                                 #   2.18 m body is 34 mm, and at 20 mm it read in Godot at 2 m as a fine
                                 #   mottle rather than as a spotted coat
@@ -185,10 +190,27 @@ colour = [0.71, 0.59, 0.43]
 name = "mane"                   # "the back of neck and shoulders have longer hair (70-80 mm), giving the
 areas = ["ruff"]                #   appearance of a mane" [measured: SDZG]. It goes right round the neck
                                 #   rather than down the dorsal midline alone: see the bib's note.
-length_m = 0.072
+cards = true                    # STRAND CARDS, not shells. Shell fur stops at 8 cm (fur.LENGTH_M) and at
+                                #   72 mm the mane had no silhouette at all: it read as a slightly thicker
+                                #   pelt. A hyena's mane is the animal's most conspicuous outline, so it is
+                                #   grown the way a beard is (humanform.cards, through hair.cards) off this
+                                #   region's own coverage mask; the mat it leaves in the shell map still
+                                #   hides the skin under it.
+length_m = 0.135                # 70-80 mm on an animal 1.3 m long [measured: SDZG] -> 135 mm on a 2.18 m
+                                #   body at the same share of body length
 density = 1.0
 flow = "down"
-colour = [0.44, 0.32, 0.19]     # the mane is darker than the coat [measured, qualitative]
+colour = [0.40, 0.29, 0.17]     # the mane is darker than the coat [measured, qualitative]
+
+[[body.species.fur.regions]]
+name = "haunch"                 # "the legs and belly have a less distinct spotting pattern" [measured: ADW],
+areas = ["legs"]                #   and a hyena's ground colour is not one flat tone over the whole animal
+length_m = 0.020
+density = 0.95
+flow = "down"
+colour = [0.57, 0.42, 0.25]     # darker and greyer than the back's sandy ground
+pattern_colour = [0.15, 0.10, 0.07]
+pattern = { kind = "spots", scale = 0.038, amount = 0.6 }
 
 [[body.species.fur.regions]]
 name = "crown"                  # the head's own short coat, spots fainter on it
@@ -213,10 +235,11 @@ colour = [0.34, 0.26, 0.19]
 [[body.species.fur.regions]]
 name = "brush"                  # the tail is a third hair by length and ends black [measured: ADW]
 areas = ["tail"]
-length_m = 0.050
+cards = true                    # a brush is hair that stands off the tail, not a 5 cm shell over it
+length_m = 0.090                # a third of a 340 mm tail is hair [measured: ADW]
 density = 1.0
 flow = "down"
-colour = [0.30, 0.22, 0.14]
+colour = [0.26, 0.19, 0.12]
 
 # No [hair]. A gnoll has no scalp hair, no human eyebrows and no human eyelashes: what grows on its head is
 # the `crown` and `snout` coats above. The cap and the brow and lash cards are meshes JOINED into the body
