@@ -162,6 +162,13 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
     detail += ((er or {}).get("tuck") or {}).get("problems") or []
     # a garment covers the body, never the head: the jaw line is the body's own, so a low neckline and a high
     # one are both right (`tailor.covers_head`). A preset that is meant to cover a head says `head_cover`
+    # the ease's own numbers in the log beside the warnings: the gap the cloth actually holds, and how much
+    # of it is the chord sag over a convex ridge (fit._chord_sag). Without this a fit change is invisible in a
+    # build log and has to be chased with the Godot verifier (NEXT.md, "The Uruk-hai")
+    if er:
+        print("wardrobe ease %s: gap min %s median %s p95 %s max %s | sag %s"
+              % (g.name, er.get("gap_min_m"), er.get("gap_median_m"), er.get("gap_p95_m"),
+                 er.get("gap_max_m"), er.get("sag")), flush=True)
     neckline = None if p.get("head_cover") else tailor.covers_head(g, body)
     if neckline is not None:
         report["head_clear"] = neckline
