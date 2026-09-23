@@ -72,12 +72,23 @@ NAIL_PARTS = {
              "color": list(HORN), "roughness": 0.30},
 }
 PAD_RADIUS = {"pad": 0.85, "toe_pad": 0.40, "heel_pad": 0.70}   # each dome's reach, in toe lengths
+# WHERE THE FOOT WILL STAND, as fractions of the digit length forward of the ball: the pad under the standing
+# ball at 0, the toe pads at 0.75 of each toe. `humanform.legs` solves the stance against this, so the body is
+# balanced over the patch it will really have rather than over the plantigrade foot the warp balanced it on.
+# MEASURED on built bodies (`balance` reports `patch_digits`, which is this), not assumed: a paw stands on the
+# pads under its ball and its toes and reads 0.0-0.75; a hoof's horn curves down hard and its lowest point sits
+# at 0.49, not out at the toe's end where the horn is anchored.
+PATCH = {"human": None, "paw": (0.0, 0.75), "hoof": (0.40, 0.60)}
+BALANCE_MARGIN = 0.10     # of the patch's own length: how far inside its edges the body's centre must sit
+BALANCE_ABS = 0.010       # ... but never more than this, because an unguligrade foot stands on a POINT: the
+                          # satyr's two hooves make a patch 0 mm long, and a share of nothing is nothing
 WIDTH_DEPTH = 0.35        # the share of `width` a fused group takes THROUGH the foot as well as across
 SOLE_BAND = 0.55          # of the foot's height: how far up the foot a pad's displacement reaches
 NAIL_DOWN = 0.15          # the steepest an attached nail may start off horizontal (sine of the angle)
 HOOF_STAND = 0.006        # metres a solved hoof stands below the flesh: the horn carries, not the pads
 CLAW_CLEAR = 0.004        # ... and metres a solved claw's tip keeps ABOVE them: the pads carry
 NAIL_LENGTH = (0.15, 1.6)  # toe lengths a solved nail may come out at: past it, it is a stilt, not a nail
+CONTACT_BAND = 0.004      # metres above the lowest point that still counts as touching the ground
 CONTACT_TOL = 0.002       # metres: how far the wrong part of the foot may be the lowest before it is refused
 
 
@@ -479,6 +490,7 @@ def apply(human, spec, report=None, verbose=False):
     bad = rep["contact"].get("problem")
     if bad:
         raise ValueError(bad)
+    rep["balance"] = balance(human, rig)
     rig[PROP] = {"plan": p["plan"], "toes": int(p["toes"]), "nail": p["nail"]}
     human[PROP] = rig[PROP]
     if verbose:
@@ -622,15 +634,16 @@ def nail_over_foot(human):
     rig = _body.rig_of(human)
     if rig is None:
         return None
-    me = human.data
-    n = len(me.vertices)
-    co = np.empty(n * 3)
-    me.vertices.foreach_get("co", co)
-    co = co.reshape(-1, 3)
     nails = _group_verts(human, "toenails")
     if not len(nails):
         return None
     rigd = _Rig(rig)
+    # the shape as the body is DRAWN (basis plus every key at its value), which is what the anatomy inventory
+    # measures; read off the raw base instead, this disagreed with it by 40% once the keys were flattened
+    from .species import _Mesh
+    mm = _Mesh(human, rig, rigd)
+    co = mm.mixed(mm.keys) if mm.keys else mm.base
+    me = human.data
     want = {b for ch in rigd.legs.values() for b in ch[2:4] if b}
     gi = {g.index: g.name for g in human.vertex_groups}
     host = []
@@ -644,6 +657,141 @@ def nail_over_foot(human):
             host.append(v.index)
     hs = _spread(co, np.array(host, int))
     return (_spread(co, nails) / hs) if hs > 1e-9 else None
+
+
+def patch_of(spec):
+    """The contact patch a foot plan will leave (`PATCH`), as fractions of the digit length forward of the
+    ball, or None for a plantigrade human foot, which stands on its whole sole and is not solved against one.
+
+    A paw stands on the pads under its ball and its toes, so its patch runs 0 to 0.75 of the digits; a hoof
+    stands on the horn that caps the toe's END, which is why theirs sits past the digits' own length."""
+    p = normalise(spec)
+    return PATCH.get(p["plan"]) if p["nail"] != "hoof" else PATCH["hoof"]
+
+
+def balance(human, rig=None):
+    """Where the body's centre stands over the patch it ACTUALLY has, measured after the plan has run.
+
+    `humanform.species._balance` balances a body over its plantigrade foot during the warp; a leg plan then
+    moves the contact out from under it and a foot plan moves it again. Nothing re-checked that until the
+    first gnoll stood with its centre 50 mm outside its paws and had two clips refused at export. This is the
+    re-check: the sole's own lowest band, fore and aft, against the centre of every skinned vertex.
+    """
+    from . import body as _body
+    from .species import _Rig, _skinned
+    human = _body.obj(human)
+    rig = rig or _body.rig_of(human)
+    if rig is None:
+        return None
+    rigd = _Rig(rig)
+    if not rigd.legs:
+        return None
+    me = human.data
+    n = len(me.vertices)
+    co = np.empty(n * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    want = {b for ch in rigd.legs.values() for b in ch[2:4] if b}
+    gi = {g.index: g.name for g in human.vertex_groups}
+    sole = []
+    for v in me.vertices:
+        best, bw = None, 0.0
+        for e in v.groups:
+            nm = gi.get(e.group)
+            if nm in rig.data.bones and e.weight > bw:
+                best, bw = nm, e.weight
+        if best in want:
+            sole.append(v.index)
+    parts = _parts_object(human)
+    pts = [co[np.array(sole, int)]] if sole else []
+    if parts is not None and len(parts.data.vertices):
+        pc = np.empty(len(parts.data.vertices) * 3)
+        parts.data.vertices.foreach_get("co", pc)
+        pts.append(pc.reshape(-1, 3))
+    if not pts:
+        return None
+    P = np.concatenate(pts)
+    lo = float(P[:, 2].min())
+    band = P[P[:, 2] <= lo + CONTACT_BAND]
+    # forward is -Y, as everywhere in this package
+    back, front = -float(band[:, 1].max()), -float(band[:, 1].min())
+    com = -float(np.concatenate([_verts(o) for o in _skinned(rig)])[:, 1].mean())
+    span = max(front - back, 0.0)
+    margin = min(com - back, front - com)
+    limit = min(BALANCE_MARGIN * span, BALANCE_ABS)
+    # the same patch in the units the prediction is written in: digit lengths forward of the ball, so a build
+    # says what `PATCH` should be for its own foot plan rather than leaving it to be guessed
+    toe_b = sorted(rigd.legs)[0]
+    tb = rig.data.bones[rigd.legs[toe_b][3]]
+    ball_f, dlen = -float(tb.head_local.y), max(float(tb.length), 1e-9)
+    return {"com_fwd": round(com, 4), "patch_fwd": [round(back, 4), round(front, 4)],
+            "patch_digits": [round((back - ball_f) / dlen, 3), round((front - ball_f) / dlen, 3)],
+            "digit_m": round(dlen, 4),
+            "margin_m": round(margin, 4),
+            "margin_share": round(margin / span, 3) if span > 1e-6 else None,
+            "limit_m": round(limit, 4), "band_m": CONTACT_BAND,
+            "failed": margin < limit}
+
+
+def settle(human, legs_spec, rig=None, passes=4, report=None):
+    """Move the feet under the body until it balances over the patch it ACTUALLY stands on.
+
+    `humanform.species._balance` balances a body over its PLANTIGRADE foot during the warp. A leg plan then
+    moves the contact out from under it and a foot plan moves it again - the pads and the horn - and where
+    that patch ends up cannot be predicted from the plan's numbers: the same hoof measured 0.50 of a digit
+    length forward of the ball on one build and 0.25 on the next, because the pads move with the leg. The
+    first gnoll stood with its centre 50 mm outside its paws and had Crouch and MouthOpen refused at export,
+    and its spec had to carry a hand-tuned stance.
+
+    So it is measured and corrected rather than solved blind: measure the patch and the body's centre, move
+    the ball by the difference (the leg plan's `stance`, whose targets are absolute, so re-applying it lands
+    exactly where one pass with the final stance would), measure again. Two or three passes settle it.
+    """
+    from . import body as _body
+    from . import legs as legs_mod
+    from .species import _Rig
+    human = _body.obj(human)
+    rig = rig or _body.rig_of(human)
+    rows = []
+    b = balance(human, rig)
+    for _ in range(passes):
+        if not b or not b["failed"]:
+            break
+        rigd = _Rig(rig)
+        side = sorted(rigd.legs)[0]
+        chain = rigd.legs[side]
+        hip = rig.data.bones[chain[0]].head_local
+        ball = rig.data.bones[chain[3]].head_local
+        hip_h = float(hip.z)
+        cur = (-float(ball.y) + float(hip.y)) / max(hip_h, 1e-9)
+        centre = 0.5 * (b["patch_fwd"][0] + b["patch_fwd"][1])
+        want = cur + (b["com_fwd"] - centre) / max(hip_h, 1e-9)
+        rows.append({"stance": round(cur, 4), "margin_mm": round(b["margin_m"] * 1000, 1),
+                     "to": round(want, 4)})
+        if abs(want - cur) * hip_h < 0.0005:
+            break
+        legs_mod.apply(human, dict(_as_dict(legs_spec), stance=want))
+        b = balance(human, rig)
+    if report is not None:
+        report["settle"] = rows
+        report["balance"] = b
+    return b, rows
+
+
+def _as_dict(spec):
+    return {"plan": spec} if isinstance(spec, str) else dict(spec or {})
+
+
+def _verts(ob):
+    n = len(ob.data.vertices)
+    c = np.empty(n * 3)
+    ob.data.vertices.foreach_get("co", c)
+    return c.reshape(-1, 3)
+
+
+def _parts_object(human):
+    import bpy
+    return bpy.data.objects.get(human.name + PARTS_SUFFIX)
 
 
 def contact(human, spec=None, rig=None):

@@ -791,7 +791,12 @@
         "source": "law: with its host"
       }
     },
-    "absent": [],
+    "absent": [
+      {
+        "part": "nails.toes",
+        "reason": "a hoof is the nail: the horn caps the whole end of the digit"
+      }
+    ],
     "note": "every part a human has, kept and warped with its host unless the description says the creature lacks it (absent, with its reason). scale: size factor against the pre-warp human's part"
   },
   "moves": {

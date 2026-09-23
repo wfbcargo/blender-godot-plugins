@@ -717,3 +717,30 @@ flaring into a short, wide, splayed foot with distinct toe lobes.
 Open: the lead leg at mid-stance is still nearly straight, which flattens the read at that one phase; the torso
 and pelvis above the hips are still a person's (that is what a gnoll or a satyr is, but a quadruped's would
 need its own baseline); `human` ratios on a digitigrade plan are refused rather than clamped.
+
+### Round 2d: the stance is solved against the real contact patch (species-2-legs, 2026-09-22)
+
+The gap the gnoll build found: `species._balance` balances a body over its PLANTIGRADE foot during the warp,
+and a leg plan then moves the contact out from under it while a foot plan moves it again - the pads, the fuse,
+the horn - with nothing re-checking it. At the canine default the gnoll's centre of mass stood 50 mm outside
+its paws, Crouch and MouthOpen were refused at export, and its spec had to carry `stance = 0.12` by hand.
+
+- `legs.apply` measures the body's centre (the mean of every skinned vertex - the centre
+  `rig_analysis.motion.Body.com` and the clip balance check both use) and solves the stance that stands it
+  over the middle of the patch the foot plan will leave (`feet.PATCH`, measured on built bodies rather than
+  assumed: a paw's pads run 0.0-0.75 of the digits forward of the ball, a hoof's horn curves down hard and its
+  lowest point sits at 0.49, not out at the toe's end where the horn is anchored).
+- The legs are a third of the body, so moving them carries that centre with them and one pass under-corrects.
+  The leg plan's targets are absolute, so applying it again from its own output lands exactly where one pass
+  with the final stance would: it repeats until the ball settles within a millimetre, usually in three.
+- `feet.balance` then measures the patch the body REALLY has - the sole's own lowest band, fore and aft, plus
+  the claws or hooves - and `feet.settle` moves the feet again if the margin is short. The margin must be a
+  tenth of the patch or 10 mm, whichever is less, because an unguligrade foot stands on a POINT.
+- No ratio set carries a stance any more; an explicit one in a spec still wins.
+- A hoofed foot declares `nails.toes` absent - a hoof IS the nail, the horn capping the whole end of the digit
+  - rather than leaving the inventory to read five nails drawn onto two hooved toes as a part the warp lost.
+
+Proved with the stance left unset: **gnoll solves to 0.1253** (its hand-tuned 0.12), margin 16.7 mm, humancheck
+35 pass / 0 fail, anatomy 13 pass / 0 fail, all eight clips pass, export verified. **Satyr** (hoof): three
+passes to 0.1369, anatomy 13/0, eight clips, export verified. **Paw body**: stance 0.0974, margin 22 mm (44% of
+the patch), eight clips, export verified.
