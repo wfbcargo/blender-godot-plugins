@@ -624,7 +624,11 @@ length_m = 0.012            # 0.8 mm .. 80 mm; past that hair hangs, and only st
                             # under the strands, as a scalp cap does under hair. character-pipeline grows
                             # them at the end of the bake stage and joins them into the body.
 density = 1.0               # at COVER_DENSITY (0.75) and above, the skin under it is not drawn
-flow = "down"               # down | back | out | along (down the limb)
+flow = "down"               # down | back | out | along (down the limb) | muzzle (along a snout's own axis,
+                            # out toward its tip). Every flow but `muzzle` is a world direction laid on the
+                            # skin, and on skin that faces the way it points the projection has no answer:
+                            # at a snout's tip and its nostrils the nap combs out in a star. fur.flow_
+                            # continuity measures that tear (warned with the number and the worst edge).
 colour = [0.34, 0.24, 0.15]
 pattern_colour = [0.16, 0.11, 0.07]
 pattern = { kind = "spots", scale = 0.055, amount = 0.55 }   # spots stripes blotches mottle

@@ -119,7 +119,15 @@ EYE_MARGIN_MM = 1.0            # how far clear of the ball the fur over the lids
 LIP_PIGMENT = 0.45             # how far a furred face's lip line is taken down, on the skin's tint
 LIP_DEFAULT = 0.8              # how much a face region asks for without saying
 LIP_TOL = 0.02                 # sRGB luma the lips may sit above the fur round the mouth
-FLOWS = ("down", "back", "out", "along")
+# `muzzle` is the flow along a SNOUT's own axis, out toward its tip. Every other flow here is a fixed
+# world direction laid on the surface, and on a snout that is a singularity: "down" projected onto skin
+# that points forward has no direction at the tip and at the nostrils, where the surface normal IS the
+# axis, so neighbouring vertices there take opposite directions and the fur combs out in a star round the
+# nose. Any muzzled or beaked creature meets it, so it is a word in the vocabulary rather than a number in
+# one spec. `flow_continuity` measures it.
+FLOWS = ("down", "back", "out", "along", "muzzle")
+MUZZLE_FLOW_TOL_DEG = 60.0     # how far a flow may turn across one edge of the mesh, 99th percentile
+MUZZLE_BACK = 0.55             # how far back from the snout tip the muzzle area reaches, in head depths
 
 # Ranges. Past LENGTH_M shell fur stops being cheap or convincing: at 8 cm the shells are far enough
 # apart to read as stacked sheets whatever their number, and hair that long hangs and swings, which is
@@ -520,6 +528,22 @@ def areas(ob):
     A["flank"] = A["torso"] * side_on
     A["haunch"] = np.clip(np.maximum(A["thighs"], A["legs"] * _smooth(hip_z - 0.16 * s, hip_z, p[:, 2]))
                           * np.maximum(on_back, side_on), 0, 1)
+    # The MUZZLE: the head in front of the eyes and below the brow - the snout a `features.muzzle` grew,
+    # measured on the skin rather than on the parameters that made it, so a head with no snout simply has a
+    # small one round the nose and a gnoll's reaches back to the cheeks. `muzzle_axis` is its own axis, and
+    # `flow_muzzle` lies along it (see FLOWS).
+    fwd_head = p[A["head"] > 0.5, 1] if (A["head"] > 0.5).any() else p[:, 1]
+    tip_y = float(np.min(fwd_head)) if len(fwd_head) else 0.0
+    depth = max(float(np.ptp(fwd_head)) if len(fwd_head) else 1.0, 1e-6)
+    A["muzzle"] = (A["head"] * _smooth(0.0, 0.35, front)
+                   * (1.0 - _smooth(tip_y + MUZZLE_BACK * depth, tip_y + (MUZZLE_BACK + 0.25) * depth,
+                                    p[:, 1]))
+                   * (1.0 - _smooth(eye_z + 0.02 * s, eye_z + 0.08 * s, p[:, 2])))
+    muzzle_axis = np.zeros((n, 3))
+    tip = np.array([0.0, tip_y, float(np.mean(p[A["muzzle"] > 0.5, 2])) if (A["muzzle"] > 0.5).any()
+                    else float(j["joint-l-eye"][2])])
+    muzzle_axis[:] = tip - p                       # every point of the snout looks toward its tip ...
+    muzzle_axis[:, 1] = np.minimum(muzzle_axis[:, 1], -1e-6)   # ... and never backwards out of the face
     A["graft"] = skin.graft_area(ob, p)
     # never furred: the skin that has to stay skin, and the eyes
     w, _, _ = skin.regions(ob)
@@ -556,7 +580,10 @@ def areas(ob):
     flows = {"flow_down": _tangential(np.tile([0.0, 0.0, -1.0], (n, 1))),
              "flow_back": _tangential(np.tile([0.0, 1.0, 0.0], (n, 1))),
              "flow_out": _tangential(np.stack([np.sign(p[:, 0] + 1e-12), np.zeros(n), np.zeros(n)], axis=1)),
-             "flow_along": _tangential(-along)}
+             "flow_along": _tangential(-along),
+             # toward the snout's tip, on the surface: defined at the tip and the nostrils, where a world
+             # direction is not (see FLOWS)
+             "flow_muzzle": _tangential(muzzle_axis)}
     A, ctx = _grow_to_mesh(ob, A, flows, nrm, n, n_all, s, j)
     ctx["faces"] = faces
     return A, ctx, notes
@@ -618,7 +645,7 @@ def _grow_to_mesh(ob, A, flows, nrm, n, n_all, s, j):
     down = tangential(np.tile([0.0, 0.0, -1.0], (n_all, 1)))
     ctx = {"scale": s, "joints": j, "normals": nrm_all, "co": co_all,
            "faces": _delta().body_faces(ob), "body_verts": n}
-    for k in ("flow_down", "flow_back", "flow_out", "flow_along"):
+    for k in ("flow_down", "flow_back", "flow_out", "flow_along", "flow_muzzle"):
         ctx[k] = down.copy()
         if flows is not None and k in flows:
             ctx[k][:n] = flows[k]
@@ -1737,15 +1764,69 @@ def bake(ob, out_dir, base=None, size=MAP_PX, mask_px=MASK_PX, checks=True):
         rep["edge"] = edge_tone(ob)
         rep["dark"] = dark_patches(ob, col_img)
         rep["flow"] = flow_roundtrip(ob)
+        rep["flow_field"] = flow_continuity(ob)
         rep["face"] = (read(ob) or {}).get("face") or face_check(ob)
         bad = (list(rep["mip"].get("problems") or []) + list(rep["silhouette"].get("problems") or [])
                + ([rep["edge"]["fail"]] if rep["edge"].get("fail") else [])
                + ([rep["dark"]["fail"]] if rep["dark"].get("fail") else [])
                + ([rep["flow"]["fail"]] if rep["flow"].get("fail") else [])
-               + ([rep["face"]["fail"]] if rep["face"].get("fail") else []))
+               + ([rep["face"]["fail"]] if rep["face"].get("fail") else [])
+               )
         if bad:
             rep["fail"] = "; ".join(([rep["fail"]] if rep.get("fail") else []) + bad)
     ob[PROP] = json.loads(json.dumps(spec))
+    return rep
+
+
+def flow_continuity(ob):
+    """How far the fur's flow turns across one edge of the mesh, where the fur is.
+
+    A flow is a world direction laid on the skin, and on skin that faces the way the direction points the
+    projection has no answer: neighbouring vertices take opposite ones and the fur combs out in a star. It
+    happens wherever a surface turns to face the flow - the tip of a snout and the nostrils with `down` is
+    the case the gnoll hit - and it is invisible in the map, which is per vertex and perfectly smooth on
+    each side of the singularity. This measures the field's own tear instead: the angle between the two
+    ends of every mesh edge whose ends both carry fur, 99th percentile against `MUZZLE_FLOW_TOL_DEG`.
+
+    The answer for a snout is `flow = "muzzle"`, which follows the snout's own axis and is defined at its
+    tip; the message says so. A coat over a limb or a trunk sits well under the limit whatever it uses.
+    """
+    den, flow = _attr(ob, DEN), _attr(ob, FLOW, 3)
+    if den is None or flow is None:
+        return {"ok": True, "skipped": "no fur map"}
+    faces = _delta().body_faces(ob)
+    if not len(faces):
+        return {"ok": True, "skipped": "no body faces"}
+    f = np.asarray(faces, int)
+    e = np.concatenate([f[:, [0, 1]], f[:, [1, 2]], f[:, [2, 3]], f[:, [3, 0]]])
+    L = np.linalg.norm(flow, axis=1)
+    on = (den > COVER_DENSITY) & (L > 1e-6)
+    keep = on[e[:, 0]] & on[e[:, 1]]
+    if not keep.any():
+        return {"ok": True, "skipped": "no edge inside the fur"}
+    u = flow / np.maximum(L, 1e-9)[:, None]
+    a, b = e[keep, 0], e[keep, 1]
+    ang = np.degrees(np.arccos(np.clip((u[a] * u[b]).sum(axis=1), -1.0, 1.0)))
+    worst = int(a[int(np.argmax(ang))])
+    rep = {"edges": int(keep.sum()), "p99_deg": round(float(np.percentile(ang, 99)), 1),
+           "worst_deg": round(float(ang.max()), 1), "tol_deg": MUZZLE_FLOW_TOL_DEG,
+           "over_tol": int((ang > MUZZLE_FLOW_TOL_DEG).sum()),
+           "worst_at": [round(float(x), 4) for x in _delta().mixed_coords(ob)[worst]]}
+    rep["ok"] = rep["p99_deg"] <= MUZZLE_FLOW_TOL_DEG
+    if not rep["ok"]:
+        # WARNED, not failed, and this is why. A world-direction flow tears wherever the skin turns to face
+        # it, and on any body `down` does that in small places nobody minds - the crown, under the chin, the
+        # armpit, the sole. A gnoll whose snout already uses `muzzle` still measures 5.7% of its furred edges
+        # over 60 deg from those. What distinguishes the defect is that it is CONCENTRATED - a star round one
+        # point, several centimetres across - and this measure cannot yet tell the two apart. Calibrating it
+        # wants a control body with a plain pelt measured beside a snouted one, which this round did not have.
+        # Until then it prints the number and where the worst edge is, and the build goes on.
+        rep["warn"] = (f"the fur's flow turns {rep['p99_deg']:.0f} deg across one edge over its worst "
+                       f"hundredth ({rep['worst_deg']:.0f} at worst, limit {MUZZLE_FLOW_TOL_DEG}, "
+                       f"{rep['over_tol']} of {rep['edges']} edges) - the field has a singularity where the "
+                       "skin faces the way the flow points, and the fur combs out in a star round it. On a "
+                       "snout use flow = 'muzzle' (along its own axis); elsewhere pick the flow the skin "
+                       "there does not face")
     return rep
 
 

@@ -1148,6 +1148,9 @@ def run_fur(ch):
     if rep.get("fail"):
         raise RuntimeError(f"fur: {rep['fail']}")
     spec = rep["fur"]
+    # warned with its number and its place, never failed: see fur.flow_continuity for why
+    if (rep.get("flow_field") or {}).get("warn"):
+        print(f"[{ch.id}] fur WARNING {rep['flow_field']['warn']}")
     return {"textures": rep["textures"], "shells": spec["shells"], "regions": [r["name"] for r in spec["regions"]],
             "length_max_m": spec["length_max_m"], "uv_scale": spec["uv_scale"], "covered": rep["covered"],
             "mask": rep.get("mask"), "atlas_overlap": (rep.get("atlas") or {}).get("share"),
