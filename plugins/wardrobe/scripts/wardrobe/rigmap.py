@@ -93,6 +93,7 @@ def humanoid(body):
 
     mapped = _from_roles(rig, body) or _from_names(rig)
     spine, torso, neck, arms, legs = mapped
+    neck = neck + _head_bones(rig, spine, arms, legs)
     below = _below(rig, spine, arms, legs)
     if legs:
         hip_z = sum(heads[l["thigh"]].z for l in legs.values()) / len(legs)
@@ -102,6 +103,30 @@ def humanoid(body):
     return {"rig": rig.name, "spine": spine, "torso": torso, "neck": neck, "arms": arms, "legs": legs,
             "below": below, "hip_z": hip_z,
             "heads": heads, "tails": tails, "up": Vector((0, 0, 1)), "forward": _forward(heads, arms)}
+
+
+def _head_bones(rig, spine, arms, legs):
+    """The deform bones that hang off the head and are not spine, arm or leg - a jaw, and whatever else a head
+    grows (ears, horns, a hair chain). To a garment they are head: its neckline is cut from the faces skinned
+    to the neck's bones, so skin that has handed its weight to one of these is skin the cut no longer sees.
+
+    A jaw took up to all of the chin's and the throat's weight off the head bone (humanform.jaw splits it in
+    proportion), the neck cut's 0.2 threshold stopped selecting those faces, and a t-shirt kept a cap of chin
+    and jaw - a collar worn over the mouth like a scarf (species_gnome, rendered)."""
+    known = set(spine) | {b for a in arms.values() for b in a.values() if b} |         {b for l in legs.values() for b in l.values() if b}
+    bones = rig.data.bones
+    head = bones.get(spine[-1]) if spine else None
+    if head is None:
+        return []
+    out, stack = [], list(head.children)
+    while stack:
+        b = stack.pop()
+        if b.name in known:
+            continue
+        if b.use_deform:
+            out.append(b.name)
+        stack.extend(b.children)
+    return sorted(out)
 
 
 def _below(rig, spine, arms, legs):
