@@ -116,6 +116,176 @@ fixed).
 6. The demos load no species figure: add one (a `species_demo`) so a selftest covers them.
 7. Step 6-7 of 08: fur (Godot shell fur plus strand cards) and head grafts / digitigrade legs (the gnoll).
 
+## The cave-troll: what a 3.4 m inline species found (grungist-creek, 2026-09-23)
+
+`characters/species_cave_troll.toml` (inline `[body.species]`, built from the two details Tolkien actually
+gives) and `cave_troll_demo.tscn`, paired with the already-built `species_troll` so the scale reads. Findings
+from the design and build, all of them caught by the tools rather than by eye:
+
+1. **A `[body]` build word that is an alias injects a BMI that then collides with the species' own finished
+   range** - and the error names the range you cannot change instead of the field you can. `build = "lean"`
+   failed the build in 2.5 s with `BMI 21.0 is outside the cave_troll range 52.1-80.7`. The cause:
+   `sheet.BUILD_ALIASES` maps `lean -> ("athletic", 21.0)`, so an alias always carries an explicit BMI, while a
+   native word need not - and `"average"` is the only native word whose `bmi` is `None`
+   (`sheet.BUILDS`), which is what makes `species.validate`'s check `if bmi is not None and br` skip. So on any
+   species whose finished BMI is above ~36 (every giant: square-cube), the ONLY admissible `[body] build` is
+   `"average"` - a word that reads as exactly wrong for a 741 kg troll, and has to be explained in a comment in
+   the spec so the next reader does not "fix" it.
+   Two things to do: have the message name the field (`[body] build` and `[body.species] build` are different
+   knobs and the error should say which one it is rejecting, and that "average" means "let the species decide");
+   and consider whether a `[body]` build word should set a brief BMI at all when the body is a species, given
+   the species already carries `pre_warp` with its own BMI.
+
+2. **Suspected latent breakage in a shipped spec - INFERRED, not verified.** `characters/species_troll.toml`
+   ships `[body] build = "heavy"`, a native word carrying bmi 31.0, and `troll.json` carries
+   `bmi [42.9, 69.2]`. By the same check (`species.validate`: `if bmi is not None and br and not br[0] <= bmi
+   <= br[1]`) that spec should now be refused, which would mean the shipped troll cannot be rebuilt from its
+   own spec. Not verified: the cheap test overwrites the troll's `.blend` and its assets if the hypothesis is
+   wrong, so it was left alone rather than spent. `orc.json`'s `bmi [30.2, 41.3]` against its spec's
+   `"muscular"` (27.5) is the same shape of problem and may already be failing too - the orc built fine on
+   2026-09-23, so check that one first, it is the cheap end.
+   The test: `build_many characters/species_troll.toml -- from=body force=1` and watch whether the brief check
+   refuses it in seconds.
+
+3. **The design space caps stature at 3.5 m** (`stature female 3.0-3.6 m is outside 0.5-3.5 m`) and BMI at
+   `b_hi < 90` evaluated at the TOP of the stature range. Together these make a big species' stature range have
+   to be narrow: `[3.10, 3.50]` admits a `lean` pre-warp human and nothing heavier, because BMI grows with
+   stature. Worth stating in `species-design.md` next to the square-cube paragraph, since the refusal arrives
+   as a bare range and it took four sweeps to work out which of the two limits was binding.
+
+4. **The adult girth/length band is the wrong yardstick above the ANSUR range, and nothing says so.** The
+   shipped troll is over its band on all four limbs (thigh 1.78 against a ceiling of 1.35, shin 1.09 against
+   0.77, upper arm 1.07 against 0.87, forearm 1.43 against 1.04) - correctly, because a body scaled up whole
+   keeps its shape. So "inside the band" is the right target for the Uruk at 2.0 m and a meaningless one at
+   3.4 m. The cave-troll was instead tuned to the shipped troll's own overshoot (1.32x / 1.42x / 1.23x / 1.38x
+   against each ceiling), landing 1.35 / 1.50 / 1.25 / 1.48. `design()` should either widen the band by the
+   pre-warp clamp factor `c` above 1.95 m, or report the overshoot as a ratio against a named reference species
+   instead of printing a band the body is expected to exceed.
+
+5. **A patterned hide that stops at the neck reads as two materials** (look, not a check). `skin.pattern`
+   regions `["arms", "back", "torso", "legs"]` leaves `head` out - defensible, since Tolkien attests the
+   greenish scales on the arm and shoulder only - but in Godot the smooth scalp and face against a plated body
+   break at the jaw, and with no hair on this creature there is nothing to cover the seam. `PATTERN_AREAS` has
+   `head`, so the asset-side fix is adding it (one word, then `from=bake force=1`, ~40 s). The general point:
+   nothing warns when a pattern covers some of a body and not the part adjoining it, and a seam down the middle
+   of a creature is the kind of thing only a render shows. A check could compare each region's patterned share
+   against its neighbours' and warn on an abrupt boundary.
+
+6. **`cover` versus motion, the other half of the Uruk finding.** The cave-troll's first garment (`shorts`)
+   failed `verify_wardrobe` the opposite way from the Uruk's shirt - not poke but **holes**: 23 hidden verts
+   uncovered (2.12%, limit 0.5%) at frame 112, `{ft_jiggle_belly: 7, thigh.L: 7, thigh.R: 7, spine: 2}`, i.e.
+   the waistband and the thigh tops. Its ease was clean (`gap min +0.0066`, positive, no cloth inside skin at
+   all), so this is not a fit problem. It is that `cover` decides *statically* which body vertices to stop
+   drawing, and then 6 cm of hem swing (325 backstop hits) and a 741 kg body's belly jiggle carry the cloth off
+   them. Taken with the Uruk's poke, the same sentence covers both: **`cover`'s decision is made once, at rest,
+   and neither ease nor motion is checked against it afterwards.** Whatever fixes the Uruk should be designed
+   to fix this too - a cover pass that is re-evaluated over the clip set, or a hidden set that is the
+   intersection over the motion rather than the rest pose alone.
+   Worked around here by wearing `trousers` instead (the thigh tops covered, far more of the body hidden so the
+   fraction's denominator grows); that is an asset-side dodge, not a fix.
+
+## The Uruk-hai: what a fast inline species found (grungist-creek, 2026-09-23)
+
+`characters/species_uruk.toml` (inline `[body.species]`, Tolkien's one-sentence description read into
+observables) plus `species_orc.toml` (the shipped `orc` preset, built for the first time, as the thing the
+Uruk is "of greater stature" than) and `uruk_demo.tscn`. Both built fresh in 163 s wall at `--jobs 2`;
+`uruk_demo -- --selftest` passes with 0 failures. Three findings, none fixed:
+
+1. **`species_design` warns for stick limbs but not for sausage limbs** - the band check is one-sided. The
+   first Uruk pass stated `build = "muscular"` and then piled `girth = {legs 1.12, arms 1.08, neck 1.22,
+   torso 1.05}`, `forearms = "heavy"` and `barrel_chest = 0.55` on top of it. Every one of the four limbs came
+   out OVER the adult band (thigh 1.91 against 1.18-1.67, shin 1.16 against 0.73-0.97, upper arm 1.10 against
+   0.77-1.07, forearm 1.58 against 0.94-1.23) at BMI 46 - and `design()` emitted **no warning at all**, because
+   `limb_band` only fires below the 5th percentile. The BMI warning did not fire either: 46 is inside the
+   species' own solved `bmi [37.0, 54.5]`, which was itself inflated by the same girths. So a spec can stack a
+   build word and four girth words into a body with sausage limbs and hear nothing.
+   The fix is the mirror of the stick-limb warning: warn when a limb's girth/length exceeds the band's 95th
+   percentile, with the same message shape ("state a lighter build, or drop a heavy girth"). Cheap, and it is
+   the single check that would have saved the tuning pass done by hand here.
+   *(Tuned by hand to `girth = {legs 0.98, arms 1.02, neck 1.14, torso 1.02}`, `chest_depth_to_breadth = 0.95`,
+   `trunk_to_leg 0.73`: thigh 1.57, shin 0.96, upper arm 0.99, forearm 1.17 - all inside - at BMI 37.3.)*
+
+2. **A broad shoulder girdle pokes through a shirt, and the pipeline called the build `ok`** (found by eye
+   by the user: "shoulders like double rendered"). Two separate defects, and the second is the worse one.
+
+   *The fit.* `species_uruk`'s T-shirt fails wardrobe's own verifier, at rest, on the Idle frame the review
+   sheet shoots:
+
+   ```
+   godot --headless --fixed-fps 60 --path . -s res://addons/wardrobe/verify_wardrobe.gd --        body=res://assets/species/species_uruk/species_uruk.glb        garment=res://assets/species/species_uruk/species_uruk_tshirt.glb frames=240 every=8
+   ```
+   ```
+   uruk tshirt  passed: false  poke 138 verts 1.01% (limit 0.5%) at frame 48  holes 4  coincident_worst 14
+                poke_by_bone {spine.003: 100, spine.004: 18, upper_arm.L/R: 5/6, shoulder.L/R: 4/5}
+   orc  tshirt  passed: true   poke 6 verts 0.043%                holes 0  coincident_worst 0
+   uruk trousers passed: true  poke 13 verts 0.096%
+   ```
+   Same garment preset, same layer, same build word; the only difference is the body. The Uruk's warp is
+   `shoulder_scale 1.254` (solved from `shoulder_to_hip 1.66`) on `neck_scale 0.62` with `hunch_deg 3`, against
+   the orc's stooped 6 deg and longer neck.
+
+   *The mechanism, with the number that names it.* The ease report says it outright once it is printed
+   (`presets.dress` now logs it - it was computed and thrown away before, which is why this had to be chased
+   with the Godot verifier instead of read off a build log):
+
+   ```
+   wardrobe ease Tshirt:   gap min -0.0108  median 0.0176  p95 0.0956  max 0.1278
+   wardrobe ease Trousers: gap min -0.0001  median 0.0070  p95 0.0210  max 0.0441
+   ```
+
+   The shirt's cloth sits **10.8 mm inside the skin** at its worst vertex, at rest; the trousers' 0.1 mm. That
+   is not a bug in `ease` - it is *allowed*. `tshirt` is on the compression path (`smooth 1.0`, `settle 0.05`),
+   and there `floor[v] = 1 - fade_w[v]` is 1 only where compression has faded out near the garment's edges and
+   **0 through the middle of the garment**, with the comment: "where compression has faded out the cloth also
+   keeps its ease off the skin itself: there cover leaves the skin drawn, and cloth under it is skin showing."
+   So through the middle of the shirt - the shoulders - the cloth may pass arbitrarily far inside the skin, on
+   the promise that the `cover` pass will hide that skin. `dress` runs `tailor -> paint_ease -> ease -> skin ->
+   hem -> cover`, so **ease grants the permission and cover, later, decides whether to honour it, and nothing
+   re-checks**. On the Uruk cover hides 2428 of 43256 body triangles (5.6%) against the orc's 2932 of 39190
+   (7.5%), so the skin the cloth passed inside of is still drawn - and drawn skin with cloth behind it is
+   exactly `verify_wardrobe`'s definition of `poke`.
+
+   The preset's own note already records the residual this leaves on ordinary bodies: skinned with `transfer`,
+   Ruth's shirt pokes "0.06-0.10 %, **all spine.003**". The Uruk's 100 spine.003 verts are the same failure an
+   order of magnitude worse, because the warped girdle is a sharper corner for `_settle` to round off.
+
+   *What the fix is not.* A standoff added to `ease` does not reach it. Tried and reverted: a measured
+   chord-sag term (per garment vertex, the largest amount the skin bulges above the chord to each neighbour,
+   added to `want`). It is a no-op twice over - skipped entirely on the compression path, which is where the
+   T-shirt lives, and worth at most 0.9 mm on the trousers, because a garment cut from the body has body
+   chords, so it measures sag against the surface its own vertices already sit on. Do not retry that shape of
+   fix. There is also no asset-side escape: `spec.Garment` takes `preset`, `name` and `colour` only.
+
+   *What the fix probably is.* Close the loop between ease and cover, in one of two places:
+   - after `cover`, re-push any cloth that lies inside skin cover left **drawn**, then re-run cover; or
+   - give `_settle` the same treatment `_span` already gets - it is followed by `push_out()` and `_settle` is
+     not - with a floor that is not 0 through the middle of a garment over a convex girdle.
+   Either way the invariant to assert is one line: *no cloth inside drawn skin*, which is a cheap check to add
+   to `dress`'s report and is the thing `gap_min_m` was silently violating.
+
+   *The check that never ran.* `build_many` printed `ok species_uruk` and `REVIEW_GODOT DONE 2 ok, 0 failed`
+   for a garment that fails `verify_wardrobe` by 2x. The garments stage does not run the verifier; nothing
+   between the garment being cut and the glb being shipped measures poke-through. Wiring `verify_wardrobe`
+   into the garments stage - fail the stage on its limits, the way the flesh and cloth stages already run
+   their verifiers - is the single check that would have caught this before anyone looked at a render, and it
+   is what the project CLAUDE.md's "catch it upfront" rule asks for. It is also cheap: the run above is ~25 s
+   per garment headless.
+
+3. **A near-black skin swallows a near-black hair** (look, not a check). `hair.colour = [0.06, 0.055, 0.05]`
+   on `skin.tone = [0.14, 0.135, 0.115]` reads in Godot as one unbroken black shell: on the `head_back` tile
+   the `long_loose` cap has no internal separation from the neck, and on the face tiles the hairline vanishes
+   into the forehead. The same hair colour on the orc's olive-green skin reads fine. The orc's `short_crop`
+   is the control in `assets/species/species_*/review/*/godot/sheet.png`.
+   Two ways to catch it before a build: `species_design` (or the spec check) could warn when the hair's
+   luminance is within some margin of the skin tone's - it has both numbers and nothing else compares them;
+   or lookdev's sheet could report hair-against-skin contrast as one of its measured numbers, which is the
+   more general fix since it covers brows, lashes and beards too.
+   The asset-side workaround is a dark iron-grey hair rather than black, which costs one number and one build.
+
+Also: `long_loose` reads as a pageboy bob, not a lank mane, on a male brute. Not a defect - it is what the
+preset is - but the species catalogue has no long, lank, unkempt hair preset, and orcs, trolls and barbarians
+all want one.
+
 ## The gnoll: what the worked example found (branch `species-2-gnoll`, 2026-09-22)
 
 A hyena-headed humanoid built from ONE inline `[body.species]` - a parametric muzzle with a jaw that opens,
