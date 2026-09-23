@@ -77,7 +77,7 @@
    "specular": 0.35
   },
   "eye": {
-   "description": "An eyeball that reads alive in Godot. Three things, each carried the way glTF and Godot 4.7 can carry it: a wet cornea over the whole ball (a clearcoat, so a key light leaves a small hard catchlight on a surface that is otherwise diffuse tissue - glTF has no clearcoat, so it rides in the lookdev extras); a dark limbal ring at the iris edge, which real eyes have and which also hides the facet boundary between the iris and sclera material slots; and a pupil kept far below the iris so it reads as a hole. Before this preset the eye was three flat Principled materials with no extras at all, so the Godot addon skipped them: no catchlight, no limbal ring, and a brown iris that swallowed its own pupil.",
+   "description": "An eyeball that reads alive in Godot. Three things, each carried the way glTF and Godot 4.7 can carry it: a wet cornea over the whole ball (a clearcoat, so a key light leaves a small hard catchlight on a surface that is otherwise diffuse tissue - glTF has no clearcoat, so it rides in the lookdev extras); a dark limbal ring at the iris edge, which real eyes have and which also hides the facet boundary between the iris and sclera material slots; and a pupil kept far below the iris so it reads as a hole, and small enough for daylight: at 14 degrees it was 0.55 of the iris across, and cropped by the lids it read as a dark square in every close-up (rendered on the cyclops and on a human control, species round 1). A lit pupil is about a third of the iris; 10 degrees on a 32-ring ball lands the material boundary at 11.25 and measures 0.35. Before this preset the eye was three flat Principled materials with no extras at all, so the Godot addon skipped them: no catchlight, no limbal ring, and a brown iris that swallowed its own pupil.",
    "sclera_srgb": [
     0.936,
     0.926,
@@ -89,7 +89,7 @@
    "limbal_darken": 0.35,
    "limbal_width_deg": 3.5,
    "iris_half_angle": 32.0,
-   "pupil_half_angle": 14.0,
+   "pupil_half_angle": 10.0,
    "roughness": 0.3,
    "godot": {
     "roughness": 0.3,

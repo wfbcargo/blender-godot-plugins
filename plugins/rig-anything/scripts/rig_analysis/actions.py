@@ -1092,7 +1092,17 @@ def _check_common(body, bm, keyed, ev, infos_by_frame, planted, posed_limbs,
     rest_top = max((mw @ p).dot(upw) - rest_floor
                    for b in body_bones for p in (b.head_local, b.tail_local))
 
+    # A tail must not swing through a leg. Nothing else in this list would catch it: a tail is not
+    # planted, not a mid-joint and not under the floor, and it is posed by its own rules
+    # (`motion.Body.pose_tail`) after the legs are solved, so it never sees them.
+    gap = verify.tail_gap(body, bm, evaluated, [f for f, _ in keyed])
+    if gap and gap["failed"]:
+        failures.append("the tail comes %.0f mm from a leg at frame %s (limit %.0f mm; %.0f mm at rest) "
+                        "- it passes through it" % (gap["min_m"] * 1000, gap["at_frame"],
+                                                    gap["limit_m"] * 1000, gap["rest_m"] * 1000))
+
     return {
+        "tail_gap": gap,
         "prediction_error": round(ev["prediction_error"], 7),
         "rest_error": round(rest_err, 6),
         "planted_drift": drift,
@@ -1321,7 +1331,93 @@ def turn(rig_name, direction="L", degrees=90.0, frames=24, forward="-Y", up="Z",
     return report
 
 
+# How far the jaw drops by default, degrees. `maw.KINDS` holds what a real mouth of each kind opens to
+# (a mammal's 70, jaws combined), but that is the SKULL's limit and what a clip may use is the SKIN's: a
+# humanform face folds nothing to 20 degrees and a snouted one tears past it (`humanform.jaw.OPEN_DEG`,
+# measured over five gapes on a man and on the same man with a canine muzzle). A rig that knows its own
+# limit passes it as `degrees`; 20 is the one measured safe on every body that has one, so a spec which
+# says nothing gets a mouth that opens and does not tear.
+MOUTH_OPEN_DEG = 20.0
+
+
+def mouth_open(rig_name, degrees=MOUTH_OPEN_DEG, frames=10, forward="-Y", up="Z", floor=0.0,
+               action_name="MouthOpen", fps=None):
+    """Rest -> the jaw dropped `degrees` about its hinge, held. Play it backwards to close.
+
+    The one mouth clip a body with nothing but a JAW BONE can play. `maw.py` authors the full set -
+    Gape, Bite, Roar, Swallow, a throat that swells, a tongue that curls - but only for a mouth
+    `maw.build` found and rigged itself, because every one of those poses a throat and a mouth socket
+    as well as the jaw. A body whose jaw came from somewhere else (`humanform.jaw` gives every
+    humanform body one, so a person, a dwarf or a gnoll can snarl) has the jaw and nothing else, and
+    this is what it can do with it.
+
+    The jaw is whichever bone carries `maw.ROLE` == "jaw" - the same tag `maw.build` writes and the
+    same one the body map keeps out of the axial chain - so nothing here knows which module put it
+    there. The body is held at its rest stance throughout: only the jaw turns, and the clip is played
+    back and checked like every other action (planted feet, no floor penetration).
+    """
+    from . import keyposes as kp, maw as maw_mod
+    ctx, err = _setup(rig_name, forward, up, floor)
+    if err:
+        return err
+    bm, rig, body, P = ctx
+    jaws = maw_mod.maw_bones(rig).get("jaw") or []
+    if not jaws:
+        return {"error": "%s has no jaw: no bone carries %s = \"jaw\", so there is nothing to open. A "
+                         "humanform body gets one from humanform.jaw.add; a creature's whole mouth "
+                         "(throat, tongue, bite timing) is rig_analysis.maw.build + maw.maw_set"
+                         % (rig_name, maw_mod.ROLE)}
+    if len(jaws) > 1:
+        return {"error": "%s has %d jaw bones (%s) - this clip turns one"
+                         % (rig_name, len(jaws), ", ".join(jaws))}
+    jaw = jaws[0]
+    if not isinstance(degrees, (int, float)) or not -90.0 <= degrees <= 90.0 or abs(degrees) < 1e-6:
+        return {"error": "mouth_open degrees = %r: a jaw drop in -90..90 and not 0" % (degrees,)}
+    lat, up_vec = bm["lat"], bm["up_vec"]
+    hinge = body.rest[jaw].translation.copy()
+    chin = rig.data.bones[jaw].tail_local.copy()
+    # Which way about the lateral axis drops the chin is tested on the rest points, never assumed: a rig
+    # whose jaw was built pointing the other way would otherwise key the mouth shut through its own throat.
+    v = chin - hinge
+    if v.length < 1e-9:
+        return {"error": "the jaw bone %r has no length, so no rotation of it opens anything" % jaw}
+    turned = Matrix.Rotation(math.radians(10.0), 3, lat) @ v
+    sign = 1.0 if (turned - v).dot(up_vec) < 0.0 else -1.0
+    rest = kp.Key(name="rest")
+
+    def pose(s):
+        # The jaw has no children on a rig that only has a jaw, so its armature matrix is set in place
+        # rather than re-solved through `body.fk` - which would undo the arms and legs this key posed.
+        posed, infos = P.pose(rest)
+        posed = dict(posed)
+        M = (Matrix.Translation(hinge)
+             @ Matrix.Rotation(math.radians(degrees * s * sign), 4, lat)
+             @ Matrix.Translation(-hinge))
+        posed[jaw] = M @ posed[jaw]
+        return posed, infos
+
+    def check(keyed, ev, infos_by_frame):
+        return _check_common(body, bm, keyed, ev, infos_by_frame, planted=P.legs,
+                             posed_limbs=P.legs, rest_floor=floor, starts_at_rest=True)
+    keyed, _infos, action, report = _author(body, rig, action_name, max(2, int(frames)), pose, fps, check)
+    if "error" in report:
+        return report
+    scale = sum(rig.matrix_world.to_scale()) / 3.0
+    opened = body.carried(keyed[-1][1], jaw, chin.copy())
+    report.update({"rig": rig_name, "action": action.name, "role": "MouthOpen",
+                   "frames": [1, len(keyed)], "fps": bpy.context.scene.render.fps,
+                   "jaw": jaw, "degrees": float(degrees),
+                   "chin_travel_m": round((opened - chin).length * scale, 4)})
+    return report
+
+
 RUN_GAIT = {2: "walk", 4: "trot", 6: "tripod"}
+
+# Every role `move_set` can author, so a caller can refuse an unknown one BEFORE a build instead of
+# after twenty minutes of it (character-pipeline's spec check reads this). `move_set` proves the two
+# agree: a maker missing from here, or a name here with no maker, is an error from the set itself.
+ROLES = ("Idle", "Walk", "Trot", "Run", "Crouch", "CrouchWalk", "Jump", "TurnL", "TurnR",
+         "Slide", "SlideRecover", "SlideToCrouch", "MouthOpen")
 
 
 def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
@@ -1409,6 +1505,9 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
         "SlideToCrouch": (slide_recover, dict(to="crouch", action_name=name("SlideToCrouch"),
                                               slide_clip=name("Slide"),
                                               crouch_clip=name("Crouch"))),
+        # Only on a rig that has a jaw bone; it errors with what to do about it otherwise. Not in the
+        # default roles, because most rigs have no jaw and a role nobody asked for should not fail a set.
+        "MouthOpen": (mouth_open, dict(action_name=name("MouthOpen"))),
     }
     if not legacy_gaits:
         from . import locomotion
@@ -1428,6 +1527,16 @@ def move_set(rig_name, prefix=None, forward="-Y", up="Z", floor=0.0, fps=None,
     unknown = set(options) - set(makers)
     if unknown:
         return {"error": "options for unknown roles: " + ", ".join(sorted(unknown))}
+    # A role this set cannot make used to reach `makers[role]` and raise a bare KeyError from inside the
+    # loop, with no list of what it could have been (the gnoll's MouthOpen, 2026-09-22).
+    stray = [r for r in roles if r not in makers]
+    if stray:
+        return {"error": "unknown move role(s) %s - this set makes %s"
+                         % (", ".join(sorted(stray)), ", ".join(sorted(makers)))}
+    # (`legacy_gaits` builds no Trot, so ROLES may name one more than `makers` has)
+    if set(makers) - set(ROLES):
+        return {"error": "move_set makes role(s) actions.ROLES does not name: %s"
+                         % ", ".join(sorted(set(makers) - set(ROLES)))}
     if variability:
         from . import locomotion as loco_mod
         for role, (fn, _kw) in makers.items():

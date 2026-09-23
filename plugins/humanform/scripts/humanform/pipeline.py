@@ -31,7 +31,9 @@ Neither kind is ever stored: the library indexes bodies by ANSUR z-scores they d
 A brief with a `species` other than "human" (humanform.species) makes the pre-warp human first - exactly the
 path above, library and all, since it is a real human - then puts the species' head features on it, warps it
 to the species (`species.warp`) and checks it against the species preset. The result's `check` is the
-species'; `species` holds the warp's report and `prewarp` the human's own path and check.
+species'; `species` holds the warp's report and `prewarp` the human's own path and check. A species whose
+body plan goes past a human's takes it after that check: `graft` (legs replaced by a tail), `legs` (a
+digitigrade leg plan, humanform.legs) and `tail` (a tail beside the legs, humanform.tail).
 """
 
 from __future__ import annotations
@@ -48,13 +50,14 @@ WARM = 1.6
 
 
 def _finish_look(human, s, eyes):
-    """Rigged body -> eyes, teeth and tongue, and skin, from the brief's screen colours. The teeth and tongue
-    (`features.mouth`: MPFB's hidden mouth helpers as a skinned mesh of their own) go on every body: a body is
-    drawn with all its parts."""
+    """Rigged body -> eyes, a jaw, teeth and tongue, and skin, from the brief's screen colours. The teeth and
+    tongue (`features.mouth`: MPFB's hidden mouth helpers as a skinned mesh of their own) go on every body: a
+    body is drawn with all its parts. The jaw goes on before them, so they take its weights."""
     from . import look
     if eyes:
         from . import eyes as _eyes
         _eyes.add(human, iris=s.get("iris"))
+    _jaw(human)
     _mouth(human)
     if s.get("skin") is not None:
         look.skin(human, s["skin"])
@@ -66,6 +69,13 @@ def _mouth(human):
     except ImportError:
         return None
     return features.mouth(human)
+
+
+def _jaw(human):
+    """The jaw bone and the mouth's weights (`humanform.jaw`), before the teeth and the tongue are built: they
+    are given the skin's weights where they sit, so the lower ones come away with the jaw."""
+    from . import jaw
+    return jaw.add(human)
 
 
 def _macros(human, names=("age", "weight", "muscle", "height", "firmness", "proportions", "cupsize")):
@@ -153,7 +163,10 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw)
     t = dict(res["timing"])
     t1 = time.time()
     feats = species.apply_features(human, sp)
-    _mouth(human)                   # rebuilt where the head features have put the mouth, before the warp moves it
+    # the jaw where the features have left the lip line (a muzzle moves it forward), then the mouth on top of
+    # it: rebuilt before the warp moves the head
+    jaw_rep = _jaw(human)
+    _mouth(human)
     before_warp = _before_warp(human, s_pre, anatomy)
     t["features"] = time.time() - t1
     eyes_spec = ((sp.get("head") or {}).get("eyes"))
@@ -172,6 +185,7 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw)
     species.warp(human, sp, report=rep, sex=s["sex"], stature=info["stature"], style=s.get("style", "realistic"),
                  clamp_scale=info["clamp_scale"], verbose=verbose)
     rep["features"] = feats
+    rep["jaw"] = jaw_rep
     if eyes_rep is not None:
         rep["eye_layout"] = eyes_rep
     rep["before_warp"] = before_warp
@@ -201,6 +215,80 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw)
             from . import look
             look.skin(human, tone, species_skin=species.skin_block(sp))
         t["graft"] = time.time() - t5
+    # What the body plan does after the proportions are checked, in the order each stage needs: the legs
+    # (which point the segments and move the toes), the feet (which reshape the toes and stand the body on
+    # its pads), the tail (measured against the legs), and last the fur, which is laid on whatever body the
+    # species ended with.
+    expect = {"eyes": (rep.get("eyes") or {}).get("ratio", 1.0)}
+    touched = False
+    if (sp.get("legs") not in (None, "plantigrade") or sp.get("foot") not in (None, "human")
+            or sp.get("tail") not in (None, False)):
+        touched = True
+        from . import feet as feet_mod
+        from . import legs as _legs_lim
+        LEGS_STANCE_RANGE = _legs_lim.LIMITS["stance"]
+        nails0 = feet_mod.nail_over_foot(human)
+        t6 = time.time()
+        if sp.get("legs") not in (None, "plantigrade"):
+            from . import legs as legs_mod
+            lspec = sp["legs"]
+            want = feet_mod.LEG_RATIOS.get(feet_mod.normalise(sp.get("foot"))["plan"])
+            if want and not (isinstance(lspec, dict) and lspec.get("ratios")):
+                # a paw belongs on a dog's leg and a hoof on a goat's: the foot plan names the leg ratios its
+                # own silhouette needs, and the species may still say otherwise
+                lspec = dict({"plan": lspec} if isinstance(lspec, str) else lspec, ratios=want)
+            rep["legs"] = legs_mod.apply(human, lspec, verbose=verbose,
+                                         patch=feet_mod.patch_of(sp.get("foot")))
+            t["legs"] = time.time() - t6
+        if sp.get("foot") not in (None, "human"):
+            t6b = time.time()
+            rep["feet"] = feet_mod.apply(human, sp["foot"], verbose=verbose)
+            # and then the feet go under the body: the warp balanced it over a plantigrade foot, and the leg
+            # and foot plans have moved the patch it really stands on (`feet.settle`)
+            b, rows = feet_mod.settle(human, lspec, report=rep["feet"])
+            if b and b["failed"]:
+                # Refused HERE, with the residual, rather than 140 seconds later when the export refuses a
+                # Crouch: this is the same support and the same centre of mass the clip check uses
+                # (`b["measured_by"]`), so what passes here passes there.
+                short = (b["patch_fwd"][0] - b["com_fwd"] if b["com_fwd"] < b["patch_fwd"][0]
+                         else b["com_fwd"] - b["patch_fwd"][1])
+                raise ValueError(
+                    f"foot: the body will not stand over its own feet. Its centre of mass is "
+                    f"{b['com_fwd']:.3f} m forward and the feet support {b['patch_fwd'][0]:.3f}.."
+                    f"{b['patch_fwd'][1]:.3f} ({b['measured_by']}), so it is {abs(short) * 1000:.0f} mm "
+                    f"{'behind' if short < 0 else 'ahead of'} them - a margin of {b['margin_m'] * 1000:.0f} mm "
+                    f"against the {b['limit_m'] * 1000:.0f} mm it needs, after {len(rows)} stance passes "
+                    f"{rows}. `legs.stance` moves the feet under the body ({LEGS_STANCE_RANGE[0]}.."
+                    f"{LEGS_STANCE_RANGE[1]} hip heights, and the solve already tried); after that it is "
+                    f"`hunch_deg` that carries the centre forward, `foot.pad`/`toe_pad` that lengthen the "
+                    f"patch, and `foot.claw.length` that moves its front edge")
+            t["feet"] = time.time() - t6b
+        if sp.get("tail") not in (None, False):
+            t7 = time.time()
+            from . import tail as tail_mod
+            rep["tail"] = tail_mod.apply(human, sp["tail"], verbose=verbose)
+            t["tail"] = time.time() - t7
+        # a foot plan draws hm08's five toenails together onto however many toes the plan ends in: that is
+        # the change it is meant to make, so the inventory grades them against it (`expected`), as it does the
+        # eyes against their allometry
+        nails1 = feet_mod.nail_over_foot(human)
+        if nails0 and nails1:
+            expect["nails.toes"] = round(nails1 / nails0, 4)
+    fur_block = species.fur_block(sp)
+    if fur_block:
+        # Fur last, on the body the species finally has (the warp, the features, any graft and the body plan):
+        # its coverage map is per vertex of the shared mesh, so it is laid on the body's own joints - a dwarf's
+        # ruff on the dwarf's shoulders. The textures and the checks come later, at the export, on the baked body.
+        from . import fur as _fur
+        touched = True
+        t6f = time.time()
+        rep["fur"] = _fur.apply(human, fur_block, base_colour=tone)
+        t["fur"] = time.time() - t6f
+    if touched:
+        rep["anatomy"] = species.inventory(human, sp, reference=before, expected=expect)
+        if tone is not None:
+            from . import look
+            look.skin(human, tone, species_skin=species.skin_block(sp))
     if contact_sheet and out_dir:
         t4 = time.time()
         views.contact_sheet(human.name, out_dir, preset=pre, sex=s["sex"], report=hc)

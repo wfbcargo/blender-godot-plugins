@@ -163,12 +163,12 @@
      "subject_off": 0.07
     },
     "feet": {
-     "coverage": 0.23,
+     "coverage": 0.26,
      "distance_m": 1.0,
      "ok": true,
      "on_body": true,
-     "subject_margin": 0.23,
-     "subject_off": 0.01
+     "subject_margin": 0.2,
+     "subject_off": 0.0
     },
     "foot_inner.L": {
      "coverage": 0.17,
@@ -369,9 +369,9 @@
    "unknown_type": "[flesh] overrides names 'belly', which types does not ask for (['breast', 'butt'])"
   },
   "flesh_placement": {
-   "chin_z": 1.473,
+   "chin_z": 1.444,
    "control_attachment": {
-    "chin_z": 1.473,
+    "chin_z": 1.444,
     "ok": false,
     "regions": {
      "breast.L": {
@@ -413,12 +413,12 @@
     }
    },
    "control_legacy": {
-    "chin_z": 1.473,
+    "chin_z": 1.444,
     "judged": "failed: MISPLACED names the chin True, the face True",
     "ok": false,
     "regions": {
      "breast.L": {
-      "head_share": 0.805,
+      "head_share": 0.872,
       "ok": false,
       "pivot_rise_m": 0.03,
       "tail_z": 1.506,
@@ -427,7 +427,7 @@
       "weight_on_thigh": 0.0
      },
      "breast.R": {
-      "head_share": 0.823,
+      "head_share": 0.889,
       "ok": false,
       "pivot_rise_m": 0.03,
       "tail_z": 1.506,
@@ -438,7 +438,7 @@
     }
    },
    "hanging": {
-    "chin_z": 1.473,
+    "chin_z": 1.444,
     "ok": true,
     "regions": {
      "breast.L": {

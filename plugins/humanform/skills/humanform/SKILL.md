@@ -349,10 +349,11 @@ the hair stage joins them into the body with the rest of the hair.
 - **Body hair** (off unless asked) is a shell 0.3 mm off the skin cut by bone weight (and facing, on the
   torso), with the hair texture thinned to 22% of its strand bands, each staggered, repeating every 14 mm
   along the limb so it reads as short hairs.
-- **Beard** (`hair.add(beard=, beard_colour=, beard_length=, beard_volume=)`, a brief's `hair.beard`, a spec's
-  `[hair] beard` / `beard_colour` / `beard_length` (m at the chin) / `beard_volume` (0..1); off unless asked):
+- **Beard** (`hair.add(beard=, beard_colour=, beard_length=, beard_volume=, beard_braids=)`, a brief's
+  `hair.beard`, a spec's `[hair] beard` / `beard_colour` / `beard_length` (m at the chin) / `beard_volume`
+  (0..1) / `beard_braids` (0..6); off unless asked):
   `brows.BEARD_STYLES` - `stubble` (0.3 mm off the skin, skin between the hairs), `short`, `goatee`,
-  `moustache`, `full` (3.5 cm, standing off in layers) and `long` (24 cm: a dwarf's chest-length beard, hanging).
+  `moustache`, `full` (5.5 cm) and `long` (24 cm: a dwarf's chest-length beard, hanging).
   Where it grows is a signed distance on the face (`brows.beard_field`: the mouth's slit and corners and the
   nose's base from `face_features.json`, the chin as the lowest front point of the head, the head and neck
   weights): `moustache` between the nose's base and the upper lip, `corners` round the mouth's corners (joining
@@ -360,13 +361,30 @@ the hair stage joins them into the body with the rest of the hair.
   below a line from the nose's base at the mouth's corner to the mouth's height 7 cm out; never the lips' red,
   the slit or the nostrils, and below the chin only the jaw's underside. The edge fades over `feather_m` across
   that field's zero line (a colour attribute's alpha, COLOR_0 in glTF, multiplied in Godot), so it is a smooth
-  curve thinning into single hairs, not a line of whole faces. `volume` gives 1-6 layers, each standing further
-  off (more at the chin than the moustache) and sparser; past 6 cm `length` a closed, flattened tube hangs from
-  under the chin, narrowing to a ragged tip, held 2 cm in front of the chest and skinned from the head into the
-  neck and chest. All of it scales with the head (`hair.head_scale`). Texture and UVs are square on the skin
-  (`beard_pixels`), and `hairtex.mip_check` refuses a beard whose holes Godot's mips would draw as patches.
+  curve thinning into single hairs, not a line of whole faces.
+  **Everything but stubble is strand cards over one shell** - `humanform.cards`, the shared growth, reached
+  through `hair.cards(body, field, length_m, volume=, colour=, root_bone=, **params)` where `field` is one
+  0..1 weight per body vertex (the shape `beard_field` returns and fur's `hf_fur_den` is in, so a mane, a ruff
+  past 8 cm and a tail brush grow from fur's own coverage map with no conversion). The shell is the root mat that hides the skin, as a
+  scalp's cap does; over it `_beard_cards` scatters roots across the field at the style's `density` and grows a
+  bowed three-column ribbon from each, following the face's surface and then falling into gravity, held off the
+  body all the way (2 cm below the chin, so it hangs clear of the chest and the shirt on it). `volume` raises
+  the card count, `clump` gathers them into locks (each clump's members bend into its spine over their second
+  half), `beard_braids` winds the hanging ones into plaits, and a card's fade falls to 0.42 over its last
+  half, which drops the texture's hairs one by one and leaves a scatter of tips rather than a cut. Stubble
+  keeps the shell alone, and the code says why: at 2.5 mm a hair is a third of a screen pixel long at 4 m.
+  A beard past 6 cm leaves `objects["beard_strand"]`, its hanging cards as their own mesh with follow-through's
+  strand contract - one `ft_centrelines` chain a lock, since one chain down a sheet as wide as a jaw twists it -
+  which the pipeline keeps out of the join and the strand stage springs (the registry's `beard` type stiffens
+  and damps it: on the hair material's own limits a dwarf's beard swung 70 degrees and went into his own face).
+  All of it scales with the head (`hair.head_scale`). Texture and UVs are square on the skin (`beard_pixels`;
+  the cards have a second sheet with no under-layer, so their gaps show), and three checks refuse a bad beard
+  before the export: `hairtex.mip_check` (holes Godot's mips would draw as patches), `_coverage_check` (a bald
+  region of the field - the notch under the lip, the corners) and `hairtex.silhouette_check` (an outline that
+  does not wander at 0.6 m or 4 m: a decal, not hair).
   Colour: the hair colour times 0.95 unless `beard_colour`. The report's `face.parts.beard` has the regions'
-  vertex counts, the marks, layers, the hanging part and the Godot sampling check.
+  vertex counts, the marks, the cards and their coverage, the strand mesh and its contract, and the Godot
+  sampling and silhouette checks.
 - **Fringe** (`hair.add(fringe=True)` or a dict over `hair.FRINGE`, a brief's `hair.fringe`, a spec's
   `[hair] fringe = true`): a sheet over any preset from near the crown (0.95 h) down to the brows (0.2 h),
   62 degrees either side of the front, hung straight down from the widest point above (over the brow ridge,
@@ -575,6 +593,94 @@ high copy is rebuilt on the fused topology, or lookdev's matched bake falls back
   fail). Only there: applied to every body it moved MPFB fits (a curvy woman's stature by 2.8 mm).
 
 Verify: `python tools/regress.py --only pipeline_genitals` (repo).
+
+## Fur (`humanform.fur`)
+
+Short fur as **one coverage map on hm08, drawn in Godot as offset shells**. The map is the shared object:
+per vertex of the shared mesh, so it transfers between bodies and rides through the species warp with the
+part it sits on - a dwarf's ruff lands on the dwarf's shoulders.
+
+```toml
+[body.species.fur]
+shells = 16                 # 4..24. The message says how many a length needs (silhouette_check)
+lay = 0.6                   # 0 the fur stands out, 1 it lies flat along the flow
+
+[[body.species.fur.regions]]
+name = "pelt"
+areas = ["body"]            # fur.AREAS: body head face neck ruff shoulders back front torso chest belly
+except_areas = ["head", "hands", "feet"]   # arms upper_arms forearms hands legs thighs shins feet tail graft
+                            # `tail` and `graft` are what a body PLAN added (humanform.tail, graft), read
+                            # off their own vertex groups; every other area is a landmark field on hm08.
+                            # Two traps the gnoll found: `front` and `back` are normal-based and cover half
+                            # the body each, so an `except_areas` of one leaves a region with no core
+                            # anywhere; and a `body`-wide pelt must except any region that wants its own
+                            # length, or the blend splits the difference between them.
+length_m = 0.012            # 0.8 mm .. 80 mm; past that hair hangs, and only strand cards hang
+#cards = true               # ... which is what this says: grow THIS region as strand cards
+                            # (humanform.cards, through hair.cards) off its own coverage mask instead of
+                            # as shells, and take `length_m` in 0.02..0.45 m. A mane, a ruff past 8 cm and
+                            # a tail brush are the growth a beard is. The region still leaves
+                            # fur.CARD_MAT_M of root mat in the shell map, which is what hides the skin
+                            # under the strands, as a scalp cap does under hair. character-pipeline grows
+                            # them at the end of the bake stage and joins them into the body.
+density = 1.0               # at COVER_DENSITY (0.75) and above, the skin under it is not drawn
+flow = "down"               # down | back | out | along (down the limb) | muzzle (along a snout's own axis,
+                            # out toward its tip). Every flow but `muzzle` is a world direction laid on the
+                            # skin, and on skin that faces the way it points the projection has no answer:
+                            # at a snout's tip and its nostrils the nap combs out in a star. fur.flow_
+                            # continuity measures that tear (warned with the number and the worst edge).
+colour = [0.34, 0.24, 0.15]
+pattern_colour = [0.16, 0.11, 0.07]
+pattern = { kind = "spots", scale = 0.055, amount = 0.55 }   # spots stripes blotches mottle
+```
+
+`fur.validate(block)` refuses a bad one with the range in the message, and runs outside Blender, so
+`species_design.design` and character-pipeline's spec check both use it before any build.
+
+**What travels to Godot.** Density, length and the flow's direction go as the `hf_fur` colour attribute
+(glTF COLOR_0), *not* as a texture: hm08's shipping UV atlas overlaps itself - about a fifth of its texels
+are claimed by two different parts of the body (`fur.atlas_overlap`) - and a coverage map rasterised into
+it came back with furred hands, feet and a furred scalp. Two textures carry what needs texel resolution:
+`<id>_fur_colour.png` (the fur's colour with its pattern mixed in) and `<id>_fur_strands.png` (a tiled
+strand mask, so it never touches the atlas). `fur.bake` writes them beside the glb and puts the spec on the
+body mesh as node extras.
+
+**The checks, before a build ships** (`fur.bake`, run by character-pipeline at the export):
+- `mip_check` - `hairtex`'s, on the strand mask as the shells sample it. Fur's base coat is the opaque
+  under-layer hairtex's own remedy asks for, so a hole never shows skin; what remains is the anisotropy
+  test and a strand that would be under a screen pixel at 0.6 m.
+- `silhouette_check` - the fur's length and the gap between two shells, in screen pixels, on the outline at
+  0.6 m and 4 m: too short at 4 m is a fuzz, too far apart combs, and the message says how many shells.
+- `edge_tone` - `skin.seam_tone`'s question asked of a fur boundary: the step in the fur's tone across one
+  edge of the mesh where the fur ends. A step there reads as a dark ring at a wrist, an ankle or a hairline
+  however good the fur is. The colour and the length are feathered over `EDGE_RINGS` rings from where the
+  skin still shows through, so it passes.
+- `dark_patches` - any patch of furred body more than `DARK_TOL` in luma below *its own surface colour*,
+  on the colour map as Godot samples it, mip by mip, at 0.6 m and 4 m. Measured against the surface it sits
+  on and not against a global mean, so a pattern's spots pass and a black bled in from the map's unwritten
+  space does not - that one drew black gloves and socks at the wrists and ankles.
+- `flow_roundtrip` - the flow decoded back out of the vertex colour the way the SHADER decodes it,
+  against the direction humanform meant. The angle travels in a frame, and writer and shader have to
+  agree on it down to its sign: they did not (the UV tangent flips across a seam, hm08 has one down the
+  midline of the back of the head, and the shells either side sheared apart and opened a bald stripe).
+  The frame is `fur.flow_frame` now - built off the normal, which cannot flip - and this measures it.
+- `face_check` - how far fur stands over an eyeball (it is cleared by `EYE_CLEAR` radii *plus its own
+  length*, so a long pelt beside a short nap cannot lean across the eye), and the lip line's luma against
+  the fur round the mouth. `lip_pigment` (default 0.8 when a region covers the face or a muzzle) takes the
+  lips down on the skin's own tint: bare, they read as a pale smear along a furred mouth.
+- `atlas_overlap` - recorded, and why the map is a vertex colour.
+- the anatomy inventory (`species.inventory`): fur is a part in `species_design.ANATOMY`, so a body whose
+  species says it has fur and carries no map fails.
+- `fur.covered` - the skin under fur at `COVER_DENSITY` or more, listed as positions the way wardrobe lists
+  the skin a garment covers, so Godot drops those triangles.
+
+**In the game**: copy `${CLAUDE_PLUGIN_ROOT}/godot/addons/humanform_fur` into the project, then
+
+```gdscript
+const Fur := preload("res://addons/humanform_fur/fur.gd")
+Fur.attach(model)                       # after Wardrobe.equip, so garments hide fur too
+Fur.lod(model, camera.global_position)  # optional, once a frame
+```
 
 ## MPFB2 from a script
 

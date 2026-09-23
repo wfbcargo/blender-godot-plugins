@@ -251,10 +251,10 @@
     },
     "skin_lowest": -0.0,
     "tightest_joint_degrees": {
-     "front.L": 157.0,
-     "front.R": 157.0,
-     "thigh.L": 130.9,
-     "thigh.R": 130.9
+     "front.L": 155.7,
+     "front.R": 155.7,
+     "thigh.L": 130.2,
+     "thigh.R": 130.2
     }
    },
    "Run": {
@@ -268,10 +268,10 @@
     "skin_lowest": 0.0,
     "stride_m": 1.3599,
     "tightest_joint_degrees": {
-     "front.L": 61.2,
-     "front.R": 64.1,
-     "thigh.L": 54.5,
-     "thigh.R": 52.3
+     "front.L": 50.0,
+     "front.R": 51.6,
+     "thigh.L": 50.0,
+     "thigh.R": 50.0
     }
    },
    "Trot": {
@@ -285,10 +285,10 @@
     "skin_lowest": 0.0,
     "stride_m": 0.9781,
     "tightest_joint_degrees": {
-     "front.L": 77.3,
-     "front.R": 77.3,
-     "thigh.L": 66.8,
-     "thigh.R": 66.8
+     "front.L": 67.4,
+     "front.R": 67.4,
+     "thigh.L": 57.2,
+     "thigh.R": 57.2
     }
    },
    "Walk": {
@@ -302,10 +302,10 @@
     "skin_lowest": 0.0,
     "stride_m": 0.6035,
     "tightest_joint_degrees": {
-     "front.L": 92.0,
-     "front.R": 92.0,
-     "thigh.L": 84.5,
-     "thigh.R": 84.5
+     "front.L": 84.4,
+     "front.R": 84.4,
+     "thigh.L": 77.4,
+     "thigh.R": 77.4
     }
    }
   },
@@ -409,6 +409,20 @@
     "rig": "DogTest_metarig",
     "skin_lowest": -0.0,
     "standing_height_m": 0.7562,
+    "tail_gap": {
+     "at_frame": 1,
+     "failed": false,
+     "judged": false,
+     "limit_m": 0.00605,
+     "min_m": 0.0801,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      350,
+      416
+     ],
+     "rest_m": 0.0801,
+     "spacing_m": 0.00905
+    },
     "tightest_joint_degrees": {
      "front.L": 90.3,
      "front.R": 90.3,
@@ -451,11 +465,25 @@
     "skin_lowest": -0.0,
     "stance_width": null,
     "standing_height_m": 0.7562,
+    "tail_gap": {
+     "at_frame": 40,
+     "failed": false,
+     "judged": false,
+     "limit_m": 0.00605,
+     "min_m": 0.0794,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      350,
+      416
+     ],
+     "rest_m": 0.0801,
+     "spacing_m": 0.00905
+    },
     "tightest_joint_degrees": {
-     "front.L": 157.0,
-     "front.R": 157.0,
-     "thigh.L": 130.9,
-     "thigh.R": 130.9
+     "front.L": 155.7,
+     "front.R": 155.7,
+     "thigh.L": 130.2,
+     "thigh.R": 130.2
     },
     "tolerance": 0.00644,
     "upper": null
@@ -464,8 +492,8 @@
     "action": "Dog_Run",
     "adjustments": [],
     "angular_momentum": {
-     "up_mean_abs": 0.00187,
-     "up_range": 0.00698
+     "up_mean_abs": 0.00189,
+     "up_range": 0.00664
     },
     "attempts": 1,
     "balance": null,
@@ -539,7 +567,7 @@
      "thigh.L": 0.0,
      "thigh.R": 0.0
     },
-    "lift_m": 0.082,
+    "lift_m": 0.1146,
     "lift_scale": null,
     "limited_by": [],
     "loop_seam": 0.0,
@@ -549,7 +577,7 @@
     "natural_speed_mps": 3.5377,
     "passed": true,
     "peak_reach": {
-     "front.L": 0.986,
+     "front.L": 0.977,
      "front.R": 0.986,
      "thigh.L": 0.97,
      "thigh.R": 0.97
@@ -563,7 +591,7 @@
     "planted_drift": {},
     "posture": null,
     "prediction_error": 0.0,
-    "rest_error": 0.341057,
+    "rest_error": 0.349004,
     "rig": "DogTest_metarig",
     "skin_lowest": 0.0,
     "spine_flex_deg": 9.0,
@@ -585,7 +613,7 @@
     "stride_m": 1.3599,
     "stride_scale": null,
     "stroke_m": 0.46,
-    "stroke_over_leg": 1.42,
+    "stroke_over_leg": 1.017,
     "style": null,
     "support_normal": [
      -0.0,
@@ -593,11 +621,25 @@
      0.9998
     ],
     "sway_share": 0.0,
+    "tail_gap": {
+     "at_frame": 5,
+     "failed": false,
+     "judged": false,
+     "limit_m": 0.00605,
+     "min_m": 0.0746,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      350,
+      416
+     ],
+     "rest_m": 0.0801,
+     "spacing_m": 0.00905
+    },
     "tightest_joint_degrees": {
-     "front.L": 61.2,
-     "front.R": 64.1,
-     "thigh.L": 54.5,
-     "thigh.R": 52.3
+     "front.L": 50.0,
+     "front.R": 51.6,
+     "thigh.L": 50.0,
+     "thigh.R": 50.0
     },
     "tolerance": 0.00644,
     "upper": null,
@@ -608,8 +650,8 @@
     "action": "Dog_Trot",
     "adjustments": [],
     "angular_momentum": {
-     "up_mean_abs": 0.00189,
-     "up_range": 0.00701
+     "up_mean_abs": 0.00197,
+     "up_range": 0.00835
     },
     "attempts": 1,
     "balance": null,
@@ -683,7 +725,7 @@
      "thigh.L": 0.0,
      "thigh.R": 0.0
     },
-    "lift_m": 0.0583,
+    "lift_m": 0.0814,
     "lift_scale": null,
     "limited_by": [],
     "loop_seam": 0.0,
@@ -729,7 +771,7 @@
     "stride_m": 0.9781,
     "stride_scale": null,
     "stroke_m": 0.4401,
-    "stroke_over_leg": 1.359,
+    "stroke_over_leg": 0.973,
     "style": null,
     "support_normal": [
      -0.0,
@@ -737,11 +779,25 @@
      0.9998
     ],
     "sway_share": 0.0,
+    "tail_gap": {
+     "at_frame": 12,
+     "failed": false,
+     "judged": false,
+     "limit_m": 0.00605,
+     "min_m": 0.077,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      350,
+      416
+     ],
+     "rest_m": 0.0801,
+     "spacing_m": 0.00905
+    },
     "tightest_joint_degrees": {
-     "front.L": 77.3,
-     "front.R": 77.3,
-     "thigh.L": 66.8,
-     "thigh.R": 66.8
+     "front.L": 67.4,
+     "front.R": 67.4,
+     "thigh.L": 57.2,
+     "thigh.R": 57.2
     },
     "tolerance": 0.00644,
     "upper": null,
@@ -752,8 +808,8 @@
     "action": "Dog_Walk",
     "adjustments": [],
     "angular_momentum": {
-     "up_mean_abs": 0.01076,
-     "up_range": 0.03395
+     "up_mean_abs": 0.01072,
+     "up_range": 0.03479
     },
     "attempts": 1,
     "balance": null,
@@ -825,7 +881,7 @@
      "front.L": 0.0,
      "front.R": 0.0
     },
-    "lift_m": 0.0404,
+    "lift_m": 0.0564,
     "lift_scale": null,
     "limited_by": [],
     "loop_seam": 0.0,
@@ -871,7 +927,7 @@
     "stride_m": 0.6035,
     "stride_scale": null,
     "stroke_m": 0.3927,
-    "stroke_over_leg": 1.212,
+    "stroke_over_leg": 0.868,
     "style": null,
     "support_normal": [
      -0.0,
@@ -879,11 +935,25 @@
      0.9998
     ],
     "sway_share": 0.0,
+    "tail_gap": {
+     "at_frame": 11,
+     "failed": false,
+     "judged": false,
+     "limit_m": 0.00605,
+     "min_m": 0.0765,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      350,
+      416
+     ],
+     "rest_m": 0.0801,
+     "spacing_m": 0.00905
+    },
     "tightest_joint_degrees": {
-     "front.L": 92.0,
-     "front.R": 92.0,
-     "thigh.L": 84.5,
-     "thigh.R": 84.5
+     "front.L": 84.4,
+     "front.R": 84.4,
+     "thigh.L": 77.4,
+     "thigh.R": 77.4
     },
     "tolerance": 0.00644,
     "upper": null,
@@ -1118,7 +1188,7 @@
      "front": {
       "cells_with_body": 8,
       "centred": false,
-      "distinct_cells": 5,
+      "distinct_cells": 6,
       "edge_cells": 0,
       "size_px": [
        2856,

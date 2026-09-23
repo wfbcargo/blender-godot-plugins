@@ -217,6 +217,37 @@ SPECIES = {
                                                    "factor up, no aerial phase [measured, animals]"}},
         "skin_why": "grey-green, stony; every region kept, tone-relative",
     },
+    "satyr": {
+        "label": "Satyr: a man's trunk on digitigrade goat legs, with horns and a short tail",
+        "sources": [S["design"],
+                    "goat (Capra hircus) hind limb: a long standing metatarsus over a flexed stifle and hock, the "
+                    "digits alone on the ground [measured, veterinary anatomy]",
+                    "Greek satyr and Roman faun: a man above the waist, a goat below [folklore]"],
+        "observables": {
+            "stature": ({"female": [1.50, 1.70], "male": [1.60, 1.85]},
+                        "a man's size: the leg folds up under him, so the plan costs no height [folklore]"),
+            "heads": (7.4, "a man's head on a man's trunk [folklore]"),
+            "hip_fraction": (0.50, "a human hip height - what differs is the leg plan, not where the hip is"),
+            "build": ("muscular", "the heavy thighs a standing-hock leg needs [folklore, animal anatomy]"),
+            "girth": ({"legs": 1.12}, "a goat-legged body carries its leg muscle high, at the thigh"),
+            "hunch_deg": (4.0, "a little forward carriage over the flexed legs"),
+        },
+        "knobs": {"shoulder_scale": (1.05, "a broad chest [folklore]")},
+        "look": {"head": {"shape": "triangular", "shape_weight": 0.35,
+                          "features": {"ears_pointed": 0.8, "brow_ridge": 0.4, "ram_horns": 1.0}},
+                 "skin": {"palette": [[0.72, 0.56, 0.42], [0.58, 0.43, 0.32], [0.42, 0.31, 0.23]],
+                          "regions_off": []},
+                 # the body plan: the leg plan and the tail, each checked by its own module before a build
+                 # a goat's hind limb by its measured segment ratios (humanform.legs RATIOS "caprine": Mt:F 0.80,
+                 # inside the cursorial-ungulate band, on the very short digits of an unguligrade foot)
+                 "legs": {"plan": "digitigrade", "ratios": "caprine"},
+                 # a cloven hoof: the same foot plan as a paw, at the other end of its knobs (humanform.feet)
+                 "foot": {"plan": "hoof"},
+                 "tail": {"length": 0.28, "thickness": 0.085, "taper": 0.25, "base": 0.08, "droop": 30.0},
+                 "moves": {"style": None, "notes": "the leg plan is read off the built rig (rig_analysis.bodymap): "
+                                                   "the effective leg is hip to toe, and Froude does the rest"}},
+        "skin_why": "a man's tones, tawny to deep; every region kept",
+    },
 }
 
 

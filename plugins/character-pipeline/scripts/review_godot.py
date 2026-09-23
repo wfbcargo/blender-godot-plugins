@@ -82,6 +82,13 @@ def review_one(ch, godot, lookdev, presets, views):
         views = ",".join(ch.views_without(GODOT_VIEWS))
     if views:
         cmd += ["--views", views]
+    # The full-figure shot stands at a fixed 4 m whatever it is looking at, and a tall creature does not fit
+    # in it: the 2.18 m gnoll's crown sat on the top edge and every full tile failed SUBJECT_CUT
+    # (2026-09-22). Four metres is right for a person (1.6-1.9 m), so back off in proportion to anything
+    # taller - the same picture of the figure, from further away.
+    stature = float(getattr(ch.body, "brief", {}).get("stature") or 0.0)
+    if stature > 1.9:
+        cmd += ["--full-distance", f"{4.0 * stature / 1.8:.2f}"]
     if garments:
         cmd += ["--garments", ",".join(garments)]
     if close:

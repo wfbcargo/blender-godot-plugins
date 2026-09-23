@@ -1,8 +1,9 @@
-"""How a hair shell's texture will sample in Godot: texel shape on the skin and holes that survive the mips.
+"""How a hair part will read in Godot: its texture's texels and mips, and its outline at a distance.
 
     from humanform import hairtex
     rep = hairtex.mip_check(ob)          # a hair shell object with a lookdev hair material
     rep["ok"], rep["problems"]           # False and the reasons when Godot will draw holes as patches
+    rep = hairtex.silhouette_check(ob)   # ... and when its outline is a curve, not the ends of hairs
 
 Why this exists. The first beards were a shell whose V repeated every 12 mm (a strand's length) while U repeated
 every 40 mm, on a 256 x 512 texture: a texel was 0.16 mm across the strands and 0.023 mm along them, 7:1. Godot
@@ -225,3 +226,203 @@ def arrays(ob, material=None):
         tf = (ld.get("godot") or {}).get("texture_filter")
         look["anisotropic"] = 4 if tf in (4, 5) else 0     # *_WITH_MIPMAPS_ANISOTROPIC; Godot's default is 4x
     return co[verts].reshape(-1, 3, 3), uv[loops].reshape(-1, 3, 2), A, alpha, look
+
+
+# --------------------------------------------------------------------------- the silhouette at a distance
+
+# Why this exists. A beard grown as layered shells over the skin has a smooth outline: every edge of it is
+# the fade's zero line on the face, a curve. Hair does not - its outline is the ends of thousands of hairs,
+# so the edge wanders by a few millimetres from column to column. That is most of what tells the eye "hair"
+# from "a brown decal", and it is the one thing the mip check cannot see (it only looks at the texture).
+# `silhouette_check` rasterises the part's own geometry, with the fade's vertex alpha, at the screen
+# resolution a camera has at `distances_m`, and measures how far the outline wanders from a smoothed copy
+# of itself. A shell measures near zero at every distance; strand cards measure several pixels close up and
+# still a fraction of one across a room. It also measures how much of the part survives to 4 m, because a
+# beard made only of thin cards can dissolve into nothing at a distance.
+SIL_DISTANCES_M = (0.6, 4.0)
+SIL_ROUGH_MIN_PX = {0.6: 1.5, 4.0: 0.35}    # the outline must wander at least this far from its own smoothing
+SIL_FLAT_PX = 0.6           # a boundary column this near its own smoothing is a straight edge there
+SIL_FLAT_MAX_MM = 22.0      # ... and a straight run longer than this reads as a cut edge, not as hair ends
+SIL_STEP_TOP = 0.05         # the share of an edge's columns the biggest steps are counted over ...
+SIL_STEP_MAX = 0.45         # ... and how much of its whole movement they may hold: a polygon staircase does
+                            # all its moving in a handful of risers with flat treads between, so nearly all of
+                            # it lands in that 5%; hair moves a little in every column and lands near 0.1
+SIL_WINDOW_M = 0.012        # the outline is smoothed over this much of the subject, not a fixed number of
+                            # pixels: at 0.6 m that is 40 screen pixels and at 4 m it is 6, so the measure asks
+                            # the same question at both - do the ends of the hairs still break the edge up?
+SIL_ALPHA_CUTOFF = 0.5      # vertex alpha (the fade) below which a triangle does not draw
+SIL_KEEP_MIN = 0.6          # the area left at the far distance, as a share of the near one's
+SIL_MAX_SAMPLES = 1500000
+SIL_DIRECTIONS = (("front", (0.0, -1.0, 0.0)), ("side", (-1.0, 0.0, 0.0)))
+
+
+def _rasterise(P, A, eye, forward, up, f, cutoff=SIL_ALPHA_CUTOFF, max_samples=SIL_MAX_SAMPLES):
+    """A boolean coverage mask of triangles P (T, 3, 3) with corner alpha A (T, 3), seen from `eye` along
+    `forward`, at `f` metres a pixel on the subject. Points are scattered inside each triangle at about one
+    per pixel (at least three), so a card narrower than a pixel still marks the pixels it crosses."""
+    right = np.cross(forward, up)
+    right = right / max(np.linalg.norm(right), 1e-12)
+    up = np.cross(right, forward)
+    E1, E2 = P[:, 1] - P[:, 0], P[:, 2] - P[:, 0]
+    area = 0.5 * np.linalg.norm(np.cross(E1, E2), axis=1)
+    per = np.clip(np.ceil(area / (f * f)).astype(np.int64) * 2, 3, 400)
+    if per.sum() > max_samples:
+        per = np.maximum(3, (per * (max_samples / per.sum())).astype(np.int64))
+    idx = np.repeat(np.arange(len(P)), per)
+    rng = np.random.RandomState(5)
+    u = rng.uniform(size=len(idx))
+    v = rng.uniform(size=len(idx))
+    flip = u + v > 1.0
+    u, v = np.where(flip, 1.0 - u, u), np.where(flip, 1.0 - v, v)
+    pts = P[idx, 0] + E1[idx] * u[:, None] + E2[idx] * v[:, None]
+    al = A[idx, 0] * (1 - u - v) + A[idx, 1] * u + A[idx, 2] * v
+    pts = pts[al >= cutoff]
+    if not len(pts):
+        return np.zeros((1, 1), bool)
+    d = pts - eye
+    depth = d @ forward
+    depth = np.where(depth > 1e-6, depth, 1e-6)
+    # a perspective camera whose pixel is `f` metres at the subject's own depth
+    scale = float(np.median(depth))
+    x = (d @ right) / depth * scale / f
+    y = (d @ up) / depth * scale / f
+    xi = np.round(x - x.min()).astype(np.int64)
+    yi = np.round(y - y.min()).astype(np.int64)
+    W, H = int(xi.max()) + 1, int(yi.max()) + 1
+    if W * H > 40000000:
+        return np.zeros((1, 1), bool)
+    mask = np.zeros((H, W), bool)
+    mask[yi, xi] = True
+    return mask
+
+
+def _edge(mask, window, top=False):
+    """One outline of the silhouette - the bottom (`top` False: where the hair ends) or the top (`top` True:
+    where it leaves the skin) - measured three ways.
+
+    (wander, columns, flat_run, step_share): how far it strays from its own `window`-wide moving average in
+    pixels (near zero for a smooth curve, several pixels for tips); the longest unbroken run of columns
+    sitting on that average (a mass cut off on a line has one, hair tips do not); and how much of its whole
+    movement happens in its biggest `SIL_STEP_TOP` of columns - a polygon staircase does all its moving in a
+    few risers with flat treads between, which is what the root mat's own boundary looked like along the
+    cheek."""
+    window = max(3, int(window) | 1)
+    cols = np.nonzero(mask.any(axis=0))[0]
+    if len(cols) < window + 2:
+        return 0.0, len(cols), 0, 0.0
+    rows = np.arange(mask.shape[0])[:, None]
+    # the image's rows run up with z: the hair's ends are the smallest row of a column, the hairline the largest
+    line = (np.where(mask, rows, -1).max(axis=0) if top
+            else np.where(mask, rows, mask.shape[0]).min(axis=0))[cols].astype(np.float64)
+    pad = np.concatenate([np.full(window // 2, line[0]), line, np.full(window // 2, line[-1])])
+    smooth = np.convolve(pad, np.ones(window) / window, mode="valid")
+    dev = np.abs(line - smooth)
+    run = best = 0
+    for flat in dev <= SIL_FLAT_PX:
+        run = run + 1 if flat else 0
+        best = max(best, run)
+    d = np.abs(np.diff(line))
+    big = max(1, int(round(SIL_STEP_TOP * len(d))))
+    step = float(np.sort(d)[-big:].sum() / max(d.sum(), 1e-9)) if len(d) else 0.0
+    return float(dev.mean()), len(cols), int(best), step
+
+
+def silhouette_check(ob=None, *, obs=None, P=None, A=None, distances_m=SIL_DISTANCES_M, vfov_deg=VFOV_DEG,
+                     image_px=IMAGE_PX, rough_min_px=None, keep_min=SIL_KEEP_MIN,
+                     directions=SIL_DIRECTIONS, name=None, flat_max_mm=SIL_FLAT_MAX_MM,
+                     step_max=SIL_STEP_MAX):
+    """Whether a hair part's outline reads as hair at each of `distances_m`. Pass a Blender object `ob`,
+    several with `obs` (they are measured as one thing, which is what the eye sees: a beard's root mat, the
+    cards over it and the locks hanging off it have no outline of their own), or the arrays P (T, 3, 3) and
+    A (T, 3). World space, z up, the face toward -y.
+
+    {ok, problems, views: {"<dir> <d>m": {wander_px, wander_mm, flat_run_mm, columns, area_m2}}}. A view
+    fails when its outline wanders less than `rough_min_px` (SIL_ROUGH_MIN_PX): it is then a curve, not hair.
+    It fails too when the *bottom* edge runs straight for more than `flat_max_mm` at the near distance -
+    a mass that ends on a line is a bib, whatever the rest of its outline does, and that is what a long beard
+    read as on a chest - and when either edge does more than `step_max` of its moving in its biggest few
+    columns, which is a staircase of whole faces (the root mat's own boundary along the cheek). The far distance also fails when less than `keep_min` of the near distance's area is
+    left - a beard of cards so thin it dissolves across a room."""
+    rough_min_px = dict(SIL_ROUGH_MIN_PX if rough_min_px is None else rough_min_px)
+    if obs:
+        name = name or "+".join(o.name for o in obs)
+        parts = [_tri_alpha(o) for o in obs]
+        P = np.concatenate([x[0] for x in parts]) if parts else np.zeros((0, 3, 3))
+        A = np.concatenate([x[1] for x in parts]) if parts else np.zeros((0, 3))
+    elif ob is not None:
+        name = name or ob.name
+        P, A = _tri_alpha(ob)
+    rep = {"name": name, "triangles": int(len(P)), "views": {}, "warnings": []}
+    problems = []
+    centre = P.reshape(-1, 3).mean(axis=0)
+    for dname, fwd in directions:
+        fwd = np.asarray(fwd, np.float64)
+        fwd = fwd / np.linalg.norm(fwd)
+        areas = {}
+        for d in distances_m:
+            f = d * 2.0 * math.tan(math.radians(vfov_deg) / 2.0) / image_px
+            mask = _rasterise(P, A, centre - fwd * d, fwd, np.array([0.0, 0.0, 1.0]), f)
+            win = round(SIL_WINDOW_M / f)
+            wander, cols, flat, step = _edge(mask, win)
+            t_wander, _c, t_flat, t_step = _edge(mask, win, top=True)
+            areas[d] = float(mask.sum()) * f * f
+            rep["views"][f"{dname} {d:g}m"] = {"wander_px": round(wander, 2),
+                                               "wander_mm": round(wander * f * 1000, 2),
+                                               "flat_run_mm": round(flat * f * 1000, 1),
+                                               "step_share": round(step, 2),
+                                               "top_wander_px": round(t_wander, 2),
+                                               "top_flat_run_mm": round(t_flat * f * 1000, 1),
+                                               "top_step_share": round(t_step, 2),
+                                               "columns": cols, "area_m2": round(areas[d], 6)}
+            lo = rough_min_px.get(d)
+            if lo is not None and cols >= SIL_WINDOW_M / f + 2 and wander < lo:
+                problems.append(f"{dname} at {d:g} m: the outline wanders {wander:.2f} px from its own smoothing "
+                                f"(at least {lo} wanted) - a smooth curve reads as a decal, not as hair; grow it "
+                                "as strand cards with ragged lengths, or fade their tips further")
+            if lo is not None and d == min(distances_m) and flat * f * 1000 > flat_max_mm:
+                problems.append(f"{dname} at {d:g} m: {flat * f * 1000:.0f} mm of its bottom edge runs straight "
+                                f"(at most {flat_max_mm:.0f} mm) - hair does not end on a line; break the mass "
+                                "into locks of unequal length, or scatter the tips")
+            # The TOP edge - where the hair leaves the skin. A staircase there is the shell's own polygon
+            # boundary, and this is where it shows; but a *warning*, not a refusal, because the same number
+            # rises on anatomy a part is entitled to: a goatee's top edge steps by a centimetre at each corner
+            # of the mouth, where the moustache sits above the chin patch, and read 53-68% with no staircase
+            # in it at all. What refuses a stepped mat is `brows`' own `mat_edge` - the alpha ramp measured in
+            # faces, on the mesh, where it is local and unambiguous. The bottom edge is allowed its big jumps
+            # too: that is one lock ending above the next, and `flat_run_mm` is its test.
+            if lo is not None and d == min(distances_m) and t_step > step_max:
+                rep["warnings"].append(f"{dname} at {d:g} m: {t_step:.0%} of the TOP edge's movement is in its "
+                                       f"biggest {SIL_STEP_TOP:.0%} of columns (over {step_max:.0%}) - look for "
+                                       "a staircase of whole faces where the hair leaves the skin")
+        near, far = min(distances_m), max(distances_m)
+        if areas.get(near, 0) > 0 and areas.get(far, 0) / areas[near] < keep_min:
+            problems.append(f"{dname}: {areas[far] / areas[near]:.0%} of its area is left at {far:g} m "
+                            f"(at least {keep_min:.0%} wanted) - the cards are too thin or too few to hold "
+                            "the shape across a room")
+    rep["ok"] = not problems
+    rep["problems"] = problems
+    return rep
+
+
+def _tri_alpha(ob):
+    """(P (T, 3, 3) world corner positions, A (T, 3) corner alpha) of every triangle of `ob`; alpha comes
+    from its first colour attribute (the fade), 1 without one."""
+    me = ob.data
+    me.calc_loop_triangles()
+    tris = me.loop_triangles
+    loops = np.empty(len(tris) * 3, np.int64)
+    tris.foreach_get("loops", loops)
+    verts = np.empty(len(tris) * 3, np.int64)
+    tris.foreach_get("vertices", verts)
+    co = np.empty(len(me.vertices) * 3, np.float64)
+    me.vertices.foreach_get("co", co)
+    m = np.array(ob.matrix_world, np.float64)
+    co = co.reshape(-1, 3) @ m[:3, :3].T + m[:3, 3]
+    A = np.ones((len(tris), 3))
+    ca = me.color_attributes[0] if len(me.color_attributes) else None
+    if ca is not None:
+        c = np.empty(len(ca.data) * 4, np.float64)
+        ca.data.foreach_get("color", c)
+        c = c.reshape(-1, 4)[:, 3]
+        A = (c[loops] if ca.domain == "CORNER" else c[verts]).reshape(-1, 3)
+    return co[verts].reshape(-1, 3, 3), A

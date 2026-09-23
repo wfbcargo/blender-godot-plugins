@@ -128,6 +128,13 @@ _PROFILES = None
 
 LEGLESS_SHARE = 0.3     # no limb ending below this share of the body's height: none of them is a leg
 
+# How far off the leg's standing axis an end bone may lean and still count as a STANDING segment rather
+# than a plate on the ground (`build`, the leg plan). A person's foot reads 64 degrees, a digitigrade
+# cannon 20-30; between the two the segment counts pro rata, so no body's gait jumps at a threshold.
+STAND_BAND_DEG = (30.0, 60.0)
+HOCK_OVER_HIP = (0.10, 0.45)   # a standing leg's hock, as a share of hip height (a dog's is about 0.3)
+META_OVER_SHANK = 0.60         # ... and its standing foot against the two links above it
+
 
 def profiles():
     """Every rig profile in `profiles/`, {name: profile}, in name order. A profile is the facts
@@ -511,6 +518,58 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0, meshes=None):
     for l in limbs:
         l["role"] = "leg" if l["lowest"] <= ground_band and not stands_on_body else "arm"
 
+    # ------------------------------------------------------------- the leg plan
+    # A leg's end bone is either a PLATE lying on the ground - a person's foot, heel to toe, with the
+    # ankle the lowest joint - or a SEGMENT standing along the leg, which is what makes a leg
+    # digitigrade: the metatarsals stand up, the ankle is carried clear as a hock, and the toes alone
+    # take the weight. Told apart by the one thing that distinguishes them, the angle the end bone
+    # stands at, never by a name or a flag on the rig: a person's foot reads 64 degrees off the leg's
+    # standing axis, a dog's cannon 20-30. Between the two bands it counts pro rata, so nothing pops.
+    # `stand` is the part of the end bone that stands, and `ground` the EFFECTIVE leg - hip to the
+    # ground contact - which is what `locomotion` scales a gait by.
+    for l in limbs:
+        l["stand"], l["plan"], l["ground"] = 0.0, None, l["a"] + l["b"]
+        if l["role"] != "leg" or not l["end"]:
+            continue
+        b = rig.data.bones[l["end"]]
+        v = b.head_local - b.tail_local             # contact pivot -> effector
+        if v.length < 1e-9:
+            continue
+        deg = math.degrees(v.angle(upv))
+        lo, hi = STAND_BAND_DEG
+        share = 1.0 if deg <= lo else 0.0 if deg >= hi else (hi - deg) / (hi - lo)
+        l["stand_deg"] = round(deg, 1)
+        l["plan"] = "digitigrade" if share > 0.5 else "plantigrade"
+        # The effective leg counts the end bone only once the leg READS digitigrade, and then in proportion to
+        # how far it stands. A plain ramp over the whole band gave a Rigify human - whose foot bone leans 50
+        # degrees where MPFB's leans 64 - a 3% longer leg than it had, and its slide, slide recovery and
+        # slide-to-crouch each asked 100-102% of a thigh and stopped passing. A leg the map does not call
+        # digitigrade must measure exactly what it always did.
+        l["stand"] = v.length * max(0.0, 2.0 * share - 1.0)
+        l["ground"] = l["a"] + l["b"] + l["stand"]
+        # The SILHOUETTE: what share of the straightened limb each segment is. A leg reads as an animal's or a
+        # person's from these four numbers, whatever is on the end of it, so they belong in the body map beside
+        # the leg plan (humanform.legs RATIOS: a dog's 0.32/0.34/0.27/0.07, a goat's 0.30/0.35/0.31/0.04, a
+        # person's 0.39/0.40/0.14/0.07).
+        dig = sum(rig.data.bones[n].length for n in (l["digits"] or []))
+        limb = l["a"] + l["b"] + b.length + dig
+        if limb > 1e-9:
+            l["shares"] = {"femur": round(l["a"] / limb, 3), "tibia": round(l["b"] / limb, 3),
+                           "metatarsus": round(b.length / limb, 3), "digits": round(dig / limb, 3)}
+        if l["plan"] == "digitigrade":
+            # read the plan back off the rig and say so before a clip is baked: a hock on the floor has
+            # no room to fold, and one carried past the knee's own height is not a leg any more
+            hock = (height(l["rest_eff"]) / max(height(l["rest_root"]), 1e-9)) if body_height else 0.0
+            lo, hi = HOCK_OVER_HIP
+            if not lo <= hock <= hi:
+                warnings.append("%s stands digitigrade with its hock at %.2f of hip height (%.2f-%.2f is a "
+                                "leg that can fold): the metatarsus stands %.0f deg off the leg"
+                                % (l["name"], hock, lo, hi, deg))
+            share_m = l["stand"] / max(l["a"] + l["b"], 1e-9)
+            if share_m > META_OVER_SHANK:
+                warnings.append("%s: the standing foot is %.2f of the shank above it (over %.2f) - the leg "
+                                "is mostly metatarsus" % (l["name"], share_m, META_OVER_SHANK))
+
     # Which way each mid-joint points. Measured from the rest shape when the
     # limb is clearly bent; otherwise a role default, because a dead-straight
     # limb (the hand-built humanoid's knees sit exactly on the hip-ankle line)
@@ -626,7 +685,11 @@ def build(rig_name, forward="-Y", up="Z", floor=0.0, meshes=None):
             return None
         return up_a[:idx[cur.name] + 1] + list(reversed(up_b))
 
-    head_named = [b for b in ends if _HEAD.search(b.name)]
+    # A profile's head claim counts as a name here, not only in `roles`. MPFB's rig calls its head
+    # `spine.005`, so a body with a tail had NO named head: the tie-breaker below then ran the axis up
+    # the 2.7 cm root stub in preference to the tail, and `tail` came back empty on a tailed biped.
+    prof_head = ((_resolve_profile(rig)[0] or {}).get("roles") or {}).get("head")
+    head_named = [b for b in ends if _HEAD.search(b.name) or b.name == prof_head]
     tail_named = [b for b in ends if _TAIL.search(b.name)]
 
     axial, head_guessed = [], False
@@ -826,11 +889,16 @@ def summary(bm):
     for t in bm["tails"]:
         lines.append("  tail   " + " > ".join(t))
     for l in bm["limbs"]:
-        lines.append("  %-4s %-10s %s%s > %s > %s   on %s  a=%.3f b=%.3f  pole: %s"
+        plan = ("  %s (end stands %.0f deg off the leg, effective leg %.3f%s)"
+                % (l["plan"], l.get("stand_deg", 90.0), l["ground"],
+                   (", shares f/t/m/d %.2f/%.2f/%.2f/%.2f"
+                    % tuple(l["shares"][q] for q in ("femur", "tibia", "metatarsus", "digits")))
+                   if l.get("shares") else "")) if l.get("plan") else ""
+        lines.append("  %-4s %-10s %s%s > %s > %s   on %s  a=%.3f b=%.3f  pole: %s%s"
                      % (l["role"], l["name"],
                         (l["girdle"] + " > ") if l["girdle"] else "",
                         l["upper"], l["lower"], l["end"] or "-",
-                        l["attach"], l["a"], l["b"], l["pole_source"]))
+                        l["attach"], l["a"], l["b"], l["pole_source"], plan))
     scale = 1.0
     rig = bpy.data.objects.get(bm["rig"])
     if rig is not None:

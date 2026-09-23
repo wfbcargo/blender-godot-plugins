@@ -763,6 +763,7 @@
     "rig": "Figure_metarig",
     "skin_lowest": 0.0012,
     "standing_height_m": 1.7667,
+    "tail_gap": null,
     "tightest_joint_degrees": {
      "thigh.L": 79.7,
      "thigh.R": 79.7,
@@ -813,6 +814,7 @@
     },
     "standing_height_m": 1.7667,
     "stride_m": 0.3097,
+    "tail_gap": null,
     "tightest_joint_degrees": {
      "thigh.L": 65.0,
      "thigh.R": 65.0,
@@ -892,6 +894,7 @@
     "skin_lowest": 0.0012,
     "stance_width": null,
     "standing_height_m": 1.7667,
+    "tail_gap": null,
     "tightest_joint_degrees": {
      "thigh.L": 158.1,
      "thigh.R": 158.0,
@@ -997,6 +1000,7 @@
     "rig": "Figure_metarig",
     "skin_lowest": 0.0012,
     "standing_height_m": 1.7667,
+    "tail_gap": null,
     "tightest_joint_degrees": {
      "thigh.L": 67.3,
      "thigh.R": 67.3,
@@ -1154,6 +1158,7 @@
      1.0
     ],
     "sway_share": 0.0,
+    "tail_gap": null,
     "thorax_head_phase_deg": -160.7,
     "thorax_pelvis_roll_deg": -170.4,
     "thorax_roll_pp_deg": 7.4,
@@ -1264,6 +1269,7 @@
     "skin_lowest": -0.0143,
     "slide_height_m": 1.1619,
     "standing_height_m": 1.7667,
+    "tail_gap": null,
     "tightest_joint_degrees": {
      "thigh.L": 99.0,
      "thigh.R": 50.4,
@@ -1310,6 +1316,7 @@
     "skin_lowest": -0.0143,
     "split_frame": 9,
     "standing_height_m": 1.7667,
+    "tail_gap": null,
     "tightest_joint_degrees": {
      "thigh.L": 32.7,
      "thigh.R": 29.8,
@@ -1346,6 +1353,7 @@
     "skin_lowest": -0.0143,
     "split_frame": null,
     "standing_height_m": 1.7667,
+    "tail_gap": null,
     "tightest_joint_degrees": {
      "thigh.L": 43.1,
      "thigh.R": 38.7,
@@ -1504,6 +1512,7 @@
      1.0
     ],
     "sway_share": 0.0,
+    "tail_gap": null,
     "thorax_head_phase_deg": -151.8,
     "thorax_pelvis_roll_deg": -176.6,
     "thorax_roll_pp_deg": 7.03,
@@ -1737,6 +1746,7 @@
      1.0
     ],
     "sway_share": 0.01,
+    "tail_gap": null,
     "thorax_head_phase_deg": -121.4,
     "thorax_pelvis_roll_deg": -177.9,
     "thorax_roll_pp_deg": 3.89,

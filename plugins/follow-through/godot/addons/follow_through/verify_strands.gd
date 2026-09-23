@@ -25,11 +25,11 @@ extends SceneTree
 ##                                                        rest; head_penetration_m <= 0.005
 ##   always   finite bone poses, no non-finite spring state
 ##
-## Head penetration is measured against the body's skin, not the colliders: every strand vertex is
-## skinned on the CPU and compared with the head's own surface (the body's vertices skinned mostly to
-## the collider bone named `head`, as a radius per direction round their centroid, in that bone's
-## frame, read between cells). A strand vertex counts by how much deeper it is than it was at rest,
-## so a root grown into the scalp is not a penetration.
+## Penetration is measured against the body's skin, not the colliders: every strand vertex is
+## skinned on the CPU and compared with the surface of each collider bone it must stay out of - the one
+## named `head`, and any named `torso_*` (a beard's chest colliders) - as a radius per direction round
+## that bone's skin's centroid, in its frame, read between cells. A strand vertex counts by how much
+## deeper it is than it was at rest, so a root grown into the scalp is not a penetration.
 ##
 ## Across rates: the run's swing_deg within 25% of each other (max / min <= 1.25), and its
 ## start_swing_deg too. Both windows, because a strand can swing alike at every rate while the run
@@ -162,18 +162,18 @@ func _run_rate(rate: int) -> Dictionary:
 		ap.stop()
 	skel.reset_bone_poses()
 
-	var head := _head_table(skel, mod, meshes)
-	if head.is_empty():
+	var tables := _body_tables(skel, mod, meshes)
+	if tables.is_empty():
 		out["failures"].append("no head collider or no head skin to measure penetration against")
 	var hair := []
 	for gm in meshes:
 		hair.append(_skin_data(gm, skel))
-	var state := {"skel": skel, "mods": mods, "head": head, "hair": hair, "rest_depth": [], "pen": 0.0,
+	var state := {"skel": skel, "mods": mods, "head": tables, "hair": hair, "rest_depth": [], "pen": 0.0,
 		"pen_at": [], "tip": 0.0, "ap": ap, "phase": "", "frames": []}
 	var dumping: bool = args.has("dump") and results.is_empty()
-	if not head.is_empty():
+	if not tables.is_empty():
 		for h in hair:
-			state["rest_depth"].append(_depths(h, skel, head, true))
+			state["rest_depth"].append(_depths(h, skel, tables, true))
 	var measured := {"n": 0}
 	var on_processed := func():
 		_measure(state, measured)
@@ -214,7 +214,7 @@ func _run_rate(rate: int) -> Dictionary:
 	out["fling_penetration_at"] = state["pen_at"]
 	out["fling_collision_hits"] = mod.collision_hits
 	if state["pen"] > 0.005:
-		out["failures"].append("thrown at the head, a strand went %.4f m into it" % state["pen"])
+		out["failures"].append("thrown at the head, a strand went %.4f m into the head or chest" % state["pen"])
 
 	# run
 	skel.reset_bone_poses()
@@ -250,7 +250,7 @@ func _run_rate(rate: int) -> Dictionary:
 		if swing.max() < 3.0:
 			out["failures"].append("the run swings the strands only %.2f deg" % swing.max())
 		if state["pen"] > 0.005:
-			out["failures"].append("running, a strand went %.4f m into the head" % state["pen"])
+			out["failures"].append("running, a strand went %.4f m into the head or chest" % state["pen"])
 
 	# hitch: one frame of HITCH_S in the middle of the run - a level load, a breakpoint, a window
 	# dragged. The frame may simulate at most StrandModifier.MAX_STEPS steps (so a stall costs a
@@ -277,7 +277,7 @@ func _run_rate(rate: int) -> Dictionary:
 	if int(hitch["dropped_steps"]) <= 0:
 		out["failures"].append("a %.2f s frame dropped no steps: the cap did not engage" % HITCH_S)
 	if state["pen"] > 0.005:
-		out["failures"].append("after a %.2f s frame, a strand went %.4f m into the head" % [HITCH_S, state["pen"]])
+		out["failures"].append("after a %.2f s frame, a strand went %.4f m into the head or chest" % [HITCH_S, state["pen"]])
 	var nonfinite := 0
 	for m in mods:
 		nonfinite += m.nonfinite
@@ -434,14 +434,22 @@ func _skinned(h: Dictionary, i: int, skel: Skeleton3D, rest: bool) -> Vector3:
 	return p
 
 
-## The head's surface as a radius per direction round its skin's centroid, in the head bone's frame.
-func _head_table(skel: Skeleton3D, mod, strand_meshes: Array) -> Dictionary:
-	var head_bone := -1
+## One surface per collider the strand must stay out of - the head, and the chest and spine when the
+## strand's colliders name them (a beard hangs down the front of the chest, where the head's own surface
+## says nothing) - each as a radius per direction round that bone's skin's centroid, in that bone's frame.
+func _body_tables(skel: Skeleton3D, mod, strand_meshes: Array) -> Array:
+	var out: Array = []
 	for col in mod.colliders:
-		if col["name"] == "head":
-			head_bone = col["bone"]
-	if head_bone < 0:
-		return {}
+		var name := String(col["name"])
+		if name == "head" or name.begins_with("torso_"):
+			var tab := _surface_table(skel, int(col["bone"]), strand_meshes)
+			if not tab.is_empty():
+				out.append(tab)
+	return out
+
+
+## One bone's skin as a radius per direction round its centroid, in that bone's frame.
+func _surface_table(skel: Skeleton3D, head_bone: int, strand_meshes: Array) -> Dictionary:
 	var local := PackedVector3Array()
 	for gm in skel.find_children("*", "MeshInstance3D", true, false):
 		if gm in strand_meshes or gm.skin == null:
@@ -481,18 +489,23 @@ func _cell(d: Vector3) -> int:
 	return lat * LON + lon
 
 
-## Per strand vertex, how deep inside the head's surface it is (negative outside). A cell the head's
-## skin does not reach (the neck opening) reads as outside.
-func _depths(h: Dictionary, skel: Skeleton3D, head: Dictionary, rest: bool) -> PackedFloat32Array:
+## Per strand vertex, how deep inside the body's surface it is - the deepest of the tables, so a beard
+## swung into the chest counts as much as a ponytail thrown into the skull (negative outside). A cell a
+## table's skin does not reach (the neck opening) reads as outside for that table.
+func _depths(h: Dictionary, skel: Skeleton3D, tables: Array, rest: bool) -> PackedFloat32Array:
 	var out := PackedFloat32Array()
 	out.resize(h["verts"].size())
-	var hb: int = head["bone"]
-	var inv := (skel.get_bone_global_rest(hb) if rest else skel.get_bone_global_pose(hb)).affine_inverse()
-	var c: Vector3 = head["centre"]
-	for i in h["verts"].size():
-		var d := inv * _skinned(h, i, skel, rest) - c
-		var r := _radius_at(head, d)
-		out[i] = (r - d.length()) if r > 0.0 else -1.0
+	out.fill(-1.0)
+	for table in tables:
+		var hb: int = table["bone"]
+		var inv := (skel.get_bone_global_rest(hb) if rest else skel.get_bone_global_pose(hb)).affine_inverse()
+		var c: Vector3 = table["centre"]
+		for i in h["verts"].size():
+			var d := inv * _skinned(h, i, skel, rest) - c
+			var r := _radius_at(table, d)
+			var depth := (r - d.length()) if r > 0.0 else -1.0
+			if depth > out[i]:
+				out[i] = depth
 	return out
 
 

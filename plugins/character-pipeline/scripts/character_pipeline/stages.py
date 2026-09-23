@@ -157,6 +157,22 @@ def chained(ch):
 CHAINED_STRAND_KINDS = ("tube",)
 
 
+def beard_has_chain(ch):
+    """Whether this spec's beard hangs far enough below the chin to be sprung (humanform's own answer).
+
+    A hanging beard is strand cards, not a shell, so it leaves its own mesh (`<name>_beard_strand`) with
+    follow-through's contract on it, exactly as a ponytail does - and like a ponytail it must not be joined
+    into the body, or the join drops the properties the chain is built from."""
+    if ch.hair is None or not getattr(ch.hair, "beard", None):
+        return False
+    from humanform import brows as hf_brows
+    try:
+        spec = hf_brows.beard_spec(ch.hair.beard, ch.hair.beard_length, ch.hair.beard_volume)
+    except (KeyError, ValueError):
+        return False
+    return spec["hang_m"] > 0 and spec.get("cards") is not None
+
+
 def hair_strand_kind(ch):
     """The shape of the strand part this spec's hair preset grows (`tube`, `curtain`), or None -
     humanform's own answer, not a list kept here, so a preset that grows one later needs no edit."""
@@ -234,6 +250,14 @@ def run_body(ch, ctx):
     sp = res.get("species")
     if sp:
         out["species"] = species_summary(sp, res.get("prewarp"))
+        feat_fail = (sp.get("features") or {}).get("fail")
+        if feat_fail:
+            # a head feature that tears or pinches the skin, or moves the eyes out of their sockets
+            # (humanform.features.surface_strain): the numbers and the fix are in the message
+            raise RuntimeError(f"head features: {feat_fail}")
+        jaw_fail = (sp.get("jaw") or {}).get("fail")
+        if jaw_fail:
+            raise RuntimeError(f"jaw: {jaw_fail}")
         bad = [r for r in (sp.get("anatomy") or {}).get("parts", []) if r.get("status") == "fail"]
         if bad:
             # the design's rule: a part missing and not declared absent fails the build (08, "An inventory check")
@@ -252,10 +276,13 @@ def species_summary(sp, prewarp=None):
             "clamp_scale": sp.get("clamp_scale"), "notes": sp.get("notes"),
             "prewarp_check": (prewarp or {}).get("check"),
             "check_findings": sp.get("check_findings"),
-            "features": dict({k: feats[k] for k in ("unknown", "skipped", "error", "eyes_moved_mm", "intersections")
-                              if k in feats}, applied={n: f.get("weight") for n, f in
-                                                       (feats.get("features") or {}).items()}),
-            **{k: sp[k] for k in ("eye_layout", "graft") if k in sp},
+            "features": dict({k: feats[k] for k in ("unknown", "skipped", "error", "eyes_moved_mm",
+                                                    "intersections", "warnings", "fail") if k in feats},
+                             applied={n: f.get("weight") for n, f in (feats.get("features") or {}).items()},
+                             # a muzzle's own numbers: what it grew, what the skin took, where the eyes ended
+                             muzzle={n: f["muzzle"] for n, f in (feats.get("features") or {}).items()
+                                     if f.get("muzzle")} or None),
+            **{k: sp[k] for k in ("eye_layout", "graft", "jaw") if k in sp},
             "anatomy": {"counts": an.get("counts"),
                         "rows": [r for r in an.get("parts", []) if r.get("status") != "pass"]}}
 
@@ -491,6 +518,15 @@ def run_bake(ch, ctx):
         out["closed_mouth"] = {k: mouth[k] for k in ("teeth", "tongue", "seal", "rays") if k in mouth}
         if mouth.get("fail"):
             raise RuntimeError(f"bake: {mouth['fail']}")
+    # the pupil on the mesh that ships, measured against the iris round it (humanform.eyes.pupil_share): at
+    # 0.55 of it, cropped top and bottom by the lids, it read as a dark square in every close-up at 0.6 m
+    from humanform import eyes as hf_eyes
+    pupil = hf_eyes.pupil_share(ob)
+    if pupil is not None:
+        out["pupil"] = pupil
+        problems = hf_eyes.pupil_problems(pupil)
+        if problems:
+            raise RuntimeError("bake: " + "; ".join(problems))
     sk = skin_manifest(ch)
     if sk is not None:
         out["skin"] = sk
@@ -502,7 +538,65 @@ def run_bake(ch, ctx):
         if ch.muscle.output == "normal":
             out["muscle_normal"] = _bake_muscle_normal(ch, ctx)
         ob["cp_muscle"] = ch.muscle.output          # `muscled`: the baked body carries it now
+    cards = run_fur_cards(ch, ob)
+    if cards:
+        out["fur_cards"] = cards
     return out
+
+
+def run_fur_cards(ch, ob):
+    """Grow the fur regions the spec marked `cards = true` as strand cards, and join them into the body.
+
+    Shell fur stops at 8 cm (`fur.LENGTH_M`): past that the shells stand far enough apart to read as stacked
+    sheets whatever their number, and hair that long hangs. A mane, a ruff and a tail's brush are therefore
+    the same growth a beard is - `humanform.cards`, through `hair.cards` - and the coverage map is already
+    the per-vertex field it takes, so no conversion happens here at all. The region still leaves its root mat
+    in the shell map (`fur.CARD_MAT_M`), which is what hides the skin under the strands, exactly as a scalp's
+    cap does under hair.
+
+    It runs at the END of the bake, on the finished skinned body, because that is where the cards must sit:
+    the fields themselves were written before it, by `fur.apply`, since only then can `fur.areas` measure
+    hm08's landmarks. Nothing hangs (`hang_below_z` is not passed), so every card rides the skin rigidly and
+    there is no strand mesh to chain - a mane lies along the neck and a brush along the tail, and both are
+    carried by the bones their roots sit on."""
+    from humanform import fur as hf_fur, hair as hf_hair
+    if not hf_fur.carried(ob):
+        return None
+    fields = hf_fur.card_fields(ob)
+    if not fields:
+        return None
+    made, rows = [], []
+    for f in fields:
+        name = f"{ch.name}_fur_{f['name']}"
+        # A pelt's regions are far larger than a beard's field - a mane runs the whole neck and both
+        # shoulders - so the beard's root density (26000 a square metre) would put tens of thousands of
+        # cards on one body. Fur's cards are wider and sparser: the mat under them is what hides the skin,
+        # and the cards are there for the silhouette.
+        # The cards are longest where the region is solid and taper to nothing at its rim - `length_scale`
+        # is the field itself. Grown at one length over the whole field, the gnoll's mane hung as a straight
+        # fringe with a cut across the bottom and read as a poncho, not as a mane; a coat's hair is longest
+        # at the withers and shortens into the coat around it. The jitter is raised for the same reason:
+        # a hundred cards of one length end on one line.
+        rep = hf_hair.cards(ob, f["field"], f["length_m"], colour=f["colour"], flow=f["flow"], name=name,
+                            density=hf_fur.CARD_DENSITY, width_m=hf_fur.CARD_WIDTH_M,
+                            length_scale=f["field"], jitter=hf_fur.CARD_JITTER)
+        obj = (rep.get("objects") or {}).get("cards")
+        if obj is None:
+            raise RuntimeError(f"fur cards {f['name']}: nothing grew from its field")
+        made.append(obj)
+        rows.append({"region": f["name"], "object": obj, "length_m": f["length_m"],
+                     "roots": rep.get("roots"), "clumps": rep.get("clumps"),
+                     "min_clearance_m": rep.get("min_clearance_m"), "coverage": rep.get("coverage")})
+    parts = [_obj(n) for n in made]
+    selected = [ob] + parts
+    with bpy.context.temp_override(active_object=ob, selected_editable_objects=selected, object=ob,
+                                   selected_objects=selected):
+        bpy.ops.object.join()
+    # the join fills a COLOUR attribute's missing values with WHITE, so the coverage map has to be written
+    # again over the body as it now is (fur.refresh_vcol's own reason, and `hf_fur_skin` marks what was skin
+    # when the map was laid down - the cards are not)
+    hf_fur.refresh_vcol(ob)
+    return {"regions": rows, "joined": sorted(made)}
 
 
 def check_not_dressed(stage):
@@ -571,6 +665,8 @@ def run_hair(ch, ctx):
     ob = _obj(ch.mesh)
     made = dict(rep["objects"])
     strand = made.pop("strand") if "strand" in made and hair_has_chain(ch) else None
+    # a hanging beard's cards are a strand mesh too, and never joined: the join would drop ft_centrelines
+    beard_strand = made.pop("beard_strand", None)
     parts = [_obj(n) for n in made.values()]
     selected = [ob] + parts
     with bpy.context.temp_override(active_object=ob, selected_editable_objects=selected, object=ob,
@@ -583,6 +679,7 @@ def run_hair(ch, ctx):
         out["face"] = rep["face"]
     out["strand_object"] = strand                   # None: there is none, or it was joined like the rest
     out["strand_kind"] = hair_strand_kind(ch)
+    out["beard_strand_object"] = beard_strand
     if "contract" in rep:
         out["strand_contract"] = rep["contract"]
         if not rep["contract"]["passed"]:
@@ -892,7 +989,8 @@ def check_strand(ch):
         return problem
     if not strand_meshes(ch):
         return ("strand needs hair: no mesh with ft_type = \"strand\" for %s in the file - run hair first "
-                "(the %s preset grows one)" % (ch.name, (ch.hair.preset if ch.hair else None) or "ponytail"))
+                "(the %s preset grows one, and a beard past 6 cm grows one of its own)"
+                % (ch.name, (ch.hair.preset if ch.hair else None) or "ponytail"))
     missing = [r for r in ch.moves.roles if r not in moves_stored(ch)]
     if missing:
         return (f"strand needs moves: no stored clips for {missing} - run moves before strand (rig-anything "
@@ -959,10 +1057,50 @@ def run_garments(ch, ctx):
         if not r.get("passed"):
             raise RuntimeError(f"garments: {name} did not pass: {r.get('problems')}")
         made[g.preset] = name
-        out[name] = {k: r.get(k) for k in ("verts", "cut", "cover", "jiggle_groups", "export", "passed")}
+        # `head_clear`: how near this garment comes to the head's own skin (wardrobe.tailor.covers_head) - the
+        # check that catches a collar worn over the jaw
+        out[name] = {k: r.get(k) for k in ("verts", "cut", "cover", "jiggle_groups", "export", "passed",
+                                           "head_clear")}
         res.append(f"{ch.export.res_dir}/{ch.id}_{name.lower()}.glb")
     ctx["garment_res"] = res
-    return {"garments": out, "res": res}
+    return {"garments": out, "res": res, "hair_clearance": hair_clearance(ch, sorted(made.values()))}
+
+
+# A hanging part is grown off BARE skin in the hair stage, and a garment then takes 10-15 mm of its clearance
+# back. The dwarf's long beard came out lying on his t-shirt rather than falling in front of it, and no number
+# in the build said so - the hair stage's own clearance was measured against a body with no shirt on it.
+HAIR_UNDER_MAX = 0.05       # at most this share of a strand may be caught under the cloth over the skin
+
+
+def hair_clearance(ch, garments):
+    """Whether each loose strand mesh (a hanging beard, a mane, a tail brush) falls in FRONT of the garments
+    now on the body or is caught under them, on the dressed rest pose (`cards.clearance`). A hanging part is
+    grown off bare skin in the hair stage; the clothes come later and take its clearance back."""
+    if not garments:
+        return {}
+    from humanform import cards as hf_cards
+    out, bad = {}, []
+    for name in strand_meshes(ch):
+        r = hf_cards.clearance(name, garments, body=ch.mesh)
+        if r is None:
+            continue
+        out[name] = r
+        print(f"[{ch.id}] garments: {name} - {r['under_share']:.1%} of the part over cloth is under it "
+              f"(by up to {r['under_depth_m'] * 1000:.0f} mm), nearest cloth {r['min_gap_m'] * 1000:.0f} mm",
+              flush=True)
+        if r["under_share"] > HAIR_UNDER_MAX:
+            bad.append(f"{name}: {r['under_share']:.0%} of it is under {r['nearest']} rather than in front of "
+                       f"it, by up to {r['under_depth_m'] * 1000:.0f} mm (at most {HAIR_UNDER_MAX:.0%})")
+    if bad:
+        # Warned, not refused. The measure is right and a lock under a collar is a real defect, but the advice
+        # only reaches a part `humanform.cards` grew: a scalp ponytail or curtain has no `hang_clear_m` to
+        # raise, and the check as a refusal stopped species_elf and trial_drow - two characters that had
+        # shipped - from building at all, with no knob named (2026-09-22). Give scalp hair the same clearance
+        # machinery and this goes back to refusing.
+        for line in bad:
+            print(f"[{ch.id}] garments WARNING hair under cloth: {line}", flush=True)
+        out["warnings"] = bad
+    return out
 
 
 def check_export(ch):
@@ -999,10 +1137,42 @@ def variability_block(ch):
         raise RuntimeError(f"[variability]: {e}") from e
 
 
+def run_fur(ch):
+    """The fur pass on the finished body, before the glb is written: the coverage map rasterised into the
+    body's UV layout, the tiled strand mask, the covered skin, and the two checks (the mip check the beard
+    taught us and the silhouette at 0.6 m and 4 m). Its spec goes on the body mesh, so glTF carries it as node
+    extras for `addons/humanform_fur/fur.gd`; the textures go beside the glb, like the skin's.
+
+    A check that fails stops the export: fur that bands or cuts patches of skin out is exactly the kind of
+    thing that was only ever seen by eye in the game, one rebuild too late."""
+    from humanform import fur as hf_fur
+    ob = _obj(ch.mesh)
+    if ob is None or not hf_fur.carried(ob):
+        return None
+    rep = hf_fur.bake(ob, ch.out_dir(), base=ch.id)
+    if rep.get("fail"):
+        raise RuntimeError(f"fur: {rep['fail']}")
+    spec = rep["fur"]
+    # warned with its number and its place, never failed: see fur.flow_continuity for why
+    if (rep.get("flow_field") or {}).get("warn"):
+        print(f"[{ch.id}] fur WARNING {rep['flow_field']['warn']}")
+    return {"textures": rep["textures"], "shells": spec["shells"], "regions": [r["name"] for r in spec["regions"]],
+            "length_max_m": spec["length_max_m"], "uv_scale": spec["uv_scale"], "covered": rep["covered"],
+            "mask": rep.get("mask"), "atlas_overlap": (rep.get("atlas") or {}).get("share"),
+            "mip": {k: rep["mip"].get(k) for k in ("ok", "across_to_along_p90", "views", "height", "coverage")},
+            "silhouette": {k: rep["silhouette"].get(k) for k in ("ok", "views", "shells")},
+            "edge": {k: rep["edge"].get(k) for k in ("step", "step_max", "tol", "edges", "skin")},
+            "dark": {k: rep["dark"].get(k) for k in ("share", "share_limit", "tol", "views")},
+            "flow": {k: rep["flow"].get(k) for k in ("ok", "worst_deg", "p99_deg", "tol_deg", "skipped")
+                     if k in rep.get("flow", {})},
+            "face": {k: rep["face"].get(k) for k in ("eye_over_mm", "margin_mm", "lips", "ok")}}
+
+
 def run_export(ch, ctx):
     from rig_analysis import export as ra_export, stored
     from wardrobe import presets
     os.makedirs(ch.out_dir(), exist_ok=True)
+    fur_rep = run_fur(ch)
     glb = os.path.join(ch.out_dir(), f"{ch.id}.glb")
     reports = stored.load(ch.rig, roles=ch.moves.roles)
     stand = (reports.get("Idle") or {}).get("standing_height_m")
@@ -1070,7 +1240,14 @@ def run_export(ch, ctx):
     if fl is not None or sk is not None:
         with open(e["moves"], "w", encoding="utf-8") as fh:
             json.dump(manifest, fh, indent=2)
+    if fur_rep is not None:
+        manifest["fur"] = fur_rep
+        e["manifest"]["fur"] = fur_rep
+        with open(e["moves"], "w", encoding="utf-8") as fh:
+            json.dump(manifest, fh, indent=2)
     out = {k: e.get(k) for k in ("glb", "moves", "verified", "clips", "bones", "problems")}
+    if fur_rep is not None:
+        out["fur"] = fur_rep
     if fl is not None:
         out["flesh"] = fl
     if sk is not None:
@@ -1278,7 +1455,8 @@ STAGES = [
     ("hair", ("bake",), ("hair",), check_hair, run_hair, lambda ch: ch.hair is not None),
     ("flesh", ("bake", "hair"), ("flesh",), check_not_dressed("flesh"), run_flesh, lambda ch: ch.flesh is not None),
     ("moves", ("bake", "hair", "flesh"), ("moves",), check_not_dressed("moves"), run_moves, lambda ch: True),
-    ("strand", ("hair", "moves"), ("hair",), check_strand, run_strand, hair_has_chain),
+    ("strand", ("hair", "moves"), ("hair",), check_strand, run_strand,
+     lambda ch: hair_has_chain(ch) or beard_has_chain(ch)),
     ("garments", ("moves", "flesh", "strand"), ("outfit",), check_garments, run_garments, lambda ch: bool(ch.outfit)),
     ("export", ("moves", "garments", "strand"), ("export", "moves"), check_export, run_export, lambda ch: True),
     ("review", ("export",), ("review",), check_review, run_review, lambda ch: ch.review.enabled),

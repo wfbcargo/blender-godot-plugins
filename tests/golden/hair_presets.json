@@ -113,7 +113,7 @@
     }
    },
    "ear_covered_verts": 0,
-   "ear_covered_verts_without_ear_cut": 418,
+   "ear_covered_verts_without_ear_cut": 417,
    "face_order": {
     "HairWoman_body_hair": {
      "faces": 807,
@@ -241,7 +241,7 @@
        "turned_deg_max": 15.7,
        "verts": 1905
       },
-      "median_deg": 58.01,
+      "median_deg": 57.73,
       "share_under_45": 0.3486
      }
     },
@@ -539,7 +539,7 @@
      "verts": 4319
     },
     "landmarks": {
-     "chin": 1.467641,
+     "chin": 1.517654,
      "cy": -0.049283,
      "ear_L": [
       0.078997,
@@ -628,7 +628,7 @@
      "verts": 3441
     },
     "landmarks": {
-     "chin": 1.467641,
+     "chin": 1.517654,
      "cy": -0.049283,
      "ear_L": [
       0.078997,
@@ -739,7 +739,7 @@
      "verts": 4639
     },
     "landmarks": {
-     "chin": 1.467641,
+     "chin": 1.517654,
      "cy": -0.049283,
      "ear_L": [
       0.078997,
@@ -878,7 +878,7 @@
      "verts": 2863
     },
     "landmarks": {
-     "chin": 1.467641,
+     "chin": 1.517654,
      "cy": -0.049283,
      "ear_L": [
       0.078997,
@@ -999,7 +999,7 @@
      "verts": 2637
     },
     "landmarks": {
-     "chin": 1.467641,
+     "chin": 1.517654,
      "cy": -0.049283,
      "ear_L": [
       0.078997,
@@ -1035,7 +1035,7 @@
     "uv_tangent_turn": {
      "hair": {
       "max_deg": 85.4,
-      "over_35_deg": 263,
+      "over_35_deg": 264,
       "tris": 4864
      }
     }

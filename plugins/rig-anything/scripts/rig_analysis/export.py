@@ -567,6 +567,11 @@ def inspect_glb(filepath):
 # the export itself
 # ---------------------------------------------------------------------------
 
+# Colour attributes that are a per-vertex map for a game shader rather than a colour, exported as COLOR_0
+# when a mesh carries one (see export_glb). First match wins.
+VERTEX_COLOUR_MAPS = ("hf_fur",)
+
+
 def export_glb(filepath, objects, actions=None, rig_name=None,
                apply_modifiers=True):
     """Write a GLB containing exactly the given objects and exactly `actions`.
@@ -629,6 +634,17 @@ def export_glb(filepath, objects, actions=None, rig_name=None,
         # exported without extras arrives in Godot with nothing to make it move.
         "export_extras": True,
     }
+
+    # A per-vertex map a shader in the game reads, carried as COLOR_0. The exporter's default
+    # ("MATERIAL") writes a colour attribute only when a material samples it, and nothing here does -
+    # the map is for a Godot shader, not for Blender. humanform's fur writes `hf_fur` (density, length
+    # and the flow's direction) this way, because hm08's UV atlas overlaps and a coverage map cannot
+    # live in an atlas that overlaps. Named, so no other colour attribute is swept in.
+    for name in VERTEX_COLOUR_MAPS:
+        if any(_obj(n).type == "MESH" and name in _obj(n).data.color_attributes for n in objects):
+            wanted["export_vertex_color"] = "NAME"
+            wanted["export_vertex_color_name"] = name
+            break
 
     # Morph targets only when there is something to morph, and said outright
     # rather than left to the exporter's default: shape keys that were baked into

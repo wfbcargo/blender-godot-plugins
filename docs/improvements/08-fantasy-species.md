@@ -358,6 +358,174 @@ the product):
 6. **Fur**: Godot shell fur plus strand cards; coverage maps on hm08.
 7. **Head grafts and digitigrade legs**: the gnoll round.
 
+## Round 2: fur, a muzzle, digitigrade legs - the gnoll (2026-09-22)
+
+The same rule: a general mechanism with named presets over it, driven by numbers, never a gnoll branch in the
+code. A gnoll is the worked example, as the dwarf was for the warp: canine head, fur, digitigrade legs, a tail.
+
+**Fur** is two tools, chosen by length, the way games do it:
+- **Shell fur** for anything short (a pelt, a muzzle's nap, a forearm's hair): N offset copies of the skin
+  shell drawn in Godot with a strand mask, density and length from a coverage map painted on hm08, so it
+  transfers between bodies. Cheap, and it follows the skin with no extra rig.
+- **Strand cards** (humanform's hair) for what hangs and moves: a mane, a ruff, a tail's brush, a beard.
+  follow-through springs them.
+The coverage map is the same object for both: a region, a length in metres, a density and a direction. It says
+which skin the fur covers, so the skin under dense fur can be left undrawn the way wardrobe does it.
+Its checks are hair's: the mip check (a fur mask must not tile into patches), a silhouette check at 4 m, and
+the coverage map against the anatomy inventory (fur is a part, so a body that should have it and does not
+fails).
+
+**Fur shipped (species-2-fur, 2026-09-22).** Shell fur, the coverage map and its checks; strand cards for a
+mane or a tail's brush did not, and want an API hair.py does not have (see "Open" below).
+
+- **The coverage map is per vertex of hm08, not a texture.** hm08's shipping UV atlas *overlaps itself* -
+  about a fifth of its texels are claimed by two different parts of the body (`fur.atlas_overlap` measures
+  it), so which value a texel ends up with depends on the order the triangles happen to be rasterised in.
+  The first map came back with furred hands, furred feet and a furred scalp, and raising the resolution did
+  not help because it is not a resolution problem. Density, length and the flow's direction now travel as
+  the `hf_fur` colour attribute (glTF COLOR_0, exported by name: `rig_analysis.export.VERTEX_COLOUR_MAPS`);
+  they vary over centimetres, which hm08's 8-15 mm quads carry easily. Only colour and the tiled strand
+  mask stay textures - colour survives the overlap because the furred triangles are drawn last, and the
+  strand mask is tiled and never touches the atlas.
+- **Three things a join does that cost a rebuild each**, now handled and worth knowing:
+  Blender's join fills a *colour* attribute's missing values with **white**, not zero, so the hair cap, the
+  brows and the lashes joined into the body after the map was written came out at full density and full
+  length (`fur.refresh_vcol` writes the map again at bake time, masked by `hf_fur_skin`); Godot's glTF
+  importer turns "albedo from vertex colour" on for every material on a mesh that has one, and the fur
+  runtime strips the colour off the body mesh once the shells have their copy; and a shell built from a
+  surface that carries no map is not skin - kept, the hair cap was drawn seventeen times over as fur.
+- **A region is solid inside and feathered at its rim**, and lengths blend across the rim. Taken as raw
+  area weights, a ruff whose mask peaked at 0.5 put half the upper body in the band where the skin is still
+  drawn under the fur, and a 45 mm ruff beside a 12 mm pelt stood off the neck as a collar of sheets.
+- **An area may not grow past where it reached.** Smoothing alone carried "the face" over the crown, and a
+  3 mm nap at density 0.7 drew a black skull cap over the hair in Godot.
+- **Cost, measured** (Godot 4.7, one 1.78 m body at 900x900): 23 -> 59 draw calls, 59k -> 358k primitives,
+  4.2 -> 6.2 ms a frame for 17 shells. The shells are the furred skin only, and only the base coat casts a
+  shadow.
+- **A coat, not a speckle (the coordinator's review).** At 900 strands a square centimetre and 0.45 mm
+  across, a texel was a strand and the pelt read at 2 m as dirt on skin: per-texel noise is what dirt looks
+  like. Fur reads as fur by its **clumps**. The mask is now 230 strands a square centimetre at 0.95 mm,
+  gathered into clumps 4.2 mm apart (`CLUMP_PULL`, `CLUMP_SHARE`), and carries a second channel - each
+  strand's own tone, held along its whole length, so a clump lies together. The base coat sits close in
+  tone to the strands over it (`root_shade` 0.70 -> 0.86, `rim` 0.22 -> 0.12, AO floor 0.72 -> 0.86), or
+  every gap between strands reads as a dark fleck.
+- **The fur ends into the skin, not against it.** Its colour and its length are feathered over EDGE_RINGS
+  rings of the mesh from where the skin still shows through (COVER_DENSITY, not bare skin: a vertex at
+  density 0.03 is furred by the map and bare to the eye). Colour blends between regions with its own,
+  gentler weighting than length (BLEND_COLOUR against BLEND_SHARP): a 45 mm ruff must keep its length
+  against a 12 mm pelt, and must not keep its tone against it.
+  Check: **`fur.edge_tone`**, `skin.seam_tone`'s question asked of a fur boundary - the step in the fur's
+  tone across one edge of the mesh near where the fur ends, 99th percentile, against EDGE_TOL. It is
+  measured locally and not by binning the body: binned, the bands mix regions and a face nap's own paler
+  colour read as a step that was not there. It caught the dark rings at 0.071 and they now measure 0.005
+  (fur_pelt) and 0.013 (fur_dwarf).
+- **Black gloves and socks (the coordinator's second review).** At 2 m both furred bodies had black patches
+  at the wrists, the hands, the ankles and the hairline - worse than a tone step, and the edge check said
+  they were fine, because they were not a step in the *data*. The colour map was filled with **black** where
+  no triangle reached it and grown only two texels; round the small islands - the hands, the wrists, the
+  feet - a bilinear sample pulled that black straight into the coat. It is now filled with the body's own
+  skin tone and grown `DILATE_PASSES` (16) texels, and the patches are gone, the hairline band with them.
+  Check: **`fur.dark_patches`** - any patch of furred body more than `DARK_TOL` in luma below *its own
+  surface colour*, measured on the colour map as Godot samples it, mip by mip, at 0.6 m and 4 m. Against a
+  global coat mean it failed the pattern's own spots, which are meant to be dark; against the surface it
+  sits on, a spot passes and a bled black does not. 2.4% of the body failed it before, 0.0% after.
+- **Anatomy, not facing (the gnoll's build).** `back` and `front` are the normal-based halves - every vertex
+  facing away or toward - and they are what a description means by "the back of it", but they are not
+  anatomy: half of every limb and every side of the trunk is in each, so subtracting one leaves a region
+  with no core and the blend gives it away (the gnoll's mane and bib both vanished into the pelt). The
+  anatomical pair is now `dorsal` and `ventral` - strips of a stated width (DORSAL_W, VENTRAL_W) either
+  side of the midline, held to the surface that faces that way - with `nape`, `withers`, `flank` and
+  `haunch` beside them. A mane is `dorsal` + `withers` + `nape`, a bib is `ventral` + `chest`. And an
+  `except_areas` is a **cut, not a scaling**: `m * (1 - A[a])` takes a region down everywhere the other
+  area reaches at all, so it is applied over a band (`CUT`) and leaves the region alone where the other is
+  weak.
+- **The face of a furred body.** Fur is cleared round each eye by `EYE_CLEAR` eyeball radii **plus its own
+  length**: a fixed ring is not enough, because a hair rooted outside it still stands over the ball if it
+  is longer than its distance from it, and a 12 mm pelt beside a 3 mm nap put 14.7 mm of fur across the
+  eye. The eyeballs are MPFB's own helper spheres, read before the bake throws them away. And the lip line
+  is **pigmented** (`lip_pigment`, default 0.8 when a region covers the face or a muzzle): fur skips the
+  lips because a lip is not furred, and that left them a pale smear along the mouth, where on a muzzle the
+  lip line is the darkest skin on the animal.
+  Check: **`fur.face_check`** - how far fur stands over an eyeball (margin `EYE_MARGIN_MM`), and the lip
+  line's luma against the fur round the mouth (`LIP_TOL`). It runs in `apply`, before the bake, because
+  the bake has already thrown the eyeballs and the joint groups away: asked afterwards it found no eye and
+  passed every body vacuously, which is how it was written the first time.
+- **Open**: strand cards for a mane,
+  a ruff past 8 cm or a tail's brush need an entry point `hair.py` does not have: it grows scalp hair from
+  a landmark hairline, with no way to hand it a painted region. What fur needs from it is
+  `hair.cards(body, field, length_m, volume, colour, root_bone)` where `field` is a per-vertex weight -
+  `brows.beard_field` is the shape of it.
+
+**Beards become strands.** Today they are layered textured shells: a flat decal with a smooth outline. A beard
+is hair, so it should be the same strand cards as scalp hair, rooted on the beard field, with length and
+volume driving the cards, and follow-through sway on the long ones. The shell stays for stubble, where it is
+right.
+
+### Beards as strand cards (done, `species-2-hair`)
+
+A beard is now a **root mat plus strand cards** (`humanform.brows._beard_cards`), and the layered shells are
+gone. One shell of the body's own faces stays as the mat under the hairs - the thing that hides skin, as a
+scalp's cap does - and everything above it is cards:
+
+- **Roots** are scattered over `beard_field` at the style's `density` (cards per square metre), per body face,
+  by area and by how far inside the fade that face is, so the edge thins instead of stopping.
+- **A card** is a ribbon of three columns bowed out of its own chord (a flat card vanishes edge-on). It starts
+  along the skin's own downhill direction - world down projected onto the tangent plane, straight down where
+  the skin faces down, as under the chin - turns toward gravity by `droop` at each step, and is held
+  `BEARD_CARD_CLEAR_M` off the body all the way; below the chin that clearance grows to `BEARD_HANG_CLEAR_M`,
+  so it hangs in front of the chest and the shirt on it rather than through them.
+- **Length** is the style's at the chin, less toward the moustache on the same ramp the layers used, jittered
+  per card; a moustache card is capped (`BEARD_MOUSTACHE_MAX_M`, jittered) or a long beard buries the mouth.
+- **Clumps.** Each clump grows a spine and its members bend into it over their second half: locks, not a pelt.
+  `braids` winds the hanging clumps round their spine instead, on a radius that pulses down the rope - a
+  dwarf's plait, for the price of re-placing points that were already there.
+- **The texture is the beard's own**, in a second material with no under-layer (a card must show gaps), and
+  the UVs are arc length across and along the card over the tile, so texels stay square and the mip check
+  still passes. The fade falls from the root's value to `BEARD_CARD_TIP_FADE` over the last of the card,
+  which drops the texture's hairs one by one by rank: the end is a scatter of tips, not a cut across the
+  texture. That is what the silhouette check measures.
+- **The hanging part is its own mesh** (`<name>_beard_strand`) with follow-through's strand contract, one
+  chain per lock (`ft_centrelines`: a single chain down a sheet as wide as a jaw twists it, which is why the
+  long_loose curtain is not chained). The pipeline keeps it loose exactly as it keeps a ponytail, and the
+  strand stage springs it.
+
+**Three checks that catch what the eye caught before:**
+
+- `brows._coverage_check` - for every point well inside each of the field's own regions (`moustache`,
+  `corners`, `chin`, `jaw`), the distance to the nearest card root against the spacing the density asks for.
+  It names the bald region: the notch under the lower lip and the corners of the mouth are where the field is
+  narrowest and are the first places a face-by-face sampler leaves bare.
+- `hairtex.silhouette_check` - rasterises the part's own geometry with the fade's vertex alpha at the screen
+  resolution of 0.6 m and 4 m, front and side, and measures how far its lower outline wanders from a smoothed
+  copy of itself. A shell's outline is the fade's zero line, a curve, and measures near nothing; the cards
+  measure 2-5 px close up and still a fraction of one across a room. It also fails a beard whose area
+  collapses between the two distances - cards too thin to hold the shape at a distance.
+- `verify_strands.gd` now measures penetration against **every collider bone the strand must clear**, the
+  chest included (`torso_*`), not the head alone, and `follow_through.strand.colliders(torso=True)` measures
+  those capsules for a beard. It earned its keep at once: on the hair material's own limits the dwarf's beard
+  swung 70-75 degrees on a run and went 4 cm into his own face, so the registry's `beard` type stiffens and
+  damps it (16/22 degrees, damping 0.85).
+
+`hair.beard_braids` (0..6) is the spec dial; `stubble` stays a pure shell and says why in the code.
+
+**A non-human head** is a **parametric muzzle**, not an imported mesh: the head features mechanism (regions,
+landmarks, displacement, attached parts) already reshapes a head, so a snout is a general feature with a
+length, a width, a bridge height, a nose pad and a lip line, growing the human face forward along the jaw's
+axis; ears are attached parts, already there. This keeps every body on hm08, so skin, teeth, eyes, the warp,
+wardrobe and the library all keep working. A grafted mesh head stays the fallback for a head no amount of
+reshaping reaches (a beak, a horse's skull), and it is the harder, later path.
+A muzzle needs a **jaw bone** so the mouth opens - rig-anything has jaw support for dragons and whales, and
+humanform's bodies have never had one. That unlocks bites, roars and speech for every body, not just creatures.
+
+**Digitigrade legs** add a segment: the foot becomes a third leg bone (the metatarsals stand up), and the
+ankle sits high, where a dog's hock is. rig-anything already rigs and walks a hopper's leg (rabbit, cricket),
+so this is a leg plan, not new maths: the plan says how many segments a leg has and where they fold, the
+gait's IK and the Froude scaling follow. The checks are the existing ones (foot drift, floor penetration,
+joint folding, balance) plus the knee/hock direction.
+
+**Open from round 1 to fix here:** the cyclops' square pupil, the shadow band across his face at eye height,
+and the pale specks where the brow cards meet.
+
 ## Done when
 
 - `build_many` builds a dwarf, elf, gnome and troll fresh from their specs; each passes humancheck against its
@@ -428,3 +596,193 @@ Round 3 (the cyclops' face):
 - Open: a band of shadow still runs across the face at the eye's height under the midday sun, from the closed
   orbits either side under the brow ridge; the brow cards' heads show pale specks where the card texture's head
   lies on skin.
+
+## Round 2, step 7: digitigrade legs and a tail on a biped (species-2-legs, 2026-09-22)
+
+A **leg plan** is now a thing the pipeline has, not a special case anyone branches on.
+
+- **`humanform/legs.py`** (a new module, not `graft.py`: a graft REPLACES a pair - it cuts at the hips and lofts
+  something else - while a digitigrade leg is a RESHAPE of the leg the body already has, so it borrows the warp's
+  machinery instead and every UV, vertex index, toe and toenail comes through untouched). Knobs: `stand` (how much
+  of the metatarsus is vertical; a person's foot already reads 0.43, a dog's cannon 0.85-0.95), `metatarsal`,
+  `toe`, `girth`, `knee` (the stifle's included angle) and `fold` (only knee forward / hock back is built).
+  The solve holds the hip where it stands and lays the toes flat from the ball, so **stature and hip height are
+  untouched**: the shank is scaled by the one factor that puts the hip back at its height and the leg folds under
+  the body. Refused before a vertex moves when the shank scale (0.55-1.15), the hock over the hip (0.10-0.45), the
+  metatarsus over the shank (0.10-0.60) or the toes over the metatarsus (0.10-0.85) leave their ranges.
+- **`humanform/tail.py`**: a tail BESIDE the legs (a tail instead of them is still the graft; both is refused).
+  A patch of skin at the sacrum goes and its boundary loop is lofted along an arc (`droop`, `curve`), rounded at
+  the tip, UVs in the atlas's free rectangle, a `tail.000...` chain off the pelvis - which `bodymap` already reads
+  as a tail, so every gait curls and swings it with no new code. Lengths are fractions of hip height.
+- **rig-anything reads the plan off the geometry**: `bodymap` calls an end bone within 30 degrees of the leg's
+  standing axis a standing segment and one past 60 a plate on the ground (pro rata between), and gives each leg
+  `plan`, `stand` and `ground` - the effective leg, `a + b` plantigrade (exactly as before) and `a + b + stand`
+  digitigrade. `Poser.leg_len` and the swing lift are that; `Reach` widens the end bone's roll when it stands.
+  The gait needed no new maths: Froude scales by hip height above the contact plane, which a leg plan preserves.
+- **Checks upfront**: the leg-plan solve above; `bodymap` warnings for a hock out of range; `verify.tail_gap` on
+  every clip (the tail's skin against the legs', failing a clip that closes the gap - the limit is the smaller of
+  0.008 of body height and half the rest gap, so a rabbit's resting scut is not failed for walking); the anatomy
+  inventory knows a tail; `species_design` and character-pipeline's spec check refuse `legs`/`tail` out of range.
+- **`satyr`** is the worked example preset (digitigrade legs, a short tail, ram horns).
+
+Measured, on one 1.80 m body built both ways at Froude 0.2: hip height 0.900 (plantigrade) against 0.904
+(digitigrade), stride 1.277 / 1.283 m, cadence 1.04 Hz both - **the Froude scaling holds**, because the plan
+preserves hip height by construction. What the longer effective leg (0.841 -> 1.009 m) changes is the posture and
+the swing: the stance knee folds to 89 degrees against 116, the swing foot lifts 0.126 m against 0.105, and the
+stroke is 0.76 of the leg against 0.92.
+
+Open:
+
+- The leg still reads as a long-footed person at four metres unless `stand`/`metatarsal` are pushed (the satyr
+  ships at 0.95 / 2.2). The toes are still five human toes; a hoof or a paw is a mesh job, not a plan.
+- The tail's root has a slight ridge where it leaves the sacrum: `graft` fairs its seam band radially and this
+  does not. A tuft at the tip (`tuft` is reserved in `tail.KEYS`) is not made.
+- A tail is skinned but has no follow-through spec of its own yet: its sway is the gait's, not sprung.
+
+### Round 2b: a foot plan (species-2-legs, 2026-09-22)
+
+The flaw the first digitigrade body showed in Godot: a raised hock over a human foot with five long toes lying
+flat reads as **a person on tiptoe, not a paw**. `humanform/feet.py` is the other half of the leg plan, and it
+is parameters rather than names - `foot = "paw"`, `"hoof"`, or a table of either (the key is `foot`, not
+`feet`: `feet` is already the observable for foot LENGTH). `human` is the setting that changes nothing.
+
+- **`toes`**: the five hm08 toes are never deleted (the vertex order is what the skin regions and the brow fits
+  index). Each vertex is assigned to its own toe by **MPFB's own joint helpers** (`joint-l-toe-N-K`) and the
+  toes are **fused** onto `toes` contiguous groups, fully at the tips and not at all at the ball. `splay`
+  spreads the groups, `width` fattens one across the foot - and only a third of that through it, because
+  scaling the whole offset doubled the toes' depth and put the sole 3 cm through the floor.
+- **The pads** (`pad`, `toe_pad`, `heel_pad`) are domes pressed into the sole in toe lengths, under the
+  standing ball, under each toe group and at the back of the foot; the body is re-stood afterwards, so a pad
+  adds its own thickness under the foot as an animal's does (11-13 mm on these bodies).
+- **A claw and a hoof are the head's own attached-part mechanism** (`features._part`, read-only from here),
+  anchored on the **distal flesh of each toe group** - a nail grows out of the TOP of the toe's end, and
+  centred its base ring dipped below the pads whatever its length was - and skinned 100% to the toe bone in
+  `<human>_footparts`. A hoof is that mechanism blunt: short, nearly as wide at the tip as the base, curved
+  down hard, sunk deep enough to cap the toe. A claw is data, not a mesh.
+- **The nail's length is solved, not guessed.** Which length works depends on the leg plan's toe, the fuse and
+  the pads: the fraction that put a paw's claws 13 mm through the floor left the satyr's hoof 11 mm in the air.
+  The build lays the nails, measures what carries with the contact check, corrects and lays them again; a
+  solved length outside 0.15-1.6 toe lengths is refused ("it is reaching for the ground sideways"), and an
+  explicit `claw.length` is taken as given and held to the same check.
+- **The check that matters** (`feet.contact`): what the plan nominates must be the lowest thing on the foot.
+  The paw's claws stand 3.5 mm ABOVE the pads and the satyr's hooves 6 mm BELOW the flesh; a claw that would
+  walk the creature on its nails and a hoof left in the air are each refused with the millimetres measured.
+  Both controls were seen to fail before the defaults landed.
+- The plan measures what it did to hm08's toenails against the foot they sit on, before and after the whole
+  body plan, and hands that to the anatomy inventory as `expected` - as the eyes hand it their allometry - so a
+  fused, shortened set of nails is graded against the plan rather than against a human's foot.
+  `species.inventory` now looks `expected` up by a sub-part's full name first, so that credit cannot excuse the
+  fingernails.
+
+The satyr is the hoof example (and its digits are now 0.95 of a human's: a goat's length is in the cannon, not
+the toes). Both it and a paw-footed digitigrade body build fresh, pass 13 anatomy parts with no fails, pass all
+eight clips' playback checks and export with verified durations.
+
+**In Godot at 4 m and close**: the satyr now reads as a goat leg - hock high, a long cannon, a short cloven toe
+capped in dark horn - where the same body a round ago read as a long-footed person. The paw's four fused toes
+spread on the ground with small claws clear of them, and mid-swing the whole foot folds back under the leg. In
+the walk the contact is a short patch under the toe pads: the hoof sets the horn down first and rolls over it,
+and the paw lands and leaves on its pads with the claw tips visibly off the floor.
+
+Open: the paw's toes are still long, because the leg plan's `toe` default is 1.7 and a paw wants less; there is
+no hand plan yet; the pads are a smooth dome rather than separate lobes, and nothing paints them a darker tone.
+
+### Round 2c: the silhouette (species-2-legs, 2026-09-22)
+
+The parts were right and the leg still read wrong: a hock, pads, claws and a hoof over a femur, tibia,
+metatarsus and digits that were still a human's, and at four metres the figure read as a person walking on
+their toes. **The leg plan's input is now the silhouette** - a ratio set - and the per-segment scales are
+solved to reach it.
+
+| ratio set | femur : tibia : metatarsus : digits | stifle | stand | taper (thigh/shank/cannon/digits) |
+|---|---|---|---|---|
+| `human` | 0.394 : 0.398 : 0.137 : 0.070 | 175 deg | 0.43 | 1.0 / 1.0 / 1.0 / 1.0 |
+| `canine` | 0.317 : 0.343 : 0.270 : 0.070 | 116 deg | 0.90 | 1.20 / 0.80 / 0.50 / 0.85 |
+| `caprine` | 0.299 : 0.352 : 0.313 : 0.036 | 120 deg | 0.95 | 1.14 / 0.68 / 0.38 / 0.85 |
+
+Sources (measured over folklore; `legs.RATIOS` carries them in the code): **Fischer & Blickhan 2006**, the
+tri-segmented therian limb - femur, shank and tarsus+metatarsus near-equal (1:1:1) in a crouched mammal;
+**Croft & Lorente 2021** (PLoS ONE 16(8):e0256371), the metatarsal-femur ratio - cursorial carnivorans at Mt:F
+0.38-0.65, cursorial ungulates (pecoran ruminants, Caprinae among them) at Mt:F >= 0.65; and the comparative
+rule that a cursor lengthens the distal limb and stands on SHORT digits, an unguligrade one shortest of all.
+The crural indices (1.08, 1.18) are conventional and the weakest numbers here. `toe`'s old default of 1.7 was
+the main offender and is gone: the canine solve now scales the digits by about 1.0 and the metatarsus by 2.0.
+
+Three things beyond the lengths turned out to matter as much:
+
+- **The taper.** A person's leg is nearly one girth from hip to ankle; an animal's is a heavy thigh over a thin
+  shank over a bare cannon. `girth` is now a table per segment and carried by the ratio set.
+- **The stifle.** A dog stands its stifle near 116 degrees, not 130. The ratio set carries that too.
+- **Where the foot stands.** A plantigrade foot's ball sits 0.17 hip heights ahead of the hip with the ankle
+  under it; a digitigrade one stands on its TOES and they take the sole's place under the body, which is what
+  puts the hock behind the hip and deepens the zig-zag. `stance` is that offset, and its floor is set by
+  BALANCE rather than anatomy - at 0.02 the paw body's crouch put its centre 3.6 mm outside its feet and
+  rig-anything refused the clip, which is how 0.05 (canine) and 0.04 (caprine) were arrived at.
+
+**The silhouette check**: the built shares against the plan's, per segment, failing past 0.025 of the limb with
+both numbers in the message, so "it still reads human" is caught before a build. `bodymap` measures the same
+four shares off any rig and prints them in its summary. A `toe = 2.0` override is refused by it (digits 0.131
+against 0.070), which is the control.
+
+Each foot preset names the leg ratios its own silhouette needs (`feet.LEG_RATIOS`: paw -> canine, hoof ->
+caprine), taken as the leg plan's default when a species names a foot and leaves the leg's ratios unsaid.
+
+Built and hit: satyr 0.299/0.352/0.313/0.036 (caprine, exactly), paw body 0.317/0.343/0.270/0.070 (canine,
+exactly); both pass all eight clips and export with verified durations, anatomy 0 fails.
+
+**In Godot at 4 m beside the plantigrade body**: the satyr reads as a goat-legged figure - a short heavy
+thigh, a thin shank, a bare cannon, the hock high on the trailing leg, a small hoof - and the paw body as a
+dog-legged one, where both a round ago read as a person on tiptoe. The paw from the front is a thin cannon
+flaring into a short, wide, splayed foot with distinct toe lobes.
+
+Open: the lead leg at mid-stance is still nearly straight, which flattens the read at that one phase; the torso
+and pelvis above the hips are still a person's (that is what a gnoll or a satyr is, but a quadruped's would
+need its own baseline); `human` ratios on a digitigrade plan are refused rather than clamped.
+
+### Round 2d: the stance is solved against the real contact patch (species-2-legs, 2026-09-22)
+
+The gap the gnoll build found: `species._balance` balances a body over its PLANTIGRADE foot during the warp,
+and a leg plan then moves the contact out from under it while a foot plan moves it again - the pads, the fuse,
+the horn - with nothing re-checking it. At the canine default the gnoll's centre of mass stood 50 mm outside
+its paws, Crouch and MouthOpen were refused at export, and its spec had to carry `stance = 0.12` by hand.
+
+- `legs.apply` measures the body's centre (the mean of every skinned vertex - the centre
+  `rig_analysis.motion.Body.com` and the clip balance check both use) and solves the stance that stands it
+  over the middle of the patch the foot plan will leave (`feet.PATCH`, measured on built bodies rather than
+  assumed: a paw's pads run 0.0-0.75 of the digits forward of the ball, a hoof's horn curves down hard and its
+  lowest point sits at 0.49, not out at the toe's end where the horn is anchored).
+- The legs are a third of the body, so moving them carries that centre with them and one pass under-corrects.
+  The leg plan's targets are absolute, so applying it again from its own output lands exactly where one pass
+  with the final stance would: it repeats until the ball settles within a millimetre, usually in three.
+- `feet.balance` then measures the patch the body REALLY has - the sole's own lowest band, fore and aft, plus
+  the claws or hooves - and `feet.settle` moves the feet again if the margin is short. The margin must be a
+  tenth of the patch or 10 mm, whichever is less, because an unguligrade foot stands on a POINT.
+- No ratio set carries a stance any more; an explicit one in a spec still wins.
+- A hoofed foot declares `nails.toes` absent - a hoof IS the nail, the horn capping the whole end of the digit
+  - rather than leaving the inventory to read five nails drawn onto two hooved toes as a part the warp lost.
+
+Proved with the stance left unset: **gnoll solves to 0.1253** (its hand-tuned 0.12), margin 16.7 mm, humancheck
+35 pass / 0 fail, anatomy 13 pass / 0 fail, all eight clips pass, export verified. **Satyr** (hoof): three
+passes to 0.1369, anatomy 13/0, eight clips, export verified. **Paw body**: stance 0.0974, margin 22 mm (44% of
+the patch), eight clips, export verified.
+
+### Round 2e: the balance check uses the export's own measure (species-2-legs, 2026-09-22)
+
+The gnoll's spec pinned `stance = 0.12` with a note that the solve "balances the REST SKELETON while the
+export's clip check measures the SKINNED body". Measured on the gnoll, the two are the same number to four
+decimal places - `legs.apply`'s centre is the mean of every skinned vertex, which is exactly what
+`motion.Body.com` returns at rest (0.2121 both). What differed was the **support**: this package measured the
+sole's own lowest band while the export measures `keyposes.support`, the contact points rig-anything's poser
+finds, and on the gnoll those are 0.164..0.224 against -0.018..0.245 - a quarter of a metre apart.
+
+So `feet.balance` now takes rig-anything's own support and centre of mass where it can be imported, and the
+sole band stays in the report as a second opinion. A body that will not stand is refused by the BUILD with the
+residual in millimetres, which way its centre falls and which knob moves it - `legs.stance` first (the solve
+has already tried its whole range), then `hunch_deg`, then `foot.pad`/`toe_pad`, then `foot.claw.length` -
+instead of failing 140 seconds later on a Crouch at export.
+
+Proved with `stance` left unset, on the gnoll's own spec (its muzzle on, its pelt left to the fur agent):
+stance solves to **0.1348** in three passes, the body stands **19.4 mm** inside its feet against the 10 mm it
+needs, humancheck 35 pass / 0 fail, anatomy 13 / 0, and all eight clips - Idle, Walk, Run, Crouch, Jump, TurnL,
+TurnR and MouthOpen - pass and export with verified durations. Satyr (hoof) and the paw body the same: stance
+0.0964 and a 38 mm margin on the paw, eight clips each, both exports verified.

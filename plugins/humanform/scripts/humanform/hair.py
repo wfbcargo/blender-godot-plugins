@@ -1165,8 +1165,8 @@ def _clearance(bvh, verts, samples=400):
 
 
 def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lashes=False, body_hair=False, sex=None,
-        brow_shape=None, beard=None, beard_colour=None, beard_length=None, beard_volume=None, fringe=None,
-        **overrides):
+        brow_shape=None, beard=None, beard_colour=None, beard_length=None, beard_volume=None, beard_braids=None,
+        fringe=None, **overrides):
     """Hair on a baked body. `preset` and `colour` (a screen sRGB colour) default to `sheet["hair"]`, then
     `bun`-less `short_crop` and the preset's colour. Returns a report with the objects made.
 
@@ -1175,12 +1175,15 @@ def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lash
     regions. `brow_shape` (else the brief's `hair.brow_shape`, else "natural": the brow card as MPFB fits it) is
     one of `brows.BROW_SHAPES`. `beard` (else the brief's `hair.beard`; None: none) is one of
     `brows.BEARD_STYLES`, in `beard_colour` (a screen colour; None: the hair colour a little darker), with the
-    style's length at the chin and volume unless `beard_length` (m) or `beard_volume` (0..1) say. `fringe`
+    style's length at the chin and volume unless `beard_length` (m) or `beard_volume` (0..1) say, and
+    `beard_braids` ropes wound out of a hanging beard. A beard that hangs leaves `objects["beard_strand"]`,
+    which carries follow-through's strand contract and must not be joined into the body. `fringe`
     (else the brief's `hair.fringe`) hangs a fringe across the forehead: True for FRINGE, or a dict over it."""
     ob = _body.obj(body)
     brief = (sheet or {}).get("hair") or {}
     brow_shape = brow_shape or brief.get("brow_shape")
     beard = beard or brief.get("beard")
+    beard_braids = beard_braids if beard_braids is not None else brief.get("beard_braids")
     fringe = fringe if fringe is not None else brief.get("fringe")
     preset = preset or brief.get("preset") or "short_crop"
     p = params(preset, **overrides)
@@ -1249,7 +1252,7 @@ def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lash
         face = _brows.add(ob, lm, colour, base, rig=rig, uv_name=uv_name, brows=brows, lashes=lashes,
                           body_hair=body_hair, sex=sex or (sheet or {}).get("sex"), brow_shape=brow_shape,
                           beard=beard, beard_colour=beard_colour, beard_length=beard_length,
-                          beard_volume=beard_volume)
+                          beard_volume=beard_volume, beard_braids=beard_braids)
         objects.update(face["objects"])
         report["face"] = {"parts": face["parts"], "skipped": face["skipped"]}
     # the cap's clearance: a fall's inner sheet and the underside of a bun or tie are tucked under the cap and
@@ -1331,6 +1334,33 @@ def add(body, preset=None, colour=None, sheet=None, name=None, brows=False, lash
             _me.uv_layers[uv_name].active_render = True
     report["objects"] = objects
     return report
+
+
+def cards(body, field, length_m, volume=None, colour=None, root_bone=None, **over):
+    """Strand cards out of a per-vertex `field` on `body` - `humanform.cards.grow`, the growth a beard, a
+    mane, a ruff and a tail brush all use.
+
+    `field` is one 0..1 weight per body vertex (hm08's `delta.BODY_VERTS`): the shape `brows.beard_field`
+    returns and the shape fur's `hf_fur_den` is in, so fur's coverage map drives cards without conversion.
+    `length_m` is a card's length where the field is 1; `volume` (0..1, default the parameters' own) raises
+    the card count; `colour` is the hairs' screen (sRGB) colour; `root_bone` is the bone a hanging part swings
+    from (default: whichever the roots carry most of). `**over` is any of `cards.PARAMS` - `density`,
+    `width_m`, `clump`, `braids`, `droop`, `jitter`, `cover`, `strand_m`, ... - plus the keywords `grow`
+    takes: `name`, `flow` (a direction per vertex, which fur has), `length_scale`, `max_length_m`,
+    `hang_below_z` (past which a card is cut and its lower part becomes a follow-through strand mesh),
+    `regions` (what the coverage check names) and `scale` (`head_scale`).
+
+    Returns `cards.grow`'s report: `objects` ({"cards": ..., "strand": ...}), the roots, the coverage check
+    and the least clearance off the skin.
+
+        from humanform import hair, fur
+        m = fur.read(body)["map"]["den"]                    # or any 0..1 array over the body's vertices
+        rep = hair.cards(body, m, 0.18, colour=(0.3, 0.2, 0.1), name="Gnoll_mane", hang_below_z=1.32)
+        rep["objects"]["strand"]                            # hand this to follow_through.strand.prepare"""
+    from . import cards as _cards
+    if volume is not None:
+        over.setdefault("density", _cards.PARAMS["density"] * (0.4 + 1.2 * float(volume)))
+    return _cards.grow(body, field, length_m, colour, root_bone=root_bone, **over)
 
 
 def contract(strand):

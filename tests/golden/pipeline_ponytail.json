@@ -337,13 +337,13 @@
      {
       "bone": "spine.005",
       "name": "head",
-      "radius_m": 0.1156,
+      "radius_m": 0.1155,
       "shape": "ellipsoid"
      },
      {
       "bone": "spine.004",
       "name": "neck_spine_004",
-      "radius_m": 0.0557,
+      "radius_m": 0.0508,
       "shape": "capsule"
      }
     ],

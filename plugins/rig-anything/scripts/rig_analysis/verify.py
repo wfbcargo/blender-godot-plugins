@@ -1198,6 +1198,101 @@ def crotch_clearance(rig_name, action_name, mesh_name=None, every=2, forward="-Y
     return out
 
 
+TAIL_GAP_MIN = 0.008      # of body height: the nearest a tail's skin may come to a leg's on any frame
+TAIL_GAP_REST = 0.5       # ... and no nearer than this share of the gap the REST pose already has
+TAIL_GAP_POINTS = 400     # points sampled each side (a tail swinging through a thigh is not subtle)
+
+
+def tail_gap(body, bm, evaluated, frames, cap=TAIL_GAP_POINTS):
+    """How near a tail comes to a leg over a clip, measured on the predicted skin. None when the body
+    has no tail or no legs.
+
+    A tail hung on a biped hangs between and behind its legs, and a walk swings it: the one thing it
+    must not do is pass through a thigh. Bones alone cannot say - a tail bone runs down the tail's axis
+    and a thigh bone down the thigh's, so two limbs already touching read 20 cm apart - so this measures
+    the skin each side dominates. The limit is the smaller of `TAIL_GAP_MIN` of body height and half the
+    gap the rest pose has, because a creature whose scut already lies on its haunch (a rabbit) is not
+    walking wrong: what fails is a clip that CLOSES the gap it started with.
+    """
+    import numpy as np
+    from mathutils import Vector
+    chain = list(bm.get("tail") or [])
+    # The FIRST tail bone is skinned into the hip - on a grafted tail the seam ring is shared half and
+    # half with the pelvis - so its skin sits against the buttock by construction and a thigh swinging
+    # back passes millimetres from it without touching the tail at all. What must stay clear is the
+    # tail beyond its own root.
+    tail = set(chain[1:]) if len(chain) > 1 else set(chain)
+    legs = {n for l in bm["limbs"] if l["role"] == "leg"
+            for n in [l["upper"], l["lower"], l["end"]] + list(l["digits"] or []) if n}
+    if not tail or not legs:
+        return None
+    body.skinned_bones()                      # builds the skin cache
+    skin = getattr(body, "_skin", None)
+    if not skin:
+        return None
+
+    def pick(names):
+        out = [(co, ws) for co, ws in skin if max(ws, key=lambda x: x[1])[0] in names]
+        step = max(1, len(out) // max(cap, 1))
+        return out[::step]
+
+    T, L = pick(tail), pick(legs)
+    if not T or not L:
+        return None
+
+    def points(sel, mats):
+        deform = {n: mats[n] @ body.rest[n].inverted() for n in body.rest}
+        out = np.empty((len(sel), 3))
+        for i, (co, ws) in enumerate(sel):
+            p = Vector((0.0, 0.0, 0.0))
+            for n, w in ws:
+                p += (deform[n] @ co) * w
+            out[i] = (p.x, p.y, p.z)
+        return out
+
+    def gap(mats):
+        A, B = points(T, mats), points(L, mats)
+        return float(np.linalg.norm(A[:, None, :] - B[None, :, :], axis=2).min())
+
+    def points_at(mats):
+        return points(T, mats)
+
+    rest_mats = {n: body.rest[n] for n in body.rest}
+    rest = gap(rest_mats)
+    worst, at = float("inf"), None
+    for f in frames:
+        g = gap(evaluated[f])
+        if g < worst:
+            worst, at = g, f
+    # WHAT THIS MEASURE CAN RESOLVE. It is the smallest distance between two SAMPLED surfaces, so it cannot
+    # see anything finer than the spacing of the samples themselves, and it cannot go negative - "the tail is
+    # touching the leg" and "the tail is through the leg" read the same number. So a tail that starts within
+    # that spacing of a leg is not judged at all: a rabbit's scut lies on its haunch, and a cricket's abdomen
+    # on its hind femur, and both had a jump launch refused for closing a gap that was never there.
+    A = points_at(rest_mats)
+    d = np.linalg.norm(A[:, None, :] - A[None, :, :], axis=2)
+    np.fill_diagonal(d, np.inf)
+    spacing = float(np.median(d.min(axis=1))) if len(A) > 1 else 0.0
+    floor = TAIL_GAP_MIN * bm["height"]
+    limit = min(floor, TAIL_GAP_REST * rest)
+    # AND WHAT IT IS FOR. A tail hung on an UPRIGHT body swings between its legs and must not pass through
+    # one - that is the question this answers. A horizontal body's tail rests ON its legs by construction: a
+    # rabbit's scut lies on its haunch and a cricket's abdomen comes down on its hind femur through a jump
+    # launch, both by anatomy, and both had a clip refused for it. So the numbers are measured for every body
+    # and the verdict is passed only on the bodies the question is about.
+    judged = bool(bm.get("upright")) and rest > max(floor, spacing)
+    return {"min_m": round(worst, 4), "at_frame": at, "rest_m": round(rest, 4),
+            "limit_m": round(limit, 5), "points": [len(T), len(L)], "judged": judged,
+            "spacing_m": round(spacing, 5),
+            "note": None if judged else
+            ("a horizontal body carries its tail on its legs by anatomy; measured, not judged"
+             if not bm.get("upright") else
+             "the tail's skin already lies on a leg at rest (%.1f mm, against a %.1f mm floor and %.1f mm "
+             "between the points this is measured on): a clip cannot be judged by closing a gap that is not "
+             "there" % (rest * 1000, floor * 1000, spacing * 1000)),
+            "failed": judged and worst < limit}
+
+
 def recheck(rig_name, action_name, forward="-Y", up="Z", floor=0.0, loop=True,
             clearance=False, mesh_name=None):
     """Play back a FINISHED clip and hold it to the checks it was authored under.

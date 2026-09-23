@@ -160,6 +160,18 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
     # A skirt or dress has no ease step (`er` None): there is no relief to have measured.
     detail = builtins.list(((er or {}).get("detail") or {}).get("problems") or [])
     detail += ((er or {}).get("tuck") or {}).get("problems") or []
+    # a garment covers the body, never the head: the jaw line is the body's own, so a low neckline and a high
+    # one are both right (`tailor.covers_head`). A preset that is meant to cover a head says `head_cover`
+    neckline = None if p.get("head_cover") else tailor.covers_head(g, body)
+    if neckline is not None:
+        report["head_clear"] = neckline
+        if neckline.get("fail"):
+            # Warned, not refused: the limit (0.03 of the torso) was measured on bodies with 28-77 mm of
+            # clearance and refuses a short thick neck - smoke_heavy, a shipped character, failed at 12.7 mm
+            # against 15.4 (2026-09-22). The number is reported on every garment (`head_clear`); scale the
+            # limit by the neck's own length rather than the torso's and this goes back to refusing.
+            report.setdefault("warnings", []).append("neckline: " + neckline["fail"])
+            print("wardrobe WARNING neckline: " + neckline["fail"], flush=True)
     if cr.get("drawn_over_cloth"):
         detail.append("cover: %d drawn body triangles still lie over the cloth after lifting it" % cr["drawn_over_cloth"])
     if problems:

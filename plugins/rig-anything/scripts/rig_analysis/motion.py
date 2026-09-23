@@ -620,6 +620,10 @@ def _frame(direction, normal):
     return m
 
 
+HAIR_ATTR = "hf_hair"        # a point attribute meaning "hair, not skin": humanform's cards and beards
+                             # carry it, follow-through's flesh reads it, and mass is not counted on it
+
+
 def _com_terms(rig):
     """Per-bone mass terms from the skin, so COM follows linear blend skinning
     exactly: sum_b w_b (P_b R_b^-1) v is affine in each bone's matrix."""
@@ -627,11 +631,26 @@ def _com_terms(rig):
         m.type == "ARMATURE" and m.object == rig for m in o.modifiers)]
     terms = {}
     to_arm = rig.matrix_world.inverted()
+    skipped = 0
     for o in meshes:
         groups = {g.index: g.name for g in o.vertex_groups
                   if g.name in rig.data.bones and rig.data.bones[g.name].use_deform}
         m = to_arm @ o.matrix_world
+        # HAIR IS NOT MASS. Every skinned vertex used to weigh the same, and strand cards are geometry, not
+        # body: a gnoll's mane and tail brush are 54621 of its 71687 vertices - 76% of the mesh - and they
+        # dragged the centre of mass 281 mm forward of the body's own, which put the figure outside its own
+        # feet and had `export` refuse a clip that stands perfectly well (2026-09-22). `hf_hair` is the point
+        # attribute humanform already marks a card mesh with, and which follow-through's flesh already reads,
+        # so nothing new is invented here and a body without it measures exactly what it always did.
+        hair = o.data.attributes.get(HAIR_ATTR)
+        hair_v = None
+        if hair is not None and hair.domain == "POINT":
+            hair_v = [0.0] * len(o.data.vertices)
+            hair.data.foreach_get("value", hair_v)
         for v in o.data.vertices:
+            if hair_v is not None and hair_v[v.index] > 0.5:
+                skipped += 1
+                continue
             ws = [(groups[g.group], g.weight) for g in v.groups
                   if g.group in groups and g.weight > 0.0]
             tot = sum(w for _, w in ws)
@@ -642,7 +661,8 @@ def _com_terms(rig):
                 s, wt = terms.get(name, (Vector((0.0, 0.0, 0.0)), 0.0))
                 terms[name] = (s + co * (w / tot), wt + w / tot)
     if terms:
-        return terms, "skin (%d meshes)" % len(meshes)
+        return terms, ("skin (%d meshes)" % len(meshes)
+                       + (", %d hair vertices left out" % skipped if skipped else ""))
     # no skin: bone midpoints weighted by length
     for b in rig.data.bones:
         mid = (b.head_local + b.tail_local) * 0.5

@@ -351,6 +351,42 @@ produce one - it measured 0.2827 m/s for a worm whose real figure is 0.4105 -
 because what it read as a stride was the head and tail wobbling. A stride means
 nothing to something with no feet.
 
+**The leg plan is measured, not declared.** A leg's end bone is either a PLATE lying on the ground - a
+person's foot, heel to toe, with the ankle the lowest joint - or a SEGMENT standing along the leg, which is
+what makes a leg **digitigrade**: the metatarsals stand up, the ankle is carried clear as a hock, and the toes
+alone take the weight. `bodymap` tells them apart by the one thing that distinguishes them, the angle the end
+bone stands at (`STAND_BAND_DEG`, 30-60 degrees off the leg's standing axis; a person's foot reads 64, a dog's
+cannon 20-30, and between the bands it counts pro rata so nothing pops), never by a name or a flag. Each leg
+then carries `plan`, `stand` (how much of the end bone stands) and `ground` - the **effective leg**, hip to the
+ground contact, which is `a + b` on a plantigrade leg and `a + b + stand` on a digitigrade one. `keyposes.Poser.
+leg_len` and the swing lift are that, so a step, a crouch and a sway are sized by the leg the creature stands
+on; `Reach` widens the end bone's roll to `HOCK_SWING_DEG` when it stands, because a hock is a joint of the leg
+and folds like one rather than rolling like a foot over its toe. The gait itself needs no new maths: Froude
+already scales by hip height above the contact plane, which a leg plan does not change. `bodymap` warns when a
+standing leg's hock leaves `HOCK_OVER_HIP` (0.10-0.45 of hip height) or its foot is over `META_OVER_SHANK` of
+the two links above it. humanform's `legs.py` builds such a leg from a species' `legs = "digitigrade"`.
+
+Each leg also carries `shares` - what fraction of the straightened limb the femur, tibia, metatarsus and
+digits each are, printed in `bodymap.summary`. That is the leg's SILHOUETTE, and it is what says whether a leg
+reads as an animal's or a person's from four metres, whatever is on the end of it: a dog's hind limb is about
+0.32/0.34/0.27/0.07, a goat's 0.30/0.35/0.31/0.04 and a person's 0.39/0.40/0.14/0.07 (humanform's `legs.RATIOS`
+has the sources).
+
+**What the foot stands on is humanform's, not this package's.** A leg plan only says where the segments point;
+what is on the end of a leg - how many toes, the pads under them, a claw or a hoof - is `humanform.feet`, and
+its own check is that the part the plan nominates carries the ground. Here the clip checks see it as they see
+any other skin: floor penetration and the skid test follow the pads and the attached parts alike, because both
+are skinned to the toe bone.
+
+**A tail must not swing through a leg.** `verify.tail_gap` measures the skin the tail dominates against the
+skin the legs dominate on every frame of every clip (`actions._check_common` runs it, and a clip that closes
+the gap fails). Bones cannot answer it - a tail bone runs down the tail's axis and a thigh bone down the
+thigh's, so two limbs already touching read 20 cm apart - and the tail is posed after the legs are solved
+(`motion.Body.pose_tail`), so nothing else would notice. The limit is the smaller of `TAIL_GAP_MIN` of body
+height and half the gap the REST pose has, so a rabbit whose scut already lies on its haunch is not failed for
+walking; the first tail bone is left out, because a grafted tail's seam ring is shared with the pelvis and sits
+against the buttock by construction.
+
 **Do not hand it rotation signs.** Which axis swings each limb forward is
 probed per bone, and which way a mid-joint folds is measured from that limb's
 own rest shape - so a quadruped's front legs fold like arms and its rear legs
@@ -831,6 +867,7 @@ r["pelvis"], r["chest"], r["neck"], r["head"], r["tail"]
 r["butt_anchor"], r["breast_anchor"]              # pelvis and chest
 r["limbs"]["foot.L"]    # {"role", "girdle", "upper", "lower", "end", "digits"}; "front_foot.L" on four legs
 r["controls"]    # no skin and on no limb chain: the root, Rigify's heel helpers, IK and pole bones
+# and on each leg of bm["limbs"]: "plan" ("plantigrade" | "digitigrade"), "stand", "ground" (below)
 r["unskinned"], r["skinned"], r["warnings"]       # skinned: whether any skin was read at all
 ```
 

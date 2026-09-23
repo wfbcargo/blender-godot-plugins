@@ -21,6 +21,41 @@ does find something by eye, the fix is not done until the check that would have 
 The goal is plugins that produce assets, not perfect assets: capture the improvement, build fresh, move on;
 do not spend a round on small numeric drift.
 
+## Round 2 shipped incomplete - what is open (2026-09-22)
+
+Round 2 (fur, the gnoll, beards as strands, the muzzle and jaw, digitigrade legs) merged to `main` **without
+passing its own proof**, deliberately: the round had spent most of a weekly usage limit on visual iteration and
+the user called it. The tools are in and work; four things are known-open, in the order to take them.
+
+1. **The troll's flesh fails.** `species_troll` refuses at the flesh stage - `belly: weight 0.87 19 cm above its
+   apex, over 0.3`. follow-through is unchanged this round and the troll built clean in round 1, so **its body
+   moved**: bisect `main..` on the troll's body stage alone (the candidates are `feet.balance` re-standing the
+   body, `species._balance`, and the centre of mass that now skips hair). This is the only real regression of
+   the four and the only character that cannot be built.
+2. **Beards read worse in Godot than round 1's shell.** The mat's top edge is a sawtooth of whole triangles
+   across the cheeks (cast_morgan, a real person's likeness, reaches the lower eyelids and reads as a white
+   mask at 4 m), with stray cards down the neck and flecks onto the nape. The last thing measured before the
+   round stopped: **the beard field is being pushed 15-31 mm outward, and that is the sawtooth** - revert the
+   outward growth and feather inward instead. Every shipped check passes it and the Blender tiles look fine;
+   it only shows in Godot, so whatever check is added has to be measured the way Godot draws it.
+3. **Two checks warn instead of refusing** (`f80986c`), each needing work before it can refuse again:
+   - **hair clearance** (`stages.HAIR_UNDER_MAX`): give scalp hair the same `hang_clear_m` machinery
+     `humanform.cards` gives a beard, so a ponytail under a collar has a knob to turn.
+   - **neckline** (`wardrobe.presets`, `tailor.covers_head`): scale the limit by the neck's own length rather
+     than 0.03 of the torso, which refuses a short thick neck (smoke_heavy at 12.7 mm against 15.4).
+4. **A failed `garments` stage leaves the glbs it already wrote**, so a character can end up with garments built
+   against an older body (64 vs 63 nodes after the jaw bone) and Godot then refuses them: *"the garment's rig
+   differs from the body's"*. Make the stage atomic - run every check before anything is written, or write to a
+   temporary path and move into place on success - and check the other exporting stages for the same fault.
+
+Then: the gnoll's mane wants a stratified card scatter (a hyena's mane is its outline, and a dorsal strip a few
+centimetres wide leaves holes at the density cards need); the muzzle's ceiling (66% of a dog's snout, 73% only
+while tearing) is the case for a grafted head; the cyclops' pupil and lashes; fur's square texel blocks and the
+gnoll's pale thighs.
+
+**The round's own lesson is in CLAUDE.md**: state a budget before a round, send work back only for a regression
+or a wrong check, one proof run at the end.
+
 ## Fantasy species round (branch `species-1`, 2026-09-22)
 
 [08-fantasy-species.md](08-fantasy-species.md) is the design. **The user's rule for it: tools and a method that
@@ -68,12 +103,143 @@ fixed).
 **Open, in order:**
 1. The cyclops' pupil renders as a dark square close up; a shadow band at eye height from the closed side
    sockets; pale specks where the brow cards meet.
-2. Beards are layered shells, not strands; the long beard is rigid (no sway, no braids).
+2. ~~Beards are layered shells, not strands; the long beard is rigid (no sway, no braids).~~ Done on
+   `species-2-hair`: a root mat under strand cards grown from the beard field (density, width, clumping,
+   `braids`), the hanging part its own strand mesh with a chain a lock and a chest collider, and three checks -
+   a coverage check on the field's regions, a silhouette check at 0.6 m and 4 m, and the swing check in motion
+   (which caught a beard swinging 4 cm into its own face). Stubble stays a shell, and the code says why.
 3. Dwarf and gnome hands cannot reach the top of the head (warned); cast_morgan walks at Froude 0.12.
 4. Tails only replace legs, are at most leg length, have no side fins; mass treats a mermaid as having legs.
-5. Eyes have no bone of their own; no jaw bone, so no open mouth (bites, roars).
+5. Eyes have no bone of their own. ~~No jaw bone, so no open mouth (bites, roars).~~ The jaw bone shipped
+   on `species-2-muzzle`, and `species-2-gnoll` gave it a clip: `[moves] roles = [..., "MouthOpen"]`. A
+   full maw set (Bite, Roar, a throat) on a humanform body still wants `maw.adopt` - see "The gnoll".
 6. The demos load no species figure: add one (a `species_demo`) so a selftest covers them.
 7. Step 6-7 of 08: fur (Godot shell fur plus strand cards) and head grafts / digitigrade legs (the gnoll).
+
+## The gnoll: what the worked example found (branch `species-2-gnoll`, 2026-09-22)
+
+A hyena-headed humanoid built from ONE inline `[body.species]` - a parametric muzzle with a jaw that opens,
+digitigrade legs on clawed paws, a brush tail, a spotted pelt with a mane - and no code anywhere that knows
+what a gnoll is. The spec is `docs/improvements/notebooks/gnoll/trial_gnoll.toml`; copy it into the game as
+`characters/trial_gnoll.toml`.
+
+**Every tool of round 2 worked on its own. Almost none of the PAIRS did.** That is what a worked example is
+for, and it is the whole value of this entry. Fourteen gaps, each with the fix:
+
+**Pass 1 - the tools meeting each other**
+
+1. **A body with a jaw could not open its mouth.** `maw`'s clips all pose a throat and a mouth socket it
+   rigs itself. Fixed: `actions.mouth_open` turns whatever bone carries `maw.ROLE == "jaw"`, offered as the
+   role `MouthOpen` (default 20 deg - `humanform.jaw.OPEN_DEG`, the measured limit of a snouted face). A full
+   maw set on a humanform body still wants a `maw.adopt`.
+2. **An unknown move role failed with a bare `KeyError` after four stages had run.** `actions.ROLES` names
+   every role `move_set` makes and the spec check refuses one before Blender starts.
+3. **A tail could not carry fur**: `fur.areas` only measured hm08's own vertices, so anything a body plan
+   ADDED took density zero. `AREAS` gained `tail` and `graft`, read off the vertex groups that made them.
+4. **A fur region with no core was blended away** (a 72 mm mane came out as 28 mm of pelt): each region is
+   normalised by its own peak now, and one under `PEAK_FLOOR` is reported instead of silently diluted.
+5. **A furred body was shot BARE in Godot** - `close-shot` never built the shells, so no review sheet had
+   ever shown fur. It attaches `humanform_fur` after the garments now, and its timeout grows with the views.
+6. **The fur colour map went black at a distance**: islands on a black background, two texels of dilation,
+   and the mip chain averaged island with void - black gloves and a black vest at 4 m on a body that was
+   tawny at 0.6. (The merged fix fills with the skin tone and dilates 16, with `dark_patches` watching.)
+7. **A tall creature did not fit its own full-figure tile**: the full view framed the SKELETON at a fixed
+   4 m. It frames the meshes now, margin 1.32, and `review_godot` backs off with stature.
+8. **The muzzle's reads-human check demanded what its own topology refuses.** `READS_HUMAN["lip_line"]` was
+   1.40x and the module's own table measures hm08's ceiling at exactly 1.40x, so the check refused the
+   shipped preset on any head whose jaw is not the reference man's, and the only way past it tore the skin
+   (2.2x at the commissure, limit 2.0). 1.30, with the measurement written down.
+
+**Pass 2 - the mane, and the seam the map could not see**
+
+9. **`fur.regions[].cards = true`**: a region too long for shells is grown as strand cards (`humanform.cards`
+   through `hair.cards`) off its own coverage mask, `length_m` in 0.02-0.45 m, leaving `CARD_MAT_M` of root
+   mat in the shell map. `fur.apply` stores each mask as `hf_fur_card_<name>` (the growth happens after the
+   bake, where the rig is final; `fur.areas` can only measure landmarks before it) and character-pipeline
+   grows and joins them at the end of the bake stage. Fur's cards are sparser and wider than a beard's
+   (`CARD_DENSITY` 7000 against 26000, 14 mm against 8) and their length is scaled by the field itself,
+   because at a beard's density the mane grew tens of thousands of cards and the build did not finish in
+   twelve minutes, and at one length it hung as a straight fringe and read as a poncho.
+   **`cards.ROOTS_MAX` refuses a runaway growth before a single card is built.**
+10. **The bald stripe down the midline of the back of the head.** The flow travels as an ANGLE, so it travels
+    in a FRAME, and humanform wrote against the mesh's UV tangent while the shader read `TANGENT`/`BINORMAL`
+    - which flip across a UV seam, and hm08 has one exactly there, so the shells either side sheared apart.
+    The coverage map measured a uniform 0.95 across it, which is why nothing caught it. `fur.flow_frame`
+    builds the frame off the NORMAL now and the shader rebuilds it; neither side touches the UVs.
+    Check: **`fur.flow_roundtrip`**, which read 26.2 deg over its worst hundredth on the way in and 0.01 now.
+11. **Two tones, not one plus a tint.** Spots a fifth of a stop from the coat washed into a mottle at 4 m; a
+    hyena's are over two stops darker on a light ground [measured: SDZG], and its ground is not one flat tone.
+
+**Pass 3 - the last two, and the blocker**
+
+12. **`muzzle` was in the new `AREAS` and nothing measured it.** It is measured now - the head in front of
+    the eyes and below the brow, off the skin rather than off the parameters that made it.
+13. **A flow is a world direction laid on the skin, and on a snout that is a singularity.** `down` projected
+    onto skin that points forward has no answer at the tip or the nostrils, where the normal IS the
+    direction, so neighbouring vertices take opposite ones and the nap combs out in a star round the nose.
+    Any muzzled or beaked creature meets it, so **`flow = "muzzle"` is a word in the vocabulary** now: along
+    the snout's own axis, defined where a world direction is not. Measure: **`fur.flow_continuity`**, the
+    angle the field turns across one mesh edge inside the fur, 99th percentile. It is **warned, not failed**,
+    and honestly so: a plain `down` pelt tears in small places nobody minds (the crown, under the chin, the
+    armpit), this body still measures 5.7% of its furred edges over 60 deg from those, and telling a
+    concentrated star from scattered points wants a control body this round did not build. The number and
+    the worst edge's position are printed.
+14. **A digitigrade body could not be stood up - and the cause was NOT the one I first named.** Crouch and
+    MouthOpen were refused at the export (the centre 54-63 mm outside the paws across every hunch and
+    stance this spec can hold, against about 6 mm of authority in stance's whole legal range). I read that
+    as two different CENTRES - the leg plan balancing the rest skeleton, the export measuring the skinned
+    body. It was not: the two centres are identical (0.2121 both). What differed was the **SUPPORT** - the
+    build measured the sole's lowest band and the export uses rig-anything's own contact points, a quarter
+    of a metre apart. `feet.balance` uses rig-anything's support and COM now, so what passes the build
+    passes the export, and a body that cannot balance is refused upfront with the residual and the knob to
+    move. The gnoll solves to `stance` 0.1348 and stands 19.4 mm inside its feet, with no range opened.
+15. **Hair is not body mass, and it was.** With that fixed the gnoll still stood 38 mm outside its feet on
+    THIS build and not on the one that found the support bug - the difference being that this one has its
+    fur. `motion._com_terms` weighed every skinned vertex the same, and the mane and tail brush are 54621
+    of the body's 71687 vertices - **76% of the mesh** - which dragged the centre 281 mm forward of the
+    body's own. A beard did the same thing more quietly. The centre of mass now skips vertices marked
+    `hf_hair`, the point attribute humanform already writes on a card mesh and follow-through's flesh
+    already reads, so nothing is invented and a body without it measures exactly what it always did;
+    `com_source` says how many vertices were left out.
+16. **A digitigrade leg's foot close-ups framed the cannon.** The review aims between the foot bone's HEAD
+    and the toe tip - on a standing foot that head is the hock, a quarter of a metre up - so the paw
+    covered 3.5% of its own tile and the review refused it as empty. The near end is the BALL now whenever
+    the foot bone stands more than it lies (`bodymap`'s own test), the combined tile is framed on the feet's
+    own extent rather than a stance width plus a foot length, and a standing pair is shot from further over
+    the top, where a paw's plan and its claws are what there is to see.
+
+### What it reads as, and what a grafted head would buy
+
+Last look (the final build: fresh, end to end, fur in, 8/8 clips, Godot review 12/12):
+
+- **4 m, walking.** The legs are the read - thin cannons over a high hock, small paws, the zig-zag folding
+  under the body - and the spots carry on the torso, hips and legs. It reads as a big spotted beast-man.
+- **2 m, from behind.** The mane is a low fringe on the nape and no longer stands off the outline. That is
+  a REGRESSION from pass 2, and an honest cost of getting the anatomy right: on `ruff` the mane wrapped the
+  chest and read as a fringed cape, so it moved to `nape` + `withers`, and `dorsal` - the word for the rest
+  of the crest - had to come off, because it is a strip a few centimetres wide and the card scatter leaves
+  holes in one that thin (39 mm to the nearest root where the density asks for 12, limit 3x). A hyena's
+  mane IS its outline, so the next thing this creature needs is a stratified scatter in `cards`.
+- **0.6 m, mouth open.** The profile is plainly canine: snout, stop, long lip line, the jaw dropping 20 deg.
+  Shut, the same head reads as a heavy-browed brute with a long face.
+- Still wrong: a dark seam down the midline of the back of the head (no longer bare skin - the shells meet
+  there now - but a visible parting); the thighs wash out pale; the eye is lost in the muzzle's nap at
+  0.6 m; occasional square texel blocks on a forearm.
+It still does not read as a hyena, and the muzzle's measured ceiling says why. On this head the shipped
+preset reaches **0.259 of head length against a dog's 0.39 - 66%** - and 92 mm of carry reaches 0.286 (73%)
+**while tearing the skin at the commissure** (2.4x its worst edge, limit 2.0). The lip line saturates in the
+same place, because hm08 has one loop of lip ending at the commissure and there is nothing to make a long
+mouth out of. **That is the case for a grafted head**, and it is now a number rather than an opinion: a
+graft buys the last third of the muzzle's length and the whole of its mouth - which is the difference
+between a heavy-browed brute with a long face and an animal's head - and it costs the thing every other
+layer depends on, hm08's shared vertex order (the skin regions, the brow fits, the fur's coverage map, the
+warp, wardrobe and the library all index it). The seam loop the round-2 notes describe is what has to make
+that trade safe.
+
+Also still wrong and not fixed: the mane stops at the withers because `dorsal` is a strip a few centimetres
+wide and the card scatter leaves holes in one that thin (39 mm to the nearest root where the density asks
+for 12, limit 3x - `cards` wants a stratified scatter); the thighs wash out pale; the eye is lost in the
+muzzle's nap at 0.6 m; occasional square texel blocks on a forearm.
 
 ## State at the end of 2026-09-21
 
@@ -200,8 +366,9 @@ What changed, baked-clip numbers from `rigify_human` (walk / run) and Godot (`mo
 jaw (aged after the fit, and the photo's jaw is under a beard). ~~The beard's back edge is saw-toothed~~ (round 2
 of `species-1-beard`: the region is a signed distance on the face, `brows.beard_field`, faded across its zero line,
 so the edge is a smooth curve; beards also got `full` / `long`, layers, a hanging part, and `beard_length` /
-`beard_volume`). Open: the long beard's hanging part is a rigid tube skinned head-to-chest, no follow-through
-sway yet, and no braids. ~~The beard's square patches in Godot~~ fixed on `species-1-beard`: V repeated every 12 mm on
+`beard_volume`). ~~Open: the long beard's hanging part is a rigid tube skinned head-to-chest, no follow-through
+sway yet, and no braids~~ (round 2 of `species-2-hair`: the whole beard is strand cards, the hanging part is a
+follow-through strand mesh with one chain a lock, and `hair.beard_braids` plaits it). ~~The beard's square patches in Godot~~ fixed on `species-1-beard`: V repeated every 12 mm on
 512 rows (texels 7:1), so Godot's mip blurred U into blocks and scissor cut the texture's 35% holes out whole;
 now square texels, an opaque under-layer and `humanform.hairtex.mip_check`, which refuses such a shell. Reading a photo's ratios is by hand (a canvas grid in the browser, ~5 min a face; see humanform
 SKILL.md) - a landmark detector would make it one call. Likenesses set proportions, not identity: skin detail,

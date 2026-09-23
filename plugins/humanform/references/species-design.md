@@ -265,6 +265,145 @@ swapped for a tail chain, the UVs in the atlas the legs freed. What a replacemen
 covers the tail and fades up over the seam (`fade`), so `pattern = { kind = "scales", regions = ["graft"] }` is
 a skin-to-scales transition; the tone is held over the skin, not the tail.
 
+**A leg plan** - `legs = "digitigrade"`, or a table of it (`humanform.legs`). A human is **plantigrade**: the
+foot lies on the ground heel to toe, the ankle is the lowest joint, and the leg is two links with a plate on
+the end. A dog, a gnoll or a satyr is **digitigrade**: the metatarsals stand up, what was the ankle is carried
+clear of the ground as a hock, and the toes alone take the weight. The bones are the same bones - what changes
+is where each one points and how long it is, so it is a reshape of the leg the body already has, and its skin
+follows by linear blend skinning exactly as the warp's does: every UV, every vertex index, the toes and their
+nails come through untouched.
+
+**The input is the SILHOUETTE**, because that is what a leg reads as from four metres. The first digitigrade
+body had a hock, pads and claws and still read as a person walking on their toes: its femur, tibia, metatarsus
+and digits were still a human's. So a plan names a **ratio set** (`ratios`) and the per-segment scales are
+solved to reach it at the hip height the body already stands at.
+
+| ratio set | femur : tibia : metatarsus : digits | stifle | stand | taper (thigh/shank/cannon/digits) |
+|---|---|---|---|---|
+| `human` | 0.394 : 0.398 : 0.137 : 0.070 | 175 deg | 0.43 | 1.0 / 1.0 / 1.0 / 1.0 |
+| `canine` | **0.317 : 0.343 : 0.270 : 0.070** | 116 deg | 0.90 | 1.20 / 0.80 / 0.50 / 0.85 |
+| `caprine` | **0.299 : 0.352 : 0.313 : 0.036** | 120 deg | 0.95 | 1.14 / 0.68 / 0.38 / 0.85 |
+
+`metatarsus` here is the rig's foot bone - hock joint to the ball, so the tarsus AND the metatarsals, which is
+Fischer & Blickhan's third functional segment; the osteometric Mt:F indices below count the metatarsal bone
+alone, about 0.75 of it. Sources, measured over folklore:
+
+- **[measured, review]** Fischer & Blickhan 2006, *The tri-segmented limbs of therian mammals*: the three
+  functional segments of a therian hind limb - femur, shank, tarsus+metatarsus - are near-equal (1:1:1) in the
+  crouched limbs of small mammals, which is what makes a crouched leg self-stabilising.
+- **[measured]** Croft & Lorente 2021, PLoS ONE 16(8):e0256371, the metatarsal-femur ratio (pes length index):
+  extant cursorial **carnivorans** sit at Mt:F 0.38-0.65; extant cursorial **ungulates** - camelids, pecoran
+  ruminants (Caprinae among them) and equids - at Mt:F >= 0.65.
+- **[measured, comparative anatomy]** a cursor lengthens the distal limb and stands on SHORT digits; an
+  unguligrade ungulate stands on the last phalanx alone, so its digits are shorter again.
+- The crural indices (tibia over femur: 1.08 canine, 1.18 caprine) are the conventional carnivoran and pecoran
+  values and are the least-supported numbers here.
+
+Beside the ratios: `stand` (the share of the metatarsus that is vertical - a person's foot already reads 0.43),
+`stance` (how far forward of the hip the ball stands, in hip heights: a plantigrade foot's ball sits 0.17 ahead
+with the ankle under it, a digitigrade one stands on its TOES and they take the sole's place under the body -
+and it is solved, not chosen, see below), `knee`, `girth` (one number or a table of `thigh`, `shank`, `metatarsus`,
+`digits`: a person's leg is nearly one girth from hip to ankle and an animal's is a heavy thigh over a thin
+shank over a bare cannon, which at four metres is as much of the read as the joints are), and `fold`
+(`{ knee = "forward", hock = "back" }`; a bird's reversed stifle is a different plan, not a parameter, and is
+refused). `metatarsal`, `toe` and `shank` are still free as multipliers ON the solved segment, and the
+silhouette check below says what they cost.
+
+The solve holds the hip where it stands and lays the toes flat on the ground from the ball, so **stature, hip
+height and everything above the pelvis are untouched**: one unknown - the straightened limb's length - is
+bisected until the folded shank exactly reaches, and every segment is its share of it. It is refused before a
+vertex moves when the shank scale leaves 0.55-1.15, the hock leaves 0.10-0.45 of hip height, the metatarsus
+leaves 0.10-0.60 of the shank, the toes leave 0.10-0.85 of the metatarsus, the shank would have to stand dead
+straight, or no limb length reaches at all.
+
+**The stance is solved, not chosen.** `species._balance` balances a body over its PLANTIGRADE foot during the
+warp; a leg plan then moves the contact out from under it and a foot plan moves it again - the pads, the fuse,
+the horn - and nothing re-checked that. The first gnoll stood with its centre of mass 50 mm outside its paws
+and had Crouch and MouthOpen refused at export, until its spec carried `stance = 0.12` by hand. Now `legs.apply`
+measures the body's centre (the mean of every skinned vertex, which is the centre `rig_analysis.motion.Body.com`
+and the clip balance check use) and solves the stance that stands it over the middle of the patch the foot plan
+will leave (`feet.PATCH`). The legs are a third of the body, so moving them carries that centre with them: the
+solve runs again from its own output - the leg plan's targets are absolute, so a second pass lands exactly where
+one pass with the final stance would - until the ball settles within a millimetre, usually in three. Then
+`feet.settle` measures the patch the body REALLY has, after the pads and the horn, and moves the feet again if
+the margin is short.
+
+That last measurement is made with **rig-anything's own numbers** where it can be imported - `keyposes.support`
+(the contact points its poser finds) against `motion.Body.com` (the skinned body) - because those are what
+refuse a clip at export, and a check that predicts the export has to use the export's measure. The sole's own
+lowest band stays in the report as a second opinion. When it cannot be met the BUILD refuses, with the residual
+in millimetres, which way the centre falls and which knob moves it - `legs.stance` first (and the solve has
+already tried its whole range), then `hunch_deg`, which carries the centre forward, then `foot.pad`/`toe_pad`,
+which lengthen the patch, and `foot.claw.length`, which moves its front edge. Before this, a body that would
+not stand failed 140 seconds later at the export, on a Crouch. The gnoll's spec no longer needs a stance: it
+solves to 0.135 with its muzzle on, and stands 19 mm inside its feet.
+
+**The silhouette check** is the one that answers "does it still read human": the built shares against the
+plan's, per segment, failing past 0.025 of the limb with both numbers in the message. Everything else in the
+plan asks whether the leg can be BUILT; this asks whether it reads as the animal it is meant to be, which is
+the thing that looking at the parts never told us. `rig_analysis.bodymap` measures the same four shares off
+any rig and prints them in its summary, so a leg from anywhere can be read the same way.
+
+The leg plan runs AFTER the species check, for the same reason a graft does: the preset describes a body's
+proportions, and a leg plan is what the leg does with them. rig-anything then reads it off the geometry, never
+off a flag (`bodymap`: an end bone within 30 degrees of the leg's standing axis is a standing segment, one past
+60 a plate on the ground, between them pro rata), so `locomotion` scales the gait by the effective leg and the
+gait itself needs no new maths.
+
+**A foot plan** - `foot = "paw"`, `"hoof"` or a table of them (`humanform.feet`; the key is `foot`, not `feet`,
+because `feet` is already the observable for foot LENGTH). The leg plan says where a leg's segments point; this
+says what is on the end of one, and it is the other half of the same job - a raised hock over a human foot with
+five long toes reads as a person on tiptoe, not as a paw. A paw and a hoof are two settings of one plan, and a
+human foot is the setting that changes nothing.
+
+| knob | what it is | range, default (`paw` / `hoof`) |
+|---|---|---|
+| `toes` | how many toes the foot ends in. The five hm08 toes are never deleted - the vertex order is what the skin regions and the brow fits index - they are **fused** onto that many groups, fully at the tips and not at all at the ball | 1-5, **4 / 2** |
+| `splay` | how far the groups spread across the foot | 0.3-2.0, **1.15 / 0.45** |
+| `width` | how much fatter a fused group is (across the foot; a third of that through it) | 0.5-3.0, **1.25 / 2.0** |
+| `pad` | a dome pressed into the sole under the standing ball - the metacarpal pad a digitigrade foot walks on - in toe lengths | 0-0.6, **0.09 / 0.03** |
+| `toe_pad` | the same under each toe group's own tip | 0-0.5, **0.07 / 0.02** |
+| `heel_pad` | ... and at the back of the foot | 0-0.5, **0.05 / 0.06** |
+| `nail` | `nail` (hm08's own toenails), `claw` or `hoof` | **claw / hoof** |
+| `claw` | the attached part's own shape: `length`, `base_radius`, `tip_radius`, `curve`, `curl`, `sink`, `color`, `roughness` | derived |
+
+Each foot preset also names the **leg ratios its own silhouette needs** (`feet.LEG_RATIOS`: a paw belongs on a
+dog's leg, a hoof on a goat's), which the build takes as the leg plan's default when the species names a foot
+and leaves the leg's ratios unsaid - because a paw on a human-proportioned leg is exactly what read wrong.
+
+A claw and a hoof are **the same mechanism the head's horns and tusks use** (`features._part`, anchored on the
+distal flesh of each toe group and skinned 100% to the toe bone, in `<human>_footparts`): a claw is data, not a
+mesh, and a hoof is that mechanism at its blunt extreme - short, nearly as wide at the tip as the base, curved
+down hard and sunk far enough to cap the toe. Its **length is solved, not guessed**: a hoof stands the creature
+on horn and a claw must not, and which length does either depends on the leg plan's toe, the fuse and the pads -
+the same fraction that put a paw's claws 13 mm through the floor left a satyr's hoof 11 mm in the air. So the
+build lays the nails, measures what carries with the contact check, corrects and lays them again, and refuses a
+solved length outside 0.15-1.6 toe lengths ("it is reaching for the ground sideways"). An explicit `claw.length`
+is taken as given and held to the same check.
+
+The body is re-stood on the floor after the pads, so a pad adds its own thickness under the foot the way an
+animal's does (11-13 mm on a 1.75-1.80 m body). **`feet.balance`** then measures where the body's centre stands
+over the patch it really has - the sole's own lowest band, fore and aft, plus the claws or hooves - and
+`feet.settle` moves the feet under it (above); the margin must be a tenth of the patch or 10 mm, whichever is
+less, because an unguligrade foot stands on a POINT. A hoofed foot declares `nails.toes` absent, because a hoof
+IS the nail: the horn caps the whole end of the digit. The **contact check** (`feet.contact`) is the one that matters:
+what the plan says carries the ground must be the lowest thing on the foot - a claw's tip stays 4 mm above the
+pads, a hoof reaches 6 mm below the flesh - and both are refused with the millimetres measured. The plan also
+reports what it did to hm08's toenails against the foot they sit on, so the anatomy inventory grades a fused,
+shortened set of nails against the plan rather than against a human's.
+
+**A tail beside the legs** - `tail = { length = 0.55, ... }` (`humanform.tail`). A tail INSTEAD of the legs is
+the graft above, and asking for both is refused. A patch of skin at the sacrum goes, and its boundary loop is
+lofted along an arc that leaves the body at `droop` degrees below horizontal and falls another `curve` over its
+length, so the tail hangs behind and below the hips and clear of the legs. Every length is a fraction of hip
+height, so a 1 m gnome's tail and a 2.6 m troll's are the same tail: `length` (0.15-1.20, 0.55), `thickness`
+(0.04-0.35, 0.11), `taper` (tip over base, 0.02-0.60, 0.12), `base` (above the hip joints, -0.05-0.25, 0.12),
+`droop` (-20-80, 35), `curve` (-30-90, 30), `bones` (3-16, 7), `rings` (6-40, 18). The chain is named
+`tail.000`... off the pelvis, which is what `rig_analysis.bodymap` reads as a tail, so every gait already curls
+and swings it, and follow-through's strand route springs it. Two checks: the tail must start clear of the
+thighs at rest (`CLEAR_MIN`, 0.02 of hip height), and in motion rig-anything's `verify.tail_gap` measures the
+skin gap to a leg on every frame of every clip.
+
 **Moving by another mode** - `[moves] locomotion = "swim"` (character-pipeline): rig-anything's
 `swim.upright_set` for a body that stands at rest and swims. Idle floats upright, treading water; Swim, Sprint,
 Glide and the turns are worked out along the tail-to-head line and laid prone. The mode comes from the tail's

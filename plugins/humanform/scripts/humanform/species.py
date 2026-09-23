@@ -74,8 +74,9 @@ def inline(d):
     humanform-species/1 preset (it has `ratios` and `heads`), or what humanform.species_design turns into one:
     observables (`species_design.design_from`: stature, heads, a trunk-to-leg ratio ... as a description gives
     them, bare or under "observables") or `{"knobs": {...}, "stature": ...}` (`species_design.design`). Beside
-    them, `head`, `skin` and `moves` are its look and `anatomy` its declared absences and scales; `id` and
-    `label` are kept (an unnamed species is "custom")."""
+    them, `head`, `skin` and `moves` are its look, `graft`, `legs` (a leg plan: humanform.legs), `foot` (a foot plan:
+    humanform.feet; `feet` is already the observable for foot LENGTH) and `tail` (humanform.tail) its body plan, and `anatomy` its declared absences and scales; `id` and `label` are kept
+    (an unnamed species is "custom")."""
     d = copy.deepcopy(d)
     if d.get("schema") == SCHEMA or ("ratios" in d and "heads" in d):
         d.setdefault("schema", SCHEMA)
@@ -87,7 +88,7 @@ def inline(d):
         raise ValueError("an inline species needs `ratios` and `heads` (a whole humanform-species/1 preset): "
                          "humanform.species_design, which designs one from observables or knobs, is not installed")
     sid, label = d.pop("id", None) or "custom", d.pop("label", None)
-    look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft") if k in d} or None
+    look = {k: d.pop(k) for k in ("head", "skin", "moves", "graft", "legs", "foot", "tail", "fur") if k in d} or None
     anatomy = d.pop("anatomy", None)
     if "knobs" in d:
         knobs = dict(d.pop("knobs"))
@@ -359,6 +360,15 @@ def pre_warp(s, sp):
     return out, info
 
 
+def fur_block(sp):
+    """The species' `fur` block (humanform.fur's coverage map as data), or None - a human has none, and a
+    species with none is drawn with bare skin exactly as it was before fur existed."""
+    sp = load(sp)
+    if sp is None:
+        return None
+    return sp.get("fur") or None
+
+
 def skin_block(sp):
     """The species' `skin` block as humanform.skin's `species_skin` (regions off, pattern, subsurface tint), or
     None for a human - whose skin then takes exactly the path it always did."""
@@ -491,6 +501,12 @@ class _Rig:
         for n in self.neck:
             self.kind[n] = "neck"
         self.kind[self.headbone] = "head"
+        # a jaw (humanform.jaw, tagged the way rig-anything's maw tags one) hangs off the head and scales with
+        # it: left unknown it would keep a human's scale while the skin round it took the head's, and a
+        # troll's mouth would tear along the lip line
+        for c in below(self.headbone):
+            if rig.data.bones[c].get("maw_role"):
+                self.kind[c] = "head"
         for ch in self.legs.values():
             for n, k in zip(ch, ("thigh", "shin", "foot", "toe")):
                 self.kind[n] = k
@@ -1356,6 +1372,10 @@ PARTS = {
     "tongue": {"groups": ("helper-tongue",), "host": "head"},
     "lashes": {"groups": ("helper-l-eyelashes-1", "helper-r-eyelashes-1"), "host": "head"},
     "genitals": {"groups": ("helper-genital",), "host": "pelvis", "opt_in": "hf_genitals"},
+    # A tail (humanform.tail: the group is `tail.GROUP`, and `tail.PROP` on the body is what says one was
+    # grown). Present only on a species whose description gives it one, and then held to its size against
+    # the pelvis like any other part, so a bake or a later warp cannot quietly lose it.
+    "tail": {"groups": ("hf_tail",), "host": "pelvis", "opt_in": "hf_tail"},
 }
 # the parts that are meshes of their own on the rig, by the suffix humanform names them with: the eyeballs
 # (humanform.eyes) and the teeth and tongue (humanform.features.mouth). Missing and not declared absent fails.
@@ -1441,7 +1461,10 @@ def inventory(human, sp=None, reference=None, expected=None):
     def judge(row):
         r0 = ref.get(row["part"])
         if r0 and r0.get("ratio") and row.get("ratio"):
-            want = (expected or {}).get(row["part"].split(".")[0], 1.0)
+            # a sub-part first (a foot plan draws the TOEnails together and leaves the fingernails alone),
+            # then the whole part it is of
+            want = (expected or {}).get(row["part"],
+                                        (expected or {}).get(row["part"].split(".")[0], 1.0))
             ch = row["ratio"] / r0["ratio"] / want
             if want != 1.0:
                 row["expected_change"] = round(want, 3)
@@ -1528,5 +1551,29 @@ def inventory(human, sp=None, reference=None, expected=None):
     for part, reason in absent.items():
         if not any(r["part"] in (part, f"object:{part}") or r["part"].split(".")[0] == part for r in rows):
             rows.append({"part": part, "status": "skip", "reason": f"declared absent: {reason}"})
+    # Fur is a part (species_design.ANATOMY), and the only one that is not geometry: it is the coverage map
+    # on the body. A species that says it has fur and a body that does not carry the map fails here, before
+    # the bake ever looks at a texture.
+    want_fur = fur_block(sp) if sp is not None else None
+    if want_fur is not None and "fur" not in absent:
+        from . import fur as _fur
+        row = {"part": "fur", "host": "body"}
+        block = _fur.read(human)
+        if block is None or _fur.DEN not in human.data.attributes:
+            rows.append(dict(row, status="fail", reason="missing: the species asks for fur and the body carries "
+                                                        "no coverage map (humanform.fur.apply)"))
+        else:
+            verts = int(block.get("vertices") or 0)
+            names = sorted(r["name"] for r in block.get("regions", []))
+            asked = sorted(r.get("name", "") for r in want_fur.get("regions", []))
+            if verts <= 0:
+                rows.append(dict(row, status="fail", reason="the fur map covers no vertex: every region's areas "
+                                                            "landed on skin that is never furred"))
+            elif names != asked:
+                rows.append(dict(row, status="fail", reason=f"the body carries fur regions {names}, the species "
+                                                            f"asks for {asked}"))
+            else:
+                rows.append(dict(row, status="pass", verts=verts, regions=names,
+                                 covered=int(block.get("covered_vertices") or 0)))
     counts = {k: sum(1 for r in rows if r["status"] == k) for k in ("pass", "warn", "fail", "skip")}
     return {"parts": rows, "counts": counts, "fail": counts["fail"]}

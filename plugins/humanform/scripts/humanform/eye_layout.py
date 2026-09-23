@@ -79,6 +79,14 @@ INSIDE = 0.94                # skin inside the aperture is laid this far out: hi
 FORE_RISE = 0.035            # a third (fourth...) eye's default height over the pair, on the reference head
 CLOSE_RADIUS = 1.8           # the closed orbit: skin within this many eyeball radii of the old eye
 DOME = 0.15                  # the closed skin's dome, in eyeball radii
+HOLLOW_MM = 2.0              # how far a closed orbit's skin may lie behind the face around it (mm on the
+                             # reference head): more is a trough, and a trough under a brow ridge is the band of
+                             # shadow that crossed the first cyclops' face at eye height
+BROW_STANDOFF = 0.0012       # how far a brow or lash card must stand off the skin (m, reference head). A card
+                             # carried from another eye lands on a surface that curves another way: 101 of the
+                             # cyclops' brow points came to rest inside the skin, up to 6.7 mm in, and the skin
+                             # showed through the card in pale flecks along the midline (rendered, round 1).
+                             # 0.4 mm lifted them clear of the mesh but not of its bumps; a brow sits 1-2 mm off
 
 
 def validate(spec):
@@ -202,8 +210,27 @@ def _smoothstep(x):
     return x * x * (3 - 2 * x)
 
 
+def _face_quadric(P, sel):
+    """The best-fit y(x, z) = a + bx + cz + dx^2 + exz + fz^2 over the vertices `sel` marks, as a function."""
+    p = P[sel]
+    A = np.stack([np.ones(len(p)), p[:, 0], p[:, 2], p[:, 0] ** 2, p[:, 0] * p[:, 2], p[:, 2] ** 2], axis=1)
+    k, *_ = np.linalg.lstsq(A, p[:, 1], rcond=None)
+
+    def y_of(q):
+        B = np.stack([np.ones(len(q)), q[:, 0], q[:, 2], q[:, 0] ** 2, q[:, 0] * q[:, 2], q[:, 2] ** 2], axis=1)
+        return B @ k
+    return y_of
+
+
 def _close(P, faces, c, r, sgn, report):
-    """Relax one orbit to the skin its rim spans: harmonic over the region, the rim held, and a dome."""
+    """Close one orbit: the skin runs over it as the face around it runs, not as a drum over its rim.
+
+    A harmonic fill with the rim held is a membrane: it spans the rim, and because the rim under a brow ridge
+    is a hollow ring, the membrane sat behind the face around it. Under a midday sun that trough was the band
+    of shadow that crossed the first cyclops' face at eye height (rendered, round 1). So the surrounding face's
+    own curve is fitted (a quadric on the ring outside the orbit, `_face_quadric`), the fill is laid on it, and
+    the harmonic solve only smooths what is left - the skin now bulges out of the socket as a cheek does. How
+    far the closed skin still lies behind that curve is `closed_dip_mm`, and past HOLLOW_MM it fails."""
     d = np.linalg.norm(P - c, axis=1)
     region = (d < CLOSE_RADIUS * r) & (np.sign(P[:, 0]) == sgn) & (np.abs(P[:, 0]) > 0.003)
     rows, cols = delta.neighbours(faces)
@@ -213,12 +240,25 @@ def _close(P, faces, c, r, sgn, report):
     free = inside & ~outside_nb
     deg = np.bincount(rows, minlength=BODY_VERTS).astype(float)
     Q = P.copy()
-    for _ in range(900):
+    # the face around the orbit: the ring from the rim out to half a radius past it, which is brow, temple and
+    # cheek - the surface the closed skin has to continue
+    ring = ((d < (CLOSE_RADIUS + 0.6) * r) & (d > (CLOSE_RADIUS - 0.15) * r)
+            & (np.sign(P[:, 0]) == sgn) & (np.abs(P[:, 0]) > 0.003))
+    y_of = _face_quadric(P, ring) if ring.sum() >= 12 else None
+    if y_of is not None and free.any():
+        Q[free, 1] = y_of(P[free])
+    # a few passes only, to take the noise off the fitted surface. Relaxed to convergence it becomes the
+    # harmonic membrane again - the trough the quadric was there to replace (5.6 mm on the cyclops, measured)
+    for _ in range(10 if y_of is not None else 900):
         avg = np.stack([np.bincount(rows, weights=Q[cols, k], minlength=BODY_VERTS) for k in range(3)], axis=1)
         avg /= np.maximum(deg, 1)[:, None]
-        Q[free] = avg[free]
-    # dome: out along the rim's mean outward direction, most at the middle
+        Q[free] = 0.5 * Q[free] + 0.5 * avg[free] if y_of is not None else avg[free]
+    if y_of is not None and free.any():
+        # and never behind the face's own curve: the rim is the socket's edge, and smoothing toward it pulls
+        # the fill back into the hollow it was laid to fill (4.2 mm on the cyclops, measured)
+        Q[free, 1] = np.minimum(Q[free, 1], y_of(Q[free]))
     rim = inside & outside_nb
+    # a last touch of dome, so the orbit reads as filled rather than merely flush
     out_dir = np.array([0.35 * sgn, -1.0, 0.0])
     out_dir /= np.linalg.norm(out_dir)
     rr = np.clip(np.linalg.norm(Q[free] - c, axis=1) / (CLOSE_RADIUS * r), 0, 1)
@@ -235,6 +275,12 @@ def _close(P, faces, c, r, sgn, report):
     report["closed_depth_mm"] = round(float((front - Q[free, 1].max()) * 1000), 2) if free.any() else None
     report["closed_verts"] = int(free.sum())
     report["rim_verts"] = int(rim.sum())
+    inner = free & (d < 1.2 * r)
+    if y_of is not None and inner.any():
+        # the trough: how far the closed skin over the orbit lies behind the face's own curve (+y is into the
+        # head). Measured over the middle of the fill, not out at the rim: the rim is the socket's own edge,
+        # which is behind a curve fitted through the brow ridge either way
+        report["closed_dip_mm"] = round(float((Q[inner, 1] - y_of(Q[inner])).max()) * 1000, 2)
     return Q
 
 
@@ -271,11 +317,18 @@ def _tris(faces):
     return np.concatenate([faces[:, [0, 1, 2]], faces[:, [0, 2, 3]]])
 
 
-def _refit(points, co, tris):
-    """Card points as brows' proxy fits on the body's triangles: [a, b, c, wa, wb, wc, offset]."""
+def _refit(points, co, tris, min_off=0.0, report=None):
+    """Card points as brows' proxy fits on the body's triangles: [a, b, c, wa, wb, wc, offset].
+
+    `min_off` (metres) holds every point that far off the skin. A card carried from another eye lands on a
+    surface that curves another way, so some of its points came to rest on the skin or just inside it; the skin
+    then shows through the card in pale flecks - the specks along the midline where a median eye's two brow
+    cards meet (rendered, round 1). The offset is stored in triangle sizes, as brows' proxy reads it, so the
+    metres are turned into that here."""
     from mathutils.bvhtree import BVHTree
     tree = BVHTree.FromPolygons([Vector(p) for p in co[:BODY_VERTS]], [tuple(int(i) for i in t) for t in tris])
     rows = []
+    lifted, worst = 0, 0.0
     for p in points:
         loc, _n, fi, _d = tree.find_nearest(Vector(p))
         ia, ib, ic = (int(i) for i in tris[fi])
@@ -291,8 +344,18 @@ def _refit(points, co, tris):
         wb = (d11 * d20 - d01 * d21) / den
         wc = (d00 * d21 - d01 * d20) / den
         wa = 1.0 - wb - wc
-        off = float((np.asarray(p) - L) @ n) / max(math.sqrt(area2 / 2), 1e-9)
+        size = max(math.sqrt(area2 / 2), 1e-9)
+        off = float((np.asarray(p) - L) @ n) / size
+        if min_off:
+            lo = min_off / size
+            if off < lo:
+                lifted += 1
+                worst = max(worst, (lo - off) * size)
+                off = lo
         rows.append([ia, ib, ic, round(wa, 6), round(wb, 6), round(wc, 6), round(off, 6)])
+    if report is not None and min_off:
+        report["lifted"] = report.get("lifted", 0) + lifted
+        report["lifted_mm"] = max(report.get("lifted_mm", 0.0), round(worst * 1000, 3))
     return rows
 
 
@@ -352,7 +415,7 @@ def brows_components(n, faces):
     return brows._components(n, faces)
 
 
-def _lash_cards(co_before, co_after, faces, eyes_old, new, ap):
+def _lash_cards(co_before, co_after, faces, eyes_old, new, ap, scale=1.0, report=None):
     """For each new eye, lash cards carried from the human eyes and fitted to its lids, and their angles
     ({"human": deg, "new": [deg]}: `lash_angles`). Each card's roots are laid on this eye's lid margin - the aperture
     `ap`'s almond, nasal corner to outer corner - and every other point keeps its offset from its root in the lid's
@@ -404,12 +467,13 @@ def _lash_cards(co_before, co_after, faces, eyes_old, new, ap):
             q_rel = root_new[near] + a_[:, None] * tn[near] + b_[:, None] * nn[near] + c_[:, None] * bn[near]
             q_rel[ri] = root_new
             angles["new"].append(lash_angles(q_rel, ri, np.zeros(3)))
-            out.append({"fit": _refit(c + q_rel, co_after, tris), "faces": card["faces"], "uv": card["uv"],
+            out.append({"fit": _refit(c + q_rel, co_after, tris, min_off=BROW_STANDOFF * scale,
+                                      report=report), "faces": card["faces"], "uv": card["uv"],
                         "from": side})
     return out, angles
 
 
-def _brow_cards(co_before, co_after, faces, eyes_old, new, tree_after):
+def _brow_cards(co_before, co_after, faces, eyes_old, new, tree_after, scale=1.0, report=None):
     """A brow arch over each new eye: the person's brow cards, carried from their eye to the new one and scaled
     with it (its height over the eye and its reach past the outer corner as theirs, in eye radii), laid on the new
     skin at the height over it they had. An eye on the midline takes both: the left brow on its left half and the
@@ -453,7 +517,8 @@ def _brow_cards(co_before, co_after, faces, eyes_old, new, tree_after):
                 h = (hb - p[i, 1]) if hb is not None else 0.0          # in front of the person's skin
                 ya = skin_y(tree_after, q[i, 0], q[i, 2], c[1])
                 q[i, 1] = (ya - h) if ya is not None else c[1] + rel[i, 1] * k
-            out.append({"fit": _refit(q, co_after, tris), "faces": d[side]["faces"], "uv": d[side]["uv"],
+            out.append({"fit": _refit(q, co_after, tris, min_off=BROW_STANDOFF * scale, report=report),
+                        "faces": d[side]["faces"], "uv": d[side]["uv"],
                         "from": side})
     return out
 
@@ -641,14 +706,16 @@ def apply(human, spec, iris=None):
     # than the ball, that put the cards' corners behind it, standing up as bars either side of the eye
     ops = [e.get("opening") for e in report["exposure"] if e.get("opening")]
     lash_ap = (min(ap[0], 1.02 * max(o[0] for o in ops)), min(ap[1], 1.1 * max(o[1] for o in ops))) if ops else ap
-    lash, angles = _lash_cards(co, full_new, faces, eyes_old, new, lash_ap)
+    cards = {}
+    lash, angles = _lash_cards(co, full_new, faces, eyes_old, new, lash_ap, scale=s, report=cards)
     report["lash_angle_deg"] = {"human": None if angles.get("human") is None else round(angles["human"], 1),
                                 "new": [round(a, 1) for a in angles.get("new", []) if a is not None]}
     from mathutils.bvhtree import BVHTree
     tree_after = BVHTree.FromPolygons([Vector(v) for v in full_new[:BODY_VERTS]],
                                       [tuple(int(i) for i in t) for t in _tris(np.asarray(faces))])
-    brow = _brow_cards(co, full_new, faces, eyes_old, new, tree_after)
+    brow = _brow_cards(co, full_new, faces, eyes_old, new, tree_after, scale=s, report=cards)
     report["brow_cards"] = len(brow)
+    report["cards_lifted"] = cards            # card points that lay on the skin and were lifted off it
     human[PROP] = json.dumps({"hide_lashes": [] if pl["keep_pair"] else ["L", "R"], "lashes": lash,
                               "hide_brows": [] if pl["keep_pair"] else ["L", "R"], "brows": brow,
                               "eyes": report["eyes"], "count": len(places)})
@@ -656,6 +723,12 @@ def apply(human, spec, iris=None):
     report["lash_cards"] = len(lash)
     report["intersections"] = features.head_intersections(human, faces)
     fails = []
+    for side in ("L", "R"):
+        dip = (report.get(f"closed_{side}") or {}).get("closed_dip_mm")
+        if dip is not None and dip > HOLLOW_MM * s:
+            fails.append(f"the closed {side} orbit lies {dip:.1f} mm behind the face around it (limit "
+                         f"{HOLLOW_MM * s:.1f}) - that hollow is a band of shadow across the face at eye height: "
+                         "it has to run on out of the brow ridge, not span it")
     bad = [i for i, (a, l) in enumerate(zip(report["aperture_verts"], report["lid_verts"])) if a < 3 or l < 6]
     if bad:
         fails.append(f"eye(s) {bad}: the mesh has too few vertices in the aperture or the lid band "
