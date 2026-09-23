@@ -81,17 +81,17 @@ RATIOS = {
     # animal's is a heavy thigh over a thin shank over a thinner cannon, which at four metres is as much of
     # the read as the joints are.
     "human":  {"femur": 0.394, "tibia": 0.398, "metatarsus": 0.137, "digits": 0.070,
-               "knee": 175.0, "stand": 0.43, "stance": None,
+               "knee": 175.0, "stand": 0.43,
                "girth": {"thigh": 1.0, "shank": 1.0, "metatarsus": 1.0, "digits": 1.0},
                "why": "measured on humanform's own fitted body: a plantigrade leg, the foot a plate"},
     "canine": {"femur": 0.317, "tibia": 0.343, "metatarsus": 0.270, "digits": 0.070,
-               "knee": 116.0, "stand": 0.90, "stance": 0.05,
+               "knee": 116.0, "stand": 0.90,
                "girth": {"thigh": 1.20, "shank": 0.80, "metatarsus": 0.50, "digits": 0.85},
                "why": "f:t:m:d = 1 : 1.08 : 0.85 : 0.22; Mt:F 0.62 (top of the carnivoran band, a dog rather "
                       "than a bear) with the tarsus counted in, near Fischer & Blickhan's equal thirds; a "
                       "dog stands its stifle near 115 degrees and carries its muscle at the thigh"},
     "caprine": {"femur": 0.299, "tibia": 0.352, "metatarsus": 0.313, "digits": 0.036,
-                "knee": 120.0, "stand": 0.95, "stance": 0.04,
+                "knee": 120.0, "stand": 0.95,
                 "girth": {"thigh": 1.14, "shank": 0.68, "metatarsus": 0.38, "digits": 0.85},
                 "why": "f:t:m:d = 1 : 1.18 : 1.05 : 0.12; Mt:F 0.80, inside the cursorial-ungulate band, on "
                        "the very short digits of an unguligrade foot; the cannon of a goat is a bare rod"},
@@ -110,6 +110,8 @@ SHANK = (0.55, 1.15)        # femur+tibia scaled by this to put the hip back at 
 HOCK_H = (0.10, 0.45)       # the hock's height as a share of hip height (a dog's is about 0.3)
 META_SHARE = (0.10, 0.60)   # metatarsus over femur+tibia, after the solve
 TOE_SHARE = (0.10, 0.85)    # toes over metatarsus
+PASSES = 4                 # at most this many stance solves; they settle in two or three
+STANCE_SETTLED = 0.002     # metres the ball moves between passes before it is called settled
 KNEE_SPARE = 0.02           # the solve may not ask the shank to reach past this share of dead straight
 
 
@@ -257,7 +259,13 @@ def _rot_between(a, b):
     return np.eye(3) + K + K @ K * ((1.0 - c) / (s * s))
 
 
-def solve(joints, spec, floor=0.0, forward=(0.0, -1.0, 0.0)):
+# Where the contact patch lies once a foot plan has run, as fractions of the DIGIT length forward of the ball:
+# the pad under the standing ball at 0, the toe pads at 0.75 of each toe (`feet.PATCH`, which is where its own
+# pad anchors sit). A plantigrade foot stands on its whole sole and is never solved this way.
+DEFAULT_PATCH = (0.0, 0.75)
+
+
+def solve(joints, spec, floor=0.0, forward=(0.0, -1.0, 0.0), com=None, patch=None):
     """Where one leg's joints go under a plan, and whether it can be built.
 
     `joints`: {"hip", "knee", "ankle", "ball", "tip"} rest positions (armature space, +Z up). Returns a dict
@@ -299,8 +307,6 @@ def solve(joints, spec, floor=0.0, forward=(0.0, -1.0, 0.0)):
     # floor is set by BALANCE, not by anatomy: a biped's centre of mass is in front of its hips, and at 0.02
     # the paw body's crouch put its centre 3.6 mm outside its feet and rig-anything refused the clip.
     ball1 = ball.copy()
-    if p.get("stance") is not None:
-        ball1 = ball1 + fwd * (float(p["stance"]) * hip_h - float(np.dot(ball1 - hip, fwd)))
     toe_dir = _unit(np.array([tip[0] - ball[0], tip[1] - ball[1], 0.0]))
     if float(np.linalg.norm(toe_dir)) < 1e-9:
         toe_dir = fwd.copy()
@@ -308,34 +314,71 @@ def solve(joints, spec, floor=0.0, forward=(0.0, -1.0, 0.0)):
     back = _unit(back) if float(np.linalg.norm(back)) > 1e-9 else -fwd
     lean = math.sqrt(max(1.0 - stand * stand, 0.0))
 
-    def hock_at(L):
+    def hock_at(L, b0):
         """Where the hock lands for a straightened limb of length L: the metatarsus is r_m of it, standing."""
-        return ball1 + up * (r["metatarsus"] * L * stand) + back * (r["metatarsus"] * L * lean)
+        return b0 + up * (r["metatarsus"] * L * stand) + back * (r["metatarsus"] * L * lean)
 
-    def gap(L):
-        """How much longer the femur and tibia reach, folded to `knee`, than the hip-to-hock line needs."""
-        return k_reach * L - float(np.linalg.norm(hip - hock_at(L)))
+    def solve_L(b0):
+        """The straightened limb length that makes the folded shank exactly reach the hock from this ball.
 
-    # ONE unknown: the length of the straightened limb. The ratios fix every segment as a share of it, the
-    # hip is where the body already stands, and the hock's height comes out of the metatarsus - so the limb
-    # length is whatever makes the folded shank exactly reach. `gap` rises with L (the reach grows, and a
-    # higher hock is nearer the hip), so a bisection is enough.
-    base = F + T + M + D
-    lo_L, hi_L = 0.30 * base, 3.0 * base
-    if gap(lo_L) > 0 or gap(hi_L) < 0:
+        ONE unknown: the ratios fix every segment as a share of it, the hip is where the body already stands,
+        and the hock's height comes out of the metatarsus. `gap` rises with L (the reach grows, and a higher
+        hock is nearer the hip), so a bisection is enough."""
+        def gap(L):
+            return k_reach * L - float(np.linalg.norm(hip - hock_at(L, b0)))
+        base = F + T + M + D
+        lo_L, hi_L = 0.30 * base, 3.0 * base
+        if gap(lo_L) > 0 or gap(hi_L) < 0:
+            return None
+        for _ in range(60):
+            mid = 0.5 * (lo_L + hi_L)
+            if gap(mid) < 0:
+                lo_L = mid
+            else:
+                hi_L = mid
+        return 0.5 * (lo_L + hi_L)
+
+    def place(stance_v, b0):
+        return b0 + fwd * (float(stance_v) * hip_h - float(np.dot(b0 - hip, fwd)))
+
+    # WHERE THE FOOT STANDS. A plantigrade foot stands on its whole sole, so its ball sits well forward of the
+    # hip (16 cm on a person) with the ankle under it. A digitigrade one stands on its TOES, and they take the
+    # sole's place under the body - which is what puts the hock behind the hip and deepens the leg's zig-zag.
+    # Left at the human's ball, the leg came out a shallow S and read at four metres as a person on tiptoe.
+    #
+    # `stance` is how far forward of the hip the ball stands, in hip heights, and it is SOLVED rather than
+    # chosen whenever a body is there to measure. The warp balances a body over its PLANTIGRADE foot; a leg
+    # plan then moves the contact patch out from under it and a foot plan moves it again, and the first gnoll
+    # stood with its centre of mass 50 mm outside its paws - Crouch and MouthOpen refused at export - until
+    # its spec carried a hand-tuned stance. So the stance is whatever puts the body's centre over the middle
+    # of the patch it will really stand on: the pads the foot plan nominates, `patch` fractions of the digit
+    # length forward of the ball. A ratio set's own `stance` is only the fallback for a call with no `com`.
+    stance, stance_from = p.get("stance"), "the plan"
+    L = solve_L(ball1)
+    if L is None:
         out["problems"].append(
             f"legs: no limb length reaches the hip at {hip_h:.3f} m with ratios "
             f"{'/'.join(f'{r[q]:.2f}' for q in RATIO_KEYS)} and a {p['knee']:.0f} degree stifle - "
             f"straighten the stifle or shorten the metatarsus's share")
         out.update({"changed": False})
         return out
-    for _ in range(60):
-        mid = 0.5 * (lo_L + hi_L)
-        if gap(mid) < 0:
-            lo_L = mid
-        else:
-            hi_L = mid
-    L = 0.5 * (lo_L + hi_L)
+    if com is not None and stance is None:
+        # the patch's centre needs the digit length, which needs the limb length, which needs the ball: three
+        # passes settle it (the ball moves centimetres, the limb length millimetres)
+        pb, pf = patch if patch is not None else DEFAULT_PATCH
+        for _ in range(3):
+            centre = 0.5 * (float(pb) + float(pf)) * (r["digits"] * L * float(p["toe"] or 1.0))
+            stance = float(np.clip((float(com) - float(np.dot(hip, fwd)) - centre) / max(hip_h, 1e-9),
+                                   *LIMITS["stance"]))
+            ball1 = place(stance, ball)
+            got = solve_L(ball1)
+            if got is None:
+                break
+            L = got
+        stance_from = "the body's centre over its contact patch"
+    elif stance is not None:
+        ball1 = place(stance, ball1)
+        L = solve_L(ball1) or L
 
     f, t = r["femur"] * L, r["tibia"] * L
     m, d = r["metatarsus"] * L, r["digits"] * L
@@ -380,7 +423,9 @@ def solve(joints, spec, floor=0.0, forward=(0.0, -1.0, 0.0)):
             "effective_over_hip": round((shank + m) / max(hip_h, 1e-9), 3),
             "mt_over_femur": round(m / max(f, 1e-9), 3),
             "crural": round(t / max(f, 1e-9), 3),
-            "ball_forward_of_hip": round(float(np.dot(ball1 - hip, fwd)) / max(hip_h, 1e-9), 3)}
+            "ball_forward_of_hip": round(float(np.dot(ball1 - hip, fwd)) / max(hip_h, 1e-9), 3),
+            "stance": None if stance is None else round(float(stance), 4),
+            "stance_from": stance_from}
     out["measures"] = meas
     out["ratios"] = {"name": p.get("ratio_name", "custom"),
                      "target": {q: round(r[q], 4) for q in RATIO_KEYS},
@@ -421,6 +466,26 @@ def _angle(a, b, c):
 
 
 # ---------------------------------------------------------------------------- applying it
+
+
+def _com_forward(rig):
+    """The forward coordinate of the mean of every skinned vertex, in armature space - the same centre of mass
+    `rig_analysis.motion.Body.com` takes, and the same one the clip balance check holds over the feet."""
+    from . import species
+    tot, n = 0.0, 0
+    for ob in species._skinned(rig):
+        me = ob.data
+        k = len(me.vertices)
+        if not k:
+            continue
+        co = np.empty(k * 3)
+        me.vertices.foreach_get("co", co)
+        co = co.reshape(-1, 3)
+        mw = np.array(rig.matrix_world.inverted() @ ob.matrix_world, float)
+        co = co @ mw[:3, :3].T + mw[:3, 3]
+        tot += float(co[:, 1].sum())
+        n += k
+    return (tot / n) * -1.0 if n else None
 
 
 def _joints(rigd, chain):
@@ -487,7 +552,7 @@ def _transforms(rigd, scale, rot, shift=0.0):
     return tuple(T)
 
 
-def apply(human, spec, report=None, verbose=False):
+def apply(human, spec, report=None, verbose=False, patch=None):
     """Reshape a rigged body's legs to a leg plan, in place: the rest bones, every skinned mesh and every shape
     key. Returns the report - the plan, the solve per side and the measures it was checked on. Raises
     ValueError, with the range in the message, when the plan cannot be built on this leg."""
@@ -516,15 +581,67 @@ def apply(human, spec, report=None, verbose=False):
         raise ValueError(f"{rig.name}: no legs to reshape (the body map found no leg chain off the pelvis)")
 
     floor = 0.0
-    solved, scale, rot = {}, {}, {}
-    fails = []
+    # THE STANCE CONVERGES. The stance is solved to stand the body's centre over the contact patch, but the
+    # legs are a third of the body: moving them forward carries that centre with them, so one pass
+    # under-corrects (the satyr's hooves landed 14 mm behind its centre). The leg solve's targets are
+    # ABSOLUTE - the ratios against the hip height and the ball's own place - so applying it again from its own
+    # output lands exactly where a single pass with the final stance would have. Two or three passes settle it.
+    passes = []
+    for _ in range(PASSES if (p["plan"] == "digitigrade" and p.get("stance") is None) else 1):
+        rigd = species._Rig(rig)
+        com = _com_forward(rig)
+        solved, scale, rot, fails = _pass(rigd, p, floor, com, patch)
+        if fails:
+            raise ValueError("; ".join(fails))
+        _carry(human, rig, rigd, scale, rot, species, bpy)
+        got = solved[sorted(solved)[0]]["measures"].get("stance")
+        passes.append(None if got is None else round(float(got), 4))
+        if com is None or (len(passes) > 1 and passes[-1] is not None and passes[-2] is not None
+                           and abs(passes[-1] - passes[-2]) * (solved[sorted(solved)[0]]["rest"]["hip_height"]
+                                                               or 1.0) < STANCE_SETTLED):
+            break
+    rep["stance_passes"] = passes
+    rigd = species._Rig(rig)
+
+    after = species._Rig(rig)
+    rep.update({
+        "changed": True,
+        "sides": {side: {k: s[k] for k in ("measures", "scale", "rest", "ratios") if k in s}
+                  for side, s in solved.items()},
+        "silhouette": solved[sorted(solved)[0]].get("ratios") if solved else None,
+        "measures": solved[sorted(solved)[0]]["measures"] if solved else {},
+        "hock_height_m": round(float(after.head[after.ix[after.legs[sorted(after.legs)[0]][2]], 2]), 4),
+        "bones": {side: list(ch) for side, ch in sorted(rigd.legs.items())},
+    })
+    rig[PROP] = {"plan": p["plan"], "stand": float(p["stand"]), "knee": float(p["knee"]),
+                 "ratios": p.get("ratio_name", "custom"),
+                 "shares": {q: float(v) for q, v in (rep.get("silhouette") or {}).get("built", {}).items()}}
+    human[PROP] = rig[PROP]
+    if verbose:
+        print("legs", p["plan"], rep["measures"], "stance passes", passes)
+    return rep
+
+
+def _carry(human, rig, rigd, scale, rot, species, bpy):
+    """Every skinned mesh and every shape key through one pass's transforms, then the rest bones."""
+    meshes = [species._Mesh(o, rig, rigd, smooth=species.WEIGHT_SMOOTH if o is human else 0)
+              for o in species._skinned(rig)]
+    body = next(m for m in meshes if m.ob is human)
+    mask = species._body_mask(human)
+    species._apply(meshes, body, mask, rigd, rig, _transforms(rigd, scale, rot))
+    bpy.context.view_layer.update()
+
+
+def _pass(rigd, p, floor, com, patch):
+    """One solve of every leg: (solved, scale, rot, problems)."""
+    solved, scale, rot, fails = {}, {}, {}, []
     for side, chain in sorted(rigd.legs.items()):
         if len(chain) < 4 or not all(chain[:4]):
             fails.append(f"leg {side} has {len(chain)} segments, not the four (thigh, shin, foot, toe) a "
                          f"leg plan reshapes")
             continue
         j = _joints(rigd, chain)
-        s = solve(j, p, floor=floor)
+        s = solve(j, p, floor=floor, com=com, patch=patch)
         solved[side] = s
         fails += [f"{side}: {m}" for m in s["problems"]]
         if not s.get("changed"):
@@ -545,33 +662,7 @@ def apply(human, spec, report=None, verbose=False):
         # anything hanging off the toes (nails, a claw) rides the toe bone
         for extra in chain[4:]:
             rot[extra] = rot[chain[3]]
-    if fails:
-        raise ValueError("; ".join(fails))
-
-    meshes = [species._Mesh(o, rig, rigd, smooth=species.WEIGHT_SMOOTH if o is human else 0)
-              for o in species._skinned(rig)]
-    body = next(m for m in meshes if m.ob is human)
-    mask = species._body_mask(human)
-    species._apply(meshes, body, mask, rigd, rig, _transforms(rigd, scale, rot))
-    bpy.context.view_layer.update()
-
-    after = species._Rig(rig)
-    rep.update({
-        "changed": True,
-        "sides": {side: {k: s[k] for k in ("measures", "scale", "rest", "ratios") if k in s}
-                  for side, s in solved.items()},
-        "silhouette": solved[sorted(solved)[0]].get("ratios") if solved else None,
-        "measures": solved[sorted(solved)[0]]["measures"] if solved else {},
-        "hock_height_m": round(float(after.head[after.ix[after.legs[sorted(after.legs)[0]][2]], 2]), 4),
-        "bones": {side: list(ch) for side, ch in sorted(rigd.legs.items())},
-    })
-    rig[PROP] = {"plan": p["plan"], "stand": float(p["stand"]), "knee": float(p["knee"]),
-                 "ratios": p.get("ratio_name", "custom"),
-                 "shares": {q: float(v) for q, v in (rep.get("silhouette") or {}).get("built", {}).items()}}
-    human[PROP] = rig[PROP]
-    if verbose:
-        print("legs", p["plan"], rep["measures"])
-    return rep
+    return solved, scale, rot, fails
 
 
 def read(obj):

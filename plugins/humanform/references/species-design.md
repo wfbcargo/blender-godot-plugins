@@ -301,9 +301,8 @@ alone, about 0.75 of it. Sources, measured over folklore:
 
 Beside the ratios: `stand` (the share of the metatarsus that is vertical - a person's foot already reads 0.43),
 `stance` (how far forward of the hip the ball stands, in hip heights: a plantigrade foot's ball sits 0.17 ahead
-with the ankle under it, a digitigrade one stands on its TOES and they take the sole's place under the body;
-its floor is set by BALANCE, not anatomy - at 0.02 the paw body's crouch put its centre 3.6 mm outside its feet
-and rig-anything refused the clip), `knee`, `girth` (one number or a table of `thigh`, `shank`, `metatarsus`,
+with the ankle under it, a digitigrade one stands on its TOES and they take the sole's place under the body -
+and it is solved, not chosen, see below), `knee`, `girth` (one number or a table of `thigh`, `shank`, `metatarsus`,
 `digits`: a person's leg is nearly one girth from hip to ankle and an animal's is a heavy thigh over a thin
 shank over a bare cannon, which at four metres is as much of the read as the joints are), and `fold`
 (`{ knee = "forward", hock = "back" }`; a bird's reversed stifle is a different plan, not a parameter, and is
@@ -316,6 +315,18 @@ bisected until the folded shank exactly reaches, and every segment is its share 
 vertex moves when the shank scale leaves 0.55-1.15, the hock leaves 0.10-0.45 of hip height, the metatarsus
 leaves 0.10-0.60 of the shank, the toes leave 0.10-0.85 of the metatarsus, the shank would have to stand dead
 straight, or no limb length reaches at all.
+
+**The stance is solved, not chosen.** `species._balance` balances a body over its PLANTIGRADE foot during the
+warp; a leg plan then moves the contact out from under it and a foot plan moves it again - the pads, the fuse,
+the horn - and nothing re-checked that. The first gnoll stood with its centre of mass 50 mm outside its paws
+and had Crouch and MouthOpen refused at export, until its spec carried `stance = 0.12` by hand. Now `legs.apply`
+measures the body's centre (the mean of every skinned vertex, which is the centre `rig_analysis.motion.Body.com`
+and the clip balance check use) and solves the stance that stands it over the middle of the patch the foot plan
+will leave (`feet.PATCH`). The legs are a third of the body, so moving them carries that centre with them: the
+solve runs again from its own output - the leg plan's targets are absolute, so a second pass lands exactly where
+one pass with the final stance would - until the ball settles within a millimetre, usually in three. Then
+`feet.settle` measures the patch the body REALLY has, after the pads and the horn, and moves the feet again if
+the margin is short. The gnoll's spec no longer needs a stance: it solves to 0.125.
 
 **The silhouette check** is the one that answers "does it still read human": the built shares against the
 plan's, per segment, failing past 0.025 of the limb with both numbers in the message. Everything else in the
@@ -361,7 +372,11 @@ solved length outside 0.15-1.6 toe lengths ("it is reaching for the ground sidew
 is taken as given and held to the same check.
 
 The body is re-stood on the floor after the pads, so a pad adds its own thickness under the foot the way an
-animal's does (11-13 mm on a 1.75-1.80 m body). The **contact check** (`feet.contact`) is the one that matters:
+animal's does (11-13 mm on a 1.75-1.80 m body). **`feet.balance`** then measures where the body's centre stands
+over the patch it really has - the sole's own lowest band, fore and aft, plus the claws or hooves - and
+`feet.settle` moves the feet under it (above); the margin must be a tenth of the patch or 10 mm, whichever is
+less, because an unguligrade foot stands on a POINT. A hoofed foot declares `nails.toes` absent, because a hoof
+IS the nail: the horn caps the whole end of the digit. The **contact check** (`feet.contact`) is the one that matters:
 what the plan says carries the ground must be the lowest thing on the foot - a claw's tip stays 4 mm above the
 pads, a hoof reaches 6 mm below the flesh - and both are refused with the millimetres measured. The plan also
 reports what it did to hm08's toenails against the foot they sit on, so the anatomy inventory grades a fused,

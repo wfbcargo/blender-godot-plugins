@@ -906,6 +906,13 @@ def design(id="custom", label=None, stature=None, look=None, sources=None, notes
         if fp:
             raise DesignError(f"{id}: " + "; ".join(fp))
         doc["foot"] = lookd["foot"]
+        if _sibling("feet").normalise(lookd["foot"])["nail"] == "hoof":
+            # a hoof IS the toenail, grown over the whole end of the digit: hm08's five are drawn onto the
+            # hooved toes and swallowed by the horn, so the description says so rather than leaving the
+            # anatomy inventory to read it as a part the warp lost
+            if not any(e.get("part") == "nails.toes" for e in anat["absent"]):
+                anat["absent"].append({"part": "nails.toes",
+                                       "reason": "a hoof is the nail: the horn caps the whole end of the digit"})
     if lookd.get("tail") not in (None, False):
         # a tail as well as the legs (humanform.tail); a tail INSTEAD of them is a graft
         if doc.get("graft", {}).get("legs"):

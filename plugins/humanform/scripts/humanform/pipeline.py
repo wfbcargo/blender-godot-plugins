@@ -235,11 +235,21 @@ def _make_species(s, out_dir, store, contact_sheet, verbose, anatomy=None, **kw)
                 # a paw belongs on a dog's leg and a hoof on a goat's: the foot plan names the leg ratios its
                 # own silhouette needs, and the species may still say otherwise
                 lspec = dict({"plan": lspec} if isinstance(lspec, str) else lspec, ratios=want)
-            rep["legs"] = legs_mod.apply(human, lspec, verbose=verbose)
+            rep["legs"] = legs_mod.apply(human, lspec, verbose=verbose,
+                                         patch=feet_mod.patch_of(sp.get("foot")))
             t["legs"] = time.time() - t6
         if sp.get("foot") not in (None, "human"):
             t6b = time.time()
             rep["feet"] = feet_mod.apply(human, sp["foot"], verbose=verbose)
+            # and then the feet go under the body: the warp balanced it over a plantigrade foot, and the leg
+            # and foot plans have moved the patch it really stands on (`feet.settle`)
+            b, rows = feet_mod.settle(human, lspec, report=rep["feet"])
+            if b and b["failed"]:
+                raise ValueError(
+                    f"foot: the body will not balance over its own contact patch - its centre stands "
+                    f"{b['com_fwd']:.3f} m forward while the pads run {b['patch_fwd'][0]:.3f}.."
+                    f"{b['patch_fwd'][1]:.3f}, a margin of {b['margin_m'] * 1000:.0f} mm against the "
+                    f"{b['limit_m'] * 1000:.0f} mm it needs, after {len(rows)} stance passes {rows}")
             t["feet"] = time.time() - t6b
         if sp.get("tail") not in (None, False):
             t7 = time.time()
