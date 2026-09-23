@@ -107,6 +107,47 @@ def _keep_piece(bm, near):
     return len(rest)
 
 
+# How far above the neckline a garment may still reach, as a share of the torso: the cut is a plane through a
+# curved neck and the cloth is then eased out and relaxed, so its highest vertex sits a little over the line it
+# was cut on. Measured on bodies whose collars are right: 0.02-0.04 of the torso. Past NECK_OVER it is not a
+# collar any more - a t-shirt that kept the chin measured 0.29 (species_gnome, 57 mm over the line).
+NECK_OVER = 0.08
+
+
+def over_neckline(garment, body=None):
+    """How far a shirt or dress reaches above the neckline its cut asked for. Returns None for a garment with
+    no neckline (pants, a skirt), else {"over_mm", "limit_mm", "top_z", "line_z", "fail"}.
+
+    The neckline the spec asked for is the cut's own: the base of the neck plus the higher of its two `neck`
+    heights, in torso lengths. What this catches is a garment that covers skin nobody asked it to cover - the
+    jaw, the chin, the mouth - however it got there."""
+    g = rigmap._obj(garment)
+    cut = g.get("wardrobe_cut")
+    if cut is None or "neck" not in cut.keys():
+        return None
+    body = rigmap._obj(body or cut["body"])
+    hm = rigmap.humanoid(body)
+    if not hm["neck"]:
+        return None
+    torso = float(cut.get("torso_m") or rigmap.torso_length(body))
+    base_z = float(hm["heads"][hm["neck"][0]].z)
+    asked = max(float(x) for x in cut["neck"])
+    line_z = base_z + asked * torso
+    # in the body's own space, which is where rigmap measures the bones
+    to_body = body.matrix_world.inverted() @ g.matrix_world
+    top_z = max((to_body @ v.co).z for v in g.data.vertices)
+    over = top_z - line_z
+    limit = NECK_OVER * torso
+    out = {"over_mm": round(over * 1000, 1), "limit_mm": round(limit * 1000, 1),
+           "top_z": round(top_z, 4), "line_z": round(line_z, 4)}
+    if over > limit:
+        out["fail"] = (f"{g.name} reaches {out['over_mm']} mm above the neckline it was cut on (limit "
+                       f"{out['limit_mm']}): it is covering the neck and the jaw, not sitting on the "
+                       "collarbone - check what the neck's bones are (wardrobe.rigmap._head_bones: a bone "
+                       "hanging off the head takes the chin's weight with it and the cut stops seeing it)")
+    return out
+
+
 def shirt(body, name="Shirt", sleeve=0.45, hem=-0.08, neck=(-0.04, 0.12)):
     """A shirt cut from `body`: returns the new object, skinned like the body, not yet eased."""
     body = rigmap._obj(body)

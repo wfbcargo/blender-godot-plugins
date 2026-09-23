@@ -160,6 +160,12 @@ def dress(body_name, preset, name=None, colour=None, out_path=None, layer=None, 
     # A skirt or dress has no ease step (`er` None): there is no relief to have measured.
     detail = builtins.list(((er or {}).get("detail") or {}).get("problems") or [])
     detail += ((er or {}).get("tuck") or {}).get("problems") or []
+    # a garment must cover only the skin its cut asked for: a collar on the collarbone, not over the jaw
+    neckline = tailor.over_neckline(g, body)
+    if neckline is not None:
+        report["neckline"] = neckline
+        if neckline.get("fail"):
+            detail.append("neckline: " + neckline["fail"])
     if cr.get("drawn_over_cloth"):
         detail.append("cover: %d drawn body triangles still lie over the cloth after lifting it" % cr["drawn_over_cloth"])
     if problems:
