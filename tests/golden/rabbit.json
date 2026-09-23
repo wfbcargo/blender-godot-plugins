@@ -106,8 +106,8 @@
     "RabbitTest_rig_JumpAir",
     "RabbitTest_rig_JumpLand"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\rabbit\\rabbit\\rabbit.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\rabbit\\rabbit\\rabbit.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7o53g7jp\\rabbit\\rabbit\\rabbit.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7o53g7jp\\rabbit\\rabbit\\rabbit.moves.json",
    "review": {
     "bands_px": [
      45,
@@ -123,7 +123,7 @@
      1258
     ],
     "count": 19,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-0bm9c9ta\\rabbit\\rabbit\\review\\rabbit",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7o53g7jp\\rabbit\\rabbit\\review\\rabbit",
     "frame_height_m": 0.75,
     "frames": {
      "RabbitTest_rig_Bound": [
@@ -187,7 +187,7 @@
       11
      ]
     },
-    "seconds": 5.23,
+    "seconds": 4.53,
     "strips": {
      "RabbitTest_rig_Bound": {
       "front": {
@@ -1075,6 +1075,20 @@
     "stride_frequency_hz": 3.3535,
     "stride_m": 1.0364,
     "stroke_m": 0.2902,
+    "tail_gap": {
+     "at_frame": 6,
+     "failed": false,
+     "judged": false,
+     "limit_m": 0.00158,
+     "min_m": 0.0237,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      401,
+      413
+     ],
+     "rest_m": 0.0283,
+     "spacing_m": 0.00538
+    },
     "tightest_joint_degrees": {
      "fore.L": 104.4,
      "fore.R": 104.3,
@@ -1183,6 +1197,20 @@
     "stride_frequency_hz": 1.1977,
     "stride_m": 0.2695,
     "stroke_m": 0.1347,
+    "tail_gap": {
+     "at_frame": 13,
+     "failed": false,
+     "judged": false,
+     "limit_m": 0.00158,
+     "min_m": 0.0352,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      401,
+      413
+     ],
+     "rest_m": 0.0283,
+     "spacing_m": 0.00538
+    },
     "tightest_joint_degrees": {
      "fore.L": 109.7,
      "fore.R": 109.2,
@@ -1224,6 +1252,20 @@
     "skin_lowest": -0.0002,
     "stance_width": null,
     "standing_height_m": 0.1977,
+    "tail_gap": {
+     "at_frame": 14,
+     "failed": false,
+     "judged": false,
+     "limit_m": 0.00158,
+     "min_m": 0.0274,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      401,
+      413
+     ],
+     "rest_m": 0.0283,
+     "spacing_m": 0.00538
+    },
     "tightest_joint_degrees": {
      "fore.L": 163.1,
      "fore.R": 163.1,
@@ -1269,6 +1311,20 @@
     "stretch_ignored_edges": 5,
     "stretch_max": 7.916,
     "stretch_p99": 2.844,
+    "tail_gap": {
+     "at_frame": 2,
+     "failed": false,
+     "judged": false,
+     "limit_m": 0.00158,
+     "min_m": 0.0052,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      401,
+      413
+     ],
+     "rest_m": 0.0283,
+     "spacing_m": 0.00538
+    },
     "tightest_joint_degrees": {
      "fore.L": 55.7,
      "fore.R": 55.7,
@@ -1330,6 +1386,20 @@
     "stretch_ignored_edges": 5,
     "stretch_max": 2.606,
     "stretch_p99": 1.717,
+    "tail_gap": {
+     "at_frame": 8,
+     "failed": false,
+     "judged": false,
+     "limit_m": 0.00158,
+     "min_m": 0.0283,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      401,
+      413
+     ],
+     "rest_m": 0.0283,
+     "spacing_m": 0.00538
+    },
     "tightest_joint_degrees": {
      "fore.L": 94.7,
      "fore.R": 94.7,
@@ -1414,6 +1484,20 @@
     "stretch_ignored_edges": 5,
     "stretch_max": 7.916,
     "stretch_p99": 2.844,
+    "tail_gap": {
+     "at_frame": 11,
+     "failed": false,
+     "judged": false,
+     "limit_m": 0.00158,
+     "min_m": 0.007,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      401,
+      413
+     ],
+     "rest_m": 0.0283,
+     "spacing_m": 0.00538
+    },
     "takeoff": {
      "angle_deg": 39.9,
      "plan_deg": 40.0,

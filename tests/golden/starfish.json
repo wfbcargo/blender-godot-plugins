@@ -1,7 +1,7 @@
 {
  "fixture": "starfish",
  "plugins": {
-  "rig-anything": "0.23.0"
+  "rig-anything": "0.43.0"
  },
  "report": {
   "detection": {
@@ -79,8 +79,8 @@
     "StarTest_rig_Crawl",
     "StarTest_rig_Idle"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\starfish\\starfish\\starfish.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\starfish\\starfish\\starfish.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7o53g7jp\\starfish\\starfish\\starfish.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7o53g7jp\\starfish\\starfish\\starfish.moves.json",
    "review": {
     "bands_px": [
      45,
@@ -96,7 +96,7 @@
      390
     ],
     "count": 7,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-tvp31v1l\\a\\starfish\\starfish\\review\\starfish",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7o53g7jp\\starfish\\starfish\\review\\starfish",
     "frame_height_m": 0.35,
     "frames": {
      "StarTest_rig_Crawl": [
@@ -120,7 +120,7 @@
       85
      ]
     },
-    "seconds": 2.65,
+    "seconds": 2.55,
     "strips": {
      "StarTest_rig_Crawl": {
       "front": {
@@ -452,6 +452,7 @@
     "skin_lowest": 0.0,
     "standing_height_m": 0.0335,
     "stretch_max": 1.249,
+    "tail_gap": null,
     "tightest_joint_degrees": {},
     "tolerance": 0.00122
    },
@@ -479,6 +480,7 @@
     "skin_lowest": 0.0,
     "standing_height_m": 0.0335,
     "stretch_max": 1.022,
+    "tail_gap": null,
     "tightest_joint_degrees": {},
     "tolerance": 0.00122
    }

@@ -1,7 +1,7 @@
 {
  "fixture": "cricket",
  "plugins": {
-  "rig-anything": "0.30.0"
+  "rig-anything": "0.43.0"
  },
  "report": {
   "detection": {
@@ -123,8 +123,8 @@
     "CricketTest_rig_JumpAir",
     "CricketTest_rig_JumpLand"
    ],
-   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-qyx0c2z2\\cricket\\cricket\\cricket.glb",
-   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-qyx0c2z2\\cricket\\cricket\\cricket.moves.json",
+   "glb": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7o53g7jp\\cricket\\cricket\\cricket.glb",
+   "moves": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7o53g7jp\\cricket\\cricket\\cricket.moves.json",
    "review": {
     "bands_px": [
      45,
@@ -140,7 +140,7 @@
      1079
     ],
     "count": 16,
-    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-qyx0c2z2\\cricket\\cricket\\review\\cricket",
+    "dir": "C:\\Users\\pauli\\AppData\\Local\\Temp\\regress-7o53g7jp\\cricket\\cricket\\review\\cricket",
     "frame_height_m": 0.05,
     "frames": {
      "CricketTest_rig_Idle": [
@@ -194,7 +194,7 @@
       15
      ]
     },
-    "seconds": 5.2,
+    "seconds": 4.83,
     "strips": {
      "CricketTest_rig_Idle": {
       "front": {
@@ -932,6 +932,20 @@
     "skin_lowest": -0.0,
     "stance_width": null,
     "standing_height_m": 0.0079,
+    "tail_gap": {
+     "at_frame": 13,
+     "failed": false,
+     "judged": false,
+     "limit_m": 6e-05,
+     "min_m": 0.0017,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      414,
+      402
+     ],
+     "rest_m": 0.0017,
+     "spacing_m": 0.00032
+    },
     "tightest_joint_degrees": {
      "fore.L": 96.0,
      "fore.R": 96.0,
@@ -979,6 +993,20 @@
     "stretch_ignored_edges": 20,
     "stretch_max": 9.75,
     "stretch_p99": 2.525,
+    "tail_gap": {
+     "at_frame": 1,
+     "failed": false,
+     "judged": false,
+     "limit_m": 6e-05,
+     "min_m": 0.0005,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      414,
+      402
+     ],
+     "rest_m": 0.0017,
+     "spacing_m": 0.00032
+    },
     "tightest_joint_degrees": {
      "fore.L": 73.4,
      "fore.R": 73.4,
@@ -1046,6 +1074,20 @@
     "stretch_ignored_edges": 20,
     "stretch_max": 4.398,
     "stretch_p99": 1.443,
+    "tail_gap": {
+     "at_frame": 4,
+     "failed": false,
+     "judged": false,
+     "limit_m": 6e-05,
+     "min_m": 0.0015,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      414,
+      402
+     ],
+     "rest_m": 0.0017,
+     "spacing_m": 0.00032
+    },
     "tightest_joint_degrees": {
      "fore.L": 96.4,
      "fore.R": 96.4,
@@ -1131,6 +1173,20 @@
     "stretch_ignored_edges": 20,
     "stretch_max": 9.75,
     "stretch_p99": 2.525,
+    "tail_gap": {
+     "at_frame": 3,
+     "failed": false,
+     "judged": false,
+     "limit_m": 6e-05,
+     "min_m": 0.0001,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      414,
+      402
+     ],
+     "rest_m": 0.0017,
+     "spacing_m": 0.00032
+    },
     "takeoff": {
      "angle_deg": 24.9,
      "plan_deg": 25.0,
@@ -1309,6 +1365,20 @@
      1.0
     ],
     "sway_share": 0.0,
+    "tail_gap": {
+     "at_frame": 4,
+     "failed": false,
+     "judged": false,
+     "limit_m": 6e-05,
+     "min_m": 0.0015,
+     "note": "a horizontal body carries its tail on its legs by anatomy; measured, not judged",
+     "points": [
+      414,
+      402
+     ],
+     "rest_m": 0.0017,
+     "spacing_m": 0.00032
+    },
     "tightest_joint_degrees": {
      "fore.L": 71.5,
      "fore.R": 71.5,

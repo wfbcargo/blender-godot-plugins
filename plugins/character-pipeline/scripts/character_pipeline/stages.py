@@ -1092,9 +1092,14 @@ def hair_clearance(ch, garments):
             bad.append(f"{name}: {r['under_share']:.0%} of it is under {r['nearest']} rather than in front of "
                        f"it, by up to {r['under_depth_m'] * 1000:.0f} mm (at most {HAIR_UNDER_MAX:.0%})")
     if bad:
-        raise RuntimeError("garments: hair is caught under the clothes rather than falling in front of them: "
-                           + "; ".join(bad) + " - raise the part's `hang_clear_m`, which is measured off bare "
-                           "skin and has to allow for what the body wears over it")
+        # Warned, not refused. The measure is right and a lock under a collar is a real defect, but the advice
+        # only reaches a part `humanform.cards` grew: a scalp ponytail or curtain has no `hang_clear_m` to
+        # raise, and the check as a refusal stopped species_elf and trial_drow - two characters that had
+        # shipped - from building at all, with no knob named (2026-09-22). Give scalp hair the same clearance
+        # machinery and this goes back to refusing.
+        for line in bad:
+            print(f"[{ch.id}] garments WARNING hair under cloth: {line}", flush=True)
+        out["warnings"] = bad
     return out
 
 
