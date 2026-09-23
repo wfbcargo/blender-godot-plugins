@@ -16,6 +16,20 @@ project they are exercised on is `C:/Users/pauli/Code/GoDot/grungist-creek`. Pla
   the improvement, build fresh, and move on; do not spend a round scrutinising small numeric drift. What
   proves a change is a fresh build of the characters it affects (`character-pipeline/scripts/build_many.py`)
   and the game's demo self-tests passing in Godot - not the regression suite.
+- **A round has a budget, and it is stated before it starts** (the user's rule, 2026-09-22, after a round of
+  fantasy species spent most of a weekly usage limit). Say in one line how many agents and roughly how many
+  full builds a round will take, and ask before exceeding **4 agent tasks or ~10 builds**. Report spend at each
+  checkpoint. The cost is never the engineering - it is the loop of looking at a render, calling it not quite
+  right, and dispatching another pass, because each pass is a 1-4 minute character build plus Godot renders.
+- **Send work back only for a regression or a wrong check.** A defect that is merely "could read better" is a
+  line in NEXT.md, not another pass; a *third* pass on the same defect needs the user to ask for it. That round
+  put beards through four passes and the gnoll through four builds, and the beard ended up worse in Godot than
+  the shell it replaced.
+- **One proof run per round, at the end**, and build the character a change touches rather than the whole cast.
+  Prefer a number - a measurement, a check, a diff - to a render, because a render costs a build. Reuse a saved
+  .blend or an existing scratch project before making a fresh one.
+- **Agents that share files serialise.** Four agents extending the same body-plan code (legs, feet, fur, muzzle)
+  cost a hand-merge in one function and a rebuild each time; split by file ownership or run them in turn.
 - **The regression suite is optional, and never a merge gate.** It was consistently the slowest part of a
   round (10-20+ minutes for `--twice --godot`) and the least useful. Keep what it is good at, cheaply:
   - **Run `--quick` in the background and never wait on it.** Start it when a change touches shared code,
