@@ -96,13 +96,29 @@ VCOL = "hf_fur"
 # (humanform.tail lofts a tail off the sacrum, humanform.graft lofts one where the legs were), whose
 # vertices sit past `delta.BODY_VERTS`. They are skin like any other - a hyena's tail is a brush - so
 # `areas` reads them off their own vertex groups rather than off hm08's landmarks.
-AREAS = ("body", "head", "face", "neck", "ruff", "shoulders", "back", "front", "torso", "chest",
-         "belly", "arms", "upper_arms", "forearms", "hands", "legs", "thighs", "shins", "feet",
-         "tail", "graft")
+# `tail` and `graft` are the two areas that are NOT hm08: they are geometry a body plan added
+# (humanform.tail lofts a tail off the sacrum, humanform.graft lofts one where the legs were), whose
+# vertices sit past `delta.BODY_VERTS`. They are skin like any other - a hyena's tail is a brush - so
+# `areas` reads them off their own vertex groups rather than off hm08's landmarks.
+AREAS = ("body", "head", "face", "muzzle", "neck", "nape", "withers", "ruff", "shoulders", "back", "front",
+         "dorsal", "ventral", "flank", "haunch", "torso", "chest", "belly", "arms", "upper_arms",
+         "forearms", "hands", "legs", "thighs", "shins", "feet", "tail", "graft")
+# `back` and `front` are the normal-based halves - every vertex facing away from or toward the viewer - and
+# they are what a description means by "the back of it". They are not anatomy: subtract one from `body` and
+# what is left has no core anywhere, because half of every limb and every side of the trunk is in each. The
+# anatomical pair is `dorsal` and `ventral`: strips of a stated width along the spine and along the belly
+# midline, measured on the body's own joints. A gnoll's mane is `dorsal` plus `withers`; its bib is
+# `ventral` plus `chest`. (2026-09-22: a mane asked for `ruff` wrapped the chest and read as a fringed cape.)
+CUT = (0.35, 0.75)             # an `except_areas` cuts over this band of the other area's weight
+DORSAL_W = 0.22                # the dorsal strip's half-width, as a share of the shoulder half-breadth
+VENTRAL_W = 0.26               # ... and the ventral strip's, which is wider: a belly is not a spine
 TAIL_GROUP = "hf_tail"         # humanform.tail.GROUP: the vertices it lofted
-# never furred: the skin that has to stay skin (as `skin.PATTERN_SKIP`, plus the eyes and the mouth)
 SKIP_REGIONS = ("palm", "sole", "lips", "nail")
-EYE_RADII = 1.9                # eyeball radii round each eye kept bare
+EYE_CLEAR = 1.55               # eyeball radii round each eye kept bare: the opening and both lids
+EYE_MARGIN_MM = 1.0            # how far clear of the ball the fur over the lids must still stand
+LIP_PIGMENT = 0.45             # how far a furred face's lip line is taken down, on the skin's tint
+LIP_DEFAULT = 0.8              # how much a face region asks for without saying
+LIP_TOL = 0.02                 # sRGB luma the lips may sit above the fur round the mouth
 FLOWS = ("down", "back", "out", "along")
 
 # Ranges. Past LENGTH_M shell fur stops being cheap or convincing: at 8 cm the shells are far enough
@@ -200,9 +216,11 @@ def normalise(block):
     if not isinstance(block, dict):
         raise ValueError("fur must be a table of regions (see humanform.fur.AREAS)")
     b = dict(block)
-    unknown = sorted(set(b) - {"schema", "regions", "shells", "lay", "seed", "cover", "tile_m", "note"})
+    unknown = sorted(set(b) - {"schema", "regions", "shells", "lay", "seed", "cover", "tile_m", "note",
+                               "lip_pigment"})
     if unknown:
-        raise ValueError(f"fur keys {unknown}: only regions, shells, lay, seed, cover, tile_m, note")
+        raise ValueError(f"fur keys {unknown}: only regions, shells, lay, seed, cover, tile_m, note, "
+                         "lip_pigment")
     regions = b.get("regions")
     if not regions:
         raise ValueError("fur needs at least one region: {\"regions\": [{\"areas\": [...], \"length_m\": ...}]}, "
@@ -276,8 +294,14 @@ def normalise(block):
     cover = b.get("cover", True)
     if not isinstance(cover, bool):
         raise ValueError("fur.cover must be true or false (draw the skin under dense fur, or not)")
+    # a furred face's lip line: 1 takes it right down (a muzzle's lips are near-black), 0 leaves it as the
+    # skin drew it. LIP_DEFAULT when a region covers the face or a muzzle and the spec does not say.
+    faced = any(({"face", "muzzle"} & set(r["areas"])) and not ({"face", "muzzle"} & set(r["except_areas"]))
+                for r in out)
+    lip = _range("fur.lip_pigment", b.get("lip_pigment", LIP_DEFAULT if faced else 0.0), 0.0, 1.0)
     doc = {"schema": SCHEMA, "regions": out, "shells": shells, "lay": round(lay, 3),
-           "seed": int(b.get("seed", 0)), "cover": cover, "tile_m": round(tile, 4)}
+           "seed": int(b.get("seed", 0)), "cover": cover, "tile_m": round(tile, 4),
+           "lip_pigment": round(lip, 3)}
     if b.get("note"):
         doc["note"] = str(b["note"])
     return doc
@@ -344,6 +368,36 @@ def _seg_distance(p, pts):
         t = np.clip(((p - a) @ ab) / max(ab @ ab, 1e-9), 0, 1)
         d = np.minimum(d, np.linalg.norm(p - (a + np.outer(t, ab)), axis=1))
     return d
+
+
+EYE_GROUPS = (("helper-l-eye", "helper-r-eye"), ("l-eye", "r-eye"))
+
+
+def eyeballs(ob, co, j, s):
+    """[(centre, radius)] of the eyeballs, from MPFB's helper spheres while the body still has them (fur is
+    laid on before the bake, so it does), else from the eye joint and a radius scaled off the head. The eye
+    is the first thing read on a face, and a nap grown over the lids loses it."""
+    out = []
+    for names in EYE_GROUPS:
+        for nm in names:
+            g = ob.vertex_groups.get(nm)
+            if g is None:
+                continue
+            idx = np.array([v.index for v in ob.data.vertices
+                            if any(e.group == g.index and e.weight > 0.5 for e in v.groups)], np.int64)
+            if len(idx) < 8:
+                continue
+            q = co[idx]
+            c = q.mean(axis=0)
+            out.append((c, float(np.linalg.norm(q - c, axis=1).mean())))
+        if out:
+            return out
+    if "joint-l-eye" in j:
+        xs = 1.0 if j.get("joint-l-hand", [1.0])[0] > 0 else -1.0
+        for side in (1.0, -1.0):
+            c = np.array(j["joint-l-eye"], np.float64) * np.array([side * xs, 1.0, 1.0])
+            out.append((c, 0.012 * s))
+    return out
 
 
 def areas(ob):
@@ -443,17 +497,41 @@ def areas(ob):
     mid_z = 0.5 * (sh_z + hip_z)
     A["chest"] = A["torso"] * _smooth(mid_z - 0.05 * s, mid_z + 0.05 * s, p[:, 2])
     A["belly"] = A["torso"] * (1.0 - _smooth(mid_z - 0.05 * s, mid_z + 0.05 * s, p[:, 2]))
+    # --- anatomy, not facing. A strip of a stated width either side of the midline, held to the surface
+    # that faces that way, so `dorsal` is the back of the neck, the spine and the rump and never the chest.
+    half = max(abs(float(j["joint-l-shoulder"][0])), 1e-6)
+    lateral = np.abs(p[:, 0]) / half
+    on_back = _smooth(-0.1, 0.35, nrm[:, 1])
+    on_front = _smooth(-0.1, 0.35, -nrm[:, 1])
+    trunk = 1.0 - _smooth(0.55, 0.95, np.abs(nrm[:, 2]))        # not the crown of the head or the soles
+    tail_z = hip_z + 0.02 * s
+    A["dorsal"] = (on_back * trunk * (1.0 - _smooth(DORSAL_W, DORSAL_W * 2.2, lateral))
+                   * _smooth(tail_z - 0.14 * s, tail_z - 0.02 * s, p[:, 2])
+                   * (1.0 - _smooth(neck_z + 0.10 * s, neck_z + 0.20 * s, p[:, 2])))
+    A["ventral"] = (on_front * trunk * (1.0 - _smooth(VENTRAL_W, VENTRAL_W * 2.2, lateral))
+                    * _smooth(hip_z - 0.06 * s, hip_z + 0.04 * s, p[:, 2])
+                    * (1.0 - _smooth(neck_z + 0.02 * s, neck_z + 0.10 * s, p[:, 2])))
+    # the nape is the back of the neck; the withers the top of the back between the shoulder blades
+    A["nape"] = A["neck"] * on_back
+    A["withers"] = (on_back * _smooth(sh_z - 0.14 * s, sh_z - 0.04 * s, p[:, 2])
+                    * (1.0 - _smooth(neck_z + 0.02 * s, neck_z + 0.10 * s, p[:, 2])) * (1 - arm))
+    # the flank is the side of the trunk, the haunch the rump and the outside of the upper leg
+    side_on = _smooth(0.35, 0.8, np.abs(nrm[:, 0]))
+    A["flank"] = A["torso"] * side_on
+    A["haunch"] = np.clip(np.maximum(A["thighs"], A["legs"] * _smooth(hip_z - 0.16 * s, hip_z, p[:, 2]))
+                          * np.maximum(on_back, side_on), 0, 1)
     A["graft"] = skin.graft_area(ob, p)
     # never furred: the skin that has to stay skin, and the eyes
     w, _, _ = skin.regions(ob)
     bare = np.zeros(n)
     for k in SKIP_REGIONS:
         bare = np.maximum(bare, w[k])
-    r_eye = 0.012 * s
-    for side in (1.0, -1.0):
-        c = np.array(j["joint-l-eye"], np.float64) * np.array([side * xs, 1.0, 1.0])
-        bare = np.maximum(bare, 1.0 - _smooth(EYE_RADII * r_eye * 0.7, EYE_RADII * r_eye,
-                                              np.linalg.norm(p - c, axis=1)))
+    # The eyes, from the eyeballs themselves rather than from a joint and a guess. A nap grown over the lids
+    # and the opening loses the eye in it, and the eye is the first thing read on a face. `balls` are the
+    # MPFB helper spheres, present at this stage; without them, the eye joint and a radius from the head.
+    for c, r_ball in eyeballs(ob, co, j, s):
+        d = np.linalg.norm(p - c, axis=1)
+        bare = np.maximum(bare, 1.0 - _smooth(r_ball * EYE_CLEAR * 0.8, r_ball * EYE_CLEAR, d))
     keep = 1.0 - np.clip(bare, 0, 1)
     for a in AREAS:
         raw = np.clip(A[a], 0, 1) * keep
@@ -585,7 +663,11 @@ def apply(ob, block, base_colour=None):
         for a in r["areas"]:
             m = np.maximum(m, A[a])
         for a in r["except_areas"]:
-            m = m * (1.0 - A[a])
+            # a cut, not a scaling. `m * (1 - A[a])` takes a region down everywhere the other area reaches
+            # at all, and with a field that covers half the body (`front`, `back`) that is everywhere: what
+            # is left has no core, and the blend gives it away to its neighbours. Cut where the other area
+            # is actually strong, and leave the region alone where it is weak.
+            m = m * (1.0 - _smooth(CUT[0], CUT[1], A[a]))
         # A region is judged against ITS OWN peak, not against 1. The landmark areas are smoothed fields
         # and several of them never reach 1 anywhere (`ruff` peaks near 0.55 on these bodies, and an
         # `except_areas` multiplies whatever is left down again), so read raw, such a region had no core
@@ -645,6 +727,20 @@ def apply(ob, block, base_colour=None):
     den[:nb] = np.clip(_delta().smooth(den[:nb], ctx["faces"], iterations=2, share=0.5)[:nb], 0, 1)
     length[:nb] = _delta().smooth(length[:nb], ctx["faces"], iterations=4, share=0.5)[:nb]
     den = np.clip(den, 0, 1)
+    # The eye, cleared by the fur's OWN length. A fixed ring of eyeball radii is not enough: a hair rooted
+    # just outside it still stands over the ball if it is longer than its distance from it, and a 12 mm pelt
+    # beside a 3 mm nap put 14.7 mm of fur across the eye (`face_check` caught it). So the clearance is
+    # `EYE_CLEAR` radii plus whatever the fur is long there, and the density ramps out over it.
+    eyes = eyeballs(ob, ctx.get("co", _delta().mixed_coords(ob)), ctx.get("joints", {}),
+                    float(ctx.get("scale", 1.0)))
+    p_xyz = ctx["co"][:n] if ctx.get("co") is not None else _delta().mixed_coords(ob)[:n]
+    for c, r_ball in eyes:
+        d_eye = np.linalg.norm(p_xyz - c, axis=1) - r_ball
+        need = r_ball * (EYE_CLEAR - 1.0) + length + EYE_MARGIN_MM * 1e-3
+        # a wide ramp: cut over one vertex it is a hole with a hard rim, and `edge_tone` reads the rim
+        k = _smooth(0.0, 1.0, (d_eye - need * 0.15) / np.maximum(need * 1.25, 1e-6))
+        den = den * k
+        length = length * k
     # Where the fur ends it must end into the skin, not against it. Drawn at full length and full colour up
     # to the last furred vertex, a pelt left a dark ring at every wrist and ankle and a dark band at the
     # hairline: a step in tone across a boundary, which `edge_tone` measures. So over the band where the
@@ -697,8 +793,13 @@ def apply(ob, block, base_colour=None):
     spec["length_max_m"] = round(float(length.max()) if len(length) else 0.0, 5)
     spec["vertices"] = int((den > 0).sum())
     spec["covered_vertices"] = int((den >= COVER_DENSITY).sum())
+    lip = pigment_lips(ob, b.get("lip_pigment", 0.0))
+    # The face is measured HERE and kept in the spec, not at the bake. `face_check` needs the eyeballs and
+    # the joint groups, and the bake has already thrown both away: asked there it found no eye and passed
+    # every body vacuously. The export still fails on it - it just reads the answer instead of taking it.
+    spec["face"] = face_check(ob, tone=spec["skin_tone"])
     ob[PROP] = json.loads(json.dumps(spec))
-    return {"fur": spec, "regions": per, "notes": notes,
+    return {"fur": spec, "regions": per, "notes": notes, "lips": lip, "face": spec["face"],
             "density_mean": round(float(den[den > 0].mean()) if (den > 0).any() else 0.0, 3),
             "length_mm": {"max": round(float(length.max()) * 1000, 2),
                           "mean": round(float(length[den > 0].mean()) * 1000, 2) if (den > 0).any() else 0.0}}
@@ -798,6 +899,94 @@ def atlas_overlap(ob, px=512):
     return {"texels": int(both.sum()), "order_dependent": int(diff.sum()),
             "share": round(float(diff.sum() / max(both.sum(), 1)), 4),
             "note": "a map rasterised into this atlas would be wrong here; fur's is a vertex colour"}
+
+
+def pigment_lips(ob, amount):
+    """Darken the lip line on a furred face, in the skin's own tint attribute (`skin.TINT`), which the bake
+    reads. Fur skips the lips (SKIP_REGIONS) because a lip is not furred, and on a furred face that left
+    them a pale smear along the mouth: on a muzzle the lip line is the darkest skin on the animal. The
+    darkening is a factor on the tint, so the lips stay the body's own colour and only go down in value."""
+    from . import skin as _skin
+    ob = _obj_of(ob)
+    a = ob.data.attributes.get(_skin.TINT)
+    if a is None or not amount:
+        return None
+    w, _, _ = _skin.regions(ob)
+    lips = w.get("lips")
+    if lips is None or not (lips > 0.5).any():
+        return None
+    n_all = len(ob.data.vertices)
+    v = np.empty(n_all * 3, np.float32)
+    a.data.foreach_get("vector", v)
+    v = v.reshape(n_all, 3).astype(np.float64)
+    n = len(lips)
+    k = np.clip(lips, 0, 1)[:, None] * float(amount)
+    v[:n] = v[:n] * (1.0 - k) + v[:n] * LIP_PIGMENT * k
+    a.data.foreach_set("vector", v.astype(np.float32).ravel())
+    return {"vertices": int((lips > 0.5).sum()), "amount": round(float(amount), 3), "factor": LIP_PIGMENT}
+
+
+def face_check(ob, tone=None):
+    """The two things a furred face gets wrong. **The eye**: fur standing higher than its own clearance from
+    the eyeball grows over the lids and into the opening, and the eye is lost in the nap. **The lip line**:
+    bare lips on a furred face read as a pale smear along the mouth, so they must not be lighter than the
+    fur round them. Returns free numbers and a `fail`, never an exception."""
+    from . import muscle
+    from . import skin as _skin
+    ob = _obj_of(ob)
+    den, length, col = _attr(ob, DEN), _attr(ob, LEN), _attr(ob, COL, 3)
+    if den is None:
+        return {"fail": "face_check: the body carries no fur map"}
+    d = _delta()
+    n = min(len(den), d.BODY_VERTS)
+    co = d.mixed_coords(ob)
+    p = co[:n]
+    j = muscle._joints(ob, co)
+    sc = float((j["joint-neck"][2] - j["joint-pelvis"][2]) / 0.60) if "joint-neck" in j else 1.0
+    out = {"eyes": [], "margin_mm": EYE_MARGIN_MM}
+    worst = 0.0
+    for c, r_ball in eyeballs(ob, co, j, sc):
+        dist = np.linalg.norm(p - c, axis=1) - r_ball          # metres clear of the ball's surface
+        near = (dist < r_ball * 2.0) & (den[:n] > MIN_DENSITY)
+        if not near.any():
+            out["eyes"].append({"radius_mm": round(r_ball * 1000, 2), "furred_near": 0, "over_mm": 0.0})
+            continue
+        over = (length[:n][near] - EYE_MARGIN_MM * 1e-3) - dist[near]
+        worst = max(worst, float(max(over.max(), 0.0)))
+        out["eyes"].append({"radius_mm": round(r_ball * 1000, 2), "furred_near": int(near.sum()),
+                            "over_mm": round(float(max(over.max(), 0.0)) * 1000, 2),
+                            "over_verts": int((over > 0).sum())})
+    out["eye_over_mm"] = round(worst * 1000, 2)
+    fails = []
+    if worst > 0:
+        fails.append("fur stands %.1f mm over an eyeball's surface (margin %s mm): it grows on the lids and "
+                     "into the opening, and the eye is lost in the nap - clear the eye (fur.EYE_CLEAR) or "
+                     "shorten the nap" % (worst * 1000, EYE_MARGIN_MM))
+    tint = ob.data.attributes.get(_skin.TINT)
+    if tone is None:                  # the spec is written after this runs, so `apply` hands the tone in
+        tone = (read(ob) or {}).get("skin_tone")
+    if tint is not None and tone is not None and col is not None and "joint-l-eye" in j:
+        w, _, _ = _skin.regions(ob)
+        lips = w.get("lips")
+        v = np.empty(len(ob.data.vertices) * 3, np.float32)
+        tint.data.foreach_get("vector", v)
+        v = v.reshape(-1, 3).astype(np.float64)[:n]
+        lip = lips > 0.5
+        face_fur = (den[:n] > MIN_DENSITY) & (p[:, 2] > float(j["joint-l-eye"][2]) - 0.10 * sc)
+        if lip.any() and face_fur.any():
+            lip_l = _luma_srgb(np.asarray(_linear(tone)) * v[lip].mean(axis=0))
+            fur_l = _luma_srgb(col[:n][face_fur].mean(axis=0))
+            out["lips"] = {"luma": round(float(lip_l), 4), "fur_luma": round(float(fur_l), 4),
+                           "tol": LIP_TOL, "vertices": int(lip.sum())}
+            if lip_l > fur_l + LIP_TOL:
+                fails.append("the lip line (%.3f) is lighter than the fur round the mouth (%.3f) by more "
+                             "than %s: on a furred face bare lips read as a pale smear along the mouth - "
+                             "give the fur block a `lip_pigment`" % (lip_l, fur_l, LIP_TOL))
+    out["ok"] = not fails
+    out["problems"] = fails
+    if fails:
+        out["fail"] = "; ".join(fails)
+    return out
 
 
 def read(ob):
@@ -1548,10 +1737,12 @@ def bake(ob, out_dir, base=None, size=MAP_PX, mask_px=MASK_PX, checks=True):
         rep["edge"] = edge_tone(ob)
         rep["dark"] = dark_patches(ob, col_img)
         rep["flow"] = flow_roundtrip(ob)
+        rep["face"] = (read(ob) or {}).get("face") or face_check(ob)
         bad = (list(rep["mip"].get("problems") or []) + list(rep["silhouette"].get("problems") or [])
                + ([rep["edge"]["fail"]] if rep["edge"].get("fail") else [])
                + ([rep["dark"]["fail"]] if rep["dark"].get("fail") else [])
-               + ([rep["flow"]["fail"]] if rep["flow"].get("fail") else []))
+               + ([rep["flow"]["fail"]] if rep["flow"].get("fail") else [])
+               + ([rep["face"]["fail"]] if rep["face"].get("fail") else []))
         if bad:
             rep["fail"] = "; ".join(([rep["fail"]] if rep.get("fail") else []) + bad)
     ob[PROP] = json.loads(json.dumps(spec))

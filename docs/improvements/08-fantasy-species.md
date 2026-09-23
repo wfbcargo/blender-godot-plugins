@@ -429,6 +429,27 @@ mane or a tail's brush did not, and want an API hair.py does not have (see "Open
   surface colour*, measured on the colour map as Godot samples it, mip by mip, at 0.6 m and 4 m. Against a
   global coat mean it failed the pattern's own spots, which are meant to be dark; against the surface it
   sits on, a spot passes and a bled black does not. 2.4% of the body failed it before, 0.0% after.
+- **Anatomy, not facing (the gnoll's build).** `back` and `front` are the normal-based halves - every vertex
+  facing away or toward - and they are what a description means by "the back of it", but they are not
+  anatomy: half of every limb and every side of the trunk is in each, so subtracting one leaves a region
+  with no core and the blend gives it away (the gnoll's mane and bib both vanished into the pelt). The
+  anatomical pair is now `dorsal` and `ventral` - strips of a stated width (DORSAL_W, VENTRAL_W) either
+  side of the midline, held to the surface that faces that way - with `nape`, `withers`, `flank` and
+  `haunch` beside them. A mane is `dorsal` + `withers` + `nape`, a bib is `ventral` + `chest`. And an
+  `except_areas` is a **cut, not a scaling**: `m * (1 - A[a])` takes a region down everywhere the other
+  area reaches at all, so it is applied over a band (`CUT`) and leaves the region alone where the other is
+  weak.
+- **The face of a furred body.** Fur is cleared round each eye by `EYE_CLEAR` eyeball radii **plus its own
+  length**: a fixed ring is not enough, because a hair rooted outside it still stands over the ball if it
+  is longer than its distance from it, and a 12 mm pelt beside a 3 mm nap put 14.7 mm of fur across the
+  eye. The eyeballs are MPFB's own helper spheres, read before the bake throws them away. And the lip line
+  is **pigmented** (`lip_pigment`, default 0.8 when a region covers the face or a muzzle): fur skips the
+  lips because a lip is not furred, and that left them a pale smear along the mouth, where on a muzzle the
+  lip line is the darkest skin on the animal.
+  Check: **`fur.face_check`** - how far fur stands over an eyeball (margin `EYE_MARGIN_MM`), and the lip
+  line's luma against the fur round the mouth (`LIP_TOL`). It runs in `apply`, before the bake, because
+  the bake has already thrown the eyeballs and the joint groups away: asked afterwards it found no eye and
+  passed every body vacuously, which is how it was written the first time.
 - **Open**: strand cards for a mane,
   a ruff past 8 cm or a tail's brush need an entry point `hair.py` does not have: it grows scalp hair from
   a landmark hairline, with no way to hand it a painted region. What fur needs from it is
