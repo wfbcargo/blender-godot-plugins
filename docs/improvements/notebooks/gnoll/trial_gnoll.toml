@@ -130,15 +130,9 @@ pattern = { kind = "spots", colour = [0.20, 0.14, 0.09], scale = 0.035, amount =
 [body.species.legs]
 plan = "digitigrade"
 ratios = "canine"
-stance = 0.12                   # STILL pinned by hand, and this is the measurement. `legs.solve` stands the
-                                #   contact patch under the body's own centre now, which is the right idea
-                                #   and enough for a body that stands straight - but the two centres are not
-                                #   the same one: the solve balances the REST SKELETON, while the export's
-                                #   clip check measures the SKINNED body at frame 1, arms hanging and a
-                                #   14-degree hunch carrying it forward. On this body the solve left the
-                                #   centre 65 mm outside the paws (the ratio set's own 0.05 left it 50 mm
-                                #   outside), so it is pinned until the solve balances what the check
-                                #   measures (2026-09-22, both numbers from this spec's own builds)
+                                # no `stance`: `feet.balance` solves it against rig-anything's own support
+                                #   and centre now, so what passes the build passes the export. On this body
+                                #   it solves to 0.1348 and stands 19.4 mm INSIDE the paws (2026-09-22)
 
 # Four toes and short claws [measured: ADW, "four digits, short non-retractable claws, broad toe pads"].
 # `feet.LEG_RATIOS` would give "canine" by itself; the legs block above says so anyway.

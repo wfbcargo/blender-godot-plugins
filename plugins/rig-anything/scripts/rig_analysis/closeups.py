@@ -350,19 +350,38 @@ def _aim(view, dist, P, frozen, fwd_rest, up_rest, left_rest, stature):
             return {"error": m}
         # each foot's ankle (the foot bone's head), heel (the rearmost skin under the ankle) and toe (the toe
         # bone's tail): every one must be in the picture
+        # On a DIGITIGRADE leg the foot bone stands up and its head is the hock, a quarter of a metre off
+        # the ground: aimed between that and the toe tip, the camera framed the cannon and the foot covered
+        # 3.5% of the picture, so the review refused its own tiles as empty (the gnoll, 2026-09-22). What
+        # the shot is of is the part on the ground, so the near end is the BALL - the foot bone's tail -
+        # whenever the foot bone stands more than it lies, which is the same test `bodymap` makes.
         feet = {}
         for s in ("L", "R"):
-            ankle, toe_end = P.p(f"foot.{s}"), P.p(f"toe.{s}", tail=True)
-            feet[s] = {"ankle": ankle, "heel": _heel(frozen, ankle, toe_end, stature), "toe": toe_end}
+            ankle, ball = P.p(f"foot.{s}"), P.p(f"foot.{s}", tail=True)
+            toe_end = P.p(f"toe.{s}", tail=True)
+            span = ankle - ball
+            stands = abs(span.z) > (span - zup * span.z).length
+            near = ball if stands else ankle
+            feet[s] = {"ankle": near, "toe": toe_end}
+            if not stands:
+                feet[s]["heel"] = _heel(frozen, ankle, toe_end, stature)
+        _stands = "heel" not in feet["L"]        # a digitigrade foot has no heel on the ground
         if view == "feet":
-            pts = [P.p("foot.L"), P.p("foot.R"), P.p("toe.L"), P.p("toe.R")]
+            pts = [feet["L"]["ankle"], feet["R"]["ankle"], P.p("toe.L"), P.p("toe.R")]
             lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
             hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
-            foot_len = (P.p("foot.L") - P.p("toe.L")).length * 1.6
+            # the frame is the four points' own extent with a margin, not a stance width plus a foot
+            # length: a digitigrade pair stands on short paws far apart, and the old form was at once too
+            # wide (the feet covered 3% of the picture) and too narrow (the toes fell 25 mm outside it)
+            foot_len = (feet["L"]["ankle"] - P.p("toe.L")).length
             c = (lo + hi) / 2.0
-            c.z = max(0.0, lo.z) * 0.5 + 0.03 * stature_scale(stature)
-            a.update(target=c, frame=max(hi.x - lo.x, hi.y - lo.y) + foot_len,
-                     dir=(fwd + zup * 0.7).normalized(),
+            c.z = max(c.z, max(0.0, lo.z) + 0.02 * stature_scale(stature))
+            a.update(target=c,
+                     frame=max(hi.x - lo.x, hi.y - lo.y, hi.z - lo.z) * 1.2 + foot_len,
+                     # A standing pair is seen from further over the top: two short paws set wide apart fill
+                     # a low three-quarter with floor, and the window between "empty" and "cut" closes to
+                     # nothing. From above their plan and their claws are what the tile is of.
+                     dir=(fwd * (0.55 if _stands else 1.0) + zup * (1.0 if _stands else 0.7)).normalized(),
                      subject={f"{k}.{s}": p for s, f in feet.items() for k, p in f.items()})
         else:
             s = view[-1]
